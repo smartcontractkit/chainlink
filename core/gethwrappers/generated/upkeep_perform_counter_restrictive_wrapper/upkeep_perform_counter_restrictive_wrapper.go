@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var UpkeepPerformCounterRestrictiveMetaData = &bind.MetaData{
@@ -139,11 +140,11 @@ func NewUpkeepPerformCounterRestrictiveFilterer(address common.Address, filterer
 }
 
 func bindUpkeepPerformCounterRestrictive(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(UpkeepPerformCounterRestrictiveABI))
+	parsed, err := UpkeepPerformCounterRestrictiveMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_UpkeepPerformCounterRestrictive *UpkeepPerformCounterRestrictiveRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type chainBatcher struct {
@@ -18,12 +17,9 @@ func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	var chainIDs []utils.Big
+	var chainIDs []string
 	for ix, key := range keys {
-		id := utils.Big{}
-		if err := id.UnmarshalText([]byte(key.String())); err == nil {
-			chainIDs = append(chainIDs, id)
-		}
+		chainIDs = append(chainIDs, key.String())
 		keyOrder[key.String()] = ix
 	}
 

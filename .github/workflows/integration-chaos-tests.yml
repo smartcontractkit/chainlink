@@ -7,11 +7,8 @@ on:
       - "*"
 
 env:
-  REF_NAME: ${{ github.head_ref || github.ref_name }}
-  DEVELOP_REF: develop
-  BUILD_SHA_REF: chaos.${{ github.sha }}
-  CHAINLINK_ECR_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
   TEST_SUITE: chaos
   TEST_ARGS: -test.timeout 1h
   SELECTED_NETWORKS: SIMULATED
@@ -27,37 +24,35 @@ jobs:
       contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
-    outputs:
-      push: ${{ steps.push.outputs.tag }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+        with:
+          repository: chainlink
+          tag: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
-        if: ${{ env.REF_NAME != env.DEVELOP_REF }}
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        if: steps.check-image.outputs.exists == 'false'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
-          push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ env.BUILD_SHA_REF }}
+          push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.sha }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Chainlink Image Built
         id: push
         run: |
-          echo "### chainlink image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          if [ "${{ env.REF_NAME }}" != "${{ env.DEVELOP_REF }}" ]; then
-            # use sha if not on ${{ env.DEVELOP_REF }}
-            echo "tag=${{ env.BUILD_SHA_REF }}" >>$GITHUB_OUTPUT
-            echo "\`${{ env.BUILD_SHA_REF }}\`" >>$GITHUB_STEP_SUMMARY
-          else
-            # default to ${{ env.DEVELOP_REF }}
-            echo "tag=${{ env.DEVELOP_REF }}" >>$GITHUB_OUTPUT
-            echo "\`${{ env.DEVELOP_REF }}\`" >>$GITHUB_STEP_SUMMARY
-          fi
+          echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -71,40 +66,19 @@ jobs:
       contents: read
     name: Build Test Runner Image
     runs-on: ubuntu-latest
-    outputs:
-      testtag: ${{ steps.testtag.outputs.tag }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-      - name: build test runner
-        if: ${{ env.REF_NAME != env.DEVELOP_REF }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Build Test Image
+        uses: ./.github/actions/build-test-image
         with:
-          tags: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ env.BUILD_SHA_REF }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.17
-            SUITES="${{ env.TEST_SUITE }}"
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - id: testtag
-        name: Print Chainlink Image Built
-        run: |
-          echo "### chainlink-tests image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          if [ "${{ env.REF_NAME }}" != "${{ env.DEVELOP_REF }}" ]; then
-            # use sha if not on ${{ env.DEVELOP_REF }}
-            echo "tag=${{ env.BUILD_SHA_REF }}" >>$GITHUB_OUTPUT
-            echo "\`${{ env.BUILD_SHA_REF }}\`" >>$GITHUB_STEP_SUMMARY
-          else
-            # default to ${{ env.DEVELOP_REF }}
-            echo "tag=${{ env.DEVELOP_REF }}" >>$GITHUB_OUTPUT
-            echo "\`${{ env.DEVELOP_REF }}\`" >>$GITHUB_STEP_SUMMARY
-          fi
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -124,22 +98,22 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: EVM Pods Chaos Tests
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
-      - run: echo "${{ needs.build-test-runner.outputs.testtag }}"
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
         with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ env.ENV_JOB_IMAGE_BASE }}:${{ needs.build-test-runner.outputs.testtag }} && make test_need_operator_assets && cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_ECR_BASE }}
-          cl_image_tag: ${{ needs.build-chainlink.outputs.push }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
           artifacts_location: ./integration-tests/chaos/logs
           publish_check_name: EVM Pods Chaos Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
