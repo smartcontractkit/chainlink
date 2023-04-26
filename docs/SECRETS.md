@@ -129,12 +129,6 @@ AuthToken is the authorization key for the Prometheus metrics endpoint.
 
 Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 
-## Mercury
-```toml
-[Mercury]
-```
-
-
 ## Mercury.Credentials
 ```toml
 [[Mercury.Credentials]]
