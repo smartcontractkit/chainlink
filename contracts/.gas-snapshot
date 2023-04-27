@@ -1,2 +1,6 @@
 FunctionsOracle_setDONPublicKey:testSetDONPublicKey_gas() (gas: 97558)
 FunctionsOracle_setRegistry:testSetRegistry_gas() (gas: 31953)
+Verifier_accessControlledVerify:testVerifyWithAccessControl_gas() (gas: 195197)
+Verifier_setConfig:testSetConfigSuccess_gas() (gas: 892255)
+Verifier_verify:testVerifyProxySuccess_gas() (gas: 185663)
+Verifier_verify:testVerifySuccess_gas() (gas: 181036)

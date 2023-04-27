@@ -46,7 +46,7 @@ var (
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
-	chStop                 chan struct{}
+	chStop                 utils.StopChan
 	ethClient              evmclient.Client
 	config                 Config
 	executionQueue         chan struct{}
@@ -199,7 +199,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
 	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
-	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
+	ctxService, cancel := ex.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Minute))
 	defer cancel()
 
 	evmChainID := ""
