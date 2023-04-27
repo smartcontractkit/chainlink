@@ -346,7 +346,13 @@ func UpgradeChainlinkNodeVersion(
 		return errors.New("must provide either a new image or a new version")
 	}
 	for _, node := range nodes {
-		log.Debug().Str("Node", node.RemoteIP()).Msg("Upgrading Chainlink node")
+		log.Info().
+			Str("Node", node.RemoteIP()).
+			Str("Chart Name", node.Config.ChartName).
+			Str("New Image", newImage).
+			Str("New Version", newVersion).
+			Msg("Upgrading Chainlink Node Version")
+		testEnvironment.ModifyHelm(node.Config.ChartName, environment.Chart{})
 	}
 	return nil
 }

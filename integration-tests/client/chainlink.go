@@ -1202,3 +1202,7 @@ func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
 	}
 	return response, resp.RawResponse, err
 }
+
+func (c *Chainlink) UpgradeVersion(testEnvironment environment.Environment, newImage, newVersion string) error {
+	testEnvironment.ModifyHelm(c.Config.ChartName)
+}
