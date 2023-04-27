@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
+// collectMercuryEnhancedTelemetry checks if enhanced telemetry should be collected, fetches the information needed and
+// sends the telemetry
 func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunResults, trrs *pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
 	if !shouldCollectEnhancedTelemetryMercury(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
@@ -72,6 +74,7 @@ func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunR
 	}
 }
 
+// getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
 func getAssetSymbolFromRequestData(requestData string) string {
 	type reqDataPayload struct {
 		To   string `json:"to"`
@@ -90,6 +93,7 @@ func getAssetSymbolFromRequestData(requestData string) string {
 	return rd.Data.From + "/" + rd.Data.To
 }
 
+// shouldCollectEnhancedTelemetryMercury checks if enhanced telemetry should be collected and sent
 func shouldCollectEnhancedTelemetryMercury(jb *job.Job) bool {
 	if jb.Type.String() == pipeline.OffchainReporting2JobType && jb.OCR2OracleSpec != nil {
 		return jb.OCR2OracleSpec.CaptureEATelemetry
@@ -97,10 +101,12 @@ func shouldCollectEnhancedTelemetryMercury(jb *job.Job) bool {
 	return false
 }
 
+// getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
+// bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
 func getPricesFromResults(ds *datasource, startTask *pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var ok bool
-
+	//We rely on task results to be sorted in the correct order
 	if startTask == nil {
 		ds.lggr.Warnf("cannot parse enhanced EA telemetry, task is nil, job %d", ds.jb.ID)
 		return 0, 0, 0
@@ -144,6 +150,7 @@ func getPricesFromResults(ds *datasource, startTask *pipeline.TaskRunResult, all
 	return benchmarkPrice, bidPrice, askPrice
 }
 
+// getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
 func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64, int64, int64, []byte) {
 	var benchmarkPrice, bid, ask int64
 	parse, _ := ds.parse(*trrs)
