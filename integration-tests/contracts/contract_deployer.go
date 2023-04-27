@@ -13,6 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
@@ -23,9 +25,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -36,7 +41,6 @@ type ContractDeployer interface {
 	DeployStorageContract() (Storage, error)
 	DeployAPIConsumer(linkAddr string) (APIConsumer, error)
 	DeployOracle(linkAddr string) (Oracle, error)
-	DeployReadAccessController() (ReadAccessController, error)
 	DeployFlags(rac string) (Flags, error)
 	DeployDeviationFlaggingValidator(
 		flags string,
@@ -180,24 +184,6 @@ func DefaultFluxAggregatorOptions() FluxAggregatorOptions {
 	}
 }
 
-// DeployReadAccessController deploys read/write access controller contract
-func (e *EthereumContractDeployer) DeployReadAccessController() (ReadAccessController, error) {
-	address, _, instance, err := e.client.DeployContract("Read Access Controller", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeploySimpleReadAccessController(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumReadAccessController{
-		client:  e.client,
-		rac:     instance.(*ethereum.SimpleReadAccessController),
-		address: address,
-	}, nil
-}
-
 // DeployFlags deploys flags contract
 func (e *EthereumContractDeployer) DeployFlags(
 	rac string,
@@ -207,14 +193,14 @@ func (e *EthereumContractDeployer) DeployFlags(
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		racAddr := common.HexToAddress(rac)
-		return ethereum.DeployFlags(auth, backend, racAddr)
+		return flags_wrapper.DeployFlags(auth, backend, racAddr)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumFlags{
 		client:  e.client,
-		flags:   instance.(*ethereum.Flags),
+		flags:   instance.(*flags_wrapper.Flags),
 		address: address,
 	}, nil
 }
@@ -251,7 +237,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		la := common.HexToAddress(linkAddr)
-		return ethereum.DeployFluxAggregator(auth,
+		return flux_aggregator_wrapper.DeployFluxAggregator(auth,
 			backend,
 			la,
 			fluxOptions.PaymentAmount,
@@ -267,7 +253,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	}
 	return &EthereumFluxAggregator{
 		client:         e.client,
-		fluxAggregator: instance.(*ethereum.FluxAggregator),
+		fluxAggregator: instance.(*flux_aggregator_wrapper.FluxAggregator),
 		address:        address,
 	}, nil
 }
@@ -329,7 +315,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployLinkToken(auth, backend)
+		return link_token_interface.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -337,7 +323,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 
 	return &EthereumLinkToken{
 		client:   e.client,
-		instance: instance.(*ethereum.LinkToken),
+		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
 	}, err
 }
@@ -360,7 +346,7 @@ func DefaultOffChainAggregatorOptions() OffchainOptions {
 // DefaultOffChainAggregatorConfig returns some base defaults for configuring an OCR contract
 func DefaultOffChainAggregatorConfig(numberNodes int) OffChainAggregatorConfig {
 	if numberNodes <= 4 {
-		log.Err(fmt.Errorf("Insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
+		log.Err(fmt.Errorf("insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
 			Int("Number Chainlink Nodes", numberNodes).
 			Msg("You likely need more chainlink nodes to properly configure OCR, try 5 or more.")
 	}
@@ -395,7 +381,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		la := common.HexToAddress(linkAddr)
-		return ethereum.DeployOffchainAggregator(auth,
+		return offchainaggregator.DeployOffchainAggregator(auth,
 			backend,
 			offchainOptions.MaximumGasPrice,
 			offchainOptions.ReasonableGasPrice,
@@ -415,7 +401,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 	}
 	return &EthereumOffchainAggregator{
 		client:  e.client,
-		ocr:     instance.(*ethereum.OffchainAggregator),
+		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
 	}, err
 }
@@ -461,7 +447,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployOracle(auth, backend, common.HexToAddress(linkAddr))
+		return oracle_wrapper.DeployOracle(auth, backend, common.HexToAddress(linkAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -469,7 +455,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 	return &EthereumOracle{
 		address: addr,
 		client:  e.client,
-		oracle:  instance.(*ethereum.Oracle),
+		oracle:  instance.(*oracle_wrapper.Oracle),
 	}, err
 }
 
