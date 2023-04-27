@@ -13,8 +13,6 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Flags.abi ../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/BlockhashStore.abi ../../contracts/solc/v0.6/BlockhashStore.bin BlockhashStore blockhash_store
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/SimpleReadAccessController.abi ../../contracts/solc/v0.6/SimpleReadAccessController.bin SimpleReadAccessController simple_read_access_controller
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/SimpleWriteAccessController.abi ../../contracts/solc/v0.6/SimpleWriteAccessController.bin SimpleWriteAccessController simple_write_access_controller
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/Consumer.abi ../../contracts/solc/v0.7/Consumer.bin Consumer consumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
