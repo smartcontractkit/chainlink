@@ -370,6 +370,4 @@ replace (
 
 	// Fix CVE-2022-41717
 	golang.org/x/net => golang.org/x/net v0.4.0
-
-	github.com/smartcontractkit/libocr => /Users/ionita/libocr
 )
