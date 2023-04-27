@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"os"
 	"testing"
 
@@ -17,9 +16,6 @@ func TestMain(m *testing.M) {
 		"chainlink": core.Main,
 	}))
 }
-
-//go:embed testdata/scripts
-var scripts embed.FS
 
 func TestScripts(t *testing.T) {
 	testscript.Run(t, testscript.Params{
