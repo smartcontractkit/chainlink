@@ -1018,14 +1018,14 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	urls := make(map[string]struct{}, len(m.Credentials))
 	for name, creds := range m.Credentials {
 		if name == "" {
-			return errors.New("`Name` must be set for all mercury credentials")
+			return ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"}
 		}
 		if creds.URL == nil {
-			return errors.New("`url` must be set for all mercury credentials")
+			return ErrMissing{Name: "URL", Msg: "must be provided and non-empty"}
 		}
 		s := creds.URL.String()
 		if _, exists := urls[s]; exists {
-			return errors.New("credentials: may not contain duplicate URLs")
+			return NewErrDuplicate("URL", s)
 		}
 		urls[s] = struct{}{}
 	}

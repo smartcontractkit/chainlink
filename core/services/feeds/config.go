@@ -17,5 +17,5 @@ type Config interface {
 	DefaultHTTPTimeout() models.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
-	MercuryCredentials(credName string) (*ocr2models.MercuryCredentials, error)
+	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 }

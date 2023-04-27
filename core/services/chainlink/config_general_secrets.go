@@ -3,8 +3,6 @@ package chainlink
 import (
 	"net/url"
 
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
@@ -46,13 +44,13 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	return string(*g.secrets.Prometheus.AuthToken)
 }
 
-func (g *generalConfig) MercuryCredentials(credName string) (*models.MercuryCredentials, error) {
+func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
 		return &models.MercuryCredentials{
 			URL:      mc.URL.String(),
 			Username: string(*mc.Username),
 			Password: string(*mc.Password),
-		}, nil
+		}
 	}
-	return nil, errors.Errorf("failed to find credentials for name: %s", credName)
+	return nil
 }

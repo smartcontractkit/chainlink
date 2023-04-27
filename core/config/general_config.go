@@ -128,7 +128,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
-	MercuryCredentials(credName string) (*ocr2models.MercuryCredentials, error)
+	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
