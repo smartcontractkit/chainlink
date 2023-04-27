@@ -128,7 +128,7 @@ func TestGetPricesFromResults(t *testing.T) {
 	ds := datasource{
 		lggr: lggr,
 	}
-	benchmarkPrice, bid, ask := getPricesFromResults(&ds, &trrs[0], &trrs)
+	benchmarkPrice, bid, ask := getPricesFromResults(&ds, trrs[0], &trrs)
 	require.Equal(t, benchmarkPrice, float64(123456.123456))
 	require.Equal(t, bid, float64(1234567.1234567))
 	require.Equal(t, ask, float64(123456789.1))
@@ -137,26 +137,22 @@ func TestGetPricesFromResults(t *testing.T) {
 	ds = datasource{
 		lggr: lggr,
 	}
-	benchmarkPrice, bid, ask = getPricesFromResults(&ds, &trrs[0], &pipeline.TaskRunResults{})
+	benchmarkPrice, bid, ask = getPricesFromResults(&ds, trrs[0], &pipeline.TaskRunResults{})
 	require.Equal(t, benchmarkPrice, float64(0))
 	require.Equal(t, bid, float64(0))
 	require.Equal(t, ask, float64(0))
 	require.Equal(t, logs.Len(), 1)
 	require.Contains(t, logs.All()[0].Message, "cannot parse enhanced EA telemetry")
 
-	getPricesFromResults(&ds, nil, &pipeline.TaskRunResults{})
-	require.Equal(t, logs.Len(), 2)
-	require.Contains(t, logs.All()[1].Message, "cannot parse enhanced EA telemetry, task is nil")
-
 	tt := trrs[:2]
-	getPricesFromResults(&ds, &trrs[0], &tt)
-	require.Equal(t, logs.Len(), 3)
-	require.Contains(t, logs.All()[2].Message, "cannot parse enhanced EA telemetry bid price, task is nil")
+	getPricesFromResults(&ds, trrs[0], &tt)
+	require.Equal(t, logs.Len(), 2)
+	require.Contains(t, logs.All()[1].Message, "cannot parse enhanced EA telemetry bid price, task is nil")
 
 	tt = trrs[:3]
-	getPricesFromResults(&ds, &trrs[0], &tt)
-	require.Equal(t, logs.Len(), 4)
-	require.Contains(t, logs.All()[3].Message, "cannot parse enhanced EA telemetry ask price, task is nil")
+	getPricesFromResults(&ds, trrs[0], &tt)
+	require.Equal(t, logs.Len(), 3)
+	require.Contains(t, logs.All()[2].Message, "cannot parse enhanced EA telemetry ask price, task is nil")
 
 	trrs2 := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
@@ -191,14 +187,14 @@ func TestGetPricesFromResults(t *testing.T) {
 				Value: nil,
 			},
 		}}
-	benchmarkPrice, bid, ask = getPricesFromResults(&ds, &trrs[0], &trrs2)
+	benchmarkPrice, bid, ask = getPricesFromResults(&ds, trrs[0], &trrs2)
 	require.Equal(t, benchmarkPrice, float64(0))
 	require.Equal(t, bid, float64(0))
 	require.Equal(t, ask, float64(0))
-	require.Equal(t, logs.Len(), 7)
-	require.Contains(t, logs.All()[4].Message, "cannot parse enhanced EA telemetry benchmark price")
-	require.Contains(t, logs.All()[5].Message, "cannot parse enhanced EA telemetry bid price")
-	require.Contains(t, logs.All()[6].Message, "cannot parse enhanced EA telemetry ask price")
+	require.Equal(t, logs.Len(), 6)
+	require.Contains(t, logs.All()[3].Message, "cannot parse enhanced EA telemetry benchmark price")
+	require.Contains(t, logs.All()[4].Message, "cannot parse enhanced EA telemetry bid price")
+	require.Contains(t, logs.All()[5].Message, "cannot parse enhanced EA telemetry ask price")
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {

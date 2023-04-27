@@ -154,21 +154,21 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 			continue
 		}
-		eaTelemetry, err := ParseEATelemetry([]byte(bridgeRawResponse))
+		eaTelem, err := ParseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
 			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		}
 		value := getParsedValue(ds, trrs, trr)
 
 		t := &telem.EnhancedEA{
-			DataSource:                    eaTelemetry.DataSource,
+			DataSource:                    eaTelem.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
+			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:     eaTelem.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished: eaTelem.ProviderDataStreamEstablished,
+			ProviderIndicatedTime:         eaTelem.ProviderIndicatedTime,
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,

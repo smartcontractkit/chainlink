@@ -39,7 +39,7 @@ func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunR
 		}
 
 		assetSymbol := getAssetSymbolFromRequestData(bridgeTask.RequestData)
-		benchmarkPrice, bidPrice, askPrice := getPricesFromResults(ds, &trr, trrs)
+		benchmarkPrice, bidPrice, askPrice := getPricesFromResults(ds, trr, trrs)
 
 		t := &telem.EnhancedEAMercury{
 			DataSource:                    eaTelem.DataSource,
@@ -103,15 +103,11 @@ func shouldCollectEnhancedTelemetryMercury(jb *job.Job) bool {
 
 // getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
-func getPricesFromResults(ds *datasource, startTask *pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
+func getPricesFromResults(ds *datasource, startTask pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var ok bool
 	//We rely on task results to be sorted in the correct order
-	if startTask == nil {
-		ds.lggr.Warnf("cannot parse enhanced EA telemetry, task is nil, job %d", ds.jb.ID)
-		return 0, 0, 0
-	}
-	benchmarkPriceTask := allTasks.GetNextTaskOf(*startTask)
+	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
 		ds.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", ds.jb.ID)
 		return 0, 0, 0
