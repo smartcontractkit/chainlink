@@ -83,12 +83,15 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(etx EvmTx, fee gas.EvmFee, gasL
 		attempt, err = c.newLegacyAttempt(etx, fee.Legacy, gasLimit)
 		return attempt, true, err
 	case 0x2: // dynamic, EIP1559
-		if fee.Dynamic == nil {
+		if !fee.ValidDynamic() {
 			err = errors.Errorf("Attempt %v is a type 2 transaction but estimator did not return dynamic fee bump", attempt.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return attempt, false, err // not retryable
 		}
-		attempt, err = c.newDynamicFeeAttempt(etx, *fee.Dynamic, gasLimit)
+		attempt, err = c.newDynamicFeeAttempt(etx, gas.DynamicFee{
+			FeeCap: fee.DynamicFeeCap,
+			TipCap: fee.DynamicTipCap,
+		}, gasLimit)
 		return attempt, true, err
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
@@ -145,7 +148,10 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 	if err != nil {
 		return attempt, err
 	}
-	attempt.TxFee = gas.EvmFee{Dynamic: &fee}
+	attempt.TxFee = gas.EvmFee{
+		DynamicFeeCap: fee.FeeCap,
+		DynamicTipCap: fee.TipCap,
+	}
 	attempt.ChainSpecificGasLimit = gasLimit
 	attempt.TxType = 2
 	return attempt, nil

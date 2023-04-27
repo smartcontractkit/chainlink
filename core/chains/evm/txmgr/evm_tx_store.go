@@ -245,8 +245,8 @@ func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 		CreatedAt:               ethTxAttempt.CreatedAt,
 		ChainSpecificGasLimit:   ethTxAttempt.ChainSpecificGasLimit,
 		TxType:                  ethTxAttempt.TxType,
-		GasTipCap:               ethTxAttempt.TxFee.Dynamic.TipCap,
-		GasFeeCap:               ethTxAttempt.TxFee.Dynamic.FeeCap,
+		GasTipCap:               ethTxAttempt.TxFee.DynamicTipCap,
+		GasFeeCap:               ethTxAttempt.TxFee.DynamicFeeCap,
 	}
 }
 
@@ -261,11 +261,9 @@ func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *Evm
 	evmAttempt.ChainSpecificGasLimit = dbEthTxAttempt.ChainSpecificGasLimit
 	evmAttempt.TxType = dbEthTxAttempt.TxType
 	evmAttempt.TxFee = gas.EvmFee{
-		Legacy: dbEthTxAttempt.GasPrice,
-		Dynamic: &gas.DynamicFee{
-			TipCap: dbEthTxAttempt.GasTipCap,
-			FeeCap: dbEthTxAttempt.GasFeeCap,
-		},
+		Legacy:        dbEthTxAttempt.GasPrice,
+		DynamicTipCap: dbEthTxAttempt.GasTipCap,
+		DynamicFeeCap: dbEthTxAttempt.GasFeeCap,
 	}
 }
 

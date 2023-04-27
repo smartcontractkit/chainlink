@@ -92,11 +92,10 @@ func (e evmPriorAttempt) GetGasPrice() *assets.Wei {
 }
 
 func (e evmPriorAttempt) DynamicFee() DynamicFee {
-	fee := e.Fee().Dynamic
-	if fee == nil {
-		return DynamicFee{}
+	return DynamicFee{
+		FeeCap: e.Fee().DynamicFeeCap,
+		TipCap: e.Fee().DynamicTipCap,
 	}
-	return *fee
 }
 
 func MakeEvmPriorAttempts(attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (out []EvmPriorAttempt) {
@@ -141,12 +140,20 @@ type EvmEstimator interface {
 var _ txmgrtypes.Fee = (*EvmFee)(nil)
 
 type EvmFee struct {
-	Legacy  *assets.Wei
-	Dynamic *DynamicFee
+	// legacy fees
+	Legacy *assets.Wei
+
+	// dynamic/EIP1559 fees
+	DynamicFeeCap *assets.Wei
+	DynamicTipCap *assets.Wei
 }
 
 func (fee EvmFee) String() string {
-	return fmt.Sprintf("{Legacy: %s, Dynamic: %+v}", fee.Legacy, fee.Dynamic)
+	return fmt.Sprintf("{Legacy: %s, DynamicFeeCap: %s, DynamicTipCap: %s}", fee.Legacy, fee.DynamicFeeCap, fee.DynamicTipCap)
+}
+
+func (fee EvmFee) ValidDynamic() bool {
+	return fee.DynamicFeeCap != nil && fee.DynamicTipCap != nil
 }
 
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
@@ -169,7 +176,8 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
-		fee.Dynamic = &dynamicFee
+		fee.DynamicFeeCap = dynamicFee.FeeCap
+		fee.DynamicTipCap = dynamicFee.TipCap
 		return
 	}
 
@@ -180,7 +188,7 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 
 func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []txmgrtypes.PriorAttempt[EvmFee, common.Hash]) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// validate only 1 fee type is present
-	if (originalFee.Dynamic == nil && originalFee.Legacy == nil) || (originalFee.Dynamic != nil && originalFee.Legacy != nil) {
+	if (originalFee.ValidDynamic() && originalFee.Legacy == nil) || (!originalFee.ValidDynamic() && originalFee.Legacy != nil) {
 		err = errors.New("only one dynamic or legacy fee can be defined")
 		return
 	}
@@ -190,10 +198,15 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 
 	// bump fee based on what fee the tx has previously used (not based on config)
 	// bump dynamic original
-	if originalFee.Dynamic != nil {
+	if originalFee.ValidDynamic() {
 		var bumpedDynamic DynamicFee
-		bumpedDynamic, chainSpecificFeeLimit, err = e.EvmEstimator.BumpDynamicFee(ctx, *originalFee.Dynamic, feeLimit, maxFeePrice, evmAttempts)
-		bumpedFee.Dynamic = &bumpedDynamic
+		bumpedDynamic, chainSpecificFeeLimit, err = e.EvmEstimator.BumpDynamicFee(ctx,
+			DynamicFee{
+				TipCap: originalFee.DynamicTipCap,
+				FeeCap: originalFee.DynamicFeeCap,
+			}, feeLimit, maxFeePrice, evmAttempts)
+		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
+		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
 		return
 	}
 

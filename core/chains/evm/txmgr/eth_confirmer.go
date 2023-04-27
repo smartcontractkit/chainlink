@@ -512,6 +512,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 	for _, attempt := range attempts {
 		// TODO: When eth client is generalized, remove this hash conversion logic below
+		// https://smartcontract-it.atlassian.net/browse/BCI-1222
 		var gethHash common.Hash
 		gethHash, err = stringToGethHash(attempt.Hash.String())
 		if err != nil {
@@ -583,6 +584,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		}
 
 		// TODO: Remove below address conversions when ethClient.CallContract is generalized.
+		// https://smartcontract-it.atlassian.net/browse/BCI-1222
 		gethFromAddr, err := stringToGethAddress(attempt.Tx.FromAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
@@ -593,6 +595,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		}
 		if receipt.Status == 0 {
 			// Do an eth call to obtain the revert reason.
+			// TODO: fold into chain client https://smartcontract-it.atlassian.net/browse/BCI-1222
 			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       gethFromAddr,
 				To:         &gethToAddr,
