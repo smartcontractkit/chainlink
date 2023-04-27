@@ -212,7 +212,7 @@ func (e *EthereumContractDeployer) DeployFlags(
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		racAddr := common.HexToAddress(rac)
-		return ethereum.DeployFlags(auth, backend, racAddr)
+		return flags_wrapper.DeployFlags(auth, backend, racAddr)
 	})
 	if err != nil {
 		return nil, err
@@ -365,7 +365,7 @@ func DefaultOffChainAggregatorOptions() OffchainOptions {
 // DefaultOffChainAggregatorConfig returns some base defaults for configuring an OCR contract
 func DefaultOffChainAggregatorConfig(numberNodes int) OffChainAggregatorConfig {
 	if numberNodes <= 4 {
-		log.Err(fmt.Errorf("Insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
+		log.Err(fmt.Errorf("insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
 			Int("Number Chainlink Nodes", numberNodes).
 			Msg("You likely need more chainlink nodes to properly configure OCR, try 5 or more.")
 	}
