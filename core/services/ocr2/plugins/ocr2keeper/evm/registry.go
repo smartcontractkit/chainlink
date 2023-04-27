@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -41,17 +42,11 @@ var (
 	logEventLookback           int64 = 250
 )
 
-type MercuryCredential struct {
-	MercuryID  string
-	MercuryKey string
-	MercuryURL string
-}
-
 type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *MercuryCredential, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
 	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)

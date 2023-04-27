@@ -4,6 +4,8 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 func (g *generalConfig) DatabaseURL() url.URL {
@@ -44,9 +46,13 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	return string(*g.secrets.Prometheus.AuthToken)
 }
 
-func (g *generalConfig) MercuryCredentials(credName string) (url, username, password string, err error) {
+func (g *generalConfig) MercuryCredentials(credName string) (*models.MercuryCredentials, error) {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
-		return mc.URL.String(), string(*mc.Username), string(*mc.Password), nil
+		return &models.MercuryCredentials{
+			URL:      mc.URL.String(),
+			Username: string(*mc.Username),
+			Password: string(*mc.Password),
+		}, nil
 	}
-	return "", "", "", errors.Errorf("failed to find credentials for name: %s", credName)
+	return nil, errors.Errorf("failed to find credentials for name: %s", credName)
 }

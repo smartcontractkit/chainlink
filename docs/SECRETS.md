@@ -134,7 +134,7 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 [Mercury.Credentials.Name]
 Username = "A-Mercury-Username" # Example
 Password = "A-Mercury-Password" # Example
-URL = "A-Mercury-URL" # Example
+URL = "https://mercury.stage.link" # Example
 ```
 
 
@@ -152,7 +152,7 @@ Password is used for basic auth of the Mercury endpoint
 
 ### URL
 ```toml
-URL = "A-Mercury-URL" # Example
+URL = "https://mercury.stage.link" # Example
 ```
-URL is the Mercury endpoint URL
+URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
 

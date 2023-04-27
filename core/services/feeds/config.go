@@ -2,6 +2,7 @@ package feeds
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -16,5 +17,5 @@ type Config interface {
 	DefaultHTTPTimeout() models.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
-	MercuryCredentials(credName string) (url, username, password string, err error)
+	MercuryCredentials(credName string) (*ocr2models.MercuryCredentials, error)
 }
