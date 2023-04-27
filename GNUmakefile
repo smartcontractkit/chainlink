@@ -47,6 +47,9 @@ install-chainlink: operator-ui ## Install the chainlink binary.
 chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+	go build -tags dev $(GOFLAGS) .
+
 .PHONY: install-solana
 install-solana: ## Build & install the chainlink-solana binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
@@ -108,7 +111,7 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
 	find testdata/scripts -type d | xargs -I % \
-	sh -c 'ls %/*.txtar > /dev/null 2>&1 || return 0 && PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
+	sh -c 'ls %/*.txtar > /dev/null 2>&1 || return 0 && PATH=$(CURDIR):$(PATH) testscript -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
@@ -116,11 +119,11 @@ testscripts-update: ## Update testdata/scripts/* files via testscript.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run . local db preparetest
+	go run -tags dev . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run . local db preparetest --user-only
+	go run -tags dev . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit

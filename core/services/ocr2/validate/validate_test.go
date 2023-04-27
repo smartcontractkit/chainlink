@@ -307,7 +307,6 @@ chainID = 1337
 				require.Contains(t, err.Error(), "database timeout must be between 100ms and 10s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
 				c.OCR2.DatabaseTimeout = models.MustNewDuration(20 * time.Minute)
 			},
 		},
@@ -586,6 +585,7 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Insecure.OCRDevelopmentMode = testutils.Ptr(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {
 					tc.overrides(c, s)
 				}

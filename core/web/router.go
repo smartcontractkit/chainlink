@@ -33,6 +33,7 @@ import (
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -132,7 +133,6 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 
 type SecurityConfig interface {
 	AllowOrigins() string
-	Dev() bool
 	TLSRedirect() bool
 	TLSHost() string
 	DevWebServer() bool
@@ -412,7 +412,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, app.GetConfig().Dev())
+		metricRoutes(authv2, build.DevelopmentBuild())
 	}
 
 	ping := PingController{app}

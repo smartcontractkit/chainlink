@@ -146,7 +146,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		// o.Config.DevMode = v2.EnvDev.IsTrue()
 
 		err = o.Secrets.setEnv()
 		if err != nil {
@@ -254,10 +253,6 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
 // ConfigTOML implements chainlink.ConfigV2
 func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
-}
-
-func (g *generalConfig) Dev() bool {
-	return build.DevelopmentBuild()
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -407,7 +402,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if g.Dev() {
+	if build.DevelopmentBuild() {
 		return "develop"
 	}
 	return "production"
