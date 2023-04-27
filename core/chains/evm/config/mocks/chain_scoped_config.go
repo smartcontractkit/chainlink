@@ -26,6 +26,8 @@ import (
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+
 	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
@@ -2146,41 +2148,29 @@ func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 }
 
 // MercuryCredentials provides a mock function with given fields: credName
-func (_m *ChainScopedConfig) MercuryCredentials(credName string) (string, string, string, error) {
+func (_m *ChainScopedConfig) MercuryCredentials(credName string) (*ocr2models.MercuryCredentials, error) {
 	ret := _m.Called(credName)
 
-	var r0 string
-	var r1 string
-	var r2 string
-	var r3 error
-	if rf, ok := ret.Get(0).(func(string) (string, string, string, error)); ok {
+	var r0 *ocr2models.MercuryCredentials
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*ocr2models.MercuryCredentials, error)); ok {
 		return rf(credName)
 	}
-	if rf, ok := ret.Get(0).(func(string) string); ok {
+	if rf, ok := ret.Get(0).(func(string) *ocr2models.MercuryCredentials); ok {
 		r0 = rf(credName)
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
+		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string) string); ok {
+	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(credName)
 	} else {
-		r1 = ret.Get(1).(string)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func(string) string); ok {
-		r2 = rf(credName)
-	} else {
-		r2 = ret.Get(2).(string)
-	}
-
-	if rf, ok := ret.Get(3).(func(string) error); ok {
-		r3 = rf(credName)
-	} else {
-		r3 = ret.Error(3)
-	}
-
-	return r0, r1, r2, r3
+	return r0, r1
 }
 
 // MigrateDatabase provides a mock function with given fields:
