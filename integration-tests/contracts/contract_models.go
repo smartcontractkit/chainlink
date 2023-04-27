@@ -166,7 +166,6 @@ type APIConsumer interface {
 		path string,
 		times *big.Int,
 	) error
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 }
 
 type Storage interface {
@@ -245,21 +244,6 @@ type ReadAccessController interface {
 type Flags interface {
 	Address() string
 	GetFlag(ctx context.Context, addr string) (bool, error)
-}
-
-// DeviationFlaggingValidator contract used as an external validator,
-// fox ex. in flux monitor rounds validation
-type DeviationFlaggingValidator interface {
-	Address() string
-}
-
-// PerfEvent is used to get some metrics for contracts,
-// it contrains roundID for Keeper/OCR/Flux tests and request id for VRF/Runlog
-type PerfEvent struct {
-	Contract       DeviationFlaggingValidator
-	Round          *big.Int
-	RequestID      [32]byte
-	BlockTimestamp *big.Int
 }
 
 // OperatorFactory creates Operator contracts for node operators

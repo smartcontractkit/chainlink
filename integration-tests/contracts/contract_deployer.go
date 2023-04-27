@@ -38,15 +38,10 @@ import (
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
 type ContractDeployer interface {
-	DeployStorageContract() (Storage, error)
 	DeployAPIConsumer(linkAddr string) (APIConsumer, error)
 	DeployOracle(linkAddr string) (Oracle, error)
 	DeployReadAccessController() (ReadAccessController, error)
 	DeployFlags(rac string) (Flags, error)
-	DeployDeviationFlaggingValidator(
-		flags string,
-		flaggingThreshold *big.Int,
-	) (DeviationFlaggingValidator, error)
 	DeployFluxAggregatorContract(linkAddr string, fluxOptions FluxAggregatorOptions) (FluxAggregator, error)
 	DeployLinkTokenContract() (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
@@ -220,28 +215,6 @@ func (e *EthereumContractDeployer) DeployFlags(
 	return &EthereumFlags{
 		client:  e.client,
 		flags:   instance.(*flags_wrapper.Flags),
-		address: address,
-	}, nil
-}
-
-// DeployDeviationFlaggingValidator deploys deviation flagging validator contract
-func (e *EthereumContractDeployer) DeployDeviationFlaggingValidator(
-	flags string,
-	flaggingThreshold *big.Int,
-) (DeviationFlaggingValidator, error) {
-	address, _, instance, err := e.client.DeployContract("Deviation flagging validator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		flagAddr := common.HexToAddress(flags)
-		return ethereum.DeployDeviationFlaggingValidator(auth, backend, flagAddr, flaggingThreshold)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumDeviationFlaggingValidator{
-		client:  e.client,
-		dfv:     instance.(*ethereum.DeviationFlaggingValidator),
 		address: address,
 	}, nil
 }
@@ -422,23 +395,6 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
-	}, err
-}
-
-// DeployStorageContract deploys a vanilla storage contract that is a value store
-func (e *EthereumContractDeployer) DeployStorageContract() (Storage, error) {
-	_, _, instance, err := e.client.DeployContract("Storage", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployStore(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumStorage{
-		client: e.client,
-		store:  instance.(*ethereum.Store),
 	}, err
 }
 
