@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "./ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
-import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {IERC165} from "../vendor/IERC165.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;

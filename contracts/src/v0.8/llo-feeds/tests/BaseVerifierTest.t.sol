@@ -2,13 +2,13 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
+import {VerifierProxy} from "../VerifierProxy.sol";
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
-import {IVerifier} from "../../../../src/v0.8/interfaces/IVerifier.sol";
+import {IVerifier} from "../interfaces/IVerifier.sol";
 import {ErroredVerifier} from "./mocks/ErroredVerifier.sol";
-import {Verifier} from "../../../../src/v0.8/Verifier.sol";
+import {Verifier} from "../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {AccessControllerInterface} from "../../../../src/v0.8/interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;

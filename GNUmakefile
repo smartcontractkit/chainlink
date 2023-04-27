@@ -65,11 +65,11 @@ abigen: ## Build & install abigen.
 go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
-
-.PHONY: go-solidity-wrappers-transmission
-go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/transmission/native_solc_compile_all_transmission
-	go generate ./core/gethwrappers/transmission
+#
+#.PHONY: go-solidity-wrappers-transmission
+#go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+#	./contracts/scripts/transmission/native_solc_compile_all_transmission
+#	go generate ./core/gethwrappers/transmission
 
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
@@ -80,6 +80,11 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 	go generate ./core/internal/mocks
 	# put the go:generate_disabled directive back
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
+
+.PHONY: go-solidity-wrappers-llo
+go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_llo
+	go generate ./core/gethwrappers/llo
 
 .PHONY: generate
 generate: abigen codecgen mockery ## Execute all go:generate commands.

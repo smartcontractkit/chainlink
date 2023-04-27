@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "./ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
-import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
-import {AccessControllerInterface} from "./interfaces/AccessControllerInterface.sol";
-import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
+import {IERC165} from "../vendor/IERC165.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
