@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -23,6 +24,9 @@ func (m multiErrorList) Error() string {
 	if l == 1 {
 		return m[0].Error()
 	}
+	sort.Slice(m, func(i, j int) bool {
+		return m[i].Error() < m[j].Error()
+	})
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "%d errors:", l)
 	for _, e := range m {
