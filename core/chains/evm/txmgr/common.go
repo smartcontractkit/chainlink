@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -89,5 +92,25 @@ func stringToGethAddress(s string) (common.Address, error) {
 
 func stringToGethHash(s string) (h common.Hash, err error) {
 	err = h.UnmarshalText([]byte(s))
+	return
+}
+
+func ToGethFees[FEE txmgrtypes.Fee](f FEE) (fee gas.EvmFee, err error) {
+	b, err := json.Marshal(f)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(b, &fee)
+	return
+}
+
+func ToGenericReceipt[TX_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH]](r *evmtypes.Receipt) (receipt R, err error) {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(b, &receipt)
 	return
 }

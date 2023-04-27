@@ -70,7 +70,7 @@ type TxStore[
 	MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID CHAIN_ID, qopts ...pg.QOpt) error
 	PreloadEthTxes(attempts []TXATTEMPT, qopts ...pg.QOpt) error
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time) error
-	SaveFetchedReceipts(receipts []Receipt[R, TX_HASH, BLOCK_HASH], chainID CHAIN_ID) (err error)
+	SaveFetchedReceipts(receipts []R, chainID CHAIN_ID) (err error)
 	SaveInProgressAttempt(attempt *TXATTEMPT) error
 	SaveInsufficientEthAttempt(timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time) error
 	SaveReplacementInProgressAttempt(oldAttempt TXATTEMPT, replacementAttempt *TXATTEMPT, qopts ...pg.QOpt) error
@@ -113,4 +113,5 @@ type QueryerFunc = func(tx pg.Queryer) error
 type ChainReceipt[TX_HASH types.Hashable] interface {
 	GetStatus() uint64
 	GetTxHash() TX_HASH
+	GetBlockNumber() int64
 }

@@ -50,14 +50,14 @@ func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
 }
 
 func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
-	tx := txa.EthTx
+	tx := txa.Tx
 
 	r := NewEthTxResource(tx)
 	r.JAID = NewJAID(txa.Hash.String())
-	r.GasPrice = txa.GasPrice.ToInt().String()
+	r.GasPrice = txa.TxFee.Legacy.ToInt().String()
 	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
-	r.EVMChainID = txa.EthTx.EVMChainID
+	r.EVMChainID = txa.Tx.EVMChainID
 
 	if tx.Nonce != nil {
 		r.Nonce = strconv.FormatUint(uint64(*tx.Nonce), 10)

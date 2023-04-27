@@ -196,6 +196,14 @@ func (r Receipt) GetTxHash() common.Hash {
 	return r.TxHash
 }
 
+func (r Receipt) TxHashString() string {
+	return r.TxHash.String()
+}
+
+func (r Receipt) GetBlockNumber() int64 {
+	return r.BlockNumber.Int64()
+}
+
 // Log represents a contract log event.
 //
 // Copied from go-ethereum: https://github.com/ethereum/go-ethereum/blob/ce9a289fa48e0d2593c4aaa7e207c8a5dd3eaa8a/core/types/log.go

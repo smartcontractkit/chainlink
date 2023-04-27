@@ -111,10 +111,10 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
 	return receipts
 }
 
-func toOnchainReceipt(rs []EvmReceipt) []rawOnchainReceipt {
+func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 	receipts := make([]rawOnchainReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = rawOnchainReceipt(*rs[i].Receipt)
+		receipts[i] = rawOnchainReceipt(*rs[i])
 	}
 	return receipts
 }
@@ -696,7 +696,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(r []EvmReceipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) SaveFetchedReceipts(r []*evmtypes.Receipt, chainID *big.Int) (err error) {
 	receipts := toOnchainReceipt(r)
 	if len(receipts) == 0 {
 		return nil

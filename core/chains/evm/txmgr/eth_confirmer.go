@@ -460,7 +460,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
-	var allReceipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]
+	var allReceipts []R
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -499,7 +499,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], blockNum int64) (receipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH], err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], blockNum int64) (receipts []R, err error) {
 	var reqs []rpc.BatchElem
 
 	// Metadata is required to determine whether a tx is forwarded or not.
@@ -537,6 +537,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		attempt := attempts[i]
 		result, err := req.Result, req.Error
 
+		// TODO: remove when client is generalized (should return expected types)
+		// https://smartcontract-it.atlassian.net/browse/BCI-1222
 		receipt, is := result.(*evmtypes.Receipt)
 		if !is {
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
@@ -595,14 +597,16 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		}
 		if receipt.Status == 0 {
 			// Do an eth call to obtain the revert reason.
-			// TODO: fold into chain client https://smartcontract-it.atlassian.net/browse/BCI-1222
+			// TODO: fold into chain client + remove conversion
+			// https://smartcontract-it.atlassian.net/browse/BCI-1222
+			fee, err := ToGethFees(attempt.Fee())
 			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       gethFromAddr,
 				To:         &gethToAddr,
 				Gas:        uint64(attempt.Tx.GasLimit),
-				GasPrice:   attempt.GasPrice.ToInt(),
-				GasFeeCap:  attempt.GasFeeCap.ToInt(),
-				GasTipCap:  attempt.GasTipCap.ToInt(),
+				GasPrice:   fee.Legacy.ToInt(),
+				GasFeeCap:  fee.DynamicFeeCap.ToInt(),
+				GasTipCap:  fee.DynamicTipCap.ToInt(),
 				Value:      nil,
 				Data:       attempt.Tx.EncodedPayload,
 				AccessList: nil,
@@ -628,7 +632,11 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
 			}
 		}
-		receipts = append(receipts, receipt)
+
+		// TODO: remove conversion once chain client is generic
+		// https://smartcontract-it.atlassian.net/browse/BCI-1222
+		r, err := ToGenericReceipt[TX_HASH, R](receipt)
+		receipts = append(receipts, r)
 	}
 
 	return
@@ -1167,10 +1175,10 @@ func observeUntilTxConfirmed[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH],
 	FEE txmgrtypes.Fee,
-](chainID CHAIN_ID, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], receipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]) {
+](chainID CHAIN_ID, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], receipts []R) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
-			if attempt.Hash.String() != r.TxHash.String() {
+			if attempt.Hash.String() != r.GetTxHash().String() {
 				continue
 			}
 
@@ -1192,7 +1200,7 @@ func observeUntilTxConfirmed[
 				return 0
 			})
 			if broadcastBefore > 0 {
-				blocksElapsed := r.BlockNumber - broadcastBefore
+				blocksElapsed := r.GetBlockNumber() - broadcastBefore
 				promBlocksUntilTxConfirmed.
 					WithLabelValues(chainID.String()).
 					Observe(float64(blocksElapsed))
