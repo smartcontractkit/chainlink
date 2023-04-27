@@ -85,30 +85,6 @@ func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
 	return e.client.Fund(e.address.Hex(), ethAmount)
 }
 
-func (e *EthereumAPIConsumer) WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error {
-	ethEventChan := make(chan *ethereum.APIConsumerPerfMetricsEvent)
-	sub, err := e.consumer.WatchPerfMetricsEvent(&bind.WatchOpts{}, ethEventChan)
-	if err != nil {
-		return err
-	}
-	defer sub.Unsubscribe()
-	for {
-		select {
-		case event := <-ethEventChan:
-			eventChan <- &PerfEvent{
-				Contract:       e,
-				RequestID:      event.RequestId,
-				Round:          event.RoundID,
-				BlockTimestamp: event.Timestamp,
-			}
-		case err := <-sub.Err():
-			return err
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
@@ -1182,17 +1158,6 @@ func (e *EthereumFlags) GetFlag(ctx context.Context, addr string) (bool, error) 
 		return false, err
 	}
 	return flag, nil
-}
-
-// EthereumDeviationFlaggingValidator represents deviation flagging validator contract
-type EthereumDeviationFlaggingValidator struct {
-	client  blockchain.EVMClient
-	dfv     *ethereum.DeviationFlaggingValidator
-	address *common.Address
-}
-
-func (e *EthereumDeviationFlaggingValidator) Address() string {
-	return e.address.Hex()
 }
 
 // EthereumOperatorFactory represents operator factory contract
