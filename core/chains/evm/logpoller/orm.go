@@ -163,7 +163,7 @@ func (o *ORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
 					GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 				) DELETE FROM evm_logs l USING r
 					WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
-						AND l.created_at + (r.retention / 10^9 * interval '1 second') <= STATEMENT_TIMESTAMP()`, // retention is in nanoseconds (time.Duration aka BIGINT)
+						AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
 		utils.NewBig(o.chainID))
 }
 
