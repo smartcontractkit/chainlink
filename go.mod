@@ -61,7 +61,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230424181359-6cb4dc745ec7
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239
 	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc
@@ -370,4 +370,6 @@ replace (
 
 	// Fix CVE-2022-41717
 	golang.org/x/net => golang.org/x/net v0.4.0
+
+	github.com/smartcontractkit/libocr => /Users/ionita/libocr
 )
