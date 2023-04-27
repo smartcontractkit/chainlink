@@ -164,6 +164,6 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 		}
 	}
 
-	go collectMercuryEnhancedTelemetry(ds, &trrs, repts)
+	go collectMercuryEnhancedTelemetry(ds, finaltrrs, &trrs, repts)
 	return run, finaltrrs, err
 }

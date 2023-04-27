@@ -3,6 +3,7 @@ package mercury
 import (
 	"encoding/json"
 
+	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
 
@@ -12,10 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
-func collectMercuryEnhancedTelemetry(ds *datasource, trrs *pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
+func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunResults, trrs *pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
 	if !shouldCollectEnhancedTelemetryMercury(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
+
+	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash := getFinalValues(ds, &finalTrrs)
 
 	for _, trr := range *trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
@@ -34,59 +37,15 @@ func collectMercuryEnhancedTelemetry(ds *datasource, trrs *pipeline.TaskRunResul
 		}
 
 		assetSymbol := getAssetSymbolFromRequestData(bridgeTask.RequestData)
-
-		parse, _ := ds.parse(*trrs)
-
-		benchmarkPrice := float64(0)
-		benchmarkParseTask := trrs.GetNextTaskOf(trr)
-		if benchmarkParseTask.Task.Type() == pipeline.TaskTypeJSONParse {
-			benchmarkPrice, ok = benchmarkParseTask.Result.Value.(float64)
-			if !ok {
-				ds.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s", ds.jb.ID, trr.Task.DotID())
-			}
-		}
-
-		bidPrice := float64(0)
-		bidParseTask := trrs.GetNextTaskOf(*benchmarkParseTask)
-		if bidParseTask.Task.Type() == pipeline.TaskTypeJSONParse {
-			bidPrice, ok = bidParseTask.Result.Value.(float64)
-			if !ok {
-				ds.lggr.Warnf("cannot parse enhanced EA telemetry bid price, job %d, id %s", ds.jb.ID, trr.Task.DotID())
-			}
-		}
-
-		askPrice := float64(0)
-		askParseTask := trrs.GetNextTaskOf(*bidParseTask)
-		if askParseTask.Task.Type() == pipeline.TaskTypeJSONParse {
-			askPrice, ok = askParseTask.Result.Value.(float64)
-			if !ok {
-				ds.lggr.Warnf("cannot parse enhanced EA telemetry ask price, job %d, id %s", ds.jb.ID, trr.Task.DotID())
-			}
-		}
-
-		obsBenchmarkPrice := int64(0)
-		obsBid := int64(0)
-		obsAsk := int64(0)
-
-		if parse.BenchmarkPrice.Val != nil {
-			obsBenchmarkPrice = parse.BenchmarkPrice.Val.Int64()
-		}
-
-		if parse.Bid.Val != nil {
-			obsBid = parse.Bid.Val.Int64()
-		}
-
-		if parse.Ask.Val != nil {
-			obsAsk = parse.Ask.Val.Int64()
-		}
+		benchmarkPrice, bidPrice, askPrice := getPricesFromResults(ds, &trr, trrs)
 
 		t := &telem.EnhancedEAMercury{
 			DataSource:                    eaTelem.DataSource,
 			DpBenchmarkPrice:              benchmarkPrice,
 			DpBid:                         bidPrice,
 			DpAsk:                         askPrice,
-			CurrentBlockNumber:            parse.CurrentBlockNum.Val,
-			CurrentBlockHash:              string(parse.CurrentBlockHash.Val),
+			CurrentBlockNumber:            obsBlockNum,
+			CurrentBlockHash:              common.BytesToHash(obsBlockHash).String(),
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
 			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
@@ -114,12 +73,12 @@ func collectMercuryEnhancedTelemetry(ds *datasource, trrs *pipeline.TaskRunResul
 }
 
 func getAssetSymbolFromRequestData(requestData string) string {
-	type ReqToFrom struct {
+	type reqDataPayload struct {
 		To   string `json:"to"`
 		From string `json:"from"`
 	}
 	type reqData struct {
-		Data ReqToFrom `json:"data"`
+		Data reqDataPayload `json:"data"`
 	}
 
 	rd := &reqData{}
@@ -135,6 +94,69 @@ func shouldCollectEnhancedTelemetryMercury(jb *job.Job) bool {
 	if jb.Type.String() == pipeline.OffchainReporting2JobType && jb.OCR2OracleSpec != nil {
 		return jb.OCR2OracleSpec.CaptureEATelemetry
 	}
-
 	return false
+}
+
+func getPricesFromResults(ds *datasource, startTask *pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
+	var benchmarkPrice, askPrice, bidPrice float64
+	var ok bool
+
+	if startTask == nil {
+		ds.lggr.Warnf("cannot parse enhanced EA telemetry, task is nil, job %d", ds.jb.ID)
+		return 0, 0, 0
+	}
+	benchmarkPriceTask := allTasks.GetNextTaskOf(*startTask)
+	if benchmarkPriceTask == nil {
+		ds.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", ds.jb.ID)
+		return 0, 0, 0
+	}
+	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
+		benchmarkPrice, ok = benchmarkPriceTask.Result.Value.(float64)
+		if !ok {
+			ds.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s", ds.jb.ID, benchmarkPriceTask.Task.DotID())
+		}
+	}
+
+	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
+	if bidTask == nil {
+		ds.lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, job %d, id %s", ds.jb.ID)
+		return 0, 0, 0
+	}
+	if bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
+		bidPrice, ok = bidTask.Result.Value.(float64)
+		if !ok {
+			ds.lggr.Warnf("cannot parse enhanced EA telemetry bid price, job %d, id %s", ds.jb.ID, bidTask.Task.DotID())
+		}
+	}
+
+	askTask := allTasks.GetNextTaskOf(*bidTask)
+	if askTask == nil {
+		ds.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", ds.jb.ID)
+		return 0, 0, 0
+	}
+	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {
+		askPrice, ok = askTask.Result.Value.(float64)
+		if !ok {
+			ds.lggr.Warnf("cannot parse enhanced EA telemetry ask price, job %d, id %s", ds.jb.ID, askTask.Task.DotID())
+		}
+	}
+
+	return benchmarkPrice, bidPrice, askPrice
+}
+
+func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64, int64, int64, []byte) {
+	var benchmarkPrice, bid, ask int64
+	parse, _ := ds.parse(*trrs)
+
+	if parse.BenchmarkPrice.Val != nil {
+		benchmarkPrice = parse.BenchmarkPrice.Val.Int64()
+	}
+	if parse.Bid.Val != nil {
+		bid = parse.Bid.Val.Int64()
+	}
+	if parse.Ask.Val != nil {
+		ask = parse.Ask.Val.Int64()
+	}
+
+	return benchmarkPrice, bid, ask, parse.CurrentBlockNum.Val, parse.CurrentBlockHash.Val
 }

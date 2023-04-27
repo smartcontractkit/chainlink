@@ -22,8 +22,10 @@ import (
 )
 
 const bridgeResponse = `{
+			"meta":{
+				"adapterName":"data-source-name"
+			},
 			"timestamps":{
-				"dataSource":"data_source_test",
 				"providerDataRequestedUnixMs":92233720368547760,
 				"providerDataReceivedUnixMs":-92233720368547760,
 				"providerDataStreamEstablishedUnixMs":1,
@@ -143,7 +145,7 @@ func TestGetChainID(t *testing.T) {
 func TestParseEATelemetry(t *testing.T) {
 	ea, err := ParseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
-	assert.Equal(t, ea.DataSource, "data_source_test")
+	assert.Equal(t, ea.DataSource, "data-source-name")
 	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(92233720368547760))
 	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
 	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
@@ -227,7 +229,7 @@ func TestSendEATelemetry(t *testing.T) {
 	collectEATelemetry(&ds, &trrs, &fr, observationTimestamp)
 
 	expectedTelemetry := telem.EnhancedEA{
-		DataSource:                    "data_source_test",
+		DataSource:                    "data-source-name",
 		Value:                         123456789.1234567,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
