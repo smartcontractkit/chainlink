@@ -1475,7 +1475,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		}, ethClient.ConfiguredChainID())
@@ -1511,7 +1511,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
-			GasLimit:          21000,
+			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		}

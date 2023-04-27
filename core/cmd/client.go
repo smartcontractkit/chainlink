@@ -23,7 +23,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -92,30 +91,16 @@ func (cli *Client) errorOut(err error) error {
 	return nil
 }
 
-func (cli *Client) setConfigFromFlags(opts *chainlink.GeneralConfigOpts, ctx *cli.Context) error {
-
-	configToProcess := ctx.IsSet("config") || ctx.IsSet("secrets")
-	if !configToProcess {
-		return nil
-	}
-
-	if cli.configInitialized && configToProcess {
-		return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
-	}
-
-	cli.configInitialized = true
-
-	fileNames := ctx.StringSlice("config")
-	if err := loadOpts(opts, fileNames...); err != nil {
+func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
 	secretsTOML := ""
-	if ctx.IsSet("secrets") {
-		secretsFileName := ctx.String("secrets")
-		b, err := os.ReadFile(secretsFileName)
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
 		secretsTOML = string(b)
 	}

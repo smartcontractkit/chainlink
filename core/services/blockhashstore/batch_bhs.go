@@ -69,7 +69,7 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       b.config.EvmGasLimitDefault(),
+		FeeLimit:       b.config.EvmGasLimitDefault(),
 		Strategy:       txmgr.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 

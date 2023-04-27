@@ -164,7 +164,7 @@ func (lsn *listenerV2) processBatch(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			GasLimit:       totalGasLimitBumped,
+			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
 				RequestIDs:      reqIDHashes,

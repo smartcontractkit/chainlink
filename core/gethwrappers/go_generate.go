@@ -89,9 +89,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryWithInit.bin OCR2DRRegistry ocr2dr_registry
 
 // Mercury
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/Verifier.abi ../../contracts/solc/v0.8.6/Verifier.bin MercuryVerifier mercury_verifier
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VerifierProxy.abi ../../contracts/solc/v0.8.6/VerifierProxy.bin MercuryVerifierProxy mercury_verifier_proxy
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/ExposedVerifier.abi ../../contracts/solc/v0.8.6/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin MercuryVerifier mercury_verifier
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin MercuryVerifierProxy mercury_verifier_proxy
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
 
 // Mocks that contain only events and functions to emit them
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/FunctionsOracle.abi ../../contracts/src/v0.8/mocks/FunctionsOracleEventsMock.sol FunctionsOracleEventsMock

@@ -33,7 +33,7 @@ type pipelineTransmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.TransmitCheckerSpec
+	checker                     txmgr.EvmTransmitCheckerSpec
 	pr                          pipeline.Runner
 	spec                        job.Job
 	chainID                     string
@@ -46,7 +46,7 @@ func NewPipelineTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
+	checker txmgr.EvmTransmitCheckerSpec,
 	pr pipeline.Runner,
 	spec job.Job,
 	chainID string,
