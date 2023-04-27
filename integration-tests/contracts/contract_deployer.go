@@ -41,7 +41,6 @@ type ContractDeployer interface {
 	DeployStorageContract() (Storage, error)
 	DeployAPIConsumer(linkAddr string) (APIConsumer, error)
 	DeployOracle(linkAddr string) (Oracle, error)
-	DeployReadAccessController() (ReadAccessController, error)
 	DeployFlags(rac string) (Flags, error)
 	DeployDeviationFlaggingValidator(
 		flags string,
@@ -183,24 +182,6 @@ func DefaultFluxAggregatorOptions() FluxAggregatorOptions {
 		Decimals:      uint8(0),
 		Description:   "Test Flux Aggregator",
 	}
-}
-
-// DeployReadAccessController deploys read/write access controller contract
-func (e *EthereumContractDeployer) DeployReadAccessController() (ReadAccessController, error) {
-	address, _, instance, err := e.client.DeployContract("Read Access Controller", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeploySimpleReadAccessController(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumReadAccessController{
-		client:  e.client,
-		rac:     instance.(*ethereum.SimpleReadAccessController),
-		address: address,
-	}, nil
 }
 
 // DeployFlags deploys flags contract

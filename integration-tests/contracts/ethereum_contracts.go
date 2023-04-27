@@ -1160,44 +1160,6 @@ func (v *EthereumMockGASFeed) Address() string {
 	return v.address.Hex()
 }
 
-// EthereumReadAccessController represents read access controller contract
-type EthereumReadAccessController struct {
-	client  blockchain.EVMClient
-	rac     *ethereum.SimpleReadAccessController
-	address *common.Address
-}
-
-// AddAccess grants access to particular address to raise a flag
-func (e *EthereumReadAccessController) AddAccess(addr string) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	log.Debug().Str("Address", addr).Msg("Adding access for address")
-	tx, err := e.rac.AddAccess(opts, common.HexToAddress(addr))
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-// DisableAccessCheck disables all access checks
-func (e *EthereumReadAccessController) DisableAccessCheck() error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := e.rac.DisableAccessCheck(opts)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumReadAccessController) Address() string {
-	return e.address.Hex()
-}
-
 // EthereumFlags represents flags contract
 type EthereumFlags struct {
 	client  blockchain.EVMClient
