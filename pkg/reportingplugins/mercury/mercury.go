@@ -132,7 +132,7 @@ type DataSource interface {
 	//
 	// Important: Observe should not perform any potentially time-consuming
 	// actions like database access, once the context passed has expired.
-	Observe(context.Context) (Observation, error)
+	Observe(context.Context, ocrtypes.ReportTimestamp) (Observation, error)
 }
 
 var _ ocrtypes.ReportingPluginFactory = Factory{}
@@ -299,7 +299,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		return nil, errors.New("expected empty query")
 	}
 
-	obs, err := rp.dataSource.Observe(ctx)
+	obs, err := rp.dataSource.Observe(ctx, repts)
 	if err != nil {
 		return nil, pkgerrors.Errorf("DataSource.Observe returned an error: %s", err)
 	}

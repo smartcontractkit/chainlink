@@ -90,7 +90,7 @@ var _ DataSource = &mockDataSource{}
 
 type mockDataSource struct{ obs Observation }
 
-func (m mockDataSource) Observe(context.Context) (Observation, error) {
+func (m mockDataSource) Observe(context.Context, ocrtypes.ReportTimestamp) (Observation, error) {
 	return m.obs, nil
 }
 
