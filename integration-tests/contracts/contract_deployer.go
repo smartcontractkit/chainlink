@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_read_access_controller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -191,14 +192,14 @@ func (e *EthereumContractDeployer) DeployReadAccessController() (ReadAccessContr
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeploySimpleReadAccessController(auth, backend)
+		return simple_read_access_controller.DeploySimpleReadAccessController(auth, backend)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumReadAccessController{
 		client:  e.client,
-		rac:     instance.(*ethereum.SimpleReadAccessController),
+		rac:     instance.(*simple_read_access_controller.SimpleReadAccessController),
 		address: address,
 	}, nil
 }

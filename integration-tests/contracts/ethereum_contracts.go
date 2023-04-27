@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_read_access_controller"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -1163,7 +1164,7 @@ func (v *EthereumMockGASFeed) Address() string {
 // EthereumReadAccessController represents read access controller contract
 type EthereumReadAccessController struct {
 	client  blockchain.EVMClient
-	rac     *ethereum.SimpleReadAccessController
+	rac     *simple_read_access_controller.SimpleReadAccessController
 	address *common.Address
 }
 

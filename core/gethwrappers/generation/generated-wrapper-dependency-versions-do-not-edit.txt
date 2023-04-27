@@ -40,6 +40,8 @@ offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc1
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 4803feddb5dadea2f228978d81fd30ad1bea3f88d973a8539a91445b0cea60e2
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 97dcb51158733881bfbe414d0318a57c3bba7b32bdc7aa5961db2f0ea5e993cb
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
+simple_read_access_controller: ../../contracts/solc/v0.6/SimpleReadAccessController.abi ../../contracts/solc/v0.6/SimpleReadAccessController.bin 78ef45e12de6b9f100ef289f7f814e1d09f0ed5d0cb6ece5226e1ceec2564d57
+simple_write_access_controller: ../../contracts/solc/v0.6/SimpleWriteAccessController.abi ../../contracts/solc/v0.6/SimpleWriteAccessController.bin 717f2b38c7a97e91298243a20ff8a24344772acc21a10646ff81d36ed724edca
 solidity_vrf_consumer_interface: ../../contracts/solc/v0.6/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer.bin a79da241ca9525f6a96adc5f55651b1f91e1579b85fec7b02a51d06bd6018ee3
 solidity_vrf_consumer_interface_v08: ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin b14f9136b15e3dc9d6154d5700f3ed4cf88ddc4f70f20c3bb57fc46050904c8f
 solidity_vrf_coordinator_interface: ../../contracts/solc/v0.6/VRFCoordinator.abi ../../contracts/solc/v0.6/VRFCoordinator.bin a23d3c395156804788c7f6fbda2994e8f7184304c0f0c9f2c4ddeaf073d346d2
