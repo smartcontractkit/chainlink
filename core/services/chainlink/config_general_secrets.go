@@ -44,7 +44,7 @@ func (g *generalConfig) PrometheusAuthToken() string {
 	return string(*g.secrets.Prometheus.AuthToken)
 }
 
-func (g *generalConfig) MercurySecrets(credName string) (url, username, password string, err error) {
+func (g *generalConfig) MercuryCredentials(credName string) (url, username, password string, err error) {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
 		return mc.URL.String(), string(*mc.Username), string(*mc.Password), nil
 	}
