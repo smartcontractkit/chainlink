@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initInitiatorsSubCmds(client *Client, devMode bool) []cli.Command {
+func initInitiatorsSubCmds(client *Client) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "create",
