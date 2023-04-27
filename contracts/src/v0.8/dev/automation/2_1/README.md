@@ -26,7 +26,7 @@ graph LR
 - functions on the master contract have the least gas overhead, therefore, our most price-sensitive functions live there
 - functions on the master contract have first-class support from tools like etherscan and tenderly - functions that we (or users) call often to debug should live there
 - etherscan supports executing logic contract functions that are once removed from the master - therefore we give secondary preference to the first logic contract for user and debugging functions
-- functions on logic 2 through logic X (as of writing) have no support on etherscan and will essentially be "invisible" to everyone but advanced users - we will try to reserve this space for uncommon interactions that are mostly done progamatically
+- functions on logic A through logic X (as of writing) have no support on etherscan and will essentially be "invisible" to everyone but advanced users - we will try to reserve this space for uncommon interactions that are mostly done progamatically
 - We use Logic A, B, C... to avoid confusion with the version ex `KeeperRegistryLogicA2_1.sol` --> Logic Contract A verion 2.1
 - Storage locations for logic contract addresses MUST BE BYTECODE (this is done by marking them as "immutable") otherwise the chaining mechanism will break
 
