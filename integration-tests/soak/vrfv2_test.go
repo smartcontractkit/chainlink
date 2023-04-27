@@ -2,6 +2,7 @@ package soak
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
@@ -208,7 +210,7 @@ PriceMax = '%d gwei'
 			// request randomness
 			err := consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), callbackGasLimit, numberOfWords)
 			if err != nil {
-				return err
+				return errors.New("error occurred Requesting Randomness")
 			}
 
 			//todo - how to make assertions in soak test?
@@ -216,8 +218,19 @@ PriceMax = '%d gwei'
 			//timeout := time.Minute * 2
 			//var lastRequestID *big.Int
 			lastRequestID, err := consumer.GetLastRequestId(context.Background())
+			if err != nil {
+				return errors.New("error occurred getting Last Request ID")
+			}
+
 			l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 			status, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+			if err != nil {
+				return fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+			}
+
+			//TODO - need to check status.Fulfilled via go channel, timeout after some time if status not changed to True
+
+
 
 			//gom.Eventually(func(g gomega.Gomega) {
 				jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
@@ -236,7 +249,7 @@ PriceMax = '%d gwei'
 					l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
 					g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
 				}
-			}, timeout, "1s").Should(gomega.Succeed())
+			}, timeout, "1s", ).Should(gomega.Succeed())
 
 			return nil
 		},
@@ -360,4 +373,26 @@ func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.Connected
 		})
 	}
 	return evmConfig
+}
+
+
+
+func (beacon *EthereumVRFBeacon) WaitForRandRequestToBeFulfilled(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
+	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
+	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for new transmission event")
+		case newTransmissionEvent := <-newTransmissionEventsChannel:
+			return newTransmissionEvent, nil
+		}
+	}
 }

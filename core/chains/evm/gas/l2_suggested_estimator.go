@@ -39,7 +39,7 @@ type l2SuggestedPriceEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	chDone         chan struct{}
 }
 
@@ -103,7 +103,7 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	var res hexutil.Big
-	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(o.chStop)
+	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	if err := o.client.CallContext(ctx, &res, "eth_gasPrice"); err != nil {

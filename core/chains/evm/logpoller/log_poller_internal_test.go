@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -241,7 +242,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
-	ec.On("ChainID").Return(chainID, nil)
+	ec.On("ConfiguredChainID").Return(chainID, nil)
 
 	ctx := testutils.Context(t)
 
@@ -285,7 +286,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
-	ec.On("ChainID").Return(chainID, nil)
+	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lp := NewLogPoller(orm, ec, lggr, time.Hour, 3, 3, 3, 20)
 
 	// process 1 log in block 3
@@ -324,54 +325,66 @@ func TestLogPoller_Replay(t *testing.T) {
 	// Replay() should return error code received from replayComplete
 	t.Run("returns error code on replay complete", func(t *testing.T) {
 		anyErr := errors.New("any error")
+		done := make(chan struct{})
 		go func() {
+			defer close(done)
 			recvStartReplay(tctx, 1, true)
 			lp.replayComplete <- anyErr
 		}()
 		assert.ErrorIs(t, lp.Replay(tctx, 1), anyErr)
+		<-done
 	})
 
 	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun
 	t.Run("late abort returns ErrReplayInProgress", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second)
+		done := make(chan struct{})
 		go func() {
+			defer close(done)
 			recvStartReplay(ctx, 4, false)
 			cancel()
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+		<-done
 	})
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
-		done := make(chan struct{})
+
 		timeout := time.After(1 * time.Second)
 		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		ctx, cancel := context.WithCancel(tctx)
 
+		var wg sync.WaitGroup
+		wg.Add(2)
 		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
+				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
 			}()
 		})
 		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
+				defer wg.Done()
 				cancel()
 				lp.replayStart <- 4
-				close(done)
 			}()
 		})
 		ec.On("FilterLogs", lp.ctx, mock.Anything).Return([]types.Log{log1}, nil).Maybe()
 		lp.wg.Add(1)
+		done := make(chan struct{})
 		go func() {
+			defer close(done)
 			lp.run()
 		}()
 		select {
 		case <-timeout:
 			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 1s")
-		case <-done:
+		case <-utils.WaitGroupChan(&wg):
 			lp.cancel()
 		}
+		<-done
 	})
 
 	lp.wg.Wait() // ensure logpoller has exited before continuing on to next test
@@ -379,15 +392,17 @@ func TestLogPoller_Replay(t *testing.T) {
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
-		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(2)
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
+				defer wg.Done()
 				lp.replayStart <- 4
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			defer wg.Done()
 			lp.cancel()
-			close(done)
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
@@ -397,7 +412,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case <-timeout:
 			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 1s")
 			lp.Close()
-		case <-done:
+		case <-utils.WaitGroupChan(&wg):
 			lp.wg.Wait()
 		}
 	})

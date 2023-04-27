@@ -51,7 +51,7 @@ type nodeClient[P TableRenderer] struct {
 }
 
 // newNodeClient returns a new NodeClient for a particular type of NodeStatus.
-// P is a TableRenderer for []NodeStatus.
+// P is a TableRenderer for []types.NodeStatus.
 func newNodeClient[P TableRenderer](c *Client, name string) NodeClient {
 	return &nodeClient[P]{
 		Client: c,

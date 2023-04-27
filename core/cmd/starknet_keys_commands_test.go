@@ -24,19 +24,17 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id          = "1"
-		accountAddr = "someaccountaddress"
-		starkKey    = "somestarkkey"
-		buffer      = bytes.NewBufferString("")
-		r           = cmd.RendererTable{Writer: buffer}
+		id       = "1"
+		starkKey = "somestarkkey"
+		buffer   = bytes.NewBufferString("")
+		r        = cmd.RendererTable{Writer: buffer}
 	)
 
 	p := cmd.StarkNetKeyPresenter{
 		JAID: cmd.JAID{ID: id},
 		StarkNetKeyResource: presenters.StarkNetKeyResource{
-			JAID:        presenters.NewJAID(id),
-			AccountAddr: accountAddr,
-			StarkKey:    starkKey,
+			JAID:     presenters.NewJAID(id),
+			StarkKey: starkKey,
 		},
 	}
 
@@ -45,7 +43,6 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 
 	output := buffer.String()
 	assert.Contains(t, output, id)
-	assert.Contains(t, output, accountAddr)
 
 	// Render many resources
 	buffer.Reset()
@@ -54,7 +51,6 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 
 	output = buffer.String()
 	assert.Contains(t, output, id)
-	assert.Contains(t, output, accountAddr)
 	assert.Contains(t, output, starkKey)
 }
 
@@ -79,7 +75,6 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		assert.Nil(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
-		assert.True(t, key.AccountAddressStr() == keys[0].AccountAddr)
 		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
 
 	})

@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
@@ -68,7 +70,7 @@ func TestCoordinator_BeaconPeriod(t *testing.T) {
 func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 	t.Parallel()
 	evmClient := evmclimocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 
 	t.Run("happy path", func(t *testing.T) {
 		// In this test the DKG and VRF committees have the same signers and
@@ -210,7 +212,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	proofG1X := big.NewInt(1)
 	proofG1Y := big.NewInt(2)
 	evmClient := evmclimocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		beaconAddress := newAddress(t)
 		coordinatorAddress := newAddress(t)
@@ -1075,7 +1077,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	evmClient := evmclimocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 	t.Run("happy path", func(t *testing.T) {
 		lookbackBlocks := uint64(0)
 		lp := getLogPoller(t, []uint64{199}, 200, false, false, 0)
@@ -1185,7 +1187,7 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 
 func TestCoordinator_ReportIsOnchain(t *testing.T) {
 	evmClient := evmclimocks.NewClient(t)
-	evmClient.On("ChainID").Return(big.NewInt(1))
+	evmClient.On("ConfiguredChainID").Return(big.NewInt(1))
 
 	t.Run("report is on-chain", func(t *testing.T) {
 		tp := newTopics()
@@ -1373,7 +1375,7 @@ func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {
 	assert.Equal(t, dkgConfigSetTopic, vrfConfigSetTopic, "config set topics of vrf and dkg must be equal")
 }
 
-func Test_SetOffchainConfig(t *testing.T) {
+func Test_UpdateConfiguration(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid binary", func(t *testing.T) {
@@ -1395,7 +1397,9 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
 		require.Equal(t, cacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
 
-		err := c.SetOffChainConfig(ocr2vrf.OffchainConfig(newCoordinatorConfig))
+		expectedConfigDigest := ocr2Types.ConfigDigest(common.HexToHash("asd"))
+		expectedOracleID := commontypes.OracleID(3)
+		err := c.UpdateConfiguration(ocr2vrf.OffchainConfig(newCoordinatorConfig), expectedConfigDigest, expectedOracleID)
 		newCacheEvictionWindow := time.Duration(newCoordinatorConfig.CacheEvictionWindowSeconds * int64(time.Second))
 		require.NoError(t, err)
 		require.Equal(t, newCoordinatorConfig.CacheEvictionWindowSeconds, c.coordinatorConfig.CacheEvictionWindowSeconds)
@@ -1406,12 +1410,14 @@ func Test_SetOffchainConfig(t *testing.T) {
 		require.Equal(t, newCoordinatorConfig.LookbackBlocks, c.coordinatorConfig.LookbackBlocks)
 		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedBlocks.evictionWindow)
 		require.Equal(t, newCacheEvictionWindow, c.toBeTransmittedCallbacks.evictionWindow)
+		require.Equal(t, expectedConfigDigest, c.configDigest)
+		require.Equal(t, expectedOracleID, c.oracleID)
 	})
 
 	t.Run("invalid binary", func(t *testing.T) {
 		c := &coordinator{coordinatorConfig: newCoordinatorConfig(10), lggr: logger.TestLogger(t)}
 
-		err := c.SetOffChainConfig([]byte{123})
+		err := c.UpdateConfiguration([]byte{123}, ocr2Types.ConfigDigest{}, commontypes.OracleID(0))
 		require.Error(t, err)
 	})
 }

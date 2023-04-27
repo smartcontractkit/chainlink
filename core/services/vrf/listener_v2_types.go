@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -162,10 +161,10 @@ func (lsn *listenerV2) processBatch(
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
 		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(lsn.batchCoordinator.Address()),
+			FromAddress:    fromAddress,
+			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			GasLimit:       totalGasLimitBumped,
+			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
 				RequestIDs:      reqIDHashes,

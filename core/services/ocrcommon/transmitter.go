@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -32,7 +31,7 @@ type transmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.TransmitCheckerSpec
+	checker                     txmgr.EvmTransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
 }
@@ -44,7 +43,7 @@ func NewTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
+	checker txmgr.EvmTransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {
@@ -74,11 +73,11 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 	}
 
 	_, err = t.txm.CreateEthTransaction(txmgr.EvmNewTx{
-		FromAddress:      evmtypes.NewAddress(roundRobinFromAddress),
-		ToAddress:        evmtypes.NewAddress(toAddress),
+		FromAddress:      roundRobinFromAddress,
+		ToAddress:        toAddress,
 		EncodedPayload:   payload,
-		GasLimit:         t.gasLimit,
-		ForwarderAddress: evmtypes.NewAddress(t.forwarderAddress()),
+		FeeLimit:         t.gasLimit,
+		ForwarderAddress: t.forwarderAddress(),
 		Strategy:         t.strategy,
 		Checker:          t.checker,
 		Meta:             txMeta,
