@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.16;
 
 // ExposedVerifier exposes certain internal Verifier
 // methods/structures so that golang code can access them, and we get
