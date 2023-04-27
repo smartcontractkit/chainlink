@@ -47,7 +47,7 @@ func (g *generalConfig) PrometheusAuthToken() string {
 func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
 		return &models.MercuryCredentials{
-			URL:      mc.URL.String(),
+			URL:      mc.URL.URL().String(),
 			Username: string(*mc.Username),
 			Password: string(*mc.Password),
 		}
