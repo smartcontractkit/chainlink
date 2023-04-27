@@ -31,20 +31,20 @@ import (
 type (
 	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce]
+	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt]
 	EvmTxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, EvmNewTx, *evmtypes.Receipt, EvmTx, EvmTxAttempt, evmtypes.Nonce]
 	EvmKeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
 	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
 	EvmNonceSyncer            = NonceSyncer[common.Address, common.Hash, common.Hash]
-	EvmTransmitCheckerFactory = TransmitCheckerFactory[common.Address, common.Hash]
+	EvmTransmitCheckerFactory = TransmitCheckerFactory[common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee]
 	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
-	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee]
+	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
 	EvmNewTx                  = txmgrtypes.NewTx[common.Address, common.Hash]
-	EvmTx                     = EthTx[common.Address, common.Hash]
+	EvmTx                     = Tx[common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee]
 	EthTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash] // TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
-	EvmTxAttempt              = EthTxAttempt[common.Address, common.Hash]
+	EvmTxAttempt              = TxAttempt[common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee]
 	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
 	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, common.Hash, common.Hash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
@@ -128,7 +128,7 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 	}
 }
 
-type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
+type Tx[ADDR commontypes.Hashable, TX_HASH, BLOCK_HASH commontypes.Hashable, R txmgrtypes.ChainReceipt[TX_HASH], FEE txmgrtypes.Fee] struct {
 	txmgrtypes.Transaction
 	ID             int64
 	Nonce          *int64
@@ -147,7 +147,7 @@ type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	InitialBroadcastAt *time.Time
 	CreatedAt          time.Time
 	State              EthTxState
-	EthTxAttempts      []EthTxAttempt[ADDR, TX_HASH] `json:"-"`
+	EthTxAttempts      []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE] `json:"-"`
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
@@ -167,7 +167,7 @@ type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	TransmitChecker *datatypes.JSON
 }
 
-func (e EthTx[ADDR, TX_HASH]) GetError() error {
+func (e Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetError() error {
 	if e.Error.Valid {
 		return errors.New(e.Error.String)
 	}
@@ -175,12 +175,12 @@ func (e EthTx[ADDR, TX_HASH]) GetError() error {
 }
 
 // GetID allows EthTx to be used as jsonapi.MarshalIdentifier
-func (e EthTx[ADDR, TX_HASH]) GetID() string {
+func (e Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetID() string {
 	return fmt.Sprintf("%d", e.ID)
 }
 
 // GetMeta returns an EthTx's meta in struct form, unmarshalling it from JSON first.
-func (e EthTx[ADDR, TX_HASH]) GetMeta() (*EthTxMeta, error) {
+func (e Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetMeta() (*EthTxMeta, error) {
 	if e.Meta == nil {
 		return nil, nil
 	}
@@ -189,7 +189,7 @@ func (e EthTx[ADDR, TX_HASH]) GetMeta() (*EthTxMeta, error) {
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e EthTx[ADDR, TX_HASH]) GetLogger(lgr logger.Logger) logger.Logger {
+func (e Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetLogger(lgr logger.Logger) logger.Logger {
 	lgr = lgr.With(
 		"ethTxID", e.ID,
 		"nonce", e.Nonce,
@@ -254,7 +254,7 @@ func (e EthTx[ADDR, TX_HASH]) GetLogger(lgr logger.Logger) logger.Logger {
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
-func (e EthTx[ADDR, TX_HASH]) GetChecker() (txmgrtypes.TransmitCheckerSpec[ADDR], error) {
+func (e Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetChecker() (txmgrtypes.TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {
 		return txmgrtypes.TransmitCheckerSpec[ADDR]{}, nil
 	}
@@ -262,34 +262,30 @@ func (e EthTx[ADDR, TX_HASH]) GetChecker() (txmgrtypes.TransmitCheckerSpec[ADDR]
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt[common.Address, common.Hash]{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EvmTxAttempt{}
 
-type EthTxAttempt[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
-	ID      int64
-	EthTxID int64
-	EthTx   EthTx[ADDR, TX_HASH]
-	// GasPrice applies to LegacyTx
-	GasPrice *assets.Wei
-	// GasTipCap and GasFeeCap are used instead for DynamicFeeTx
-	GasTipCap *assets.Wei
-	GasFeeCap *assets.Wei
-	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
+type TxAttempt[ADDR commontypes.Hashable, TX_HASH, BLOCK_HASH commontypes.Hashable, R txmgrtypes.ChainReceipt[TX_HASH], FEE txmgrtypes.Fee] struct {
+	ID    int64
+	TxID  int64
+	Tx    Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]
+	TxFee FEE
+	// ChainSpecificGasLimit on the TxAttempt is always the same as the on-chain encoded value for gas limit
 	ChainSpecificGasLimit   uint32
 	SignedRawTx             []byte
 	Hash                    TX_HASH
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   txmgrtypes.TxAttemptState
-	EthReceipts             []EvmReceipt `json:"-"`
+	Receipts                []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH] `json:"-"`
 	TxType                  int
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) String() string {
-	return fmt.Sprintf("EthTxAttempt(ID:%d,EthTxID:%d,GasPrice:%v,GasTipCap:%v,GasFeeCap:%v,TxType:%d", a.ID, a.EthTxID, a.GasPrice, a.GasTipCap, a.GasFeeCap, a.TxType)
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) String() string {
+	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
 
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct
-func (a EthTxAttempt[ADDR, TX_HASH]) GetSignedTx() (*types.Transaction, error) {
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetSignedTx() (*types.Transaction, error) {
 	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
 	signedTx := new(types.Transaction)
 	if err := signedTx.DecodeRLP(s); err != nil {
@@ -298,40 +294,22 @@ func (a EthTxAttempt[ADDR, TX_HASH]) GetSignedTx() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) Fee() (fee gas.EvmFee) {
-	fee.Legacy = a.getGasPrice()
-
-	dynamic := a.dynamicFee()
-	// add dynamic struct only if values are not nil
-	if dynamic.FeeCap != nil && dynamic.TipCap != nil {
-		fee.Dynamic = &dynamic
-	}
-	return fee
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) Fee() FEE {
+	return a.TxFee
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) dynamicFee() gas.DynamicFee {
-	return gas.DynamicFee{
-		FeeCap: a.GasFeeCap,
-		TipCap: a.GasTipCap,
-	}
-}
-
-func (a EthTxAttempt[ADDR, TX_HASH]) GetBroadcastBeforeBlockNum() *int64 {
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetBroadcastBeforeBlockNum() *int64 {
 	return a.BroadcastBeforeBlockNum
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) GetChainSpecificGasLimit() uint32 {
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetChainSpecificGasLimit() uint32 {
 	return a.ChainSpecificGasLimit
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) getGasPrice() *assets.Wei {
-	return a.GasPrice
-}
-
-func (a EthTxAttempt[ADDR, TX_HASH]) GetHash() TX_HASH {
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetHash() TX_HASH {
 	return a.Hash
 }
 
-func (a EthTxAttempt[ADDR, TX_HASH]) GetTxType() int {
+func (a TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) GetTxType() int {
 	return a.TxType
 }

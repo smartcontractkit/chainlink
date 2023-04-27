@@ -145,8 +145,7 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 	if err != nil {
 		return attempt, err
 	}
-	attempt.GasTipCap = fee.TipCap
-	attempt.GasFeeCap = fee.FeeCap
+	attempt.TxFee = gas.EvmFee{Dynamic: &fee}
 	attempt.ChainSpecificGasLimit = gasLimit
 	attempt.TxType = 2
 	return attempt, nil
@@ -227,12 +226,12 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
-	attempt.EthTxID = etx.ID
-	attempt.GasPrice = gasPrice
+	attempt.TxID = etx.ID
+	attempt.TxFee = gas.EvmFee{Legacy: gasPrice}
 	attempt.Hash = hash
 	attempt.TxType = 0
 	attempt.ChainSpecificGasLimit = gasLimit
-	attempt.EthTx = etx
+	attempt.Tx = etx
 
 	return attempt, nil
 }
@@ -262,8 +261,8 @@ func (c *evmTxAttemptBuilder) newSignedAttempt(etx EvmTx, tx *types.Transaction)
 
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
-	attempt.EthTxID = etx.ID
-	attempt.EthTx = etx
+	attempt.TxID = etx.ID
+	attempt.Tx = etx
 	attempt.Hash = hash
 
 	return attempt, nil

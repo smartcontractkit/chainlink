@@ -165,18 +165,18 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) Reset(f func(), 
 }
 
 // SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from ADDR, to ADDR, value assets.Eth, gasLimit uint32) (txmgr.EthTx[ADDR, TX_HASH], error) {
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]) SendEther(chainID *big.Int, from ADDR, to ADDR, value assets.Eth, gasLimit uint32) (txmgr.Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
 
-	var r0 txmgr.EthTx[ADDR, TX_HASH]
+	var r0 txmgr.Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) (txmgr.EthTx[ADDR, TX_HASH], error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) (txmgr.Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], error)); ok {
 		return rf(chainID, from, to, value, gasLimit)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) txmgr.EthTx[ADDR, TX_HASH]); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) txmgr.Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]); ok {
 		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
-		r0 = ret.Get(0).(txmgr.EthTx[ADDR, TX_HASH])
+		r0 = ret.Get(0).(txmgr.Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE])
 	}
 
 	if rf, ok := ret.Get(1).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) error); ok {

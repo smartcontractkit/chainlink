@@ -19,6 +19,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -110,10 +111,10 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []EvmReceiptPlus {
 	return receipts
 }
 
-func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
+func toOnchainReceipt(rs []EvmReceipt) []rawOnchainReceipt {
 	receipts := make([]rawOnchainReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = rawOnchainReceipt(*rs[i])
+		receipts[i] = rawOnchainReceipt(*rs[i].Receipt)
 	}
 	return receipts
 }
@@ -235,8 +236,8 @@ type DbEthTxAttempt struct {
 func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 	return DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
-		EthTxID:                 ethTxAttempt.EthTxID,
-		GasPrice:                ethTxAttempt.GasPrice,
+		EthTxID:                 ethTxAttempt.TxID,
+		GasPrice:                ethTxAttempt.TxFee.Legacy,
 		SignedRawTx:             ethTxAttempt.SignedRawTx,
 		Hash:                    ethTxAttempt.Hash,
 		BroadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
@@ -244,15 +245,14 @@ func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 		CreatedAt:               ethTxAttempt.CreatedAt,
 		ChainSpecificGasLimit:   ethTxAttempt.ChainSpecificGasLimit,
 		TxType:                  ethTxAttempt.TxType,
-		GasTipCap:               ethTxAttempt.GasTipCap,
-		GasFeeCap:               ethTxAttempt.GasFeeCap,
+		GasTipCap:               ethTxAttempt.TxFee.Dynamic.TipCap,
+		GasFeeCap:               ethTxAttempt.TxFee.Dynamic.FeeCap,
 	}
 }
 
 func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *EvmTxAttempt) {
 	evmAttempt.ID = dbEthTxAttempt.ID
-	evmAttempt.EthTxID = dbEthTxAttempt.EthTxID
-	evmAttempt.GasPrice = dbEthTxAttempt.GasPrice
+	evmAttempt.TxID = dbEthTxAttempt.EthTxID
 	evmAttempt.SignedRawTx = dbEthTxAttempt.SignedRawTx
 	evmAttempt.Hash = dbEthTxAttempt.Hash
 	evmAttempt.BroadcastBeforeBlockNum = dbEthTxAttempt.BroadcastBeforeBlockNum
@@ -260,8 +260,13 @@ func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *Evm
 	evmAttempt.CreatedAt = dbEthTxAttempt.CreatedAt
 	evmAttempt.ChainSpecificGasLimit = dbEthTxAttempt.ChainSpecificGasLimit
 	evmAttempt.TxType = dbEthTxAttempt.TxType
-	evmAttempt.GasTipCap = dbEthTxAttempt.GasTipCap
-	evmAttempt.GasFeeCap = dbEthTxAttempt.GasFeeCap
+	evmAttempt.TxFee = gas.EvmFee{
+		Legacy: dbEthTxAttempt.GasPrice,
+		Dynamic: &gas.DynamicFee{
+			TipCap: dbEthTxAttempt.GasTipCap,
+			FeeCap: dbEthTxAttempt.GasFeeCap,
+		},
+	}
 }
 
 func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []EvmTxAttempt {
@@ -335,7 +340,7 @@ func (o *evmTxStore) preloadTxAttempts(txs []EvmTx) error {
 func (o *evmTxStore) PreloadEthTxes(attempts []EvmTxAttempt, qopts ...pg.QOpt) error {
 	ethTxM := make(map[int64]EvmTx)
 	for _, attempt := range attempts {
-		ethTxM[attempt.EthTxID] = EvmTx{}
+		ethTxM[attempt.TxID] = EvmTx{}
 	}
 	ethTxIDs := make([]int64, len(ethTxM))
 	var i int
@@ -354,7 +359,7 @@ func (o *evmTxStore) PreloadEthTxes(attempts []EvmTxAttempt, qopts ...pg.QOpt) e
 		ethTxM[etx.ID] = etx
 	}
 	for i, attempt := range attempts {
-		attempts[i].EthTx = ethTxM[attempt.EthTxID]
+		attempts[i].Tx = ethTxM[attempt.TxID]
 	}
 	return nil
 }
@@ -575,7 +580,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
-		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
+		attempt.Receipts = append(attempt.Receipts, receipt)
 	}
 	return nil
 }
@@ -594,7 +599,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmTxAttempt) error 
 	var receipts []EvmReceipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash.String()]
-		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
+		attempt.Receipts = append(attempt.Receipts, receipt)
 	}
 	return nil
 }
@@ -693,7 +698,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) SaveFetchedReceipts(r []EvmReceipt, chainID *big.Int) (err error) {
 	receipts := toOnchainReceipt(r)
 	if len(receipts) == 0 {
 		return nil
@@ -947,7 +952,7 @@ func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error
-		if _, err := tx.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = $2 AND broadcast_at < $1`, broadcastAt, attempt.EthTxID); err != nil {
+		if _, err := tx.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = $2 AND broadcast_at < $1`, broadcastAt, attempt.TxID); err != nil {
 			return errors.Wrap(err, "saveAttemptWithNewState failed to update eth_txes")
 		}
 		_, err := tx.Exec(`UPDATE eth_tx_attempts SET state=$1 WHERE id=$2`, attempt.State, attempt.ID)
@@ -981,7 +986,7 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.EthTxID); err != nil {
+		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.TxID); err != nil {
 			return errors.Wrap(err, "failed to update eth_txes")
 		}
 		return nil

@@ -188,6 +188,14 @@ func (r *Receipt) Value() (driver.Value, error) {
 	return json.Marshal(r)
 }
 
+func (r Receipt) GetStatus() uint64 {
+	return r.Status
+}
+
+func (r Receipt) GetTxHash() common.Hash {
+	return r.TxHash
+}
+
 // Log represents a contract log event.
 //
 // Copied from go-ethereum: https://github.com/ethereum/go-ethereum/blob/ce9a289fa48e0d2593c4aaa7e207c8a5dd3eaa8a/core/types/log.go

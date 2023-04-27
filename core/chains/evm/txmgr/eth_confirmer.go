@@ -20,7 +20,6 @@ import (
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -118,15 +117,15 @@ type EthConfirmer[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R any,
+	R txmgrtypes.ChainReceipt[TX_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 ] struct {
 	utils.StartStopOnce
-	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], *evmtypes.Receipt, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
+	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], SEQ]
 	lggr      logger.Logger
 	ethClient evmclient.Client
-	txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ]
+	txmgrtypes.TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], SEQ]
 	resumeCallback ResumeCallback
 	config         EvmConfirmerConfig
 	chainID        CHAIN_ID
@@ -354,7 +353,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 			}
 		}
 
-		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
+		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].TxID)
 	}
 	err = ec.txStore.UpdateEthTxsUnconfirmed(ethTxIDsToUnconfirm)
 
@@ -376,9 +375,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
-	attemptsByAddress := make(map[ADDR][]EthTxAttempt[ADDR, TX_HASH])
+	attemptsByAddress := make(map[ADDR][]TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE])
 	for _, att := range attempts {
-		attemptsByAddress[att.EthTx.FromAddress] = append(attemptsByAddress[att.EthTx.FromAddress], att)
+		attemptsByAddress[att.Tx.FromAddress] = append(attemptsByAddress[att.Tx.FromAddress], att)
 	}
 
 	for from, attempts := range attemptsByAddress {
@@ -418,13 +417,13 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []EthTxAttempt[ADDR, TX_HASH], minedSequence uint64) []EthTxAttempt[ADDR, TX_HASH] {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], minedSequence uint64) []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE] {
 	if len(attempts) == 0 {
 		return attempts
 	}
 
-	firstAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
-	lastAttemptNonce := *attempts[0].EthTx.Nonce
+	firstAttemptNonce := *attempts[len(attempts)-1].Tx.Nonce
+	lastAttemptNonce := *attempts[0].Tx.Nonce
 	latestMinedNonce := int64(minedSequence) - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
 		len(attempts), from, minedSequence, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedSequence", minedSequence, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
@@ -440,8 +439,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		// 5 total attempts, highest has nonce 4
 		// minedSequence=3
 		// likelyConfirmed will be attempts[0:3] which gives the first 3 transactions, as expected
-		if *attempts[i].EthTx.Nonce > int64(minedSequence) {
-			ec.lggr.Debugf("Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
+		if *attempts[i].Tx.Nonce > int64(minedSequence) {
+			ec.lggr.Debugf("Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].Tx.Nonce)
 			likelyConfirmed = attempts[0:i]
 			break
 		}
@@ -454,14 +453,14 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return likelyConfirmed
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt[ADDR, TX_HASH], blockNum int64) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveReceipts(ctx context.Context, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
 	batchSize := int(ec.config.RPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
-	var allReceipts []*evmtypes.Receipt
+	var allReceipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -500,7 +499,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt[ADDR, TX_HASH], blockNum int64) (receipts []*evmtypes.Receipt, err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], blockNum int64) (receipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH], err error) {
 	var reqs []rpc.BatchElem
 
 	// Metadata is required to determine whether a tx is forwarded or not.
@@ -542,9 +541,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
 		}
 
-		l := logger.Sugared(attempt.EthTx.GetLogger(lggr).With(
+		l := logger.Sugared(attempt.Tx.GetLogger(lggr).With(
 			"txHash", attempt.Hash.String(), "ethTxAttemptID", attempt.ID,
-			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
+			"ethTxID", attempt.TxID, "err", err, "nonce", attempt.Tx.Nonce,
 		))
 
 		if err != nil {
@@ -584,11 +583,11 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		}
 
 		// TODO: Remove below address conversions when ethClient.CallContract is generalized.
-		gethFromAddr, err := stringToGethAddress(attempt.EthTx.FromAddress.String())
+		gethFromAddr, err := stringToGethAddress(attempt.Tx.FromAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
-		gethToAddr, err := stringToGethAddress(attempt.EthTx.ToAddress.String())
+		gethToAddr, err := stringToGethAddress(attempt.Tx.ToAddress.String())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to do address format conversion")
 		}
@@ -597,12 +596,12 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       gethFromAddr,
 				To:         &gethToAddr,
-				Gas:        uint64(attempt.EthTx.GasLimit),
+				Gas:        uint64(attempt.Tx.GasLimit),
 				GasPrice:   attempt.GasPrice.ToInt(),
 				GasFeeCap:  attempt.GasFeeCap.ToInt(),
 				GasTipCap:  attempt.GasTipCap.ToInt(),
 				Value:      nil,
-				Data:       attempt.EthTx.EncodedPayload,
+				Data:       attempt.Tx.EncodedPayload,
 				AccessList: nil,
 			}, receipt.BlockNumber)
 			rpcError, errExtract := evmclient.ExtractRPCError(errCall)
@@ -620,7 +619,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		// This is only recording forwarded tx that were mined and have a status.
 		// Counters are prone to being inaccurate due to re-orgs.
 		if ec.config.UseForwarders() {
-			meta, err := attempt.EthTx.GetMeta()
+			meta, err := attempt.Tx.GetMeta()
 			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
 				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
@@ -679,7 +678,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
 
-		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.EthTxAttempts), "fee", attempt.Fee())
 
 		if err := ec.txStore.SaveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
@@ -705,7 +704,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		return errors.Wrap(err, "GetInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
-		err := ec.handleInProgressAttempt(ctx, a.EthTx.GetLogger(ec.lggr), a.EthTx, a, blockHeight)
+		err := ec.handleInProgressAttempt(ctx, a.Tx.GetLogger(ec.lggr), a.Tx, a, blockHeight)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
@@ -717,7 +716,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID CHAIN_ID) (etxs []*EthTx[ADDR, TX_HASH], err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEthTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID CHAIN_ID) (etxs []*Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientEths, err := ec.txStore.FindEthTxsRequiringResubmissionDueToInsufficientEth(address, chainID, pg.WithParentCtx(ctx))
@@ -777,9 +776,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx EthTx[ADDR, TX_HASH]) (attempt EthTxAttempt[ADDR, TX_HASH], err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) (attempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], err error) {
 	if len(etx.EthTxAttempts) > 0 {
-		etx.EthTxAttempts[0].EthTx = etx
+		etx.EthTxAttempts[0].Tx = etx
 		previousAttempt := etx.EthTxAttempts[0]
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientEth {
@@ -806,8 +805,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt EthTxAttempt[ADDR, TX_HASH]) []interface{} {
-	etx := attempt.EthTx
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) []interface{} {
+	etx := attempt.Tx
 	return []interface{}{
 		"etxID", etx.ID,
 		"txHash", attempt.Hash,
@@ -818,9 +817,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	}
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bumpGas(ctx context.Context, etx EthTx[ADDR, TX_HASH], previousAttempts []EthTxAttempt[ADDR, TX_HASH]) (bumpedAttempt EthTxAttempt[ADDR, TX_HASH], err error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bumpGas(ctx context.Context, etx Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], previousAttempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) (bumpedAttempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], err error) {
 	// TODO: once generics are introduced at the top level struct (EthConfirmer) remove the chain-specific typings
-	priorAttempts := make([]txmgrtypes.PriorAttempt[gas.EvmFee, TX_HASH], len(previousAttempts))
+	priorAttempts := make([]txmgrtypes.PriorAttempt[FEE, TX_HASH], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
 	// way to cast an array of structs to an array of interfaces
 	for i, attempt := range previousAttempts {
@@ -829,7 +828,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 
-	var bumpedFee gas.EvmFee
+	var bumpedFee FEE
 	var bumpedFeeLimit uint32
 	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpTxAttempt(ctx, etx, previousAttempt, priorAttempts, ec.lggr)
 
@@ -848,7 +847,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx[ADDR, TX_HASH], attempt EthTxAttempt[ADDR, TX_HASH], blockHeight int64) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], attempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], blockHeight int64) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
@@ -922,7 +921,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		// fatally error.
 		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
-			"gasPrice", attempt.GasPrice,
+			"fee", attempt.Fee(),
 			"gasLimit", etx.GasLimit,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
@@ -1014,10 +1013,15 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return multierr.Combine(errors...)
 }
 
-func hasReceiptInLongestChain[ADDR types.Hashable, TX_HASH types.Hashable](etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) bool {
+func hasReceiptInLongestChain[
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH],
+	FEE txmgrtypes.Fee,
+](etx Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], head txmgrtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
-			for _, receipt := range attempt.EthReceipts {
+			for _, receipt := range attempt.Receipts {
 				if receipt.BlockHash.String() == head.BlockHash().String() && receipt.BlockNumber == head.BlockNumber() {
 					return true
 				}
@@ -1030,16 +1034,16 @@ func hasReceiptInLongestChain[ADDR types.Hashable, TX_HASH types.Hashable](etx E
 	}
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx EthTx[ADDR, TX_HASH], head txmgrtypes.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], head txmgrtypes.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
-	var receipt EvmReceipt
-	if len(attempt.EthReceipts) > 0 {
-		receipt = attempt.EthReceipts[0]
+	var receipt txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]
+	if len(attempt.Receipts) > 0 {
+		receipt = attempt.Receipts[0]
 	}
 
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()),
@@ -1053,7 +1057,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		"ethTxID", etx.ID,
 		"attemptID", attempt.ID,
 		"receiptID", receipt.ID,
-		"nReceipts", len(attempt.EthReceipts),
+		"nReceipts", len(attempt.Receipts),
 		"id", "eth_confirmer")
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
@@ -1067,7 +1071,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(seqs []SEQ, gasPriceWei uint64, address ADDR, overrideGasLimit uint32) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(seqs []SEQ, fee FEE, address ADDR, overrideGasLimit uint32) error {
 	if len(seqs) == 0 {
 		ec.lggr.Infof("ForceRebroadcast: No sequences provided. Skipping")
 		return nil
@@ -1082,7 +1086,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 		}
 		if etx == nil {
 			ec.lggr.Debugf("ForceRebroadcast: no eth_tx found with nonce %s, will rebroadcast empty transaction", seq)
-			hashStr, err := ec.sendEmptyTransaction(context.TODO(), address, seq, overrideGasLimit, gasPriceWei)
+			hashStr, err := ec.sendEmptyTransaction(context.TODO(), address, seq, overrideGasLimit, fee)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to send empty transaction", "nonce", seq, "err", err)
 				continue
@@ -1093,13 +1097,13 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, _, err := ec.NewCustomTxAttempt(*etx, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, etx.GasLimit, 0x0, ec.lggr)
+			attempt, _, err := ec.NewCustomTxAttempt(*etx, fee, etx.GasLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
 			}
 			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx, ec.lggr); err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v and gas limit %v: %s", etx.ID, *etx.Nonce, etx.GasLimit, err.Error()), "err", err, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v and gas limit %v: %s", etx.ID, *etx.Nonce, etx.GasLimit, err.Error()), "err", err, "fee", attempt.Fee())
 				continue
 			}
 			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: 0x%x", etx.ID, attempt.Hash)
@@ -1108,12 +1112,12 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, seq SEQ, overrideGasLimit uint32, gasPriceWei uint64) (string, error) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, seq SEQ, overrideGasLimit uint32, fee FEE) (string, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.FeeLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, seq, gasLimit, int64(gasPriceWei), fromAddress)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
@@ -1137,8 +1141,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 	for _, data := range receiptsPlus {
 		var taskErr error
 		var output interface{}
-		if data.FailOnRevert && data.Receipt.Status == 0 {
-			taskErr = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
+		if data.FailOnRevert && data.Receipt.GetStatus() == 0 {
+			taskErr = errors.Errorf("transaction %s reverted on-chain", data.Receipt.GetTxHash())
 		} else {
 			output = data.Receipt
 		}
@@ -1154,7 +1158,13 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
-func observeUntilTxConfirmed[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH types.Hashable](chainID CHAIN_ID, attempts []EthTxAttempt[ADDR, TX_HASH], receipts []*evmtypes.Receipt) {
+func observeUntilTxConfirmed[
+	CHAIN_ID txmgrtypes.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH],
+	FEE txmgrtypes.Fee,
+](chainID CHAIN_ID, attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], receipts []txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
 			if attempt.Hash.String() != r.TxHash.String() {
@@ -1165,21 +1175,21 @@ func observeUntilTxConfirmed[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HAS
 			// was created. We want to measure the amount of time taken from when a transaction is created
 			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
 			// were needed to achieve this.
-			duration := time.Since(attempt.EthTx.CreatedAt)
+			duration := time.Since(attempt.Tx.CreatedAt)
 			promTimeUntilTxConfirmed.
 				WithLabelValues(chainID.String()).
 				Observe(float64(duration))
 
 			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
 			// of the receipt minus the block number of the first ever broadcast for this transaction.
-			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt[ADDR, TX_HASH]) int64 {
+			broadcastBefore := utils.MinKey(attempt.Tx.EthTxAttempts, func(attempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) int64 {
 				if attempt.BroadcastBeforeBlockNum != nil {
 					return *attempt.BroadcastBeforeBlockNum
 				}
 				return 0
 			})
 			if broadcastBefore > 0 {
-				blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
+				blocksElapsed := r.BlockNumber - broadcastBefore
 				promBlocksUntilTxConfirmed.
 					WithLabelValues(chainID.String()).
 					Observe(float64(blocksElapsed))
