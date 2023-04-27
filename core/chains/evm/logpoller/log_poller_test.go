@@ -200,8 +200,12 @@ func Test_BackupLogPoller(t *testing.T) {
 			[]common.Address{th.EmitterAddress2}, 0})
 	require.NoError(t, err)
 
-	defer assert.NoError(t, th.LogPoller.UnregisterFilter("filter1", nil))
-	defer assert.NoError(t, th.LogPoller.UnregisterFilter("filter2", nil))
+	defer func() {
+		assert.NoError(t, th.LogPoller.UnregisterFilter("filter1", nil))
+	}()
+	defer func() {
+		assert.NoError(t, th.LogPoller.UnregisterFilter("filter2", nil))
+	}()
 
 	// generate some tx's with logs
 	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
