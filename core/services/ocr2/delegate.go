@@ -590,6 +590,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
+		mc := d.cfg.MercuryCredentials(credName)
+		if mc == nil {
+			return nil, errors.Errorf("Mercury Credentials for '%s' is missing", credName)
+		}
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, d.cfg.MercuryCredentials(credName))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")

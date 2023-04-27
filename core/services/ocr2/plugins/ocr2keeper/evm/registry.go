@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -66,7 +66,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -83,10 +83,8 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 
 	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
-	lggr.Infof("MERCURY_ID=%s", os.Getenv("MERCURY_ID"))
-	lggr.Infof("MERCURY_KEY=%s", os.Getenv("MERCURY_KEY"))
-	lggr.Infof("MERCURY_URL=%s", os.Getenv("MERCURY_URL"))
-
+	lggr.Infof("MERCURY_URL=%s", mc.URL)
+	lggr.Infof("MERCURY_ID=%s", mc.Username)
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
@@ -105,11 +103,9 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
-			// TODO load env vars from config for client ID and Key
-			clientID:  os.Getenv("MERCURY_ID"),
-			clientKey: os.Getenv("MERCURY_KEY"),
-			// TODO need to load up the mercuryURL from an ENV var
-			url:           os.Getenv("MERCURY_URL"),
+			clientID:      mc.Username,
+			clientKey:     mc.Password,
+			url:           mc.URL,
 			abi:           mercuryLookupCompatibleABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
@@ -214,9 +210,9 @@ func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentif
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
+func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx, keys, chResult)
+	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
 
 	select {
 	case rs := <-chResult:
@@ -557,7 +553,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []types.UpkeepKey, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -566,13 +562,14 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chRes
 		return
 	}
 
-	// check for mercuryLookup
-	upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
-	if err != nil {
-		chResult <- checkResult{
-			err: err,
+	if mercuryEnabled {
+		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
+		if err != nil {
+			chResult <- checkResult{
+				err: err,
+			}
+			return
 		}
-		return
 	}
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
