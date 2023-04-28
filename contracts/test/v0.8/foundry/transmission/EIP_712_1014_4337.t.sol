@@ -1,6 +1,6 @@
 pragma solidity ^0.8.15;
 
-import "forge-std/Test.sol";
+import "../BaseTest.t.sol";
 import "../../../../src/v0.8/dev/transmission/4337/SmartContractAccountFactory.sol";
 import "../../../../src/v0.8/dev/transmission/testhelpers/SmartContractAccountHelper.sol";
 import "../../../../src/v0.8/dev/transmission/4337/SCA.sol";
@@ -46,7 +46,7 @@ import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 |                             |
 +----------------------------*/
 
-contract EIP_712_1014_4337 is Test {
+contract EIP_712_1014_4337 is BaseTest {
   event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed, uint256 fee);
 
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
@@ -60,7 +60,8 @@ contract EIP_712_1014_4337 is Test {
   uint256 END_USER_PKEY = uint256(bytes32(hex"99d518dbfea4b4ec301390f7e26d53d711fa1ca0c1a6e4cbed89617d4c578a8e"));
   address END_USER = 0xB6708257D4E1bf0b8C144793fc2Ff3193C737ed1;
 
-  function setUp() public {
+  function setUp() public override {
+    BaseTest.setUp();
     // Fund user accounts;
     vm.deal(END_USER, 10_000 ether);
     vm.deal(LINK_WHALE, 10_000 ether);

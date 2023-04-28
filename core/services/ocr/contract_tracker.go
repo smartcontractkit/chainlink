@@ -71,7 +71,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          chan struct{}
+		chStop          utils.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -334,7 +334,7 @@ func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.Co
 // LatestConfigDetails queries the eth node
 func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	opts := bind.CallOpts{Context: ctx, Pending: false}
@@ -362,7 +362,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	logs, err := t.ethClient.FilterLogs(ctx, q)
@@ -403,7 +403,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	t.logger.Debugw("still waiting for first head, falling back to on-chain lookup")
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	h, err := t.ethClient.HeadByNumber(ctx, nil)

@@ -139,7 +139,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
-		GasLimit:         uint32(gasLimit),
+		FeeLimit:         uint32(gasLimit),
 		Meta:             txMeta,
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
@@ -198,8 +198,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
-	var transmitChecker txmgr.TransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, error) {
+	var transmitChecker txmgr.EvmTransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,

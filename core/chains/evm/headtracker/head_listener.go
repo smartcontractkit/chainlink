@@ -32,7 +32,7 @@ type headListener struct {
 	config           Config
 	ethClient        evmclient.Client
 	logger           logger.Logger
-	chStop           chan struct{}
+	chStop           utils.StopChan
 	chHeaders        chan *evmtypes.Head
 	headSubscription ethereum.Subscription
 	connected        atomic.Bool
@@ -57,7 +57,7 @@ func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, 
 	defer done()
 	defer hl.unsubscribe()
 
-	ctx, cancel := utils.ContextFromChan(hl.chStop)
+	ctx, cancel := hl.chStop.NewCtx()
 	defer cancel()
 
 	for {

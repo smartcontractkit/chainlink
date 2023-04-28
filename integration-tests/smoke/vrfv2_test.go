@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -74,7 +74,7 @@ func TestVRFv2Basic(t *testing.T) {
 		86400,
 		33825,
 		linkEthFeedResponse,
-		ethereum.VRFCoordinatorV2FeeConfig{
+		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: 1,
 			FulfillmentFlatFeeLinkPPMTier2: 1,
 			FulfillmentFlatFeeLinkPPMTier3: 1,

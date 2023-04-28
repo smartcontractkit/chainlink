@@ -66,7 +66,7 @@ type Pool struct {
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop chan struct{}
+	chStop utils.StopChan
 	wg     sync.WaitGroup
 }
 
@@ -342,7 +342,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			go func(n SendOnlyNode) {
 				defer p.wg.Done()
 
-				sendCtx, cancel := ContextWithDefaultTimeoutFromChan(p.chStop)
+				sendCtx, cancel := p.chStop.CtxCancel(ContextWithDefaultTimeout())
 				defer cancel()
 
 				err := NewSendError(n.SendTransaction(sendCtx, tx))

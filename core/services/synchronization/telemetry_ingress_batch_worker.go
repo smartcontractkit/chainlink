@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,7 +22,7 @@ type telemetryIngressBatchWorker struct {
 	telemSendTimeout  time.Duration
 	telemClient       telemPb.TelemClient
 	wgDone            *sync.WaitGroup
-	chDone            chan struct{}
+	chDone            utils.StopChan
 	chTelemetry       chan TelemPayload
 	contractID        string
 	telemType         TelemetryType
@@ -77,7 +78,7 @@ func (tw *telemetryIngressBatchWorker) Start() {
 
 				// Send batched telemetry to the ingress server, log any errors
 				telemBatchReq := tw.BuildTelemBatchReq()
-				ctx, cancel := utils.ContextFromChanWithDeadline(tw.chDone, tw.telemSendTimeout)
+				ctx, cancel := tw.chDone.CtxCancel(context.WithTimeout(context.Background(), tw.telemSendTimeout))
 				_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
 				cancel()
 
