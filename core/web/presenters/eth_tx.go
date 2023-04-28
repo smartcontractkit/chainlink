@@ -41,11 +41,11 @@ func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       &tx.FromAddress,
-		GasLimit:   strconv.FormatUint(uint64(tx.GasLimit), 10),
+		GasLimit:   strconv.FormatUint(uint64(tx.FeeLimit), 10),
 		State:      string(tx.State),
 		To:         &tx.ToAddress,
 		Value:      tx.Value.String(),
-		EVMChainID: tx.EVMChainID,
+		EVMChainID: *utils.NewBig(tx.ChainID),
 	}
 }
 
@@ -57,10 +57,10 @@ func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
 	r.GasPrice = txa.TxFee.Legacy.ToInt().String()
 	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
-	r.EVMChainID = txa.Tx.EVMChainID
+	r.EVMChainID = *utils.NewBig(txa.Tx.ChainID)
 
-	if tx.Nonce != nil {
-		r.Nonce = strconv.FormatUint(uint64(*tx.Nonce), 10)
+	if tx.Sequence != nil {
+		r.Nonce = strconv.FormatUint(uint64(*tx.Sequence), 10)
 	}
 	if txa.BroadcastBeforeBlockNum != nil {
 		r.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)

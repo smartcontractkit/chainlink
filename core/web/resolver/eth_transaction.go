@@ -46,7 +46,7 @@ func (r *EthTransactionResolver) To() string {
 }
 
 func (r *EthTransactionResolver) GasLimit() string {
-	return stringutils.FromInt64(int64(r.tx.GasLimit))
+	return stringutils.FromInt64(int64(r.tx.FeeLimit))
 }
 
 func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
@@ -63,15 +63,15 @@ func (r *EthTransactionResolver) Value() string {
 }
 
 func (r *EthTransactionResolver) EVMChainID() graphql.ID {
-	return graphql.ID(r.tx.EVMChainID.String())
+	return graphql.ID(r.tx.ChainID.String())
 }
 
 func (r *EthTransactionResolver) Nonce() *string {
-	if r.tx.Nonce == nil {
+	if r.tx.Sequence == nil {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.tx.Nonce)
+	value := stringutils.FromInt64(*r.tx.Sequence)
 
 	return &value
 }

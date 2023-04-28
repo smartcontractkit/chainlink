@@ -33,10 +33,11 @@ func batchSendTransactions[
 	R txmgrtypes.ChainReceipt[TX_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
+	ADD any,
 ](
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], SEQ],
-	attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ],
+	attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {

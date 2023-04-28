@@ -48,7 +48,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr 
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, opts...)
+	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.FeeLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
 	}
@@ -61,7 +61,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmT
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmTx, previousAttempt EvmTxAttempt, priorAttempts []EvmPriorAttempt, lggr logger.Logger) (attempt EvmTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.GasLimit, keySpecificMaxGasPriceWei, priorAttempts)
+	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.FeeLimit, keySpecificMaxGasPriceWei, priorAttempts)
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, errors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
@@ -129,11 +129,11 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 	}
 
 	var al types.AccessList
-	if etx.AccessList.Valid {
-		al = etx.AccessList.AccessList
+	if etx.AdditionalParameters.Valid {
+		al = etx.AdditionalParameters.AccessList
 	}
 	d := newDynamicFeeTransaction(
-		uint64(*etx.Nonce),
+		uint64(*etx.Sequence),
 		etx.ToAddress,
 		&etx.Value,
 		gasLimit,
@@ -216,7 +216,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 	}
 
 	tx := newLegacyTransaction(
-		uint64(*etx.Nonce),
+		uint64(*etx.Sequence),
 		etx.ToAddress,
 		etx.Value.ToInt(),
 		gasLimit,

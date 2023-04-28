@@ -39,8 +39,9 @@ type EthResender[
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	R txmgrtypes.ChainReceipt[TX_HASH],
+	ADD any,
 ] struct {
-	txStore             txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, Tx[ADDR, TX_HASH, BLOCK_HASH, R, FEE], TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], SEQ]
+	txStore             txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ]
 	ethClient           evmclient.Client
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID             CHAIN_ID
@@ -83,18 +84,18 @@ func NewEthResender(
 }
 
 // Start is a comment which satisfies the linter
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) Start() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) Start() {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.TxResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) Stop() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) Stop() {
 	er.cancel()
 	<-er.chDone
 }
 
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) runLoop() {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
@@ -115,7 +116,7 @@ func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) runLoop
 	}
 }
 
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) resendUnconfirmed() error {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) resendUnconfirmed() error {
 	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return errors.Wrapf(err, "EthResender failed getting enabled keys for chain %s", er.chainID.String())
@@ -123,9 +124,9 @@ func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) resendU
 	ageThreshold := er.config.TxResendAfterThreshold()
 	maxInFlightTransactions := er.config.MaxInFlightTransactions()
 	olderThan := time.Now().Add(-ageThreshold)
-	var allAttempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]
+	var allAttempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]
 	for _, k := range enabledAddresses {
-		var attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]
+		var attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]
 		attempts, err = er.txStore.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
@@ -169,7 +170,7 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
 }
 
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) logStuckAttempts(attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], fromAddress ADDR) {
+func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) logStuckAttempts(attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], fromAddress ADDR) {
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
@@ -184,8 +185,15 @@ func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]) logStuc
 	}
 }
 
-func findOldestUnconfirmedAttempt[ADDR types.Hashable, TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH], FEE txmgrtypes.Fee](attempts []TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]) (TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE], bool) {
-	var oldestAttempt TxAttempt[ADDR, TX_HASH, BLOCK_HASH, R, FEE]
+func findOldestUnconfirmedAttempt[
+	CHAIN_ID txmgrtypes.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH],
+	FEE txmgrtypes.Fee,
+	ADD any,
+](attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) (TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], bool) {
+	var oldestAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]
 	if len(attempts) < 1 {
 		return oldestAttempt, false
 	}
