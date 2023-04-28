@@ -155,8 +155,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				client.exitOnConfigErr(client.Config.ValidateDB)
-				return nil
+				return client.configExitErr(client.Config.ValidateDB)
 			},
 			Subcommands: []cli.Command{
 				{
@@ -671,7 +670,9 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
-	cli.exitOnConfigErr(cli.Config.Validate)
+	if err := cli.configExitErr(cli.Config.Validate); err != nil {
+		return err
+	}
 	fmt.Println("Valid configuration.")
 	return nil
 }

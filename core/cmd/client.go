@@ -23,6 +23,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -84,7 +85,7 @@ type Client struct {
 	configInitialized bool
 }
 
-func (cli *Client) errorOut(err error) error {
+func (cli *Client) errorOut(err error) cli.ExitCoder {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
@@ -92,14 +93,15 @@ func (cli *Client) errorOut(err error) error {
 }
 
 // exitOnConfigError is helper that executes as validation func and
-// pretty-prints and exits if any errors are produced by the func
-func (cli *Client) exitOnConfigErr(validateFn func() error) {
+// pretty-prints errors
+func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
-		cli.errorOut(errors.New("invalid configuration"))
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
+	return nil
 }
 
 func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
