@@ -427,7 +427,9 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	}
 
 	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
-	if errDomains == nil && reportedDomainsJson != nil && len(reportedDomainsJson) > 0 {
+	if errDomains != nil {
+		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
+	} else if len(reportedDomainsJson) > 0 {
 		var reportedDomains []string
 		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
 		if errJson != nil {
@@ -519,7 +521,6 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, domains 
 	if err != nil {
 		l.logger.Warnw("telem.FunctionsRequest marshal error", "err", err)
 	} else {
-		l.logger.Debugw("Reporting domains", "requestID", formatRequestId(requestId), "domains", domains)
 		l.urlsMonEndpoint.SendLog(bytes)
 	}
 }
