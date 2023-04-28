@@ -7,10 +7,10 @@ package telem;
 message EnhancedEAMercury {
   string data_source=1;
   double dp_benchmark_price=2;
-  double dp_bid =3;
-  double dp_ask =4;
-  int64 current_block_number =5;
-  string current_block_hash =6;
+  double dp_bid=3;
+  double dp_ask=4;
+  int64 current_block_number=5;
+  string current_block_hash=6;
   int64 bridge_task_run_started_timestamp=7;
   int64 bridge_task_run_ended_timestamp=8;
   int64 provider_requested_timestamp=9;
