@@ -281,7 +281,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230424181359-6cb4dc745ec7 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 // indirect
 	github.com/smartcontractkit/wsrpc v0.6.2-0.20230317160629-382a1ac921d8 // indirect

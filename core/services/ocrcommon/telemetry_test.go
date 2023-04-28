@@ -22,8 +22,10 @@ import (
 )
 
 const bridgeResponse = `{
+			"meta":{
+				"adapterName":"data-source-name"
+			},
 			"timestamps":{
-				"dataSource":"data_source_test",
 				"providerDataRequestedUnixMs":92233720368547760,
 				"providerDataReceivedUnixMs":-92233720368547760,
 				"providerDataStreamEstablishedUnixMs":1,
@@ -89,17 +91,17 @@ func TestShouldCollectTelemetry(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	assert.True(t, shouldCollectTelemetry(&j))
+	assert.True(t, shouldCollectEnhancedTelemetry(&j))
 	j.OCROracleSpec.CaptureEATelemetry = false
-	assert.False(t, shouldCollectTelemetry(&j))
+	assert.False(t, shouldCollectEnhancedTelemetry(&j))
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
-	assert.True(t, shouldCollectTelemetry(&j))
+	assert.True(t, shouldCollectEnhancedTelemetry(&j))
 	j.OCR2OracleSpec.CaptureEATelemetry = false
-	assert.False(t, shouldCollectTelemetry(&j))
+	assert.False(t, shouldCollectEnhancedTelemetry(&j))
 
 	j.Type = job.Type(pipeline.VRFJobType)
-	assert.False(t, shouldCollectTelemetry(&j))
+	assert.False(t, shouldCollectEnhancedTelemetry(&j))
 }
 
 func TestGetContract(t *testing.T) {
@@ -141,15 +143,15 @@ func TestGetChainID(t *testing.T) {
 }
 
 func TestParseEATelemetry(t *testing.T) {
-	ea, err := parseEATelemetry([]byte(bridgeResponse))
+	ea, err := ParseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
-	assert.Equal(t, ea.DataSource, "data_source_test")
+	assert.Equal(t, ea.DataSource, "data-source-name")
 	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(92233720368547760))
 	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
 	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
 	assert.Equal(t, ea.ProviderIndicatedTime, int64(-123456789))
 
-	_, err = parseEATelemetry(nil)
+	_, err = ParseEATelemetry(nil)
 	assert.Error(t, err)
 }
 
@@ -227,7 +229,7 @@ func TestSendEATelemetry(t *testing.T) {
 	collectEATelemetry(&ds, &trrs, &fr, observationTimestamp)
 
 	expectedTelemetry := telem.EnhancedEA{
-		DataSource:                    "data_source_test",
+		DataSource:                    "data-source-name",
 		Value:                         123456789.1234567,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
