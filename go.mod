@@ -154,7 +154,6 @@ require (
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
-	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gagliardetto/binary v0.7.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
@@ -356,18 +355,9 @@ replace (
 	// See https://github.com/ugorji/go/issues/279
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
-	// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
-	// See https://github.com/dgrijalva/jwt-go/issues/463
-	// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
-	// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
-	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
-
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	// Some dependency keeps trying to update this to an unstable version
 	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
-
-	// Fix CVE-2022-41717
-	golang.org/x/net => golang.org/x/net v0.4.0
 )
