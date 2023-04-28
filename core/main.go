@@ -16,7 +16,7 @@ import (
 func init() {
 	// check version
 	if static.Version == static.Unset {
-		if !build.ProdBuild() {
+		if !build.IsProd() {
 			return
 		}
 		log.Println(`Version was unset on production build. Chainlink should be built with static.Version set to a valid semver for production builds.`)

@@ -9,14 +9,14 @@ const (
 	Test = "test"
 )
 
-func DevelopmentBuild() bool {
-	return Mode == Dev
+func IsDev() bool {
+	return mode == Dev
 }
 
-func TestBuild() bool {
-	return Mode == Test
+func IsTest() bool {
+	return mode == Test
 }
 
-func ProdBuild() bool {
-	return Mode == Prod
+func IsProd() bool {
+	return mode == Prod
 }

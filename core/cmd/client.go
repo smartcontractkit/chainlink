@@ -374,7 +374,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if !build.ProdBuild() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -438,7 +438,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	var sentryenv string
 	if env := cfg.SentryEnvironment(); env != "" {
 		sentryenv = env
-	} else if build.DevelopmentBuild() {
+	} else if !build.IsProd() {
 		sentryenv = "dev"
 	} else {
 		sentryenv = "prod"

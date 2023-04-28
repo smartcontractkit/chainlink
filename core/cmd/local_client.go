@@ -52,7 +52,7 @@ import (
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
 
-func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -163,7 +163,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				{
 					Name:   "reset",
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.ResetDatabase,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -175,7 +175,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				{
 					Name:   "preparetest",
 					Usage:  "Reset database and load fixtures.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.PrepareTestDatabase,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
@@ -211,7 +211,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				{
 					Name:   "create-migration",
 					Usage:  "Create a new migration.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.CreateMigration,
 					Flags: []cli.Flag{
 						cli.StringFlag{
@@ -273,7 +273,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if build.DevelopmentBuild() {
+	if build.IsDev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 

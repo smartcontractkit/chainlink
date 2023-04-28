@@ -2,4 +2,4 @@
 
 package build
 
-const Mode = Test
+const mode = Test

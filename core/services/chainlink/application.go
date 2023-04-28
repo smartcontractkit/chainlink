@@ -718,7 +718,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if build.ProdBuild() {
+	if build.IsProd() {
 		return 0, errors.New("manual job runs not supported on secure builds")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)

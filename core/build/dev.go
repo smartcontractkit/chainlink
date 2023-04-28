@@ -2,4 +2,4 @@
 
 package build
 
-const Mode = Dev
+const mode = Dev

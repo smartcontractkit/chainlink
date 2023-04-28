@@ -402,7 +402,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if build.DevelopmentBuild() {
+	if !build.IsProd() {
 		return "develop"
 	}
 	return "production"
@@ -1059,23 +1059,23 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
-	return build.DevelopmentBuild() && g.c.Insecure.DevWebServer != nil &&
+	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
 		*g.c.Insecure.DevWebServer
 }
 
 func (g *generalConfig) OCRDevelopmentMode() bool {
 	// OCRDevelopmentMode is allowed in TestBuilds as well
-	return (build.DevelopmentBuild() || build.TestBuild()) && g.c.Insecure.OCRDevelopmentMode != nil &&
+	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
 		*g.c.Insecure.OCRDevelopmentMode
 }
 
 func (g *generalConfig) DisableRateLimiting() bool {
-	return build.DevelopmentBuild() && g.c.Insecure.DisableRateLimiting != nil &&
+	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
 		*g.c.Insecure.DisableRateLimiting
 }
 
 func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.DevelopmentBuild() && g.c.Insecure.InfiniteDepthQueries != nil &&
+	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
 }
 

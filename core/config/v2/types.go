@@ -130,7 +130,7 @@ type DatabaseSecrets struct {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
-	if d.AllowSimplePasswords && build.ProdBuild() {
+	if d.AllowSimplePasswords && build.IsProd() {
 		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
@@ -973,15 +973,15 @@ type Insecure struct {
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
-	if build.DevelopmentBuild() {
+	if build.IsDev() {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = multierr.Append(err, ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	// OCRDevelopmentMode is allowed on test builds.
-	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.TestBuild() {
-		err = multierr.Append(err, ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: fmt.Sprintf("insecure configs are not allowed on secure builds, mode:%s", build.Mode)})
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.IsTest() {
+		err = multierr.Append(err, ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
 		err = multierr.Append(err, ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
