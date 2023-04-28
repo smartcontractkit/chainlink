@@ -705,15 +705,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		functionsServicesConfig := functions.FunctionsServicesConfig{
-			Job:            jb,
-			PipelineRunner: d.pipelineRunner,
-			JobORM:         d.jobORM,
-			OCR2JobConfig:  d.cfg,
-			DB:             d.db,
-			Chain:          chain,
-			ContractID:     spec.ContractID,
-			Lggr:           lggr,
-			MailMon:        d.mailMon,
+			Job:             jb,
+			PipelineRunner:  d.pipelineRunner,
+			JobORM:          d.jobORM,
+			OCR2JobConfig:   d.cfg,
+			DB:              d.db,
+			Chain:           chain,
+			ContractID:      spec.ContractID,
+			Lggr:            lggr,
+			MailMon:         d.mailMon,
+			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
 		}
 
 		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
