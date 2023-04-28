@@ -502,7 +502,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendE
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
-		Value:          value,
+		Value:          *value.ToInt(),
 		FeeLimit:       gasLimit,
 		State:          EthTxUnstarted,
 		ChainID:        chainID,

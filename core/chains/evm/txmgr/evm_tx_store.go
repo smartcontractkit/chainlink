@@ -162,7 +162,7 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 		FromAddress:        ethTx.FromAddress,
 		ToAddress:          ethTx.ToAddress,
 		EncodedPayload:     ethTx.EncodedPayload,
-		Value:              ethTx.Value,
+		Value:              assets.Eth(ethTx.Value),
 		GasLimit:           ethTx.FeeLimit,
 		Error:              ethTx.Error,
 		BroadcastAt:        ethTx.BroadcastAt,
@@ -185,7 +185,7 @@ func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmTx) {
 	evmEthTx.FromAddress = dbEthTx.FromAddress
 	evmEthTx.ToAddress = dbEthTx.ToAddress
 	evmEthTx.EncodedPayload = dbEthTx.EncodedPayload
-	evmEthTx.Value = dbEthTx.Value
+	evmEthTx.Value = *dbEthTx.Value.ToInt()
 	evmEthTx.FeeLimit = dbEthTx.GasLimit
 	evmEthTx.Error = dbEthTx.Error
 	evmEthTx.BroadcastAt = dbEthTx.BroadcastAt

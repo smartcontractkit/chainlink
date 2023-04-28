@@ -120,7 +120,7 @@ func (s *SimulateChecker) Check(
 		"gasPrice":             nil,
 		"maxFeePerGas":         nil,
 		"maxPriorityFeePerGas": nil,
-		"value":                (*hexutil.Big)(tx.Value.ToInt()),
+		"value":                (*hexutil.Big)(&tx.Value),
 		"data":                 hexutil.Bytes(tx.EncodedPayload),
 	}
 	var b hexutil.Bytes

@@ -196,7 +196,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
@@ -204,7 +204,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *assets.Eth
 		GasFeeCap:  gasFeeCap.ToInt(),
 		Gas:        uint64(gasLimit),
 		To:         &to,
-		Value:      value.ToInt(),
+		Value:      value,
 		Data:       data,
 		AccessList: accessList,
 	}
@@ -218,7 +218,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 	tx := newLegacyTransaction(
 		uint64(*etx.Sequence),
 		etx.ToAddress,
-		etx.Value.ToInt(),
+		&etx.Value,
 		gasLimit,
 		gasPrice,
 		etx.EncodedPayload,

@@ -18,7 +18,6 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -144,7 +143,8 @@ type Tx[
 	FromAddress    ADDR
 	ToAddress      ADDR
 	EncodedPayload []byte
-	Value          assets.Eth // TODO
+	// Value          assets.Eth // TODO
+	Value big.Int
 	// FeeLimit on the Tx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
 	FeeLimit uint32
