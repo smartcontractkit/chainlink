@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
@@ -1258,7 +1257,6 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 }
 
 func TestSecrets_Validate(t *testing.T) {
-	t.Setenv(string(v2.EnvDatabaseURL), "")
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1277,6 +1275,11 @@ URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
+		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+	Must have a length of 16-50 characters
+	Must not comprise:
+		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+	
 		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
 	Expected password complexity:
 	Must be at least 16 characters long
@@ -1291,12 +1294,8 @@ BackupURL = "foo-bar?password=asdf"`,
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
-	Must have a length of 16-50 characters
-	Must not comprise:
-		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	
 	- Password.Keystore: empty: must be provided and non-empty`},
+
 		{name: "invalid-urls-allowed",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
