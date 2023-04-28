@@ -155,6 +155,7 @@ type Exp struct {
 }
 
 func (o *ORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
+	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 
 	return q.ExecQ(`WITH r AS

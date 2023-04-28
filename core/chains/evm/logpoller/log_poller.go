@@ -900,11 +900,6 @@ func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
 	return lp.orm.DeleteBlocksBefore(latest.Number-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
-// pruneOldBlocks removes logs which have outlived their retention period
-func (lp *logPoller) PruneExpiredLogs(ctx context.Context) error {
-	return lp.orm.DeleteExpiredLogs(pg.WithParentCtx(ctx))
-}
-
 // Logs returns logs matching topics and address (exactly) in the given block range,
 // which are canonical at time of query.
 func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
