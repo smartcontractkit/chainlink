@@ -1305,8 +1305,9 @@ github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb
 github.com/ryanuber/columnize v2.1.0+incompatible/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
 github.com/sasha-s/go-deadlock v0.3.1 h1:sqv7fDNShgjcaxkO0JNcOAlr8B9+cV5Ey/OB71efZx0=
 github.com/sasha-s/go-deadlock v0.3.1/go.mod h1:F73l+cr82YSh10GxyRI6qZiCgK64VaZjwesgfQ1/iLM=
-github.com/satori/go.uuid v1.2.0 h1:0uYX9dsZ2yD7q2RtLRtPSdGDWzjeM3TbMJP9utgA0ww=
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
+github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b h1:gQZ0qzfKHQIybLANtM3mBXNUtOfsCFXeTsnBqCsx1KM=
+github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
 github.com/schollz/closestmatch v2.1.0+incompatible/go.mod h1:RtP1ddjLong6gTkbtmuhtR2uUrrJOpYzYRvbcPAid+g=
 github.com/scylladb/go-reflectx v1.0.1 h1:b917wZM7189pZdlND9PbIJ6NQxfDPfBvUaQ7cjj1iZQ=
 github.com/scylladb/go-reflectx v1.0.1/go.mod h1:rWnOfDIRWBGN0miMLIcoPt/Dhi2doCMZqwMCJ3KupFc=
@@ -1332,8 +1333,8 @@ github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQ
 github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07 h1:LBjS7F3Xy9jYlgiEMMMU5f+i/v7oZ97MYseyF6aY7ts=
 github.com/smartcontractkit/chainlink-env v0.3.29 h1:hcIw/BeuB0wKiiE3umAUNBZzWkHO24XF3OW9xSrlMbI=
 github.com/smartcontractkit/chainlink-env v0.3.29/go.mod h1:9c0Czq4a6wZKY20BcoAlK29DnejQIiLo/MwKYtSFnHk=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551 h1:ZiZD4BFIW/xVeNSWAWW3XLyU2A0IenR6rzi5natFGl0=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551/go.mod h1:3E3PXaMEl2gADk/DTkbOxsvtpDcJ5ZSyW+vt0TjsEH0=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230428222931-4b2713b17361 h1:4dOUHa348HJ9jjDtmfYYhYXdsw11T9YaoqR6Jbfbsas=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230428222931-4b2713b17361/go.mod h1:oNVi699TNXBZLNojYhgefymjpbTgIRrrk7e7H4Q36IY=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b h1:CJIPaIwlmV5GFSf9Of1Qnpud3gBAeRiT049IiZNzR2g=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 h1:YmYkbdM5YXVV+IWgp+5ctfplMEoXamT0LR0qsnM4eps=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239/go.mod h1:RZzvRfGjMe4lBOT1H/MRfjnNoyUWOiHlOcHx/BZYg+M=

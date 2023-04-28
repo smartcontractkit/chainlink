@@ -3,7 +3,7 @@ package pipeline
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )

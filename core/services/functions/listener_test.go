@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -77,7 +77,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 	jb := job.Job{
 		Type:          job.OffchainReporting2,
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 		PipelineSpec:  &pipeline.Spec{},
 		OCR2OracleSpec: &job.OCR2OracleSpec{
 			PluginConfig: jsonConfig,

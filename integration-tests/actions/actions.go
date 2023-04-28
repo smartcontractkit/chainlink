@@ -10,9 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"

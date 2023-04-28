@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"

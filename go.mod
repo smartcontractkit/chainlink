@@ -57,12 +57,11 @@ require (
 	github.com/pyroscope-io/client v0.7.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.10.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230428222931-4b2713b17361
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239
 	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc
@@ -302,6 +301,7 @@ require (
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
@@ -357,7 +357,4 @@ replace (
 
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-	// Some dependency keeps trying to update this to an unstable version
-	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
 )

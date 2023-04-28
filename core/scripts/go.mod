@@ -11,9 +11,9 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.11.5
 	github.com/google/go-cmp v0.5.9
+	github.com/google/uuid v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc
@@ -131,7 +131,6 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
@@ -276,12 +275,13 @@ require (
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230427160935-7c7a35c7b551 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230428222931-4b2713b17361 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 // indirect
 	github.com/smartcontractkit/wsrpc v0.6.2-0.20230317160629-382a1ac921d8 // indirect
@@ -355,7 +355,4 @@ replace (
 
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-	// Some dependency keeps trying to update this to an unstable version
-	github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
 )
