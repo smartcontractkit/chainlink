@@ -7,10 +7,10 @@ import (
 	"math/big"
 
 	pkgerrors "github.com/pkg/errors"
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

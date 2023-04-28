@@ -10,8 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -20,6 +18,8 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
