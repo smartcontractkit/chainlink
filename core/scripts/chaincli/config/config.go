@@ -71,6 +71,12 @@ type Config struct {
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
 	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
+
+	// Mercury Config
+	MercuryURL      string `mapstructure:"MERCURY_URL"`
+	MercuryID       string `mapstructure:"MERCURY_ID"`
+	MercuryKey      string `mapstructure:"MERCURY_KEY"`
+	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
 }
 
 // New creates a new config

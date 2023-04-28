@@ -83,8 +83,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 
 	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
-	lggr.Infof("MERCURY_URL=%s", mc.URL)
-	lggr.Infof("MERCURY_ID=%s", mc.Username)
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),

@@ -72,7 +72,14 @@ ChainID = '%d'
 [[EVM.Nodes]]
 Name = 'node-0'
 WSURL = '%s'
-HTTPURL = '%s'`
+HTTPURL = '%s'
+`
+	secretTOML = `
+[Mercury.Credentials.cred1]
+URL = '%s'
+Username = '%s'
+Password = '%s'
+`
 )
 
 // baseHandler is the common handler with a common logic
@@ -298,18 +305,20 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create toml file: %s", err)
 	}
+	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.MercuryURL, h.cfg.MercuryID, h.cfg.MercuryKey)
+	secretFile, secretTOMLFileCleanup, err := createTomlFile(secretTOMLStr)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create secret toml file: %s", err)
+	}
 	// Create container with mounted files
 	portStr := fmt.Sprintf("%d", port)
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.ChainlinkDockerImage,
-		Cmd:   []string{"-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
+		Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
 		Env: []string{
 			"CL_CONFIG=" + extraTOML,
 			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
 			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
-			"CL_MERCURY_ID=" + os.Getenv("MERCURY_ID"),
-			"CL_MERCURY_KEY=" + os.Getenv("MERCURY_KEY"),
-			"CL_MERCURY_URL=" + os.Getenv("MERCURY_URL"),
 		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
@@ -330,6 +339,11 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 				Type:   mount.TypeBind,
 				Source: tomlFile,
 				Target: "/run/secrets/01-config.toml",
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: secretFile,
+				Target: "/run/secrets/01-secret.toml",
 			},
 		},
 		PortBindings: nat.PortMap{
@@ -365,6 +379,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	return addr, func(writeLogs bool) {
 		fileCleanup()
 		tomlFileCleanup()
+		secretTOMLFileCleanup()
 
 		if writeLogs {
 			var rdr io.ReadCloser
@@ -560,7 +575,7 @@ func createCredsFiles() (string, string, func(), error) {
 	}, nil
 }
 
-// createTomlFile creates temporaray file with TOML config
+// createTomlFile creates temporary file with TOML config
 func createTomlFile(tomlString string) (string, func(), error) {
 	// Create temporary file with chainlink node TOML config
 	tomlFile, err := os.CreateTemp("", "chainlink-toml-config")
