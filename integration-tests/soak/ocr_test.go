@@ -86,7 +86,7 @@ EIP1559DynamicFees = true
 [GasEstimator.BlockHistory]
 BlockHistorySize = 12
 
-[EVM.HeadTracker]
+[HeadTracker]
 HistoryDepth = 50`
 	// Uncomment below for debugging TOML issues on the node
 	fmt.Println("Using Chainlink TOML\n---------------------")
