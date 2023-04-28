@@ -8,8 +8,10 @@ import (
 )
 
 var (
-	EnvConfig = Env("CL_CONFIG")
-	EnvDev    = Env("CL_DEV")
+	EnvConfig          = Env("CL_CONFIG")
+	EnvDev             = Env("CL_DEV")
+	EnvSolanaPluginCmd = Env("CL_SOLANA_CMD")
+	EnvMedianPluginCmd = Env("CL_MEDIAN_CMD")
 
 	EnvDatabaseAllowSimplePasswords = Env("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	EnvDatabaseURL                  = EnvSecret("CL_DATABASE_URL")
