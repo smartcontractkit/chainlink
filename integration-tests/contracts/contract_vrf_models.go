@@ -53,7 +53,6 @@ type VRFConsumer interface {
 	RequestRandomness(hash [32]byte, fee *big.Int) error
 	CurrentRoundID(ctx context.Context) (*big.Int, error)
 	RandomnessOutput(ctx context.Context) (*big.Int, error)
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 	Fund(ethAmount *big.Float) error
 }
 
