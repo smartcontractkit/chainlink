@@ -286,8 +286,8 @@ type TxAttempt[
 	TxID  int64
 	Tx    Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]
 	TxFee FEE
-	// ChainSpecificGasLimit on the TxAttempt is always the same as the on-chain encoded value for gas limit
-	ChainSpecificGasLimit   uint32
+	// ChainSpecificFeeLimit on the TxAttempt is always the same as the on-chain encoded value for gas limit
+	ChainSpecificFeeLimit   uint32
 	SignedRawTx             []byte
 	Hash                    TX_HASH
 	CreatedAt               time.Time
@@ -319,8 +319,8 @@ func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetBroadcas
 	return a.BroadcastBeforeBlockNum
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChainSpecificGasLimit() uint32 {
-	return a.ChainSpecificGasLimit
+func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChainSpecificFeeLimit() uint32 {
+	return a.ChainSpecificFeeLimit
 }
 
 func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetHash() TX_HASH {

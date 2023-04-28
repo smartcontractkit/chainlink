@@ -113,7 +113,7 @@ func (s *SimulateChecker) Check(
 	callArg := map[string]interface{}{
 		"from": tx.FromAddress,
 		"to":   &tx.ToAddress,
-		"gas":  hexutil.Uint64(a.ChainSpecificGasLimit),
+		"gas":  hexutil.Uint64(a.ChainSpecificFeeLimit),
 		// NOTE: Deliberately do not include gas prices. We never want to fatally error a
 		// transaction just because the wallet has insufficient eth.
 		// Relevant info regarding EIP1559 transactions: https://github.com/ethereum/go-ethereum/pull/23027

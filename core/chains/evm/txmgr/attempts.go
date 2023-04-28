@@ -152,7 +152,7 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 		DynamicFeeCap: fee.FeeCap,
 		DynamicTipCap: fee.TipCap,
 	}
-	attempt.ChainSpecificGasLimit = gasLimit
+	attempt.ChainSpecificFeeLimit = gasLimit
 	attempt.TxType = 2
 	return attempt, nil
 }
@@ -236,7 +236,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 	attempt.TxFee = gas.EvmFee{Legacy: gasPrice}
 	attempt.Hash = hash
 	attempt.TxType = 0
-	attempt.ChainSpecificGasLimit = gasLimit
+	attempt.ChainSpecificFeeLimit = gasLimit
 	attempt.Tx = etx
 
 	return attempt, nil

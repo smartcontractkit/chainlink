@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
@@ -59,7 +60,8 @@ func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
 }
 
 func (r *EthTransactionResolver) Value() string {
-	return r.tx.Value.String()
+	v := assets.Eth(r.tx.Value)
+	return v.String()
 }
 
 func (r *EthTransactionResolver) EVMChainID() graphql.ID {

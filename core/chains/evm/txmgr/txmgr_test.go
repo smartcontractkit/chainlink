@@ -132,7 +132,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
@@ -145,7 +145,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
