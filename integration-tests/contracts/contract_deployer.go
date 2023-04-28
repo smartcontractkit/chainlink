@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -91,6 +92,7 @@ type ContractDeployer interface {
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
+	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -886,5 +888,37 @@ func (e *EthereumContractDeployer) DeployMockAggregatorProxy(aggregatorAddr stri
 		address:             addr,
 		client:              e.client,
 		mockAggregatorProxy: instance.(*mock_aggregator_proxy.MockAggregatorProxy),
+	}, err
+}
+
+// DeployOffChainAggregator deploys the offchain aggregation contract to the EVM chain
+func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
+	linkAddr string,
+	offchainOptions OffchainOptions,
+) (OffchainAggregatorV2, error) {
+	address, _, instance, err := e.client.DeployContract("OffChain Aggregator v2", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		la := common.HexToAddress(linkAddr)
+		return ocr2aggregator.DeployOCR2Aggregator(
+			auth,
+			backend,
+			la,
+			offchainOptions.MinimumAnswer,
+			offchainOptions.MaximumAnswer,
+			offchainOptions.BillingAccessController,
+			offchainOptions.RequesterAccessController,
+			offchainOptions.Decimals,
+			offchainOptions.Description,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregatorV2{
+		client:   e.client,
+		contract: instance.(*ocr2aggregator.OCR2Aggregator),
+		address:  address,
 	}, err
 }
