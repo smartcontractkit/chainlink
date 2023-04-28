@@ -114,7 +114,6 @@ type OffchainAggregatorData struct {
 	LatestRoundData RoundData // Data about the latest round
 }
 
-// TODO: OffchainAggregator and OffchainAggregatorV2 can probably be merged into one interface if we're clever about it
 type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
