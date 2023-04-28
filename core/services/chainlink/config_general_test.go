@@ -89,7 +89,7 @@ func TestValidateDB(t *testing.T) {
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
-		require.ErrorAs(t, err, &ErrInvalidSecrets)
+		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
 
 	t.Run("garbage db url", func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestValidateDB(t *testing.T) {
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
-		require.ErrorAs(t, err, &ErrInvalidSecrets)
+		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
 
 	t.Run("dev url", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestValidateDB(t *testing.T) {
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
-		require.ErrorAs(t, err, &ErrInvalidSecrets)
+		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
 
 }
