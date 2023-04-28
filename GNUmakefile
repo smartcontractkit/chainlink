@@ -47,11 +47,25 @@ install-chainlink: operator-ui ## Install the chainlink binary.
 chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: install-solana
+install-solana: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
+
+.PHONY: install-median
+install-median: ## Build & install the chainlink-median binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
+
+.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+docker-plugins:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend

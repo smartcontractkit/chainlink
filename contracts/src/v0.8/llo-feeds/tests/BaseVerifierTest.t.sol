@@ -68,9 +68,14 @@ contract BaseTest is Test {
 
   Signer[MAX_ORACLES] internal s_signers;
   bytes32[] internal s_offchaintransmitters;
+  bool private s_baseTestInitialized;
 
   function setUp() public virtual {
-    changePrank(ADMIN);
+    // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
+    if (s_baseTestInitialized) return;
+    s_baseTestInitialized = true;
+
+    vm.startPrank(ADMIN);
     vm.mockCall(
       MOCK_VERIFIER_ADDRESS,
       abi.encodeWithSelector(IERC165.supportsInterface.selector, IVerifier.verify.selector),
