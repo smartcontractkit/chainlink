@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"

@@ -41,7 +41,7 @@ import (
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 
