@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -145,7 +145,7 @@ func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
 }
 
 func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
-	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
+	return common.BytesToHash(common.RightPadBytes(id[:], utils.EVMWordByteLen))
 }
 
 // ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)

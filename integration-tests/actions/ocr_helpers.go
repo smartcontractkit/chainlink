@@ -7,12 +7,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -198,7 +197,7 @@ func CreateOCRJobs(
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.NewV4().String()),
+			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
@@ -269,7 +268,7 @@ func CreateOCRJobsWithForwarder(
 		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.NewV4().String()),
+			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,

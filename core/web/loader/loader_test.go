@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/graph-gophers/dataloader"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -259,7 +259,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
 
-		ejID := uuid.NewV4()
+		ejID := uuid.New()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
 
 		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)

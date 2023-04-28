@@ -23,11 +23,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
-	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
@@ -111,7 +111,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
