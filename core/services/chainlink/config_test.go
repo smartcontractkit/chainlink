@@ -1304,7 +1304,6 @@ AllowSimplePasswords = true`,
 			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			//t.Parallel()
 			var s Secrets
 			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &s))
 			assertValidationError(t, &s, tt.exp)
