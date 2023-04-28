@@ -2,4 +2,4 @@
 
 package build
 
-const Mode = Prod
+const mode = Prod
