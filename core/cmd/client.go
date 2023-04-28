@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -92,9 +93,21 @@ type Client struct {
 	configInitialized bool
 }
 
-func (cli *Client) errorOut(err error) error {
+func (cli *Client) errorOut(err error) cli.ExitCoder {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
+	}
+	return nil
+}
+
+// exitOnConfigError is helper that executes as validation func and
+// pretty-prints errors
+func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
+	err := validateFn()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
 }
