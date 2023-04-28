@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -67,7 +67,7 @@ func (r *relayerClient) HealthReport() map[string]error {
 func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	reply, err := r.relayer.NewConfigProvider(ctx, &pb.NewConfigProviderRequest{
 		RelayArgs: &pb.RelayArgs{
-			ExternalJobID: rargs.ExternalJobID.Bytes(),
+			ExternalJobID: rargs.ExternalJobID[:],
 			JobID:         rargs.JobID,
 			ContractID:    rargs.ContractID,
 			New:           rargs.New,
@@ -87,7 +87,7 @@ func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.Relay
 func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
 	reply, err := r.relayer.NewMedianProvider(ctx, &pb.NewMedianProviderRequest{
 		RelayArgs: &pb.RelayArgs{
-			ExternalJobID: rargs.ExternalJobID.Bytes(),
+			ExternalJobID: rargs.ExternalJobID[:],
 			JobID:         rargs.JobID,
 			ContractID:    rargs.ContractID,
 			New:           rargs.New,

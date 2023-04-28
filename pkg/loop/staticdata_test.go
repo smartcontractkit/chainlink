@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -80,7 +80,7 @@ URL = 'https://test.url'
 	pobs  = []median.ParsedAttributedObservation{{Timestamp: 123, Value: big.NewInt(31), JuelsPerFeeCoin: big.NewInt(54), Observer: commontypes.OracleID(99)}}
 	query = []byte{42: 42}
 	rargs = types.RelayArgs{
-		ExternalJobID: uuid.FromStringOrNil("1051429b-aa66-11ed-b0d2-5cff35dfbe67"),
+		ExternalJobID: uuid.MustParse("1051429b-aa66-11ed-b0d2-5cff35dfbe67"),
 		JobID:         123,
 		ContractID:    "testcontract",
 		New:           true,
