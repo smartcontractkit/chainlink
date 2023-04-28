@@ -10,6 +10,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -19,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/google/uuid"
@@ -1211,12 +1214,11 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+	nonce := int64(123)
 
 	t.Run("update successful", func(t *testing.T) {
-		nonce := int64(123)
 		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
 		etx.Sequence = &nonce
-
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
 		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
@@ -1229,7 +1231,6 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 	})
 
 	t.Run("update fails because tx is removed", func(t *testing.T) {
-		nonce := int64(123)
 		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
 		etx.Sequence = &nonce
 
@@ -1240,6 +1241,61 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		err = txStore.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
 		require.ErrorContains(t, err, "eth_tx removed")
+	})
+
+	db = pgtest.NewSqlxDB(t)
+	cfg = newTestChainScopedConfig(t)
+	txStore = cltest.NewTxStore(t, db, cfg)
+	ethKeyStore = cltest.NewKeyStore(t, db, cfg).Eth()
+	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	q = pg.NewQ(db, logger.TestLogger(t), cfg)
+
+	t.Run("update replaces abandoned tx with same hash", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
+		require.Len(t, etx.EthTxAttempts, 1)
+
+		zero := models.MustNewDuration(time.Duration(0))
+		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			id := utils.NewBig(&cltest.FixtureChainID)
+			ccfg := v2.Defaults(id, &v2.Chain{
+				Transactions: v2.Transactions{
+					ReaperInterval:       zero,
+					ReaperThreshold:      zero,
+					ResendAfterThreshold: zero,
+				},
+			})
+			c.EVM[0] = &v2.EVMConfig{
+				ChainID: id,
+				Enabled: ptr(true),
+				Chain:   ccfg,
+			}
+		})
+
+		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
+		ec := evmtest.NewEthClientMockWithDefaultChain(t)
+		txMgr := txmgr.NewTxm(db, ec, evmTxmCfg, nil, nil, logger.TestLogger(t), nil, nil,
+			nil, txStore, nil, nil, nil, nil, q)
+		txMgr.Abandon(fromAddress) // mark transaction as abandoned
+
+		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
+		// it should succeed after removing the abandoned attempt and retrying the insert
+		etx = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
+		require.NotNil(t, etx.Nonce)
+		assert.Equal(t, nonce, *etx.Nonce)
+	})
+
+	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("duplicate tx hash disallowed in tx_eth_attempts", func(t *testing.T) {
+		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
+
+		etx2 := cltest.NewEthTx(t, fromAddress)
+		etx2.State = txmgr.EthTxUnstarted
+		require.NoError(t, txStore.InsertEthTx(&etx2))
+
+		// Should fail due to  idx_eth_tx_attempt_hash constraint
+		assert.ErrorContains(t, txStore.InsertEthTxAttempt(&etx.EthTxAttempts[0]), "idx_eth_tx_attempts_hash")
+		txStore = cltest.NewTxStore(t, db, cfg) // current txStore is poisened now, next test will need fresh one
 	})
 }
 
