@@ -66,7 +66,7 @@ type Pool struct {
 	activeMu   sync.RWMutex
 	activeNode Node
 
-	chStop chan struct{}
+	chStop utils.StopChan
 	wg     sync.WaitGroup
 }
 
@@ -239,7 +239,7 @@ func (p *Pool) Close() error {
 }
 
 func (p *Pool) ChainID() *big.Int {
-	return p.chainID
+	return p.selectNode().ChainID()
 }
 
 func (p *Pool) ChainType() config.ChainType {
@@ -342,7 +342,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			go func(n SendOnlyNode) {
 				defer p.wg.Done()
 
-				sendCtx, cancel := ContextWithDefaultTimeoutFromChan(p.chStop)
+				sendCtx, cancel := p.chStop.CtxCancel(ContextWithDefaultTimeout())
 				defer cancel()
 
 				err := NewSendError(n.SendTransaction(sendCtx, tx))
@@ -380,12 +380,20 @@ func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*typ
 	return p.selectNode().TransactionReceipt(ctx, txHash)
 }
 
+func (p *Pool) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	return p.selectNode().TransactionByHash(ctx, txHash)
+}
+
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return p.selectNode().BlockByNumber(ctx, number)
 }
 
 func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return p.selectNode().BlockByHash(ctx, hash)
+}
+
+func (p *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+	return p.selectNode().BlockNumber(ctx)
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

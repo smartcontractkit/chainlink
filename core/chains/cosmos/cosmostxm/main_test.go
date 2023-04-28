@@ -1,4 +1,4 @@
-package cosmostxm_test
+package cosmostxm
 
 import (
 	"os"

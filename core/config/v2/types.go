@@ -117,6 +117,7 @@ type Secrets struct {
 	Password   Passwords         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
 	Prometheus PrometheusSecrets `toml:",omitempty"`
+	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -1001,4 +1002,33 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	if v := f.OCRDevelopmentMode; v != nil {
 		ins.OCRDevelopmentMode = f.OCRDevelopmentMode
 	}
+}
+
+type MercuryCredentials struct {
+	URL      *models.SecretURL
+	Username *models.Secret
+	Password *models.Secret
+}
+
+type MercurySecrets struct {
+	Credentials map[string]MercuryCredentials
+}
+
+func (m *MercurySecrets) ValidateConfig() (err error) {
+	urls := make(map[string]struct{}, len(m.Credentials))
+	for name, creds := range m.Credentials {
+		if name == "" {
+			err = multierr.Append(err, ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
+		}
+		if creds.URL == nil || creds.URL.URL() == nil {
+			err = multierr.Append(err, ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			continue
+		}
+		s := creds.URL.URL().String()
+		if _, exists := urls[s]; exists {
+			err = multierr.Append(err, NewErrDuplicate("URL", s))
+		}
+		urls[s] = struct{}{}
+	}
+	return err
 }

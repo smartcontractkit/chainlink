@@ -55,7 +55,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 			inputId:        "invalidid",
 			name:           "invalid id",
 			want:           nil,
-			wantStatusCode: http.StatusUnprocessableEntity,
+			wantStatusCode: http.StatusBadRequest,
 		},
 		{
 			inputId:        "234",

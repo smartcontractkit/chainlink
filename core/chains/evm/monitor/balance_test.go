@@ -27,7 +27,7 @@ var nilBigInt *big.Int
 
 func newEthClientMock(t *testing.T) *evmclimocks.Client {
 	mockEth := evmclimocks.NewClient(t)
-	mockEth.On("ChainID").Maybe().Return(big.NewInt(0))
+	mockEth.On("ConfiguredChainID").Maybe().Return(big.NewInt(0))
 	return mockEth
 }
 

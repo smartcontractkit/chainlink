@@ -65,7 +65,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
 	ec := evmclimocks.NewClient(t)
-	ec.On("ChainID").Return(testutils.FixtureChainID)
+	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
@@ -98,7 +98,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		txm:       txm,
 		hb:        hb,
 		cc:        cc,
-		cid:       *ec.ChainID(),
+		cid:       *ec.ConfiguredChainID(),
 	}
 }
 
@@ -304,7 +304,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.GasLimit == uint32(500000) &&
+					newTx.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),

@@ -49,8 +49,6 @@ func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
 }
 
 type scheduler struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
 	pipeline     *Pipeline
 	run          *Run
 	dependencies map[int]uint
@@ -74,11 +72,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 		dependencies[id] = uint(len(task.Inputs()))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	s := &scheduler{
-		ctx:          ctx,
-		cancel:       cancel,
 		pipeline:     p,
 		run:          run,
 		dependencies: dependencies,
@@ -167,6 +161,8 @@ func (s *scheduler) reconstructResults() {
 }
 
 func (s *scheduler) Run() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for s.waiting > 0 {
 		// we don't "for result in resultCh" because it would stall if the
 		// pipeline is completely empty
@@ -212,7 +208,7 @@ func (s *scheduler) Run() {
 		if result.Result.Error != nil && result.Task.Base().FailEarly {
 			// drain remaining jobs (continue the loop until waiting = 0) then exit
 			s.exiting = true
-			s.cancel() // cleanup: terminate pending retries
+			cancel() // cleanup: terminate pending retries
 
 			// mark remaining jobs as cancelled
 			s.markRemaining(ErrCancelled)
@@ -237,7 +233,7 @@ func (s *scheduler) Run() {
 
 			go func(vars Vars) {
 				select {
-				case <-s.ctx.Done():
+				case <-ctx.Done():
 					// report back so the waiting counter gets decreased
 					now := time.Now()
 					s.report(context.Background(), TaskRunResult{
