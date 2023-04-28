@@ -5,8 +5,8 @@ import (
 
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 // NodeResolver resolves the Node type.
@@ -65,16 +65,6 @@ func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	}
 
 	return NewChain(*chain), nil
-}
-
-// CreatedAt resolves the node's created at field.
-func (r *NodeResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.CreatedAt}
-}
-
-// UpdatedAt resolves the node's updated at field.
-func (r *NodeResolver) UpdatedAt() graphql.Time {
-	return graphql.Time{Time: r.node.UpdatedAt}
 }
 
 // -- Node Query --

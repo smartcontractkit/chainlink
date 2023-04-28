@@ -10,9 +10,9 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	gencfg "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func NewTOMLChainScopedConfig(genCfg gencfg.BasicConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
@@ -54,6 +54,10 @@ func (c *ChainScoped) Validate() (err error) {
 		err = multierr.Append(err, ocrerr)
 	}
 	return
+}
+
+func (c *ChainScoped) AutoCreateKey() bool {
+	return *c.cfg.AutoCreateKey
 }
 
 func (c *ChainScoped) BlockBackfillDepth() uint64 {

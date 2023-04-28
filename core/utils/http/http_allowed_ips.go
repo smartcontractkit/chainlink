@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var privateIPBlocks []*net.IPNet

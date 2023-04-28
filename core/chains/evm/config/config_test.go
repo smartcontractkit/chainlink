@@ -11,17 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -303,10 +302,10 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	}
 
 	// Validate built-in
-	for id := range evmconfig.ChainSpecificConfigDefaultSets() {
+	for _, id := range v2.DefaultIDs {
 		id := id
-		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
-			cfg := configWithChains(t, id)
+		t.Run(fmt.Sprintf("chainID-%s", id), func(t *testing.T) {
+			cfg := configWithChains(t, id.Int64())
 			assert.NoError(t, cfg.Validate())
 		})
 	}

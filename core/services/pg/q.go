@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -59,7 +59,7 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 type QOpt func(*Q)
 
 // WithQueryer sets the queryer
-func WithQueryer(queryer Queryer) func(q *Q) {
+func WithQueryer(queryer Queryer) QOpt {
 	return func(q *Q) {
 		if q.Queryer != nil {
 			panic("queryer already set")
@@ -69,14 +69,14 @@ func WithQueryer(queryer Queryer) func(q *Q) {
 }
 
 // WithParentCtx sets or overwrites the parent ctx
-func WithParentCtx(ctx context.Context) func(q *Q) {
+func WithParentCtx(ctx context.Context) QOpt {
 	return func(q *Q) {
 		q.ParentCtx = ctx
 	}
 }
 
 // If the parent has a timeout, just use that instead of DefaultTimeout
-func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
+func WithParentCtxInheritTimeout(ctx context.Context) QOpt {
 	return func(q *Q) {
 		q.ParentCtx = ctx
 		deadline, ok := q.ParentCtx.Deadline()
@@ -88,7 +88,7 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
-func WithLongQueryTimeout() func(q *Q) {
+func WithLongQueryTimeout() QOpt {
 	return func(q *Q) {
 		q.QueryTimeout = longQueryTimeout
 	}
@@ -127,12 +127,20 @@ func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q
 	for _, opt := range qopts {
 		opt(&q)
 	}
-	if q.Queryer == nil {
-		q.Queryer = db
-	}
+
 	q.db = db
 	q.logger = logger.Helper(2)
 	q.config = config
+
+	if q.Queryer == nil {
+		q.Queryer = db
+	}
+	if q.ParentCtx == nil {
+		q.ParentCtx = context.Background()
+	}
+	if q.QueryTimeout <= 0 {
+		q.QueryTimeout = q.config.DatabaseDefaultQueryTimeout()
+	}
 	return
 }
 
@@ -153,15 +161,7 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
-	ctx := q.ParentCtx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	timeout := q.QueryTimeout
-	if q.QueryTimeout <= 0 {
-		timeout = q.config.DatabaseDefaultQueryTimeout()
-	}
-	return context.WithTimeout(ctx, timeout)
+	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
 }
 
 func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {

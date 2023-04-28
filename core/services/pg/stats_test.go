@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // testDbStater implements mocks for the function signatures

@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initFowardersSubCmds(client *Client) []cli.Command {
@@ -32,8 +32,8 @@ func initFowardersSubCmds(client *Client) []cli.Command {
 			Action: client.TrackForwarder,
 			Flags: []cli.Flag{
 				cli.Int64Flag{
-					Name:  "evmChainID, c",
-					Usage: "chain ID, if left empty, ETH_CHAIN_ID will be used",
+					Name:  "evm-chain-id, evmChainID, c",
+					Usage: "chain ID, if left empty, EVM.ChainID will be used",
 				},
 				cli.StringFlag{
 					Name:  "address, a",
@@ -118,7 +118,7 @@ func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
 // TrackForwarder tracks forwarder address in db.
 func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 	addressHex := c.String("address")
-	chainIDStr := c.String("evmChainID")
+	chainIDStr := c.String("evm-chain-id")
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
@@ -131,7 +131,7 @@ func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
 		if !ok {
-			return cli.errorOut(errors.Wrap(err, "invalid evmChainID"))
+			return cli.errorOut(errors.Wrap(err, "invalid evm-chain-id"))
 		}
 	}
 

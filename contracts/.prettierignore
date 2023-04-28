@@ -37,3 +37,6 @@ venv/
 .github/**/*.yml
 .golangci.yml
 .solhint.json
+
+src/v0.8/mocks/FunctionsOracleEventsMock.sol
+src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol

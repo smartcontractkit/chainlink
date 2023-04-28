@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_ETHGetBlockTask(t *testing.T) {
@@ -85,7 +85,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return(nil)
-		ethClient.On("HeadByNumber", mock.AnythingOfType("*context.timerCtx"), (*big.Int)(nil)).Return(&h, nil)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&h, nil)
 
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
@@ -122,7 +122,7 @@ func Test_ETHGetBlockTask(t *testing.T) {
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return(nil)
 		err := errors.New("foo")
-		ethClient.On("HeadByNumber", mock.AnythingOfType("*context.timerCtx"), (*big.Int)(nil)).Return(nil, err)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, err)
 		res, ri := task.Run(testutils.Context(t), lggr, vars, inputs)
 
 		assert.Equal(t, pipeline.Result(pipeline.Result{Value: interface{}(nil), Error: err}), res)

@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -24,8 +24,6 @@ func (disabled) Close() error { return ErrDisabled }
 
 func (disabled) Ready() error { return ErrDisabled }
 
-func (disabled) Healthy() error { return ErrDisabled }
-
 func (disabled) HealthReport() map[string]error {
 	return map[string]error{"disabledLogPoller": ErrDisabled}
 }
@@ -34,7 +32,7 @@ func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrD
 
 func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
@@ -59,6 +57,10 @@ func (disabled) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []co
 }
 
 func (disabled) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
+func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
 

@@ -10,25 +10,25 @@ import (
 	"github.com/graph-gophers/graphql-go/gqltesting"
 	"github.com/stretchr/testify/mock"
 
-	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
-	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
-	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
-	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	pipelineMocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	sessionsMocks "github.com/smartcontractkit/chainlink/core/sessions/mocks"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
-	"github.com/smartcontractkit/chainlink/core/web/schema"
+	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
+	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
+	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	txmgrMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	chainlinkMocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
+	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	keystoreMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	pipelineMocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	sessionsMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 )
 
 type mocks struct {
@@ -38,7 +38,7 @@ type mocks struct {
 	sessionsORM *sessionsMocks.ORM
 	pipelineORM *pipelineMocks.ORM
 	feedsSvc    *feedsMocks.Service
-	cfg         *configMocks.GeneralConfig
+	cfg         *chainlinkMocks.GeneralConfig
 	scfg        *evmConfigMocks.ChainScopedConfig
 	ocr         *keystoreMocks.OCR
 	ocr2        *keystoreMocks.OCR2
@@ -96,7 +96,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		feedsSvc:    feedsMocks.NewService(t),
 		sessionsORM: sessionsMocks.NewORM(t),
 		pipelineORM: pipelineMocks.NewORM(t),
-		cfg:         configMocks.NewGeneralConfig(t),
+		cfg:         chainlinkMocks.NewGeneralConfig(t),
 		scfg:        evmConfigMocks.NewChainScopedConfig(t),
 		ocr:         keystoreMocks.NewOCR(t),
 		ocr2:        keystoreMocks.NewOCR2(t),

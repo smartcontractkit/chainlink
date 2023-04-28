@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type roundRobinKeystore interface {
@@ -29,7 +30,7 @@ type transmitter struct {
 	fromAddresses               []common.Address
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
-	strategy                    txmgr.TxStrategy
+	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
@@ -41,7 +42,7 @@ func NewTransmitter(
 	fromAddresses []common.Address,
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
-	strategy txmgr.TxStrategy,
+	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,

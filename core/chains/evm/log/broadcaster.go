@@ -12,15 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
@@ -220,7 +220,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -789,12 +789,11 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
-func (n *NullBroadcaster) Name() string { return "" }
+func (n *NullBroadcaster) Name() string { return "NullBroadcaster" }
 
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
-func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
 func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}

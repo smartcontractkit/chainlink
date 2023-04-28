@@ -13,15 +13,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
@@ -84,16 +84,12 @@ func (bm *balanceMonitor) Ready() error {
 	return nil
 }
 
-func (bm *balanceMonitor) Healthy() error {
-	return nil
-}
-
 func (bm *balanceMonitor) Name() string {
 	return bm.logger.Name()
 }
 
 func (bm *balanceMonitor) HealthReport() map[string]error {
-	return map[string]error{bm.Name(): bm.Healthy()}
+	return map[string]error{bm.Name(): bm.StartStopOnce.Healthy()}
 }
 
 // OnNewLongestChain checks the balance for each key
@@ -223,7 +219,6 @@ func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 func (*NullBalanceMonitor) Start(context.Context) error                                { return nil }
 func (*NullBalanceMonitor) Close() error                                               { return nil }
 func (*NullBalanceMonitor) Ready() error                                               { return nil }
-func (*NullBalanceMonitor) Healthy() error                                             { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
