@@ -6,6 +6,7 @@ type TelemetryType string
 const (
 	EnhancedEA        TelemetryType = "enhanced-ea"
 	FunctionsRequests TelemetryType = "functions-requests"
+	EnhancedEAMercury TelemetryType = "enhanced-ea-mercury"
 	OCR               TelemetryType = "ocr"
 	OCR2Automation    TelemetryType = "ocr2-automation"
 	OCR2Functions     TelemetryType = "ocr2-functions"
