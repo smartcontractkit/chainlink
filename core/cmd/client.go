@@ -91,6 +91,17 @@ func (cli *Client) errorOut(err error) error {
 	return nil
 }
 
+// exitOnConfigError is helper that executes as validation func and
+// pretty-prints and exits if any errors are produced by the func
+func (cli *Client) exitOnConfigErr(validateFn func() error) {
+	err := validateFn()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		cli.errorOut(errors.New("invalid configuration"))
+	}
+}
+
 func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err

@@ -155,11 +155,8 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				err := client.Config.ValidateDB()
-				if err != nil {
-					prettyPrintConfigErr(err)
-				}
-				return err
+				client.exitOnConfigErr(client.Config.ValidateDB)
+				return nil
 			},
 			Subcommands: []cli.Command{
 				{
@@ -671,19 +668,10 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 
 var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
-func prettyPrintConfigErr(err error) {
-	fmt.Println("Invalid configuration:", err)
-	fmt.Println()
-}
-
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		prettyPrintConfigErr(err)
-		return cli.errorOut(errors.New("invalid configuration"))
-	}
+	cli.exitOnConfigErr(cli.Config.Validate)
 	fmt.Println("Valid configuration.")
 	return nil
 }

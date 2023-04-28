@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-//go:embed testdata/**/*txtar
+//go:embed testdata/**
 var testFs embed.FS
 
 func TestMain(m *testing.M) {
@@ -25,8 +25,10 @@ func TestMain(m *testing.M) {
 
 func TestScripts(t *testing.T) {
 	t.Parallel()
-	testDataRootDir := "testdata"
+	testDataRootDir := "testdata/scripts"
+
 	visitFn := func(path string, d os.DirEntry, err error) error {
+		t.Logf("path %s", path)
 		if err != nil {
 			return err
 		}
