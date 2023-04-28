@@ -8,7 +8,7 @@ OUTPUT_FILE="./output.txt"
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags integration -tags test -p 3 -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt  $1 | tee $OUTPUT_FILE
+go test -ldflags "$GO_LDFLAGS" -tags test,integration -p 3 -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt  $1 | tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output
