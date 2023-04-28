@@ -67,12 +67,12 @@ func TestCronPerformance(t *testing.T) {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
-		bta := client.BridgeTypeAttributes{
+		bta := &client.BridgeTypeAttributes{
 			Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
 			URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 			RequestData: "{}",
 		}
-		err = chainlinkNode.MustCreateBridge(&bta)
+		err = chainlinkNode.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
 		job, err := chainlinkNode.MustCreateJob(&client.CronJobSpec{
