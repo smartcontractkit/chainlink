@@ -126,7 +126,7 @@ type OffchainAggregator interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error)
-	LatestRoundDataUpdatedAt() (*big.Int, error) // x
+	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type OffchainAggregatorV2 interface {
@@ -140,7 +140,6 @@ type OffchainAggregatorV2 interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error)
-	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
 type Oracle interface {

@@ -1523,3 +1523,7 @@ func (e *EthereumOffchainAggregatorV2) GetConfig(ctx context.Context) ([32]byte,
 	}
 	return details.ConfigDigest, details.BlockNumber, err
 }
+
+func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
+	return e.contract.ParseAnswerUpdated(log)
+}
