@@ -24,17 +24,15 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
-
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -53,7 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -630,14 +628,6 @@ observationSource = """
 	ask_multiply [type=multiply times=100000000 index=2];
 
 	ask -> ask_parse -> ask_multiply;
-
-	// Block Num + Hash
-	b1                 [type=ethgetblock];
-	bnum_lookup        [type=lookup key="number" index=3];
-	bhash_lookup       [type=lookup key="hash" index=4];
-
-	b1 -> bnum_lookup;
-	b1 -> bhash_lookup;
 """
 
 [pluginConfig]

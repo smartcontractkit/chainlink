@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -20,21 +20,19 @@ import (
 )
 
 type datasource struct {
-	pipelineRunner pipeline.Runner
-	jb             job.Job
-	spec           pipeline.Spec
-	lggr           logger.Logger
-	runResults     chan<- pipeline.Run
-
-	mu sync.RWMutex
-
+	pipelineRunner     pipeline.Runner
+	jb                 job.Job
+	spec               pipeline.Spec
+	lggr               logger.Logger
+	runResults         chan<- pipeline.Run
 	monitoringEndpoint commontypes.MonitoringEndpoint
+	chain              evm.Chain
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, me}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint, chain evm.Chain) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, me, chain}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
@@ -48,7 +46,16 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	return ds.parse(trrs)
+	obs, err := ds.parse(trrs)
+	if err != nil {
+		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
+	}
+
+	if err := ds.setCurrentBlock(ctx, &obs); err != nil {
+		return relaymercury.Observation{}, fmt.Errorf("Observe failed while fetching current block: %w", err)
+	}
+
+	return obs, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -59,26 +66,22 @@ func toBigInt(val interface{}) (*big.Int, error) {
 	return dec.BigInt(), nil
 }
 
-// parse expects the output of observe to be five values, in the following order:
+// parse expects the output of observe to be three values, in the following order:
 // 1. benchmark price
 // 2. bid
 // 3. ask
-// 4. current block number
-// 5. current block hash
 //
 // returns error on parse errors: if something is the wrong type
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	if len(trrs) != 5 {
-		return obs, fmt.Errorf("invalid number of results, expected: 5, got: %d", len(trrs))
+	if len(trrs) < 3 { // <3 for compat with older specs that had 5 values.
+		return obs, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(trrs))
 	}
 	merr = errors.Join(
 		setBenchmarkPrice(&obs, trrs[0].Result),
 		setBid(&obs, trrs[1].Result),
 		setAsk(&obs, trrs[2].Result),
-		setCurrentBlockNum(&obs, trrs[3].Result),
-		setCurrentBlockHash(&obs, trrs[4].Result),
 	)
 
 	return obs, merr
@@ -117,28 +120,6 @@ func setAsk(obs *relaymercury.Observation, res pipeline.Result) error {
 	return nil
 }
 
-func setCurrentBlockNum(obs *relaymercury.Observation, res pipeline.Result) error {
-	if res.Error != nil {
-		obs.CurrentBlockNum.Err = res.Error
-	} else if val, is := res.Value.(int64); !is {
-		return fmt.Errorf("failed to parse CurrentBlockNum: expected int64, got: %T (%v)", res.Value, res.Value)
-	} else {
-		obs.CurrentBlockNum.Val = val
-	}
-	return nil
-}
-
-func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) error {
-	if res.Error != nil {
-		obs.CurrentBlockHash.Err = res.Error
-	} else if val, is := res.Value.(common.Hash); !is {
-		return fmt.Errorf("failed to parse CurrentBlockHash: expected hash, got: %T (%v)", res.Value, res.Value)
-	} else {
-		obs.CurrentBlockHash.Val = val.Bytes()
-	}
-	return nil
-}
-
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimestamp) (pipeline.Run, pipeline.TaskRunResults, error) {
@@ -166,4 +147,33 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 
 	go collectMercuryEnhancedTelemetry(ds, finaltrrs, &trrs, repts)
 	return run, finaltrrs, err
+}
+
+func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) error {
+	latestHead, err := ds.getCurrentBlock(ctx)
+	if err != nil {
+		obs.CurrentBlockNum.Err = err
+		obs.CurrentBlockHash.Err = err
+		return err
+	}
+	obs.CurrentBlockNum.Val = latestHead.Number
+	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
+	return nil
+}
+
+func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
+	// Use the headtracker's view of the latest block, this is very fast since
+	// it doesn't make any external network requests, and it is the
+	// headtracker's job to ensure it has an up-to-date view of the chain based
+	// on responses from all available RPC nodes
+	latestHead := ds.chain.HeadTracker().LatestChain()
+	if latestHead == nil {
+		logger.Sugared(ds.lggr).AssumptionViolation("HeadTracker unexpectedly returned nil head, falling back to RPC call")
+		var err error
+		latestHead, err = ds.chain.Client().HeadByNumber(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return latestHead, nil
 }
