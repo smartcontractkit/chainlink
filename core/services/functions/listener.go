@@ -3,6 +3,7 @@ package functions
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -20,7 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 var (
@@ -98,14 +103,16 @@ var (
 )
 
 const (
-	ParseResultTaskName string = "parse_result"
-	ParseErrorTaskName  string = "parse_error"
+	ParseResultTaskName  string = "parse_result"
+	ParseErrorTaskName   string = "parse_error"
+	ParseDomainsTaskName string = "parse_domains"
 	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
 	PipelineObservationSource string = `
 		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
 		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
 		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
-		run_computation -> parse_result -> parse_error
+		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
+		run_computation -> parse_result -> parse_error -> parse_domains
 	`
 )
 
@@ -126,26 +133,28 @@ type FunctionsListener struct {
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
+	urlsMonEndpoint   commontypes.MonitoringEndpoint
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:         oracle,
-		oracleHexAddr:  oracle.Address().Hex(),
-		job:            jb,
-		pipelineRunner: runner,
-		jobORM:         jobORM,
-		logBroadcaster: logBroadcaster,
-		mbOracleEvents: utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:         make(chan struct{}),
-		pluginORM:      pluginORM,
-		pluginConfig:   pluginConfig,
-		logger:         lggr,
-		mailMon:        mailMon,
+		oracle:          oracle,
+		oracleHexAddr:   oracle.Address().Hex(),
+		job:             jb,
+		pipelineRunner:  runner,
+		jobORM:          jobORM,
+		logBroadcaster:  logBroadcaster,
+		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:          make(chan struct{}),
+		pluginORM:       pluginORM,
+		pluginConfig:    pluginConfig,
+		logger:          lggr,
+		mailMon:         mailMon,
+		urlsMonEndpoint: urlsMonEndpoint,
 	}
 }
 
@@ -417,6 +426,19 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
+	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
+	if errDomains != nil {
+		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
+	} else if len(reportedDomainsJson) > 0 {
+		var reportedDomains []string
+		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
+		if errJson != nil {
+			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
+		} else if len(reportedDomains) > 0 {
+			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
+		}
+	}
+
 	if len(computationError) != 0 {
 		if len(computationResult) != 0 {
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
@@ -486,5 +508,19 @@ func (l *FunctionsListener) timeoutRequests() {
 				l.logger.Debug("no requests to time out")
 			}
 		}
+	}
+}
+
+func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, domains []string) {
+	r := &telem.FunctionsRequest{
+		RequestId: requestId[:],
+		Domains:   domains,
+	}
+
+	bytes, err := proto.Marshal(r)
+	if err != nil {
+		l.logger.Warnw("telem.FunctionsRequest marshal error", "err", err)
+	} else {
+		l.urlsMonEndpoint.SendLog(bytes)
 	}
 }
