@@ -3,9 +3,11 @@ package decryption_queue
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -15,6 +17,7 @@ type ThresholdDecryptor interface {
 	Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error)
 }
 
+// This interface will be replaced by the Threshold Decryption Plugin when it is ready
 type DecryptionQueuingService interface {
 	GetRequests(requestCountLimit uint32, totalBytesLimit uint32) []DecryptionRequest
 	GetCiphertext(ciphertextId CiphertextId) ([]byte, error)
@@ -27,15 +30,13 @@ type DecryptionRequest struct {
 }
 
 type pendingRequest struct {
-	pendingChan         chan []byte
-	ciphertext          []byte
-	expirationTimestamp uint64
+	chPlaintext chan []byte
+	ciphertext  []byte
 }
 
 type completedRequest struct {
-	plaintext           []byte
-	expirationTimestamp uint64
-	timer               *time.Timer
+	plaintext []byte
+	timer     *time.Timer
 }
 
 type decryptionQueue struct {
@@ -45,7 +46,8 @@ type decryptionQueue struct {
 	pendingRequestQueue             []CiphertextId
 	pendingRequests                 map[string]pendingRequest
 	completedRequests               map[string]completedRequest
-	mu                              sync.Mutex
+	mu                              sync.RWMutex
+	lggr                            logger.Logger
 }
 
 var (
@@ -54,7 +56,7 @@ var (
 	_ job.ServiceCtx           = &decryptionQueue{}
 )
 
-func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, completedRequestsCacheTimeoutMs uint64) *decryptionQueue {
+func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, completedRequestsCacheTimeoutMs uint64, lggr logger.Logger) *decryptionQueue {
 	dq := decryptionQueue{
 		maxQueueLength,
 		maxCiphertextBytes,
@@ -62,7 +64,8 @@ func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, com
 		[]CiphertextId{},
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
-		sync.Mutex{},
+		sync.RWMutex{},
+		lggr,
 	}
 	return &dq
 }
@@ -72,40 +75,42 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 		return nil, errors.New("ciphertext too large")
 	}
 
-	pendingChan, err := dq.getResult(ciphertextId, ciphertext)
+	chPlaintext, err := dq.getResult(ciphertextId, ciphertext)
 	if err != nil {
 		return nil, err
 	}
 
 	select {
-	case pt := <-pendingChan:
-		return pt, nil
+	case pt, ok := <-chPlaintext:
+		if ok {
+			return pt, nil
+		}
+		return nil, fmt.Errorf("pending decryption request for ciphertextId %s was closed without a response", string(ciphertextId))
 	case <-ctx.Done():
 		dq.mu.Lock()
 		defer dq.mu.Unlock()
 		delete(dq.pendingRequests, string(ciphertextId))
-		return nil, errors.New("cancelled")
+		return nil, errors.New("context provided by caller was cancelled")
 	}
 }
 
 func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byte) (chan []byte, error) {
-
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
-	pendingChan := make(chan []byte, 1)
+	chPlaintext := make(chan []byte, 1)
 
 	req, ok := dq.completedRequests[string(ciphertextId)]
 	if ok {
-		pendingChan <- req.plaintext
+		chPlaintext <- req.plaintext
 		req.timer.Stop()
 		delete(dq.completedRequests, string(ciphertextId))
-		return pendingChan, nil
+		return chPlaintext, nil
 	}
 
 	_, isDuplicateId := dq.pendingRequests[string(ciphertextId)]
 	if isDuplicateId {
-		return nil, errors.New("Decrypt ciphertextId must be unique")
+		return nil, errors.New("ciphertextId must be unique")
 	}
 
 	if uint32(len(dq.pendingRequestQueue)) >= dq.maxQueueLength {
@@ -114,12 +119,11 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 	dq.pendingRequestQueue = append(dq.pendingRequestQueue, ciphertextId)
 
 	dq.pendingRequests[string(ciphertextId)] = pendingRequest{
-		pendingChan,
+		chPlaintext,
 		ciphertext,
-		uint64(time.Now().Unix()) + dq.completedRequestsCacheTimeoutMs/1000,
 	}
 
-	return pendingChan, nil
+	return chPlaintext, nil
 }
 
 func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit uint32) []DecryptionRequest {
@@ -148,22 +152,22 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 			pendingRequest.ciphertext,
 		}
 
-		additionalBytes := len(requestId) + len(pendingRequest.ciphertext)
+		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
 
-		if (totalBytes + additionalBytes) > int(totalBytesLimit) {
-			continue
+		if (totalBytes + requestTotalLen) > int(totalBytesLimit) {
+			break
 		}
 
 		requests = append(requests, requestToAdd)
-		totalBytes += additionalBytes
+		totalBytes += requestTotalLen
 	}
 
 	return requests
 }
 
 func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, error) {
-	dq.mu.Lock()
-	defer dq.mu.Unlock()
+	dq.mu.RLock()
+	defer dq.mu.RUnlock()
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if !ok {
@@ -179,9 +183,10 @@ func (dq *decryptionQueue) ResultReady(ciphertextId CiphertextId, plaintext []by
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
-		req.pendingChan <- plaintext
+		req.chPlaintext <- plaintext
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
+		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(time.Duration(dq.completedRequestsCacheTimeoutMs)*time.Millisecond, func() {
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
@@ -190,7 +195,6 @@ func (dq *decryptionQueue) ResultReady(ciphertextId CiphertextId, plaintext []by
 
 		dq.completedRequests[string(ciphertextId)] = completedRequest{
 			plaintext,
-			uint64(time.Now().Unix()) + dq.completedRequestsCacheTimeoutMs/1000,
 			timer,
 		}
 	}
