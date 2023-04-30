@@ -40,14 +40,14 @@ type completedRequest struct {
 }
 
 type decryptionQueue struct {
-	maxQueueLength                  uint32
-	maxCiphertextBytes              uint32
-	completedRequestsCacheTimeoutMs uint64
-	pendingRequestQueue             []CiphertextId
-	pendingRequests                 map[string]pendingRequest
-	completedRequests               map[string]completedRequest
-	mu                              sync.RWMutex
-	lggr                            logger.Logger
+	maxQueueLength                uint32
+	maxCiphertextBytes            uint32
+	completedRequestsCacheTimeout time.Duration
+	pendingRequestQueue           []CiphertextId
+	pendingRequests               map[string]pendingRequest
+	completedRequests             map[string]completedRequest
+	mu                            sync.RWMutex
+	lggr                          logger.Logger
 }
 
 var (
@@ -56,11 +56,11 @@ var (
 	_ job.ServiceCtx           = &decryptionQueue{}
 )
 
-func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, completedRequestsCacheTimeoutMs uint64, lggr logger.Logger) *decryptionQueue {
+func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, completedRequestsCacheTimeoutMs uint64, lggr logger.Logger) ThresholdDecryptor {
 	dq := decryptionQueue{
 		maxQueueLength,
 		maxCiphertextBytes,
-		completedRequestsCacheTimeoutMs,
+		time.Duration(completedRequestsCacheTimeoutMs) * time.Millisecond,
 		[]CiphertextId{},
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
@@ -113,7 +113,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 		return nil, errors.New("ciphertextId must be unique")
 	}
 
-	if uint32(len(dq.pendingRequestQueue)) >= dq.maxQueueLength {
+	if len(dq.pendingRequestQueue) >= int(dq.maxQueueLength) {
 		return nil, errors.New("queue is full")
 	}
 	dq.pendingRequestQueue = append(dq.pendingRequestQueue, ciphertextId)
@@ -132,6 +132,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 
 	requests := make([]DecryptionRequest, 0, requestCountLimit)
 	totalBytes := 0
+	indicesToRemove := make(map[int]struct{})
 
 	for i := 0; len(requests) < int(requestCountLimit); i++ {
 		if i >= len(dq.pendingRequestQueue) {
@@ -142,8 +143,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 		pendingRequest, exists := dq.pendingRequests[string(requestId)]
 
 		if !exists {
-			dq.pendingRequestQueue = append(dq.pendingRequestQueue[:i], dq.pendingRequestQueue[i+1:]...)
-			i--
+			indicesToRemove[i] = struct{}{}
 			continue
 		}
 
@@ -162,7 +162,21 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 		totalBytes += requestTotalLen
 	}
 
+	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
+
 	return requests
+}
+
+func removeMultipleIndices[T any](data []T, indicesToRemove map[int]struct{}) []T {
+	filtered := make([]T, 0, len(data)-len(indicesToRemove))
+
+	for i, v := range data {
+		if _, exists := indicesToRemove[i]; !exists {
+			filtered = append(filtered, v)
+		}
+	}
+
+	return filtered
 }
 
 func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, error) {
@@ -187,7 +201,7 @@ func (dq *decryptionQueue) ResultReady(ciphertextId CiphertextId, plaintext []by
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
-		timer := time.AfterFunc(time.Duration(dq.completedRequestsCacheTimeoutMs)*time.Millisecond, func() {
+		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()
