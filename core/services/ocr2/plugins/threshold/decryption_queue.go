@@ -1,4 +1,4 @@
-package decryption_queue
+package threshold
 
 import (
 	"context"
@@ -19,7 +19,7 @@ type ThresholdDecryptor interface {
 
 // This interface will be replaced by the Threshold Decryption Plugin when it is ready
 type DecryptionQueuingService interface {
-	GetRequests(requestCountLimit uint32, totalBytesLimit uint32) []DecryptionRequest
+	GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest
 	GetCiphertext(ciphertextId CiphertextId) ([]byte, error)
 	ResultReady(ciphertextId CiphertextId, plaintext []byte)
 }
@@ -30,7 +30,7 @@ type DecryptionRequest struct {
 }
 
 type pendingRequest struct {
-	chPlaintext chan []byte
+	chPlaintext chan<- []byte
 	ciphertext  []byte
 }
 
@@ -40,8 +40,8 @@ type completedRequest struct {
 }
 
 type decryptionQueue struct {
-	maxQueueLength                uint32
-	maxCiphertextBytes            uint32
+	maxQueueLength                int
+	maxCiphertextBytes            int
 	completedRequestsCacheTimeout time.Duration
 	pendingRequestQueue           []CiphertextId
 	pendingRequests               map[string]pendingRequest
@@ -56,11 +56,11 @@ var (
 	_ job.ServiceCtx           = &decryptionQueue{}
 )
 
-func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, completedRequestsCacheTimeoutMs uint64, lggr logger.Logger) ThresholdDecryptor {
+func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
 	dq := decryptionQueue{
 		maxQueueLength,
 		maxCiphertextBytes,
-		time.Duration(completedRequestsCacheTimeoutMs) * time.Millisecond,
+		completedRequestsCacheTimeout,
 		[]CiphertextId{},
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
@@ -71,7 +71,7 @@ func NewThresholdDecryptor(maxQueueLength uint32, maxCiphertextBytes uint32, com
 }
 
 func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) > int(dq.maxCiphertextBytes) {
+	if len(ciphertext) > dq.maxCiphertextBytes {
 		return nil, errors.New("ciphertext too large")
 	}
 
@@ -82,6 +82,7 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 
 	select {
 	case pt, ok := <-chPlaintext:
+
 		if ok {
 			return pt, nil
 		}
@@ -94,7 +95,7 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 	}
 }
 
-func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byte) (chan []byte, error) {
+func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byte) (<-chan []byte, error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
@@ -113,7 +114,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 		return nil, errors.New("ciphertextId must be unique")
 	}
 
-	if len(dq.pendingRequestQueue) >= int(dq.maxQueueLength) {
+	if len(dq.pendingRequestQueue) >= dq.maxQueueLength {
 		return nil, errors.New("queue is full")
 	}
 	dq.pendingRequestQueue = append(dq.pendingRequestQueue, ciphertextId)
@@ -126,7 +127,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 	return chPlaintext, nil
 }
 
-func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit uint32) []DecryptionRequest {
+func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
@@ -134,7 +135,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 	totalBytes := 0
 	indicesToRemove := make(map[int]struct{})
 
-	for i := 0; len(requests) < int(requestCountLimit); i++ {
+	for i := 0; len(requests) < requestCountLimit; i++ {
 		if i >= len(dq.pendingRequestQueue) {
 			break
 		}
@@ -154,7 +155,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit uint32, totalBytesLimit
 
 		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
 
-		if (totalBytes + requestTotalLen) > int(totalBytesLimit) {
+		if (totalBytes + requestTotalLen) > totalBytesLimit {
 			break
 		}
 
@@ -198,6 +199,7 @@ func (dq *decryptionQueue) ResultReady(ciphertextId CiphertextId, plaintext []by
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
 		req.chPlaintext <- plaintext
+		close(req.chPlaintext)
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls

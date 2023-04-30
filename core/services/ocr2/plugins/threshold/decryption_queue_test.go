@@ -1,4 +1,4 @@
-package decryption_queue
+package threshold
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,22 +15,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestNewThresholdDecryptor(t *testing.T) {
+func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(5, 1001, 1002, lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(5, 1001, 1002, lggr)
 
-	assert.Equal(t, uint32(5), dq.maxQueueLength)
-	assert.Equal(t, uint32(1001), dq.maxCiphertextBytes)
-	assert.Equal(t, time.Duration(1002)*time.Millisecond, dq.completedRequestsCacheTimeout)
+	assert.Equal(t, 5, dq.maxQueueLength)
+	assert.Equal(t, 1001, dq.maxCiphertextBytes)
+	assert.Equal(t, time.Duration(1002), dq.completedRequestsCacheTimeout)
 }
 
 func Test_decryptionQueue_Decrypt_ResultReadyAfterCallingDecrypt(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(5, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(5, 1000, testutils.WaitTimeout(t), lggr)
 
 	go func() {
 		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
@@ -47,9 +43,7 @@ func Test_decryptionQueue_Decrypt_ResultReadyAfterCallingDecrypt(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(1, 10, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(1, 10, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -60,9 +54,7 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(1, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(1, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -80,9 +72,7 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(1, 1000, 100, lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(1, 1000, 100, lggr)
 
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Duration(100)*time.Millisecond)
 	defer cancel()
@@ -93,9 +83,7 @@ func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(1, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(1, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -116,9 +104,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(3, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -153,9 +139,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 
 func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(3, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -176,9 +160,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 
 func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(3, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
 
 	_, err := dq.GetCiphertext([]byte("8"))
 	assert.Equal(t, err.Error(), "ciphertext not found")
@@ -186,9 +168,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(2, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(2, 1000, testutils.WaitTimeout(t), lggr)
 
 	dq.ResultReady([]byte("9"), []byte("decrypted"))
 
@@ -204,9 +184,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 
 func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(2, 1000, 100, lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(2, 1000, 100, lggr)
 
 	dq.ResultReady([]byte("9"), []byte("decrypted"))
 
@@ -221,9 +199,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(2, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(2, 1000, testutils.WaitTimeout(t), lggr)
 
 	dq.ResultReady([]byte("10"), []byte("decrypted"))
 
@@ -240,11 +216,25 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	assert.Equal(t, err2.Error(), "context provided by caller was cancelled")
 }
 
+func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(5, 1000, testutils.WaitTimeout(t), lggr)
+
+	go func() {
+		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
+		close(dq.pendingRequests[string([]byte("1"))].chPlaintext)
+	}()
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
+	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 1 was closed without a response")
+}
+
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -288,9 +278,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 10, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 10, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -334,9 +322,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -359,17 +345,18 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 
 func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
 		require.Equal(t, err.Error(), "context provided by caller was cancelled")
 	}()
+
+	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
+	cancel() // Context cancellation should expire the pending request
+	waitForPendingRequestToBeRemoved(t, dq, []byte("11"))
 
 	requests := dq.GetRequests(2, 1000)
 	expected := []DecryptionRequest{}
@@ -380,9 +367,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 
 func Test_decryptionQueue_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 1000, uint64(testutils.WaitTimeout(t).Milliseconds()), lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -394,9 +379,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 
 func Test_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	td := NewThresholdDecryptor(4, 1000, 1000, lggr)
-	dq, ok := td.(*decryptionQueue)
-	require.True(t, ok)
+	dq := NewDecryptionQueue(4, 1000, 1000, lggr)
 
 	dq.ResultReady([]byte("14"), []byte("decrypted"))
 
@@ -412,6 +395,15 @@ func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertex
 		dq.mu.Unlock()
 		return exists
 	}, testutils.WaitTimeout(t), "10ms").Should(BeTrue(), "pending request should be added")
+}
+
+func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
+	NewGomegaWithT(t).Eventually(func() bool {
+		dq.mu.Lock()
+		_, exists := dq.pendingRequests[string(ciphertextId)]
+		dq.mu.Unlock()
+		return exists
+	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "pending request should be removed")
 }
 
 func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
