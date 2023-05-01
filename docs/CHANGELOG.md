@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
-  configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`.
+  configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 
 ### Changed
 
