@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.TxState, maxLink string, subID uint64, reqTxHash common.Hash) {
+func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgrtypes.TxState, maxLink string, subID uint64, reqTxHash common.Hash) {
 	_, err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
 		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11

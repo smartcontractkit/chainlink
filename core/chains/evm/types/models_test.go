@@ -108,7 +108,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	attempt := txmgr.EvmTxAttempt{SignedRawTx: rlp.Bytes()}
 
-	gotSignedTx, err := attempt.GetSignedTx()
+	gotSignedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 	require.NoError(t, err)
 	decodedEncoded := new(bytes.Buffer)
 	require.NoError(t, gotSignedTx.EncodeRLP(decodedEncoded))

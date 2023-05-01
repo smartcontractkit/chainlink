@@ -315,7 +315,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Nil(t, attempt.TxFee.DynamicFeeCap)
 		assert.Equal(t, evmcfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
 
-		_, err = attempt.GetSignedTx()
+		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.Receipts, 0)
@@ -338,7 +338,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, laterTransaction.ID, attempt.TxID)
 		assert.Equal(t, evmcfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
 
-		_, err = attempt.GetSignedTx()
+		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.Receipts, 0)
@@ -414,7 +414,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, rnd, attempt.TxFee.DynamicTipCap.ToInt().Int64())
 		assert.Equal(t, rnd+1, attempt.TxFee.DynamicFeeCap.ToInt().Int64())
 
-		_, err = attempt.GetSignedTx()
+		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.Receipts, 0)
@@ -1029,7 +1029,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			// Ensure that the gas price is the same as the original attempt
-			s, e := attempt.GetSignedTx()
+			s, e := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 			require.NoError(t, e)
 			return tx.Nonce() == uint64(firstNonce) && tx.GasPrice().Int64() == s.GasPrice().Int64()
 		}), fromAddress).Return(clienttypes.Successful, errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
@@ -1050,7 +1050,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
-		s, err := attempt.GetSignedTx()
+		s, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 		assert.Equal(t, int64(342), s.GasPrice().Int64())
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)

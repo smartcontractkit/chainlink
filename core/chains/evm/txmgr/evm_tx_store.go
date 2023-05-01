@@ -137,7 +137,7 @@ type DbEthTx struct {
 	BroadcastAt *time.Time
 	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
 	CreatedAt time.Time
-	State     TxState
+	State     txmgrtypes.TxState
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
@@ -1383,7 +1383,7 @@ func (o *evmTxStore) UpdateEthKeyNextNonce(newNextNonce, currentNextNonce evmtyp
 	})
 }
 
-func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, state TxState, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
+func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
 	qq := o.q.WithOpts(qopts...)
 	err = qq.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())

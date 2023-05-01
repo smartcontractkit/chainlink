@@ -502,15 +502,15 @@ func (_m *Application) Stop() error {
 }
 
 // TxmStorageService provides a mock function with given fields:
-func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgr.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce] {
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce] {
 	ret := _m.Called()
 
-	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgr.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce]
-	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgr.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce]); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgr.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce])
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList], types.Nonce])
 		}
 	}
 

@@ -14,7 +14,7 @@ import (
 //
 //go:generate mockery --quiet --name TxStore --output ./mocks/ --case=underscore
 type TxStore[
-	// Represents an account address, in native chain format. TODO: Should implement Hashable
+	// Represents an account address, in native chain format.
 	ADDR types.Hashable,
 	// Represents a chain id to be used for the chain.
 	CHAIN_ID ID,

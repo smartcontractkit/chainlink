@@ -61,7 +61,7 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, expectedState txmgr.TxState) {
+func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, expectedState txmgrtypes.TxState) {
 	etx, err := txStore.FindEthTxWithAttempts(tx.ID)
 	require.NoError(t, err)
 	require.Equal(t, expectedState, etx.State)
@@ -2391,7 +2391,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
 		nonce++
 		attempt := etx.TxAttempts[0]
-		signedTx, err := attempt.GetSignedTx()
+		signedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 
 		// Fail the first time with terminally underpriced.
@@ -2692,7 +2692,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			atx, err := attempt.GetSignedTx()
+			atx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 			require.NoError(t, err)
 			// Keeps gas price and nonce the same
 			return atx.GasPrice().Cmp(tx.GasPrice()) == 0 && atx.Nonce() == tx.Nonce()
@@ -2751,7 +2751,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt3.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			s, err := attempt3.GetSignedTx()
+			s, err := txmgr.GetGethSignedTx(attempt3.SignedRawTx)
 			require.NoError(t, err)
 			return tx.Hash() == s.Hash()
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
