@@ -24,8 +24,6 @@ runs:
           contracts/artifacts/
           contracts/typechain/
         key: ${{ format('contracts-{0}-{1}-{2}', runner.os, inputs.cache-version, inputs.namespace, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', 'contracts/src/**/*.sol')) }}
-        restore-keys: |
-          ${{ format('contracts-{0}-{1}-', runner.os, inputs.cache-version, inputs.namespace) }}
 
     - name: Compile contracts
       shell: bash
