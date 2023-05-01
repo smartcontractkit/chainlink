@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
@@ -98,25 +96,6 @@ contract KeeperRegistryLogicA2_1 is
     return (success, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id, address forwarderAddress) {
-    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-    id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = new AutomationForwarder(target);
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
-    s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = offchainConfig;
-    emit UpkeepRegistered(id, gasLimit, admin);
-    return (id, address(forwarder));
-  }
 
   /**
    * @dev Called through KeeperRegistry main contract
@@ -150,19 +129,6 @@ contract KeeperRegistryLogicA2_1 is
     s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
@@ -389,48 +355,6 @@ contract KeeperRegistryLogicA2_1 is
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
-  }
-
-  /**
-   * @notice creates a new upkeep with the given fields
-   * @param target address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when
-   * performing upkeep
-   * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param paused if this upkeep is paused
-   */
-  function _createUpkeep(
-    uint256 id,
-    address target,
-    uint32 gasLimit,
-    address admin,
-    uint96 balance,
-    bytes memory checkData,
-    bool paused,
-    bytes memory offchainConfig,
-    AutomationForwarder forwarder
-  ) internal {
-    if (s_hotVars.paused) revert RegistryPaused();
-    if (!target.isContract()) revert NotAContract();
-    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
-    s_upkeep[id] = Upkeep({
-      target: target,
-      executeGas: gasLimit,
-      balance: balance,
-      maxValidBlocknumber: UINT32_MAX,
-      lastPerformBlockNumber: 0,
-      amountSpent: 0,
-      paused: paused,
-      forwarder: forwarder
-    });
-    s_upkeepAdmin[id] = admin;
-    s_expectedLinkBalance = s_expectedLinkBalance + balance;
-    s_checkData[id] = checkData;
-    s_upkeepOffchainConfig[id] = offchainConfig;
-    s_upkeepIDs.add(id);
   }
 
   /**

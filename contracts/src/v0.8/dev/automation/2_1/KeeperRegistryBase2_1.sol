@@ -2,6 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../../../automation/ExecutionPrevention.sol";
@@ -43,6 +44,9 @@ struct Upkeep {
  * KeeperRegistry and KeeperRegistryLogic
  */
 abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
+  using Address for address;
+  using EnumerableSet for EnumerableSet.UintSet;
+
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
@@ -281,9 +285,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
   }
 
-  ////////
-  // GETTERS
-  ////////
+  /////////////
+  // GETTERS //
+  /////////////
 
   // TODO - these don't need to be on the Base contract
 
@@ -303,9 +307,51 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     return address(i_fastGasFeed);
   }
 
-  ////////
-  // INTERNAL
-  ////////
+  //////////////
+  // INTERNAL //
+  //////////////
+
+  /**
+   * @notice creates a new upkeep with the given fields
+   * @param target address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when
+   * performing upkeep
+   * @param admin address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   * @param paused if this upkeep is paused
+   */
+  function _createUpkeep(
+    uint256 id,
+    address target,
+    uint32 gasLimit,
+    address admin,
+    uint96 balance,
+    bytes memory checkData,
+    bool paused,
+    bytes memory offchainConfig,
+    AutomationForwarder forwarder
+  ) internal {
+    if (s_hotVars.paused) revert RegistryPaused();
+    if (!target.isContract()) revert NotAContract();
+    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
+    s_upkeep[id] = Upkeep({
+      target: target,
+      executeGas: gasLimit,
+      balance: balance,
+      maxValidBlocknumber: UINT32_MAX,
+      lastPerformBlockNumber: 0,
+      amountSpent: 0,
+      paused: paused,
+      forwarder: forwarder
+    });
+    s_upkeepAdmin[id] = admin;
+    s_expectedLinkBalance = s_expectedLinkBalance + balance;
+    s_checkData[id] = checkData;
+    s_upkeepOffchainConfig[id] = offchainConfig;
+    s_upkeepIDs.add(id);
+  }
 
   // TODO - check which of these need to be on BASE vs which can be assigned to a specific contract
 
