@@ -600,7 +600,11 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 			// Do an eth call to obtain the revert reason.
 			// TODO: fold into chain client + remove conversion
 			// https://smartcontract-it.atlassian.net/browse/BCI-1222
-			fee, err := ToGethFees(attempt.Fee())
+			fee, convertErr := ToGethFees(attempt.Fee())
+			if convertErr != nil {
+				return nil, fmt.Errorf("failed to convert fee to geth types: %w", convertErr)
+			}
+
 			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
 				From:       gethFromAddr,
 				To:         &gethToAddr,
@@ -627,8 +631,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		// This is only recording forwarded tx that were mined and have a status.
 		// Counters are prone to being inaccurate due to re-orgs.
 		if ec.config.UseForwarders() {
-			meta, err := attempt.Tx.GetMeta()
-			if err == nil && meta != nil && meta.FwdrDestAddress != nil {
+			meta, metaErr := attempt.Tx.GetMeta()
+			if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
 				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
 			}
@@ -636,7 +640,11 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 
 		// TODO: remove conversion once chain client is generic
 		// https://smartcontract-it.atlassian.net/browse/BCI-1222
-		r, err := ToGenericReceipt[TX_HASH, R](receipt)
+		r, receiptErr := ToGenericReceipt[TX_HASH, R](receipt)
+		if receiptErr != nil {
+			return nil, fmt.Errorf("failed to convert geth receipt to generic receipt: %w", receiptErr)
+		}
+
 		receipts = append(receipts, r)
 	}
 

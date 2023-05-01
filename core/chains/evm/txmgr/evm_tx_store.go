@@ -156,7 +156,7 @@ type DbEthTx struct {
 }
 
 func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
-	return DbEthTx{
+	tx := DbEthTx{
 		ID:                 ethTx.ID,
 		Nonce:              ethTx.Sequence,
 		FromAddress:        ethTx.FromAddress,
@@ -172,11 +172,15 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 		Subject:            ethTx.Subject,
 		PipelineTaskRunID:  ethTx.PipelineTaskRunID,
 		MinConfirmations:   ethTx.MinConfirmations,
-		EVMChainID:         *utils.NewBig(ethTx.ChainID),
 		AccessList:         ethTx.AdditionalParameters,
 		TransmitChecker:    ethTx.TransmitChecker,
 		InitialBroadcastAt: ethTx.InitialBroadcastAt,
 	}
+
+	if ethTx.ChainID != nil {
+		tx.EVMChainID = *utils.NewBig(ethTx.ChainID)
+	}
+	return tx
 }
 
 func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmTx) {

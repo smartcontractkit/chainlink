@@ -167,7 +167,7 @@ type Tx[
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  cnull.Uint32
 
-	// AdditionalParameters is generic type that supports passing miscellanous parameters
+	// AdditionalParameters is generic type that supports passing miscellaneous parameters
 	// as a part of the TX struct that may be used inside chain-specific components
 	// example: EVM + NullableEIP2930AccessList which only affects on DynamicFee transactions
 	AdditionalParameters ADD
