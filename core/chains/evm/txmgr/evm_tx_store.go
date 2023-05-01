@@ -148,7 +148,7 @@ type DbEthTx struct {
 	EVMChainID        utils.Big
 	// AccessList is optional and only has an effect on DynamicFee transactions
 	// on chains that support it (e.g. Ethereum Mainnet after London hard fork)
-	AccessList NullableEIP2930AccessList
+	AccessList EvmAccessList
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker    *datatypes.JSON

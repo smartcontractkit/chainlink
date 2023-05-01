@@ -372,7 +372,7 @@ func TestHead_MarshalJSON(t *testing.T) {
 	}
 }
 
-func Test_NullableEIP2930AccessList(t *testing.T) {
+func Test_EvmAccessList(t *testing.T) {
 	addr := testutils.NewAddress()
 	storageKey := utils.NewHash()
 	al := gethTypes.AccessList{{Address: addr, StorageKeys: []common.Hash{storageKey}}}
@@ -381,8 +381,8 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	jsonStr := fmt.Sprintf(`[{"address":"0x%s","storageKeys":["%s"]}]`, hex.EncodeToString(addr.Bytes()), storageKey.Hex())
 	require.Equal(t, jsonStr, string(alb))
 
-	nNull := txmgr.NullableEIP2930AccessList{}
-	nValid := txmgr.NullableEIP2930AccessListFrom(al)
+	nNull := txmgr.EvmAccessList{}
+	nValid := txmgr.EvmAccessListFrom(al)
 
 	t.Run("MarshalJSON", func(t *testing.T) {
 		_, err := json.Marshal(nNull)
@@ -395,7 +395,7 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	})
 
 	t.Run("UnmarshalJSON", func(t *testing.T) {
-		var n txmgr.NullableEIP2930AccessList
+		var n txmgr.EvmAccessList
 		err := json.Unmarshal(nil, &n)
 		require.EqualError(t, err, "unexpected end of JSON input")
 
@@ -421,7 +421,7 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	})
 
 	t.Run("Scan", func(t *testing.T) {
-		n := new(txmgr.NullableEIP2930AccessList)
+		n := new(txmgr.EvmAccessList)
 		err := n.Scan(nil)
 		require.NoError(t, err)
 		assert.False(t, n.Valid)

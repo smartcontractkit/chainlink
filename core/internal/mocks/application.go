@@ -502,15 +502,15 @@ func (_m *Application) Stop() error {
 }
 
 // TxmStorageService provides a mock function with given fields:
-func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList] {
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList] {
 	ret := _m.Called()
 
-	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList]
-	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList]); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList])
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList])
 		}
 	}
 

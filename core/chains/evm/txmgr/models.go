@@ -18,22 +18,22 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, NullableEIP2930AccessList]
-	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, NullableEIP2930AccessList]
-	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt, NullableEIP2930AccessList]
-	EvmTxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, NullableEIP2930AccessList]
+	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt, EvmAccessList]
+	EvmTxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmKeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
 	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
 	EvmNonceSyncer            = NonceSyncer[common.Address, common.Hash, common.Hash]
-	EvmTransmitCheckerFactory = TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, NullableEIP2930AccessList]
-	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, NullableEIP2930AccessList]
-	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, NullableEIP2930AccessList]
-	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, NullableEIP2930AccessList]
+	EvmTransmitCheckerFactory = TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, EvmAccessList]
+	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, EvmAccessList]
+	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, EvmAccessList]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
 	EvmNewTx                  = txmgrtypes.NewTx[common.Address, common.Hash]
-	EvmTx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, NullableEIP2930AccessList]
+	EvmTx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, EvmAccessList]
 	EthTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash] // TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
-	EvmTxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, NullableEIP2930AccessList]
+	EvmTxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, EvmAccessList]
 	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
 	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, common.Hash, common.Hash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
@@ -61,15 +61,16 @@ const (
 	TransmitCheckerTypeVRFV2 = txmgrtypes.TransmitCheckerType("vrf_v2")
 )
 
-// NullableEIP2930AccessList is used in the AdditionalParameters field in Tx
-// NullableEIP2930AccessList is optional and only has an effect on DynamicFee transactions
+// EvmAccessList is a nullable EIP2930 access list
+// Used in the AdditionalParameters field in Tx
+// Is optional and only has an effect on DynamicFee transactions
 // on chains that support it (e.g. Ethereum Mainnet after London hard fork)
-type NullableEIP2930AccessList struct {
+type EvmAccessList struct {
 	AccessList types.AccessList
 	Valid      bool
 }
 
-func NullableEIP2930AccessListFrom(al types.AccessList) (n NullableEIP2930AccessList) {
+func EvmAccessListFrom(al types.AccessList) (n EvmAccessList) {
 	if al == nil {
 		return
 	}
@@ -78,27 +79,27 @@ func NullableEIP2930AccessListFrom(al types.AccessList) (n NullableEIP2930Access
 	return
 }
 
-func (e NullableEIP2930AccessList) MarshalJSON() ([]byte, error) {
+func (e EvmAccessList) MarshalJSON() ([]byte, error) {
 	if !e.Valid {
 		return []byte("null"), nil
 	}
 	return json.Marshal(e.AccessList)
 }
 
-func (e *NullableEIP2930AccessList) UnmarshalJSON(input []byte) error {
+func (e *EvmAccessList) UnmarshalJSON(input []byte) error {
 	if bytes.Equal(input, []byte("null")) {
 		e.Valid = false
 		return nil
 	}
 	if err := json.Unmarshal(input, &e.AccessList); err != nil {
-		return errors.Wrap(err, "NullableEIP2930AccessList: couldn't unmarshal JSON")
+		return errors.Wrap(err, "EvmAccessList: couldn't unmarshal JSON")
 	}
 	e.Valid = true
 	return nil
 }
 
 // Value returns this instance serialized for database storage
-func (e NullableEIP2930AccessList) Value() (driver.Value, error) {
+func (e EvmAccessList) Value() (driver.Value, error) {
 	if !e.Valid {
 		return nil, nil
 	}
@@ -106,7 +107,7 @@ func (e NullableEIP2930AccessList) Value() (driver.Value, error) {
 }
 
 // Scan returns the selector from its serialization in the database
-func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
+func (e *EvmAccessList) Scan(value interface{}) error {
 	if value == nil {
 		e.Valid = false
 		return nil
