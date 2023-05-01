@@ -379,7 +379,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 
 func Test_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, 1000, lggr)
+	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
 
 	dq.ReturnResult([]byte("14"), []byte("decrypted"))
 
@@ -390,27 +390,27 @@ func Test_decryptionQueue_Close(t *testing.T) {
 
 func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
-		dq.mu.Lock()
+		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
-		dq.mu.Unlock()
+		dq.mu.RUnlock()
 		return exists
 	}, testutils.WaitTimeout(t), "10ms").Should(BeTrue(), "pending request should be added")
 }
 
 func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
-		dq.mu.Lock()
+		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
-		dq.mu.Unlock()
+		dq.mu.RUnlock()
 		return exists
 	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "pending request should be removed")
 }
 
 func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
-		dq.mu.Lock()
-		_, exists := dq.completedRequests[string([]byte("9"))]
-		dq.mu.Unlock()
+		dq.mu.RLock()
+		_, exists := dq.completedRequests[string(ciphertextId)]
+		dq.mu.RUnlock()
 		return exists
 	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "completed request should be removed")
 }

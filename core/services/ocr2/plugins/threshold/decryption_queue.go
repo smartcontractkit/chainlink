@@ -65,7 +65,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedReq
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
-		lggr,
+		lggr.Named("decryptionQueue"),
 	}
 	return &dq
 }
@@ -82,11 +82,10 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 
 	select {
 	case pt, ok := <-chPlaintext:
-
 		if ok {
 			return pt, nil
 		}
-		return nil, fmt.Errorf("pending decryption request for ciphertextId %s was closed without a response", string(ciphertextId))
+		return nil, fmt.Errorf("pending decryption request for ciphertextId %s was closed without a response", ciphertextId)
 	case <-ctx.Done():
 		dq.mu.Lock()
 		defer dq.mu.Unlock()
@@ -103,6 +102,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 
 	req, ok := dq.completedRequests[string(ciphertextId)]
 	if ok {
+		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", ciphertextId)
 		chPlaintext <- req.plaintext
 		req.timer.Stop()
 		delete(dq.completedRequests, string(ciphertextId))
@@ -123,6 +123,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 		chPlaintext,
 		ciphertext,
 	}
+	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue")
 
 	return chPlaintext, nil
 }
@@ -144,6 +145,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		pendingRequest, exists := dq.pendingRequests[string(requestId)]
 
 		if !exists {
+			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", requestId)
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
@@ -156,6 +158,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
 
 		if (totalBytes + requestTotalLen) > totalBytesLimit {
+			dq.lggr.Debug("totalBytesLimit reached in GetRequests")
 			break
 		}
 
@@ -164,6 +167,8 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 	}
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
+
+	dq.lggr.Debug("returing %d of %d total requests awaiting decryption", requestCountLimit, len(dq.pendingRequestQueue))
 
 	return requests
 }
@@ -198,17 +203,20 @@ func (dq *decryptionQueue) ReturnResult(ciphertextId CiphertextId, plaintext []b
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
+		dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", ciphertextId)
 		req.chPlaintext <- plaintext
 		close(req.chPlaintext)
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
+			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()
 		})
 
+		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", ciphertextId)
 		dq.completedRequests[string(ciphertextId)] = completedRequest{
 			plaintext,
 			timer,
