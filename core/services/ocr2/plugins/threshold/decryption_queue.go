@@ -21,7 +21,7 @@ type ThresholdDecryptor interface {
 type DecryptionQueuingService interface {
 	GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest
 	GetCiphertext(ciphertextId CiphertextId) ([]byte, error)
-	ResultReady(ciphertextId CiphertextId, plaintext []byte)
+	ReturnResult(ciphertextId CiphertextId, plaintext []byte)
 }
 
 type DecryptionRequest struct {
@@ -192,7 +192,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, err
 	return req.ciphertext, nil
 }
 
-func (dq *decryptionQueue) ResultReady(ciphertextId CiphertextId, plaintext []byte) {
+func (dq *decryptionQueue) ReturnResult(ciphertextId CiphertextId, plaintext []byte) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
