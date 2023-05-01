@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewLogger(cfg EnvConfig) (logger.Logger, func()) {
+func NewLogger(cfg EnvConfigurer) (logger.Logger, func()) {
 	lcfg := logger.Config{
 		LogLevel:    cfg.LogLevel(),
 		JsonConsole: cfg.JSONConsole(),

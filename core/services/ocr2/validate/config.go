@@ -13,8 +13,8 @@ import (
 
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
 
-// Config contains OCR2 configurations for a job.
-type Config interface {
+// Configurer abstracts OCR2 configurations for a job.
+type Configurer interface {
 	config.OCR2Config
 	pg.QConfig
 	Dev() bool
@@ -25,7 +25,7 @@ type Config interface {
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
+func ToLocalConfig(config Configurer, spec job.OCR2OracleSpec) types.LocalConfig {
 	var (
 		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
 		ccConfirmations       = spec.ContractConfigConfirmations

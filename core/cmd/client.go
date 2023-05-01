@@ -33,7 +33,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -58,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 var prometheus *ginprom.Prometheus
@@ -222,6 +222,9 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		EventBroadcaster: eventBroadcaster,
 		MailMon:          mailMon,
 	}
+
+	portManager := &chainlink.PluginPortManager{}
+
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
@@ -266,9 +269,10 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
+			envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), portManager.Assign(cmdName))
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
-				plugins.SetEnvConfig(cmd, cfg)
+				plugins.SetEnvConfig(cmd, envConfig)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
 			chains.Solana = chainPluginService
@@ -334,6 +338,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
+		PortManager:              portManager,
 	})
 }
 

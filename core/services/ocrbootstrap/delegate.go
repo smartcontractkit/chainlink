@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -26,15 +25,15 @@ type Delegate struct {
 	db                *sqlx.DB
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	cfg               validate.Config
+	cfg               validate.Configurer
 	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]func() (loop.Relayer, error)
 	isNewlyCreatedJob bool
 }
 
-type Config interface {
-	validate.Config
-	plugins.EnvConfig
+type Configurer interface {
+	validate.Configurer
+	// plugins.EnvConfigurer
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -43,7 +42,7 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg Config,
+	cfg Configurer,
 	relayers map[relay.Network]func() (loop.Relayer, error),
 ) *Delegate {
 	return &Delegate{

@@ -28,9 +28,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type MedianConfig interface {
+type MedianConfigurer interface {
 	JobPipelineMaxSuccessfulRuns() uint64
-	plugins.EnvConfig
+	plugins.EnvConfigurer
+}
+
+type MedianConfig struct {
+	jobPipelineMaxSuccessfulRuns uint64
+	plugins.EnvConfigurer
+}
+
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginEnv plugins.EnvConfigurer) *MedianConfig {
+	return &MedianConfig{
+		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
+		EnvConfigurer:                pluginEnv,
+	}
+}
+
+func (m *MedianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return m.jobPipelineMaxSuccessfulRuns
 }
 
 func NewMedianServices(ctx context.Context,
@@ -41,7 +57,7 @@ func NewMedianServices(ctx context.Context,
 	runResults chan pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.OracleArgs,
-	cfg MedianConfig,
+	cfg MedianConfigurer,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {
@@ -168,7 +184,7 @@ type medianService struct {
 	utils.StartStopOnce
 
 	lggr    logger.Logger
-	cfg     plugins.EnvConfig
+	cfg     plugins.EnvConfigurer
 	cmdName string
 
 	client *plugin.Client
@@ -176,7 +192,7 @@ type medianService struct {
 	loop.PluginMedian
 }
 
-func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.EnvConfig) *medianService {
+func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.EnvConfigurer) *medianService {
 	return &medianService{cmdName: cmdName, lggr: lggr.Named("PluginMedianService"), cfg: cfg}
 }
 

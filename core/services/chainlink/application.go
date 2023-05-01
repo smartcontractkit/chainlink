@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -77,6 +78,8 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
+
+	GetPluginConfig() map[string]plugins.EnvConfigurer
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -137,6 +140,8 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 
+	pluginConfigs map[string]plugins.EnvConfigurer
+
 	started     bool
 	startStopMu sync.Mutex
 }
@@ -156,6 +161,24 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
+	PortManager              *PluginPortManager
+}
+
+type PluginPortManager struct {
+	mu        sync.Mutex
+	portMap   map[string]int
+	pluginCnt int
+}
+
+const pluginDefaultPort = 2112
+
+func (m *PluginPortManager) Assign(pluginName string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p := pluginDefaultPort + m.pluginCnt
+	m.pluginCnt += 1
+	m.portMap[pluginName] = p
+	return p
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -201,6 +224,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
+	pluginConfigs := make(map[string]plugins.EnvConfigurer)
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
 		srvcs = append(srvcs, auditLogger)
@@ -403,6 +427,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
 			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
+		envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), opts.PortManager.Assign(job.OffchainReporting.String()))
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, envConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -411,7 +437,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
@@ -489,7 +515,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 
-		sqlxDB: opts.SqlxDB,
+		pluginConfigs: pluginConfigs,
+		sqlxDB:        opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -572,6 +599,10 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 		return app.stop()
 	}
 	return nil
+}
+
+func (app *ChainlinkApplication) GetPluginConfig() map[string]plugins.EnvConfigurer {
+	return app.pluginConfigs
 }
 
 // Stop allows the application to exit by halting schedules, closing
