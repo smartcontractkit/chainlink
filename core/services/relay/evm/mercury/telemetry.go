@@ -7,6 +7,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
 
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -15,12 +16,12 @@ import (
 
 // collectMercuryEnhancedTelemetry checks if enhanced telemetry should be collected, fetches the information needed and
 // sends the telemetry
-func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunResults, trrs *pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
+func collectMercuryEnhancedTelemetry(ds *datasource, trrs *pipeline.TaskRunResults, obs relaymercury.Observation, repts ocrtypes.ReportTimestamp) {
 	if !shouldCollectEnhancedTelemetryMercury(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
-	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash := getFinalValues(ds, &finalTrrs)
+	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash := getFinalValues(obs)
 
 	for _, trr := range *trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
@@ -106,7 +107,7 @@ func shouldCollectEnhancedTelemetryMercury(jb *job.Job) bool {
 func getPricesFromResults(ds *datasource, startTask pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var ok bool
-	//We rely on task results to be sorted in the correct order
+	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
 		ds.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", ds.jb.ID)
@@ -146,20 +147,19 @@ func getPricesFromResults(ds *datasource, startTask pipeline.TaskRunResult, allT
 	return benchmarkPrice, bidPrice, askPrice
 }
 
-// getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64, int64, int64, []byte) {
+// getFinalValues returns the values from an observation.
+func getFinalValues(obs relaymercury.Observation) (int64, int64, int64, int64, []byte) {
 	var benchmarkPrice, bid, ask int64
-	parse, _ := ds.parse(*trrs)
 
-	if parse.BenchmarkPrice.Val != nil {
-		benchmarkPrice = parse.BenchmarkPrice.Val.Int64()
+	if obs.BenchmarkPrice.Val != nil {
+		benchmarkPrice = obs.BenchmarkPrice.Val.Int64()
 	}
-	if parse.Bid.Val != nil {
-		bid = parse.Bid.Val.Int64()
+	if obs.Bid.Val != nil {
+		bid = obs.Bid.Val.Int64()
 	}
-	if parse.Ask.Val != nil {
-		ask = parse.Ask.Val.Int64()
+	if obs.Ask.Val != nil {
+		ask = obs.Ask.Val.Int64()
 	}
 
-	return benchmarkPrice, bid, ask, parse.CurrentBlockNum.Val, parse.CurrentBlockHash.Val
+	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val
 }

@@ -55,6 +55,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while fetching current block: %w", err)
 	}
 
+	go collectMercuryEnhancedTelemetry(ds, &trrs, obs, repts)
+
 	return obs, nil
 }
 
@@ -73,15 +75,23 @@ func toBigInt(val interface{}) (*big.Int, error) {
 //
 // returns error on parse errors: if something is the wrong type
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		// only return terminal trrs from executeRun
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	if len(trrs) < 3 { // <3 for compat with older specs that had 5 values.
-		return obs, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(trrs))
+	if len(finaltrrs) < 3 { // <3 for compat with older specs that had 5 values.
+		return obs, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(finaltrrs))
 	}
 	merr = errors.Join(
-		setBenchmarkPrice(&obs, trrs[0].Result),
-		setBid(&obs, trrs[1].Result),
-		setAsk(&obs, trrs[2].Result),
+		setBenchmarkPrice(&obs, finaltrrs[0].Result),
+		setBid(&obs, finaltrrs[1].Result),
+		setAsk(&obs, finaltrrs[2].Result),
 	)
 
 	return obs, merr
@@ -145,8 +155,7 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 		}
 	}
 
-	go collectMercuryEnhancedTelemetry(ds, finaltrrs, &trrs, repts)
-	return run, finaltrrs, err
+	return run, trrs, err
 }
 
 func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) error {

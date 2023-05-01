@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"math/big"
 	"sync"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -104,18 +106,23 @@ var trrs = pipeline.TaskRunResults{
 		},
 	},
 }
+var obs = relaymercury.Observation{
+	BenchmarkPrice:   relaymercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
+	Bid:              relaymercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
+	Ask:              relaymercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
+	CurrentBlockNum:  relaymercury.ObsResult[int64]{Val: 123456789},
+	CurrentBlockHash: relaymercury.ObsResult[[]byte]{Val: common.HexToHash("0x123321").Bytes()},
+}
 
 func TestGetFinalValues(t *testing.T) {
-	ds := datasource{}
-
-	benchmarkPrice, bid, ask, blockNr, blockHash := getFinalValues(&ds, &finalTrrs)
+	benchmarkPrice, bid, ask, blockNr, blockHash := getFinalValues(obs)
 	require.Equal(t, benchmarkPrice, int64(111111))
 	require.Equal(t, bid, int64(222222))
 	require.Equal(t, ask, int64(333333))
 	require.Equal(t, blockNr, int64(123456789))
 	require.Equal(t, blockHash, common.HexToHash("0x123321").Bytes())
 
-	benchmarkPrice, bid, ask, blockNr, blockHash = getFinalValues(&ds, &pipeline.TaskRunResults{})
+	benchmarkPrice, bid, ask, blockNr, blockHash = getFinalValues(relaymercury.Observation{})
 	require.Equal(t, benchmarkPrice, int64(0))
 	require.Equal(t, bid, int64(0))
 	require.Equal(t, ask, int64(0))
@@ -247,7 +254,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	}
 
 	wg.Add(1)
-	collectMercuryEnhancedTelemetry(&ds, finalTrrs, &trrs, ocrtypes.ReportTimestamp{
+	collectMercuryEnhancedTelemetry(&ds, &trrs, obs, ocrtypes.ReportTimestamp{
 		ConfigDigest: ocrtypes.ConfigDigest{2},
 		Epoch:        11,
 		Round:        22,
@@ -282,7 +289,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 
 	trrs[0].Result.Value = ""
 	wg.Add(1)
-	collectMercuryEnhancedTelemetry(&ds, finalTrrs, &trrs, ocrtypes.ReportTimestamp{
+	collectMercuryEnhancedTelemetry(&ds, &trrs, obs, ocrtypes.ReportTimestamp{
 		ConfigDigest: ocrtypes.ConfigDigest{2},
 		Epoch:        11,
 		Round:        22,
@@ -292,7 +299,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	require.Contains(t, logs.All()[0].Message, "cannot parse EA telemetry")
 
 	trrs[0].Result.Value = nil
-	collectMercuryEnhancedTelemetry(&ds, finalTrrs, &trrs, ocrtypes.ReportTimestamp{
+	collectMercuryEnhancedTelemetry(&ds, &trrs, obs, ocrtypes.ReportTimestamp{
 		ConfigDigest: ocrtypes.ConfigDigest{2},
 		Epoch:        11,
 		Round:        22,
