@@ -1635,7 +1635,6 @@ func newOutputsServedLog(
 		ReasonableGasPrice: 0,
 		// EpochAndRound:     big.NewInt(1),
 		// ConfigDigest:      crypto.Keccak256Hash([]byte("hello world")),
-		Transmitter: newAddress(t),
 	}
 	var unindexed abi.Arguments
 	for _, a := range vrfCoordinatorABI.Events[outputsServedEvent].Inputs {
@@ -1643,7 +1642,7 @@ func newOutputsServedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.RecentBlockHeight, e.Transmitter, e.JuelsPerFeeCoin, e.ReasonableGasPrice, e.OutputsServed)
+	nonIndexedData, err := unindexed.Pack(e.RecentBlockHeight, e.JuelsPerFeeCoin, e.ReasonableGasPrice, e.OutputsServed)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorABI.Events[outputsServedEvent].ID
