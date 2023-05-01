@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// TODO - I'm not sure we really need this anymore - might be nice to consolodate all the structs into Base
+
 /**
  * @notice OnchainConfig of the registry
  * @dev only used in params and return values
@@ -160,6 +162,7 @@ interface AutomationRegistryBaseInterface {
  * but we want them to be easily queried off-chain. Solidity will not compile
  * if we actually inherit from this interface, so we document it here.
  */
+//  TODO - do we need this?
 interface AutomationRegistryInterface is AutomationRegistryBaseInterface {
   function checkUpkeep(uint256 upkeepId)
     external
