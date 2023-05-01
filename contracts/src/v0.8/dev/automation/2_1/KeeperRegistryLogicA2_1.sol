@@ -102,80 +102,14 @@ contract KeeperRegistryLogicA2_1 is
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setPayees(address[] calldata payees) external onlyOwner {
-    if (s_transmittersList.length != payees.length) revert ParameterLengthError();
-    for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      address transmitter = s_transmittersList[i];
-      address oldPayee = s_transmitterPayees[transmitter];
-      address newPayee = payees[i];
-      if (
-        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
-      ) revert InvalidPayee();
-      if (newPayee != IGNORE_ADDRESS) {
-        s_transmitterPayees[transmitter] = newPayee;
-      }
-    }
-    emit PayeesUpdated(s_transmittersList, payees);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function pause() external onlyOwner {
-    s_hotVars.paused = true;
-
-    emit Paused(msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function unpause() external onlyOwner {
-    s_hotVars.paused = false;
-
-    emit Unpaused(msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
-    s_peerRegistryMigrationPermission[peer] = permission;
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function registerUpkeep(
     address target,
     uint32 gasLimit,
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
-  ) external returns (uint256 id, address forwarder) {
+  ) external returns (uint256 id, address forwarderAddress) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
     AutomationForwarder forwarder = i_forwarderFactory.deploy(target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
@@ -475,7 +409,7 @@ contract KeeperRegistryLogicA2_1 is
     uint96 balance,
     bytes memory checkData,
     bool paused,
-    bytes memory offchainConfig, // TODO
+    bytes memory offchainConfig,
     AutomationForwarder forwarder
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
@@ -496,6 +430,7 @@ contract KeeperRegistryLogicA2_1 is
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
+    s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
   }
 
