@@ -38,7 +38,7 @@ type TxStore[
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (count uint32, err error)
-	CreateEthTransaction(newTx NEWTX, chainID CHAIN_ID, qopts ...pg.QOpt) (tx Transaction, err error)
+	CreateEthTransaction(newTx NEWTX, chainID CHAIN_ID, qopts ...pg.QOpt) (tx TX, err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt TXATTEMPT) error
 	EthTransactions(offset, limit int) ([]TX, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]TX, int, error)

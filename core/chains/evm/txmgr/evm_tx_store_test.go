@@ -1472,7 +1472,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
-		tx, err := txStore.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txStore.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -1480,7 +1480,6 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		}, ethClient.ConfiguredChainID())
-		etx := tx.(txmgr.EvmTx)
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))

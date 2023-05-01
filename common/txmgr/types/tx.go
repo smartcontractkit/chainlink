@@ -41,12 +41,6 @@ const (
 	TxAttemptBroadcast       = TxAttemptState("broadcast")
 )
 
-// Transaction is the type that callers get back, when they create a Transaction using the Txm.
-// TODO: Remove this with the EthTx type, once that is extracted out to this namespace.
-type Transaction interface {
-	GetID() string
-}
-
 type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
@@ -174,7 +168,6 @@ type Tx[
 	FEE Fee,
 	ADD any,
 ] struct {
-	Transaction
 	ID             int64
 	Sequence       *int64
 	FromAddress    ADDR
@@ -220,12 +213,12 @@ func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetError() error {
 	return nil
 }
 
-// GetID allows EthTx to be used as jsonapi.MarshalIdentifier
+// GetID allows Tx to be used as jsonapi.MarshalIdentifier
 func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetID() string {
 	return fmt.Sprintf("%d", e.ID)
 }
 
-// GetMeta returns an EthTx's meta in struct form, unmarshalling it from JSON first.
+// GetMeta returns an Tx's meta in struct form, unmarshalling it from JSON first.
 func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetMeta() (*TxMeta[ADDR, TX_HASH], error) {
 	if e.Meta == nil {
 		return nil, nil
@@ -299,7 +292,7 @@ func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetLogger(lgr logg
 	return lgr
 }
 
-// GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
+// GetChecker returns an Tx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
 func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {

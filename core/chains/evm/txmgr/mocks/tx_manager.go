@@ -40,7 +40,7 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) Clo
 }
 
 // CreateEthTransaction provides a mock function with given fields: newTx, qopts
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) CreateEthTransaction(newTx types.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Transaction, error) {
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) CreateEthTransaction(newTx types.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -50,17 +50,15 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) Cre
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 types.Transaction
+	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.NewTx[ADDR, TX_HASH], ...pg.QOpt) (types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.NewTx[ADDR, TX_HASH], ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], error)); ok {
 		return rf(newTx, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(types.NewTx[ADDR, TX_HASH], ...pg.QOpt) types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(types.NewTx[ADDR, TX_HASH], ...pg.QOpt) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]); ok {
 		r0 = rf(newTx, qopts...)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Transaction)
-		}
+		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD])
 	}
 
 	if rf, ok := ret.Get(1).(func(types.NewTx[ADDR, TX_HASH], ...pg.QOpt) error); ok {

@@ -119,7 +119,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -128,8 +128,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmTx)
-
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
@@ -236,7 +234,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -246,7 +244,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
-		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -277,7 +274,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -288,7 +285,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
-		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -316,7 +312,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
@@ -327,7 +323,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		etx := tx.(txmgr.EvmTx)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
@@ -409,7 +404,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -419,7 +414,6 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		}, pg.WithParentCtx(context.Background()))
 		assert.NoError(t, err)
 
-		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
@@ -433,7 +427,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -442,7 +436,6 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
@@ -456,7 +449,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		tx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -465,7 +458,6 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-		etx := tx.(txmgr.EvmTx)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 }

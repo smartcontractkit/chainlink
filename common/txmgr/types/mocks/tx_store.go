@@ -111,7 +111,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, 
 }
 
 // CreateEthTransaction provides a mock function with given fields: newTx, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, SEQ]) CreateEthTransaction(newTx NEWTX, chainID CHAIN_ID, qopts ...pg.QOpt) (txmgrtypes.Transaction, error) {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, SEQ]) CreateEthTransaction(newTx NEWTX, chainID CHAIN_ID, qopts ...pg.QOpt) (TX, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -121,17 +121,15 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, 
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 txmgrtypes.Transaction
+	var r0 TX
 	var r1 error
-	if rf, ok := ret.Get(0).(func(NEWTX, CHAIN_ID, ...pg.QOpt) (txmgrtypes.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(NEWTX, CHAIN_ID, ...pg.QOpt) (TX, error)); ok {
 		return rf(newTx, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(NEWTX, CHAIN_ID, ...pg.QOpt) txmgrtypes.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(NEWTX, CHAIN_ID, ...pg.QOpt) TX); ok {
 		r0 = rf(newTx, chainID, qopts...)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.Transaction)
-		}
+		r0 = ret.Get(0).(TX)
 	}
 
 	if rf, ok := ret.Get(1).(func(NEWTX, CHAIN_ID, ...pg.QOpt) error); ok {
