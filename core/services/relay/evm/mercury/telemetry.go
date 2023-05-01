@@ -20,7 +20,7 @@ func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunR
 		return
 	}
 
-	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash := getFinalValues(ds, &finalTrrs)
+	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash, obsBlockTimestamp := getFinalValues(ds, &finalTrrs)
 
 	for _, trr := range *trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
@@ -48,6 +48,7 @@ func collectMercuryEnhancedTelemetry(ds *datasource, finalTrrs pipeline.TaskRunR
 			DpAsk:                         askPrice,
 			CurrentBlockNumber:            obsBlockNum,
 			CurrentBlockHash:              common.BytesToHash(obsBlockHash).String(),
+			CurrentBlockTimestamp:         obsBlockTimestamp,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
 			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
@@ -147,7 +148,7 @@ func getPricesFromResults(ds *datasource, startTask pipeline.TaskRunResult, allT
 }
 
 // getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64, int64, int64, []byte) {
+func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64, int64, int64, []byte, uint64) {
 	var benchmarkPrice, bid, ask int64
 	parse, _ := ds.parse(*trrs)
 
@@ -161,5 +162,5 @@ func getFinalValues(ds *datasource, trrs *pipeline.TaskRunResults) (int64, int64
 		ask = parse.Ask.Val.Int64()
 	}
 
-	return benchmarkPrice, bid, ask, parse.CurrentBlockNum.Val, parse.CurrentBlockHash.Val
+	return benchmarkPrice, bid, ask, parse.CurrentBlockNum.Val, parse.CurrentBlockHash.Val, parse.CurrentBlockTimestamp.Val
 }

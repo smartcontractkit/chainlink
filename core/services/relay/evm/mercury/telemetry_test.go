@@ -38,6 +38,7 @@ const bridgeResponse = `{
 // ask in position 2
 // blockNumber in position 3
 // blockHash in position 4
+// blockTimestamp in position 5
 var finalTrrs = pipeline.TaskRunResults{
 	pipeline.TaskRunResult{
 		Task: &pipeline.MultiplyTask{},
@@ -67,6 +68,12 @@ var finalTrrs = pipeline.TaskRunResults{
 		Task: &pipeline.LookupTask{},
 		Result: pipeline.Result{
 			Value: common.HexToHash("0x123321"),
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.LookupTask{},
+		Result: pipeline.Result{
+			Value: uint64(123456789),
 		},
 	}}
 var trrs = pipeline.TaskRunResults{
@@ -108,19 +115,21 @@ var trrs = pipeline.TaskRunResults{
 func TestGetFinalValues(t *testing.T) {
 	ds := datasource{}
 
-	benchmarkPrice, bid, ask, blockNr, blockHash := getFinalValues(&ds, &finalTrrs)
+	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp := getFinalValues(&ds, &finalTrrs)
 	require.Equal(t, benchmarkPrice, int64(111111))
 	require.Equal(t, bid, int64(222222))
 	require.Equal(t, ask, int64(333333))
 	require.Equal(t, blockNr, int64(123456789))
 	require.Equal(t, blockHash, common.HexToHash("0x123321").Bytes())
+	require.Equal(t, blockTimestamp, uint64(123456789))
 
-	benchmarkPrice, bid, ask, blockNr, blockHash = getFinalValues(&ds, &pipeline.TaskRunResults{})
+	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp = getFinalValues(&ds, &pipeline.TaskRunResults{})
 	require.Equal(t, benchmarkPrice, int64(0))
 	require.Equal(t, bid, int64(0))
 	require.Equal(t, ask, int64(0))
 	require.Equal(t, blockNr, int64(0))
 	require.Nil(t, blockHash)
+	require.Equal(t, blockTimestamp, uint64(0))
 }
 
 func TestGetPricesFromResults(t *testing.T) {
@@ -260,6 +269,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 		DpAsk:                         123456789.1,
 		CurrentBlockNumber:            123456789,
 		CurrentBlockHash:              common.HexToHash("0x123321").String(),
+		CurrentBlockTimestamp:         123456789,
 		BridgeTaskRunStartedTimestamp: trrs[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrs[0].FinishedAt.Time.UnixMilli(),
 		ProviderRequestedTimestamp:    92233720368547760,
