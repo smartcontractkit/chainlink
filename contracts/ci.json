@@ -16,7 +16,14 @@
     },
     {
       "dir": "v0.8",
-      "numOfSplits": 8
+      "numOfSplits": 8,
+      "slowTests": [
+        "Keeper",
+        "Cron.test",
+        "CronUpkeep.test",
+        "EthBalanceMonitor",
+        "CanaryUpkeep"
+      ]
     }
   ]
 }
