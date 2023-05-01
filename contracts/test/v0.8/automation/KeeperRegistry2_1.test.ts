@@ -13,7 +13,6 @@ import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typ
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationForwarderFactory__factory as AutomationForwarderFactory_Factory } from '../../../typechain/factories/AutomationForwarderFactory__factory'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -22,7 +21,6 @@ import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
 import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
-import { AutomationForwarderFactory } from '../../../typechain/AutomationForwarderFactory'
 
 // copied from AutomationRegistryInterface2_1.sol
 enum UpkeepFailureReason {
@@ -85,7 +83,6 @@ let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
-let forwarderFactory_factory: AutomationForwarderFactory_Factory
 let personas: Personas
 
 const encodeConfig = (config: any) => {
@@ -254,9 +251,6 @@ before(async () => {
   mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
     'MockOVMGasPriceOracle',
   )
-  forwarderFactory_factory = await ethers.getContractFactory(
-    'AutomationForwarderFactory',
-  )
 })
 
 describe('KeeperRegistry2_1', () => {
@@ -314,7 +308,6 @@ describe('KeeperRegistry2_1', () => {
   let transcoder: UpkeepTranscoder
   let mockArbGasInfo: MockArbGasInfo
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
-  let forwarderFactory: AutomationForwarderFactory
 
   let upkeepId: BigNumber
   let keeperAddresses: string[]
@@ -404,7 +397,6 @@ describe('KeeperRegistry2_1', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      forwarderFactory.address,
     )
 
     await registry
@@ -605,7 +597,6 @@ describe('KeeperRegistry2_1', () => {
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)
       .deploy()
-    forwarderFactory = await forwarderFactory_factory.connect(owner).deploy()
 
     const arbOracleCode = await ethers.provider.send('eth_getCode', [
       mockArbGasInfo.address,
@@ -654,7 +645,6 @@ describe('KeeperRegistry2_1', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      forwarderFactory.address,
     )
 
     await registry
@@ -1070,7 +1060,6 @@ describe('KeeperRegistry2_1', () => {
           linkToken.address,
           linkEthFeed.address,
           gasPriceFeed.address,
-          forwarderFactory.address,
         )
 
         await registry
@@ -1913,7 +1902,6 @@ describe('KeeperRegistry2_1', () => {
           linkToken.address,
           linkEthFeed.address,
           gasPriceFeed.address,
-          forwarderFactory.address,
         )
 
         await registry
@@ -4115,7 +4103,6 @@ describe('KeeperRegistry2_1', () => {
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
-        forwarderFactory.address,
       )
 
       await registry2
@@ -4287,7 +4274,6 @@ describe('KeeperRegistry2_1', () => {
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
-        forwarderFactory.address,
       )
 
       await registry

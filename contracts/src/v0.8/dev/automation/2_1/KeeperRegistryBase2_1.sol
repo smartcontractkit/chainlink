@@ -7,7 +7,7 @@ import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OV
 import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
-import {AutomationForwarder, AutomationForwarderFactory} from "./AutomationForwarder.sol";
+import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
@@ -82,7 +82,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
-  AutomationForwarderFactory internal immutable i_forwarderFactory;
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
@@ -273,18 +272,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed,
-    address forwarderFactory
+    address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
     // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
-    if (forwarderFactory == address(0)) {
-      forwarderFactory = address(new AutomationForwarderFactory());
-    }
-    i_forwarderFactory = AutomationForwarderFactory(forwarderFactory);
   }
 
   ////////
@@ -307,10 +301,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   function getFastGasFeedAddress() external view returns (address) {
     return address(i_fastGasFeed);
-  }
-
-  function getForwarderFactoryAddress() external view returns (address) {
-    return address(i_forwarderFactory);
   }
 
   ////////

@@ -6,7 +6,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
-import {AutomationForwarder, AutomationForwarderFactory} from "./AutomationForwarder.sol";
+import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 
 // TODO - we can probably combine these interfaces
@@ -32,11 +32,10 @@ contract KeeperRegistryLogicA2_1 is
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed,
-    address forwarderFactory
+    address fastGasFeed
   )
-    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)
-    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed, forwarderFactory)))
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
   {}
 
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
@@ -111,7 +110,7 @@ contract KeeperRegistryLogicA2_1 is
   ) external returns (uint256 id, address forwarderAddress) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = i_forwarderFactory.deploy(target);
+    AutomationForwarder forwarder = new AutomationForwarder(target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
@@ -375,7 +374,7 @@ contract KeeperRegistryLogicA2_1 is
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == address(0)) {
-        upkeeps[idx].forwarder = i_forwarderFactory.deploy(upkeeps[idx].target);
+        upkeeps[idx].forwarder = new AutomationForwarder(upkeeps[idx].target);
       }
       _createUpkeep(
         ids[idx],

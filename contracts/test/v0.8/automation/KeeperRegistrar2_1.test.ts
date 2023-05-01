@@ -8,10 +8,8 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/facto
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { KeeperRegistry21 as KeeperRegistry } from '../../../typechain/KeeperRegistry21'
-import { KeeperRegistryLogic21 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic21'
 import { KeeperRegistrar21 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar21'
 import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
-import { KeeperRegistryLogic21__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic21__factory'
 import { KeeperRegistrar21__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar21__factory'
 
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
@@ -22,7 +20,6 @@ import { toWei } from '../../test-helpers/helpers'
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let keeperRegistrar: KeeperRegistrarFactory
 let upkeepMockFactory: UpkeepMockFactory
 
@@ -38,9 +35,6 @@ before(async () => {
   keeperRegistryFactory = (await ethers.getContractFactory(
     'KeeperRegistry2_1',
   )) as unknown as KeeperRegistryFactory
-  keeperRegistryLogicFactory = (await ethers.getContractFactory(
-    'KeeperRegistryLogic2_1',
-  )) as unknown as KeeperRegistryLogicFactory
   keeperRegistrar = (await ethers.getContractFactory(
     'KeeperRegistrar2_1',
   )) as unknown as KeeperRegistrarFactory
@@ -95,7 +89,6 @@ describe('KeeperRegistrar2_1', () => {
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
-  let registryLogic: KeeperRegistryLogic
   let mock: UpkeepMock
   let registrar: KeeperRegistrar
 
@@ -114,19 +107,10 @@ describe('KeeperRegistrar2_1', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    registryLogic = await keeperRegistryLogicFactory
-      .connect(owner)
-      .deploy(
-        0,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        ethers.constants.AddressZero,
-      )
 
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(registryLogic.address)
+      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
     mock = await upkeepMockFactory.deploy()
 

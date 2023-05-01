@@ -1,11 +1,7 @@
 import { expect } from 'chai'
 import { ethers, network } from 'hardhat'
-import { ContractReceipt } from 'ethers'
 import { getUsers, Roles } from '../../test-helpers/setup'
 import { AutomationForwarder } from '../../../typechain/AutomationForwarder'
-import { AutomationForwarderFactory } from '../../../typechain/AutomationForwarderFactory'
-import { AutomationForwarder__factory as AutomationForwarder_Factory } from '../../../typechain/factories/AutomationForwarder__factory'
-import { AutomationForwarderFactory__factory as AutomationForwarderFactory_Factory } from '../../../typechain/factories/AutomationForwarderFactory__factory'
 import {
   deployMockContract,
   MockContract,
@@ -23,11 +19,7 @@ const CUSTOM_REVERT = 'this is a custom revert message'
 
 let roles: Roles
 let defaultAddress: string
-let strangerAddress: string
-let forwarder_factory: AutomationForwarder_Factory
 let forwarder: AutomationForwarder
-let forwarderFactory_factory: AutomationForwarderFactory_Factory
-let forwarderFactory: AutomationForwarderFactory
 let target: MockContract
 
 const targetABI = [
@@ -42,32 +34,11 @@ const HANDLER_UINT =
 const HANDLER_BYTES = '0x100e0465'
 const HANDLER_REVERT = '0xc07d0f94'
 
-const randBytes = ethers.utils.randomBytes(500)
 const newRegistry = ethers.Wallet.createRandom().address
-
-function getForwarderFromDeploy(receipt: ContractReceipt) {
-  const sig = 'NewForwarderDeployed(address)'
-  for (const log of receipt.logs) {
-    const result = forwarderFactory.interface.parseLog(log)
-    if (result && result.signature === sig) {
-      return forwarder_factory.attach(result.args[0])
-    }
-  }
-  throw new Error(`couldn't find ${sig} error in tx receipt`)
-}
 
 before(async () => {
   roles = (await getUsers()).roles
   defaultAddress = await roles.defaultAccount.getAddress()
-  strangerAddress = await roles.stranger.getAddress()
-  forwarder_factory = await ethers.getContractFactory(
-    'AutomationForwarder',
-    roles.defaultAccount,
-  )
-  forwarderFactory_factory = await ethers.getContractFactory(
-    'AutomationForwarderFactory',
-    roles.defaultAccount,
-  )
 })
 
 describe('AutomationForwarder', () => {
@@ -77,8 +48,10 @@ describe('AutomationForwarder', () => {
     await target.mock.handler.returns()
     await target.mock.handlerUint.returns(100)
     await target.mock.iRevert.revertsWithReason(CUSTOM_REVERT)
-    forwarder = await forwarder_factory.deploy(defaultAddress, target.address)
-    forwarderFactory = await forwarderFactory_factory.deploy()
+    const factory = await ethers.getContractFactory('AutomationForwarder')
+    forwarder = await factory
+      .connect(roles.defaultAccount)
+      .deploy(target.address)
   })
 
   describe('constructor()', () => {
@@ -149,33 +122,6 @@ describe('AutomationForwarder', () => {
       expect(await forwarder.getRegistry()).to.equal(defaultAddress)
       await forwarder.connect(roles.defaultAccount).updateRegistry(newRegistry)
       expect(await forwarder.getRegistry()).to.equal(newRegistry)
-    })
-  })
-})
-
-describe('AutomationForwarderFactory', () => {
-  describe('typeAndVersion()', () => {
-    it('has the correct type and version', async () => {
-      expect(await forwarderFactory.typeAndVersion()).to.equal(
-        'AutomationForwarderFactory 1.0.0',
-      )
-    })
-  })
-
-  describe('deploy', () => {
-    it('is callable by anyone', async () => {
-      await forwarderFactory
-        .connect(roles.defaultAccount)
-        .deploy(target.address)
-      await forwarderFactory.connect(roles.stranger).deploy(target.address)
-    })
-
-    it('sets the caller as the registry', async () => {
-      const tx = await forwarderFactory
-        .connect(roles.stranger)
-        .deploy(target.address)
-      const forwarder = getForwarderFromDeploy(await tx.wait())
-      expect(await forwarder.getRegistry()).to.equal(strangerAddress)
     })
   })
 })

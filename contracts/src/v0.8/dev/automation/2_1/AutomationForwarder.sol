@@ -13,14 +13,14 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationForwarder is TypeAndVersionInterface {
-  IRegistry s_registry;
+  address s_registry;
   address immutable i_target;
   string public constant override typeAndVersion = "AutomationForwarder 1.0.0";
 
   error NotAuthorized();
 
-  constructor(IRegistry registry, address target) {
-    s_registry = registry;
+  constructor(address target) {
+    s_registry = msg.sender;
     i_target = target;
   }
 
@@ -31,7 +31,7 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @return success indicating whether the target call succeeded or failed
    */
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success) {
-    if (msg.sender != address(s_registry)) revert NotAuthorized();
+    if (msg.sender != s_registry) revert NotAuthorized();
     address target = i_target;
     assembly {
       let g := gas()
@@ -58,15 +58,17 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @notice updateRegistry is called by the registry during migrations
    * @param newRegistry is the registry that this forwarder is being migrated to
    */
-  function updateRegistry(IRegistry newRegistry) external {
-    if (msg.sender != address(s_registry)) revert NotAuthorized();
+  function updateRegistry(address newRegistry) external {
+    if (msg.sender != s_registry) revert NotAuthorized();
     s_registry = newRegistry;
   }
 
+  // TODO - here we should return a "user interface" that only contains the functions on the registry that a
+  // user might want to interract with
   /**
    * @notice gets the registry address
    */
-  function getRegistry() external view returns (IRegistry) {
+  function getRegistry() external view returns (address) {
     return s_registry;
   }
 
@@ -75,26 +77,5 @@ contract AutomationForwarder is TypeAndVersionInterface {
    */
   function getTarget() external view returns (address) {
     return i_target;
-  }
-}
-
-/**
- * @title AutomationForwarderFactory is factory contract that deploys new AutomationForwarders
- * @dev while this functionality *could* live inside the Registry, the consious desision was made to
- * create a separate factory in the interest of saving space inside the registry
- */
-contract AutomationForwarderFactory is TypeAndVersionInterface {
-  event NewForwarderDeployed(AutomationForwarder forwarder);
-
-  string public constant override typeAndVersion = "AutomationForwarderFactory 1.0.0";
-
-  /**
-   * @notice deploy deploys a new AutomationForwarder
-   * @return AutomationForwarder the newly deployed contract instance
-   */
-  function deploy(address target) external returns (AutomationForwarder) {
-    AutomationForwarder forwarder = new AutomationForwarder(IRegistry(msg.sender), target);
-    emit NewForwarderDeployed(forwarder);
-    return forwarder;
   }
 }
