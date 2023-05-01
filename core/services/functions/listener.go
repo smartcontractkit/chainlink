@@ -426,17 +426,18 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	var reportedDomains []string
 	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
 	if errDomains != nil {
 		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
 	} else if len(reportedDomainsJson) > 0 {
+		var reportedDomains []string
 		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
 		if errJson != nil {
 			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
+		} else if len(reportedDomains) > 0 {
+			l.reportRequestData(request, reportedDomains)
 		}
 	}
-	l.reportRequestData(request, reportedDomains)
 
 	if len(computationError) != 0 {
 		if len(computationResult) != 0 {
