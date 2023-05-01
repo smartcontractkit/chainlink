@@ -33,7 +33,6 @@ type datasource struct {
 
 var _ relaymercury.DataSource = &datasource{}
 
-
 func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint) *datasource {
 	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, me}
 }
@@ -61,11 +60,12 @@ func toBigInt(val interface{}) (*big.Int, error) {
 }
 
 // parse expects the output of observe to be five values, in the following order:
-// 1. benchmark price
-// 2. bid
-// 3. ask
-// 4. current block number
-// 5. current block hash
+// 0. benchmark price
+// 1. bid
+// 2. ask
+// 3. current block number
+// 4. current block hash
+// 5. current block timestamp
 //
 // returns error on parse errors: if something is the wrong type
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
@@ -80,6 +80,7 @@ func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Obse
 		setAsk(&obs, trrs[2].Result),
 		setCurrentBlockNum(&obs, trrs[3].Result),
 		setCurrentBlockHash(&obs, trrs[4].Result),
+		setCurrentBlockTimestamp(&obs, trrs[5].Result),
 	)
 
 	return obs, merr
@@ -136,6 +137,17 @@ func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) err
 		return fmt.Errorf("failed to parse CurrentBlockHash: expected hash, got: %T (%v)", res.Value, res.Value)
 	} else {
 		obs.CurrentBlockHash.Val = val.Bytes()
+	}
+	return nil
+}
+
+func setCurrentBlockTimestamp(obs *relaymercury.Observation, res pipeline.Result) error {
+	if res.Error != nil {
+		obs.CurrentBlockTimestamp.Err = res.Error
+	} else if val, is := res.Value.(uint64); !is {
+		return fmt.Errorf("failed to parse CurrentBlockTimestamp: expected uint64, got: %T (%v)", res.Value, res.Value)
+	} else {
+		obs.CurrentBlockTimestamp.Val = val
 	}
 	return nil
 }
