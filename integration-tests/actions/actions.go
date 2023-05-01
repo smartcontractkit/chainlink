@@ -337,7 +337,9 @@ func EncodeOnChainExternalJobID(jobID uuid.UUID) [32]byte {
 	return ji
 }
 
-func UpgradeChainlinkNodeVersion(
+// UpgradeChainlinkNodeVersions upgrades all Chainlink nodes to a new version, and then runs the test environment
+// to apply the upgrades
+func UpgradeChainlinkNodeVersions(
 	testEnvironment *environment.Environment,
 	newImage, newVersion string,
 	nodes ...*client.Chainlink,
@@ -346,13 +348,9 @@ func UpgradeChainlinkNodeVersion(
 		return errors.New("must provide either a new image or a new version")
 	}
 	for _, node := range nodes {
-		log.Info().
-			Str("Node", node.RemoteIP()).
-			Str("Chart Name", node.Config.ChartName).
-			Str("New Image", newImage).
-			Str("New Version", newVersion).
-			Msg("Upgrading Chainlink Node Version")
-		testEnvironment.ModifyHelm(node.Config.ChartName, environment.Chart{})
+		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {
+			return err
+		}
 	}
-	return nil
+	return testEnvironment.Run()
 }

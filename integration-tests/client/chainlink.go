@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -1203,6 +1204,25 @@ func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
 	return response, resp.RawResponse, err
 }
 
-func (c *Chainlink) UpgradeVersion(testEnvironment environment.Environment, newImage, newVersion string) error {
-	testEnvironment.ModifyHelm(c.Config.ChartName)
+// UpgradeVersion upgrades the chainlink node to the new version
+// Note: You need to call Run() on the test environment for changes to take effect
+// Note: This function is not thread safe, call from a single thread
+func (c *Chainlink) UpgradeVersion(testEnvironment *environment.Environment, newImage, newVersion string) error {
+	if newVersion == "" {
+		return fmt.Errorf("new version is empty")
+	}
+	if newImage == "" {
+		newImage = os.Getenv("CHAINLINK_IMAGE")
+	}
+	log.Info().Str("Chart Name", c.Config.ChartName).Str("New Image", newImage).Str("New Version", newVersion).Msg("Upgrading Chainlink Node")
+	upgradeVals := map[string]any{
+		"chainlink": map[string]any{
+			"image": map[string]any{
+				"image":   newImage,
+				"version": newVersion,
+			},
+		},
+	}
+	testEnvironment, err := testEnvironment.UpdateHelm(c.Config.ChartName, upgradeVals)
+	return err
 }
