@@ -102,7 +102,8 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 .PHONY: testscripts
 testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+	find testdata/scripts -type d | xargs -I % \
+	sh -c 'ls %/*.txtar > /dev/null 2>&1 || return 0 && PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
