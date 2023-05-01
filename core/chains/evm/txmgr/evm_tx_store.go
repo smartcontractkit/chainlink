@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	nullv4 "gopkg.in/guregu/null.v4"
 

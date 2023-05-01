@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message FunctionsRequest {
+  bytes request_id = 1;
+  repeated string domains = 2;
+}

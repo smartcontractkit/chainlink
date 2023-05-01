@@ -1200,7 +1200,7 @@ func ObservationSourceSpecHTTP(url string) string {
 }
 
 // ObservationSourceSpecBridge creates a bridge task spec for json data
-func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
+func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`
 		fetch [type=bridge name="%s" requestData="%s"];
 		parse [type=jsonparse path="data,result"];

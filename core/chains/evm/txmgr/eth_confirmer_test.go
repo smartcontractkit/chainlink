@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

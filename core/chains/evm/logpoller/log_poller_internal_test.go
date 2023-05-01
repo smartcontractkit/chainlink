@@ -62,7 +62,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	lp := NewLogPoller(orm, nil, lggr, 15*time.Second, 1, 1, 2, 1000)
 
-	filter := Filter{"test Filter", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}}
+	filter := Filter{"test Filter", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0}
 	err := lp.RegisterFilter(filter)
 	require.Error(t, err, "RegisterFilter failed to save Filter to db")
 	require.Equal(t, 1, observedLogs.Len())
@@ -83,31 +83,31 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.Equal(t, 1, len(f.Addresses))
 	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
 
-	err = lp.RegisterFilter(Filter{"Emitter Log 1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}})
+	err = lp.RegisterFilter(Filter{"Emitter Log 1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter(nil, nil, nil).Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter(nil, nil, nil).Topics)
 	validateFiltersTable(t, lp, orm)
 
 	// Should de-dupe EventSigs
-	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}, 0})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter(nil, nil, nil).Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter(nil, nil, nil).Topics)
 	validateFiltersTable(t, lp, orm)
 
 	// Should de-dupe Addresses
-	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2 dupe", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}})
+	err = lp.RegisterFilter(Filter{"Emitter Log 1 + 2 dupe", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2}, 0})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter(nil, nil, nil).Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter(nil, nil, nil).Topics)
 	validateFiltersTable(t, lp, orm)
 
 	// Address required.
-	err = lp.RegisterFilter(Filter{"no address", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{}})
+	err = lp.RegisterFilter(Filter{"no address", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{}, 0})
 	require.Error(t, err)
 	// Event required
-	err = lp.RegisterFilter(Filter{"No event", []common.Hash{}, []common.Address{a1}})
+	err = lp.RegisterFilter(Filter{"No event", []common.Hash{}, []common.Address{a1}, 0})
 	require.Error(t, err)
 	validateFiltersTable(t, lp, orm)
 

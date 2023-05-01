@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -67,7 +68,7 @@ func TestVRFBasic(t *testing.T) {
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
 		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 		pubKeyCompressed := nodeKey.Data.ID
-		jobUUID := uuid.NewV4()
+		jobUUID := uuid.New()
 		os := &client.VRFTxPipelineSpec{
 			Address: coordinator.Address(),
 		}
