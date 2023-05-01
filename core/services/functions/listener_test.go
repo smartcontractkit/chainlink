@@ -161,6 +161,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
+	uni.ingressClient.On("Send", mock.Anything).Return()
 
 	uni.service.HandleLog(log)
 
@@ -168,7 +169,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
+func TestFunctionsListener_reportRequestData(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -196,7 +197,7 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	var req telem.FunctionsRequest
 	err := proto.Unmarshal(sentMessage, &req)
 	assert.NoError(t, err)
-	assert.Equal(t, RequestID[:], req.RequestId)
+	assert.Equal(t, "0x"+RequestID.String(), req.RequestId)
 	assert.EqualValues(t, []string{"github.com", "google.com"}, req.Domains)
 }
 
@@ -212,6 +213,7 @@ func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.ingressClient.On("Send", mock.Anything).Return()
 
 	uni.service.HandleLog(log)
 

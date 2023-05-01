@@ -140,11 +140,11 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
-		job:             jb,
+		job:             job,
 		pipelineRunner:  runner,
 		jobORM:          jobORM,
 		logBroadcaster:  logBroadcaster,
@@ -426,18 +426,17 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
+	var reportedDomains []string
 	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
 	if errDomains != nil {
 		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
 	} else if len(reportedDomainsJson) > 0 {
-		var reportedDomains []string
 		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
 		if errJson != nil {
 			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
-		} else if len(reportedDomains) > 0 {
-			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
 		}
 	}
+	l.reportRequestData(request, reportedDomains)
 
 	if len(computationError) != 0 {
 		if len(computationResult) != 0 {
@@ -511,10 +510,11 @@ func (l *FunctionsListener) timeoutRequests() {
 	}
 }
 
-func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, domains []string) {
+func (l *FunctionsListener) reportRequestData(request *ocr2dr_oracle.OCR2DROracleOracleRequest, domains []string) {
 	r := &telem.FunctionsRequest{
-		RequestId: requestId[:],
-		Domains:   domains,
+		RequestId:   formatRequestId(request.RequestId),
+		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
+		Domains:     domains,
 	}
 
 	bytes, err := proto.Marshal(r)
