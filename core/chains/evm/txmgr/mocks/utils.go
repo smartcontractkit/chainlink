@@ -18,8 +18,8 @@ func NewMockEvmTxManager(t *testing.T) *MockEvmTxManager {
 	return NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, txmgr.NullableEIP2930AccessList](t)
 }
 
-type MockEvmTxStore = mocks.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, evmtypes.Nonce]
+type MockEvmTxStore = mocks.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList]
 
 func NewMockEvmTxStore(t *testing.T) *MockEvmTxStore {
-	return mocks.NewTxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, evmtypes.Nonce](t)
+	return mocks.NewTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.NullableEIP2930AccessList](t)
 }
