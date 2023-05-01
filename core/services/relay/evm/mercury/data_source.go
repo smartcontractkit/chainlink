@@ -50,10 +50,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
 	}
-
-	if err := ds.setCurrentBlock(ctx, &obs); err != nil {
-		return relaymercury.Observation{}, fmt.Errorf("Observe failed while fetching current block: %w", err)
-	}
+	ds.setCurrentBlock(ctx, &obs)
 
 	go collectMercuryEnhancedTelemetry(ds, &trrs, obs, repts)
 
@@ -158,16 +155,15 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 	return run, trrs, err
 }
 
-func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) error {
+func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) {
 	latestHead, err := ds.getCurrentBlock(ctx)
 	if err != nil {
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
-		return err
+		return
 	}
 	obs.CurrentBlockNum.Val = latestHead.Number
 	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
-	return nil
 }
 
 func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
