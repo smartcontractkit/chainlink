@@ -71,8 +71,8 @@ func toBigInt(val interface{}) (*big.Int, error) {
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	if len(trrs) != 5 {
-		return obs, fmt.Errorf("invalid number of results, expected: 5, got: %d", len(trrs))
+	if len(trrs) != 6 {
+		return obs, fmt.Errorf("invalid number of results, expected: 6, got: %d", len(trrs))
 	}
 	merr = errors.Join(
 		setBenchmarkPrice(&obs, trrs[0].Result),
