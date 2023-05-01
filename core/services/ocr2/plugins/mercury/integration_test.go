@@ -336,6 +336,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
 		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
 		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 
 		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
@@ -393,6 +394,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
 		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
 		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 
 		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
@@ -631,13 +633,15 @@ observationSource = """
 
 	ask -> ask_parse -> ask_multiply;
 
-	// Block Num + Hash
+	// Block Num + Hash + Timestamp
 	b1                 [type=ethgetblock];
 	bnum_lookup        [type=lookup key="number" index=3];
 	bhash_lookup       [type=lookup key="hash" index=4];
+	btimestamp_lookup  [type=lookup key="timestamp" index=5];
 
 	b1 -> bnum_lookup;
 	b1 -> bhash_lookup;
+	b1 -> btimestamp_lookup;
 """
 
 [pluginConfig]

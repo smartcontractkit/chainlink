@@ -33,6 +33,7 @@ type datasource struct {
 
 var _ relaymercury.DataSource = &datasource{}
 
+
 func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint) *datasource {
 	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, me}
 }

@@ -41,6 +41,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 				Ask:               big.NewInt(45),
 				CurrentBlockNum:   48,
 				CurrentBlockHash:  hash,
+				CurrentBlockTimestamp: uint64(123),
 				ValidFromBlockNum: 46,
 				Observer:          commontypes.OracleID(49),
 			},
@@ -51,6 +52,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 				Ask:               big.NewInt(145),
 				CurrentBlockNum:   48,
 				CurrentBlockHash:  hash,
+				CurrentBlockTimestamp: uint64(123),
 				ValidFromBlockNum: 46,
 				Observer:          commontypes.OracleID(149),
 			},
@@ -61,6 +63,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 				Ask:               big.NewInt(245),
 				CurrentBlockNum:   248,
 				CurrentBlockHash:  hash,
+				CurrentBlockTimestamp: uint64(123),
 				ValidFromBlockNum: 246,
 				Observer:          commontypes.OracleID(249),
 			},
@@ -71,6 +74,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 				Ask:               big.NewInt(345),
 				CurrentBlockNum:   348,
 				CurrentBlockHash:  hash,
+				CurrentBlockTimestamp: uint64(123),
 				ValidFromBlockNum: 346,
 				Observer:          commontypes.OracleID(250),
 			},
@@ -88,7 +92,7 @@ func Test_ReportCodec_MaxReportLength(t *testing.T) {
 	n := 4
 
 	t.Run("MaxReportLength returns correct length", func(t *testing.T) {
-		assert.Equal(t, 1248, r.MaxReportLength(n))
+		assert.Equal(t, 1312, r.MaxReportLength(n))
 	})
 }
 
@@ -124,9 +128,10 @@ func buildSampleReport(bn int64) []byte {
 	ask := big.NewInt(244)
 	currentBlockNumber := uint64(bn)
 	currentBlockHash := utils.NewHash()
+	currentBlockTimestamp := uint64(123)
 	validFromBlockNum := uint64(143)
 
-	b, err := ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, validFromBlockNum)
+	b, err := ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
 	if err != nil {
 		panic(err)
 	}
