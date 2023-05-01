@@ -231,7 +231,7 @@ type DbEthTxAttempt struct {
 	BroadcastBeforeBlockNum *int64
 	State                   txmgrtypes.TxAttemptState
 	CreatedAt               time.Time
-	ChainSpecificFeeLimit   uint32
+	ChainSpecificGasLimit   uint32
 	TxType                  int
 	GasTipCap               *assets.Wei
 	GasFeeCap               *assets.Wei
@@ -247,7 +247,7 @@ func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *EvmTxAttempt) DbEthTxAttempt {
 		BroadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
 		State:                   ethTxAttempt.State,
 		CreatedAt:               ethTxAttempt.CreatedAt,
-		ChainSpecificFeeLimit:   ethTxAttempt.ChainSpecificFeeLimit,
+		ChainSpecificGasLimit:   ethTxAttempt.ChainSpecificFeeLimit,
 		TxType:                  ethTxAttempt.TxType,
 		GasTipCap:               ethTxAttempt.TxFee.DynamicTipCap,
 		GasFeeCap:               ethTxAttempt.TxFee.DynamicFeeCap,
@@ -262,7 +262,7 @@ func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *Evm
 	evmAttempt.BroadcastBeforeBlockNum = dbEthTxAttempt.BroadcastBeforeBlockNum
 	evmAttempt.State = dbEthTxAttempt.State
 	evmAttempt.CreatedAt = dbEthTxAttempt.CreatedAt
-	evmAttempt.ChainSpecificFeeLimit = dbEthTxAttempt.ChainSpecificFeeLimit
+	evmAttempt.ChainSpecificFeeLimit = dbEthTxAttempt.ChainSpecificGasLimit
 	evmAttempt.TxType = dbEthTxAttempt.TxType
 	evmAttempt.TxFee = gas.EvmFee{
 		Legacy:        dbEthTxAttempt.GasPrice,
