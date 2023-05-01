@@ -2,9 +2,12 @@ pragma solidity 0.8.15;
 
 import "../interfaces/automation/AutomationCompatibleInterface.sol";
 import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
+import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
-  event MercuryEvent(address indexed origin, address indexed sender, bytes data);
+  event MercuryPerformEvent(address indexed origin, address indexed sender, uint256 blockNumber, bytes data);
+
+  ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
 
   uint256 public testRange;
   uint256 public interval;
@@ -20,7 +23,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
-    lastBlock = block.number;
+    lastBlock = ARB_SYS.arbBlockNumber();
     initialBlock = 0;
     counter = 0;
     feedLabel = "feedIDStr";
@@ -28,7 +31,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     queryLabel = "blockNumber";
   }
 
-  function mercuryCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
+  function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
     bytes memory performData = new bytes(0);
     for (uint256 i = 0; i < values.length; i++) {
       performData = bytes.concat(performData, values[i]);
@@ -41,16 +44,17 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     if (!eligible()) {
       return (false, data);
     }
-    revert MercuryLookup(feedLabel, feeds, queryLabel, block.number, data);
+    revert MercuryLookup(feedLabel, feeds, queryLabel, ARB_SYS.arbBlockNumber(), data);
   }
 
   function performUpkeep(bytes calldata performData) external {
+    uint256 blockNumber = ARB_SYS.arbBlockNumber();
     if (initialBlock == 0) {
-      initialBlock = block.number;
+      initialBlock = blockNumber;
     }
-    lastBlock = block.number;
+    lastBlock = blockNumber;
     counter = counter + 1;
-    emit MercuryEvent(tx.origin, msg.sender, performData);
+    emit MercuryPerformEvent(tx.origin, msg.sender, blockNumber, performData);
     previousPerformBlock = lastBlock;
   }
 
@@ -59,7 +63,8 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
       return true;
     }
 
-    return (block.number - initialBlock) < testRange && (block.number - lastBlock) >= interval;
+    uint256 blockNumber = ARB_SYS.arbBlockNumber();
+    return (blockNumber - initialBlock) < testRange && (blockNumber - lastBlock) >= interval;
   }
 
   function setConfig(uint256 _testRange, uint256 _interval) external {

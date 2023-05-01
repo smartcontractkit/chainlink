@@ -12,14 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -352,7 +352,6 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepTestRange),
 				big.NewInt(k.cfg.UpkeepInterval),
 			)
-
 		} else {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
