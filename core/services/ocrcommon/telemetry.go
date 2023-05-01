@@ -2,7 +2,6 @@ package ocrcommon
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"google.golang.org/protobuf/proto"
 
@@ -12,17 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type eaTelemetryResponse struct {
-	DataSource                    string `json:"data_source"`
-	ProviderRequestedTimestamp    int64  `json:"provider_requested_timestamp"`
-	ProviderReceivedTimestamp     int64  `json:"provider_received_timestamp"`
-	ProviderDataStreamEstablished int64  `json:"provider_data_stream_established"`
-	ProviderDataReceived          int64  `json:"provider_data_received"`
-	ProviderIndicatedTime         int64  `json:"provider_indicated_time"`
+type eaTelemetry struct {
+	DataSource                    string `json:"dataSource"`
+	ProviderRequestedTimestamp    int64  `json:"providerDataRequestedUnixMs"`
+	ProviderReceivedTimestamp     int64  `json:"providerDataReceivedUnixMs"`
+	ProviderDataStreamEstablished int64  `json:"providerDataStreamEstablishedUnixMs"`
+	ProviderIndicatedTime         int64  `json:"providerIndicatedTimeUnixMs"`
 }
 
-// shouldCollectTelemetry returns whether EA telemetry should be collected
-func shouldCollectTelemetry(jb *job.Job) bool {
+// shouldCollectEnhancedTelemetry returns whether EA telemetry should be collected
+func shouldCollectEnhancedTelemetry(jb *job.Job) bool {
 	if jb.Type.String() == pipeline.OffchainReportingJobType && jb.OCROracleSpec != nil {
 		return jb.OCROracleSpec.CaptureEATelemetry
 	}
@@ -59,30 +57,48 @@ func getChainID(jb *job.Job) string {
 	}
 }
 
-// parseEATelemetry attempts to parse the bridge telemetry
-func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
-	type generalResponse struct {
-		Telemetry eaTelemetryResponse `json:"telemetry"`
+// ParseEATelemetry attempts to parse the bridge telemetry
+func ParseEATelemetry(b []byte) (eaTelemetry, error) {
+	type eaTimestamps struct {
+		ProviderRequestedTimestamp    int64 `json:"providerDataRequestedUnixMs"`
+		ProviderReceivedTimestamp     int64 `json:"providerDataReceivedUnixMs"`
+		ProviderDataStreamEstablished int64 `json:"providerDataStreamEstablishedUnixMs"`
+		ProviderIndicatedTime         int64 `json:"providerIndicatedTimeUnixMs"`
 	}
-	gr := generalResponse{}
-
-	if err := json.Unmarshal(b, &gr); err != nil {
-		return eaTelemetryResponse{}, err
+	type eaMeta struct {
+		AdapterName string `json:"adapterName"`
 	}
 
-	return gr.Telemetry, nil
+	type eaTelem struct {
+		TelemTimestamps eaTimestamps `json:"timestamps"`
+		TelemMeta       eaMeta       `json:"meta"`
+	}
+	t := eaTelem{}
+
+	if err := json.Unmarshal(b, &t); err != nil {
+		return eaTelemetry{}, err
+	}
+
+	return eaTelemetry{
+		DataSource:                    t.TelemMeta.AdapterName,
+		ProviderRequestedTimestamp:    t.TelemTimestamps.ProviderRequestedTimestamp,
+		ProviderReceivedTimestamp:     t.TelemTimestamps.ProviderReceivedTimestamp,
+		ProviderDataStreamEstablished: t.TelemTimestamps.ProviderDataStreamEstablished,
+		ProviderIndicatedTime:         t.TelemTimestamps.ProviderIndicatedTime,
+	}, nil
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
 // the response as a *big.Int
-func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *big.Int {
+func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
 			return nil
 		}
-		return asDecimal.BigInt()
+		toFloat, _ := asDecimal.Float64()
+		return &toFloat
 	}
 	return nil
 }
@@ -104,18 +120,18 @@ func getObservation(ds *inMemoryDataSource, finalResult *pipeline.FinalResult) i
 	return finalResultDecimal.BigInt().Int64()
 }
 
-func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) int64 {
+func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
 	parsedValue := getJsonParsedValue(trr, trrs)
 	if parsedValue == nil {
 		ds.lggr.Warnf("cannot get json parse value, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		return 0
 	}
-	return parsedValue.Int64()
+	return *parsedValue
 }
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
 func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
-	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
+	if !shouldCollectEnhancedTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
@@ -138,22 +154,21 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 			continue
 		}
-		eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
+		eaTelem, err := ParseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
 			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		}
 		value := getParsedValue(ds, trrs, trr)
 
 		t := &telem.EnhancedEA{
-			DataSource:                    eaTelemetry.DataSource,
+			DataSource:                    eaTelem.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-			ProviderDataReceived:          eaTelemetry.ProviderDataReceived,
-			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
+			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:     eaTelem.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished: eaTelem.ProviderDataStreamEstablished,
+			ProviderIndicatedTime:         eaTelem.ProviderIndicatedTime,
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,
@@ -167,6 +182,7 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("protobuf marshal failed %v", err.Error())
 			continue
 		}
+
 		ds.monitoringEndpoint.SendLog(bytes)
 	}
 }

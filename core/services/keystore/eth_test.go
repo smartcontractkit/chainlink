@@ -179,13 +179,13 @@ func Test_EthKeyStore(t *testing.T) {
 		enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
-		require.Equal(t, key.Address, enabledAddresses[0].Address)
+		require.Equal(t, key.Address, enabledAddresses[0])
 
 		//get enabled addresses for chain 1337
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
-		require.Equal(t, key2.Address, enabledAddresses[0].Address)
+		require.Equal(t, key2.Address, enabledAddresses[0])
 
 		// /get enabled addresses for nil chain ID
 		_, err = ethKeyStore.EnabledAddressesForChain(nil)
@@ -202,7 +202,7 @@ func Test_EthKeyStore(t *testing.T) {
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 1)
-		require.Equal(t, key2.Address, enabledAddresses[0].Address)
+		require.Equal(t, key2.Address, enabledAddresses[0])
 	})
 }
 
@@ -334,11 +334,11 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	chainID := big.NewInt(evmclient.NullClientChainID)
 	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
-	randomAddress := evmtypes.NewAddress(testutils.NewAddress())
+	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
 	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.String()))
 
-	signed, err := ethKeyStore.SignTx(evmtypes.NewAddress(k.Address), tx, chainID)
+	signed, err := ethKeyStore.SignTx(k.Address, tx, chainID)
 	require.NoError(t, err)
 
 	require.NotEqual(t, tx, signed)
@@ -644,14 +644,14 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		err := ks.Reset(k1.Address, testutils.FixtureChainID, newNonce)
 		assert.NoError(t, err)
 
-		nonce, err := ks.NextSequence(evmtypes.NewAddress(k1.Address), testutils.FixtureChainID)
+		nonce, err := ks.NextSequence(k1.Address, testutils.FixtureChainID)
 		require.NoError(t, err)
 
-		assert.Equal(t, nonce, newNonce)
+		assert.Equal(t, nonce.Int64(), newNonce)
 
 		state, err := ks.GetState(k1.Address.Hex(), testutils.FixtureChainID)
 		require.NoError(t, err)
-		assert.Equal(t, nonce, state.NextNonce)
+		assert.Equal(t, nonce.Int64(), state.NextNonce)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
@@ -661,7 +661,7 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		require.Len(t, states, 3)
 		for _, state = range states {
 			if state.Address.Address() == k1.Address {
-				assert.Equal(t, nonce, state.NextNonce)
+				assert.Equal(t, nonce.Int64(), state.NextNonce)
 			} else {
 				// the other states didn't get updated
 				assert.Equal(t, int64(0), state.NextNonce)
@@ -682,21 +682,21 @@ func Test_NextSequence(t *testing.T) {
 	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	nonce, err := ks.NextSequence(evmtypes.NewAddress(addr1), testutils.FixtureChainID)
+	nonce, err := ks.NextSequence(addr1, testutils.FixtureChainID)
 	require.NoError(t, err)
-	assert.Equal(t, randNonce, nonce)
+	assert.Equal(t, randNonce, nonce.Int64())
 
-	_, err = ks.NextSequence(evmtypes.NewAddress(addr1), testutils.SimulatedChainID)
+	_, err = ks.NextSequence(addr1, testutils.SimulatedChainID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("NextSequence failed: key with address %s is not enabled for chain %s: sql: no rows in result set", addr1.Hex(), testutils.SimulatedChainID.String()))
 
 	randAddr1 := utils.RandomAddress()
-	_, err = ks.NextSequence(evmtypes.NewAddress(randAddr1), testutils.FixtureChainID)
+	_, err = ks.NextSequence(randAddr1, testutils.FixtureChainID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	_, err = ks.NextSequence(evmtypes.NewAddress(randAddr2), testutils.NewRandomEVMChainID())
+	_, err = ks.NextSequence(randAddr2, testutils.NewRandomEVMChainID())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 }
@@ -711,28 +711,28 @@ func Test_IncrementNextSequence(t *testing.T) {
 	randNonce := testutils.NewRandomPositiveInt64()
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
-	evmAddr1 := evmtypes.NewAddress(addr1)
+	evmAddr1 := addr1
 	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
 
-	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce-1)
+	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce-1))
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, randNonce)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce))
 	require.NoError(t, err)
 	var nonce int64
 	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 
-	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, randNonce+1)
+	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, evmtypes.Nonce(randNonce+1))
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 
 	randAddr1 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr1), testutils.FixtureChainID, randNonce+1)
+	err = ks.IncrementNextSequence(randAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce+1))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
 
 	randAddr2 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(evmtypes.NewAddress(randAddr2), testutils.NewRandomEVMChainID(), randNonce+1)
+	err = ks.IncrementNextSequence(randAddr2, testutils.NewRandomEVMChainID(), evmtypes.Nonce(randNonce+1))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 
@@ -840,27 +840,27 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	})
 
 	t.Run("returns nil when key is enabled for given chain", func(t *testing.T) {
-		err := ks.CheckEnabled(evmtypes.NewAddress(addr1), testutils.FixtureChainID)
+		err := ks.CheckEnabled(addr1, testutils.FixtureChainID)
 		assert.NoError(t, err)
-		err = ks.CheckEnabled(evmtypes.NewAddress(addr1), testutils.SimulatedChainID)
+		err = ks.CheckEnabled(addr1, testutils.SimulatedChainID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("returns error when key does not exist", func(t *testing.T) {
 		addr := utils.RandomAddress()
-		err := ks.CheckEnabled(evmtypes.NewAddress(addr), testutils.FixtureChainID)
+		err := ks.CheckEnabled(addr, testutils.FixtureChainID)
 		assert.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", addr.Hex()))
 	})
 
 	t.Run("returns error when key exists but has never been enabled (no state) for the given chain", func(t *testing.T) {
-		err := ks.CheckEnabled(evmtypes.NewAddress(addr3), testutils.FixtureChainID)
+		err := ks.CheckEnabled(addr3, testutils.FixtureChainID)
 		assert.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", addr3.Hex()))
 	})
 
 	t.Run("returns error when key exists but is disabled for the given chain", func(t *testing.T) {
-		err := ks.CheckEnabled(evmtypes.NewAddress(addr2), testutils.SimulatedChainID)
+		err := ks.CheckEnabled(addr2, testutils.SimulatedChainID)
 		assert.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is disabled for chain 1337 (enabled only for chain IDs: 0)", addr2.Hex()))
 	})

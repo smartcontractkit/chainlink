@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -66,7 +66,7 @@ type runner struct {
 	runFinished func(*Run)
 
 	utils.StartStopOnce
-	chStop chan struct{}
+	chStop utils.StopChan
 	wgDone sync.WaitGroup
 }
 
@@ -241,7 +241,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
-		task.Base().uuid = uuid.NewV4()
+		task.Base().uuid = uuid.New()
 
 		switch task.Type() {
 		case TaskTypeHTTP:
@@ -324,7 +324,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}, func(err interface{}) {
 			t := time.Now()
 			scheduler.report(reportCtx, TaskRunResult{
-				ID:         uuid.NewV4(),
+				ID:         uuid.New(),
 				Task:       taskRun.task,
 				Result:     Result{Error: ErrRunPanicked{err}},
 				FinishedAt: null.TimeFrom(t),
@@ -435,7 +435,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// below. It has already been changed several times trying to "fix" a bug,
 	// but actually introducing new ones. Please leave it as-is unless you have
 	// an extremely good reason to change it.
-	ctx, cancel := utils.WithCloseChan(ctx, r.chStop)
+	ctx, cancel := r.chStop.Ctx(ctx)
 	defer cancel()
 	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
@@ -627,7 +627,7 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 
 func (r *runner) runReaper() {
 	r.lggr.Debugw("Pipeline run reaper starting")
-	ctx, cancel := utils.ContextFromChanWithDeadline(r.chStop, r.config.JobPipelineReaperInterval())
+	ctx, cancel := r.chStop.CtxCancel(context.WithTimeout(context.Background(), r.config.JobPipelineReaperInterval()))
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
@@ -652,7 +652,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 		r.runReaper()
 	}
 
-	ctx, cancel := utils.ContextFromChan(r.chStop)
+	ctx, cancel := r.chStop.NewCtx()
 	defer cancel()
 
 	var wgRunsDone sync.WaitGroup

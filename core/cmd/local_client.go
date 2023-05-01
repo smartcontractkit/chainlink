@@ -37,6 +37,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
@@ -153,6 +154,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
+			Before: func(ctx *clipkg.Context) error {
+				return client.configExitErr(client.Config.ValidateDB)
+			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
@@ -258,7 +262,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
-	cli.Config.LogConfiguration(lggr.Debug)
+	cli.Config.LogConfiguration(lggr.Debugf)
 
 	err := cli.Config.Validate()
 	if err != nil {
@@ -375,7 +379,20 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		var enabledChains []chaintype.ChainType
+		if cli.Config.EVMEnabled() {
+			enabledChains = append(enabledChains, chaintype.EVM)
+		}
+		if cli.Config.CosmosEnabled() {
+			enabledChains = append(enabledChains, chaintype.Cosmos)
+		}
+		if cli.Config.SolanaEnabled() {
+			enabledChains = append(enabledChains, chaintype.Solana)
+		}
+		if cli.Config.StarkNetEnabled() {
+			enabledChains = append(enabledChains, chaintype.StarkNet)
+		}
+		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
@@ -589,17 +606,22 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(evmtypes.NewAddress(address), chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
 		return cli.errorOut(err)
 	}
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ChainID(), chain.Config(), keyStore.Eth(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
 	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
-	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, evmtypes.NewAddress(address), uint32(overrideGasLimit))
+	totalNonces := endingNonce - beginningNonce + 1
+	nonces := make([]evmtypes.Nonce, totalNonces)
+	for i := int64(0); i < totalNonces; i++ {
+		nonces[i] = evmtypes.Nonce(beginningNonce + i)
+	}
+	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 
@@ -647,12 +669,9 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
+	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
+	if err := cli.configExitErr(cli.Config.Validate); err != nil {
+		return err
 	}
 	fmt.Println("Valid configuration.")
 	return nil

@@ -30,7 +30,7 @@ var (
 	defaultOCR2VRFSettings = map[string]interface{}{
 		"replicas": "6",
 		"toml": client.AddNetworkDetailedConfig(
-			config.BaseOCR2VRFTomlConfig,
+			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			networks.SelectedNetwork),
 	}

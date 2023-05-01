@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -408,7 +408,7 @@ func createVRFJobs(
 		vrfkey, err := app.GetKeyStore().VRF().Create()
 		require.NoError(t, err)
 
-		jid := uuid.NewV4()
+		jid := uuid.New()
 		incomingConfs := 2
 		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			JobID:                    jid.String(),
@@ -1908,7 +1908,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -1933,7 +1933,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
-	jid := uuid.NewV4()
+	jid := uuid.New()
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
@@ -1991,7 +1991,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	// The fulfillment tx should succeed
 	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
-	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash.Hash)
+	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
@@ -2278,7 +2278,7 @@ func TestStartingCountsV1(t *testing.T) {
 	confirmedTxes := []txmgr.EvmTx{
 		{
 			Nonce:              &n1,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2290,7 +2290,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n2,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2302,7 +2302,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n3,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2314,7 +2314,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n4,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2337,7 +2337,7 @@ func TestStartingCountsV1(t *testing.T) {
 		newNonce := i + 1
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
 			Nonce:              &newNonce,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
 			State:              txmgr.EthTxUnconfirmed,
@@ -2366,7 +2366,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			EthTxID:                 int64(i + 1),
 			GasPrice:                assets.NewWeiI(100),
 			SignedRawTx:             []byte(`blah`),
-			Hash:                    evmtypes.NewTxHash(utils.NewHash()),
+			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
@@ -2379,7 +2379,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
 			GasPrice:              assets.NewWeiI(100),
 			SignedRawTx:           []byte(`blah`),
-			Hash:                  evmtypes.NewTxHash(utils.NewHash()),
+			Hash:                  utils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint32(100),
@@ -2401,7 +2401,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
 		receipts = append(receipts, txmgr.EvmReceipt{
-			BlockHash:        evmtypes.NewBlockHash(utils.NewHash()),
+			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,

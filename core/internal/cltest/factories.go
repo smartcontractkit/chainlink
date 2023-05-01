@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -71,7 +71,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	btr := &bridges.BridgeTypeRequest{}
 
 	// Must randomise default to avoid unique constraint conflicts with other parallel tests
-	rnd := uuid.NewV4().String()
+	rnd := uuid.New().String()
 
 	if opts.Name != "" {
 		btr.Name = bridges.MustParseBridgeName(opts.Name)
@@ -134,8 +134,8 @@ func EmptyCLIContext() *cli.Context {
 
 func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EvmTx {
 	return txmgr.EvmTx{
-		FromAddress:    evmtypes.NewAddress(fromAddress),
-		ToAddress:      evmtypes.NewAddress(testutils.NewAddress()),
+		FromAddress:    fromAddress,
+		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
 		GasLimit:       uint32(1000000000),
@@ -326,7 +326,7 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EvmTxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        evmtypes.NewTxHash(utils.NewHash()),
+		Hash:        utils.NewHash(),
 		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
@@ -342,7 +342,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EvmTxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:                  evmtypes.NewTxHash(utils.NewHash()),
+		Hash:                  utils.NewHash(),
 		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificGasLimit: 42,
 	}
@@ -361,8 +361,8 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 
 	r := txmgr.EvmReceipt{
 		BlockNumber:      blockNumber,
-		BlockHash:        evmtypes.NewBlockHash(blockHash),
-		TxHash:           evmtypes.NewTxHash(txHash),
+		BlockHash:        blockHash,
+		TxHash:           txHash,
 		TransactionIndex: transactionIndex,
 		Receipt:          &receipt,
 	}
@@ -384,19 +384,19 @@ func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.EvmTxStore, blockN
 // Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.EvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash.Hash)
+	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
 	return etx
 }
 
 func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.EvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
 	receipt := evmtypes.Receipt{
-		TxHash:           etx.EthTxAttempts[0].Hash.Hash,
+		TxHash:           etx.EthTxAttempts[0].Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, chainID)
+	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, &chainID)
 	require.NoError(t, err)
 	return etx
 }
@@ -515,7 +515,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 	jb := job.Job{
 		OCROracleSpec:   &oracleSpec,
 		OCROracleSpecID: &oracleSpec.ID,
-		ExternalJobID:   uuid.NewV4(),
+		ExternalJobID:   uuid.New(),
 		Type:            job.OffchainReporting,
 		SchemaVersion:   1,
 		PipelineSpec:    &pipelineSpec,
@@ -545,7 +545,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
-		ExternalJobID:     uuid.NewV4(),
+		ExternalJobID:     uuid.New(),
 		DirectRequestSpec: drs,
 		Pipeline:          pipeline.Pipeline{},
 		PipelineSpec:      &pipeline.Spec{},
@@ -567,7 +567,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	jb := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
-		ExternalJobID:  uuid.NewV4(),
+		ExternalJobID:  uuid.New(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,
@@ -665,7 +665,7 @@ func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
 	/* #nosec G404 */
-	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))
+	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
 	return tr
 }
 
@@ -725,7 +725,7 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts Ext
 	} else {
 		prefix = "ei"
 	}
-	ei.Name = fmt.Sprintf("%s-%s", prefix, uuid.NewV4())
+	ei.Name = fmt.Sprintf("%s-%s", prefix, uuid.New())
 	ei.URL = opts.URL
 	ei.OutgoingSecret = opts.OutgoingSecret
 	ei.OutgoingToken = opts.OutgoingToken

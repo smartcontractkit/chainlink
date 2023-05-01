@@ -56,7 +56,7 @@ type listenerV1 struct {
 	gethks          GethKeyStore
 	mailMon         *utils.MailboxMonitor
 	reqLogs         *utils.Mailbox[log.Broadcast]
-	chStop          chan struct{}
+	chStop          utils.StopChan
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
 	latestHead      uint64
@@ -199,7 +199,7 @@ func (lsn *listenerV1) pruneConfirmedRequestCounts() {
 
 // Listen for new heads
 func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
-	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 
 	for {

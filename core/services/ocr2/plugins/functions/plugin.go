@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -21,15 +22,16 @@ import (
 )
 
 type FunctionsServicesConfig struct {
-	Job            job.Job
-	PipelineRunner pipeline.Runner
-	JobORM         job.ORM
-	OCR2JobConfig  validate.Config
-	DB             *sqlx.DB
-	Chain          evm.Chain
-	ContractID     string
-	Lggr           logger.Logger
-	MailMon        *utils.MailboxMonitor
+	Job             job.Job
+	PipelineRunner  pipeline.Runner
+	JobORM          job.ORM
+	OCR2JobConfig   validate.Config
+	DB              *sqlx.DB
+	Chain           evm.Chain
+	ContractID      string
+	Lggr            logger.Logger
+	MailMon         *utils.MailboxMonitor
+	URLsMonEndpoint commontypes.MonitoringEndpoint
 }
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -58,7 +60,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 			"jobID", conf.Job.PipelineSpec.JobID,
 			"externalJobID", conf.Job.ExternalJobID,
 		)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon)
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
 		Logger:    sharedOracleArgs.Logger,

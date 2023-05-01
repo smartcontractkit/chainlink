@@ -7,7 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -45,7 +46,7 @@ func TestResolver_Nodes(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]chains.NodeStatus{
+				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.NodeStatus{
 					{
 						Name:    "node-name",
 						ChainID: chainID.String(),
@@ -76,7 +77,7 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]chains.NodeStatus{}, 0, gError)
+				f.Mocks.chainSet.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.NodeStatus{}, 0, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:  query,

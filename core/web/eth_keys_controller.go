@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -273,7 +272,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 			if nonce >= 0 {
 				resetErr = kst.Reset(address, chain.ID(), nonce)
 			}
-		}, evmtypes.NewAddress(address), abandon)
+		}, address, abandon)
 		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -356,7 +355,7 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 	} else {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().LinkContractAddress())
-		bal, err = ethClient.GetLINKBalance(ctx, addr, state.Address.Address())
+		bal, err = ethClient.LINKBalance(ctx, state.Address.Address(), addr)
 		if err != nil {
 			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "error", err)
 		}

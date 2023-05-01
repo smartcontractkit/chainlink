@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -29,80 +29,28 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmBroadcaster            = EthBroadcaster[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmResender               = EthResender[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmTxStore                = txmgrtypes.TxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, NewTx[evmtypes.Address], *evmtypes.Receipt, EthTx[evmtypes.Address, evmtypes.TxHash], EthTxAttempt[evmtypes.Address, evmtypes.TxHash], int64, int64]
-	EvmKeyStore               = txmgrtypes.KeyStore[evmtypes.Address, *big.Int, int64]
-	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, evmtypes.Address, evmtypes.TxHash, EthTx[evmtypes.Address, evmtypes.TxHash], EthTxAttempt[evmtypes.Address, evmtypes.TxHash]]
-	EvmNonceSyncer            = NonceSyncer[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmTransmitCheckerFactory = TransmitCheckerFactory[evmtypes.Address, evmtypes.TxHash]
-	EvmTxm                    = Txm[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmTxManager              = TxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	NullEvmTxManager          = NullTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash]
-	EvmFwdMgr                 = txmgrtypes.ForwarderManager[evmtypes.Address]
-	EvmNewTx                  = NewTx[evmtypes.Address]
-	EvmTx                     = EthTx[evmtypes.Address, evmtypes.TxHash]
-	EvmTxAttempt              = EthTxAttempt[evmtypes.Address, evmtypes.TxHash]
-	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash]
-	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, evmtypes.TxHash, evmtypes.BlockHash]
+	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmBroadcaster            = EthBroadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmResender               = EthResender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce]
+	EvmTxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, EvmNewTx, *evmtypes.Receipt, EvmTx, EvmTxAttempt, evmtypes.Nonce]
+	EvmKeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
+	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*evmtypes.Head, gas.EvmFee, common.Address, common.Hash, EvmTx, EvmTxAttempt, evmtypes.Nonce]
+	EvmNonceSyncer            = NonceSyncer[common.Address, common.Hash, common.Hash]
+	EvmTransmitCheckerFactory = TransmitCheckerFactory[common.Address, common.Hash]
+	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash]
+	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
+	EvmNewTx                  = txmgrtypes.NewTx[common.Address, common.Hash]
+	EvmTx                     = EthTx[common.Address, common.Hash]
+	EthTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash] // TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
+	EvmTxAttempt              = EthTxAttempt[common.Address, common.Hash]
+	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
+	EvmReceipt                = txmgrtypes.Receipt[*evmtypes.Receipt, common.Hash, common.Hash]
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 )
 
-// EthTxMeta contains fields of the transaction metadata
-// Not all fields are guaranteed to be present
-type EthTxMeta struct {
-	JobID *int32 `json:"JobID,omitempty"`
-
-	// Pipeline fields
-	FailOnRevert null.Bool `json:"FailOnRevert,omitempty"`
-
-	// VRF-only fields
-	RequestID     *common.Hash `json:"RequestID,omitempty"`
-	RequestTxHash *common.Hash `json:"RequestTxHash,omitempty"`
-	// Batch variants of the above
-	RequestIDs      []common.Hash `json:"RequestIDs,omitempty"`
-	RequestTxHashes []common.Hash `json:"RequestTxHashes,omitempty"`
-	// Used for the VRFv2 - max link this tx will bill
-	// should it get bumped
-	MaxLink *string `json:"MaxLink,omitempty"`
-	// Used for the VRFv2 - the subscription ID of the
-	// requester of the VRF.
-	SubID *uint64 `json:"SubId,omitempty"`
-
-	// Used for keepers
-	UpkeepID *string `json:"UpkeepID,omitempty"`
-
-	// Used only for forwarded txs, tracks the original destination address.
-	// When this is set, it indicates tx is forwarded through To address.
-	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
-
-	// MessageIDs is used by CCIP for tx to executed messages correlation in logs
-	MessageIDs []string `json:"MessageIDs,omitempty"`
-	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
-	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
-}
-
-// TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
-// on chain.
-type TransmitCheckerSpec struct {
-	// CheckerType is the type of check that should be performed. Empty indicates no check.
-	CheckerType TransmitCheckerType `json:",omitempty"`
-
-	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
-	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFCoordinatorAddress *common.Address `json:",omitempty"`
-
-	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
-	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFRequestBlockNumber *big.Int `json:",omitempty"`
-}
-
 type EthTxState string
-
-// TransmitCheckerType describes the type of check that should be performed before a transaction is
-// executed on-chain.
-type TransmitCheckerType string
 
 const (
 	EthTxUnstarted               = EthTxState("unstarted")
@@ -114,15 +62,15 @@ const (
 
 	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on
 	// chain.
-	TransmitCheckerTypeSimulate = TransmitCheckerType("simulate")
+	TransmitCheckerTypeSimulate = txmgrtypes.TransmitCheckerType("simulate")
 
 	// TransmitCheckerTypeVRFV1 is a checker that will not submit VRF V1 fulfillment requests that
 	// have already been fulfilled. This could happen if the request was fulfilled by another node.
-	TransmitCheckerTypeVRFV1 = TransmitCheckerType("vrf_v1")
+	TransmitCheckerTypeVRFV1 = txmgrtypes.TransmitCheckerType("vrf_v1")
 
 	// TransmitCheckerTypeVRFV2 is a checker that will not submit VRF V2 fulfillment requests that
 	// have already been fulfilled. This could happen if the request was fulfilled by another node.
-	TransmitCheckerTypeVRFV2 = TransmitCheckerType("vrf_v2")
+	TransmitCheckerTypeVRFV2 = txmgrtypes.TransmitCheckerType("vrf_v2")
 )
 
 type NullableEIP2930AccessList struct {
@@ -180,7 +128,7 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 	}
 }
 
-type EthTx[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTx[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	txmgrtypes.Transaction
 	ID             int64
 	Nonce          *int64
@@ -306,17 +254,17 @@ func (e EthTx[ADDR, TX_HASH]) GetLogger(lgr logger.Logger) logger.Logger {
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
-func (e EthTx[ADDR, TX_HASH]) GetChecker() (TransmitCheckerSpec, error) {
+func (e EthTx[ADDR, TX_HASH]) GetChecker() (txmgrtypes.TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {
-		return TransmitCheckerSpec{}, nil
+		return txmgrtypes.TransmitCheckerSpec[ADDR]{}, nil
 	}
-	var t TransmitCheckerSpec
+	var t txmgrtypes.TransmitCheckerSpec[ADDR]
 	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, evmtypes.TxHash] = EthTxAttempt[evmtypes.Address, evmtypes.TxHash]{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EthTxAttempt[common.Address, common.Hash]{}
 
-type EthTxAttempt[ADDR commontypes.Hashable[ADDR], TX_HASH commontypes.Hashable[TX_HASH]] struct {
+type EthTxAttempt[ADDR commontypes.Hashable, TX_HASH commontypes.Hashable] struct {
 	ID      int64
 	EthTxID int64
 	EthTx   EthTx[ADDR, TX_HASH]
