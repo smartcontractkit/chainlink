@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -43,7 +42,7 @@ func (r *relayerClient) Start(ctx context.Context) error {
 
 func (r *relayerClient) Close() error {
 	_, err := r.service.Close(context.TODO(), &emptypb.Empty{})
-	err = multierr.Append(err, r.closeFn())
+	err = errors.Join(err, r.closeFn())
 	return err
 }
 

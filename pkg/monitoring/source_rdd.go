@@ -2,11 +2,10 @@ package monitoring
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
-
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
@@ -57,7 +56,7 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 		dataMu.Lock()
 		defer dataMu.Unlock()
 		if feedsErr != nil {
-			dataErr = multierr.Combine(dataErr, feedsErr)
+			dataErr = errors.Join(dataErr, feedsErr)
 		} else {
 			data.Feeds = feeds
 		}
@@ -67,7 +66,7 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 		dataMu.Lock()
 		defer dataMu.Unlock()
 		if nodesErr != nil {
-			dataErr = multierr.Combine(dataErr, nodesErr)
+			dataErr = errors.Join(dataErr, nodesErr)
 		} else {
 			data.Nodes = nodes
 		}

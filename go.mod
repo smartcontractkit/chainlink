@@ -13,16 +13,15 @@ require (
 	github.com/prometheus/client_golang v1.12.0
 	github.com/riferrei/srclient v0.5.4
 	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc
-	github.com/stretchr/testify v1.7.5
-	go.uber.org/atomic v1.7.0
+	github.com/stretchr/testify v1.8.2
 	go.uber.org/goleak v1.1.12
-	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.24.0
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 )
 
 require (
+	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -41,7 +40,9 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.1.1 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
@@ -50,5 +51,4 @@ require (
 	google.golang.org/genproto v0.0.0-20230223222841-637eb2293923 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	honnef.co/go/tools v0.1.3 // indirect
 )

@@ -3,9 +3,9 @@ package utils
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"go.uber.org/atomic"
 )
 
 type errNotStarted struct {
@@ -54,7 +54,7 @@ type StartStopOnce struct {
 func (s *StartStopOnce) StartOnce(name string, fn func() error) error {
 	// SAFETY: We do this compare-and-swap outside of the lock so that
 	// concurrent StartOnce() calls return immediately.
-	success := s.state.CAS(int32(startStopOnceUnstarted), int32(startStopOnceStarting))
+	success := s.state.CompareAndSwap(int32(startStopOnceUnstarted), int32(startStopOnceStarting))
 
 	if !success {
 		return errors.Errorf("%v has already started once", name)
@@ -65,7 +65,7 @@ func (s *StartStopOnce) StartOnce(name string, fn func() error) error {
 
 	err := fn()
 
-	success = s.state.CAS(int32(startStopOnceStarting), int32(startStopOnceStarted))
+	success = s.state.CompareAndSwap(int32(startStopOnceStarting), int32(startStopOnceStarted))
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state
@@ -84,7 +84,7 @@ func (s *StartStopOnce) StopOnce(name string, fn func() error) error {
 	s.Lock()
 	defer s.Unlock()
 
-	success := s.state.CAS(int32(startStopOnceStarted), int32(startStopOnceStopping))
+	success := s.state.CompareAndSwap(int32(startStopOnceStarted), int32(startStopOnceStopping))
 
 	if !success {
 		return errors.Errorf("%v is unstarted or has already stopped once", name)
@@ -92,7 +92,7 @@ func (s *StartStopOnce) StopOnce(name string, fn func() error) error {
 
 	err := fn()
 
-	success = s.state.CAS(int32(startStopOnceStopping), int32(startStopOnceStopped))
+	success = s.state.CompareAndSwap(int32(startStopOnceStopping), int32(startStopOnceStopped))
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state

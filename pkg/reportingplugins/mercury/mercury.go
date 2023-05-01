@@ -11,7 +11,6 @@ import (
 
 	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -463,7 +462,7 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 		return false, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
-	if err := multierr.Combine(
+	if err := errors.Join(
 		rp.checkBenchmarkPrice(paos),
 		rp.checkBid(paos),
 		rp.checkAsk(paos),
