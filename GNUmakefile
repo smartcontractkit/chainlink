@@ -47,11 +47,25 @@ install-chainlink: operator-ui ## Install the chainlink binary.
 chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: install-solana
+install-solana: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
+
+.PHONY: install-median
+install-median: ## Build & install the chainlink-median binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
+
+.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+docker-plugins:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -88,7 +102,8 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 .PHONY: testscripts
 testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+	find testdata/scripts -type d | xargs -I % \
+	sh -c 'ls %/*.txtar > /dev/null 2>&1 || return 0 && PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
