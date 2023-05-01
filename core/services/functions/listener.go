@@ -435,7 +435,7 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		if errJson != nil {
 			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
 		} else if len(reportedDomains) > 0 {
-			l.reportRequestData(request, reportedDomains)
+			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
 		}
 	}
 
@@ -511,9 +511,9 @@ func (l *FunctionsListener) timeoutRequests() {
 	}
 }
 
-func (l *FunctionsListener) reportRequestData(request *ocr2dr_oracle.OCR2DROracleOracleRequest, domains []string) {
+func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
 	r := &telem.FunctionsRequest{
-		RequestId:   formatRequestId(request.RequestId),
+		RequestId:   formatRequestId(requestId),
 		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
 		Domains:     domains,
 	}

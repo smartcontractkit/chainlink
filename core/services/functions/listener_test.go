@@ -168,7 +168,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestFunctionsListener_reportRequestData(t *testing.T) {
+func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
