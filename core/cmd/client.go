@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -22,12 +23,17 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -36,12 +42,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -85,37 +93,35 @@ type Client struct {
 	configInitialized bool
 }
 
-func (cli *Client) errorOut(err error) error {
+func (cli *Client) errorOut(err error) cli.ExitCoder {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
 }
 
-func (cli *Client) setConfigFromFlags(opts *chainlink.GeneralConfigOpts, ctx *cli.Context) error {
-
-	configToProcess := ctx.IsSet("config") || ctx.IsSet("secrets")
-	if !configToProcess {
-		return nil
+// exitOnConfigError is helper that executes as validation func and
+// pretty-prints errors
+func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
+	err := validateFn()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
 	}
+	return nil
+}
 
-	if cli.configInitialized && configToProcess {
-		return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
-	}
-
-	cli.configInitialized = true
-
-	fileNames := ctx.StringSlice("config")
-	if err := loadOpts(opts, fileNames...); err != nil {
+func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
 	secretsTOML := ""
-	if ctx.IsSet("secrets") {
-		secretsFileName := ctx.String("secrets")
-		b, err := os.ReadFile(secretsFileName)
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
 		secretsTOML = string(b)
 	}
@@ -241,11 +247,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
-		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string
 		for _, c := range cfgs {
@@ -257,10 +258,31 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.Configs = solana.NewConfigs(cfgs)
-		chains.Solana, err = solana.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Solana chainset")
+
+		if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+			tomls, err := toml.Marshal(struct {
+				Solana solana.SolanaConfigs
+			}{Solana: cfgs})
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to marshal Solana configs")
+			}
+			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
+				cmd := exec.Command(cmdName)
+				plugins.SetEnvConfig(cmd, cfg)
+				return cmd
+			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
+			chains.Solana = chainPluginService
+		} else {
+			opts := solana.ChainSetOpts{
+				Logger:   solLggr,
+				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+				Configs:  solana.NewConfigs(cfgs),
+			}
+			chainSet, err := solana.NewChainSet(opts, cfgs)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to load Solana chainset")
+			}
+			chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 		}
 	}
 

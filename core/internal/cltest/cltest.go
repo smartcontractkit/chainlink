@@ -25,13 +25,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -39,6 +39,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
+
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
@@ -82,6 +84,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -202,7 +205,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.BasicConfig, cc evm.ChainSet, db 
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	lggr := logger.TestLogger(t)
-	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
+	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
 }
 
 func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmConfirmer, error) {
@@ -429,14 +432,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.SolanaEnabled() {
 		solLggr := lggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
-		}
 		cfgs := cfg.SolanaConfigs()
-		opts.Configs = solana.NewConfigs(cfgs)
-		chains.Solana, err = solana.NewChainSet(opts, cfgs)
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
@@ -446,9 +442,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 				t.Fatal(err)
 			}
 		}
+
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+			Configs:  solana.NewConfigs(cfgs),
+		}
+		chainSet, err := solana.NewChainSet(opts, cfgs)
 		if err != nil {
 			lggr.Fatal(err)
 		}
+
+		chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")

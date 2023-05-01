@@ -48,7 +48,7 @@ type headTracker struct {
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
 	headListener httypes.HeadListener
-	chStop       chan struct{}
+	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -262,7 +262,7 @@ func (ht *headTracker) broadcastLoop() {
 func (ht *headTracker) backfillLoop() {
 	defer ht.wgDone.Done()
 
-	ctx, cancel := utils.ContextFromChan(ht.chStop)
+	ctx, cancel := ht.chStop.NewCtx()
 	defer cancel()
 
 	for {

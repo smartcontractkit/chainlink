@@ -14,6 +14,8 @@ import (
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -162,16 +164,16 @@ chains:
 	}
 }
 
-func (mo *TestConfigs) Chains(offset int, limit int, ids ...utils.Big) (cs []chains.ChainConfig, count int, err error) {
+func (mo *TestConfigs) Chains(offset int, limit int, ids ...string) (cs []types.ChainStatus, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	if len(ids) == 0 {
 		for _, c := range mo.EVMConfigs {
-			c2 := chains.ChainConfig{
+			c2 := types.ChainStatus{
 				ID:      c.ChainID.String(),
 				Enabled: c.IsEnabled(),
 			}
-			c2.Cfg, err = c.TOMLString()
+			c2.Config, err = c.TOMLString()
 			if err != nil {
 				return
 			}
@@ -182,16 +184,15 @@ func (mo *TestConfigs) Chains(offset int, limit int, ids ...utils.Big) (cs []cha
 	}
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
-		if !slices.ContainsFunc(ids, func(id utils.Big) bool {
-			return id.Cmp(c.ChainID) == 0
-		}) {
+		chainID := c.ChainID.String()
+		if !slices.Contains(ids, chainID) {
 			continue
 		}
-		c2 := chains.ChainConfig{
-			ID:      c.ChainID.String(),
+		c2 := types.ChainStatus{
+			ID:      chainID,
 			Enabled: c.IsEnabled(),
 		}
-		c2.Cfg, err = c.TOMLString()
+		c2.Config, err = c.TOMLString()
 		if err != nil {
 			return
 		}
@@ -233,7 +234,7 @@ func (mo *TestConfigs) Node(name string) (evmtypes.Node, error) {
 	return evmtypes.Node{}, chains.ErrNotFound
 }
 
-func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...string) (nodes []chains.NodeStatus, cnt int, err error) {
+func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...string) (nodes []types.NodeStatus, cnt int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 
@@ -244,7 +245,7 @@ func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...stri
 			continue
 		}
 		for _, n := range c.Nodes {
-			var n2 chains.NodeStatus
+			var n2 types.NodeStatus
 			n2, err = nodeStatus(n, id)
 			if err != nil {
 				return
@@ -271,13 +272,13 @@ func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
 	return
 }
 
-func nodeStatus(n *v2.Node, chainID string) (chains.NodeStatus, error) {
-	var s chains.NodeStatus
+func nodeStatus(n *v2.Node, chainID string) (types.NodeStatus, error) {
+	var s types.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return chains.NodeStatus{}, err
+		return types.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil

@@ -47,11 +47,25 @@ install-chainlink: operator-ui ## Install the chainlink binary.
 chainlink: operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: install-solana
+install-solana: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
+
+.PHONY: install-median
+install-median: ## Build & install the chainlink-median binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
+
+.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+docker-plugins:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -85,6 +99,15 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
 
+.PHONY: testscripts
+testscripts: chainlink ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	PATH=$(CURDIR):$(PATH) testscript -e CL_DEV=true -e COMMIT_SHA=$(COMMIT_SHA) -e VERSION=$(VERSION) $(TS_FLAGS) testdata/scripts/*
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
@@ -107,7 +130,6 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
-
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.

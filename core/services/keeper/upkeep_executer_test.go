@@ -128,7 +128,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.FeeLimit == gasLimit }),
 		).
 			Once().
 			Return(txmgr.EvmTx{
@@ -171,7 +171,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateEthTransaction",
-				mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
+				mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.FeeLimit == gasLimit }),
 			).
 				Once().
 				Return(txmgr.EvmTx{
@@ -273,7 +273,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.FeeLimit == gasLimit }),
 		).
 			Once().
 			Return(txmgr.EvmTx{}, nil).

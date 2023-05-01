@@ -155,7 +155,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				return client.Config.ValidateDB()
+				return client.configExitErr(client.Config.ValidateDB)
 			},
 			Subcommands: []cli.Command{
 				{
@@ -262,7 +262,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
 
-	cli.Config.LogConfiguration(lggr.Debug)
+	cli.Config.LogConfiguration(lggr.Debugf)
 
 	err := cli.Config.Validate()
 	if err != nil {
@@ -669,12 +669,9 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
-	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
+	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
+	if err := cli.configExitErr(cli.Config.Validate); err != nil {
+		return err
 	}
 	fmt.Println("Valid configuration.")
 	return nil

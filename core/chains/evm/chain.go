@@ -44,6 +44,8 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
+
+	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ Chain = &chain{}
@@ -258,6 +260,10 @@ func (c *chain) HealthReport() map[string]error {
 	}
 
 	return report
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return chains.ErrLOOPPUnsupported
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

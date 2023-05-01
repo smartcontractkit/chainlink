@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -41,11 +42,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
-type LogFn func(...any)
+type LogfFn func(string, ...any)
 
 type BasicConfig interface {
 	Validate() error
-	LogConfiguration(log LogFn)
+	LogConfiguration(log LogfFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
@@ -127,6 +128,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/require"
@@ -120,7 +120,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
-						ID:         uuid.NewV4(),
+						ID:         uuid.New(),
 						Type:       pipeline.TaskTypeHTTP,
 						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
@@ -149,7 +149,7 @@ func makeJob(t *testing.T) *job.Job {
 		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
@@ -175,7 +175,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = txmmocks.NewMockEvmTxManager(t)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.EvmTransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
@@ -187,7 +187,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
 	}).Return(txmgr.EvmTx{}, nil).Once()
