@@ -7,8 +7,8 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -38,7 +38,9 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 
 	pt, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
 	require.NoError(t, err)
-	assert.DeepEqual(t, pt, []byte("decrypted"))
+	if !reflect.DeepEqual(pt, []byte("decrypted")) {
+		t.Error("did not get expected result")
+	}
 }
 
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {

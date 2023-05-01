@@ -94,7 +94,6 @@ require (
 	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gotest.tools/v3 v3.0.3
 )
 
 require (
