@@ -136,7 +136,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -149,7 +149,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
 		config.AssertExpectations(t)
