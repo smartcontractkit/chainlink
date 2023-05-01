@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -72,7 +72,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	btr := &bridges.BridgeTypeRequest{}
 
 	// Must randomise default to avoid unique constraint conflicts with other parallel tests
-	rnd := uuid.NewV4().String()
+	rnd := uuid.New().String()
 
 	if opts.Name != "" {
 		btr.Name = bridges.MustParseBridgeName(opts.Name)
@@ -518,7 +518,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 	jb := job.Job{
 		OCROracleSpec:   &oracleSpec,
 		OCROracleSpecID: &oracleSpec.ID,
-		ExternalJobID:   uuid.NewV4(),
+		ExternalJobID:   uuid.New(),
 		Type:            job.OffchainReporting,
 		SchemaVersion:   1,
 		PipelineSpec:    &pipelineSpec,
@@ -548,7 +548,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
-		ExternalJobID:     uuid.NewV4(),
+		ExternalJobID:     uuid.New(),
 		DirectRequestSpec: drs,
 		Pipeline:          pipeline.Pipeline{},
 		PipelineSpec:      &pipeline.Spec{},
@@ -570,7 +570,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	jb := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
-		ExternalJobID:  uuid.NewV4(),
+		ExternalJobID:  uuid.New(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,
@@ -668,7 +668,7 @@ func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
 	/* #nosec G404 */
-	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))
+	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
 	return tr
 }
 
@@ -728,7 +728,7 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts Ext
 	} else {
 		prefix = "ei"
 	}
-	ei.Name = fmt.Sprintf("%s-%s", prefix, uuid.NewV4())
+	ei.Name = fmt.Sprintf("%s-%s", prefix, uuid.New())
 	ei.URL = opts.URL
 	ei.OutgoingSecret = opts.OutgoingSecret
 	ei.OutgoingToken = opts.OutgoingToken

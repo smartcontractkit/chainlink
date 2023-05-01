@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type eaTelemetryResponse struct {
+type eaTelemetry struct {
 	DataSource                    string `json:"dataSource"`
 	ProviderRequestedTimestamp    int64  `json:"providerDataRequestedUnixMs"`
 	ProviderReceivedTimestamp     int64  `json:"providerDataReceivedUnixMs"`
@@ -19,8 +19,8 @@ type eaTelemetryResponse struct {
 	ProviderIndicatedTime         int64  `json:"providerIndicatedTimeUnixMs"`
 }
 
-// shouldCollectTelemetry returns whether EA telemetry should be collected
-func shouldCollectTelemetry(jb *job.Job) bool {
+// shouldCollectEnhancedTelemetry returns whether EA telemetry should be collected
+func shouldCollectEnhancedTelemetry(jb *job.Job) bool {
 	if jb.Type.String() == pipeline.OffchainReportingJobType && jb.OCROracleSpec != nil {
 		return jb.OCROracleSpec.CaptureEATelemetry
 	}
@@ -57,18 +57,35 @@ func getChainID(jb *job.Job) string {
 	}
 }
 
-// parseEATelemetry attempts to parse the bridge telemetry
-func parseEATelemetry(b []byte) (eaTelemetryResponse, error) {
-	type generalResponse struct {
-		TelemTimestamps eaTelemetryResponse `json:"timestamps"`
+// ParseEATelemetry attempts to parse the bridge telemetry
+func ParseEATelemetry(b []byte) (eaTelemetry, error) {
+	type eaTimestamps struct {
+		ProviderRequestedTimestamp    int64 `json:"providerDataRequestedUnixMs"`
+		ProviderReceivedTimestamp     int64 `json:"providerDataReceivedUnixMs"`
+		ProviderDataStreamEstablished int64 `json:"providerDataStreamEstablishedUnixMs"`
+		ProviderIndicatedTime         int64 `json:"providerIndicatedTimeUnixMs"`
 	}
-	gr := generalResponse{}
-
-	if err := json.Unmarshal(b, &gr); err != nil {
-		return eaTelemetryResponse{}, err
+	type eaMeta struct {
+		AdapterName string `json:"adapterName"`
 	}
 
-	return gr.TelemTimestamps, nil
+	type eaTelem struct {
+		TelemTimestamps eaTimestamps `json:"timestamps"`
+		TelemMeta       eaMeta       `json:"meta"`
+	}
+	t := eaTelem{}
+
+	if err := json.Unmarshal(b, &t); err != nil {
+		return eaTelemetry{}, err
+	}
+
+	return eaTelemetry{
+		DataSource:                    t.TelemMeta.AdapterName,
+		ProviderRequestedTimestamp:    t.TelemTimestamps.ProviderRequestedTimestamp,
+		ProviderReceivedTimestamp:     t.TelemTimestamps.ProviderReceivedTimestamp,
+		ProviderDataStreamEstablished: t.TelemTimestamps.ProviderDataStreamEstablished,
+		ProviderIndicatedTime:         t.TelemTimestamps.ProviderIndicatedTime,
+	}, nil
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
@@ -114,7 +131,7 @@ func getParsedValue(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, trr p
 
 // collectEATelemetry checks if EA telemetry should be collected, gathers the information and sends it for ingestion
 func collectEATelemetry(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, finalResult *pipeline.FinalResult, timestamp ObservationTimestamp) {
-	if !shouldCollectTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
+	if !shouldCollectEnhancedTelemetry(&ds.jb) || ds.monitoringEndpoint == nil {
 		return
 	}
 
@@ -137,21 +154,21 @@ func collectAndSend(ds *inMemoryDataSource, trrs *pipeline.TaskRunResults, final
 			ds.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 			continue
 		}
-		eaTelemetry, err := parseEATelemetry([]byte(bridgeRawResponse))
+		eaTelem, err := ParseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
 			ds.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", ds.jb.ID, trr.Task.DotID())
 		}
 		value := getParsedValue(ds, trrs, trr)
 
 		t := &telem.EnhancedEA{
-			DataSource:                    eaTelemetry.DataSource,
+			DataSource:                    eaTelem.DataSource,
 			Value:                         value,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedTimestamp:    eaTelemetry.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:     eaTelemetry.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished: eaTelemetry.ProviderDataStreamEstablished,
-			ProviderIndicatedTime:         eaTelemetry.ProviderIndicatedTime,
+			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:     eaTelem.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished: eaTelem.ProviderDataStreamEstablished,
+			ProviderIndicatedTime:         eaTelem.ProviderIndicatedTime,
 			Feed:                          contract,
 			ChainId:                       chainID,
 			Observation:                   observation,

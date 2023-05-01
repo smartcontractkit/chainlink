@@ -10,7 +10,7 @@ import (
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -114,7 +114,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
-		subject := uuid.NewV4()
+		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
@@ -175,7 +175,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
-		id := uuid.NewV4()
+		id := uuid.New()
 		tx1, err := txm.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),

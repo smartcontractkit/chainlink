@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -1468,7 +1468,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
-		subject := uuid.NewV4()
+		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
@@ -1507,7 +1507,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
-		id := uuid.NewV4()
+		id := uuid.New()
 		newTx := txmgr.EvmNewTx{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
@@ -1536,11 +1536,11 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	subject1 := uuid.NewV4()
+	subject1 := uuid.New()
 	for i := 0; i < 5; i++ {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject1)
 	}
-	subject2 := uuid.NewV4()
+	subject2 := uuid.New()
 	for i := 0; i < 5; i++ {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject2)
 	}

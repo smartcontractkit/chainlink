@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -532,7 +532,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	// Default Chain Job
-	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job3",
 		EVMChainID:         defaultChainID.String(),
@@ -545,7 +545,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	// Custom Chain Job
-	externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	spec4 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job4",
 		EVMChainID:         customChainID.String(),
@@ -594,7 +594,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err) // should be able to add same contract address on default chain by omitting chain id
 
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 		spec3.JobID = externalJobID.UUID.String()
 		jb3a, err := ocr.ValidatedOracleSpecToml(cc, spec3.Toml())
 		require.NoError(t, err)
@@ -602,7 +602,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 		spec4.JobID = externalJobID.UUID.String()
 		jb5, err := ocr.ValidatedOracleSpecToml(cc, spec4.Toml())
 		require.NoError(t, err)
@@ -697,7 +697,7 @@ func Test_FindJobs(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb1, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              uuid.NewV4().String(),
+			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -775,7 +775,7 @@ func Test_FindJob(t *testing.T) {
 
 	// Create two jobs.  Each job has the same Transmitter Address but on a different chain.
 	// Must uniquely name the OCR Specs to properly insert a new job in the job table.
-	externalJobID := uuid.NewV4()
+	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	job, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -790,7 +790,7 @@ func Test_FindJob(t *testing.T) {
 
 	jobSameAddress, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              uuid.NewV4().String(),
+			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
 			EVMChainID:         "1337",
@@ -803,7 +803,7 @@ func Test_FindJob(t *testing.T) {
 	// Create a job with the legacy null evm chain id.
 	jobWithNullChain, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              uuid.NewV4().String(),
+			JobID:              uuid.New().String(),
 			ContractAddress:    "0xB47f9a6D281B2A82F8692F8dE058E4249363A6fc",
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr legacy null chain id",
@@ -957,7 +957,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	externalJobID := uuid.NewV4()
+	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -1017,7 +1017,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	externalJobID := uuid.NewV4()
+	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -1080,7 +1080,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	for j := 0; j < len(jobs); j++ {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-		jobID := uuid.NewV4().String()
+		jobID := uuid.New().String()
 		key, err := ethkey.NewV2()
 
 		require.NoError(t, err)
@@ -1184,7 +1184,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	externalJobID := uuid.NewV4()
+	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -1358,7 +1358,7 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	externalJobID := uuid.NewV4()
+	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := ocr.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{

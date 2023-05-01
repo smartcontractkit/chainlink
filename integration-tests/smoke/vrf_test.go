@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -71,7 +71,7 @@ func TestVRFBasic(t *testing.T) {
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
 		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 		pubKeyCompressed := nodeKey.Data.ID
-		jobUUID := uuid.NewV4()
+		jobUUID := uuid.New()
 		os := &client.VRFTxPipelineSpec{
 			Address: coordinator.Address(),
 		}

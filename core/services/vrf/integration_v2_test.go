@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -409,7 +409,7 @@ func createVRFJobs(
 		vrfkey, err := app.GetKeyStore().VRF().Create()
 		require.NoError(t, err)
 
-		jid := uuid.NewV4()
+		jid := uuid.New()
 		incomingConfs := 2
 		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			JobID:                    jid.String(),
@@ -1934,7 +1934,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
-	jid := uuid.NewV4()
+	jid := uuid.New()
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
