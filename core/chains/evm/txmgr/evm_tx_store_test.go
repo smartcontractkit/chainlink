@@ -10,6 +10,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -21,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -43,7 +44,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.GasPrice = assets.NewWeiI(3)
+	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -62,18 +63,18 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
-	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
-	assert.Len(t, txs[0].EthTxAttempts, 2, "all eth tx attempts are preloaded")
-	assert.Len(t, txs[1].EthTxAttempts, 1)
-	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
-	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
+	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Len(t, txs[0].TxAttempts, 2, "all eth tx attempts are preloaded")
+	assert.Len(t, txs[1].TxAttempts, 1)
+	assert.Equal(t, int64(3), *txs[0].TxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
+	assert.Equal(t, int64(2), *txs[0].TxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
 	txs, count, err = orm.EthTransactionsWithAttempts(0, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
-	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
 }
 
 func TestORM_EthTransactions(t *testing.T) {
@@ -91,7 +92,7 @@ func TestORM_EthTransactions(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.GasPrice = assets.NewWeiI(3)
+	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -110,10 +111,10 @@ func TestORM_EthTransactions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
-	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
-	assert.Len(t, txs[0].EthTxAttempts, 0, "eth tx attempts should not be preloaded")
-	assert.Len(t, txs[1].EthTxAttempts, 0)
+	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Len(t, txs[0].TxAttempts, 0, "eth tx attempts should not be preloaded")
+	assert.Len(t, txs[1].TxAttempts, 0)
 }
 
 func TestORM(t *testing.T) {
@@ -145,7 +146,7 @@ func TestORM(t *testing.T) {
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
-		attemptL.GasPrice = assets.NewWeiI(42)
+		attemptL.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(42)}
 		err = orm.InsertEthTxAttempt(&attemptL)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptL.ID), 0)
@@ -162,28 +163,28 @@ func TestORM(t *testing.T) {
 	t.Run("FindEthTxWithAttempts", func(t *testing.T) {
 		etx, err = orm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Len(t, etx.EthTxAttempts, 2)
-		assert.Equal(t, etx.EthTxAttempts[0].ID, attemptD.ID)
-		assert.Equal(t, etx.EthTxAttempts[1].ID, attemptL.ID)
-		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 1)
-		require.Len(t, etx.EthTxAttempts[1].EthReceipts, 0)
-		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
+		require.Len(t, etx.TxAttempts, 2)
+		assert.Equal(t, etx.TxAttempts[0].ID, attemptD.ID)
+		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
+		require.Len(t, etx.TxAttempts[0].Receipts, 1)
+		require.Len(t, etx.TxAttempts[1].Receipts, 0)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
 	})
 	t.Run("FindEthTxByHash", func(t *testing.T) {
 		foundEtx, err := orm.FindEthTxByHash(attemptD.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, etx.ID, foundEtx.ID)
-		assert.Equal(t, etx.EVMChainID, foundEtx.EVMChainID)
+		assert.Equal(t, etx.ChainID, foundEtx.ChainID)
 	})
 	t.Run("FindEthTxAttemptsByEthTxIDs", func(t *testing.T) {
 		attempts, err := orm.FindEthTxAttemptsByEthTxIDs([]int64{etx.ID})
 		require.NoError(t, err)
 		require.Len(t, attempts, 2)
-		assert.Equal(t, etx.EthTxAttempts[0].ID, attemptD.ID)
-		assert.Equal(t, etx.EthTxAttempts[1].ID, attemptL.ID)
-		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 1)
-		require.Len(t, etx.EthTxAttempts[1].EthReceipts, 0)
-		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
+		assert.Equal(t, etx.TxAttempts[0].ID, attemptD.ID)
+		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
+		require.Len(t, etx.TxAttempts[0].Receipts, 1)
+		require.Len(t, etx.TxAttempts[1].Receipts, 0)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
 	})
 }
 
@@ -202,7 +203,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.GasPrice = assets.NewWeiI(3)
+	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
@@ -233,8 +234,8 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	assert.Equal(t, 4, count, "only eth txs with attempts are counted")
 	require.Len(t, confirmedAttempts, 1)
 	assert.Equal(t, confirmedAttempts[0].ID, attempt.ID)
-	require.Len(t, confirmedAttempts[0].EthReceipts, 1, "should have only one EthRecipts for a confirmed transaction")
-	assert.Equal(t, confirmedAttempts[0].EthReceipts[0].BlockHash, r.BlockHash)
+	require.Len(t, confirmedAttempts[0].Receipts, 1, "should have only one EthRecipts for a confirmed transaction")
+	assert.Equal(t, confirmedAttempts[0].Receipts[0].BlockHash, r.BlockHash)
 	assert.Equal(t, confirmedAttempts[0].Hash, attempt.Hash, "confirmed Recieipt Hash should match the attempt hash")
 }
 
@@ -269,26 +270,26 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		e3,
 	}
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etxs[0].ID)
-	attempt1_2.GasPrice = assets.NewWeiI(10)
+	attempt1_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt1_2))
 
 	attempt3_2 := newInProgressLegacyEthTxAttempt(t, etxs[2].ID)
-	attempt3_2.GasPrice = assets.NewWeiI(10)
+	attempt3_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt3_2))
 
 	attempt4_2 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_2.GasTipCap = assets.NewWeiI(10)
-	attempt4_2.GasFeeCap = assets.NewWeiI(20)
+	attempt4_2.TxFee.DynamicTipCap = assets.NewWeiI(10)
+	attempt4_2.TxFee.DynamicFeeCap = assets.NewWeiI(20)
 	attempt4_2.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt4_2))
 	attempt4_4 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_4.GasTipCap = assets.NewWeiI(30)
-	attempt4_4.GasFeeCap = assets.NewWeiI(40)
+	attempt4_4.TxFee.DynamicTipCap = assets.NewWeiI(30)
+	attempt4_4.TxFee.DynamicFeeCap = assets.NewWeiI(40)
 	attempt4_4.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt4_4))
 	attempt4_3 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_3.GasTipCap = assets.NewWeiI(20)
-	attempt4_3.GasFeeCap = assets.NewWeiI(30)
+	attempt4_3.TxFee.DynamicTipCap = assets.NewWeiI(20)
+	attempt4_3.TxFee.DynamicFeeCap = assets.NewWeiI(30)
 	attempt4_3.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt4_3))
 
@@ -305,7 +306,7 @@ func TestORM_FindEthTxAttemptsRequiringResend(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
-		assert.Equal(t, etxs[1].EthTxAttempts[0].ID, attempts[1].ID)
+		assert.Equal(t, etxs[1].TxAttempts[0].ID, attempts[1].ID)
 	})
 
 	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
@@ -358,7 +359,7 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 
 		time1 := time.Now()
 		etx := cltest.NewEthTx(t, fromAddress)
-		etx.Nonce = new(int64)
+		etx.Sequence = new(int64)
 		etx.State = txmgr.EthTxUnconfirmed
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
@@ -396,8 +397,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Len(t, etx.EthTxAttempts, 1)
-		attempt := etx.EthTxAttempts[0]
+		require.Len(t, etx.TxAttempts, 1)
+		attempt := etx.TxAttempts[0]
 
 		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
 	})
@@ -413,8 +414,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Len(t, etx.EthTxAttempts, 2)
-		attempt = etx.EthTxAttempts[0]
+		require.Len(t, etx.TxAttempts, 2)
+		attempt = etx.TxAttempts[0]
 
 		assert.Equal(t, int64(42), *attempt.BroadcastBeforeBlockNum)
 	})
@@ -428,15 +429,15 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 		etxThisChain, err = txStore.FindEthTxWithAttempts(etxThisChain.ID)
 		require.NoError(t, err)
-		require.Len(t, etxThisChain.EthTxAttempts, 1)
-		attempt := etxThisChain.EthTxAttempts[0]
+		require.Len(t, etxThisChain.TxAttempts, 1)
+		attempt := etxThisChain.TxAttempts[0]
 
 		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
 
 		etxOtherChain, err = txStore.FindEthTxWithAttempts(etxOtherChain.ID)
 		require.NoError(t, err)
-		require.Len(t, etxOtherChain.EthTxAttempts, 1)
-		attempt = etxOtherChain.EthTxAttempts[0]
+		require.Len(t, etxOtherChain.TxAttempts, 1)
+		attempt = etxOtherChain.TxAttempts[0]
 
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
@@ -461,8 +462,8 @@ func TestORM_FindEtxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 1)
-	assert.Len(t, etx0.EthTxAttempts, 1)
-	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+	assert.Len(t, etx0.TxAttempts, 1)
+	assert.Equal(t, etx0.TxAttempts[0].ID, attempts[0].ID)
 }
 
 func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
@@ -502,8 +503,8 @@ func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	attempts, err := txStore.FindEthTxAttemptsRequiringReceiptFetch(ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, attempts, 1)
-	assert.Len(t, etx0.EthTxAttempts, 1)
-	assert.Equal(t, etx0.EthTxAttempts[0].ID, attempts[0].ID)
+	assert.Len(t, etx0.TxAttempts, 1)
+	assert.Equal(t, etx0.TxAttempts[0].ID, attempts[0].ID)
 }
 
 func TestORM_SaveFetchedReceipts(t *testing.T) {
@@ -519,11 +520,11 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
-	require.Len(t, etx0.EthTxAttempts, 1)
+	require.Len(t, etx0.TxAttempts, 1)
 
 	// create receipt associated with transaction
 	txmReceipt := evmtypes.Receipt{
-		TxHash:           etx0.EthTxAttempts[0].Hash,
+		TxHash:           etx0.TxAttempts[0].Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
@@ -534,9 +535,9 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
-	require.Len(t, etx0.EthTxAttempts, 1)
-	require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, etx0.EthTxAttempts[0].EthReceipts[0].BlockHash)
+	require.Len(t, etx0.TxAttempts, 1)
+	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
+	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].BlockHash)
 	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 }
 
@@ -584,17 +585,17 @@ func TestORM_PreloadEthTxes(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(7), fromAddress)
 
 		// create unloaded attempt
-		unloadedAttempt := txmgr.EvmTxAttempt{EthTxID: etx.ID}
+		unloadedAttempt := txmgr.EvmTxAttempt{TxID: etx.ID}
 
 		// uninitialized EthTx
-		assert.Equal(t, int64(0), unloadedAttempt.EthTx.ID)
+		assert.Equal(t, int64(0), unloadedAttempt.Tx.ID)
 
 		attempts := []txmgr.EvmTxAttempt{unloadedAttempt}
 
 		err := txStore.PreloadEthTxes(attempts)
 		require.NoError(t, err)
 
-		assert.Equal(t, etx.ID, attempts[0].EthTx.ID)
+		assert.Equal(t, etx.ID, attempts[0].Tx.ID)
 	})
 
 	t.Run("returns nil when attempts slice is empty", func(t *testing.T) {
@@ -604,7 +605,7 @@ func TestORM_PreloadEthTxes(t *testing.T) {
 	})
 }
 
-func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
+func TestORM_GetInProgressTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -622,10 +623,10 @@ func TestORM_GetInProgressEthTxAttempts(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 1)
-	assert.Equal(t, etx.EthTxAttempts[0].ID, attempts[0].ID)
+	assert.Equal(t, etx.TxAttempts[0].ID, attempts[0].ID)
 }
 
-func TestORM_FindEthReceiptsPendingConfirmation(t *testing.T) {
+func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -659,7 +660,7 @@ func TestORM_FindEthReceiptsPendingConfirmation(t *testing.T) {
 
 	etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
-	attempt := etx.EthTxAttempts[0]
+	attempt := etx.TxAttempts[0]
 	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt.Hash)
 
 	pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
@@ -687,11 +688,11 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 
 	t.Run("returns transaction if it exists", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
-		require.Equal(t, int64(777), *etx.Nonce)
+		require.Equal(t, int64(777), *etx.Sequence)
 
 		res, err := txStore.FindEthTxWithNonce(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
-		assert.Equal(t, etx.Nonce, res.Nonce)
+		assert.Equal(t, etx.Sequence, res.Sequence)
 	})
 }
 
@@ -709,20 +710,20 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		assert.NoError(t, err)
 		// assert attempt state
-		attempt := etx.EthTxAttempts[0]
+		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		// assert tx state
 		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 		// assert receipt
-		assert.Len(t, etx.EthTxAttempts[0].EthReceipts, 1)
+		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
 		// use exported method
 		txStore.UpdateEthTxForRebroadcast(etx, attempt)
 
 		resultTx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Len(t, resultTx.EthTxAttempts, 1)
-		resultTxAttempt := resultTx.EthTxAttempts[0]
+		require.Len(t, resultTx.TxAttempts, 1)
+		resultTxAttempt := resultTx.TxAttempts[0]
 
 		// assert attempt state
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, resultTxAttempt.State)
@@ -730,7 +731,7 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		// assert tx state
 		assert.Equal(t, txmgr.EthTxUnconfirmed, resultTx.State)
 		// assert receipt
-		assert.Len(t, resultTxAttempt.EthReceipts, 0)
+		assert.Len(t, resultTxAttempt.Receipts, 0)
 	})
 }
 
@@ -765,8 +766,8 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(head.Number, 8, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Len(t, etxes, 2)
-		assert.Equal(t, etxes[0].Nonce, etx_8.Nonce)
-		assert.Equal(t, etxes[1].Nonce, etx_9.Nonce)
+		assert.Equal(t, etxes[0].Sequence, etx_8.Sequence)
+		assert.Equal(t, etxes[1].Sequence, etx_9.Sequence)
 	})
 }
 
@@ -785,10 +786,10 @@ func TestORM_SaveInsufficientEthAttempt(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 1, fromAddress)
 		now := time.Now()
 
-		err = txStore.SaveInsufficientEthAttempt(defaultDuration, &etx.EthTxAttempts[0], now)
+		err = txStore.SaveInsufficientEthAttempt(defaultDuration, &etx.TxAttempts[0], now)
 		require.NoError(t, err)
 
-		attempt, err := txStore.FindEthTxAttempt(etx.EthTxAttempts[0].Hash)
+		attempt, err := txStore.FindEthTxAttempt(etx.TxAttempts[0].Hash)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt.State)
 	})
@@ -810,10 +811,10 @@ func TestORM_SaveSentAttempt(t *testing.T) {
 		require.Nil(t, etx.BroadcastAt)
 		now := time.Now()
 
-		err = txStore.SaveSentAttempt(defaultDuration, &etx.EthTxAttempts[0], now)
+		err = txStore.SaveSentAttempt(defaultDuration, &etx.TxAttempts[0], now)
 		require.NoError(t, err)
 
-		attempt, err := txStore.FindEthTxAttempt(etx.EthTxAttempts[0].Hash)
+		attempt, err := txStore.FindEthTxAttempt(etx.TxAttempts[0].Hash)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 	})
@@ -834,13 +835,13 @@ func TestORM_SaveConfirmedMissingReceiptAttempt(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptInProgress)
 		now := time.Now()
 
-		err = txStore.SaveConfirmedMissingReceiptAttempt(context.Background(), defaultDuration, &etx.EthTxAttempts[0], now)
+		err = txStore.SaveConfirmedMissingReceiptAttempt(context.Background(), defaultDuration, &etx.TxAttempts[0], now)
 		require.NoError(t, err)
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx.State)
-		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.EthTxAttempts[0].State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[0].State)
 	})
 }
 
@@ -855,9 +856,9 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 
 	t.Run("deletes in_progress attempt", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 1, fromAddress)
-		attempt := etx.EthTxAttempts[0]
+		attempt := etx.TxAttempts[0]
 
-		err := txStore.DeleteInProgressAttempt(testutils.Context(t), etx.EthTxAttempts[0])
+		err := txStore.DeleteInProgressAttempt(testutils.Context(t), etx.TxAttempts[0])
 		require.NoError(t, err)
 
 		nilResult, err := txStore.FindEthTxAttempt(attempt.Hash)
@@ -891,7 +892,7 @@ func TestORM_SaveInProgressAttempt(t *testing.T) {
 
 	t.Run("updates old attempt to in_progress when insufficient_eth", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 23, fromAddress)
-		attempt := etx.EthTxAttempts[0]
+		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt.State)
 		require.NotEqual(t, 0, attempt.ID)
 
@@ -925,7 +926,7 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 
 		// this tx will require gas bump
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
-		attempts := etx.EthTxAttempts
+		attempts := etx.TxAttempts
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempts[0].State)
@@ -962,7 +963,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
 	attempt3_2.State = txmgrtypes.TxAttemptInsufficientEth
-	attempt3_2.GasPrice = assets.NewWeiI(100)
+	attempt3_2.TxFee.Legacy = assets.NewWeiI(100)
 	require.NoError(t, txStore.InsertEthTxAttempt(&attempt3_2))
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 
@@ -977,11 +978,11 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 		assert.Len(t, etxs, 3)
 
-		assert.Equal(t, *etx1.Nonce, *etxs[0].Nonce)
+		assert.Equal(t, *etx1.Sequence, *etxs[0].Sequence)
 		assert.Equal(t, etx1.ID, etxs[0].ID)
-		assert.Equal(t, *etx2.Nonce, *etxs[1].Nonce)
+		assert.Equal(t, *etx2.Sequence, *etxs[1].Sequence)
 		assert.Equal(t, etx2.ID, etxs[1].ID)
-		assert.Equal(t, *etx3.Nonce, *etxs[2].Nonce)
+		assert.Equal(t, *etx3.Sequence, *etxs[2].Sequence)
 		assert.Equal(t, etx3.ID, etxs[2].ID)
 	})
 
@@ -1001,7 +1002,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 		assert.Len(t, etxs, 1)
 
-		assert.Equal(t, *etx3.Nonce, *etxs[0].Nonce)
+		assert.Equal(t, *etx3.Sequence, *etxs[0].Sequence)
 		assert.Equal(t, etx3.ID, etxs[0].ID)
 	})
 }
@@ -1056,16 +1057,16 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 	t.Run("load eth tx attempt", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
+		etx.TxAttempts = []txmgr.EvmTxAttempt{}
 
 		err := txStore.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
 		require.NoError(t, err)
-		assert.Len(t, etx.EthTxAttempts, 1)
+		assert.Len(t, etx.TxAttempts, 1)
 	})
 
 	t.Run("load new attempt inserted in current postgres transaction", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 3, 9, time.Now(), fromAddress)
-		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
+		etx.TxAttempts = []txmgr.EvmTxAttempt{}
 
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
@@ -1080,15 +1081,15 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 			err = txStore.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx}, pg.WithQueryer(tx))
 			require.NoError(t, err)
-			assert.Len(t, etx.EthTxAttempts, 2)
+			assert.Len(t, etx.TxAttempts, 2)
 
 			return nil
 		})
 		// also check after postgres transaction is committed
-		etx.EthTxAttempts = []txmgr.EvmTxAttempt{}
+		etx.TxAttempts = []txmgr.EvmTxAttempt{}
 		err := txStore.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
 		require.NoError(t, err)
-		assert.Len(t, etx.EthTxAttempts, 2)
+		assert.Len(t, etx.TxAttempts, 2)
 	})
 }
 
@@ -1103,7 +1104,7 @@ func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
 
 	t.Run("replace eth tx attempt", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
-		oldAttempt := etx.EthTxAttempts[0]
+		oldAttempt := etx.TxAttempts[0]
 
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		err := txStore.SaveReplacementInProgressAttempt(oldAttempt, &newAttempt)
@@ -1111,8 +1112,8 @@ func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Len(t, etx.EthTxAttempts, 1)
-		require.Equal(t, etx.EthTxAttempts[0].Hash, newAttempt.Hash)
+		assert.Len(t, etx.TxAttempts, 1)
+		require.Equal(t, etx.TxAttempts[0].Hash, newAttempt.Hash)
 	})
 }
 
@@ -1163,7 +1164,7 @@ func TestORM_UpdateEthTxFatalError(t *testing.T) {
 		require.NoError(t, err)
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Len(t, etx.EthTxAttempts, 0)
+		assert.Len(t, etx.TxAttempts, 0)
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 }
@@ -1179,7 +1180,7 @@ func TestORM_UpdateEthTxAttemptInProgressToBroadcast(t *testing.T) {
 
 	t.Run("update successful", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
-		attempt := etx.EthTxAttempts[0]
+		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 
 		time1 := time.Now()
@@ -1214,7 +1215,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 	t.Run("update successful", func(t *testing.T) {
 		nonce := int64(123)
 		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-		etx.Nonce = &nonce
+		etx.Sequence = &nonce
 
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -1224,13 +1225,13 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
-		assert.Len(t, etx.EthTxAttempts, 1)
+		assert.Len(t, etx.TxAttempts, 1)
 	})
 
 	t.Run("update fails because tx is removed", func(t *testing.T) {
 		nonce := int64(123)
 		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-		etx.Nonce = &nonce
+		etx.Sequence = &nonce
 
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -1467,11 +1468,11 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
-		subject := uuid.NewV4()
+		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
-		tx, err := txStore.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err := txStore.CreateEthTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -1479,16 +1480,15 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 			Meta:           nil,
 			Strategy:       strategy,
 		}, ethClient.ConfiguredChainID())
-		etx := tx.(txmgr.EvmTx)
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -1506,7 +1506,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
-		id := uuid.NewV4()
+		id := uuid.New()
 		newTx := txmgr.EvmNewTx{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
@@ -1535,11 +1535,11 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	subject1 := uuid.NewV4()
+	subject1 := uuid.New()
 	for i := 0; i < 5; i++ {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject1)
 	}
-	subject2 := uuid.NewV4()
+	subject2 := uuid.New()
 	for i := 0; i < 5; i++ {
 		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject2)
 	}

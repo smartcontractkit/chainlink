@@ -212,8 +212,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "initiators",
 			Usage:       "Commands for managing External Initiators",
-			Hidden:      !devMode,
-			Subcommands: initInitiatorsSubCmds(client, devMode),
+			Subcommands: initInitiatorsSubCmds(client),
 		},
 		{
 			Name:  "txs",

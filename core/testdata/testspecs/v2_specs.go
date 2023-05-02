@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -443,11 +443,11 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
-	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.New().String())
 	if params.DS1BridgeName != "" {
 		ds1BridgeName = params.DS1BridgeName
 	}
-	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.New().String())
 	if params.DS2BridgeName != "" {
 		ds2BridgeName = params.DS2BridgeName
 	}

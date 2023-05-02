@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -126,5 +128,5 @@ func (c *chain) HealthReport() map[string]error {
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return errors.New("unsupported") //TODO
+	return chains.ErrLOOPPUnsupported
 }

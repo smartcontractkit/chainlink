@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/duo-labs/webauthn/protocol"
-	"github.com/duo-labs/webauthn/webauthn"
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

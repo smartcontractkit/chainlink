@@ -352,8 +352,8 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
 			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
-
-			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
+			parse_domains      [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
+			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error -> parse_domains
 		"""
 
 		[relayConfig]
