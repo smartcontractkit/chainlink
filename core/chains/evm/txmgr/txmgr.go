@@ -226,7 +226,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Reset
 	return err
 }
 
-// Abandon, scoped to the key of this txm:
+// abandon, scoped to the key of this txm:
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) abandon(addr ADDR) (err error) {
