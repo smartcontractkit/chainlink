@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"

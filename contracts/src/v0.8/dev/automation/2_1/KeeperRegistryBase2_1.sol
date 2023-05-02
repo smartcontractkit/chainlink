@@ -6,7 +6,7 @@ import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol
 import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../../interfaces/automation/2_1/AutomationRegistryInterface2_1.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
@@ -271,6 +271,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
+    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
@@ -280,6 +281,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ////////
   // GETTERS
   ////////
+
+  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -300,6 +303,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ////////
   // INTERNAL
   ////////
+
+  // TODO - check which of these need to be on BASE vs which can be assigned to a specific contract
 
   /**
    * @dev retrieves feed data for fast gas/native and link/native prices. if the feed

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/lib/pq"
 	"github.com/manyminds/api2go/jsonapi"
@@ -69,7 +69,7 @@ func TestJob(t *testing.T) {
 					UpdatedAt:       timestamp,
 					EVMChainID:      evmChainID,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -138,7 +138,7 @@ func TestJob(t *testing.T) {
 					UpdatedAt:         timestamp,
 					EVMChainID:        evmChainID,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -220,7 +220,7 @@ func TestJob(t *testing.T) {
 					ObservationGracePeriod:                 models.NewInterval(3 * time.Second),
 					ContractTransmitterTransmitTimeout:     models.NewInterval(444 * time.Millisecond),
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -295,7 +295,7 @@ func TestJob(t *testing.T) {
 					UpdatedAt:       timestamp,
 					EVMChainID:      evmChainID,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -355,7 +355,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:    timestamp,
 					UpdatedAt:    timestamp,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -411,7 +411,7 @@ func TestJob(t *testing.T) {
 					CreatedAt: timestamp,
 					UpdatedAt: timestamp,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -478,7 +478,7 @@ func TestJob(t *testing.T) {
 					ID:           1,
 					DotDagSource: "",
 				},
-				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
 				Type:          job.BlockhashStore,
 				SchemaVersion: 1,
 				Name:          null.StringFrom("test"),
@@ -552,7 +552,7 @@ func TestJob(t *testing.T) {
 					ID:           1,
 					DotDagSource: "",
 				},
-				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f47"),
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f47"),
 				Type:          job.BlockHeaderFeeder,
 				SchemaVersion: 1,
 				Name:          null.StringFrom("blockheaderfeeder"),
@@ -620,7 +620,7 @@ func TestJob(t *testing.T) {
 					ID:           1,
 					DotDagSource: "",
 				},
-				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
 				Type:          job.Bootstrap,
 				SchemaVersion: 1,
 				Name:          null.StringFrom("test"),
@@ -680,7 +680,7 @@ func TestJob(t *testing.T) {
 					UpdatedAt:       timestamp,
 					EVMChainID:      evmChainID,
 				},
-				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
