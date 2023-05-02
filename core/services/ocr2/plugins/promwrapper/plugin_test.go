@@ -29,7 +29,7 @@ var (
 	rToALatency = time.Millisecond * 300 // latency between Report() and ShouldAcceptFinalizedReport()
 	aToTLatency = time.Millisecond * 400 // latency between ShouldAcceptFinalizedReport() and ShouldTransmitAcceptedReport()
 
-	cap = time.Millisecond * 700
+	ceiling = time.Millisecond * 700
 )
 
 // fakeReportingPlugin has varied intra-phase latencies.
@@ -180,7 +180,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 				common.Bytes2Hex(configDigest[:]),
 			}, labelValues)
 		require.Greater(t, latency, cDuration)
-		require.Less(t, latency, cap)
+		require.Less(t, latency, ceiling)
 	}).Return()
 
 	// Create promPlugin with mocked prometheus backend.
