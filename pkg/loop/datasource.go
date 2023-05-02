@@ -3,6 +3,8 @@ package loop
 import (
 	"context"
 	"math/big"
+	"os"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -10,7 +12,22 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
+
+// github.com/smartcontractkit/libocr/offchainreporting2/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+var datasourceOvertime = 100 * time.Millisecond
+
+func init() {
+	// undocumented escape hatch
+	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
+	if v := os.Getenv("CL_DATASOURCE_OVERTIME"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			datasourceOvertime = d
+		}
+	}
+}
 
 var _ median.DataSource = (*dataSourceClient)(nil)
 
@@ -39,6 +56,17 @@ type dataSourceServer struct {
 }
 
 func (d *dataSourceServer) Observe(ctx context.Context, request *pb.ObserveRequest) (*pb.ObserveReply, error) {
+	// Pipeline observations may return results after the context is cancelled, so we modify the
+	// deadline to give them time to return before the parent context deadline.
+	// TODO: remove with https://smartcontract-it.atlassian.net/browse/BCF-2209
+	var cancel func()
+	ctx, cancel = utils.ContextWithDeadlineFn(ctx, func(orig time.Time) time.Time {
+		if tenPct := time.Until(orig) / 10; datasourceOvertime > tenPct {
+			return orig.Add(-tenPct)
+		}
+		return orig.Add(-datasourceOvertime)
+	})
+	defer cancel()
 	timestamp, err := reportTimestamp(request.ReportTimestamp)
 	if err != nil {
 		return nil, err

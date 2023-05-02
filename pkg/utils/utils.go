@@ -34,3 +34,16 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 	}()
 	return ctx, cancel
 }
+
+// ContextWithDeadlineFn returns a copy of the parent context with the deadline modified by deadlineFn.
+// deadlineFn will only be called if the parent has a deadline.
+// The new deadline must be sooner than the old to have an effect.
+func ContextWithDeadlineFn(ctx context.Context, deadlineFn func(orig time.Time) time.Time) (context.Context, context.CancelFunc) {
+	cancel := func() {}
+	if d, ok := ctx.Deadline(); ok {
+		if m := deadlineFn(d); m.Before(d) {
+			ctx, cancel = context.WithDeadline(ctx, m)
+		}
+	}
+	return ctx, cancel
+}
