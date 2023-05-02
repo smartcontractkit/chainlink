@@ -1252,7 +1252,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 	t.Run("update replaces abandoned tx with same hash", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
-		require.Len(t, etx.EthTxAttempts, 1)
+		require.Len(t, etx.TxAttempts, 1)
 
 		zero := models.MustNewDuration(time.Duration(0))
 		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1280,8 +1280,8 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
 		etx = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
-		require.NotNil(t, etx.Nonce)
-		assert.Equal(t, nonce, *etx.Nonce)
+		require.NotNil(t, etx.Sequence)
+		assert.Equal(t, nonce, *etx.Sequence)
 	})
 
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1294,7 +1294,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTx(&etx2))
 
 		// Should fail due to  idx_eth_tx_attempt_hash constraint
-		assert.ErrorContains(t, txStore.InsertEthTxAttempt(&etx.EthTxAttempts[0]), "idx_eth_tx_attempts_hash")
+		assert.ErrorContains(t, txStore.InsertEthTxAttempt(&etx.TxAttempts[0]), "idx_eth_tx_attempts_hash")
 		txStore = cltest.NewTxStore(t, db, cfg) // current txStore is poisened now, next test will need fresh one
 	})
 }
