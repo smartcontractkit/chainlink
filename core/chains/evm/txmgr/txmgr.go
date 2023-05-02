@@ -56,17 +56,6 @@ type TxManager[
 	Reset(f func(), addr ADDR, abandon bool) error
 }
 
-type TestTxManager[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-] interface {
-	TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH]
-	Abandon(addr ADDR) (err error)
-}
-
 type reset struct {
 	// f is the function to execute between stopping/starting the
 	// EthBroadcaster and EthConfirmer
@@ -224,7 +213,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Reset
 		f := func() {
 			callback()
 			if abandon {
-				err = b.Abandon(addr)
+				err = b.abandon(addr)
 			}
 		}
 
@@ -240,7 +229,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Reset
 // Abandon, scoped to the key of this txm:
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Abandon(addr ADDR) (err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) abandon(addr ADDR) (err error) {
 	gethAddr, err := stringToGethAddress(addr.String())
 	if err != nil {
 		return errors.Wrapf(err, "failed to do address format conversion")
