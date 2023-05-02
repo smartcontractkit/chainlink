@@ -48,13 +48,23 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	parsed, err := ds.parse(trrs)
+	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
+	// They are guaranteed to be sorted by index asc so should be in the correct order
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+	parsed, err := ds.parse(finaltrrs)
+
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
-		ds.chEnhancedTelem <- ocrcommon.EnhancedTelemetryMercuryData{
+		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
 			TaskRunResults: trrs,
 			Observation:    parsed,
 			RepTimestamp:   repts,
-		}
+		})
+
 	}
 
 	return parsed, err
@@ -159,19 +169,10 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 		},
 	})
 
-	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
-	// They are guaranteed to be sorted by index asc so should be in the correct order
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
 		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	var finaltrrs []pipeline.TaskRunResult
-	for _, trr := range trrs {
-		// only return terminal trrs from executeRun
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
-		}
-	}
 
-	return run, finaltrrs, err
+	return run, trrs, err
 }

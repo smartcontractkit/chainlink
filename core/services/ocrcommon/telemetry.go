@@ -409,3 +409,11 @@ func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercury.Observatio
 
 	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val
 }
+
+// EnqueueEnhancedTelem sends data to the telemetry channel for processing
+func EnqueueEnhancedTelem[T EnhancedTelemetryData | EnhancedTelemetryMercuryData](ch chan<- T, data T) {
+	select {
+	case ch <- data:
+	default:
+	}
+}

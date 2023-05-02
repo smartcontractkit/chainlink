@@ -29,7 +29,7 @@ type inMemoryDataSource struct {
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
 
-	enhancedTelemChan chan<- EnhancedTelemetryData
+	chEnhancedTelemetry chan<- EnhancedTelemetryData
 }
 
 type dataSourceBase struct {
@@ -54,15 +54,15 @@ type ObservationTimestamp struct {
 	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) ocr1types.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
 	return &dataSource{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
-				pipelineRunner:    pr,
-				jb:                jb,
-				spec:              spec,
-				lggr:              lggr,
-				enhancedTelemChan: enhancedTelemChan,
+				pipelineRunner:      pr,
+				jb:                  jb,
+				spec:                spec,
+				lggr:                lggr,
+				chEnhancedTelemetry: chEnhancedTelemetry,
 			},
 			runResults: runResults,
 		},
@@ -73,11 +73,11 @@ func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 	return &dataSourceV2{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
-				pipelineRunner:    pr,
-				jb:                jb,
-				spec:              spec,
-				lggr:              lggr,
-				enhancedTelemChan: enhancedTelemChan,
+				pipelineRunner:      pr,
+				jb:                  jb,
+				spec:                spec,
+				lggr:                lggr,
+				chEnhancedTelemetry: enhancedTelemChan,
 			},
 			runResults: runResults,
 		},
@@ -138,11 +138,11 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 	promSetFinalResultMetrics(ds, &finalResult)
 
 	if ShouldCollectEnhancedTelemetry(&ds.jb) {
-		ds.enhancedTelemChan <- EnhancedTelemetryData{
+		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
 			TaskRunResults: trrs,
 			FinalResults:   finalResult,
 			RepTimestamp:   timestamp,
-		}
+		})
 	}
 
 	return run, finalResult, err
