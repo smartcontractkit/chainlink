@@ -209,7 +209,7 @@ func TestSendEATelemetry(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	doneCh := make(chan struct{})
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry Mercury"))
-	enhancedTelemService.Start(testutils.Context(t))
+	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
 	trrs := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -320,7 +320,7 @@ func TestCollectAndSend(t *testing.T) {
 	doneCh := make(chan struct{})
 
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry"))
-	enhancedTelemService.Start(testutils.Context(t))
+	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
 	finalResult := &pipeline.FinalResult{
 		Values:      []interface{}{"123456"},
 		AllErrors:   nil,
@@ -383,44 +383,6 @@ func TestCollectAndSend(t *testing.T) {
 	doneCh <- struct{}{}
 }
 
-// Mercury
-// Order of tasks matter, mercury expects:
-// benchmarkPrice in position 0
-// bid in position 1
-// ask in position 2
-// blockNumber in position 3
-// blockHash in position 4
-var finalTrrsMercury = pipeline.TaskRunResults{
-	pipeline.TaskRunResult{
-		Task: &pipeline.MultiplyTask{},
-		Result: pipeline.Result{
-			Value: 111111,
-		},
-	},
-	pipeline.TaskRunResult{
-		Task: &pipeline.MultiplyTask{},
-		Result: pipeline.Result{
-			Value: 222222,
-		},
-	},
-	pipeline.TaskRunResult{
-		Task: &pipeline.MultiplyTask{},
-		Result: pipeline.Result{
-			Value: 333333,
-		},
-	},
-	pipeline.TaskRunResult{
-		Task: &pipeline.LookupTask{},
-		Result: pipeline.Result{
-			Value: int64(123456789),
-		},
-	},
-	pipeline.TaskRunResult{
-		Task: &pipeline.LookupTask{},
-		Result: pipeline.Result{
-			Value: common.HexToHash("0x123321"),
-		},
-	}}
 var trrsMercury = pipeline.TaskRunResults{
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
@@ -608,7 +570,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	e.Start(testutils.Context(t))
+	require.NoError(t, e.Start(testutils.Context(t)))
 
 	wg.Add(1)
 

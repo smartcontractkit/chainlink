@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
@@ -33,7 +33,7 @@ type EnhancedTelemetryData struct {
 
 type EnhancedTelemetryMercuryData struct {
 	TaskRunResults pipeline.TaskRunResults
-	Observation    mercury.Observation
+	Observation    relaymercury.Observation
 	RepTimestamp   ocrtypes.ReportTimestamp
 }
 
@@ -260,7 +260,7 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 
 // collectMercuryEnhancedTelemetry checks if enhanced telemetry should be collected, fetches the information needed and
 // sends the telemetry
-func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs mercury.Observation, trrs pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
+func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaymercury.Observation, trrs pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
 	if e.monitoringEndpoint == nil {
 		return
 	}
@@ -392,7 +392,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 }
 
 // getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func (e *EnhancedTelemetryService[T]) getFinalValues(obs mercury.Observation) (int64, int64, int64, int64, []byte) {
+func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercury.Observation) (int64, int64, int64, int64, []byte) {
 	var benchmarkPrice, bid, ask int64
 
 	if obs.BenchmarkPrice.Val != nil {
