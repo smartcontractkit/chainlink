@@ -4,28 +4,42 @@ pragma solidity 0.8.6;
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_1.sol";
+import "./KeeperRegistryLogicB2_1.sol";
+import "./Chainable.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
+
+// TODO - we can probably combine these interfaces
+import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
+contract KeeperRegistryLogicA2_1 is
+  KeeperRegistryBase2_1,
+  Chainable,
+  MigratableKeeperRegistryInterface,
+  MigratableKeeperRegistryInterfaceV2
+{
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @param mode one of Default, Arbitrum, Optimism
-   * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
-   * @param fastGasFeed address of the Fast Gas price feed
+   * @dev see KeeperRegistry master contract for constructor description
    */
   constructor(
     Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
+  )
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
+  {}
+
+  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
+
+  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
 
   function checkUpkeep(uint256 id)
     external
@@ -359,7 +373,10 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function migrateUpkeeps(uint256[] calldata ids, address destination) external {
+  function migrateUpkeeps(uint256[] calldata ids, address destination)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
@@ -402,7 +419,10 @@ contract KeeperRegistryLogic2_1 is KeeperRegistryBase2_1 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps)
+    external
+    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
+  {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL

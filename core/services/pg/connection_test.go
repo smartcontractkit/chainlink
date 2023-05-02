@@ -3,8 +3,8 @@ package pg
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +15,7 @@ import (
 func Test_disallowReplica(t *testing.T) {
 
 	testutils.SkipShortDB(t)
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
