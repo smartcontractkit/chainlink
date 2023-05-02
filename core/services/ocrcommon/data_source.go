@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -30,7 +29,7 @@ type inMemoryDataSource struct {
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
 
-	monitoringEndpoint commontypes.MonitoringEndpoint
+	enhancedTelemChan chan<- EnhancedTelemetryData
 }
 
 type dataSourceBase struct {
@@ -55,30 +54,30 @@ type ObservationTimestamp struct {
 	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) ocr1types.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) ocr1types.DataSource {
 	return &dataSource{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
-				pipelineRunner:     pr,
-				jb:                 jb,
-				spec:               spec,
-				lggr:               lggr,
-				monitoringEndpoint: endpoint,
+				pipelineRunner:    pr,
+				jb:                jb,
+				spec:              spec,
+				lggr:              lggr,
+				enhancedTelemChan: enhancedTelemChan,
 			},
 			runResults: runResults,
 		},
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, endpoint commontypes.MonitoringEndpoint) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
 	return &dataSourceV2{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
-				pipelineRunner:     pr,
-				jb:                 jb,
-				spec:               spec,
-				lggr:               lggr,
-				monitoringEndpoint: endpoint,
+				pipelineRunner:    pr,
+				jb:                jb,
+				spec:              spec,
+				lggr:              lggr,
+				enhancedTelemChan: enhancedTelemChan,
 			},
 			runResults: runResults,
 		},
@@ -137,12 +136,19 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 	finalResult := trrs.FinalResult(ds.lggr)
 	promSetBridgeParseMetrics(ds, &trrs)
 	promSetFinalResultMetrics(ds, &finalResult)
-	collectEATelemetry(ds, &trrs, &finalResult, timestamp)
+
+	if ShouldCollectEnhancedTelemetry(&ds.jb) {
+		ds.enhancedTelemChan <- EnhancedTelemetryData{
+			TaskRunResults: trrs,
+			FinalResults:   finalResult,
+			RepTimestamp:   timestamp,
+		}
+	}
 
 	return run, finalResult, err
 }
 
-// parse uses the finalResult into a big.Int and stores it in the bridge metadata
+// parse uses the FinalResult into a big.Int and stores it in the bridge metadata
 func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int, error) {
 	result, err := finalResult.SingularResult()
 	if err != nil {

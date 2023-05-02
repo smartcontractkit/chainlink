@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -28,17 +28,17 @@ type datasource struct {
 
 	mu sync.RWMutex
 
-	monitoringEndpoint commontypes.MonitoringEndpoint
+	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, me}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
-	run, trrs, err := ds.executeRun(ctx, repts)
+	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while executing run: %w", err)
 	}
@@ -48,7 +48,16 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	return ds.parse(trrs)
+	parsed, err := ds.parse(trrs)
+	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
+		ds.chEnhancedTelem <- ocrcommon.EnhancedTelemetryMercuryData{
+			TaskRunResults: trrs,
+			Observation:    parsed,
+			RepTimestamp:   repts,
+		}
+	}
+
+	return parsed, err
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -141,7 +150,7 @@ func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) err
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimestamp) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -164,6 +173,5 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 		}
 	}
 
-	go collectMercuryEnhancedTelemetry(ds, finaltrrs, &trrs, repts)
 	return run, finaltrrs, err
 }

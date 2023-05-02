@@ -290,6 +290,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			configOverrider = configOverriderService
 		}
 
+		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrDB,
 			Datasource: ocrcommon.NewDataSourceV1(
@@ -298,7 +301,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				*jb.PipelineSpec,
 				lggr,
 				runResults,
-				d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA),
+				enhancedTelemChan,
 			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
@@ -317,9 +320,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		oracleCtx := job.NewServiceAdapter(oracle)
 		services = append(services, oracleCtx)
 
-		if !jb.OCROracleSpec.CaptureEATelemetry {
-			lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
-		}
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
@@ -329,7 +329,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			make(chan struct{}),
 			lggr,
 			cfg.JobPipelineMaxSuccessfulRuns(),
-		)}, services...)
+		), enhancedTelemService}, services...)
 	}
 
 	return services, nil

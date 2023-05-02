@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -350,8 +351,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
 		}
-		me := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury)
-		return mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, me)
+
+		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
+
+		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem)
+		return append(mercuryServices, enhancedTelemService), err2
+
 	case job.Median:
 		oracleArgsNoPlugin := libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
@@ -363,9 +369,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA)
 		errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
-		return median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint, errorLog)
+		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, enhancedTelemChan, errorLog)
+		return append(medianServices, enhancedTelemService), err2
+
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {
