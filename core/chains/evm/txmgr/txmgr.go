@@ -159,7 +159,7 @@ func NewTxm(
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ConfiguredChainID())
+		b.reaper = NewReaper(lggr, b.txStore, cfg, ethClient.ConfiguredChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}

@@ -33,14 +33,13 @@ var ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
 var ErrInvalidQOpt = errors.New("evmTxStore: Invalid QOpt")
 
 type evmTxStore struct {
-	EvmTxStore
 	q         pg.Q
 	logger    logger.Logger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
 
-var _ EvmTxStore = &evmTxStore{}
+var _ EvmTxStore = (*evmTxStore)(nil)
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -1481,4 +1480,58 @@ id < (
 		return err
 	})
 	return
+}
+
+func (o *evmTxStore) ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+	// Delete old confirmed eth_txes
+	// NOTE that this relies on foreign key triggers automatically removing
+	// the eth_tx_attempts and eth_receipts linked to every eth_tx
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := o.q.Exec(`
+WITH old_enough_receipts AS (
+	SELECT tx_hash FROM eth_receipts
+	WHERE block_number < $1
+	ORDER BY block_number ASC, id ASC
+	LIMIT $2
+)
+DELETE FROM eth_txes
+USING old_enough_receipts, eth_tx_attempts
+WHERE eth_tx_attempts.eth_tx_id = eth_txes.id
+AND eth_tx_attempts.hash = old_enough_receipts.tx_hash
+AND eth_txes.created_at < $3
+AND eth_txes.state = 'confirmed'
+AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to delete old confirmed eth_txes")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to get rows affected")
+		}
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed eth_txes failed")
+	}
+	// Delete old 'fatal_error' eth_txes
+	err = pg.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := o.q.Exec(`
+DELETE FROM eth_txes
+WHERE created_at < $1
+AND state = 'fatal_error'
+AND evm_chain_id = $2`, timeThreshold, chainID.String())
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to delete old fatally errored eth_txes")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to get rows affected")
+		}
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "TxmReaper#reapEthTxes batch delete of fatally errored eth_txes failed")
+	}
+
+	return nil
 }
