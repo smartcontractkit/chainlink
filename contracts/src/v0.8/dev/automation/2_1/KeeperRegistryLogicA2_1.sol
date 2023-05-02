@@ -96,7 +96,6 @@ contract KeeperRegistryLogicA2_1 is
     return (success, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
-
   /**
    * @dev Called through KeeperRegistry main contract
    */
