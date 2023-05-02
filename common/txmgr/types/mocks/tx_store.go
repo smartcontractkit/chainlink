@@ -881,6 +881,20 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, 
 	return r0, r1
 }
 
+// ReapConfirmedOrFatalErrorTxs provides a mock function with given fields: minBlockNumberToKeep, timeThreshold, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, SEQ]) ReapConfirmedOrFatalErrorTxs(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
+	ret := _m.Called(minBlockNumberToKeep, timeThreshold, chainID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64, time.Time, CHAIN_ID) error); ok {
+		r0 = rf(minBlockNumberToKeep, timeThreshold, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveConfirmedMissingReceiptAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, NEWTX, R, TX, TXATTEMPT, SEQ]) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TXATTEMPT, broadcastAt time.Time) error {
 	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
