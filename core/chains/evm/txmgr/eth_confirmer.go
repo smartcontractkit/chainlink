@@ -842,8 +842,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	priorAttempts := make([]txmgrtypes.PriorAttempt[FEE, TX_HASH], len(previousAttempts))
 	// This feels a bit useless but until we get iterators there is no other
 	// way to cast an array of structs to an array of interfaces
-	for i, attempt := range previousAttempts {
-		priorAttempts[i] = &attempt
+	for i := range previousAttempts {
+		priorAttempts[i] = &previousAttempts[i]
 	}
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
