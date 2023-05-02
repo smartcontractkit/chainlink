@@ -83,14 +83,17 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
-		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
+		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
+			DynamicTipCap: dynamicFee.TipCap,
+			DynamicFeeCap: dynamicFee.FeeCap,
+		}, 100, 0x2, lggr)
 		require.NoError(t, err)
-		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
-		assert.Nil(t, a.GasPrice)
-		assert.NotNil(t, a.GasTipCap)
-		assert.Equal(t, assets.GWei(100).String(), a.GasTipCap.String())
-		assert.NotNil(t, a.GasFeeCap)
-		assert.Equal(t, assets.GWei(200).String(), a.GasFeeCap.String())
+		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
+		assert.Nil(t, a.TxFee.Legacy)
+		assert.NotNil(t, a.TxFee.DynamicTipCap)
+		assert.Equal(t, assets.GWei(100).String(), a.TxFee.DynamicTipCap.String())
+		assert.NotNil(t, a.TxFee.DynamicFeeCap)
+		assert.Equal(t, assets.GWei(200).String(), a.TxFee.DynamicFeeCap.String())
 	})
 
 	t.Run("verifies gas tip and fees", func(t *testing.T) {
@@ -122,7 +125,10 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
 				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
-				_, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x2, lggr)
+				_, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
+					DynamicTipCap: dynamicFee.TipCap,
+					DynamicFeeCap: dynamicFee.FeeCap,
+				}, 100, 0x2, lggr)
 				if test.expectError == "" {
 					require.NoError(t, err)
 				} else {
@@ -148,13 +154,13 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n int64
-		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Nonce: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
+		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
 		require.NoError(t, err)
-		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
-		assert.NotNil(t, a.GasPrice)
-		assert.Equal(t, "25 wei", a.GasPrice.String())
-		assert.Nil(t, a.GasTipCap)
-		assert.Nil(t, a.GasFeeCap)
+		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
+		assert.NotNil(t, a.TxFee.Legacy)
+		assert.Equal(t, "25 wei", a.TxFee.Legacy.String())
+		assert.Nil(t, a.TxFee.DynamicTipCap)
+		assert.Nil(t, a.TxFee.DynamicFeeCap)
 	})
 
 	t.Run("verifies max gas price", func(t *testing.T) {
@@ -176,7 +182,10 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 	legacyFee := assets.NewWeiI(100)
 
 	t.Run("dynamic fee with legacy tx type", func(t *testing.T) {
-		_, retryable, err := cks.NewCustomTxAttempt(txmgr.EvmTx{}, gas.EvmFee{Dynamic: &dynamicFee}, 100, 0x0, lggr)
+		_, retryable, err := cks.NewCustomTxAttempt(txmgr.EvmTx{}, gas.EvmFee{
+			DynamicTipCap: dynamicFee.TipCap,
+			DynamicFeeCap: dynamicFee.FeeCap,
+		}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.False(t, retryable)
 	})
