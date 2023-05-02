@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
 
 contract LogEmitter {
-  event Log1(uint256);
+  event Log1(uint256 indexed);
   event Log2(uint256 indexed);
   event Log3(string);
 

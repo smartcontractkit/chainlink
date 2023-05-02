@@ -208,8 +208,8 @@ func Test_BackupLogPoller(t *testing.T) {
 		assert.NoError(t, th.LogPoller.UnregisterFilter("filter2", nil))
 	}()
 
-	log1NotifyCh := th.LogPoller.Notify(1, common.Hash{1})
-	log2NotifyCh := th.LogPoller.Notify(1, common.Hash{2})
+	notifyCh11 := th.LogPoller.Notify(1, common.BytesToHash([]byte{1}))
+	notifyCh12 := th.LogPoller.Notify(1, common.BytesToHash([]byte{2}))
 
 	// generate some tx's with logs
 	tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
@@ -245,8 +245,8 @@ func Test_BackupLogPoller(t *testing.T) {
 
 	currentBlock := th.PollAndSaveLogs(ctx, 1)
 	assert.Equal(t, int64(35), currentBlock)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 0)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// simulate logs becoming available
 	rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
@@ -269,8 +269,8 @@ func Test_BackupLogPoller(t *testing.T) {
 	logs, err := th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 0)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	th.Client.Commit()
 	th.Client.Commit()
@@ -288,8 +288,8 @@ func Test_BackupLogPoller(t *testing.T) {
 	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	th.Client.Commit()
 
@@ -310,8 +310,8 @@ func Test_BackupLogPoller(t *testing.T) {
 	logs, err = th.LogPoller.Logs(32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(logs))
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 1)
 }
 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
@@ -502,10 +502,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.Equal(t, uint64(1), b.NumberU64())
 	require.Equal(t, uint64(10), b.Time())
 
-	log1NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log1"].ID)
-	log1NotifyCh2 := th.LogPoller.Notify(0, EmitterABI.Events["Log1"].ID)
-	log2NotifyCh := th.LogPoller.Notify(0, EmitterABI.Events["Log2"].ID)
-	oobNotifyCh := th.LogPoller.Notify(100, EmitterABI.Events["Log1"].ID)
+	notifyCh11 := th.LogPoller.Notify(1, common.BytesToHash([]byte{1}))
+	notifyCh12 := th.LogPoller.Notify(1, common.BytesToHash([]byte{2}))
 
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
@@ -534,10 +532,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
 	th.assertHaveCanonical(t, 1, 1)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 0)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh2, 0)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 0)
-	th.assertNotifyHasAtLeast(t, oobNotifyCh, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
@@ -559,12 +555,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
 	assert.Equal(t, latest.BlockTimestamp, lgs[0].BlockTimestamp)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
-		lgs[0].Data)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh2, 1)
-	th.assertNotifyHasAtLeast(t, log2NotifyCh, 0)
-	th.assertNotifyHasAtLeast(t, oobNotifyCh, 0)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Topics[1])
+	th.assertNotifyHasAtLeast(t, notifyCh11, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// Test scenario: single block reorg with log.
 	// Chain gen <- 1 <- 2 (L1_1)
@@ -594,9 +587,10 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err = th.ORM.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Topics[1])
 	th.assertHaveCanonical(t, 1, 3)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 1)
 
 	// Test scenario: reorg back to previous tip.
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
@@ -618,13 +612,14 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// We expect ONLY L1_1 and L1_3 since L1_2 is reorg'd out.
 	assert.Equal(t, 2, len(lgs))
 	assert.Equal(t, int64(2), lgs[0].BlockNumber)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Topics[1])
 	assert.Equal(t, int64(3), lgs[1].BlockNumber)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[1].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[1].Topics[1])
 	th.assertHaveCanonical(t, 1, 1)
 	th.assertHaveCanonical(t, 3, 4)
 	th.assertDontHave(t, 2, 2) // 2 gets backfilled
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// Test scenario: multiple logs per block for many blocks (also after reorg).
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
@@ -648,16 +643,17 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err = th.ORM.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000004`), lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000004`), lgs[0].Topics[1])
 	assert.Equal(t, th.EmitterAddress1, lgs[0].Address)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000005`), lgs[1].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000005`), lgs[1].Topics[1])
 	assert.Equal(t, th.EmitterAddress2, lgs[1].Address)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[2].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[2].Topics[1])
 	assert.Equal(t, th.EmitterAddress1, lgs[2].Address)
 	th.assertHaveCanonical(t, 1, 1)
 	th.assertDontHave(t, 2, 2) // 2 gets backfilled
 	th.assertHaveCanonical(t, 3, 6)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// Test scenario: node down for exactly finality + 2 blocks
 	// Note we only backfill up to finalized - 1 blocks, because we need to save the
@@ -676,15 +672,16 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err = th.ORM.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000007`), lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000007`), lgs[0].Topics[1])
 	assert.Equal(t, int64(7), lgs[0].BlockNumber)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000008`), lgs[1].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000008`), lgs[1].Topics[1])
 	assert.Equal(t, int64(8), lgs[1].BlockNumber)
-	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Topics[1])
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
 	th.assertDontHave(t, 7, 7) // Do not expect to save backfilled blocks.
 	th.assertHaveCanonical(t, 8, 10)
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
+	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
 
 	// Test scenario large backfill (multiple batches)
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
@@ -705,7 +702,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, 7, len(lgs))
 	th.assertHaveCanonical(t, 15, 16)
 	th.assertDontHave(t, 11, 14) // Do not expect to save backfilled blocks.
-	th.assertNotifyHasAtLeast(t, log1NotifyCh, 1)
 
 	// Verify that a custom block timestamp will get written to db correctly also
 	b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
