@@ -30,6 +30,7 @@ type TxStore[
 	ADD any,
 ] interface {
 	UnstartedTxQueuePruner
+	TxHistoryReaper[CHAIN_ID]
 	CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID, qopts ...pg.QOpt) (err error)
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (count uint32, err error)
 	CountUnstartedTransactions(fromAddress ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (count uint32, err error)
@@ -79,6 +80,10 @@ type TxStore[
 	UpdateEthTxFatalError(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) error
 	Close()
+}
+
+type TxHistoryReaper[CHAIN_ID ID] interface {
+	ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 
 type UnstartedTxQueuePruner interface {
