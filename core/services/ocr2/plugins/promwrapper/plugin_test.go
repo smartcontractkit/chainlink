@@ -8,10 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper/mocks"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper/mocks"
 )
 
 var (
@@ -196,20 +197,26 @@ func TestPlugin_GetLatencies(t *testing.T) {
 	require.NotEqual(t, nil, promPlugin)
 
 	// Run OCR methods.
-	promPlugin.Query(context.Background(), reportTimestamp)
+	_, err := promPlugin.Query(context.Background(), reportTimestamp)
+	require.NoError(t, err)
 	time.Sleep(qToOLatency)
 
-	promPlugin.Observation(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.Observation(context.Background(), reportTimestamp, nil)
+	require.NoError(t, err)
 	time.Sleep(oToRLatency)
 
-	promPlugin.Report(context.Background(), reportTimestamp, nil, nil)
+	_, _, err = promPlugin.Report(context.Background(), reportTimestamp, nil, nil)
+	require.NoError(t, err)
 	time.Sleep(rToALatency)
 
-	promPlugin.ShouldAcceptFinalizedReport(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.ShouldAcceptFinalizedReport(context.Background(), reportTimestamp, nil)
+	require.NoError(t, err)
 	time.Sleep(aToTLatency)
 
-	promPlugin.ShouldTransmitAcceptedReport(context.Background(), reportTimestamp, nil)
+	_, err = promPlugin.ShouldTransmitAcceptedReport(context.Background(), reportTimestamp, nil)
+	require.NoError(t, err)
 
 	// Close.
-	promPlugin.Close()
+	err = promPlugin.Close()
+	require.NoError(t, err)
 }
