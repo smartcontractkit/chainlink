@@ -7,8 +7,9 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/facto
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry21 as KeeperRegistry } from '../../../typechain/KeeperRegistry21'
 import { KeeperRegistrar21 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar21'
+import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
+import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
 import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
 import { KeeperRegistrar21__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar21__factory'
 
@@ -88,7 +89,7 @@ describe('KeeperRegistrar2_1', () => {
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
-  let registry: KeeperRegistry
+  let registry: IKeeperRegistry
   let mock: UpkeepMock
   let registrar: KeeperRegistrar
 
@@ -108,9 +109,19 @@ describe('KeeperRegistrar2_1', () => {
       .connect(owner)
       .deploy(9, linkEth)
 
-    registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+    registry = IKeeperRegistryMasterFactory.connect(
+      (
+        await keeperRegistryFactory
+          .connect(owner)
+          .deploy(
+            0,
+            linkToken.address,
+            linkEthFeed.address,
+            gasPriceFeed.address,
+          )
+      ).address,
+      owner,
+    )
 
     mock = await upkeepMockFactory.deploy()
 
