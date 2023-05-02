@@ -66,7 +66,7 @@ func TestKeeperPerformance(t *testing.T) {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
-		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
+		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
 		err := chainClient.WaitForEvents()
 		require.NoError(t, err, "Error creating keeper jobs")
 

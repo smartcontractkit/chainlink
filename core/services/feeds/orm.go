@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/sqlx"
 

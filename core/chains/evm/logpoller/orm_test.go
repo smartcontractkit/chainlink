@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -256,8 +259,36 @@ func TestORM(t *testing.T) {
 			TxHash:      common.HexToHash("0x1888"),
 			Data:        []byte("hello2"),
 		},
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    7,
+			BlockHash:   common.HexToHash("0x1237"),
+			BlockNumber: int64(16),
+			EventSig:    topic,
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1236"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello short retention"),
+		},
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    8,
+			BlockHash:   common.HexToHash("0x1238"),
+			BlockNumber: int64(17),
+			EventSig:    topic2,
+			Topics:      [][]byte{topic2[:]},
+			Address:     common.HexToAddress("0x1236"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello2 long retention"),
+		},
 	}))
-	logs, err := o1.SelectLogsByBlockRange(10, 10)
+
+	t.Log(latest.BlockNumber)
+	logs, err := o1.SelectLogsByBlockRange(1, 17)
+	require.NoError(t, err)
+	require.Len(t, logs, 8)
+
+	logs, err = o1.SelectLogsByBlockRange(10, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
 	assert.Equal(t, []byte("hello"), logs[0].Data)
@@ -299,6 +330,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 13, time.Now()))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 14, time.Now()))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 15, time.Now()))
+
 	// Latest log for topic for addr "0x1234" is @ block 11
 	lgs, err := o1.SelectLatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 0)
 	require.NoError(t, err)
@@ -331,15 +363,64 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1237"), 16, time.Now()))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1238"), 17, time.Now()))
+
+	filter0 := logpoller.Filter{
+		Name:      "permanent retention filter",
+		Addresses: []common.Address{common.HexToAddress("0x1234")},
+		EventSigs: types.HashArray{topic, topic2},
+	}
+
+	filter12 := logpoller.Filter{ // retain both topic1 and topic2 on contract3 for at least 1ms
+		Name:      "short retention filter",
+		Addresses: []common.Address{common.HexToAddress("0x1236")},
+		EventSigs: types.HashArray{topic, topic2},
+		Retention: time.Millisecond,
+	}
+	filter2 := logpoller.Filter{ // retain topic2 on contract3 for at least 1 hour
+		Name:      "long retention filter",
+		Addresses: []common.Address{common.HexToAddress("0x1236")},
+		EventSigs: types.HashArray{topic2},
+		Retention: time.Hour,
+	}
+
+	// Test inserting filters and reading them back
+	require.NoError(t, o1.InsertFilter(filter0))
+	require.NoError(t, o1.InsertFilter(filter12))
+	require.NoError(t, o1.InsertFilter(filter2))
+
+	filters, err := o1.LoadFilters()
+	require.NoError(t, err)
+	require.Len(t, filters, 3)
+	assert.Equal(t, filter0, filters["permanent retention filter"])
+	assert.Equal(t, filter12, filters["short retention filter"])
+	assert.Equal(t, filter2, filters["long retention filter"])
+
+	latest, err = o1.SelectLatestBlock()
+	require.NoError(t, err)
+	require.Equal(t, int64(17), latest.BlockNumber)
+	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
+	require.NoError(t, err)
+	require.Len(t, logs, 8)
+
+	// Delete expired logs
+	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
+	err = o1.DeleteExpiredLogs(pg.WithParentCtx(testutils.Context(t)))
+	require.NoError(t, err)
+	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
+	require.NoError(t, err)
+	// The only log which should be deleted is the one which matches filter1 (ret=1ms) but not filter12 (ret=1 hour)
+	// Importantly, it shouldn't delete any logs matching only filter0 (ret=0 meaning permanent retention).  Anything
+	// matching filter12 should be kept regardless of what other filters it matches.
+	assert.Len(t, logs, 7)
+
 	// Delete logs after should delete all logs.
 	err = o1.DeleteLogsAfter(1)
 	require.NoError(t, err)
-	latest, err = o1.SelectLatestBlock()
-	require.NoError(t, err)
-	t.Log(latest.BlockNumber)
 	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(logs))
+	require.Zero(t, len(logs))
 }
 
 func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {

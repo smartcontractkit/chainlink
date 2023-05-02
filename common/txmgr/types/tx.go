@@ -3,7 +3,7 @@ package types
 import (
 	"math/big"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
