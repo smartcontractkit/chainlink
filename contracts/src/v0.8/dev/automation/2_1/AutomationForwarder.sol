@@ -13,8 +13,8 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationForwarder is TypeAndVersionInterface {
-  address s_registry;
-  address immutable i_target;
+  address private s_registry;
+  address private immutable i_target;
   string public constant override typeAndVersion = "AutomationForwarder 1.0.0";
 
   error NotAuthorized();
