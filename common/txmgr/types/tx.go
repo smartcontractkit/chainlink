@@ -136,27 +136,27 @@ type TxAttempt[
 	TxType                  int
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) String() string {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) String() string {
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) Fee() FEE {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) Fee() FEE {
 	return a.TxFee
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetBroadcastBeforeBlockNum() *int64 {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetBroadcastBeforeBlockNum() *int64 {
 	return a.BroadcastBeforeBlockNum
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChainSpecificFeeLimit() uint32 {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChainSpecificFeeLimit() uint32 {
 	return a.ChainSpecificFeeLimit
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetHash() TX_HASH {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetHash() TX_HASH {
 	return a.Hash
 }
 
-func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetTxType() int {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetTxType() int {
 	return a.TxType
 }
 
@@ -206,7 +206,7 @@ type Tx[
 	TransmitChecker *datatypes.JSON
 }
 
-func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetError() error {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetError() error {
 	if e.Error.Valid {
 		return errors.New(e.Error.String)
 	}
@@ -214,12 +214,12 @@ func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetError() error {
 }
 
 // GetID allows Tx to be used as jsonapi.MarshalIdentifier
-func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetID() string {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetID() string {
 	return fmt.Sprintf("%d", e.ID)
 }
 
 // GetMeta returns an Tx's meta in struct form, unmarshalling it from JSON first.
-func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetMeta() (*TxMeta[ADDR, TX_HASH], error) {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetMeta() (*TxMeta[ADDR, TX_HASH], error) {
 	if e.Meta == nil {
 		return nil, nil
 	}
@@ -228,7 +228,7 @@ func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetMeta() (*TxMeta
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetLogger(lgr logger.Logger) logger.Logger {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetLogger(lgr logger.Logger) logger.Logger {
 	lgr = lgr.With(
 		"txID", e.ID,
 		"sequence", e.Sequence,
@@ -294,7 +294,7 @@ func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetLogger(lgr logg
 
 // GetChecker returns an Tx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
-func (e Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {
 		return TransmitCheckerSpec[ADDR]{}, nil
 	}

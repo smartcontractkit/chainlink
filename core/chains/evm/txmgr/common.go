@@ -84,6 +84,9 @@ func batchSendTransactions[
 	return reqs, nil
 }
 
+// helper function to convert chain-agnostic/generic type to EVM specific type
+// used to bridge functionality to EVM specific chain-client
+// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
 func stringToGethAddress(s string) (common.Address, error) {
 	if !common.IsHexAddress(s) {
 		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
@@ -91,11 +94,17 @@ func stringToGethAddress(s string) (common.Address, error) {
 	return common.HexToAddress(s), nil
 }
 
+// helper function to convert chain-agnostic/generic type to EVM specific type
+// used to bridge functionality to EVM specific chain-client
+// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
 func stringToGethHash(s string) (h common.Hash, err error) {
 	err = h.UnmarshalText([]byte(s))
 	return
 }
 
+// helper function to convert chain-agnostic/generic type to EVM specific type
+// used to bridge functionality to EVM specific chain-client
+// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
 func ToGethFees[FEE txmgrtypes.Fee](f FEE) (fee gas.EvmFee, err error) {
 	b, err := json.Marshal(f)
 	if err != nil {
@@ -106,6 +115,9 @@ func ToGethFees[FEE txmgrtypes.Fee](f FEE) (fee gas.EvmFee, err error) {
 	return
 }
 
+// helper function to convert chain-agnostic/generic type to EVM specific type
+// used to bridge functionality to EVM specific chain-client
+// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
 func ToGenericReceipt[TX_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH]](r *evmtypes.Receipt) (receipt R, err error) {
 	b, err := json.Marshal(r)
 	if err != nil {

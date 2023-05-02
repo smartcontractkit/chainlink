@@ -120,7 +120,7 @@ func (e *EvmAccessList) Scan(value interface{}) error {
 	}
 }
 
-var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = EvmTxAttempt{}
+var _ txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash] = (*EvmTxAttempt)(nil)
 
 // GetGethSignedTx decodes the SignedRawTx into a types.Transaction struct
 func GetGethSignedTx(signedRawTx []byte) (*types.Transaction, error) {
