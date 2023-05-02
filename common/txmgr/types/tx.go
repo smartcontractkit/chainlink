@@ -119,7 +119,7 @@ type TxAttempt[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH],
 	FEE Fee,
-	ADD any,
+	ADD any, // additional parameter inside of Tx, can be used for passing any additional information through the tx
 ] struct {
 	ID    int64
 	TxID  int64
@@ -166,7 +166,7 @@ type Tx[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH],
 	FEE Fee,
-	ADD any,
+	ADD any, // additional parameter can be used for passing any additional information through the tx, EVM passes an access list
 ] struct {
 	ID             int64
 	Sequence       *int64

@@ -24,7 +24,9 @@ type TxStore[
 	R ChainReceipt[TX_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
 	SEQ Sequence,
+	// Represents the chain specific fee type
 	FEE Fee,
+	// additional parameter inside of Tx, can be used for passing any additional information through the tx
 	ADD any,
 ] interface {
 	UnstartedTxQueuePruner
@@ -91,7 +93,7 @@ type ReceiptPlus[R any] struct {
 }
 
 // R is the raw unparsed transaction receipt
-type Receipt[R any, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type Receipt[R ChainReceipt[TX_HASH], TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ID               int64
 	TxHash           TX_HASH
 	BlockHash        BLOCK_HASH
