@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { BigNumber, Signer, Wallet } from 'ethers'
+import { BigNumber, Signer, Wallet, ContractTransaction } from 'ethers'
 import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import { toWei } from '../../test-helpers/helpers'
@@ -40,9 +40,17 @@ enum Mode {
   OPTIMISM,
 }
 
-async function getUpkeepID(tx: any) {
+async function getUpkeepID(tx: ContractTransaction) {
   const receipt = await tx.wait()
-  return receipt.events[0].args.id
+  for (const event of receipt.events || []) {
+    if (
+      event.args &&
+      event.eventSignature == 'UpkeepRegistered(uint256,uint32,address)'
+    ) {
+      return event.args[0]
+    }
+  }
+  throw new Error('could not find upkeep ID in tx event logs')
 }
 
 function randomAddress() {
@@ -52,11 +60,11 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // These are the gas overheads that off chain systems should provide to check upkeep / transmit
 // These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(800000)
-const checkGasOverhead = BigNumber.from(400000)
+const transmitGasOverhead = BigNumber.from(850_000)
+const checkGasOverhead = BigNumber.from(400_000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(70_000)
+const registryGasOverhead = BigNumber.from(75_000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const registryPerPerformByteGasOverhead = BigNumber.from(20)
 const cancellationDelay = 50
@@ -920,7 +928,6 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('reverts if not enough gas supplied', async () => {
-        mock.setPerformGasToBurn(executeGas)
         await evmRevert(
           getTransmitTx(registry, keeper1, [upkeepId.toString()], f + 1, {
             gasLimit: executeGas,
@@ -3435,6 +3442,7 @@ describe('KeeperRegistry2_1', () => {
           const registration = await registry.getUpkeep(upkeepId)
 
           assert.equal(mock.address, registration.target)
+          assert.notEqual(ethers.constants.AddressZero, registration.forwarder)
           assert.equal(
             executeGas.toString(),
             registration.executeGas.toString(),
@@ -3449,6 +3457,20 @@ describe('KeeperRegistry2_1', () => {
           assert(registration.maxValidBlocknumber.eq('0xffffffff'))
         }
       }
+    })
+
+    it('returns the upkeep ID and the new forwarder address', async () => {
+      const [upkeepID, forwarder] = await registry
+        .connect(owner)
+        .callStatic.registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          emptyBytes,
+        )
+      expect(upkeepID).to.not.equal(0)
+      expect(forwarder).to.not.equal(ethers.constants.AddressZero)
     })
   })
 
@@ -4104,12 +4126,15 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('migrates an upkeep', async () => {
-        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(
-          toWei('100'),
-        )
-        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
-          randomBytes,
-        )
+        const offchainBytes = '0x987654abcd'
+        await registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId, offchainBytes)
+        const reg1Upkeep = await registry.getUpkeep(upkeepId)
+        expect(reg1Upkeep.balance).to.equal(toWei('100'))
+        expect(reg1Upkeep.checkData).to.equal(randomBytes)
+        expect(reg1Upkeep.forwarder).to.not.equal(ethers.constants.AddressZero)
+        expect(reg1Upkeep.offchainConfig).to.equal(offchainBytes)
         expect((await registry.getState()).state.numUpkeeps).to.equal(1)
         // Set an upkeep admin transfer in progress too
         await registry
@@ -4132,6 +4157,12 @@ describe('KeeperRegistry2_1', () => {
         )
         expect((await registry2.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
+        )
+        expect((await registry2.getUpkeep(upkeepId)).offchainConfig).to.equal(
+          offchainBytes,
+        )
+        expect((await registry2.getUpkeep(upkeepId)).forwarder).to.equal(
+          reg1Upkeep.forwarder,
         )
         // migration will delete the upkeep and nullify admin transfer
         await expect(
