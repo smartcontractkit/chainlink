@@ -879,8 +879,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) PruneU
 	return r0, r1
 }
 
-// ReapConfirmedOrFatalErrorTxs provides a mock function with given fields: minBlockNumberToKeep, timeThreshold, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ReapConfirmedOrFatalErrorTxs(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
+// ReapTxHistory provides a mock function with given fields: minBlockNumberToKeep, timeThreshold, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
 	ret := _m.Called(minBlockNumberToKeep, timeThreshold, chainID)
 
 	var r0 error

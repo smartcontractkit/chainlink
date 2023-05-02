@@ -1482,7 +1482,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapConfirmedOrFatalErrorTxs(minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
 	// Delete old confirmed eth_txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the eth_tx_attempts and eth_receipts linked to every eth_tx

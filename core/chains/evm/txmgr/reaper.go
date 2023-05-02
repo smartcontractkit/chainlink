@@ -13,7 +13,7 @@ import (
 
 // Reaper handles periodic database cleanup for Txm
 type Reaper struct {
-	store          txmgrtypes.ReaperTxStore[*big.Int]
+	store          txmgrtypes.TxHistoryReaper[*big.Int]
 	config         EvmReaperConfig
 	chainID        *big.Int
 	log            logger.Logger
@@ -24,7 +24,7 @@ type Reaper struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr logger.Logger, store txmgrtypes.ReaperTxStore[*big.Int], config EvmReaperConfig, chainID *big.Int) *Reaper {
+func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, chainID *big.Int) *Reaper {
 	r := &Reaper{
 		store,
 		config,
@@ -106,7 +106,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 
 	r.log.Debugw(fmt.Sprintf("TxmReaper: reaping old eth_txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
-	if err := r.store.ReapConfirmedOrFatalErrorTxs(minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
+	if err := r.store.ReapTxHistory(minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
 		return err
 	}
 
