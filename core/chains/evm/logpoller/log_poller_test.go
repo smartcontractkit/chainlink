@@ -174,7 +174,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	for i := int64(0); i < 32; i++ {
 		// to invalidate geth's internal read-cache, a matching log must be found in the bloom Filter
 		// for each of the 32 blocks
-		tx, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(i + 7)})
+		tx, err := th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(i + 7)})
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		th.Client.Commit()
@@ -259,14 +259,14 @@ func Test_BackupLogPoller(t *testing.T) {
 		FromBlock: big.NewInt(int64(2)),
 		ToBlock:   big.NewInt(int64(33)),
 		Addresses: []common.Address{th.EmitterAddress1},
-		Topics:    [][]common.Hash{{EmitterABI.Events["Log1"].ID}},
+		Topics:    [][]common.Hash{{EmitterABI.Events["Log2"].ID}},
 	}
 	fLogs, err := th.Client.FilterLogs(ctx, query)
 	require.NoError(t, err)
 	require.Equal(t, 32, len(fLogs))
 
 	// logs shouldn't show up yet
-	logs, err := th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	logs, err := th.LogPoller.Logs(34, 34, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
@@ -285,7 +285,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 	// logs still shouldn't show up, because we don't want to backfill the last finalized log
 	//  to help with reorg detection
-	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(logs))
 	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
@@ -301,16 +301,16 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.Equal(t, int64(38), currentBlock+1)
 
 	// all 3 logs in block 34 should show up now, thanks to backup logger
-	logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+	logs, err = th.LogPoller.Logs(30, 37, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 5, len(logs))
-	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+	logs, err = th.LogPoller.Logs(34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(logs))
 	logs, err = th.LogPoller.Logs(32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(logs))
-	th.assertNotifyHasAtLeast(t, notifyCh11, 1)
+	th.assertNotifyHasAtLeast(t, notifyCh11, 0)
 	th.assertNotifyHasAtLeast(t, notifyCh12, 1)
 }
 
@@ -538,7 +538,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
 	// DB: 1
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
 	th.Client.Commit()
 
@@ -554,7 +554,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, th.EmitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
 	assert.Equal(t, latest.BlockTimestamp, lgs[0].BlockTimestamp)
-	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
+	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log2"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Topics[1])
 	th.assertNotifyHasAtLeast(t, notifyCh11, 1)
 	th.assertNotifyHasAtLeast(t, notifyCh12, 0)
@@ -572,7 +572,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
 	require.NoError(t, err)
 	require.NoError(t, th.Client.Fork(testutils.Context(t), lca.Hash()))
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+	_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
 	// Create 2'
 	th.Client.Commit()
@@ -596,7 +596,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
 	//                \ 2'(L1_2) <- 3
 	require.NoError(t, th.Client.Fork(testutils.Context(t), reorgedOutBlock.Hash()))
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
+	_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(3)})
 	require.NoError(t, err)
 	// Create 3'
 	th.Client.Commit()
@@ -627,13 +627,13 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// DB: 1, 2', 3'
 	// - Should save 4, 5, 6 blocks
 	// - Should obtain logs L1_3, L2_5, L1_6
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(4)})
+	_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(4)})
 	require.NoError(t, err)
-	_, err = th.Emitter2.EmitLog1(th.Owner, []*big.Int{big.NewInt(5)})
+	_, err = th.Emitter2.EmitLog2(th.Owner, []*big.Int{big.NewInt(5)})
 	require.NoError(t, err)
 	// Create 4
 	th.Client.Commit()
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(6)})
+	_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(6)})
 	require.NoError(t, err)
 	// Create 5
 	th.Client.Commit()
@@ -663,7 +663,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// - We expect block 7 to backfilled (treated as finalized)
 	// - Then block 8-10 to be handled block by block (treated as unfinalized).
 	for i := 7; i < 11; i++ {
-		_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
@@ -691,7 +691,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// - 14 backfilled in batch 2
 	// - 15, 16, 17 to be treated as unfinalized
 	for i := 11; i < 18; i++ {
-		_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		_, err = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
 		th.Client.Commit()
 	}
