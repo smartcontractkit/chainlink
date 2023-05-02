@@ -10,7 +10,6 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1256,19 +1255,9 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		zero := models.MustNewDuration(time.Duration(0))
 		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			id := utils.NewBig(&cltest.FixtureChainID)
-			ccfg := v2.Defaults(id, &v2.Chain{
-				Transactions: v2.Transactions{
-					ReaperInterval:       zero,
-					ReaperThreshold:      zero,
-					ResendAfterThreshold: zero,
-				},
-			})
-			c.EVM[0] = &v2.EVMConfig{
-				ChainID: id,
-				Enabled: ptr(true),
-				Chain:   ccfg,
-			}
+			c.EVM[0].Chain.Transactions.ReaperInterval = zero
+			c.EVM[0].Chain.Transactions.ReaperThreshold = zero
+			c.EVM[0].Chain.Transactions.ResendAfterThreshold = zero
 		})
 
 		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
