@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -26,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func TestFluxPerformance(t *testing.T) {
@@ -49,7 +50,7 @@ func TestFluxPerformance(t *testing.T) {
 
 	chainClient.ParallelTransactions(true)
 
-	adapterUUID := uuid.NewV4().String()
+	adapterUUID := uuid.New().String()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
 	err = mockServer.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")

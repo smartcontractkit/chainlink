@@ -41,7 +41,7 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 

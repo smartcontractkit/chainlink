@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -44,7 +44,7 @@ func TestCronBasic(t *testing.T) {
 	})
 
 	bta := &client.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
+		Name:        fmt.Sprintf("variable-%s", uuid.New().String()),
 		URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 		RequestData: "{}",
 	}
