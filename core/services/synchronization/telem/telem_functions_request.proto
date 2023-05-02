@@ -5,6 +5,7 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 package telem;
 
 message FunctionsRequest {
-  bytes request_id = 1;
-  repeated string domains = 2;
+  string request_id = 1;
+  string node_address = 2;
+  repeated string domains = 3;
 }
