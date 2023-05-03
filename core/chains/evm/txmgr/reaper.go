@@ -12,10 +12,10 @@ import (
 )
 
 // Reaper handles periodic database cleanup for Txm
-type Reaper struct {
-	store          txmgrtypes.TxHistoryReaper[*big.Int]
-	config         EvmReaperConfig
-	chainID        *big.Int
+type Reaper[CHAIN_ID txmgrtypes.ID] struct {
+	store          txmgrtypes.TxHistoryReaper[CHAIN_ID]
+	config         txmgrtypes.ReaperConfig
+	chainID        CHAIN_ID
 	log            logger.Logger
 	latestBlockNum atomic.Int64
 	trigger        chan struct{}
@@ -23,9 +23,14 @@ type Reaper struct {
 	chDone         chan struct{}
 }
 
+// NewEvmReaper instantiates a new EVM-specific reaper object
+func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, chainID *big.Int) *EvmReaper {
+	return NewReaper(lggr, store, config, chainID)
+}
+
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, chainID *big.Int) *Reaper {
-	r := &Reaper{
+func NewReaper[CHAIN_ID txmgrtypes.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], config txmgrtypes.ReaperConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
+	r := &Reaper[CHAIN_ID]{
 		store,
 		config,
 		chainID,
@@ -40,19 +45,19 @@ func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], c
 }
 
 // Start the reaper. Should only be called once.
-func (r *Reaper) Start() {
+func (r *Reaper[CHAIN_ID]) Start() {
 	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.config.TxReaperThreshold(), r.config.TxReaperInterval())
 	go r.runLoop()
 }
 
 // Stop the reaper. Should only be called once.
-func (r *Reaper) Stop() {
+func (r *Reaper[CHAIN_ID]) Stop() {
 	r.log.Debug("TxmReaper: stopping")
 	close(r.chStop)
 	<-r.chDone
 }
 
-func (r *Reaper) runLoop() {
+func (r *Reaper[CHAIN_ID]) runLoop() {
 	defer close(r.chDone)
 	ticker := time.NewTicker(utils.WithJitter(r.config.TxReaperInterval()))
 	defer ticker.Stop()
@@ -70,19 +75,19 @@ func (r *Reaper) runLoop() {
 	}
 }
 
-func (r *Reaper) work() {
+func (r *Reaper[CHAIN_ID]) work() {
 	latestBlockNum := r.latestBlockNum.Load()
 	if latestBlockNum < 0 {
 		return
 	}
-	err := r.ReapEthTxes(latestBlockNum)
+	err := r.ReapTxes(latestBlockNum)
 	if err != nil {
 		r.log.Error("TxmReaper: unable to reap old eth_txes: ", err)
 	}
 }
 
 // SetLatestBlockNum should be called on every new highest block number
-func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
+func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 	if latestBlockNum < 0 {
 		panic(fmt.Sprintf("latestBlockNum must be 0 or greater, got: %d", latestBlockNum))
 	}
@@ -93,11 +98,11 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 	}
 }
 
-// ReapEthTxes deletes old eth_txes
-func (r *Reaper) ReapEthTxes(headNum int64) error {
+// ReapTxes deletes old txes
+func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
 	threshold := r.config.TxReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapEthTxes")
+		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
@@ -110,7 +115,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 		return err
 	}
 
-	r.log.Debugf("TxmReaper: ReapEthTxes completed in %v", time.Since(mark))
+	r.log.Debugf("TxmReaper: ReapTxes completed in %v", time.Since(mark))
 
 	return nil
 }
