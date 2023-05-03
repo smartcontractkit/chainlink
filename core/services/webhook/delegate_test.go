@@ -3,7 +3,7 @@ package webhook_test
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/pkg/errors"
@@ -27,7 +27,7 @@ func TestWebhookDelegate(t *testing.T) {
 			Type:          job.Webhook,
 			Name:          null.StringFrom("sergtoshi stevemoto"),
 			SchemaVersion: 1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: uuid.New(),
 			WebhookSpec:   &job.WebhookSpec{},
 			PipelineSpec:  &pipeline.Spec{},
 		}

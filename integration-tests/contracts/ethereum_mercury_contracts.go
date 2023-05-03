@@ -7,7 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier_proxy"
@@ -35,8 +37,8 @@ type EthereumExchanger struct {
 	exchanger *exchanger.Exchanger
 }
 
-func (v *EthereumExchanger) Address() string {
-	return v.address.Hex()
+func (e *EthereumExchanger) Address() string {
+	return e.address.Hex()
 }
 
 func (e *EthereumExchanger) CommitTrade(commitment [32]byte) error {

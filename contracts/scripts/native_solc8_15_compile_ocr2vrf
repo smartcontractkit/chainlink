@@ -15,5 +15,5 @@ solc-select use 0.8.15
 solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs 1000 --metadata-hash none \
     -o $ROOT/contracts/solc/v0.8.15 \
     --abi --bin \
-    --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/dev,$ROOT/contracts/src/v0.8/interfaces,$ROOT/contracts/src/v0.8/mocks,$ROOT/contracts/src/v0.8/tests,$ROOT/contracts/src/v0.8/vendor,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts@4.3.3/node_modules/@openzeppelin/contracts,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts-upgradeable@4.7.3/node_modules/@openzeppelin/contracts-upgradeable \
+    --allow-paths $ROOT/contracts/src/v0.8,$ROOT/../$2/contracts,$ROOT/contracts/src/v0.8/dev,$ROOT/contracts/src/v0.8/interfaces,$ROOT/contracts/src/v0.8/mocks,$ROOT/contracts/src/v0.8/tests,$ROOT/contracts/src/v0.8/vendor,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts@4.3.3/node_modules/@openzeppelin/contracts,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts-upgradeable@4.7.3/node_modules/@openzeppelin/contracts-upgradeable \
     $ROOT/contracts/src/v0.8/$1

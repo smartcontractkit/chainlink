@@ -252,7 +252,6 @@ func (t *OCR2Transaction) From() (common.Address, error) {
 
 	switch t.tx.Type() {
 	case 2:
-		//msg, err := t.tx.AsMessage(types.NewLondonSigner(t.tx.ChainId()), big.NewInt(1))
 		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), &t.tx)
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)

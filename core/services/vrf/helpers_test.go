@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -29,7 +29,7 @@ func createAndStartBHSJob(
 	app *cltest.TestApplication,
 	bhsAddress, coordinatorV1Address, coordinatorV2Address string,
 ) job.Job {
-	jid := uuid.NewV4()
+	jid := uuid.New()
 	s := testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{
 		JobID:                 jid.String(),
 		Name:                  "blockhash-store",
@@ -66,7 +66,7 @@ func createAndStartBlockHeaderFeederJob(
 	app *cltest.TestApplication,
 	bhsAddress, batchBHSAddress, coordinatorV1Address, coordinatorV2Address string,
 ) job.Job {
-	jid := uuid.NewV4()
+	jid := uuid.New()
 	s := testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
 		JobID:                      jid.String(),
 		Name:                       "block-header-feeder",

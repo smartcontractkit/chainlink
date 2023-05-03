@@ -1827,7 +1827,8 @@ func (m *MockAttempt) Fee() (f gas.EvmFee) {
 
 	d := m.dynamicFee()
 	if d.FeeCap != nil && d.TipCap != nil {
-		f.Dynamic = &d
+		f.DynamicFeeCap = d.FeeCap
+		f.DynamicTipCap = d.TipCap
 	}
 	return f
 }
@@ -1844,7 +1845,7 @@ func (m *MockAttempt) dynamicFee() gas.DynamicFee {
 
 }
 
-func (m *MockAttempt) GetChainSpecificGasLimit() uint32 {
+func (m *MockAttempt) GetChainSpecificFeeLimit() uint32 {
 	panic("not implemented") // TODO: Implement
 }
 
