@@ -353,10 +353,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
-
 		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem)
-		return append(mercuryServices, enhancedTelemService), err2
+
+		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
+			mercuryServices = append(mercuryServices, enhancedTelemService)
+		}
+
+		return mercuryServices, err2
 
 	case job.Median:
 		oracleArgsNoPlugin := libocr2.OracleArgs{
@@ -371,9 +375,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+
 		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, enhancedTelemChan, errorLog)
-		return append(medianServices, enhancedTelemService), err2
+
+		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+			medianServices = append(medianServices, enhancedTelemService)
+		}
+
+		return medianServices, err2
 
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()

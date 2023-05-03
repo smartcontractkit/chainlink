@@ -291,7 +291,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		}
 
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+			services = append(services, enhancedTelemService)
+		}
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrDB,
@@ -329,7 +332,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			make(chan struct{}),
 			lggr,
 			cfg.JobPipelineMaxSuccessfulRuns(),
-		), enhancedTelemService}, services...)
+		)}, services...)
 	}
 
 	return services, nil
