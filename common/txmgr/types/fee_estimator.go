@@ -23,7 +23,7 @@ type Fee fmt.Stringer
 //go:generate mockery --quiet --name PriorAttempt --output ./mocks/ --case=underscore
 type PriorAttempt[F Fee, TX_HASH types.Hashable] interface {
 	Fee() F
-	GetChainSpecificGasLimit() uint32
+	GetChainSpecificFeeLimit() uint32
 	GetBroadcastBeforeBlockNum() *int64
 	GetHash() TX_HASH
 	GetTxType() int

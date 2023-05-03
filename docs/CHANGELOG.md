@@ -24,9 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+### Fixed
+ - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
 <!-- unreleasedstop -->
 
-## 2.0.0 - UNRELEASED
+## 2.0.0 - 2023-04-20
+
 
 ### Added
 

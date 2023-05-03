@@ -14,6 +14,7 @@ solc-select install 0.8.16
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
 $SCRIPTPATH/native_solc6_compile FluxAggregator.sol
+$SCRIPTPATH/native_solc6_compile VRF.sol
 $SCRIPTPATH/native_solc6_compile VRFCoordinator.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
