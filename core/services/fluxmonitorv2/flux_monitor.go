@@ -159,6 +159,7 @@ func NewFromJobSpec(
 	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
+	chainId := ethClient.ConfiguredChainID()
 
 	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(cfg), fmSpec.PollTimerPeriod) {
 		return nil, fmt.Errorf(
@@ -190,7 +191,7 @@ func NewFromJobSpec(
 		keyStore,
 		gasLimit,
 		jobSpec.ForwardingAllowed,
-		ethClient.ChainID(),
+		chainId,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
@@ -263,7 +264,7 @@ func NewFromJobSpec(
 		fluxAggregator,
 		logBroadcaster,
 		fmLogger,
-		ethClient.ChainID(),
+		chainId,
 	)
 }
 

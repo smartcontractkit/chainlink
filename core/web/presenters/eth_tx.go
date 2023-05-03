@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -38,29 +39,37 @@ func (EthTxResource) GetName() string {
 // EthTx as the id being used was the EthTxAttempt Hash.
 // This should really use it's proper id
 func NewEthTxResource(tx txmgr.EvmTx) EthTxResource {
-	return EthTxResource{
-		Data:       hexutil.Bytes(tx.EncodedPayload),
-		From:       &tx.FromAddress.Address,
-		GasLimit:   strconv.FormatUint(uint64(tx.GasLimit), 10),
-		State:      string(tx.State),
-		To:         &tx.ToAddress.Address,
-		Value:      tx.Value.String(),
-		EVMChainID: tx.EVMChainID,
+	v := assets.Eth(tx.Value)
+	r := EthTxResource{
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(uint64(tx.FeeLimit), 10),
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    v.String(),
 	}
+
+	if tx.ChainID != nil {
+		r.EVMChainID = *utils.NewBig(tx.ChainID)
+	}
+	return r
 }
 
 func NewEthTxResourceFromAttempt(txa txmgr.EvmTxAttempt) EthTxResource {
-	tx := txa.EthTx
+	tx := txa.Tx
 
 	r := NewEthTxResource(tx)
 	r.JAID = NewJAID(txa.Hash.String())
-	r.GasPrice = txa.GasPrice.ToInt().String()
-	r.Hash = txa.Hash.Hash
+	r.GasPrice = txa.TxFee.Legacy.ToInt().String()
+	r.Hash = txa.Hash
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
-	r.EVMChainID = txa.EthTx.EVMChainID
 
-	if tx.Nonce != nil {
-		r.Nonce = strconv.FormatUint(uint64(*tx.Nonce), 10)
+	if txa.Tx.ChainID != nil {
+		r.EVMChainID = *utils.NewBig(txa.Tx.ChainID)
+	}
+
+	if tx.Sequence != nil {
+		r.Nonce = strconv.FormatUint(uint64(*tx.Sequence), 10)
 	}
 	if txa.BroadcastBeforeBlockNum != nil {
 		r.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)

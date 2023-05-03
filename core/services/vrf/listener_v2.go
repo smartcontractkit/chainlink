@@ -20,7 +20,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -163,7 +162,7 @@ type listenerV2 struct {
 	q              pg.Q
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox[log.Broadcast]
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -694,8 +693,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	start := time.Now()
 	var processed = make(map[string]struct{})
+	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, chainId.Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
@@ -806,7 +806,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var transaction txmgrtypes.Transaction
+			var transaction txmgr.EvmTx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -819,10 +819,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				transaction, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
-					FromAddress:    evmtypes.NewAddress(fromAddress),
-					ToAddress:      evmtypes.NewAddress(lsn.coordinator.Address()),
+					FromAddress:    fromAddress,
+					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
-					GasLimit:       p.gasLimit,
+					FeeLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
@@ -830,7 +830,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgr.NewSendEveryStrategy(),
-					Checker: txmgr.TransmitCheckerSpec{
+					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
@@ -1074,7 +1074,7 @@ func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration, wg *sync.Wait
 	defer wg.Done()
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
-	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

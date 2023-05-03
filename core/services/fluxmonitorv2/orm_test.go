@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -121,7 +120,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
-						ID:         uuid.NewV4(),
+						ID:         uuid.New(),
 						Type:       pipeline.TaskTypeHTTP,
 						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
@@ -150,7 +149,7 @@ func makeJob(t *testing.T) *job.Job {
 		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
@@ -175,8 +174,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	strategy := commontxmmocks.NewTxStrategy(t)
 
 	var (
-		txm = txmmocks.NewTxManager[evmtypes.Address, evmtypes.TxHash, evmtypes.BlockHash](t)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
+		txm = txmmocks.NewMockEvmTxManager(t)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.EvmTransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
@@ -185,10 +184,10 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	)
 
 	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
-		FromAddress:    evmtypes.NewAddress(from),
-		ToAddress:      evmtypes.NewAddress(to),
+		FromAddress:    from,
+		ToAddress:      to,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
 	}).Return(txmgr.EvmTx{}, nil).Once()

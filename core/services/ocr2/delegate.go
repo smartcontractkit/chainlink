@@ -1,6 +1,7 @@
 package ocr2
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -17,10 +19,12 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/plugins"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -55,15 +59,20 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
-	cfg                   validate.Config
+	cfg                   Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
-	relayers              map[relay.Network]types.Relayer
+	relayers              map[relay.Network]func() (loop.Relayer, error)
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
+}
+
+type Config interface {
+	validate.Config
+	plugins.EnvConfig
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -76,30 +85,30 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg validate.Config,
+	cfg Config,
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
-	relayers map[relay.Network]types.Relayer,
+	relayers map[relay.Network]func() (loop.Relayer, error),
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		db,
-		jobORM,
-		pipelineRunner,
-		peerWrapper,
-		monitoringEndpointGen,
-		chainSet,
-		cfg,
-		lggr,
-		ks,
-		dkgSignKs,
-		dkgEncryptKs,
-		ethKs,
-		relayers,
-		false,
-		mailMon,
+		db:                    db,
+		jobORM:                jobORM,
+		pipelineRunner:        pipelineRunner,
+		peerWrapper:           peerWrapper,
+		monitoringEndpointGen: monitoringEndpointGen,
+		chainSet:              chainSet,
+		cfg:                   cfg,
+		lggr:                  lggr,
+		ks:                    ks,
+		dkgSignKs:             dkgSignKs,
+		dkgEncryptKs:          dkgEncryptKs,
+		ethKs:                 ethKs,
+		relayers:              relayers,
+		isNewlyCreatedJob:     false,
+		mailMon:               mailMon,
 	}
 }
 
@@ -194,17 +203,25 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
 	transmitterID := spec.TransmitterID.String
-	relayer, exists := d.relayers[spec.Relay]
+	relayerFn, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
+	relayer, err := relayerFn()
+	if err != nil {
+		//TODO defer in order to retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+		return nil, fmt.Errorf("failed to get relayer: %w", err)
+	}
 	effectiveTransmitterID := transmitterID
 
-	lggr := logger.Sugared(d.lggr.Named("OCR").With(
-		"contractID", spec.ContractID,
-		"jobName", jb.Name.ValueOrZero(),
-		"jobID", jb.ID,
-	))
+	ctxVals := loop.ContextValues{
+		JobID:   jb.ID,
+		JobName: jb.Name.ValueOrZero(),
+
+		ContractID: spec.ContractID,
+		FeedID:     spec.FeedID,
+	}
+	lggr := logger.Sugared(d.lggr.Named("OCR2").With(ctxVals.Args()...))
 	feedID := spec.FeedID
 	if feedID != (common.Hash{}) {
 		lggr = logger.Sugared(lggr.With("feedID", spec.FeedID))
@@ -244,7 +261,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 			// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 			if jb.ForwardingAllowed { // FIXME: ForwardingAllowed cannot be set with Mercury, validate this
-				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(evmtypes.HexToAddress(transmitterID))
+				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
 				if fwderr == nil {
 					effectiveTransmitterID = fwdrAddress.String()
 				} else {
@@ -296,11 +313,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, err
 	}
 
+	spec.CaptureEATelemetry = d.cfg.OCR2CaptureEATelemetry()
+
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
+	ctx := ctxVals.ContextWithValues(context.Background())
 	switch spec.PluginType {
 	case job.Mercury:
-		mercuryProvider, err2 := relayer.NewMercuryProvider(
+		mercuryProvider, err2 := relayer.NewMercuryProvider(ctx,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -331,37 +351,40 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainKeyring:        kb,
 			OnchainKeyring:         kb,
 		}
-		return mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg)
-	case job.Median:
-		medianProvider, err2 := relayer.NewMedianProvider(
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				New:           d.isNewlyCreatedJob,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, types.PluginArgs{
-				TransmitterID: transmitterID,
-				PluginConfig:  spec.PluginConfig.Bytes(),
-			})
-		if err2 != nil {
-			return nil, err2
+
+		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
+		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem)
+
+		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
+			mercuryServices = append(mercuryServices, enhancedTelemService)
 		}
+
+		return mercuryServices, err2
+
+	case job.Median:
 		oracleArgsNoPlugin := libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          medianProvider.ContractTransmitter(),
-			ContractConfigTracker:        medianProvider.ContractConfigTracker(),
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Median),
-			OffchainConfigDigester:       medianProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		eaMonitoringEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA)
-		return median.NewMedianServices(jb, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger, oracleArgsNoPlugin, d.cfg, eaMonitoringEndpoint)
+		errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+
+		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, enhancedTelemChan, errorLog)
+
+		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+			medianServices = append(medianServices, enhancedTelemService)
+		}
+
+		return medianServices, err2
+
 	case job.DKG:
 		chainID, err2 := spec.RelayConfig.EVMChainID()
 		if err2 != nil {
@@ -587,7 +610,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
+		credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to get mercury credential name")
+		}
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, d.cfg.MercuryCredentials(credName))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
@@ -697,15 +724,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		functionsServicesConfig := functions.FunctionsServicesConfig{
-			Job:            jb,
-			PipelineRunner: d.pipelineRunner,
-			JobORM:         d.jobORM,
-			OCR2JobConfig:  d.cfg,
-			DB:             d.db,
-			Chain:          chain,
-			ContractID:     spec.ContractID,
-			Lggr:           lggr,
-			MailMon:        d.mailMon,
+			Job:             jb,
+			PipelineRunner:  d.pipelineRunner,
+			JobORM:          d.jobORM,
+			OCR2JobConfig:   d.cfg,
+			DB:              d.db,
+			Chain:           chain,
+			ContractID:      spec.ContractID,
+			Lggr:            lggr,
+			MailMon:         d.mailMon,
+			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
 		}
 
 		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
@@ -728,4 +756,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
+}
+
+// errorLog implements [loop.ErrorLog]
+type errorLog struct {
+	jobID       int32
+	recordError func(jobID int32, description string, qopts ...pg.QOpt) error
+}
+
+func (l *errorLog) SaveError(ctx context.Context, msg string) error {
+	return l.recordError(l.jobID, msg)
 }

@@ -2,27 +2,30 @@ package solana
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
 
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	soltxm "github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -35,7 +38,7 @@ type chain struct {
 	utils.StartStopOnce
 	id             string
 	cfg            config.Config
-	txm            *soltxm.Txm
+	txm            *txm.Txm
 	balanceMonitor services.ServiceCtx
 	nodes          func(chainID string) (nodes []db.Node, err error)
 	lggr           logger.Logger
@@ -53,7 +56,7 @@ type verifiedCachedClient struct {
 	chainIDVerified     bool
 	chainIDVerifiedLock sync.RWMutex
 
-	solanaclient.ReaderWriter
+	client.ReaderWriter
 }
 
 func (v *verifiedCachedClient) verifyChainID() (bool, error) {
@@ -168,7 +171,7 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks keystore.Solana, cfgs Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
@@ -177,10 +180,10 @@ func newChain(id string, cfg config.Config, ks keystore.Solana, cfgs Configs, lg
 		lggr:        lggr.Named("Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
-	tc := func() (solanaclient.ReaderWriter, error) {
+	tc := func() (client.ReaderWriter, error) {
 		return ch.getClient()
 	}
-	ch.txm = soltxm.NewTxm(ch.id, tc, cfg, ks, lggr)
+	ch.txm = txm.NewTxm(ch.id, tc, cfg, ks, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
@@ -201,14 +204,14 @@ func (c *chain) TxManager() solana.TxManager {
 	return c.txm
 }
 
-func (c *chain) Reader() (solanaclient.Reader, error) {
+func (c *chain) Reader() (client.Reader, error) {
 	return c.getClient()
 }
 
 // getClient returns a client, randomly selecting one from available and valid nodes
-func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
+func (c *chain) getClient() (client.ReaderWriter, error) {
 	var node db.Node
-	var client solanaclient.ReaderWriter
+	var client client.ReaderWriter
 	nodes, err := c.nodes(c.id) // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
@@ -242,22 +245,22 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 // verifiedClient returns a client for node or an error if fails to create the client.
 // The client will still be returned if the nodes are not valid, or the chain id doesn't match.
 // Further client calls will try and verify the client, and fail if the client is still not valid.
-func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) {
+func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 	url := node.SolanaURL
 	var err error
 
 	// check if cached client exists
 	c.clientLock.RLock()
-	client, exists := c.clientCache[url]
+	cl, exists := c.clientCache[url]
 	c.clientLock.RUnlock()
 
 	if !exists {
-		client = &verifiedCachedClient{
+		cl = &verifiedCachedClient{
 			nodeURL:         url,
 			expectedChainID: c.id,
 		}
 		// create client
-		client.ReaderWriter, err = solanaclient.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
+		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}
@@ -265,14 +268,14 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 		c.clientLock.Lock()
 		// recheck when writing to prevent parallel writes (discard duplicate if exists)
 		if cached, exists := c.clientCache[url]; !exists {
-			c.clientCache[url] = client
+			c.clientCache[url] = cl
 		} else {
-			client = cached
+			cl = cached
 		}
 		c.clientLock.Unlock()
 	}
 
-	return client, nil
+	return cl, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {
@@ -306,4 +309,73 @@ func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
 	maps.Copy(report, c.txm.HealthReport())
 	return report
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	reader, err := c.Reader()
+	if err != nil {
+		return fmt.Errorf("chain unreachable: %w", err)
+	}
+
+	fromKey, err := solanago.PublicKeyFromBase58(from)
+	if err != nil {
+		return fmt.Errorf("failed to parse from key: %w", err)
+	}
+	toKey, err := solanago.PublicKeyFromBase58(to)
+	if err != nil {
+		return fmt.Errorf("failed to parse to key: %w", err)
+	}
+	if !amount.IsUint64() {
+		return fmt.Errorf("amount %s overflows uint64", amount)
+	}
+	amountI := amount.Uint64()
+
+	blockhash, err := reader.LatestBlockhash()
+	if err != nil {
+		return fmt.Errorf("failed to get latest block hash: %w", err)
+	}
+	tx, err := solanago.NewTransaction(
+		[]solanago.Instruction{
+			system.NewTransferInstruction(
+				amountI,
+				fromKey,
+				toKey,
+			).Build(),
+		},
+		blockhash.Value.Blockhash,
+		solanago.TransactionPayer(fromKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create tx: %w", err)
+	}
+
+	if balanceCheck {
+		if err = solanaValidateBalance(reader, fromKey, amountI, tx.Message.ToBase64()); err != nil {
+			return fmt.Errorf("failed to validate balance: %w", err)
+		}
+	}
+
+	txm := c.TxManager()
+	err = txm.Enqueue("", tx)
+	if err != nil {
+		return fmt.Errorf("transaction failed: %w", err)
+	}
+	return nil
+}
+
+func solanaValidateBalance(reader client.Reader, from solanago.PublicKey, amount uint64, msg string) error {
+	balance, err := reader.Balance(from)
+	if err != nil {
+		return err
+	}
+
+	fee, err := reader.GetFeeForMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	if balance < (amount + fee) {
+		return fmt.Errorf("balance %d is too low for this transaction to be executed: amount %d + fee %d", balance, amount, fee)
+	}
+	return nil
 }

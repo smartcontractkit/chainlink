@@ -11,9 +11,13 @@ import (
 
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	common "github.com/ethereum/go-ethereum/common"
+
 	context "context"
 
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+
+	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
@@ -39,7 +43,7 @@ import (
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 
@@ -498,15 +502,15 @@ func (_m *Application) Stop() error {
 }
 
 // TxmStorageService provides a mock function with given fields:
-func (_m *Application) TxmStorageService() txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64] {
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList] {
 	ret := _m.Called()
 
-	var r0 txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64]
-	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64]); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.TxStore[types.Address, big.Int, types.TxHash, types.BlockHash, txmgr.NewTx[types.Address], *types.Receipt, txmgr.EthTx[types.Address, types.TxHash], txmgr.EthTxAttempt[types.Address, types.TxHash], int64, int64])
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList])
 		}
 	}
 

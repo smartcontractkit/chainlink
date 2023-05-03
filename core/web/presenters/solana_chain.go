@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 // SolanaChainResource is an Solana chain JSONAPI resource.
@@ -15,10 +15,10 @@ func (r SolanaChainResource) GetName() string {
 }
 
 // NewSolanaChainResource returns a new SolanaChainResource for chain.
-func NewSolanaChainResource(chain chains.ChainConfig) SolanaChainResource {
+func NewSolanaChainResource(chain types.ChainStatus) SolanaChainResource {
 	return SolanaChainResource{ChainResource{
 		JAID:    NewJAID(chain.ID),
-		Config:  chain.Cfg,
+		Config:  chain.Config,
 		Enabled: chain.Enabled,
 	}}
 }
@@ -34,7 +34,7 @@ func (r SolanaNodeResource) GetName() string {
 }
 
 // NewSolanaNodeResource returns a new SolanaNodeResource for node.
-func NewSolanaNodeResource(node chains.NodeStatus) SolanaNodeResource {
+func NewSolanaNodeResource(node types.NodeStatus) SolanaNodeResource {
 	return SolanaNodeResource{NodeResource{
 		JAID:    NewJAID(node.Name),
 		ChainID: node.ChainID,

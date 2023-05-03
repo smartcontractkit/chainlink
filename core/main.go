@@ -25,18 +25,15 @@ func init() {
 	}
 }
 
-func Main() {
+func Main() (code int) {
 	recovery.ReportPanics(func() {
-		run(newProductionClient(), os.Args...)
+		app := cmd.NewApp(newProductionClient())
+		if err := app.Run(os.Args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
+			code = 1
+		}
 	})
-}
-
-// run the CLI, providing further command instructions by default.
-func run(client *cmd.Client, args ...string) {
-	app := cmd.NewApp(client)
-	if err := app.Run(args); err != nil {
-		log.Fatalf("Error running app: %v\n", err)
-	}
+	return
 }
 
 // newProductionClient configures an instance of the CLI to be used in production.

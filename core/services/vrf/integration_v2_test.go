@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,6 +30,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -408,7 +409,7 @@ func createVRFJobs(
 		vrfkey, err := app.GetKeyStore().VRF().Create()
 		require.NoError(t, err)
 
-		jid := uuid.NewV4()
+		jid := uuid.New()
 		incomingConfs := 2
 		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			JobID:                    jid.String(),
@@ -1908,7 +1909,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -1933,7 +1934,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
-	jid := uuid.NewV4()
+	jid := uuid.New()
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
@@ -1985,13 +1986,13 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].EthTx.State == txmgr.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].Tx.State == txmgr.EthTxConfirmed
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
 	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
-	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash.Hash)
+	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
@@ -2277,8 +2278,8 @@ func TestStartingCountsV1(t *testing.T) {
 	chainID := utils.NewBig(big.NewInt(1337))
 	confirmedTxes := []txmgr.EvmTx{
 		{
-			Nonce:              &n1,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			Sequence:           &n1,
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2286,11 +2287,11 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgr.EthTxConfirmed,
 			Meta:               &datatypes.JSON{},
 			EncodedPayload:     []byte{},
-			EVMChainID:         *chainID,
+			ChainID:            chainID.ToInt(),
 		},
 		{
-			Nonce:              &n2,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			Sequence:           &n2,
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2298,11 +2299,11 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgr.EthTxConfirmed,
 			Meta:               &md1_,
 			EncodedPayload:     []byte{},
-			EVMChainID:         *chainID,
+			ChainID:            chainID.ToInt(),
 		},
 		{
-			Nonce:              &n3,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			Sequence:           &n3,
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2310,11 +2311,11 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgr.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
-			EVMChainID:         *chainID,
+			ChainID:            chainID.ToInt(),
 		},
 		{
-			Nonce:              &n4,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			Sequence:           &n4,
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2322,7 +2323,7 @@ func TestStartingCountsV1(t *testing.T) {
 			State:              txmgr.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
-			EVMChainID:         *chainID,
+			ChainID:            chainID.ToInt(),
 		},
 	}
 	// add unconfirmed txes
@@ -2336,8 +2337,8 @@ func TestStartingCountsV1(t *testing.T) {
 		md1 := datatypes.JSON(md)
 		newNonce := i + 1
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
-			Nonce:              &newNonce,
-			FromAddress:        evmtypes.NewAddress(k.Address),
+			Sequence:           &newNonce,
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
 			State:              txmgr.EthTxUnconfirmed,
@@ -2345,7 +2346,7 @@ func TestStartingCountsV1(t *testing.T) {
 			InitialBroadcastAt: &b,
 			Meta:               &md1,
 			EncodedPayload:     []byte{},
-			EVMChainID:         *chainID,
+			ChainID:            chainID.ToInt(),
 		})
 	}
 	txes := append(confirmedTxes, unconfirmedTxes...)
@@ -2363,30 +2364,30 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	txAttempts := []txmgr.EvmTxAttempt{}
 	for i := range confirmedTxes {
 		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
-			EthTxID:                 int64(i + 1),
-			GasPrice:                assets.NewWeiI(100),
+			TxID:                    int64(i + 1),
+			TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:             []byte(`blah`),
-			Hash:                    evmtypes.NewTxHash(utils.NewHash()),
+			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificGasLimit:   uint32(100),
+			ChainSpecificFeeLimit:   uint32(100),
 		})
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
 		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
-			EthTxID:               int64(i + 1 + len(confirmedTxes)),
-			GasPrice:              assets.NewWeiI(100),
+			TxID:                  int64(i + 1 + len(confirmedTxes)),
+			TxFee:                 gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:           []byte(`blah`),
-			Hash:                  evmtypes.NewTxHash(utils.NewHash()),
+			Hash:                  utils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificGasLimit: uint32(100),
+			ChainSpecificFeeLimit: uint32(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {
-		t.Log("tx attempt eth tx id: ", txAttempt.EthTxID)
+		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
@@ -2401,7 +2402,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	receipts := []txmgr.EvmReceipt{}
 	for i := 0; i < 4; i++ {
 		receipts = append(receipts, txmgr.EvmReceipt{
-			BlockHash:        evmtypes.NewBlockHash(utils.NewHash()),
+			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,

@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -93,7 +93,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -391,7 +391,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
 			var jobID [32]byte
-			copy(jobID[:], j.ExternalJobID.Bytes())
+			copy(jobID[:], j.ExternalJobID[:])
 			tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
 			require.NoError(t, err)
 			b.Commit()
@@ -430,7 +430,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
 			var jobIDSingleWord [32]byte
-			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
+			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID[:])
 			tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
 			require.NoError(t, err)
 			b.Commit()
@@ -516,7 +516,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -561,7 +561,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -598,7 +598,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -1310,7 +1310,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient := cltest.NewEthMocks(t)
-	ethClient.On("ChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
+	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
@@ -1366,7 +1366,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start(testutils.Context(t)))
@@ -1412,7 +1412,7 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
-			chain.TxManager().Trigger(evmtypes.NewAddress(k.Address))
+			chain.TxManager().Trigger(k.Address)
 		}
 	}
 }

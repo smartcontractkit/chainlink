@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEthTxResource(t *testing.T) {
@@ -20,11 +21,11 @@ func TestEthTxResource(t *testing.T) {
 	tx := txmgr.EvmTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		FromAddress:    evmtypes.HexToAddress("0x1"),
-		ToAddress:      evmtypes.HexToAddress("0x2"),
-		GasLimit:       uint32(5000),
+		FromAddress:    common.HexToAddress("0x1"),
+		ToAddress:      common.HexToAddress("0x2"),
+		FeeLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
-		Value:          assets.NewEthValue(1),
+		Value:          big.Int(assets.NewEthValue(1)),
 	}
 
 	r := NewEthTxResource(tx)
@@ -64,11 +65,11 @@ func TestEthTxResource(t *testing.T) {
 		broadcastBefore = int64(300)
 	)
 
-	tx.Nonce = &nonce
+	tx.Sequence = &nonce
 	txa := txmgr.EvmTxAttempt{
-		EthTx:                   tx,
-		Hash:                    evmtypes.NewTxHash(hash),
-		GasPrice:                gasPrice,
+		Tx:                      tx,
+		Hash:                    hash,
+		TxFee:                   gas.EvmFee{Legacy: gasPrice},
 		SignedRawTx:             hexutil.MustDecode("0xcafe"),
 		BroadcastBeforeBlockNum: &broadcastBefore,
 	}

@@ -9,10 +9,12 @@ solc-select install 0.6.6
 solc-select install 0.7.6
 solc-select install 0.8.6
 solc-select install 0.8.15
+solc-select install 0.8.16
 
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
 $SCRIPTPATH/native_solc6_compile FluxAggregator.sol
+$SCRIPTPATH/native_solc6_compile VRF.sol
 $SCRIPTPATH/native_solc6_compile VRFCoordinator.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
@@ -22,6 +24,9 @@ $SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
 $SCRIPTPATH/native_solc6_compile BlockhashStore.sol
+$SCRIPTPATH/native_solc6_compile tests/TestAPIConsumer.sol
+$SCRIPTPATH/native_solc6_compile tests/MockETHLINKAggregator.sol
+$SCRIPTPATH/native_solc6_compile tests/MockGASAggregator.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
@@ -46,6 +51,7 @@ $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
+$SCRIPTPATH/native_solc8_15_compile dev/interfaces/automation/MercuryLookupCompatibleInterface.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -108,9 +114,9 @@ $SCRIPTPATH/native_solc8_6_compile dev/functions/FunctionsBillingRegistry.sol
 $SCRIPTPATH/native_solc8_6_compile tests/FunctionsBillingRegistryWithInit.sol
 
 # Mercury
-$SCRIPTPATH/native_solc8_6_compile Verifier.sol
-$SCRIPTPATH/native_solc8_6_compile VerifierProxy.sol
-$SCRIPTPATH/native_solc8_6_compile tests/ExposedVerifier.sol
+$SCRIPTPATH/native_solc8_16_compile Verifier.sol
+$SCRIPTPATH/native_solc8_16_compile VerifierProxy.sol
+$SCRIPTPATH/native_solc8_16_compile tests/ExposedVerifier.sol
 
 # Mocks	
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol	

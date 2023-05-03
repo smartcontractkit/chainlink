@@ -1,0 +1,13 @@
+exec chainlink txs evm list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs evm list - List the Ethereum Transactions in descending order
+
+USAGE:
+   chainlink txs evm list [command options] [arguments...]
+
+OPTIONS:
+   --page value  page of results to display (default: 0)
+   
