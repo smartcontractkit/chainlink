@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -172,7 +171,7 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	// *********************
 	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
 	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(o.Inputs.RoundTimeout)
-	answerUpdated := make(chan *ethereum.OffchainAggregatorAnswerUpdated)
+	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
 	o.subscribeOCREvents(t, answerUpdated)
 	remainingExpectedAnswers := len(o.ocrInstances)
 	testOver := false
@@ -226,7 +225,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 func (o *OCRSoakTest) processNewEvent(
 	t *testing.T,
 	eventSub geth.Subscription,
-	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
+	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
 	event *types.Log,
 	eventDetails *abi.Event,
 	ocrInstance contracts.OffchainAggregator,
@@ -269,7 +268,7 @@ func (o *OCRSoakTest) processNewEvent(
 }
 
 // marshalls new answer events into manageable Go struct for further processing and reporting
-func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *ethereum.OffchainAggregatorAnswerUpdated) bool {
+func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *offchainaggregator.OffchainAggregatorAnswerUpdated) bool {
 	l := utils.GetTestLogger(t)
 	// Updated Info
 	answerAddress := newAnswer.Raw.Address.Hex()
@@ -332,10 +331,10 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 // verifies if the answer is matching with the expected value
 func (o *OCRSoakTest) subscribeOCREvents(
 	t *testing.T,
-	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
+	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
 ) {
 	l := utils.GetTestLogger(t)
-	contractABI, err := ethereum.OffchainAggregatorMetaData.GetAbi()
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")

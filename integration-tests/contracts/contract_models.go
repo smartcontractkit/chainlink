@@ -9,13 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -58,7 +57,7 @@ type FluxAggregator interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
 	LatestRoundID(ctx context.Context) (*big.Int, error)
-	LatestRoundData(ctx context.Context) (RoundData, error)
+	LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error)
 	GetContractData(ctxt context.Context) (*FluxAggregatorData, error)
 	UpdateAvailableFunds() error
 	PaymentAmount(ctx context.Context) (*big.Int, error)
@@ -125,7 +124,7 @@ type OffchainAggregator interface {
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
-	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
+	ParseEventAnswerUpdated(log types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
