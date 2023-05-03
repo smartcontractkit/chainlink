@@ -38,6 +38,7 @@ func TestOCRBasic(t *testing.T) {
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
@@ -49,15 +50,13 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, bootstrapNode, workerNodes, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	profileFunction := func(chainlinkNode *client.Chainlink) {
-		err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer)
-		require.NoError(t, err)
-		err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer)
+		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, "ocr", 5, mockServer)
 		require.NoError(t, err)
 		err = actions.StartNewRound(1, ocrInstances, chainClient)
 		require.NoError(t, err)
@@ -66,7 +65,7 @@ func TestOCRBasic(t *testing.T) {
 		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 		require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-		err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer)
+		err = mockServer.SetValuePath("ocr", 10)
 		require.NoError(t, err)
 		err = actions.StartNewRound(2, ocrInstances, chainClient)
 		require.NoError(t, err)

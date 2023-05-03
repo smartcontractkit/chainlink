@@ -95,7 +95,7 @@ type explorerClient struct {
 	secret           string
 	lggr             logger.Logger
 
-	chStop        chan struct{}
+	chStop        utils.StopChan
 	wg            sync.WaitGroup
 	writePumpDone chan struct{}
 
@@ -241,7 +241,7 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
 func (ec *explorerClient) connectAndWritePump() {
 	defer ec.wg.Done()
-	ctx, cancel := utils.ContextFromChan(ec.chStop)
+	ctx, cancel := ec.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

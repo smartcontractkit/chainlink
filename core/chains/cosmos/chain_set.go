@@ -74,12 +74,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	return c, nil
 }
 
-// ChainSet extends adapters.ChainSet with mutability and exposes the underlying Configs.
-type ChainSet interface {
-	adapters.ChainSet
-	chains.Nodes
-	chains.Chains[string]
-}
+type ChainSet = adapters.ChainSet
 
 func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	solChains := map[string]adapters.Chain{}

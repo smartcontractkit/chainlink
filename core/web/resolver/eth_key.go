@@ -80,8 +80,8 @@ func (r *ETHKeyResolver) LINKBalance(ctx context.Context) *string {
 	}
 
 	client := r.key.chain.Client()
-	addr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
-	balance, err := client.GetLINKBalance(ctx, addr, r.key.state.Address.Address())
+	linkAddr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
+	balance, err := client.LINKBalance(ctx, r.key.state.Address.Address(), linkAddr)
 	if err != nil {
 		return nil
 	}

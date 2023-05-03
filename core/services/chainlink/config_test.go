@@ -1169,11 +1169,11 @@ var (
 	secretsMultiRedactedTOML string
 )
 
-func TestNewGeneralConfig_Logger(t *testing.T) {
+func Test_generalConfig_LogConfiguration(t *testing.T) {
 	const (
-		secrets   = "Secrets:\n"
-		input     = "Input Configuration:\n"
-		effective = "Effective Configuration, with defaults applied:\n"
+		secrets   = "# Secrets:\n"
+		input     = "# Input Configuration:\n"
+		effective = "# Effective Configuration, with defaults applied:\n"
 	)
 	tests := []struct {
 		name         string
@@ -1197,23 +1197,26 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
 			c, err := opts.New(lggr)
 			require.NoError(t, err)
-			c.LogConfiguration(lggr.Info)
+			c.LogConfiguration(lggr.Infof)
 
 			inputLogs := observed.FilterMessageSnippet(secrets).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(input).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(effective).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
 			}
 		})

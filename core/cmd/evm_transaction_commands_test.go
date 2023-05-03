@@ -26,7 +26,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmStorageService(), 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
+	attempt := tx.TxAttempts[0]
 
 	// page 1
 	set := flag.NewFlagSet("test transactions", 0)
@@ -67,7 +67,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 
 	borm := cltest.NewTxStore(t, db, app.GetConfig())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
+	attempt := tx.TxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
 	cltest.FlagSetApplyFromAction(client.ShowTransaction, set, "")
@@ -78,7 +78,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	require.NoError(t, client.ShowTransaction(c))
 
 	renderedTx := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &tx.FromAddress.Address, renderedTx.From)
+	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {
@@ -102,8 +102,8 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts := *r.Renders[0].(*cmd.EthTxPresenters)
-	require.Len(t, tx.EthTxAttempts, 1)
-	assert.Equal(t, tx.EthTxAttempts[0].Hash.String(), renderedAttempts[0].Hash.Hex())
+	require.Len(t, tx.TxAttempts, 1)
+	assert.Equal(t, tx.TxAttempts[0].Hash.String(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)

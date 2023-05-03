@@ -1,0 +1,20 @@
+exec chainlink keys solana --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys solana - Remote commands for administering the node's Solana keys
+
+USAGE:
+   chainlink keys solana command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a Solana key
+   import  Import Solana key from keyfile
+   export  Export Solana key to keyfile
+   delete  Delete Solana key if present
+   list    List the Solana keys
+
+OPTIONS:
+   --help, -h  show help
+   

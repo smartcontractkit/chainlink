@@ -36,13 +36,13 @@ func TestFactory(t *testing.T) {
 	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{})
+		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{})
 		require.NoError(t, err)
 		require.Equal(t, txmgr.NoChecker, c)
 	})
 
 	t.Run("vrf v1 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV1,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
@@ -51,7 +51,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("vrf v2 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 			VRFRequestBlockNumber: big.NewInt(1),
@@ -60,7 +60,7 @@ func TestFactory(t *testing.T) {
 		require.IsType(t, &txmgr.VRFV2Checker{}, c)
 
 		// request block number not provided should error out.
-		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
+		c, err = factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
@@ -69,7 +69,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		})
 		require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("invalid checker type", func(t *testing.T) {
-		_, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+		_, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
 			CheckerType: "invalid",
 		})
 		require.EqualError(t, err, "unrecognized checker type: invalid")
@@ -98,17 +98,17 @@ func TestTransmitCheckers(t *testing.T) {
 		checker := txmgr.SimulateChecker{Client: client}
 
 		tx := txmgr.EvmTx{
-			FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-			ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+			FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+			ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 			EncodedPayload: []byte{42, 0, 0},
-			Value:          assets.NewEthValue(642),
-			GasLimit:       1e9,
+			Value:          big.Int(assets.NewEthValue(642)),
+			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
 			State:          txmgr.EthTxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
-			EthTx:     tx,
-			Hash:      evmtypes.NewTxHash(common.Hash{}),
+			Tx:        tx,
+			Hash:      common.Hash{},
 			CreatedAt: tx.CreatedAt,
 			State:     txmgrtypes.TxAttemptInProgress,
 		}
@@ -176,18 +176,18 @@ func TestTransmitCheckers(t *testing.T) {
 			metaJson := datatypes.JSON(b)
 
 			tx := txmgr.EvmTx{
-				FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-				ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
-				Value:          assets.NewEthValue(642),
-				GasLimit:       1e9,
+				Value:          big.Int(assets.NewEthValue(642)),
+				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
-				EthTx:     tx,
-				Hash:      evmtypes.NewTxHash(common.Hash{}),
+				Tx:        tx,
+				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
 				State:     txmgrtypes.TxAttemptInProgress,
 			}
@@ -281,18 +281,18 @@ func TestTransmitCheckers(t *testing.T) {
 			metaJson := datatypes.JSON(b)
 
 			tx := txmgr.EvmTx{
-				FromAddress:    evmtypes.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
-				ToAddress:      evmtypes.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
-				Value:          assets.NewEthValue(642),
-				GasLimit:       1e9,
+				Value:          big.Int(assets.NewEthValue(642)),
+				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
 				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
-				EthTx:     tx,
-				Hash:      evmtypes.NewTxHash(common.Hash{}),
+				Tx:        tx,
+				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
 				State:     txmgrtypes.TxAttemptInProgress,
 			}

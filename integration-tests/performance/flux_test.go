@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -26,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func TestFluxPerformance(t *testing.T) {
@@ -49,7 +50,7 @@ func TestFluxPerformance(t *testing.T) {
 
 	chainClient.ParallelTransactions(true)
 
-	adapterUUID := uuid.NewV4().String()
+	adapterUUID := uuid.New().String()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
 	err = mockServer.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
@@ -89,12 +90,12 @@ func TestFluxPerformance(t *testing.T) {
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
 	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
-	bta := client.BridgeTypeAttributes{
+	bta := &client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("variable-%s", adapterUUID),
 		URL:  adapterFullURL,
 	}
 	for i, n := range chainlinkNodes {
-		err = n.MustCreateBridge(&bta)
+		err = n.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
 		fluxSpec := &client.FluxMonitorJobSpec{

@@ -12,6 +12,16 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+    name: push-chainlink-develop ${{ matrix.image.name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -25,12 +35,14 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
           ecr-image-name: chainlink
+          ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
+          dockerfile: ${{ matrix.image.dockerfile }}
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: push-chainlink-develop
+          this-job-name: push-chainlink-develop ${{ matrix.image.name }}
         continue-on-error: true

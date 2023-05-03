@@ -37,96 +37,96 @@ type JsonError interface {
 	ErrorData() interface{}
 }
 
-//func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
-//	latestBlock, err := hdlr.client.BlockByNumber(context.Background(), nil)
-//	if err != nil {
-//		return fmt.Errorf("failed to get latest block number: %s", err)
-//	}
-//
-//	fmt.Println("")
-//	fmt.Printf("latest block: %s\n", latestBlock.Number())
-//	fmt.Println("")
-//
-//	txRes, txErr, err := getTransactionDetailForHashes(hdlr, txs)
-//	if err != nil {
-//		return fmt.Errorf("batch call error: %s", err)
-//	}
-//
-//	ocr2Txs := make([]*OCR2TransmitTx, len(txRes))
-//	elements := make([]OCR2ReportDataElem, len(txRes))
-//	simBatch := make([]rpc.BatchElem, len(txRes))
-//	for i := range txRes {
-//		if txErr[i] != nil {
-//			elements[i].Err = txErr[i].Error()
-//			continue
-//		}
-//
-//		if txRes[i] == nil {
-//			elements[i].Err = "nil response"
-//			continue
-//		}
-//
-//		ocr2Txs[i], err = NewOCR2TransmitTx(*txRes[i])
-//		if err != nil {
-//			elements[i].Err = fmt.Sprintf("failed to create ocr2 transaction: %s", err)
-//			continue
-//		}
-//
-//		ocr2Txs[i].SetStaticValues(&elements[i])
-//		simBatch[i], err = ocr2Txs[i].BatchElem()
-//		if err != nil {
-//			return err
-//		}
-//	}
-//
-//	txRes, txErr, err = getSimulationsForTxs(hdlr, simBatch)
-//	for i := range txRes {
-//		if txErr[i] == nil {
-//			continue
-//		}
-//
-//		err, ok := txErr[i].(JsonError)
-//		if ok {
-//			decoded, err := hexutil.Decode(err.ErrorData().(string))
-//			if err != nil {
-//				elements[i].Err = err.Error()
-//				continue
-//			}
-//
-//			elements[i].Err = ocr2Txs[i].DecodeError(decoded)
-//		} else if err != nil {
-//			elements[i].Err = err.Error()
-//		}
-//
-//	}
-//
-//	data := make([][]string, len(elements))
-//	for i, elem := range elements {
-//		data[i] = []string{
-//			txs[i],
-//			elem.ChainID,
-//			elem.BlockNumber,
-//			elem.Err,
-//			elem.From,
-//			elem.To,
-//			elem.PerformKeys,
-//			elem.PerformBlockChecks,
-//		}
-//	}
-//
-//	sort.Slice(data, func(i, j int) bool {
-//		return data[i][2] > data[j][2]
-//	})
-//
-//	table := tablewriter.NewWriter(os.Stdout)
-//	table.SetHeader([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
-//	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
-//	table.SetBorder(false) // Set Border to false
-//	table.AppendBulk(data) // Add Bulk Data
-//	table.Render()
-//
-//	return nil
-//}
+func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
+	latestBlock, err := hdlr.client.BlockByNumber(context.Background(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to get latest block number: %s", err)
+	}
+
+	fmt.Println("")
+	fmt.Printf("latest block: %s\n", latestBlock.Number())
+	fmt.Println("")
+
+	txRes, txErr, err := getTransactionDetailForHashes(hdlr, txs)
+	if err != nil {
+		return fmt.Errorf("batch call error: %s", err)
+	}
+
+	ocr2Txs := make([]*OCR2TransmitTx, len(txRes))
+	elements := make([]OCR2ReportDataElem, len(txRes))
+	simBatch := make([]rpc.BatchElem, len(txRes))
+	for i := range txRes {
+		if txErr[i] != nil {
+			elements[i].Err = txErr[i].Error()
+			continue
+		}
+
+		if txRes[i] == nil {
+			elements[i].Err = "nil response"
+			continue
+		}
+
+		ocr2Txs[i], err = NewOCR2TransmitTx(*txRes[i])
+		if err != nil {
+			elements[i].Err = fmt.Sprintf("failed to create ocr2 transaction: %s", err)
+			continue
+		}
+
+		ocr2Txs[i].SetStaticValues(&elements[i])
+		simBatch[i], err = ocr2Txs[i].BatchElem()
+		if err != nil {
+			return err
+		}
+	}
+
+	txRes, txErr, err = getSimulationsForTxs(hdlr, simBatch)
+	for i := range txRes {
+		if txErr[i] == nil {
+			continue
+		}
+
+		err, ok := txErr[i].(JsonError)
+		if ok {
+			decoded, err := hexutil.Decode(err.ErrorData().(string))
+			if err != nil {
+				elements[i].Err = err.Error()
+				continue
+			}
+
+			elements[i].Err = ocr2Txs[i].DecodeError(decoded)
+		} else if err != nil {
+			elements[i].Err = err.Error()
+		}
+
+	}
+
+	data := make([][]string, len(elements))
+	for i, elem := range elements {
+		data[i] = []string{
+			txs[i],
+			elem.ChainID,
+			elem.BlockNumber,
+			elem.Err,
+			elem.From,
+			elem.To,
+			elem.PerformKeys,
+			elem.PerformBlockChecks,
+		}
+	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return data[i][2] > data[j][2]
+	})
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
+	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
+	table.SetBorder(false) // Set Border to false
+	table.AppendBulk(data) // Add Bulk Data
+	table.Render()
+
+	return nil
+}
 
 func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[string]interface{}, []error, error) {
 	var (
@@ -245,20 +245,20 @@ func (t *OCR2Transaction) To() *common.Address {
 	return t.tx.To()
 }
 
-//func (t *OCR2Transaction) From() (common.Address, error) {
-//
-//	switch t.tx.Type() {
-//	case 2:
-//		msg, err := t.tx.AsMessage(types.NewLondonSigner(t.tx.ChainId()), big.NewInt(1))
-//		if err != nil {
-//			return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)
-//		} else {
-//			return msg.From(), nil
-//		}
-//	}
-//
-//	return common.Address{}, fmt.Errorf("from address not found")
-//}
+func (t *OCR2Transaction) From() (common.Address, error) {
+
+	switch t.tx.Type() {
+	case 2:
+		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), &t.tx)
+		if err != nil {
+			return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)
+		} else {
+			return from, nil
+		}
+	}
+
+	return common.Address{}, fmt.Errorf("from address not found")
+}
 
 func (t *OCR2Transaction) Method() (*abi.Method, error) {
 	return t.abi.MethodById(t.tx.Data()[0:4])
@@ -319,69 +319,69 @@ func (t *OCR2TransmitTx) UpkeepsInTransmit() ([]plugintypes.UpkeepResult, error)
 	return t.encoder.DecodeReport(reportBytes)
 }
 
-//func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
-//	if t.To() != nil {
-//		elem.To = t.To().String()
-//	}
-//
-//	elem.ChainID = t.ChainId().String()
-//
-//	from, err := t.From()
-//	if err != nil {
-//		elem.Err = err.Error()
-//		return
-//	} else {
-//		elem.From = from.String()
-//	}
-//
-//	block, err := t.BlockNumber()
-//	if err != nil {
-//		elem.Err = err.Error()
-//		return
-//	} else {
-//		elem.BlockNumber = fmt.Sprintf("%d", block)
-//	}
-//
-//	upkeeps, err := t.UpkeepsInTransmit()
-//	if err != nil {
-//		elem.Err = err.Error()
-//	}
-//
-//	keys := []string{}
-//	chkBlocks := []string{}
-//	for _, u := range upkeeps {
-//		parts := strings.Split(u.Key.String(), "|")
-//		keys = append(keys, parts[1])
-//		chkBlocks = append(chkBlocks, fmt.Sprintf("%d", u.CheckBlockNumber))
-//	}
-//	elem.PerformKeys = strings.Join(keys, "\n")
-//	elem.PerformBlockChecks = strings.Join(chkBlocks, "\n")
-//}
+func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
+	if t.To() != nil {
+		elem.To = t.To().String()
+	}
 
-//func (t *OCR2TransmitTx) BatchElem() (rpc.BatchElem, error) {
-//
-//	bn, err := t.BlockNumber()
-//	if err != nil {
-//		return rpc.BatchElem{}, err
-//	}
-//
-//	from, err := t.From()
-//	if err != nil {
-//		return rpc.BatchElem{}, err
-//	}
-//
-//	return rpc.BatchElem{
-//		Method: "eth_call",
-//		Args: []interface{}{
-//			map[string]interface{}{
-//				"from": from.Hex(),
-//				"to":   t.To().Hex(),
-//				"data": hexutil.Bytes(t.tx.Data()),
-//			},
-//			hexutil.EncodeBig(big.NewInt(int64(bn) - 1)),
-//		},
-//	}, nil
-//}
+	elem.ChainID = t.ChainId().String()
+
+	from, err := t.From()
+	if err != nil {
+		elem.Err = err.Error()
+		return
+	} else {
+		elem.From = from.String()
+	}
+
+	block, err := t.BlockNumber()
+	if err != nil {
+		elem.Err = err.Error()
+		return
+	} else {
+		elem.BlockNumber = fmt.Sprintf("%d", block)
+	}
+
+	upkeeps, err := t.UpkeepsInTransmit()
+	if err != nil {
+		elem.Err = err.Error()
+	}
+
+	keys := []string{}
+	chkBlocks := []string{}
+	for _, u := range upkeeps {
+		parts := strings.Split(u.Key.String(), "|")
+		keys = append(keys, parts[1])
+		chkBlocks = append(chkBlocks, fmt.Sprintf("%d", u.CheckBlockNumber))
+	}
+	elem.PerformKeys = strings.Join(keys, "\n")
+	elem.PerformBlockChecks = strings.Join(chkBlocks, "\n")
+}
+
+func (t *OCR2TransmitTx) BatchElem() (rpc.BatchElem, error) {
+
+	bn, err := t.BlockNumber()
+	if err != nil {
+		return rpc.BatchElem{}, err
+	}
+
+	from, err := t.From()
+	if err != nil {
+		return rpc.BatchElem{}, err
+	}
+
+	return rpc.BatchElem{
+		Method: "eth_call",
+		Args: []interface{}{
+			map[string]interface{}{
+				"from": from.Hex(),
+				"to":   t.To().Hex(),
+				"data": hexutil.Bytes(t.tx.Data()),
+			},
+			hexutil.EncodeBig(big.NewInt(int64(bn) - 1)),
+		},
+	}, nil
+}
 
 func NewBaseOCR2Tx(tx *types.Transaction) (*BaseOCR2Tx, error) {
 	contract, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))

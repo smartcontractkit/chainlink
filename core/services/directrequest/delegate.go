@@ -127,7 +127,7 @@ type listener struct {
 	pipelineORM              pipeline.ORM
 	mailMon                  *utils.MailboxMonitor
 	job                      job.Job
-	runs                     sync.Map
+	runs                     sync.Map // map[string]utils.StopChan
 	shutdownWaitGroup        sync.WaitGroup
 	mbOracleRequests         *utils.Mailbox[log.Broadcast]
 	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
@@ -171,7 +171,7 @@ func (l *listener) Start(context.Context) error {
 func (l *listener) Close() error {
 	return l.StopOnce("DirectRequestListener", func() error {
 		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
-			runCloserChannel, _ := runCloserChannelIf.(chan struct{})
+			runCloserChannel := runCloserChannelIf.(utils.StopChan)
 			close(runCloserChannel)
 			return true
 		})
@@ -331,12 +331,12 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	runCloserChannel := make(chan struct{})
+	runCloserChannel := make(utils.StopChan)
 	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
 	if loaded {
-		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
+		runCloserChannel = runCloserChannelIf.(utils.StopChan)
 	}
-	ctx, cancel := utils.ContextFromChan(runCloserChannel)
+	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -389,7 +389,7 @@ func (l *listener) allowRequester(requester common.Address) bool {
 func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
-		close(runCloserChannelIf.(chan struct{}))
+		close(runCloserChannelIf.(utils.StopChan))
 	}
 	l.markLogConsumed(lb)
 }

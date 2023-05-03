@@ -8,8 +8,8 @@
   "scripts": {
     "test": "hardhat test",
     "lint": "eslint --ext js,ts .",
-    "prettier:check": "prettier . --check --ignore-unknown",
-    "prettier:write": "prettier . --write --ignore-unknown",
+    "prettier:check": "prettier '**/*' --check --ignore-unknown",
+    "prettier:write": "prettier '**/*' --write --ignore-unknown",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
     "compile:native": "./scripts/native_solc_compile_all",
@@ -51,6 +51,7 @@
     "@types/node": "^15.12.2",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "@typescript-eslint/parser": "^5.38.0",
+    "abi-to-sol": "^0.6.6",
     "chai": "^4.3.4",
     "debug": "^4.3.2",
     "eslint": "^8.23.1",

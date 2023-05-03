@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -80,16 +81,18 @@ func NewApp(client *Client) *cli.App {
 			client.CloseLogger = closeLggr
 		}
 
-		err := client.setConfigFromFlags(&opts, c)
-		if err != nil {
-			return err
+		if c.IsSet("config") || c.IsSet("secrets") {
+			if err := client.setConfig(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
+				return err
+			}
+			client.configInitialized = true
 		}
 
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := NewUserCache("cookies")
+		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return client.Logger })
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
@@ -194,14 +197,22 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				return client.setConfigFromFlags(&opts, c)
+				if client.configInitialized {
+					if c.IsSet("config") || c.IsSet("secrets") {
+						// invalid mix of flags here and root
+						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+					}
+					// flags at root
+					return nil
+				}
+				// flags here, or ENV VAR only
+				return client.setConfig(&opts, c.StringSlice("config"), c.String("secrets"))
 			},
 		},
 		{
 			Name:        "initiators",
 			Usage:       "Commands for managing External Initiators",
-			Hidden:      !devMode,
-			Subcommands: initInitiatorsSubCmds(client, devMode),
+			Subcommands: initInitiatorsSubCmds(client),
 		},
 		{
 			Name:  "txs",
