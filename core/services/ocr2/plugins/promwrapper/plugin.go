@@ -18,7 +18,7 @@ import (
 // Type assertions, buckets and labels.
 var (
 	_       types.ReportingPlugin = &promPlugin{}
-	_       PrometheusBackend     = &defaultPometheusBackend{}
+	_       PrometheusBackend     = &defaultPrometheusBackend{}
 	buckets                       = []float64{
 		float64(1 * time.Millisecond),
 		float64(5 * time.Millisecond),
@@ -35,7 +35,7 @@ var (
 		float64(5 * time.Minute),
 		float64(10 * time.Minute),
 	}
-	labels          = []string{"chainType", "chainID", "plugin", "oracleID", "configDigest", "epoch", "round"}
+	labels          = []string{"chainType", "chainID", "plugin", "oracleID", "configDigest"}
 	getLabelsValues = func(p *promPlugin, t types.ReportTimestamp) []string {
 		return []string{
 			string(p.chainType),                 // chainType
@@ -43,8 +43,6 @@ var (
 			p.name,                              // plugin
 			p.oracleID,                          // oracleID
 			common.Bytes2Hex(t.ConfigDigest[:]), // configDigest
-			fmt.Sprintf("%d", t.Epoch),          // epoch
-			fmt.Sprintf("%d", t.Round),          // round
 		}
 	}
 )
@@ -152,7 +150,7 @@ type (
 		SetAcceptFinalizedReportToTransmitAcceptedReportLatency([]string, float64)
 	}
 
-	defaultPometheusBackend struct{} // implements PrometheusBackend
+	defaultPrometheusBackend struct{} // implements PrometheusBackend
 
 	// promPlugin consumes a report plugin and wraps its core functions e.g Report(), Observe()...
 	promPlugin struct {
@@ -170,43 +168,43 @@ type (
 	}
 )
 
-func (*defaultPometheusBackend) SetQueryDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetQueryDuration(labelValues []string, duration float64) {
 	promQuery.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetObservationDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetObservationDuration(labelValues []string, duration float64) {
 	promObservation.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetReportDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetReportDuration(labelValues []string, duration float64) {
 	promReport.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetShouldAcceptFinalizedReportDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetShouldAcceptFinalizedReportDuration(labelValues []string, duration float64) {
 	promShouldAcceptFinalizedReport.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetShouldTransmitAcceptedReportDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetShouldTransmitAcceptedReportDuration(labelValues []string, duration float64) {
 	promShouldTransmitAcceptedReport.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetCloseDuration(labelValues []string, duration float64) {
+func (*defaultPrometheusBackend) SetCloseDuration(labelValues []string, duration float64) {
 	promClose.WithLabelValues(labelValues...).Observe(duration)
 }
 
-func (*defaultPometheusBackend) SetQueryToObservationLatency(labelValues []string, latency float64) {
+func (*defaultPrometheusBackend) SetQueryToObservationLatency(labelValues []string, latency float64) {
 	promQueryToObservationLatency.WithLabelValues(labelValues...).Observe(latency)
 }
 
-func (*defaultPometheusBackend) SetObservationToReportLatency(labelValues []string, latency float64) {
+func (*defaultPrometheusBackend) SetObservationToReportLatency(labelValues []string, latency float64) {
 	promObservationToReportLatency.WithLabelValues(labelValues...).Observe(latency)
 }
 
-func (*defaultPometheusBackend) SetReportToAcceptFinalizedReportLatency(labelValues []string, latency float64) {
+func (*defaultPrometheusBackend) SetReportToAcceptFinalizedReportLatency(labelValues []string, latency float64) {
 	promReportToAcceptFinalizedReportLatency.WithLabelValues(labelValues...).Observe(latency)
 }
 
-func (*defaultPometheusBackend) SetAcceptFinalizedReportToTransmitAcceptedReportLatency(labelValues []string, latency float64) {
+func (*defaultPrometheusBackend) SetAcceptFinalizedReportToTransmitAcceptedReportLatency(labelValues []string, latency float64) {
 	promAcceptFinalizedReportToTransmitAcceptedReportLatency.WithLabelValues(labelValues...).Observe(latency)
 }
 
@@ -219,7 +217,7 @@ func New(
 	backend PrometheusBackend,
 ) types.ReportingPlugin {
 	// Apply passed-in Prometheus backend if one is given.
-	var prometheusBackend PrometheusBackend = &defaultPometheusBackend{}
+	var prometheusBackend PrometheusBackend = &defaultPrometheusBackend{}
 	if backend != nil {
 		prometheusBackend = backend
 	}
@@ -244,7 +242,7 @@ func (p *promPlugin) Query(ctx context.Context, timestamp types.ReportTimestamp)
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetQueryDuration(getLabelsValues(p, timestamp), duration)
-		p.queryEndTimes[timestamp] = time.Now() // note time at end of Query()
+		p.queryEndTimes[timestamp] = time.Now().UTC() // note time at end of Query()
 	}()
 
 	return p.wrapped.Query(ctx, timestamp)
@@ -258,13 +256,14 @@ func (p *promPlugin) Observation(ctx context.Context, timestamp types.ReportTime
 	if queryEndTime, ok := p.queryEndTimes[timestamp]; ok {
 		latency := float64(start.Sub(queryEndTime))
 		p.prometheusBackend.SetQueryToObservationLatency(labelValues, latency)
+		delete(p.queryEndTimes, timestamp)
 	}
 
 	// Report latency for Observation() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetObservationDuration(labelValues, duration)
-		p.observationEndTimes[timestamp] = time.Now() // note time at end of Observe()
+		p.observationEndTimes[timestamp] = time.Now().UTC() // note time at end of Observe()
 	}()
 
 	return p.wrapped.Observation(ctx, timestamp, query)
@@ -278,13 +277,14 @@ func (p *promPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp
 	if observationEndTime, ok := p.observationEndTimes[timestamp]; ok {
 		latency := float64(start.Sub(observationEndTime))
 		p.prometheusBackend.SetObservationToReportLatency(labelValues, latency)
+		delete(p.observationEndTimes, timestamp)
 	}
 
 	// Report latency for Report() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetReportDuration(labelValues, duration)
-		p.reportEndTimes[timestamp] = time.Now() // note time at end of Report()
+		p.reportEndTimes[timestamp] = time.Now().UTC() // note time at end of Report()
 	}()
 
 	return p.wrapped.Report(ctx, timestamp, query, observations)
@@ -298,13 +298,14 @@ func (p *promPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp 
 	if reportEndTime, ok := p.reportEndTimes[timestamp]; ok {
 		latency := float64(start.Sub(reportEndTime))
 		p.prometheusBackend.SetReportToAcceptFinalizedReportLatency(labelValues, latency)
+		delete(p.reportEndTimes, timestamp)
 	}
 
 	// Report latency for ShouldAcceptFinalizedReport() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetShouldAcceptFinalizedReportDuration(labelValues, duration)
-		p.acceptFinalizedReportEndTimes[timestamp] = time.Now() // note time at end of ShouldAcceptFinalizedReport()
+		p.acceptFinalizedReportEndTimes[timestamp] = time.Now().UTC() // note time at end of ShouldAcceptFinalizedReport()
 	}()
 
 	return p.wrapped.ShouldAcceptFinalizedReport(ctx, timestamp, report)
@@ -318,6 +319,7 @@ func (p *promPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp
 	if acceptFinalizedReportEndTime, ok := p.acceptFinalizedReportEndTimes[timestamp]; ok {
 		latency := float64(start.Sub(acceptFinalizedReportEndTime))
 		p.prometheusBackend.SetAcceptFinalizedReportToTransmitAcceptedReportLatency(labelValues, latency)
+		delete(p.acceptFinalizedReportEndTimes, timestamp)
 	}
 
 	defer func() {

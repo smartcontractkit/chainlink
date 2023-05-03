@@ -92,8 +92,6 @@ func TestPlugin_GetLatencies(t *testing.T) {
 				"test-plugin",
 				"0",
 				common.Bytes2Hex(configDigest[:]),
-				"1",
-				"1",
 			}, labelValues)
 	}
 
@@ -186,35 +184,43 @@ func TestPlugin_GetLatencies(t *testing.T) {
 
 	// Create promPlugin with mocked prometheus backend.
 	var reportingPlugin = &fakeReportingPlugin{}
-	promPlugin := New(
+	var promPlugin *promPlugin = New(
 		reportingPlugin,
 		"test-plugin",
 		"EVM",
 		big.NewInt(1),
 		types.ReportingPluginConfig{ConfigDigest: reportTimestamp.ConfigDigest},
 		backend,
-	)
+	).(*promPlugin)
 	require.NotEqual(t, nil, promPlugin)
 
 	// Run OCR methods.
 	_, err := promPlugin.Query(context.Background(), reportTimestamp)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(promPlugin.queryEndTimes))
 	time.Sleep(qToOLatency)
 
 	_, err = promPlugin.Observation(context.Background(), reportTimestamp, nil)
 	require.NoError(t, err)
+	require.Equal(t, 0, len(promPlugin.queryEndTimes))
+	require.Equal(t, 1, len(promPlugin.observationEndTimes))
 	time.Sleep(oToRLatency)
 
 	_, _, err = promPlugin.Report(context.Background(), reportTimestamp, nil, nil)
 	require.NoError(t, err)
+	require.Equal(t, 0, len(promPlugin.observationEndTimes))
+	require.Equal(t, 1, len(promPlugin.reportEndTimes))
 	time.Sleep(rToALatency)
 
 	_, err = promPlugin.ShouldAcceptFinalizedReport(context.Background(), reportTimestamp, nil)
 	require.NoError(t, err)
+	require.Equal(t, 0, len(promPlugin.reportEndTimes))
+	require.Equal(t, 1, len(promPlugin.acceptFinalizedReportEndTimes))
 	time.Sleep(aToTLatency)
 
 	_, err = promPlugin.ShouldTransmitAcceptedReport(context.Background(), reportTimestamp, nil)
 	require.NoError(t, err)
+	require.Equal(t, 0, len(promPlugin.acceptFinalizedReportEndTimes))
 
 	// Close.
 	err = promPlugin.Close()
