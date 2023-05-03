@@ -78,8 +78,8 @@ var ocr2UpkeepReportHistoryCmd = &cobra.Command{
 	Short: "Print ocr2 automation reports",
 	Long:  "Print ocr2 automation reports within specified range for registry address",
 	Run: func(cmd *cobra.Command, args []string) {
-		//cfg := config.New()
-		//hdlr := handler.NewBaseHandler(cfg)
+		cfg := config.New()
+		hdlr := handler.NewBaseHandler(cfg)
 
 		var hashes []string
 		var err error
@@ -107,9 +107,9 @@ var ocr2UpkeepReportHistoryCmd = &cobra.Command{
 			}
 		}
 
-		//if err := handler.OCR2AutomationReports(hdlr, hashes); err != nil {
-		//	log.Fatalf("failed to collect transaction data: %s", err)
-		//}
+		if err := handler.OCR2AutomationReports(hdlr, hashes); err != nil {
+			log.Fatalf("failed to collect transaction data: %s", err)
+		}
 	},
 }
 
