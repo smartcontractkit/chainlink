@@ -97,7 +97,7 @@ type Txm[
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper           *Reaper
+	reaper           *Reaper[CHAIN_ID]
 	ethResender      *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
 	ethBroadcaster   *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	ethConfirmer     *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
@@ -159,7 +159,7 @@ func NewTxm(
 		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, b.txStore, cfg, ethClient.ConfiguredChainID())
+		b.reaper = NewEvmReaper(lggr, b.txStore, cfg, ethClient.ConfiguredChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}
