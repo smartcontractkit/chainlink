@@ -24,17 +24,6 @@ Build a local copy of the chainlink docker image by running this command in the 
 docker build -t chainlink:local -f ./core/chainlink.Dockerfile .
 ```
 
-Before start, there should be `.env` file with all required environment variables. Example for Goerli network:
-```.dotenv
-CHAINLINK_DOCKER_IMAGE=chainlink:local
-NODE_URL=<wss-rpc-node-addr>
-NODE_HTTP_URL=<http-rpc-node-addr>
-CHAIN_ID=5
-PRIVATE_KEY=<wallet-private-key>
-LINK_TOKEN_ADDR=0x326C977E6efc84E512bB9C30f76E30c160eD06FB
-LINK_ETH_FEED=0xb4c4a493AB6356497713A78FFA6c60FB53517c63
-FAST_GAS_FEED=0x22134617ae0f6ca8d89451e5ae091c94f7d743dc
-FUND_CHAINLINK_NODE=500000000000000000000 # 5 ETH
 Next, from the root directory again, `cd` into the chaincli directory:
 
 ```shell
