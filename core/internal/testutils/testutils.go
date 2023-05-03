@@ -19,8 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
@@ -91,7 +91,7 @@ func Random32Byte() (b [32]byte) {
 
 // RandomizeName appends a random UUID to the provided name
 func RandomizeName(n string) string {
-	id := uuid.NewV4().String()
+	id := uuid.New().String()
 	return n + id
 }
 

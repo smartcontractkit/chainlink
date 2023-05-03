@@ -38,7 +38,7 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	zapcore "go.uber.org/zap/zapcore"
 )

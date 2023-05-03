@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/graph-gophers/dataloader"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -22,7 +22,7 @@ func (b *jobBatcher) loadByExternalJobIDs(_ context.Context, keys dataloader.Key
 	// Collect the keys to search for
 	var jobIDs []uuid.UUID
 	for ix, key := range keys {
-		id, err := uuid.FromString(key.String())
+		id, err := uuid.Parse(key.String())
 		if err == nil {
 			jobIDs = append(jobIDs, id)
 		}

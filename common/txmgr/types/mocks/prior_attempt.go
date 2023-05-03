@@ -44,8 +44,8 @@ func (_m *PriorAttempt[F, TX_HASH]) GetBroadcastBeforeBlockNum() *int64 {
 	return r0
 }
 
-// GetChainSpecificGasLimit provides a mock function with given fields:
-func (_m *PriorAttempt[F, TX_HASH]) GetChainSpecificGasLimit() uint32 {
+// GetChainSpecificFeeLimit provides a mock function with given fields:
+func (_m *PriorAttempt[F, TX_HASH]) GetChainSpecificFeeLimit() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32

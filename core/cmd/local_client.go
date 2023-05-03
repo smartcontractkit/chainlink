@@ -32,7 +32,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -155,7 +157,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
 			Before: func(ctx *clipkg.Context) error {
-				return client.Config.ValidateDB()
+				return client.configExitErr(client.Config.ValidateDB)
 			},
 			Subcommands: []cli.Command{
 				{
@@ -621,7 +623,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 
@@ -670,11 +672,8 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
+	if err := cli.configExitErr(cli.Config.Validate); err != nil {
+		return err
 	}
 	fmt.Println("Valid configuration.")
 	return nil

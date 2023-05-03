@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg txmgrtypes.ReaperConfig, cid big.Int) *txmgr.Reaper {
+func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, cid *big.Int) *txmgr.Reaper {
 	return txmgr.NewReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
-func newReaper(t *testing.T, db *sqlx.DB, cfg txmgrtypes.ReaperConfig) *txmgr.Reaper {
-	return newReaperWithChainID(t, db, cfg, cltest.FixtureChainID)
+func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig) *txmgr.Reaper {
+	return newReaperWithChainID(t, db, cfg, &cltest.FixtureChainID)
 }
 
 func TestReaper_ReapEthTxes(t *testing.T) {
@@ -44,7 +43,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("FinalityDepth").Return(uint32(10))
 		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, db, config)
+		r := newReaper(t, txStore, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -57,7 +56,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("TxReaperThreshold").Return(0 * time.Second)
 
-		r := newReaper(t, db, config)
+		r := newReaper(t, txStore, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -70,7 +69,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("FinalityDepth").Return(uint32(10))
 		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaperWithChainID(t, db, config, *big.NewInt(42))
+		r := newReaperWithChainID(t, txStore, config, big.NewInt(42))
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -83,7 +82,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("FinalityDepth").Return(uint32(10))
 		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, db, config)
+		r := newReaper(t, txStore, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -110,7 +109,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("FinalityDepth").Return(uint32(10))
 		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, db, config)
+		r := newReaper(t, txStore, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
