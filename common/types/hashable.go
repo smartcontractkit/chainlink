@@ -7,4 +7,6 @@ import "fmt"
 type Hashable interface {
 	fmt.Stringer
 	comparable
+
+	Bytes() []byte
 }

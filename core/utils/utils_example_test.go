@@ -20,14 +20,14 @@ func ExampleStopChan() {
 
 	b := func(ctx context.Context, done func()) {
 		defer done()
-		ctx, cancel := stopCh.CtxCancel(context.WithTimeout(ctx, time.Minute))
+		ctx, cancel := stopCh.CtxCancel(context.WithTimeout(ctx, time.Second))
 		defer cancel()
 		work(ctx)
 	}
 
 	c := func(ctx context.Context, done func()) {
 		defer done()
-		ctx, cancel := stopCh.CtxCancel(context.WithDeadline(ctx, time.Now().Add(5*time.Minute)))
+		ctx, cancel := stopCh.CtxCancel(context.WithDeadline(ctx, time.Now().Add(5*time.Second)))
 		defer cancel()
 		work(ctx)
 	}
