@@ -3,7 +3,6 @@ package client
 
 import (
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -91,12 +90,6 @@ func (c *Chainlink) MustCreateJob(spec JobSpec) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	bodyString := string(bodyBytes)
-	fmt.Println(bodyString)
 	return job, VerifyStatusCode(resp.StatusCode, http.StatusOK)
 }
 
