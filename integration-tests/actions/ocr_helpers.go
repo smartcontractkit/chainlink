@@ -207,6 +207,11 @@ func CreateOCRJobs(
 			return fmt.Errorf("creating bootstrap job have failed: %w", err)
 		}
 
+		bta := &client.BridgeTypeAttributes{
+			Name: mockPath,
+			URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(mockPath, "/")),
+		}
+
 		for _, node := range workerNodes {
 			nodeP2PIds, err := node.MustReadP2PKeys()
 			if err != nil {
@@ -222,11 +227,6 @@ func CreateOCRJobs(
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
-
-			bta := &client.BridgeTypeAttributes{
-				Name: mockPath,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(mockPath, "/")),
-			}
 
 			err = node.MustCreateBridge(bta)
 			if err != nil {
@@ -276,6 +276,11 @@ func CreateOCRJobsWithForwarder(
 		_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 		require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
 
+		bta := &client.BridgeTypeAttributes{
+			Name: mockPath,
+			URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(mockPath, "/")),
+		}
+
 		for nodeIndex, node := range workerNodes {
 			nodeP2PIds, err := node.MustReadP2PKeys()
 			require.NoError(t, err, "Shouldn't fail reading P2P keys from OCR node %d", nodeIndex+1)
@@ -285,11 +290,6 @@ func CreateOCRJobsWithForwarder(
 			nodeOCRKeys, err := node.MustReadOCRKeys()
 			require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
-
-			bta := &client.BridgeTypeAttributes{
-				Name: mockPath,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(mockPath, "/")),
-			}
 
 			err = node.MustCreateBridge(bta)
 			require.NoError(t, err, "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
