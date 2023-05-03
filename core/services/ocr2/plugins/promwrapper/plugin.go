@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -160,10 +161,10 @@ type (
 		chainID                       *big.Int
 		oracleID                      string
 		configDigest                  string
-		queryEndTimes                 map[types.ReportTimestamp]time.Time
-		observationEndTimes           map[types.ReportTimestamp]time.Time
-		reportEndTimes                map[types.ReportTimestamp]time.Time
-		acceptFinalizedReportEndTimes map[types.ReportTimestamp]time.Time
+		queryEndTimes                 sync.Map
+		observationEndTimes           sync.Map
+		reportEndTimes                sync.Map
+		acceptFinalizedReportEndTimes sync.Map
 		prometheusBackend             PrometheusBackend
 	}
 )
@@ -223,17 +224,13 @@ func New(
 	}
 
 	return &promPlugin{
-		wrapped:                       plugin,
-		name:                          name,
-		chainType:                     chainType,
-		chainID:                       chainID,
-		oracleID:                      fmt.Sprintf("%d", config.OracleID),
-		configDigest:                  common.Bytes2Hex(config.ConfigDigest[:]),
-		queryEndTimes:                 make(map[types.ReportTimestamp]time.Time),
-		observationEndTimes:           make(map[types.ReportTimestamp]time.Time),
-		reportEndTimes:                make(map[types.ReportTimestamp]time.Time),
-		acceptFinalizedReportEndTimes: make(map[types.ReportTimestamp]time.Time),
-		prometheusBackend:             prometheusBackend,
+		wrapped:           plugin,
+		name:              name,
+		chainType:         chainType,
+		chainID:           chainID,
+		oracleID:          fmt.Sprintf("%d", config.OracleID),
+		configDigest:      common.Bytes2Hex(config.ConfigDigest[:]),
+		prometheusBackend: prometheusBackend,
 	}
 }
 
@@ -242,7 +239,7 @@ func (p *promPlugin) Query(ctx context.Context, timestamp types.ReportTimestamp)
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetQueryDuration(getLabelsValues(p, timestamp), duration)
-		p.queryEndTimes[timestamp] = time.Now().UTC() // note time at end of Query()
+		p.queryEndTimes.Store(timestamp, time.Now().UTC()) // note time at end of Query()
 	}()
 
 	return p.wrapped.Query(ctx, timestamp)
@@ -253,17 +250,17 @@ func (p *promPlugin) Observation(ctx context.Context, timestamp types.ReportTime
 
 	// Report latency between Query() and Observation().
 	labelValues := getLabelsValues(p, timestamp)
-	if queryEndTime, ok := p.queryEndTimes[timestamp]; ok {
-		latency := float64(start.Sub(queryEndTime))
+	if queryEndTime, ok := p.queryEndTimes.Load(timestamp); ok {
+		latency := float64(start.Sub(queryEndTime.(time.Time)))
 		p.prometheusBackend.SetQueryToObservationLatency(labelValues, latency)
-		delete(p.queryEndTimes, timestamp)
+		p.queryEndTimes.Delete(timestamp)
 	}
 
 	// Report latency for Observation() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetObservationDuration(labelValues, duration)
-		p.observationEndTimes[timestamp] = time.Now().UTC() // note time at end of Observe()
+		p.observationEndTimes.Store(timestamp, time.Now().UTC()) // note time at end of Observe()
 	}()
 
 	return p.wrapped.Observation(ctx, timestamp, query)
@@ -274,17 +271,17 @@ func (p *promPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp
 
 	// Report latency between Observation() and Report().
 	labelValues := getLabelsValues(p, timestamp)
-	if observationEndTime, ok := p.observationEndTimes[timestamp]; ok {
-		latency := float64(start.Sub(observationEndTime))
+	if observationEndTime, ok := p.observationEndTimes.Load(timestamp); ok {
+		latency := float64(start.Sub(observationEndTime.(time.Time)))
 		p.prometheusBackend.SetObservationToReportLatency(labelValues, latency)
-		delete(p.observationEndTimes, timestamp)
+		p.observationEndTimes.Delete(timestamp)
 	}
 
 	// Report latency for Report() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetReportDuration(labelValues, duration)
-		p.reportEndTimes[timestamp] = time.Now().UTC() // note time at end of Report()
+		p.reportEndTimes.Store(timestamp, time.Now().UTC()) // note time at end of Report()
 	}()
 
 	return p.wrapped.Report(ctx, timestamp, query, observations)
@@ -295,17 +292,17 @@ func (p *promPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp 
 
 	// Report latency between Report() and ShouldAcceptFinalizedReport().
 	labelValues := getLabelsValues(p, timestamp)
-	if reportEndTime, ok := p.reportEndTimes[timestamp]; ok {
-		latency := float64(start.Sub(reportEndTime))
+	if reportEndTime, ok := p.reportEndTimes.Load(timestamp); ok {
+		latency := float64(start.Sub(reportEndTime.(time.Time)))
 		p.prometheusBackend.SetReportToAcceptFinalizedReportLatency(labelValues, latency)
-		delete(p.reportEndTimes, timestamp)
+		p.reportEndTimes.Delete(timestamp)
 	}
 
 	// Report latency for ShouldAcceptFinalizedReport() at end of call.
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		p.prometheusBackend.SetShouldAcceptFinalizedReportDuration(labelValues, duration)
-		p.acceptFinalizedReportEndTimes[timestamp] = time.Now().UTC() // note time at end of ShouldAcceptFinalizedReport()
+		p.acceptFinalizedReportEndTimes.Store(timestamp, time.Now().UTC()) // note time at end of ShouldAcceptFinalizedReport()
 	}()
 
 	return p.wrapped.ShouldAcceptFinalizedReport(ctx, timestamp, report)
@@ -316,10 +313,10 @@ func (p *promPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp
 
 	// Report latency between ShouldAcceptFinalizedReport() and ShouldTransmitAcceptedReport().
 	labelValues := getLabelsValues(p, timestamp)
-	if acceptFinalizedReportEndTime, ok := p.acceptFinalizedReportEndTimes[timestamp]; ok {
-		latency := float64(start.Sub(acceptFinalizedReportEndTime))
+	if acceptFinalizedReportEndTime, ok := p.acceptFinalizedReportEndTimes.Load(timestamp); ok {
+		latency := float64(start.Sub(acceptFinalizedReportEndTime.(time.Time)))
 		p.prometheusBackend.SetAcceptFinalizedReportToTransmitAcceptedReportLatency(labelValues, latency)
-		delete(p.acceptFinalizedReportEndTimes, timestamp)
+		p.acceptFinalizedReportEndTimes.Delete(timestamp)
 	}
 
 	defer func() {
