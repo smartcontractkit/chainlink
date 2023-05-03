@@ -190,7 +190,7 @@ func CreateOCRJobs(
 	if err != nil {
 		return err
 	}
-	for _, ocrInstance := range ocrInstances {
+	for i, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
@@ -228,9 +228,12 @@ func CreateOCRJobs(
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			err = node.MustCreateBridge(bta)
-			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+			// only create the bridge on the first loop of the nodes
+			if i < 1 {
+				err = node.MustCreateBridge(bta)
+				if err != nil {
+					return fmt.Errorf("creating bridge job have failed: %w", err)
+				}
 			}
 
 			ocrSpec := &client.OCRTaskJobSpec{
@@ -263,7 +266,7 @@ func CreateOCRJobsWithForwarder(
 ) {
 	err := mockserver.SetValuePath(mockPath, mockValue)
 	require.NoError(t, err, "Shouldn't fail setting mock value")
-	for _, ocrInstance := range ocrInstances {
+	for i, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -291,8 +294,11 @@ func CreateOCRJobsWithForwarder(
 			require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
-			err = node.MustCreateBridge(bta)
-			require.NoError(t, err, "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
+			// only create the bridge on the first loop of the nodes
+			if i < 1 {
+				err = node.MustCreateBridge(bta)
+				require.NoError(t, err, "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
+			}
 
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
