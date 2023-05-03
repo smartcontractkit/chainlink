@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -13,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/olekukonko/tablewriter"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
