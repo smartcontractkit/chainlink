@@ -13,7 +13,7 @@ import (
 
 type CiphertextId = []byte
 
-type ThresholdDecryptor interface {
+type Decryptor interface {
 	Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error)
 }
 
@@ -51,7 +51,7 @@ type decryptionQueue struct {
 }
 
 var (
-	_ ThresholdDecryptor       = &decryptionQueue{}
+	_ Decryptor                = &decryptionQueue{}
 	_ DecryptionQueuingService = &decryptionQueue{}
 	_ job.ServiceCtx           = &decryptionQueue{}
 )
