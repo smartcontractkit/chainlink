@@ -33,9 +33,9 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
     bytes memory performData = new bytes(0);
-    for (uint256 i = 0; i < values.length; i++) {
-      performData = bytes.concat(performData, values[i]);
-    }
+//    for (uint256 i = 0; i < values.length; i++) {
+//      performData = bytes.concat(performData, values[i]);
+//    }
     performData = bytes.concat(performData, extraData);
     return (true, performData);
   }
