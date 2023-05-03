@@ -14,17 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -40,7 +36,7 @@ import (
 type EthereumOracle struct {
 	address *common.Address
 	client  blockchain.EVMClient
-	oracle  *oracle_wrapper.Oracle
+	oracle  *ethereum.Oracle
 }
 
 func (e *EthereumOracle) Address() string {
@@ -316,7 +312,7 @@ func (f *EthereumFunctionsBillingRegistryEventsMock) BillingEnd(requestId [32]by
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
-	fluxAggregator *flux_aggregator_wrapper.FluxAggregator
+	fluxAggregator *ethereum.FluxAggregator
 	address        *common.Address
 }
 
@@ -367,7 +363,7 @@ func (f *EthereumFluxAggregator) RequestNewRound(ctx context.Context) error {
 
 // WatchSubmissionReceived subscribes to any submissions on a flux feed
 func (f *EthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, eventChan chan<- *SubmissionEvent) error {
-	ethEventChan := make(chan *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived)
+	ethEventChan := make(chan *ethereum.FluxAggregatorSubmissionReceived)
 	sub, err := f.fluxAggregator.WatchSubmissionReceived(&bind.WatchOpts{}, ethEventChan, nil, nil, nil)
 	if err != nil {
 		return err
@@ -460,14 +456,14 @@ func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr c
 	return balance, nil
 }
 
-func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
+func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
 	lr, err := f.fluxAggregator.LatestRoundData(opts)
 	if err != nil {
-		return flux_aggregator_wrapper.LatestRoundData{}, err
+		return RoundData{}, err
 	}
 	return lr, nil
 }
@@ -603,7 +599,7 @@ func (f *FluxAggregatorRoundConfirmer) Complete() bool {
 // EthereumLinkToken represents a LinkToken address
 type EthereumLinkToken struct {
 	client   blockchain.EVMClient
-	instance *link_token_interface.LinkToken
+	instance *ethereum.LinkToken
 	address  common.Address
 }
 
@@ -695,7 +691,7 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 // LoadExistingLinkToken loads an EthereumLinkToken with a specific address
 func (l *EthereumLinkToken) LoadExistingLinkToken(address string, client blockchain.EVMClient) error {
 	l.address = common.HexToAddress(address)
-	instance, err := link_token_interface.NewLinkToken(l.address, client.(*blockchain.EthereumClient).Client)
+	instance, err := ethereum.NewLinkToken(l.address, client.(*blockchain.EthereumClient).Client)
 	if err != nil {
 		return err
 	}
@@ -707,7 +703,7 @@ func (l *EthereumLinkToken) LoadExistingLinkToken(address string, client blockch
 // EthereumOffchainAggregator represents the offchain aggregation contract
 type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
-	ocr     *offchainaggregator.OffchainAggregator
+	ocr     *ethereum.OffchainAggregator
 	address *common.Address
 }
 
@@ -926,7 +922,7 @@ func (o *EthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.
 }
 
 // ParseEventAnswerUpdated parses the log for event AnswerUpdated
-func (o *EthereumOffchainAggregator) ParseEventAnswerUpdated(eventLog types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error) {
+func (o *EthereumOffchainAggregator) ParseEventAnswerUpdated(eventLog types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error) {
 	return o.ocr.ParseAnswerUpdated(eventLog)
 }
 
@@ -1189,7 +1185,7 @@ func (v *EthereumMockGASFeed) Address() string {
 // EthereumFlags represents flags contract
 type EthereumFlags struct {
 	client  blockchain.EVMClient
-	flags   *flags_wrapper.Flags
+	flags   *ethereum.Flags
 	address *common.Address
 }
 
