@@ -31,6 +31,8 @@ import (
 
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
+	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
+
 	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -251,6 +253,22 @@ func (_m *Application) GetLogger() logger.SugaredLogger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(logger.SugaredLogger)
+		}
+	}
+
+	return r0
+}
+
+// GetPluginConfig provides a mock function with given fields:
+func (_m *Application) GetPluginConfig() map[string]plugins.EnvConfigurer {
+	ret := _m.Called()
+
+	var r0 map[string]plugins.EnvConfigurer
+	if rf, ok := ret.Get(0).(func() map[string]plugins.EnvConfigurer); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]plugins.EnvConfigurer)
 		}
 	}
 
