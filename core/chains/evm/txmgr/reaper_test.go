@@ -18,15 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, cid *big.Int) *txmgr.Reaper {
+func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, cid *big.Int) *txmgr.EvmReaper {
 	return txmgr.NewReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
-func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig) *txmgr.Reaper {
+func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig) *txmgr.EvmReaper {
 	return newReaperWithChainID(t, db, cfg, &cltest.FixtureChainID)
 }
 
-func TestReaper_ReapEthTxes(t *testing.T) {
+func TestReaper_ReapTxes(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -45,7 +45,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		r := newReaper(t, txStore, config)
 
-		err := r.ReapEthTxes(42)
+		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 	})
 
@@ -58,7 +58,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		r := newReaper(t, txStore, config)
 
-		err := r.ReapEthTxes(42)
+		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -71,7 +71,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		r := newReaperWithChainID(t, txStore, config, big.NewInt(42))
 
-		err := r.ReapEthTxes(42)
+		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx has chain ID of 0
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -84,19 +84,19 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		r := newReaper(t, txStore, config)
 
-		err := r.ReapEthTxes(42)
+		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET created_at=$1`, oneDayAgo)
 
-		err = r.ReapEthTxes(12)
+		err = r.ReapTxes(12)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx although old enough, was still within EVM.FinalityDepth of the current head
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		err = r.ReapEthTxes(42)
+		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Now it deleted because the eth_tx was past EVM.FinalityDepth
 		cltest.AssertCount(t, db, "eth_txes", 0)
@@ -111,14 +111,14 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 		r := newReaper(t, txStore, config)
 
-		err := r.ReapEthTxes(42)
+		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_txes SET created_at=$1`, oneDayAgo)))
 
-		err = r.ReapEthTxes(42)
+		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Deleted because it is old enough now
 		cltest.AssertCount(t, db, "eth_txes", 0)
