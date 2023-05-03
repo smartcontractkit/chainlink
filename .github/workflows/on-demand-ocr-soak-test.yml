@@ -49,7 +49,6 @@ on:
         required: false
         default: 1m
 
-
 jobs:
   ocr_soak_test:
     name: ${{ inputs.network }} OCR Soak Test
