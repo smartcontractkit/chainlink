@@ -10,6 +10,8 @@ pragma solidity ^0.8.4;
 interface IKeeperRegistryConsumer {
   function getBalance(uint256 id) external view returns (uint256 balance);
 
+  function getMinBalance(uint256 id) external view returns (uint96 minBalance);
+
   function cancelUpkeep(uint256 id) external;
 
   function pauseUpkeep(uint256 id) external;
@@ -19,4 +21,6 @@ interface IKeeperRegistryConsumer {
   function updateCheckData(uint256 id, bytes calldata newCheckData) external;
 
   function addFunds(uint256 id, uint96 amount) external;
+
+  function withdrawFunds(uint256 id, address to) external;
 }

@@ -211,7 +211,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   ) external returns (uint256 id, address forwarderAddress) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = new AutomationForwarder(target);
+    AutomationForwarder forwarder = new AutomationForwarder(id, target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
