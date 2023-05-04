@@ -2,6 +2,8 @@ package txmgr
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,11 +28,19 @@ type TxmClient[
 	ADD any,
 ] interface {
 	BatchSendTransactions(
-		ctx context.Context,
-		txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-		attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		batchSize int,
-		lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErr []error, err error)
+		context.Context,
+		txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		[]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		int,
+		logger.Logger,
+	) ([]clienttypes.SendTxReturnCode, []error, error)
+	SendTransactionReturnCode(
+		context.Context,
+		txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		logger.Logger,
+	) (clienttypes.SendTxReturnCode, error)
+	PendingNonceAt(context.Context, ADDR) (int64, error)
 }
 
 type EvmTxmClient = TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
@@ -61,4 +71,25 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxS
 		codes[i], txErr[i] = c.client.NewSendErrorReturnCode(tx, attempts[i].Tx.FromAddress, reqs[i].Error)
 	}
 	return
+}
+
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx EvmTx, attempt EvmTxAttempt, lggr logger.Logger) (clienttypes.SendTxReturnCode, error) {
+	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
+	if err != nil {
+		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
+		return clienttypes.Fatal, err
+	}
+	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
+}
+
+func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n int64, err error) {
+	nextNonce, err := c.client.PendingNonceAt(ctx, fromAddress)
+	if err != nil {
+		return n, err
+	}
+
+	if nextNonce > math.MaxInt64 {
+		return n, fmt.Errorf("nonce overflow, got: %v", nextNonce)
+	}
+	return int64(nextNonce), nil
 }

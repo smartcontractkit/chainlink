@@ -497,6 +497,30 @@ func (_m *Client) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 	return r0, r1
 }
 
+// NewSendErrorReturnCode provides a mock function with given fields: tx, fromAddress, err
+func (_m *Client) NewSendErrorReturnCode(tx *types.Transaction, fromAddress common.Address, err error) (chainsclient.SendTxReturnCode, error) {
+	ret := _m.Called(tx, fromAddress, err)
+
+	var r0 chainsclient.SendTxReturnCode
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*types.Transaction, common.Address, error) (chainsclient.SendTxReturnCode, error)); ok {
+		return rf(tx, fromAddress, err)
+	}
+	if rf, ok := ret.Get(0).(func(*types.Transaction, common.Address, error) chainsclient.SendTxReturnCode); ok {
+		r0 = rf(tx, fromAddress, err)
+	} else {
+		r0 = ret.Get(0).(chainsclient.SendTxReturnCode)
+	}
+
+	if rf, ok := ret.Get(1).(func(*types.Transaction, common.Address, error) error); ok {
+		r1 = rf(tx, fromAddress, err)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NodeStates provides a mock function with given fields:
 func (_m *Client) NodeStates() map[string]string {
 	ret := _m.Called()

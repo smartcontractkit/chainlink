@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -98,9 +97,9 @@ type EthBroadcaster[
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] struct {
-	logger    logger.Logger
-	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-	ethClient evmclient.Client
+	logger  logger.Logger
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	client  TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ]
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
@@ -155,7 +154,7 @@ func NewEthBroadcaster(
 	b := &EvmBroadcaster{
 		logger:           logger,
 		txStore:          txStore,
-		ethClient:        ethClient,
+		client:           NewEvmTxmClient(ethClient),
 		TxAttemptBuilder: txAttemptBuilder,
 		nonceSyncer:      nonceSyncer,
 		chainID:          ethClient.ConfiguredChainID(),
@@ -529,22 +528,8 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 	}
 	cancel()
 
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		lgr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
-		etx.Error = null.StringFrom(err.Error())
-		return eb.saveFatallyErroredTransaction(lgr, &etx), true
-	}
-
-	// TODO: When eth client is generalized, remove this address conversion logic below
-	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
-	if err != nil {
-		return errors.Wrapf(err, "failed to do address format conversion"), true
-	}
-
 	lgr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
-	errType, err := eb.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
 
 	if errType != clienttypes.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt
@@ -636,15 +621,12 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
-		nextNonce, e := eb.ethClient.PendingNonceAt(ctx, fromAddress)
+		nextNonce, e := eb.client.PendingNonceAt(ctx, etx.FromAddress)
 		if e != nil {
 			err = multierr.Combine(e, err)
 			return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
 		}
-		if nextNonce > math.MaxInt64 {
-			return errors.Errorf("nonce overflow, got: %v", nextNonce), true
-		}
-		if int64(nextNonce) > *etx.Sequence {
+		if nextNonce > *etx.Sequence {
 			// Despite the error, the RPC node considers the previously sent
 			// transaction to have been accepted. In this case, the right thing to
 			// do is assume success and hand off to EthConfirmer
