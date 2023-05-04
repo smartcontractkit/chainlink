@@ -20,7 +20,7 @@ operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
 	(cd contracts && pnpm i)
-	
+
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
