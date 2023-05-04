@@ -9,20 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
-
-## 2.1.0 - UNRELEASED
-
 ### Added
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
+
+### Fixed
+ - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
+## 2.1.0 - UNRELEASED
 
 ### Changed
 
 - Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
   if any Database-specific configuration is invalid.
-
-### Removed
 
 <!-- unreleasedstop -->
 
@@ -72,11 +71,6 @@ AutoCreateKey = false
 ```
 
 - Add new option for relayConfig `feedID` that handles multi-config contracts. Can be applied to any OCR2 job.
-
-### Updated
-
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override
-  of any values provided via configuration files.
 
 ### Updated
 
