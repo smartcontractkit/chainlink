@@ -50,9 +50,9 @@ func (p *PromServer) Start() error {
 	return nil
 }
 
-// Shutdown shutdowns down the underlying HTTP server. See [http.Server.Shutdown] for details
-func (p *PromServer) Shutdown(ctx context.Context) error {
-	return p.srvr.Shutdown(ctx)
+// Close shutdowns down the underlying HTTP server. See [http.Server.Close] for details
+func (p *PromServer) Close() error {
+	return p.srvr.Shutdown(context.Background())
 }
 
 // Name of the server

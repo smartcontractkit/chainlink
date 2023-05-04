@@ -35,17 +35,6 @@ func main() {
 		logger.Sugared(lggr).ErrorIfFn(cp.Close, "chainPlugin")
 	}()
 
-	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
-	err = promServer.Start()
-	if err != nil {
-		lggr.Fatalf("Failed to start prometheus server: %s", err)
-	}
-	defer func() {
-		if err := promServer.Shutdown(context.Background()); err != nil {
-			lggr.Warnf("Error during prometheus server shut down", err)
-		}
-	}()
-
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
@@ -56,10 +45,19 @@ func main() {
 }
 
 type chainPlugin struct {
-	lggr logger.Logger
+	lggr       logger.Logger
+	promServer *plugins.PromServer
 
 	mu      sync.Mutex
 	closers []io.Closer
+}
+
+func newChainPlugin(lggr logger.Logger, promPort int) *chainPlugin {
+	return &chainPlugin{
+		lggr:       lggr,
+		promServer: plugins.NewPromServer(promPort, lggr),
+		closers:    make([]io.Closer, 0),
+	}
 }
 
 func (c *chainPlugin) NewRelayer(ctx context.Context, config string, keystore loop.Keystore) (loop.Relayer, error) {
@@ -81,9 +79,18 @@ func (c *chainPlugin) NewRelayer(ctx context.Context, config string, keystore lo
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
 	r := pkgsol.NewRelayer(c.lggr, chainSet)
+
+	err = c.promServer.Start()
+	if err != nil {
+		err = fmt.Errorf("Failed to start prometheus server: %w", err)
+		c.lggr.Critical(err.Error())
+		return nil, err
+	}
+
 	c.mu.Lock()
-	c.closers = append(c.closers, chainSet, r)
+	c.closers = append(c.closers, chainSet, r, c.promServer)
 	c.mu.Unlock()
+
 	return &relay.RelayerAdapter{Relayer: r, RelayerExt: chainSet}, nil
 }
 

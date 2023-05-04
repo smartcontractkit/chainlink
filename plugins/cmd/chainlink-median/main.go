@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -27,7 +26,7 @@ func main() {
 		lggr.Fatalf("Failed to start prometheus server: %s", err)
 	}
 	defer func() {
-		if err := promServer.Shutdown(context.Background()); err != nil {
+		if err := promServer.Close(); err != nil {
 			lggr.Warnf("Error during prometheus server shut down", err)
 		}
 	}()

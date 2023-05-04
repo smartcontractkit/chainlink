@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,5 +26,5 @@ func TestPromServer(t *testing.T) {
 	require.NotNil(t, resp.Body)
 	defer resp.Body.Close()
 
-	require.NoError(t, s.Shutdown(context.Background()))
+	require.NoError(t, s.Close())
 }
