@@ -332,7 +332,7 @@ describe('FunctionsOracle', () => {
       )
     })
 
-    it('#fulfillRequest emits OracleResponse', async () => {
+    it('#fulfillRequest emits OracleResponse and ResponseTransmitted', async () => {
       const requestId = await placeTestRequest()
 
       const report = encodeReport(
@@ -341,9 +341,13 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
@@ -363,9 +367,13 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
 
       const [subscriptionBalanceAfter] = await registry.getSubscription(
@@ -396,11 +404,15 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await client.setRevertFulfillRequest(true)
 
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId, anyValue)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#fulfillRequest emits UserCallbackError if callback does invalid op', async () => {
@@ -412,11 +424,15 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await client.setDoInvalidOperation(true)
 
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId, anyValue)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#fulfillRequest invokes client fulfillRequest', async () => {

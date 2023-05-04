@@ -788,6 +788,8 @@ describe('FunctionsRegistry', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(
         oracle
           .connect(roles.oracleNode)
@@ -795,6 +797,8 @@ describe('FunctionsRegistry', () => {
       )
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
 

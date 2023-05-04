@@ -29,6 +29,7 @@ contract FunctionsOracle is
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
   event InvalidRequestID(bytes32 indexed requestId);
+  event ResponseTransmitted(bytes32 indexed requestId, address transmitter);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -248,6 +249,7 @@ contract FunctionsOracle is
       } catch (bytes memory reason) {
         emit UserCallbackRawError(requestIds[i], reason);
       }
+      emit ResponseTransmitted(requestIds[i], transmitter);
     }
   }
 

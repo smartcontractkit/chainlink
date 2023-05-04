@@ -274,6 +274,9 @@ func (l *FunctionsListener) processOracleEvents() {
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
+					l.shutdownWaitGroup.Add(1)
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
