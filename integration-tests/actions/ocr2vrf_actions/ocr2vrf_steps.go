@@ -185,6 +185,9 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address(), router.Address())
 	require.NoError(t, err, "Error deploying OCR2VRFCoordinator Contract")
 
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for TXs to complete")
+
 	err = coordinator.SetConfig(2.5e6, 32*10 /* 10 EVM words */)
 	require.NoError(t, err)
 
