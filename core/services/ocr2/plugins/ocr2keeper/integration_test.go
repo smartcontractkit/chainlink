@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -124,6 +125,13 @@ func setupNode(
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		s.Mercury.Credentials = map[string]v2.MercuryCredentials{
+			"cred1": {
+				URL:      models.MustSecretURL("https://mercury.chain.link"),
+				Username: models.NewSecret("username1"),
+				Password: models.NewSecret("password1"),
+			},
+		}
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey, p2pKey)
@@ -535,7 +543,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		chainID = 1337
 
 		[pluginConfig]
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
+		mercuryCredentialName = "%s"
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), "cred1"))
 	}
 
 	// Setup config on contract
