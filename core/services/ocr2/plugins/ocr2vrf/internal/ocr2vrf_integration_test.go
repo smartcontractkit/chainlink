@@ -88,6 +88,10 @@ type ocr2vrfUniverse struct {
 	subID *big.Int
 }
 
+const (
+	fundingAmount int64 = 5e18
+)
+
 type ocr2Node struct {
 	app                  *cltest.TestApplication
 	peerID               string
@@ -136,6 +140,12 @@ func setupOCR2VRFContracts(
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
 		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress, routerAddress)
 	require.NoError(t, err)
+	b.Commit()
+
+	require.NoError(t, utils.JustError(coordinator.SetConfig(owner, vrf_wrapper.VRFCoordinatorConfig{
+		MaxCallbackGasLimit:        2.5e6,
+		MaxCallbackArgumentsLength: 160, // 5 EVM words
+	})))
 	b.Commit()
 
 	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
@@ -355,6 +365,8 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	var (
 		oracles               []confighelper2.OracleIdentityExtra
 		transmitters          []common.Address
+		payees                []common.Address
+		payeeTransactors      []*bind.TransactOpts
 		effectiveTransmitters []common.Address
 		onchainPubKeys        []common.Address
 		kbs                   []ocr2key.KeyBundle
@@ -382,6 +394,9 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
 		transmitters = append(transmitters, node.transmitter)
+		payeeTransactor := testutils.MustNewSimTransactor(t)
+		payeeTransactors = append(payeeTransactors, payeeTransactor)
+		payees = append(payees, payeeTransactor.From)
 		effectiveTransmitters = append(effectiveTransmitters, node.effectiveTransmitter)
 		dkgEncrypters = append(dkgEncrypters, dkgEncryptKey)
 		dkgSigners = append(dkgSigners, dkgSignKey)
@@ -396,6 +411,9 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
 		})
 	}
+
+	_, err := uni.beacon.SetPayees(uni.owner, transmitters, payees)
+	require.NoError(t, err)
 
 	t.Log("starting ticker to commit blocks")
 	tick := time.NewTicker(1 * time.Second)
@@ -578,6 +596,7 @@ linkEthFeedAddress     	= "%s"
 
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
+	var balanceAfterRefund *big.Int
 	gomega.NewWithT(t).Eventually(func() bool {
 		// Ensure a refund is provided. Refund amount comes out to ~20_500_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
@@ -585,6 +604,7 @@ linkEthFeedAddress     	= "%s"
 		refundLowerBound := big.NewInt(0).Add(assets.GWei(19_500_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, uni.subID)
 		require.NoError(t, err)
+		balanceAfterRefund = subAfterRefund.Balance
 
 		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness err: %+v", err1)
@@ -592,16 +612,91 @@ linkEthFeedAddress     	= "%s"
 			return false
 		}
 
-		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
-			t.Logf("unexpected sub balance after refund: %d", subAfterRefund.Balance)
+		if ok := ((balanceAfterRefund.Cmp(refundUpperBound) == -1) && (balanceAfterRefund.Cmp(refundLowerBound) == 1)); !ok {
+			t.Logf("unexpected sub balance after refund: %d", balanceAfterRefund)
 			return false
 		}
-
 		return true
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	// Mine block after redeeming randomness
 	uni.backend.Commit()
+
+	// ensure that total sub balance is updated correctly
+	totalSubBalance, err := uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(balanceAfterRefund) == 0)
+	// ensure total link balance is correct before any payout
+	totalLinkBalance, err := uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalance.Cmp(big.NewInt(fundingAmount)) == 0)
+
+	// get total owed amount to NOPs and ensure linkAvailableForPayment (CLL profit) calculation is correct
+	nopOwedAmount := new(big.Int)
+	for _, transmitter := range transmitters {
+		owedAmount, err := uni.beacon.OwedPayment(nil, transmitter)
+		require.NoError(t, err)
+		nopOwedAmount = new(big.Int).Add(nopOwedAmount, owedAmount)
+	}
+	linkAvailable, err := uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	debt := new(big.Int).Add(totalSubBalance, nopOwedAmount)
+	profit := new(big.Int).Sub(totalLinkBalance, debt)
+	require.True(t, linkAvailable.Cmp(profit) == 0)
+
+	// test cancel subscription
+	linkBalanceBeforeCancel, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	_, err = uni.coordinator.CancelSubscription(uni.owner, uni.subID, uni.owner.From)
+	require.NoError(t, err)
+	uni.backend.Commit()
+	linkBalanceAfterCancel, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	require.True(t, new(big.Int).Add(linkBalanceBeforeCancel, totalSubBalance).Cmp(linkBalanceAfterCancel) == 0)
+	totalSubBalance, err = uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(big.NewInt(0)) == 0)
+	totalLinkBalance, err = uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalance.Cmp(new(big.Int).Sub(big.NewInt(fundingAmount), balanceAfterRefund)) == 0)
+
+	// payout node operators
+	totalNopPayout := new(big.Int)
+	for idx, payeeTransactor := range payeeTransactors {
+		_, err = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
+		require.NoError(t, err)
+		uni.backend.Commit()
+		payoutAmount, err := uni.link.BalanceOf(nil, payeeTransactor.From)
+		require.NoError(t, err)
+		totalNopPayout = new(big.Int).Add(totalNopPayout, payoutAmount)
+		owedAmountAfter, err := uni.beacon.OwedPayment(nil, transmitters[idx])
+		require.NoError(t, err)
+		require.True(t, owedAmountAfter.Cmp(big.NewInt(0)) == 0)
+	}
+	require.True(t, nopOwedAmount.Cmp(totalNopPayout) == 0)
+
+	// check total link balance after NOP payout
+	totalLinkBalanceAfterNopPayout, err := uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalanceAfterNopPayout.Cmp(new(big.Int).Sub(totalLinkBalance, totalNopPayout)) == 0)
+	totalSubBalance, err = uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(big.NewInt(0)) == 0)
+
+	// withdraw remaining profits after NOP payout
+	linkAvailable, err = uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	linkBalanceBeforeWithdraw, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	_, err = uni.beacon.WithdrawFunds(uni.owner, uni.owner.From, linkAvailable)
+	require.NoError(t, err)
+	uni.backend.Commit()
+	linkBalanceAfterWithdraw, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	require.True(t, linkBalanceAfterWithdraw.Cmp(new(big.Int).Add(linkBalanceBeforeWithdraw, linkAvailable)) == 0)
+	linkAvailable, err = uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	require.True(t, linkAvailable.Cmp(big.NewInt(0)) == 0)
 
 	// poll until we're able to verify that consumer contract has stored randomness as expected
 	// First arg is the request ID, which starts at zero, second is the index into

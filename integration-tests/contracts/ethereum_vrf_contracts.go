@@ -919,6 +919,24 @@ func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consume
 	return coordinator.client.ProcessTransaction(tx)
 }
 
+func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint32, maxCallbackArgumentsLength uint32) error {
+	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
+		opts,
+		vrf_coordinator.VRFCoordinatorConfig{
+			MaxCallbackGasLimit:        2.5e6,
+			MaxCallbackArgumentsLength: 160, // 5 EVM words
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return coordinator.client.ProcessTransaction(tx)
+}
+
 // EthereumVRFBeacon represents VRFBeacon contract
 type EthereumVRFBeacon struct {
 	address   *common.Address
