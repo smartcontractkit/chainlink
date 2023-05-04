@@ -147,6 +147,12 @@ func setupOCR2VRFContracts(
 	})))
 	b.Commit()
 
+	require.NoError(t, utils.JustError(coordinator.SetConfig(owner, vrf_wrapper.VRFCoordinatorConfig{
+		MaxCallbackGasLimit:        2.5e6,
+		MaxCallbackArgumentsLength: 32 * 10, // 10 EVM words
+	})))
+	b.Commit()
+
 	require.NoError(t, utils.JustError(router.RegisterCoordinator(owner, coordinatorAddress)))
 	b.Commit()
 
