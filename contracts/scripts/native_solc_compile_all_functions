@@ -33,5 +33,5 @@ compileContract functions/dev/0_0_0/FunctionsOracle.sol
 compileContract functions/dev/0_0_0/example/FunctionsClientExample.sol
 
 # Test helpers
-compileContract functions/test/testhelpers/FunctionsBillingRegistryWithInit.sol
-compileContract functions/test/testhelpers/FunctionsOracleWithInit.sol
+compileContract functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol
+compileContract functions/tests/testhelpers/FunctionsOracleWithInit.sol
