@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
@@ -30,7 +29,7 @@ func NewServices(
 	lggr logger.Logger,
 	argsNoPlugin libocr2.OracleArgs,
 	cfg Config,
-	me commontypes.MonitoringEndpoint,
+	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -51,7 +50,7 @@ func NewServices(
 		*jb.PipelineSpec,
 		lggr,
 		runResults,
-		me,
+		chEnhancedTelem,
 	)
 	argsNoPlugin.ReportingPluginFactory = relaymercury.NewFactory(
 		ds,
