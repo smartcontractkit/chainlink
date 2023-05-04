@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -42,7 +42,7 @@ type EthResender[
 	ADD any,
 ] struct {
 	txStore             txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-	ethClient           evmclient.Client
+	client              TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID             CHAIN_ID
 	interval            time.Duration
@@ -70,7 +70,7 @@ func NewEthResender(
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EvmResender{
 		txStore,
-		ethClient,
+		NewEvmTxmClient(ethClient),
 		ks,
 		ethClient.ConfiguredChainID(),
 		pollInterval,
@@ -147,27 +147,26 @@ func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) re
 	batchSize := int(er.config.RPCDefaultBatchSize())
 	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
 	defer cancel()
-	reqs, err := batchSendTransactions(ctx, er.txStore, allAttempts, batchSize, er.logger, er.ethClient)
+	txErrTypes, _, err := er.client.BatchSendTransactions(ctx, er.txStore, allAttempts, batchSize, er.logger)
 	if err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}
-	logResendResult(er.logger, reqs)
+	logResendResult(er.logger, txErrTypes)
 
 	return nil
 }
 
-func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
+func logResendResult(lggr logger.Logger, codes []clienttypes.SendTxReturnCode) {
 	var nNew int
 	var nFatal int
-	for _, req := range reqs {
-		serr := evmclient.NewSendError(req.Error)
-		if serr == nil {
+	for _, c := range codes {
+		if c == clienttypes.Successful {
 			nNew++
-		} else if serr.Fatal() {
+		} else if c == clienttypes.Fatal {
 			nFatal++
 		}
 	}
-	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
+	lggr.Debugw("Completed", "n", len(codes), "nNew", nNew, "nFatal", nFatal)
 }
 
 func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], fromAddress ADDR) {
