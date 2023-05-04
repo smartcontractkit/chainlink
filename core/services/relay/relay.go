@@ -28,7 +28,7 @@ var (
 	}
 )
 
-// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [RelayerAdapter].
+// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {
 	services.ServiceCtx
 
@@ -40,64 +40,51 @@ type RelayerExt interface {
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-var _ loop.Relayer = (*RelayerAdapter)(nil)
+var _ loop.Relayer = (*relayerAdapter)(nil)
 
-// RelayerAdapter adapts a [types.Relayer] and [RelayerExt] to imlement [loop.Relayer].
-type RelayerAdapter struct {
+// relayerAdapter adapts a [types.Relayer] and [RelayerExt] to imlement [loop.Relayer].
+type relayerAdapter struct {
 	types.Relayer
 	RelayerExt
 }
 
-func (r *RelayerAdapter) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
+// NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+	return &relayerAdapter{Relayer: r, RelayerExt: e}
+}
+
+func (r *relayerAdapter) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	return r.Relayer.NewConfigProvider(rargs)
 }
 
-func (r *RelayerAdapter) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
+func (r *relayerAdapter) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
 	return r.Relayer.NewMedianProvider(rargs, pargs)
 }
 
-func (r *RelayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
+func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
 	return r.Relayer.NewMercuryProvider(rargs, pargs)
 }
 
-func (r *RelayerAdapter) Start(ctx context.Context) error {
+func (r *relayerAdapter) Start(ctx context.Context) error {
 	var ms services.MultiStart
 	return ms.Start(ctx, r.RelayerExt, r.Relayer)
 }
 
-func (r *RelayerAdapter) Close() error {
+func (r *relayerAdapter) Close() error {
 	return services.MultiClose{r.Relayer, r.RelayerExt}.Close()
 }
 
-func (r *RelayerAdapter) Name() string {
+func (r *relayerAdapter) Name() string {
 	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.RelayerExt.Name())
 }
 
-func (r *RelayerAdapter) Ready() (err error) {
+func (r *relayerAdapter) Ready() (err error) {
 	return errors.Join(r.Relayer.Ready(), r.RelayerExt.Ready())
 }
 
-func (r *RelayerAdapter) HealthReport() map[string]error {
+func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
 	maps.Copy(r.Relayer.HealthReport(), hr)
 	maps.Copy(r.RelayerExt.HealthReport(), hr)
 	return hr
-}
-
-type RelayerService interface {
-	services.ServiceCtx
-	Relayer() (loop.Relayer, error)
-}
-
-type RelayerServiceAdapter struct {
-	*RelayerAdapter
-}
-
-func (a *RelayerServiceAdapter) Relayer() (loop.Relayer, error) {
-	return a.RelayerAdapter, nil
-}
-
-// NewLocalRelayerService returns a RelayerService adapted from a [types.Relayer] and [RelayerExt].
-func NewLocalRelayerService(r types.Relayer, e RelayerExt) RelayerService {
-	return &RelayerServiceAdapter{&RelayerAdapter{Relayer: r, RelayerExt: e}}
 }

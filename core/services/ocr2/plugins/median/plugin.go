@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/hashicorp/go-plugin"
-
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -73,7 +71,7 @@ func NewMedianServices(ctx context.Context,
 		return
 	}
 	spec := jb.OCR2OracleSpec
-	//TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+
 	provider, err := relayer.NewMedianProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         spec.ID,
@@ -104,17 +102,25 @@ func NewMedianServices(ctx context.Context,
 
 	var median loop.PluginMedian
 	if cmdName := v2.EnvMedianPluginCmd.Get(); cmdName != "" {
-		ms := NewPluginMedianService(cmdName, lggr, cfg)
-		if err = ms.Launch(); err != nil {
+		medianLggr := lggr.Named("Median")
+		var registeredLoop *plugins.RegisteredLoop
+		// use logger name to ensure unique naming
+		registeredLoop, err = cfg.RegisterLOOP(medianLggr.Name())
+		if err != nil {
+			err = fmt.Errorf("failed to register loop: %w", err)
 			abort()
 			return
 		}
-		median = ms
-		srvs = append(srvs, ms)
+		median = loop.NewMedianService(lggr, func() *exec.Cmd {
+			cmd := exec.Command(cmdName)
+			plugins.SetCmdEnvFromConfig(cmd, registeredLoop.EnvCfg)
+			return cmd
+		})
 	} else {
-		median = NewPlugin(lggr, ctx.Done())
+		median = NewPlugin(lggr)
 	}
-	argsNoPlugin.ReportingPluginFactory, err = median.NewMedianPluginFactory(ctx, provider, ocrcommon.NewDataSourceV2(pipelineRunner,
+	srvs = append(srvs, median)
+	argsNoPlugin.ReportingPluginFactory, err = median.NewMedianFactory(ctx, provider, ocrcommon.NewDataSourceV2(pipelineRunner,
 		jb,
 		*jb.PipelineSpec,
 		lggr,
@@ -151,15 +157,26 @@ func NewMedianServices(ctx context.Context,
 }
 
 type Plugin struct {
+	utils.StartStopOnce
 	lggr logger.Logger
-	stop utils.StopRChan
+	stop utils.StopChan
 }
 
-func NewPlugin(lggr logger.Logger, stop utils.StopRChan) *Plugin {
-	return &Plugin{lggr: lggr, stop: stop}
+func (m *Plugin) Name() string { return m.lggr.Name() }
+
+func (m *Plugin) Start(ctx context.Context) error {
+	return m.StartOnce("PluginMedian", func() error { return nil })
 }
 
-func (m *Plugin) NewMedianPluginFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (ocrtypes.ReportingPluginFactory, error) {
+func (m *Plugin) HealthReport() map[string]error {
+	return map[string]error{m.Name(): m.Healthy()}
+}
+
+func NewPlugin(lggr logger.Logger) *Plugin {
+	return &Plugin{lggr: lggr, stop: make(utils.StopChan)}
+}
+
+func (m *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (ocrtypes.ReportingPluginFactory, error) {
 	var ctxVals loop.ContextValues
 	ctxVals.SetValues(ctx)
 	lggr := m.lggr.With(ctxVals.Args()...)
@@ -180,88 +197,12 @@ func (m *Plugin) NewMedianPluginFactory(ctx context.Context, provider types.Medi
 	return factory, nil
 }
 
-var _ services.ServiceCtx = (*medianService)(nil)
+func (m *Plugin) Close() error {
+	return m.StopOnce("PluginMedian", func() (err error) {
+		m.lggr.Debug("Stopping")
 
-type medianService struct {
-	utils.StartStopOnce
+		close(m.stop)
 
-	lggr    logger.Logger
-	cfg     plugins.RegistrarConfig
-	cmdName string
-
-	client *plugin.Client
-	cp     plugin.ClientProtocol
-	loop.PluginMedian
-}
-
-func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.RegistrarConfig) *medianService {
-	return &medianService{cmdName: cmdName, lggr: lggr.Named("PluginMedianService"), cfg: cfg}
-}
-
-func (m *medianService) Start(ctx context.Context) error {
-	return m.StartOnce("PluginMedianService", func() error {
-		if m.PluginMedian != nil {
-			return nil
-		}
-		return m.Launch()
+		return
 	})
 }
-
-// Launch launces the plugin, and sets the backing [loop.PluginMedian]. If this is called directly, then Start() will nop.
-func (m *medianService) Launch() error {
-	cc := loop.PluginMedianClientConfig(m.lggr)
-	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
-
-	// use logger name to ensure unique naming
-	registeredLoop, err := m.cfg.RegisterLOOP(m.lggr.Name())
-	if err != nil {
-		return fmt.Errorf("failed to register loop: %w", err)
-	}
-	plugins.SetCmdEnvFromConfig(cc.Cmd, registeredLoop.EnvCfg)
-	client := plugin.NewClient(cc)
-	cp, err := client.Client()
-	if err != nil {
-		client.Kill()
-		return fmt.Errorf("failed to create plugin Client: %w", err)
-	}
-	abort := func() {
-		if cerr := cp.Close(); cerr != nil {
-			m.lggr.Errorw("Error closing ClientProtocol", "err", cerr)
-		}
-		client.Kill()
-	}
-	i, err := cp.Dispense(loop.PluginMedianName)
-	if err != nil {
-		abort()
-		return fmt.Errorf("failed to Dispense %q plugin: %w", loop.PluginMedianName, err)
-	}
-	plug, ok := i.(loop.PluginMedian)
-	if !ok {
-		abort()
-		return fmt.Errorf("expected PluginMedian but got %T", i)
-	}
-	m.client = client
-	m.cp = cp
-	m.PluginMedian = plug
-	return nil
-}
-
-func (m *medianService) Close() error {
-	return m.StopOnce("PluginMedianService", func() error {
-		err := m.cp.Close()
-		m.client.Kill()
-		return err
-	})
-}
-
-func (m *medianService) Name() string { return m.lggr.Name() }
-
-func (m *medianService) HealthReport() map[string]error {
-	return map[string]error{m.lggr.Name(): m.Healthy()}
-}
-
-func (m *medianService) ping() error { return m.cp.Ping() }
-
-func (m *medianService) Ready() error { return m.ping() }
-
-func (m *medianService) Healthy() error { return m.ping() }
