@@ -289,7 +289,8 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 		[pluginConfig]
 		maxServiceWorkers = 100
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
+		mercuryCredentialName = "%s"
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), "cred1"))
 	}
 
 	// Setup config on contract

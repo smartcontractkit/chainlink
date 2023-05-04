@@ -175,7 +175,7 @@ func CreateOCRKeeperJobs(
 		}
 
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
-		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
+		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 	}
 	l.Info().Msg("Done creating OCR automation jobs")
 }
