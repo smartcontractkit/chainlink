@@ -164,23 +164,6 @@ type ApplicationOpts struct {
 	PortManager              *PluginPortManager
 }
 
-type PluginPortManager struct {
-	mu        sync.Mutex
-	portMap   map[string]int
-	pluginCnt int
-}
-
-const pluginDefaultPort = 2112
-
-func (m *PluginPortManager) Assign(pluginName string) int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	p := pluginDefaultPort + m.pluginCnt
-	m.pluginCnt += 1
-	m.portMap[pluginName] = p
-	return p
-}
-
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
@@ -427,7 +410,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
 			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
-		envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), opts.PortManager.Assign(job.OffchainReporting.String()))
+		envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), opts.PortManager.Register(job.OffchainReporting.String()))
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, envConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,

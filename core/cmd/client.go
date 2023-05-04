@@ -223,7 +223,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MailMon:          mailMon,
 	}
 
-	portManager := &chainlink.PluginPortManager{}
+	portManager := chainlink.NewPluginPortManager()
 
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
@@ -269,7 +269,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
-			envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), portManager.Assign(cmdName))
+			envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), portManager.Register(cmdName))
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
 				plugins.SetEnvConfig(cmd, envConfig)
