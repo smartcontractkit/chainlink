@@ -35,6 +35,17 @@ func main() {
 		logger.Sugared(lggr).ErrorIfFn(cp.Close, "chainPlugin")
 	}()
 
+	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
+	err = promServer.Start()
+	if err != nil {
+		lggr.Fatalf("Failed to start prometheus server: %s", err)
+	}
+	defer func() {
+		if err := promServer.Shutdown(context.Background()); err != nil {
+			lggr.Warnf("Error during prometheus server shut down", err)
+		}
+	}()
+
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{

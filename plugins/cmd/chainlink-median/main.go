@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -19,6 +20,17 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
+
+	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
+	err = promServer.Start()
+	if err != nil {
+		lggr.Fatalf("Failed to start prometheus server: %s", err)
+	}
+	defer func() {
+		if err := promServer.Shutdown(context.Background()); err != nil {
+			lggr.Warnf("Error during prometheus server shut down", err)
+		}
+	}()
 
 	stop := make(chan struct{})
 	defer close(stop)
