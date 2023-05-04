@@ -101,6 +101,7 @@ type VRFCoordinatorV3 interface {
 	CreateSubscription() error
 	FindSubscriptionID() (*big.Int, error)
 	AddConsumer(subId *big.Int, consumerAddress string) error
+	SetConfig(maxCallbackGasLimit, maxCallbackArgsLen uint32) error
 }
 
 type VRFBeacon interface {
