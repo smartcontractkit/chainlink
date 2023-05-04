@@ -3,13 +3,14 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
@@ -93,12 +94,12 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	var mercuryConfig mercuryconfig.PluginConfig
 	if err := json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	if relayConfig.FeedID == nil {
@@ -107,7 +108,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 
 	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	reportCodec := reportcodec.NewEVMReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodec"))
@@ -117,7 +118,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
+		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
 	client, err := r.mercuryPool.Checkout(context.Background(), privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
@@ -145,7 +146,7 @@ func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter
 	}
 	var relayConfig types.RelayConfig
 	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	if relayConfig.FeedID != nil {
@@ -156,7 +157,7 @@ func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter
 		if err != nil {
 			return filters, err
 		}
-		filters = []logpoller.Filter{transmitterFilter}
+		filters = []logpoller.Filter{NewConfigPollerFilter(addr.Address()), transmitterFilter}
 	}
 	return filters, err
 }
@@ -263,13 +264,13 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 		return nil, err
 	}
 	if !common.IsHexAddress(args.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}
 
 	contractAddress := common.HexToAddress(args.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get contract ABI JSON")
+		return nil, pkgerrors.Wrap(err, "could not get contract ABI JSON")
 	}
 	var cp ConfigPoller
 
@@ -327,7 +328,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
 		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().ChainID()); err != nil {
-			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
+			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
@@ -357,7 +358,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create transmitter")
+		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
 
 	return NewOCRContractTransmitter(

@@ -144,10 +144,10 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	return keeperProvider, registry, encoder, logProvider, err
 }
 
-func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
+func FiltersFromSpec21(spec *job.OCR2OracleSpec) (names []logpoller.Filter, err error) {
 	addr, err := ethkey.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm21.LogProviderFilterName(addr.Address()), kevm21.UpkeepFilterName(addr.Address())}, err
+	return []logpoller.Filter{kevm21.LogProviderFilter(addr.Address()), kevm21.UpkeepFilter(addr.Address())}, err
 }

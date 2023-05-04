@@ -367,7 +367,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainCfgs evmtypes.Configs
-	lp := logpoller.LogPollerDisabled
+	var genLogPoller func(*big.Int) logpoller.LogPoller = nil
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -377,7 +377,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		case logpoller.LogPoller:
-			lp = dep
+			genLogPoller = func(*big.Int) logpoller.LogPoller {
+				return dep
+			}
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -419,10 +421,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			}
 			return ethClient
 		},
-		GenLogPoller: func(*big.Int) logpoller.LogPoller {
-			return lp
-		},
-		MailMon: mailMon,
+		GenLogPoller: genLogPoller,
+		MailMon:      mailMon,
 	})
 	if err != nil {
 		lggr.Fatal(err)

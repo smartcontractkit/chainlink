@@ -255,7 +255,7 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Instantiate log poller & coordinator.
 			lp := &mocklp.LogPoller{}
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
+			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			c, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorAddress, nil)
 			require.NoError(t, err)
 			coordinator := &V1Coordinator{

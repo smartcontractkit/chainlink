@@ -79,12 +79,8 @@ func NewV1LogFilter(addr common.Address) logpoller.Filter {
 }
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(NewV1LogFilter(c.Address()), nil)
-	if err != nil {
-		return nil, err
-	}
-	return &V1Coordinator{c, lp}, nil
+func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) *V1Coordinator {
+	return &V1Coordinator{c, lp}
 }
 
 // Requests satisfies the Coordinator interface.
@@ -172,10 +168,8 @@ func NewV2LogFilter(addr common.Address) logpoller.Filter {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(NewV2LogFilter(c.Address()), nil)
-
-	return &V2Coordinator{c, lp}, err
+func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) *V2Coordinator {
+	return &V2Coordinator{c, lp}
 }
 
 // Requests satisfies the Coordinator interface.

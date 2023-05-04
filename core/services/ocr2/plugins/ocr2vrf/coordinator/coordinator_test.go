@@ -1759,17 +1759,17 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		},
 	}
 
-	names, err := FilterNamesFromSpec(spec)
+	filters, err := FiltersFromSpec(spec)
 	require.NoError(t, err)
 
-	assert.Len(t, names, 1)
-	assert.Equal(t, logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress), names[0])
+	assert.Len(t, filters, 1)
+	assert.Equal(t, logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress), filters[0].Name)
 
 	spec = &job.OCR2OracleSpec{
 		PluginType:   job.OCR2VRF,
 		ContractID:   beaconAddress.String(),
 		PluginConfig: nil, // missing coordinator & dkg addresses
 	}
-	_, err = FilterNamesFromSpec(spec)
+	_, err = FiltersFromSpec(spec)
 	require.ErrorContains(t, err, "is not a valid EIP55 formatted address")
 }

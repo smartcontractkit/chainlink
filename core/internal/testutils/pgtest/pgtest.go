@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -32,6 +33,22 @@ func NewSqlDB(t *testing.T) *sql.DB {
 func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+
+	return db
+}
+
+// For tests which need transaction rollback capability, but don't want the overhead
+// of creating a separate heavyweight db
+func NewSqlxDBWithRollback(t testing.TB) *sqlx.DB {
+	testutils.SkipShortDB(t)
+	dbURL := string(v2.EnvDatabaseURL.Get())
+	require.NotEmpty(t, dbURL)
+
+	db, err := sqlx.Open(string(dialects.Postgres), dbURL)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 

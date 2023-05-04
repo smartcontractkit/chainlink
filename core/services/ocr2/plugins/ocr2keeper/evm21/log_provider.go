@@ -17,6 +17,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -42,8 +43,17 @@ type LogProvider struct {
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
-func LogProviderFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
+func LogProviderFilter(addr common.Address) logpoller.Filter {
+	return logpoller.Filter{
+		Name:      logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr),
+		Addresses: []common.Address{addr},
+		EventSigs: []common.Hash{
+			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
+			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
+		},
+	}
 }
 
 func NewLogProvider(
@@ -63,22 +73,6 @@ func NewLogProvider(
 	abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: LogProviderFilterName(contract.Address()),
-		EventSigs: []common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-		},
-		Addresses: []common.Address{registryAddress},
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	return &LogProvider{

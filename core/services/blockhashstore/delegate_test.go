@@ -56,7 +56,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	chainSet := evmtest.NewChainSet(
 		t,
 		evmtest.TestChainOpts{

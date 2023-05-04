@@ -251,7 +251,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		clearDB(t, db)
 	})
 
-	t.Run("Unregisters filters on 'DeleteJob()'", func(t *testing.T) {
+	t.Run("Unregisters filters on DeleteJob()", func(t *testing.T) {
 		config = configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
@@ -269,12 +269,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, config, address, chain.ID(), 2)
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
+		orm := NewTestORM(t, db, cs, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 		relayers := make(map[relay.Network]loop.Relayer)
-		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
-		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
+		evmRelayer := evmrelay.NewRelayer(db, cs, lggr, config, keyStore)
+		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cs)
 
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, config.Mercury(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
@@ -287,18 +287,23 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobOCR2VRF.Type: delegateOCR2,
 		}, db, lggr, nil)
 
+		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			lggr.Debugf("RegisterFilter called with args %v", args)
+		})
+
 		err := spawner.CreateJob(jobOCR2VRF)
 		require.NoError(t, err)
 		jobSpecID := jobOCR2VRF.ID
 		delegateOCR2.jobID = jobOCR2VRF.ID
 
 		lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			lggr.Debugf("Got here, with args %v", args)
+			lggr.Debugf("UnregisterFilter called with args %v", args)
 		})
 
 		err = spawner.DeleteJob(jobSpecID)
 		require.NoError(t, err)
 
+		lp.AssertNumberOfCalls(t, "RegisterFilter", 3)
 		lp.AssertNumberOfCalls(t, "UnregisterFilter", 3)
 
 		lp.On("Close").Return(nil).Once()

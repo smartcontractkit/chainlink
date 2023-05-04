@@ -66,7 +66,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.NoError(t, err)
 	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
-	require.Equal(t, len(lst), 1)
+	require.Equal(t, 1, len(lst))
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
@@ -119,7 +119,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	require.NoError(t, err)
 	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
-	require.Equal(t, len(lst), 1)
+	require.Equal(t, 1, len(lst))
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	err = fwdMgr.Start(testutils.Context(t))

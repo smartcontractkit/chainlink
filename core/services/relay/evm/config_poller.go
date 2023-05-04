@@ -71,7 +71,6 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 
 type configPoller struct {
 	lggr               logger.Logger
-	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 }
@@ -86,14 +85,8 @@ func NewConfigPollerFilter(addr common.Address) logpoller.Filter {
 
 // NewConfigPoller creates a new ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (cp *configPoller, err error) {
-	filter := NewConfigPollerFilter(addr)
-	if err = destChainPoller.RegisterFilter(filter, nil); err != nil {
-		return cp, err
-	}
-
 	cp = &configPoller{
 		lggr:               lggr,
-		filterName:         filter.Name,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 	}

@@ -110,12 +110,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
-		var coord *blockhashstore.V1Coordinator
-		coord, err = blockhashstore.NewV1Coordinator(c, lp)
-		if err != nil {
-			return nil, errors.Wrap(err, "building V1 coordinator")
-		}
-		coordinators = append(coordinators, coord)
+		coordinators = append(coordinators, blockhashstore.NewV1Coordinator(c, lp))
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
@@ -124,12 +119,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
-		var coord *blockhashstore.V2Coordinator
-		coord, err = blockhashstore.NewV2Coordinator(c, lp)
-		if err != nil {
-			return nil, errors.Wrap(err, "building V2 coordinator")
-		}
-		coordinators = append(coordinators, coord)
+
+		coordinators = append(coordinators, blockhashstore.NewV2Coordinator(c, lp))
 	}
 
 	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
@@ -205,14 +196,14 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	lp := chain.LogPoller()
 	if jb.BlockHeaderFeederSpec.CoordinatorV1Address == nil {
 		filter := blockhashstore.NewV1LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address())
-		lp.RegisterFilter(filter, q)
+		err = lp.RegisterFilter(filter, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address == nil {
 		filter := blockhashstore.NewV2LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address())
-		lp.RegisterFilter(filter, q)
+		err = lp.RegisterFilter(filter, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}

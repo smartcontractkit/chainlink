@@ -56,7 +56,7 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 			return err2
 		}
 
-		result, err2 := o.q.Exec(`DELETE FROM evm_forwarders WHERE id = $1`, id)
+		result, err2 := tx.Exec(`DELETE FROM evm_forwarders WHERE id = $1`, id)
 		// If the forwarder wasn't found, we still want to delete the filter.
 		// In that case, the transaction must return nil, even though DeleteForwarder
 		// will return sql.ErrNoRows
