@@ -181,7 +181,7 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterName    string
+	_             string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc

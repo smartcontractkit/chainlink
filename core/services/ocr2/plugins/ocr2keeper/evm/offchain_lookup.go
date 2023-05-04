@@ -322,7 +322,6 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 		ch <- MercuryBytes{Index: index, Error: retryErr}
 		r.setCachesOnAPIErr(upkeepId)
 	}
-	return
 }
 
 func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clientId string, secret string, ts int64) string {
