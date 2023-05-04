@@ -15,11 +15,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -162,7 +163,9 @@ func CreateOCRKeeperJobs(
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
 				},
-				PluginConfig:                      map[string]interface{}{},
+				PluginConfig: map[string]interface{}{
+					"mercuryCredentialName": "cred1",
+				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[0]),                  // get node ocr2config.ID
