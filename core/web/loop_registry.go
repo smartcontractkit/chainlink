@@ -26,7 +26,7 @@ type LoopRegistry struct {
 func NewLoopRegistry(app chainlink.Application) *LoopRegistry {
 	return &LoopRegistry{
 		exposedPromPort: int(app.GetConfig().Port()),
-		pluginLookupFn:  app.GetPluginConfig,
+		pluginLookupFn:  app.GetLoopEnvConfig,
 	}
 }
 

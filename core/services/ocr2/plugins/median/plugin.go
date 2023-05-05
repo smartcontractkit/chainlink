@@ -33,19 +33,20 @@ type MedianConfigurer interface {
 	plugins.EnvConfigurer
 }
 
-type MedianConfig struct {
+// concrete implementation of MedianConfigurer
+type medianConfig struct {
 	jobPipelineMaxSuccessfulRuns uint64
 	plugins.EnvConfigurer
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginEnv plugins.EnvConfigurer) *MedianConfig {
-	return &MedianConfig{
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginEnv plugins.EnvConfigurer) MedianConfigurer {
+	return &medianConfig{
 		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
 		EnvConfigurer:                pluginEnv,
 	}
 }
 
-func (m *MedianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+func (m *medianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
 	return m.jobPipelineMaxSuccessfulRuns
 }
 

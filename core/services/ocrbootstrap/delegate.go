@@ -25,15 +25,14 @@ type Delegate struct {
 	db                *sqlx.DB
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	cfg               validate.Configurer
+	cfg               validate.Config
 	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]func() (loop.Relayer, error)
 	isNewlyCreatedJob bool
 }
 
 type Configurer interface {
-	validate.Configurer
-	// plugins.EnvConfigurer
+	validate.Config
 }
 
 // NewDelegateBootstrap creates a new Delegate

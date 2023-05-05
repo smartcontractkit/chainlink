@@ -79,7 +79,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
 
-	GetPluginConfig() map[string]plugins.EnvConfigurer
+	GetLoopEnvConfig() map[string]plugins.EnvConfigurer
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -207,7 +207,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	pluginConfigs := make(map[string]plugins.EnvConfigurer)
+	loopConfigs := make(map[string]plugins.EnvConfigurer)
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
 		srvcs = append(srvcs, auditLogger)
@@ -498,7 +498,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 
-		LOOPConfigs: pluginConfigs,
+		LOOPConfigs: loopConfigs,
 		sqlxDB:      opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
@@ -584,7 +584,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 	return nil
 }
 
-func (app *ChainlinkApplication) GetPluginConfig() map[string]plugins.EnvConfigurer {
+func (app *ChainlinkApplication) GetLoopEnvConfig() map[string]plugins.EnvConfigurer {
 	return app.LOOPConfigs
 }
 

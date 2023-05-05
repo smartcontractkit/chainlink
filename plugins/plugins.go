@@ -43,7 +43,7 @@ func SetEnvConfig(cmd *exec.Cmd, cfg EnvConfigurer) {
 	)
 }
 
-func GetEnvConfig() (*envConfig, error) {
+func GetEnvConfig() (EnvConfigurer, error) {
 	logLevelStr := os.Getenv("CL_LOG_LEVEL")
 	logLevel, err := zapcore.ParseLevel(logLevelStr)
 	if err != nil {

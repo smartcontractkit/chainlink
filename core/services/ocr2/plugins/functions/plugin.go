@@ -25,7 +25,7 @@ type FunctionsServicesConfig struct {
 	Job             job.Job
 	PipelineRunner  pipeline.Runner
 	JobORM          job.ORM
-	OCR2JobConfig   validate.Configurer
+	OCR2JobConfig   validate.Config
 	DB              *sqlx.DB
 	Chain           evm.Chain
 	ContractID      string

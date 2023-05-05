@@ -83,7 +83,7 @@ func TestLoopRegistry(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	require.Len(t, app.GetPluginConfig(), 1)
+	require.Len(t, app.GetLoopEnvConfig(), 1)
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

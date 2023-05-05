@@ -68,17 +68,18 @@ type Delegate struct {
 }
 
 type DeletgateConfigurer interface {
-	validate.Configurer
+	validate.Config
 	plugins.EnvConfigurer
 }
 
-type DelegateConfig struct {
-	validate.Configurer
+// concrete implementation of DelegateConfigurer so it can be explicitly composed
+type delegateConfig struct {
+	validate.Config
 	plugins.EnvConfigurer
 }
 
-func NewDelegateConfig(vc validate.Configurer, pluginEnv plugins.EnvConfigurer) *DelegateConfig {
-	return &DelegateConfig{
+func NewDelegateConfig(vc validate.Configurer, pluginEnv plugins.EnvConfigurer) DeletgateConfigurer {
+	return &delegateConfig{
 		Configurer:    vc,
 		EnvConfigurer: pluginEnv,
 	}

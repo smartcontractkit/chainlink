@@ -259,8 +259,8 @@ func (_m *Application) GetLogger() logger.SugaredLogger {
 	return r0
 }
 
-// GetPluginConfig provides a mock function with given fields:
-func (_m *Application) GetPluginConfig() map[string]plugins.EnvConfigurer {
+// GetLoopEnvConfig provides a mock function with given fields:
+func (_m *Application) GetLoopEnvConfig() map[string]plugins.EnvConfigurer {
 	ret := _m.Called()
 
 	var r0 map[string]plugins.EnvConfigurer
