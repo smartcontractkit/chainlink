@@ -85,6 +85,8 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxS
 	}
 
 	// for each batched tx convert response to standard error code
+	codes = make([]clienttypes.SendTxReturnCode, len(reqs))
+	txErr = make([]error, len(reqs))
 	for i := range reqs {
 		// convert to tx for logging purposes
 		tx, err := GetGethSignedTx(attempts[i].SignedRawTx)
@@ -121,7 +123,7 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 	return c.client.SequenceAt(ctx, addr, blockNum)
 }
 
-func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, err error) {
+func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
@@ -147,7 +149,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 		txReceipt = append(txReceipt, receipt)
 		txErr = append(txErr, err)
 	}
-	return txReceipt, txErr, err
+	return txReceipt, txErr, nil
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address

@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -92,6 +95,18 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 			}
 			return true
 		})).Run(func(args mock.Arguments) {}).Return(nil)
+		ethClient.On("NewSendErrorReturnCode", mock.Anything, mock.Anything, mock.Anything).Return(
+			func(_ *types.Transaction, _ common.Address, err error) clienttypes.SendTxReturnCode {
+				if err != nil {
+					return clienttypes.Unknown
+				}
+				return clienttypes.Successful
+			},
+			func(_ *types.Transaction, _ common.Address, err error) error {
+				return err
+			},
+		)
+
 		err := er.ResendUnconfirmed()
 		require.NoError(t, err)
 
@@ -128,6 +143,17 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
 
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil)
+		ethClient.On("NewSendErrorReturnCode", mock.Anything, mock.Anything, mock.Anything).Return(
+			func(_ *types.Transaction, _ common.Address, err error) clienttypes.SendTxReturnCode {
+				if err != nil {
+					return clienttypes.Unknown
+				}
+				return clienttypes.Successful
+			},
+			func(_ *types.Transaction, _ common.Address, err error) error {
+				return err
+			},
+		)
 
 		// Try to resend the same unconfirmed attempt twice within the unconfirmedTxAlertDelay to only receive one alert
 		err1 := er.ResendUnconfirmed()
@@ -165,6 +191,17 @@ func Test_EthResender_Start(t *testing.T) {
 		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, originalBroadcastAt)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress, time.Now().Add(1*time.Hour))
 
+		ethClient.On("NewSendErrorReturnCode", mock.Anything, mock.Anything, mock.Anything).Return(
+			func(_ *types.Transaction, _ common.Address, err error) clienttypes.SendTxReturnCode {
+				if err != nil {
+					return clienttypes.Unknown
+				}
+				return clienttypes.Successful
+			},
+			func(_ *types.Transaction, _ common.Address, err error) error {
+				return err
+			},
+		)
 		// First batch of 1
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
