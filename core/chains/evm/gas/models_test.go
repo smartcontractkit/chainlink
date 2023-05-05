@@ -45,7 +45,8 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, gasLimit, max)
 		assert.True(t, legacyFee.Equal(fee.Legacy))
-		assert.Nil(t, fee.Dynamic)
+		assert.Nil(t, fee.DynamicTipCap)
+		assert.Nil(t, fee.DynamicFeeCap)
 
 		// expect dynamic fee data
 		cfg.On("EvmEIP1559DynamicFees").Return(true).Once()
@@ -53,8 +54,8 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		fee, max, err = estimator.GetFee(ctx, nil, 0, nil)
 		require.NoError(t, err)
 		assert.Equal(t, gasLimit, max)
-		assert.True(t, dynamicFee.FeeCap.Equal(fee.Dynamic.FeeCap))
-		assert.True(t, dynamicFee.TipCap.Equal(fee.Dynamic.TipCap))
+		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
+		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
 		assert.Nil(t, fee.Legacy)
 	})
 
@@ -68,23 +69,27 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, gasLimit, max)
 		assert.True(t, legacyFee.Equal(fee.Legacy))
-		assert.Nil(t, fee.Dynamic)
+		assert.Nil(t, fee.DynamicTipCap)
+		assert.Nil(t, fee.DynamicFeeCap)
 
 		// expect dynamic fee data
-		var d gas.DynamicFee
-		fee, max, err = estimator.BumpFee(ctx, gas.EvmFee{Dynamic: &d}, 0, nil, nil)
+		fee, max, err = estimator.BumpFee(ctx, gas.EvmFee{
+			DynamicFeeCap: assets.NewWeiI(0),
+			DynamicTipCap: assets.NewWeiI(0),
+		}, 0, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, gasLimit, max)
-		assert.True(t, dynamicFee.FeeCap.Equal(fee.Dynamic.FeeCap))
-		assert.True(t, dynamicFee.TipCap.Equal(fee.Dynamic.TipCap))
+		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
+		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
 		assert.Nil(t, fee.Legacy)
 
 		// expect error
 		_, _, err = estimator.BumpFee(ctx, gas.EvmFee{}, 0, nil, nil)
 		assert.Error(t, err)
 		_, _, err = estimator.BumpFee(ctx, gas.EvmFee{
-			Legacy:  legacyFee,
-			Dynamic: &dynamicFee,
+			Legacy:        legacyFee,
+			DynamicFeeCap: dynamicFee.FeeCap,
+			DynamicTipCap: dynamicFee.TipCap,
 		}, 0, nil, nil)
 		assert.Error(t, err)
 	})

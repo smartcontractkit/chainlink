@@ -9,13 +9,13 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
@@ -42,7 +42,7 @@ func NewMedianServices(ctx context.Context,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.OracleArgs,
 	cfg MedianConfig,
-	endpoint commontypes.MonitoringEndpoint,
+	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {
 	var pluginConfig config.PluginConfig
@@ -101,7 +101,7 @@ func NewMedianServices(ctx context.Context,
 		*jb.PipelineSpec,
 		lggr,
 		runResults,
-		endpoint,
+		chEnhancedTelem,
 	), ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 		ID:           jb.ID,
 		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,

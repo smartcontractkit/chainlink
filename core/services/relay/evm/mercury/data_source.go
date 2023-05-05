@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
@@ -16,6 +16,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -27,23 +28,26 @@ type ChainHeadTracker interface {
 }
 
 type datasource struct {
-	pipelineRunner     pipeline.Runner
-	jb                 job.Job
-	spec               pipeline.Spec
-	lggr               logger.Logger
-	runResults         chan<- pipeline.Run
-	monitoringEndpoint commontypes.MonitoringEndpoint
+	pipelineRunner pipeline.Runner
+	jb             job.Job
+	spec           pipeline.Spec
+	lggr           logger.Logger
+	runResults     chan<- pipeline.Run
+
+	mu sync.RWMutex
+
+	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
 	chainHeadTracker   ChainHeadTracker
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, me commontypes.MonitoringEndpoint, chainHeadTracker ChainHeadTracker) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, me, chainHeadTracker}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker ChainHeadTracker) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
-	run, trrs, err := ds.executeRun(ctx, repts)
+	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while executing run: %w", err)
 	}
@@ -53,15 +57,31 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	obs, err := ds.parse(trrs)
+	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
+	// They are guaranteed to be sorted by index asc so should be in the correct order
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+	
+	parsed, err := ds.parse(finaltrrs)
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
 	}
-	ds.setCurrentBlock(ctx, &obs)
+	ds.setCurrentBlock(ctx, &parsed)
 
-	go collectMercuryEnhancedTelemetry(ds, &trrs, obs, repts)
+	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
+		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+			TaskRunResults: trrs,
+			Observation:    parsed,
+			RepTimestamp:   repts,
+		})
 
-	return obs, nil
+	}
+
+	return parsed, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -136,7 +156,7 @@ func setAsk(obs *relaymercury.Observation, res pipeline.Result) error {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimestamp) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -145,18 +165,9 @@ func (ds *datasource) executeRun(ctx context.Context, repts ocrtypes.ReportTimes
 		},
 	})
 
-	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
-	// They are guaranteed to be sorted by index asc so should be in the correct order
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
 		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
-	}
-	var finaltrrs []pipeline.TaskRunResult
-	for _, trr := range trrs {
-		// only return terminal trrs from executeRun
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
-		}
 	}
 
 	return run, trrs, err
