@@ -12,6 +12,7 @@ import (
 // Config represents configuration fields
 type Config struct {
 	NodeURL              string   `mapstructure:"NODE_URL"`
+	NodeHttpURL          string   `mapstructure:"NODE_HTTP_URL"`
 	ChainID              int64    `mapstructure:"CHAIN_ID"`
 	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
 	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`

@@ -5,82 +5,72 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type FunctionsOracle struct {
-	jb             job.Job
-	pipelineRunner pipeline.Runner
-	jobORM         job.ORM
-	pluginConfig   config.PluginConfig
-	pluginORM      functions.ORM
-	chain          evm.Chain
-	lggr           logger.Logger
-	ocrLogger      commontypes.Logger
-	mailMon        *utils.MailboxMonitor
+type FunctionsServicesConfig struct {
+	Job             job.Job
+	PipelineRunner  pipeline.Runner
+	JobORM          job.ORM
+	OCR2JobConfig   validate.Config
+	DB              *sqlx.DB
+	Chain           evm.Chain
+	ContractID      string
+	Lggr            logger.Logger
+	MailMon         *utils.MailboxMonitor
+	URLsMonEndpoint commontypes.MonitoringEndpoint
 }
 
-var _ plugins.OraclePlugin = &FunctionsOracle{}
+// Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
+func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
 
-func NewFunctionsOracle(jb job.Job, pipelineRunner pipeline.Runner, jobORM job.ORM, pluginORM functions.ORM, chain evm.Chain, lggr logger.Logger, ocrLogger commontypes.Logger, mailMon *utils.MailboxMonitor) (*FunctionsOracle, error) {
 	var pluginConfig config.PluginConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+	err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return &FunctionsOracle{}, err
+		return nil, err
 	}
 	err = config.ValidatePluginConfig(pluginConfig)
 	if err != nil {
-		return &FunctionsOracle{}, err
+		return nil, err
 	}
 
-	return &FunctionsOracle{
-		jb:             jb,
-		pipelineRunner: pipelineRunner,
-		jobORM:         jobORM,
-		pluginConfig:   pluginConfig,
-		pluginORM:      pluginORM,
-		chain:          chain,
-		lggr:           lggr,
-		ocrLogger:      ocrLogger,
-		mailMon:        mailMon,
-	}, nil
-}
-
-func (o *FunctionsOracle) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
-	return FunctionsReportingPluginFactory{
-		Logger:    o.ocrLogger,
-		PluginORM: o.pluginORM,
-		JobID:     o.jb.ExternalJobID,
-	}, nil
-}
-
-func (o *FunctionsOracle) GetServices() ([]job.ServiceCtx, error) {
-	contractAddress := common.HexToAddress(o.jb.OCR2OracleSpec.ContractID)
-	oracle, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, o.chain.Client())
+	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
+	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
 	if err != nil {
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
-	svcLogger := o.lggr.Named("FunctionsListener").
+	svcLogger := conf.Lggr.Named("FunctionsListener").
 		With(
 			"contract", contractAddress,
-			"jobName", o.jb.PipelineSpec.JobName,
-			"jobID", o.jb.PipelineSpec.JobID,
-			"externalJobID", o.jb.ExternalJobID,
+			"jobName", conf.Job.PipelineSpec.JobName,
+			"jobID", conf.Job.PipelineSpec.JobID,
+			"externalJobID", conf.Job.ExternalJobID,
 		)
-	logListener := functions.NewFunctionsListener(oracle, o.jb, o.pipelineRunner, o.jobORM, o.pluginORM, o.pluginConfig, o.chain.LogBroadcaster(), svcLogger, o.mailMon)
-	var services []job.ServiceCtx
-	services = append(services, logListener)
-	return services, nil
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint)
+
+	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+		Logger:    sharedOracleArgs.Logger,
+		PluginORM: pluginORM,
+		JobID:     conf.Job.ExternalJobID,
+	}
+	functionsReportingPluginOracle, err := libocr2.NewOracle(*sharedOracleArgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
+	}
+
+	return []job.ServiceCtx{job.NewServiceAdapter(functionsReportingPluginOracle), functionsListener}, nil
 }

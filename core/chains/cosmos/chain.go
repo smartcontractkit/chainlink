@@ -18,6 +18,7 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
@@ -151,4 +152,8 @@ func (c *chain) HealthReport() map[string]error {
 			c.StartStopOnce.Healthy(),
 			c.txm.Healthy()),
 	}
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return chains.ErrLOOPPUnsupported
 }

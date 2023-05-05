@@ -169,8 +169,11 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	}
 
 	cfg := &generalConfig{
-		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
-		c: &o.Config, secrets: &o.Secrets,
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
@@ -196,11 +199,22 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(
+	return g.validate(g.secrets.Validate)
+}
+
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
+	err := multierr.Combine(
 		validateEnv(),
 		g.c.Validate(),
-		g.secrets.Validate()))
-	return err
+		secretsValidationFn(),
+	)
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
+}
+
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(g.secrets.ValidateDB)
 }
 
 //go:embed legacy.env
@@ -231,10 +245,10 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2

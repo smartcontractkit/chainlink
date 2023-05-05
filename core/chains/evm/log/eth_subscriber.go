@@ -21,7 +21,7 @@ type (
 		ethClient evmclient.Client
 		config    Config
 		logger    logger.Logger
-		chStop    chan struct{}
+		chStop    utils.StopChan
 	}
 )
 
@@ -46,7 +46,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		return ch, false
 	}
 
-	ctxParent, cancel := utils.ContextFromChan(sub.chStop)
+	ctxParent, cancel := sub.chStop.NewCtx()
 	defer cancel()
 
 	var latestHeight int64 = -1
@@ -198,7 +198,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		return newNoopSubscription(), false
 	}
 
-	ctx, cancel := utils.ContextFromChan(sub.chStop)
+	ctx, cancel := sub.chStop.NewCtx()
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() (retry bool) {

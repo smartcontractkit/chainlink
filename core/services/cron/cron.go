@@ -18,7 +18,7 @@ type Cron struct {
 	logger         logger.Logger
 	jobSpec        job.Job
 	pipelineRunner pipeline.Runner
-	chStop         chan struct{}
+	chStop         utils.StopChan
 }
 
 // NewCronFromJobSpec instantiates a job that executes on a predefined schedule.
@@ -63,7 +63,7 @@ func (cr *Cron) Close() error {
 }
 
 func (cr *Cron) runPipeline() {
-	ctx, cancel := utils.ContextFromChan(cr.chStop)
+	ctx, cancel := cr.chStop.NewCtx()
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

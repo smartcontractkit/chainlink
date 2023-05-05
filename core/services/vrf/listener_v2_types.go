@@ -7,9 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -144,7 +141,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgrtypes.Transaction
+	var ethTX txmgr.EvmTx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -162,10 +159,10 @@ func (lsn *listenerV2) processBatch(
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
 		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
-			FromAddress:    evmtypes.NewAddress(fromAddress),
-			ToAddress:      evmtypes.NewAddress(lsn.batchCoordinator.Address()),
+			FromAddress:    fromAddress,
+			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			GasLimit:       totalGasLimitBumped,
+			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
 				RequestIDs:      reqIDHashes,

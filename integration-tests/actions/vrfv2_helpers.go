@@ -3,15 +3,14 @@ package actions
 import (
 	"context"
 	"fmt"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -63,7 +62,7 @@ func CreateVRFV2Jobs(
 		require.NoError(t, err, "Error creating VRF key")
 		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
-		jobUUID := uuid.NewV4()
+		jobUUID := uuid.New()
 		os := &client.VRFV2TxPipelineSpec{
 			Address: coordinator.Address(),
 		}

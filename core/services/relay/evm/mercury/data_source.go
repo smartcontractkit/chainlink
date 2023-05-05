@@ -5,15 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	sync "sync"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
-
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -26,15 +27,17 @@ type datasource struct {
 	runResults     chan<- pipeline.Run
 
 	mu sync.RWMutex
+
+	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context) (relaymercury.Observation, error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
 	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while executing run: %w", err)
@@ -45,7 +48,26 @@ func (ds *datasource) Observe(ctx context.Context) (relaymercury.Observation, er
 		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 	}
 
-	return ds.parse(trrs)
+	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
+	// They are guaranteed to be sorted by index asc so should be in the correct order
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+	parsed, err := ds.parse(finaltrrs)
+
+	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
+		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+			TaskRunResults: trrs,
+			Observation:    parsed,
+			RepTimestamp:   repts,
+		})
+
+	}
+
+	return parsed, err
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -147,19 +169,10 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 		},
 	})
 
-	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
-	// They are guaranteed to be sorted by index asc so should be in the correct order
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
 		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	var finaltrrs []pipeline.TaskRunResult
-	for _, trr := range trrs {
-		// only return terminal trrs from executeRun
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
-		}
-	}
 
-	return run, finaltrrs, err
+	return run, trrs, err
 }

@@ -2,21 +2,21 @@ package loader
 
 import (
 	"database/sql"
-	"math/big"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/graph-gophers/dataloader"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	txmgrtypesMocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -50,12 +50,12 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 	config2, err := chain2.TOMLString()
 	require.NoError(t, err)
-	want2 := chains.ChainConfig{ID: "2", Enabled: true, Cfg: config2}
-	assert.Equal(t, want2, results[0].Data.(chains.ChainConfig))
+	want2 := relaytypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
+	assert.Equal(t, want2, results[0].Data.(relaytypes.ChainStatus))
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)
-	want1 := chains.ChainConfig{ID: "1", Enabled: true, Cfg: config1}
-	assert.Equal(t, want1, results[1].Data.(chains.ChainConfig))
+	want1 := relaytypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
+	assert.Equal(t, want1, results[1].Data.(relaytypes.ChainStatus))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
@@ -68,16 +68,16 @@ func TestLoader_Nodes(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	node1 := chains.NodeStatus{
+	node1 := relaytypes.NodeStatus{
 		Name:    "test-node-1",
 		ChainID: "1",
 	}
-	node2 := chains.NodeStatus{
+	node2 := relaytypes.NodeStatus{
 		Name:    "test-node-1",
 		ChainID: "2",
 	}
 
-	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]chains.NodeStatus{
+	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]relaytypes.NodeStatus{
 		node1, node2,
 	}, 2, nil)
 	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
@@ -88,9 +88,9 @@ func TestLoader_Nodes(t *testing.T) {
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []chains.NodeStatus{node2}, found[0].Data)
-	assert.Equal(t, []chains.NodeStatus{node1}, found[1].Data)
-	assert.Equal(t, []chains.NodeStatus{}, found[2].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{node2}, found[0].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{node1}, found[1].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{}, found[2].Data)
 }
 
 func TestLoader_FeedsManagers(t *testing.T) {
@@ -259,7 +259,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
 
-		ejID := uuid.NewV4()
+		ejID := uuid.New()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
 
 		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)
@@ -278,19 +278,19 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewTxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxIDs := []int64{1, 2, 3}
 
 	attempt1 := txmgr.EvmTxAttempt{
-		ID:      int64(1),
-		EthTxID: ethTxIDs[0],
+		ID:   int64(1),
+		TxID: ethTxIDs[0],
 	}
 	attempt2 := txmgr.EvmTxAttempt{
-		ID:      int64(1),
-		EthTxID: ethTxIDs[1],
+		ID:   int64(1),
+		TxID: ethTxIDs[1],
 	}
 
 	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
@@ -363,7 +363,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStore := txmgrtypesMocks.NewTxStore[evmtypes.Address, big.Int, evmtypes.TxHash, evmtypes.BlockHash, txmgr.EvmNewTx, *evmtypes.Receipt, txmgr.EvmTx, txmgr.EvmTxAttempt, int64, int64](t)
+	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -372,14 +372,14 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	receipt := txmgr.EvmReceipt{
 		ID:     int64(1),
-		TxHash: evmtypes.NewTxHash(ethTxHash),
+		TxHash: ethTxHash,
 	}
 
 	attempt1 := txmgr.EvmTxAttempt{
-		ID:          int64(1),
-		EthTxID:     ethTxID,
-		Hash:        evmtypes.NewTxHash(ethTxHash),
-		EthReceipts: []txmgr.EvmReceipt{receipt},
+		ID:       int64(1),
+		TxID:     ethTxID,
+		Hash:     ethTxHash,
+		Receipts: []txmgr.EvmReceipt{receipt},
 	}
 
 	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{

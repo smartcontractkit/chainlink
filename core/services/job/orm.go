@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
@@ -155,7 +155,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	err := q.Transaction(func(tx pg.Queryer) error {
 		// Autogenerate a job ID if not specified
 		if jb.ExternalJobID == (uuid.UUID{}) {
-			jb.ExternalJobID = uuid.NewV4()
+			jb.ExternalJobID = uuid.New()
 		}
 
 		switch jb.Type {
