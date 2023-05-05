@@ -36,7 +36,7 @@ const BYTECODE = KeeperRegistryFactory.bytecode
 const BYTECODE_CHECKSUM =
   '0x5ef7140f5c4ec2d62f8ac3d5c4385b7e40c3441fb1e4073a9545fae5f12a0ec5'
 
-describe('KeeperRegistry1_3 - Frozen', () => {
+describe('KeeperRegistry1_3 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(ethers.utils.id(BYTECODE), BYTECODE_CHECKSUM)
   })
