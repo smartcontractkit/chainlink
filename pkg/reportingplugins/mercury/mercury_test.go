@@ -141,6 +141,9 @@ func Test_Plugin_Observation(t *testing.T) {
 			CurrentBlockHash: ObsResult[[]byte]{
 				Val: randBytes(32),
 			},
+			CurrentBlockTimestamp: ObsResult[uint64]{
+				Val: rand.Uint64(),
+			},
 		}
 		rp.dataSource = mockDataSource{obs}
 
@@ -156,12 +159,14 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Equal(t, obs.Ask.Val, mustDecodeBigInt(p.Ask))
 		assert.Equal(t, obs.CurrentBlockNum.Val, p.CurrentBlockNum)
 		assert.Equal(t, obs.CurrentBlockHash.Val, p.CurrentBlockHash)
+		assert.Equal(t, obs.CurrentBlockTimestamp.Val, p.CurrentBlockTimestamp)
 		assert.Equal(t, maxFinalizedBlockNumber+1, p.ValidFromBlockNum)
 		assert.True(t, p.BenchmarkPriceValid)
 		assert.True(t, p.BidValid)
 		assert.True(t, p.AskValid)
 		assert.True(t, p.CurrentBlockNumValid)
 		assert.True(t, p.CurrentBlockHashValid)
+		assert.True(t, p.CurrentBlockTimestampValid)
 		assert.True(t, p.ValidFromBlockNumValid)
 	})
 
@@ -188,6 +193,10 @@ func Test_Plugin_Observation(t *testing.T) {
 				Err: errors.New("currentBlockHash exploded"),
 				Val: randBytes(32),
 			},
+			CurrentBlockTimestamp: ObsResult[uint64]{
+				Err: errors.New("currentBlockTimestamp exploded"),
+				Val: rand.Uint64(),
+			},
 		}
 		maxFinalizedBlockNumber := int64(rand.Int31())
 		rp.maxFinalizedBlockNumber.Store(maxFinalizedBlockNumber)
@@ -205,12 +214,14 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Zero(t, p.Ask)
 		assert.Zero(t, p.CurrentBlockNum)
 		assert.Zero(t, p.CurrentBlockHash)
+		assert.Zero(t, p.CurrentBlockTimestamp)
 		assert.Equal(t, maxFinalizedBlockNumber+1, p.ValidFromBlockNum)
 		assert.False(t, p.BenchmarkPriceValid)
 		assert.False(t, p.BidValid)
 		assert.False(t, p.AskValid)
 		assert.False(t, p.CurrentBlockNumValid)
 		assert.False(t, p.CurrentBlockHashValid)
+		assert.False(t, p.CurrentBlockTimestampValid)
 		assert.True(t, p.ValidFromBlockNumValid)
 	})
 
@@ -232,6 +243,9 @@ func Test_Plugin_Observation(t *testing.T) {
 			CurrentBlockHash: ObsResult[[]byte]{
 				Val: randBytes(32),
 			},
+			CurrentBlockTimestamp: ObsResult[uint64]{
+				Val: rand.Uint64(),
+			},
 		}
 		rp.dataSource = mockDataSource{obs}
 
@@ -247,12 +261,14 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Equal(t, obs.Ask.Val, mustDecodeBigInt(p.Ask))
 		assert.Equal(t, obs.CurrentBlockNum.Val, p.CurrentBlockNum)
 		assert.Equal(t, obs.CurrentBlockHash.Val, p.CurrentBlockHash)
+		assert.Equal(t, obs.CurrentBlockTimestamp.Val, p.CurrentBlockTimestamp)
 		assert.Zero(t, p.ValidFromBlockNum)
 		assert.True(t, p.BenchmarkPriceValid)
 		assert.True(t, p.BidValid)
 		assert.True(t, p.AskValid)
 		assert.True(t, p.CurrentBlockNumValid)
 		assert.True(t, p.CurrentBlockHashValid)
+		assert.True(t, p.CurrentBlockTimestampValid)
 		assert.False(t, p.ValidFromBlockNumValid)
 	})
 
@@ -275,6 +291,9 @@ func Test_Plugin_Observation(t *testing.T) {
 			CurrentBlockHash: ObsResult[[]byte]{
 				Val: randBytes(32),
 			},
+			CurrentBlockTimestamp: ObsResult[uint64]{
+				Val: rand.Uint64(),
+			},
 		}
 		rp.dataSource = mockDataSource{obs}
 
@@ -290,6 +309,7 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Zero(t, p.Ask)
 		assert.Zero(t, p.CurrentBlockNum)
 		assert.Equal(t, obs.CurrentBlockHash.Val, p.CurrentBlockHash)
+		assert.Equal(t, obs.CurrentBlockTimestamp.Val, p.CurrentBlockTimestamp)
 		assert.Equal(t, maxFinalizedBlockNumber+1, p.ValidFromBlockNum)
 		assert.True(t, p.BenchmarkPriceValid)
 		assert.True(t, p.BidValid)

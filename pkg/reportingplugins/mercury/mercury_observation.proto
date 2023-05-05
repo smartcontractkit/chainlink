@@ -11,11 +11,13 @@ message MercuryObservationProto {
     bytes ask = 4;
     int64 currentBlockNum = 5;
     bytes currentBlockHash = 6;
-    int64 validFromBlockNum = 7;
-    bool benchmarkPriceValid = 8;
-    bool bidValid = 9;
-    bool askValid = 10;
-    bool currentBlockNumValid = 11;
-    bool currentBlockHashValid = 12;
-    bool validFromBlockNumValid = 13;
+    uint64 currentBlockTimestamp = 7;
+    int64 validFromBlockNum = 8;
+    bool benchmarkPriceValid = 9;
+    bool bidValid = 10;
+    bool askValid = 11;
+    bool currentBlockNumValid = 12;
+    bool currentBlockHashValid = 13;
+    bool currentBlockTimestampValid = 14;
+    bool validFromBlockNumValid = 15;
 }

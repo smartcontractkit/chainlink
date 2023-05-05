@@ -48,7 +48,7 @@ func ValidateBlockValues(paos []ParsedAttributedObservation, f int, maxFinalized
 
 	if !(f+1 <= len(newBlockRangePaos)) {
 		s := fmt.Sprintf("only %v/%v attributed observations have currentBlockNum > validFromBlockNum, need at least f+1 (%v/%v) to make a new report; this is most likely a duplicate report for the block range", len(newBlockRangePaos), len(paos), f+1, len(paos))
-		_, currentBlockNum, err := GetConsensusCurrentBlock(paos, f)
+		_, currentBlockNum, _, err := GetConsensusCurrentBlock(paos, f)
 		validFromBlockNum, err2 := GetConsensusValidFromBlock(paos, f)
 		err = errors.Join(err, err2)
 		if err == nil {
@@ -59,7 +59,7 @@ func ValidateBlockValues(paos []ParsedAttributedObservation, f int, maxFinalized
 		return err
 	}
 
-	_, num, err := GetConsensusCurrentBlock(paos, f)
+	_, num, _, err := GetConsensusCurrentBlock(paos, f)
 	if err != nil {
 		return pkgerrors.Wrap(err, "GetConsensusCurrentBlock failed")
 	}
