@@ -28,10 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
-const (
-	UPKEEP_ID = "upkeepID"
-)
-
 type MercuryLookup struct {
 	feedLabel  string
 	feeds      []string
@@ -77,8 +73,10 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
+		r.lggr.Infof("[MercuryLookup] performData %+v", upkeepResults[i].PerformData)
 		// if it doesn't decode to the offchain custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
+		r.lggr.Infof("[MercuryLookup] mercuryLookup %+v", mercuryLookup)
 		if err != nil {
 			//upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
 			r.lggr.Debugf("[MercuryLookup] not an offchain revert decodeMercuryLookup: %v", err)
@@ -214,14 +212,11 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 		return false, nil, nil
 	}
 	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
+	r.lggr.Infof("upkeep needed: %v data: %v", upkeepNeeded, performData)
 	return true, performData, nil
 }
 
 func (r *EvmRegistry) doRequest(ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
-	client := http.Client{
-		Timeout: 2 * time.Second,
-	}
-
 	// TODO when mercury has multi feed endpoint. we can use this instead of below
 	//multiFeed, err := r.multiFeedRequest(&client, upkeepId, ml)
 	//if err != nil {
@@ -231,7 +226,7 @@ func (r *EvmRegistry) doRequest(ml *MercuryLookup, upkeepId *big.Int) ([][]byte,
 
 	ch := make(chan MercuryBytes, len(ml.feeds))
 	for i := range ml.feeds {
-		go r.singleFeedRequest(&client, ch, upkeepId, i, ml)
+		go r.singleFeedRequest(ch, upkeepId, i, ml)
 	}
 	var reqErr error
 	results := make([][]byte, len(ml.feeds))
@@ -248,12 +243,10 @@ func (r *EvmRegistry) doRequest(ml *MercuryLookup, upkeepId *big.Int) ([][]byte,
 	return results, reqErr
 }
 
-func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *MercuryLookup) {
+func (r *EvmRegistry) singleFeedRequest(ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *MercuryLookup) {
 	q := url.Values{
 		ml.feedLabel:  {ml.feeds[index]},
 		ml.queryLabel: {ml.query.String()},
-		// currently upkeep ID is not used for authentication
-		UPKEEP_ID: {upkeepId.String()},
 	}
 	reqUrl := fmt.Sprintf("%s/client?%s", r.mercury.url, q.Encode())
 	r.lggr.Debugf("MercuryLookup request URL: %s", reqUrl)
@@ -273,7 +266,7 @@ func (r *EvmRegistry) singleFeedRequest(client *http.Client, ch chan<- MercuryBy
 
 	retryErr := retry.Do(
 		func() error {
-			resp, err1 := client.Do(req)
+			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
 				r.lggr.Errorf("MercuryLookup GET request fails at block %s for upkeep Id %s feed %s: %v", ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
 				return err1

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -62,6 +63,11 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
+//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type LatestBlockGetter interface {
 	LatestBlock() int64
 }
@@ -108,6 +114,9 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
+		},
+		hc: &http.Client{
+			Timeout: 2 * time.Second,
 		},
 	}
 
@@ -190,6 +199,7 @@ type EvmRegistry struct {
 	runState      int
 	runError      error
 	mercury       MercuryConfig
+	hc            HttpClient
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
