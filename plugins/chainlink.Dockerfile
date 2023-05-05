@@ -47,6 +47,9 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
   fi
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
+# explicit set the cache dir. needed so both root and non-root user has an explicit location
+ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
