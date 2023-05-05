@@ -8,7 +8,6 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -30,6 +29,7 @@ func NewServices(
 	argsNoPlugin libocr2.OracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
+	chainHeadTracker mercury.ChainHeadTracker,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -51,6 +51,7 @@ func NewServices(
 		lggr,
 		runResults,
 		chEnhancedTelem,
+		chainHeadTracker,
 	)
 	argsNoPlugin.ReportingPluginFactory = relaymercury.NewFactory(
 		ds,
