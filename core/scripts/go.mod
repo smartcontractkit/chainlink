@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 require (
 	github.com/ava-labs/coreth v0.11.0-rc.4
-	github.com/docker/docker v23.0.1+incompatible
+	github.com/docker/docker v23.0.3+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.11.5
 	github.com/google/go-cmp v0.5.9
