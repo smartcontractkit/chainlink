@@ -196,7 +196,7 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	var req telem.FunctionsRequest
 	err := proto.Unmarshal(sentMessage, &req)
 	assert.NoError(t, err)
-	assert.Equal(t, RequestID[:], req.RequestId)
+	assert.Equal(t, "0x"+RequestID.String(), req.RequestId)
 	assert.EqualValues(t, []string{"github.com", "google.com"}, req.Domains)
 }
 
