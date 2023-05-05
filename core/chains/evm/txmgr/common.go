@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -82,48 +79,4 @@ func batchSendTransactions[
 		}
 	}
 	return reqs, nil
-}
-
-// helper function to convert chain-agnostic/generic type to EVM specific type
-// used to bridge functionality to EVM specific chain-client
-// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
-func stringToGethAddress(s string) (common.Address, error) {
-	if !common.IsHexAddress(s) {
-		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
-	}
-	return common.HexToAddress(s), nil
-}
-
-// helper function to convert chain-agnostic/generic type to EVM specific type
-// used to bridge functionality to EVM specific chain-client
-// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
-func stringToGethHash(s string) (h common.Hash, err error) {
-	err = h.UnmarshalText([]byte(s))
-	return
-}
-
-// helper function to convert chain-agnostic/generic type to EVM specific type
-// used to bridge functionality to EVM specific chain-client
-// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
-func ToGethFees[FEE txmgrtypes.Fee](f FEE) (fee gas.EvmFee, err error) {
-	b, err := json.Marshal(f)
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal(b, &fee)
-	return
-}
-
-// helper function to convert chain-agnostic/generic type to EVM specific type
-// used to bridge functionality to EVM specific chain-client
-// TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
-func ToGenericReceipt[TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]](r *evmtypes.Receipt) (receipt R, err error) {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal(b, &receipt)
-	return
 }

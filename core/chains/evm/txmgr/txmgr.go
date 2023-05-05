@@ -226,11 +226,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Reset
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) abandon(addr ADDR) (err error) {
-	gethAddr, err := stringToGethAddress(addr.String())
-	if err != nil {
-		return errors.Wrapf(err, "failed to do address format conversion")
-	}
-	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), gethAddr)
+	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), addr.String())
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
 }
 
@@ -364,7 +360,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) runLo
 	for {
 		select {
 		case address := <-b.trigger:
-			b.ethBroadcaster.Trigger(address)
+			b.ethBroadcaster.Trigger(address.String())
 		case head := <-b.chHeads:
 			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:
