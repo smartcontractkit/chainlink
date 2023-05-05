@@ -122,10 +122,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:   d.peerWrapper.Peer2,
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
-		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
+		Database:              NewDB(d.db.DB, spec.ID, lggr),
 		LocalConfig:           lc,
-		Logger: logger.NewOCRWrapper(d.lggr.Named("OCRBootstrap"), true, func(msg string) {
-			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		Logger: logger.NewOCRWrapper(lggr.Named("OCRBootstrap"), true, func(msg string) {
+			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
