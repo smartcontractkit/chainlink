@@ -53,8 +53,12 @@ contract UpkeepCounterStats is ConfirmedOwner {
   KeeperRegistry2_0 public registry;
   uint256 public upkeepTopUpCheckInterval = 5;
   uint96 public addLinkAmount = 200000000000000000; // 0.2 LINK
-  uint16 public immutable BUCKET_SIZE = 100;
   uint8 public minBalanceThresholdMultiplier = 20;
+
+  // the following fields are immutable bc if they are adjusted, the existing upkeeps' delays will be stored in
+  // different sizes of buckets. it's better to redeploy this contract with new values.
+  uint16 public immutable BUCKET_SIZE = 100;
+  uint16 public immutable TIMESTAMP_INTERVAL = 3600;
 
   constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
@@ -125,8 +129,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
    * @param number the number of upkeeps to be registered
    * @param gasLimit the gas limit of each upkeep
    * @param amount the amount of LINK to fund each upkeep
+   * @param checkGasToBurn the amount of check gas to burn
+   * @param performGasToBurn the amount of perform gas to burn
    */
-  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount) external {
+  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount, uint256 checkGasToBurn, uint256 performGasToBurn) external {
     KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
       encryptedEmail: bytes(""),
@@ -144,6 +150,8 @@ contract UpkeepCounterStats is ConfirmedOwner {
     for (uint8 i = 0; i < number; i++) {
       uint256 upkeepId = _registerUpkeep(params);
       upkeepIds[i] = upkeepId;
+      checkGasToBurns[upkeepId] = checkGasToBurn;
+      performGasToBurns[upkeepId] = performGasToBurn;
     }
     emit UpkeepsRegistered(upkeepIds);
   }
@@ -233,7 +241,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
       uint256 delay = blockNum - previousPerformBlock - intervals[upkeepId];
 
       uint16 timestampBucket = timestampBuckets[upkeepId];
-      if (block.timestamp - 3600 > timestamps[upkeepId][timestampBucket]) {
+      if (block.timestamp - TIMESTAMP_INTERVAL > timestamps[upkeepId][timestampBucket]) {
         timestamps[upkeepId].push(block.timestamp);
         timestampBucket++;
         timestampBuckets[upkeepId] = timestampBucket;
@@ -255,7 +263,9 @@ contract UpkeepCounterStats is ConfirmedOwner {
     emit PerformingUpkeep(firstPerformBlock, blockNum, previousPerformBlock, counter);
     previousPerformBlocks[upkeepId] = blockNum;
 
-    // check the upkeep to see if it needs extra funds
+    // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
+    // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
+    // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
       UpkeepInfo memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
