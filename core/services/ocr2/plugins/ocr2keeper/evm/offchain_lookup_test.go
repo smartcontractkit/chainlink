@@ -3,12 +3,10 @@ package evm
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -18,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
@@ -88,9 +85,9 @@ func (r *EvmRegistry) buildRevertBytesHelper() []byte {
 	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
 	ml := MercuryLookup{
 		feedLabel:  "feedIDStr",
-		feeds:      []string{"ETD-USD", "BTC-ETH"},
+		feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
 		queryLabel: "blockNumber",
-		query:      big.NewInt(100),
+		query:      big.NewInt(8586948),
 		extraData:  []byte{},
 	}
 	// check if Pack does not add selector for me
@@ -106,17 +103,13 @@ func (r *EvmRegistry) buildRevertBytesHelper() []byte {
 
 func TestEvmRegistry_offchainLookup(t *testing.T) {
 	setupRegistry := setupEVMRegistry(t)
-	// load json response for testing
-	content, e := os.ReadFile("test.json")
+	// load json response for testdata
+	btcBlob, e := os.ReadFile("./testdata/btc-usd.json")
 	assert.Nil(t, e)
-	// mock server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		_, _ = w.Write(content)
-	}))
-	defer server.Close()
+	ethBlob, e := os.ReadFile("./testdata/eth-usd.json")
+	assert.Nil(t, e)
 
-	upkeepKey := chain.UpkeepKey("8586948|104693970376404490964326661740762530070325727241549215715800663219260698550627")
+	upkeepKey := chain.UpkeepKey("8586948|520376062160720574742736856650455852347405918082346589375578334001045521721")
 	_, upkeepId, err := blockAndIdFromKey(upkeepKey)
 	assert.Nil(t, err, t.Name())
 	// builds revert data with mock server query
@@ -175,34 +168,41 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 		callbackErr  error
 
 		upkeepCache   bool
+		mockGetUpkeep bool
 		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
 		upkeepInfoErr error
 
-		want    []types.UpkeepResult
-		wantErr error
+		want           []types.UpkeepResult
+		wantErr        error
+		hasHttpCalls   bool
+		callbackNeeded bool
 	}{
 		{
 			name:         "success - cached upkeep",
 			input:        []types.UpkeepResult{upkeepResult},
 			callbackResp: callbackResp,
-			upkeepCache:  true,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
 
-			want: []types.UpkeepResult{wantUpkeepResult},
+			want:           []types.UpkeepResult{wantUpkeepResult},
+			hasHttpCalls:   true,
+			callbackNeeded: true,
 		},
 		{
-			name:         "success - no cached upkeep",
-			input:        []types.UpkeepResult{upkeepResult},
-			callbackResp: callbackResp,
+			name:          "success - no cached upkeep",
+			input:         []types.UpkeepResult{upkeepResult},
+			callbackResp:  callbackResp,
+			mockGetUpkeep: true,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
 
-			want: []types.UpkeepResult{wantUpkeepResult},
+			want:           []types.UpkeepResult{wantUpkeepResult},
+			hasHttpCalls:   true,
+			callbackNeeded: true,
 		},
 		{
 			name: "skip - failure reason",
@@ -243,6 +243,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 					PerformData:   []byte{},
 				},
 			},
+			wantErr: errors.New("unpack error: invalid data for unpacking"),
 		},
 		{
 			name:          "skip - error - no upkeep",
@@ -253,9 +254,10 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			want: []types.UpkeepResult{upkeepResultReasonOffchain},
 		},
 		{
-			name:         "skip - upkeep not needed",
-			input:        []types.UpkeepResult{upkeepResult},
-			callbackResp: upkeepNeededFalseResp,
+			name:          "skip - upkeep not needed",
+			input:         []types.UpkeepResult{upkeepResult},
+			mockGetUpkeep: true,
+			callbackResp:  upkeepNeededFalseResp,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
@@ -273,6 +275,8 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 				CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
 				ExecuteGas:       5000000,
 			}},
+			hasHttpCalls:   true,
+			callbackNeeded: true,
 		},
 		{
 			name:       "skip - cooldown cache",
@@ -286,44 +290,54 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 			client := new(evmClientMocks.Client)
+			if tt.callbackNeeded {
+				client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(tt.callbackResp, tt.callbackErr)
+			}
 			r.client = client
-			client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(tt.callbackResp, tt.callbackErr)
 
 			mockHttpClient := mocks.NewHttpClient(t)
-			mockHttpClient.On("Do", mock.Anything).Return(
-				&http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewReader(content)),
-				},
-				nil)
+			if tt.hasHttpCalls {
+				// mock the http client with Once() so the first call returns ETH-USD blob and the second call returns BTC-USD blob
+				mockHttpClient.On("Do", mock.Anything).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(ethBlob)),
+					},
+					nil).Once()
+				mockHttpClient.On("Do", mock.Anything).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(btcBlob)),
+					},
+					nil).Once()
+			}
 			r.hc = mockHttpClient
 
 			if tt.inCooldown {
 				r.mercury.cooldownCache.Set(upkeepId.String(), nil, DefaultCooldownExpiration)
 			}
 
-			// either set cache or mock registry return
-			if tt.upkeepCache {
-				r.mercury.upkeepCache.Set(upkeepId.String(), tt.upkeepInfo, cache.DefaultExpiration)
-			} else {
+			// either set cache or mock getUpkeep
+			if tt.mockGetUpkeep {
 				mockReg := mocks.NewRegistry(t)
 				r.registry = mockReg
 				mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(tt.upkeepInfo, tt.upkeepInfoErr)
+			} else {
+				r.mercury.upkeepCache.Set(upkeepId.String(), tt.upkeepInfo, cache.DefaultExpiration)
 			}
 
 			got, err := r.mercuryLookup(context.Background(), tt.input)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
+			} else {
+				assert.Equal(t, tt.want, got, tt.name)
 			}
-			assert.Equal(t, tt.want, got, tt.name)
 		})
 	}
 }
 
 func TestEvmRegistry_decodeOffchainLookup(t *testing.T) {
-
-	ed, _ := hex.DecodeString("")
 	tests := []struct {
 		name    string
 		data    []byte
@@ -332,13 +346,26 @@ func TestEvmRegistry_decodeOffchainLookup(t *testing.T) {
 	}{
 		{
 			name: "success",
-			data: hexutil.MustDecode("0x62e8a50d00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000001e0000000000000000000000000000000000000000000000000000000000000000966656564494453747200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000074554442d5553440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000074254432d45544800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d6265720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
+			data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 20, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			want: &MercuryLookup{
 				feedLabel:  "feedIDStr",
-				feeds:      []string{"ETD-USD", "BTC-ETH"},
+				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
 				queryLabel: "blockNumber",
-				query:      big.NewInt(100),
-				extraData:  ed,
+				query:      big.NewInt(18945237),
+				extraData:  []byte{48, 120, 48, 48},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "success - with extra data",
+			data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 48, 241, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			want: &MercuryLookup{
+				feedLabel:  "feedIDStr",
+				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(18952433),
+				// this is the address of precompile contradt ArbSys(0x0000000000000000000000000000000000000064)
+				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 			},
 			wantErr: nil,
 		},
@@ -353,10 +380,10 @@ func TestEvmRegistry_decodeOffchainLookup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 			got, err := r.decodeMercuryLookup(tt.data)
-			//if tt.wantErr != nil {
-			assert.Equal(t, "", err.Error(), tt.name)
-			assert.NotNil(t, err, tt.name)
-			//}
+			if tt.wantErr != nil {
+				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
+				assert.NotNil(t, err, tt.name)
+			}
 			assert.Equal(t, tt.want, got, tt.name)
 		})
 	}
@@ -386,13 +413,13 @@ func TestEvmRegistry_offchainLookupCallback(t *testing.T) {
 		wantErr      error
 	}{
 		{
-			name: "success",
+			name: "success - empty extra data",
 			mercuryLookup: &MercuryLookup{
 				feedLabel:  "feedIDStr",
 				feeds:      []string{"ETD-USD", "BTC-ETH"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(100),
-				extraData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				extraData:  []byte{48, 120, 48, 48},
 			},
 			values:     values,
 			statusCode: http.StatusOK,
@@ -404,10 +431,33 @@ func TestEvmRegistry_offchainLookupCallback(t *testing.T) {
 			opts: &bind.CallOpts{
 				BlockNumber: big.NewInt(999),
 			},
-			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			upkeepNeeded: true,
-			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			performData:  []byte{48, 120, 48, 48},
+		},
+		{
+			name: "success - with extra data",
+			mercuryLookup: &MercuryLookup{
+				feedLabel:  "feedIDStr",
+				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(18952430),
+				// this is the address of precompile contradt ArbSys(0x0000000000000000000000000000000000000064)
+				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			},
+			values:     values,
+			statusCode: http.StatusOK,
+			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+				Target:         to,
+				ExecuteGas:     executeGas,
+				OffchainConfig: nil,
+			},
+			opts: &bind.CallOpts{
+				BlockNumber: big.NewInt(18952430),
+			},
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 		},
 		{
 			name: "failure - bad response",
