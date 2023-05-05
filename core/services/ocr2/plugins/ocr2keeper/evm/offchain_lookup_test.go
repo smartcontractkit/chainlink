@@ -189,6 +189,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			want:           []types.UpkeepResult{wantUpkeepResult},
 			hasHttpCalls:   true,
 			callbackNeeded: true,
+			upkeepCache:    true,
 		},
 		{
 			name:          "success - no cached upkeep",
@@ -251,7 +252,9 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			callbackResp:  callbackResp,
 			upkeepInfoErr: errors.New("ouch"),
 
-			want: []types.UpkeepResult{upkeepResultReasonOffchain},
+			want:          []types.UpkeepResult{upkeepResultReasonOffchain},
+			mockGetUpkeep: true,
+			wantErr:       errors.New("ouch"),
 		},
 		{
 			name:          "skip - upkeep not needed",
@@ -322,7 +325,8 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 				mockReg := mocks.NewRegistry(t)
 				r.registry = mockReg
 				mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(tt.upkeepInfo, tt.upkeepInfoErr)
-			} else {
+			}
+			if tt.upkeepCache {
 				r.mercury.upkeepCache.Set(upkeepId.String(), tt.upkeepInfo, cache.DefaultExpiration)
 			}
 
