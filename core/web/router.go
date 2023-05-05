@@ -226,6 +226,13 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	r.GET("/health", hc.Health)
 }
 
+func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	loopRegistry := NewLoopRegistry(app)
+	r.GET("/discovery", ginHandlerFromHTTP(loopRegistry.discoveryHandler))
+	loopMetrics := r.Group("/plugins")
+	loopMetrics.GET("/", ginHandlerFromHTTP(loopRegistry.pluginMetricHandler))
+}
+
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2 := r.Group("/v2")
 
