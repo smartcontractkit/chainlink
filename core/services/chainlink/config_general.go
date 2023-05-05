@@ -24,6 +24,7 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -168,8 +169,11 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	}
 
 	cfg := &generalConfig{
-		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
-		c: &o.Config, secrets: &o.Secrets,
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
@@ -195,11 +199,22 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(
+	return g.validate(g.secrets.Validate)
+}
+
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
+	err := multierr.Combine(
 		validateEnv(),
 		g.c.Validate(),
-		g.secrets.Validate()))
-	return err
+		secretsValidationFn(),
+	)
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
+}
+
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(g.secrets.ValidateDB)
 }
 
 //go:embed legacy.env
@@ -230,10 +245,10 @@ func validateEnv() (err error) {
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2
@@ -1045,6 +1060,27 @@ func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 
 func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+// Insecure config
+func (g *generalConfig) DevWebServer() bool {
+	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+		*g.c.Insecure.DevWebServer
+}
+
+func (g *generalConfig) OCRDevelopmentMode() bool {
+	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+		*g.c.Insecure.OCRDevelopmentMode
+}
+
+func (g *generalConfig) DisableRateLimiting() bool {
+	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+		*g.c.Insecure.DisableRateLimiting
+}
+
+func (g *generalConfig) InfiniteDepthQueries() bool {
+	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+		*g.c.Insecure.InfiniteDepthQueries
 }
 
 var (

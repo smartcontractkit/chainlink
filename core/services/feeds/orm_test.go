@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -445,7 +445,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 	jp := &feeds.JobProposal{
 		Name:           null.StringFrom("jp1"),
-		RemoteUUID:     uuid.NewV4(),
+		RemoteUUID:     uuid.New(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	}
@@ -475,8 +475,8 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
-	remoteUUID := uuid.NewV4()
-	deletedUUID := uuid.NewV4()
+	remoteUUID := uuid.New()
+	deletedUUID := uuid.New()
 	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
@@ -529,7 +529,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		_, err = orm.GetJobProposalByRemoteUUID(deletedUUID)
 		require.Error(t, err)
 
-		_, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
+		_, err = orm.GetJobProposalByRemoteUUID(uuid.New())
 		require.Error(t, err)
 	})
 }
@@ -539,7 +539,7 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
+	uuid := uuid.New()
 	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
@@ -580,14 +580,14 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 
 	// Create a pending job proposal.
 	_, err := orm.CreateJobProposal(&feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
+		RemoteUUID:     uuid.New(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	})
 	require.NoError(t, err)
 
 	// Create a cancelled job proposal.
-	cancelledUUID := uuid.NewV4()
+	cancelledUUID := uuid.New()
 	_, err = orm.CreateJobProposal(&feeds.JobProposal{
 		RemoteUUID:     cancelledUUID,
 		Status:         feeds.JobProposalStatusCancelled,
@@ -636,7 +636,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
+	uuid := uuid.New()
 	name := null.StringFrom("jp1")
 
 	jp := &feeds.JobProposal{
@@ -691,12 +691,12 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 		orm           = setupORM(t)
 		fmID          = createFeedsManager(t, orm)
 		name          = null.StringFrom("jp1")
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 
 	jp := &feeds.JobProposal{
 		Name:           name,
-		RemoteUUID:     uuid.NewV4(),
+		RemoteUUID:     uuid.New(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	}
@@ -807,12 +807,12 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 	var (
 		orm           = setupORM(t)
 		fmID          = createFeedsManager(t, orm)
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 
 	// Manually create the job proposal to set pending update
 	jpID, err := orm.CreateJobProposal(&feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
+		RemoteUUID:     uuid.New(),
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 		PendingUpdate:  true,
@@ -944,7 +944,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, int64(jpID))
 
-				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
 				// Defer the FK requirement of an existing job for a job proposal.
 				require.NoError(t, utils.JustError(orm.db.Exec(
@@ -1045,7 +1045,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, int64(jpID))
 
-				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
 				// Defer the FK requirement of an existing job for a job proposal.
 				require.NoError(t, utils.JustError(orm.db.Exec(
@@ -1180,7 +1180,7 @@ func Test_ORM_GetApprovedSpec(t *testing.T) {
 		fmID          = createFeedsManager(t, orm)
 		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 		specID        = createJobSpec(t, orm, int64(jpID))
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 
 	// Defer the FK requirement of a job proposal so we don't have to setup a
@@ -1298,7 +1298,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, int64(jpID))
 
-				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
 				// Defer the FK requirement of an existing job for a job proposal.
 				require.NoError(t, utils.JustError(orm.db.Exec(
@@ -1415,7 +1415,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 		fmID          = createFeedsManager(t, orm)
 		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 		specID        = createJobSpec(t, orm, int64(jpID))
-		externalJobID = uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 
 	j := createJob(t, orm.db, externalJobID.UUID)
@@ -1472,7 +1472,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		lggr        = logger.TestLogger(t)
 		pipelineORM = pipeline.NewORM(db, lggr, config)
 		bridgeORM   = bridges.NewORM(db, lggr, config)
-		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	)
 
@@ -1505,7 +1505,7 @@ func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStat
 	t.Helper()
 
 	id, err := orm.CreateJobProposal(&feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
+		RemoteUUID:     uuid.New(),
 		Status:         status,
 		FeedsManagerID: fmID,
 		PendingUpdate:  true,

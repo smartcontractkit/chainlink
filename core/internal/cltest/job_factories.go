@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -51,7 +51,7 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 	require.NoError(t, err)
 
 	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
-		ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
+		ExternalJobID: uuid.New(), PipelineSpecID: pipelineSpecID}
 	require.NoError(t, jobORM.InsertJob(&createdJob))
 
 	return createdJob, webhookSpec
@@ -63,7 +63,7 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	lggr := logger.TestLogger(t)
 	pipelineORM = pipeline.NewORM(db, lggr, config)
 	bridgeORM := bridges.NewORM(db, lggr, config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	jobORM = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
 	t.Cleanup(func() { jobORM.Close() })
 	return

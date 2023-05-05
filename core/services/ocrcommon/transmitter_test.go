@@ -36,7 +36,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -45,21 +45,22 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         gasLimit,
+		ForwarderAddress: common.Address{},
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.T) {
@@ -77,7 +78,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -86,30 +87,32 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	txm.On("CreateEthTransaction", txmgr.NewTx{
-		FromAddress:    fromAddress2,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       strategy,
-	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         gasLimit,
+		ForwarderAddress: common.Address{},
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
+		FromAddress:      fromAddress2,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         gasLimit,
+		ForwarderAddress: common.Address{},
+		Meta:             nil,
+		Strategy:         strategy,
+	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin_Error(t *testing.T) {
@@ -126,7 +129,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -135,12 +138,12 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
-	require.Error(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	require.Error(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore_Error(t *testing.T) {
@@ -156,7 +159,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
-	txm := txmmocks.NewTxManager(t)
+	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
 	_, err := ocrcommon.NewTransmitter(
@@ -165,7 +168,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.TransmitCheckerSpec{},
+		txmgr.EvmTransmitCheckerSpec{},
 		chainID,
 		nil,
 	)

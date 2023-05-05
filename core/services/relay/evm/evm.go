@@ -328,7 +328,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	scoped := configWatcher.chain.Config()
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
 
-	var checker txm.TransmitCheckerSpec
+	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
@@ -344,7 +344,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txm.TransmitCheckerSpec{},
+		txm.EvmTransmitCheckerSpec{},
 		configWatcher.chain.ID(),
 		ethKeystore,
 	)
@@ -360,6 +360,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 
@@ -377,7 +378,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	scoped := configWatcher.chain.Config()
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
 
-	var checker txm.TransmitCheckerSpec
+	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
@@ -407,6 +408,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		),
 		configWatcher.chain.LogPoller(),
 		lggr,
+		nil,
 	)
 }
 

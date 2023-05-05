@@ -2,41 +2,26 @@
 pragma solidity 0.8.6;
 
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_1.sol";
-import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../../interfaces/automation/2_1/AutomationRegistryInterface2_1.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
+import "./KeeperRegistryLogicA2_1.sol";
+import "./Chainable.sol";
+import {AutomationRegistryExecutableInterface, UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 import "../../../OCR2Abstract.sol";
 
 /**
- _.  _|_ _ ._ _  _._|_o _ ._  o _  _    ._  _| _  __|_o._
-(_||_||_(_)| | |(_| |_|(_)| | |_> (_)|_||  (_|(/__> |_|| |\/
-                                                          /
- */
-/**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry2_1 is
-  KeeperRegistryBase2_1,
-  Proxy,
-  OCR2Abstract,
-  AutomationRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface,
-  MigratableKeeperRegistryInterfaceV2,
-  ERC677ReceiverInterface
-{
+contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ERC677ReceiverInterface {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  // Immutable address of logic contract where some functionality is delegated to
-  address private immutable i_keeperRegistryLogic;
-
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
+   *                       : fixes issue with arbitrum block number
+   *                       : does an early return in case of stale report instead of revert
    * - KeeperRegistry 2.0.1: implements workaround for buggy migrate function in 1.X
    * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
@@ -50,31 +35,23 @@ contract KeeperRegistry2_1 is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.1";
+  string public constant override typeAndVersion = "KeeperRegistry 2.1.0";
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @param mode one of Default, Arbitrum, Optimism
+   * @param link address of the LINK Token
+   * @param linkNativeFeed address of the LINK/Native price feed
+   * @param fastGasFeed address of the Fast Gas price feed
    */
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterfaceV2
-   */
-  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
-
-  /**
-   * @param keeperRegistryLogic address of the logic contract
-   */
-  constructor(KeeperRegistryBase2_1 keeperRegistryLogic)
-    KeeperRegistryBase2_1(
-      keeperRegistryLogic.getPaymentModel(),
-      keeperRegistryLogic.getLinkAddress(),
-      keeperRegistryLogic.getLinkNativeFeedAddress(),
-      keeperRegistryLogic.getFastGasFeedAddress()
-    )
-  {
-    i_keeperRegistryLogic = address(keeperRegistryLogic);
-  }
+  constructor(
+    Mode mode,
+    address link,
+    address linkNativeFeed,
+    address fastGasFeed
+  )
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicA2_1(mode, link, linkNativeFeed, fastGasFeed)))
+  {}
 
   ////////
   // ACTIONS
@@ -140,7 +117,9 @@ contract KeeperRegistry2_1 is
       }
     }
     // No upkeeps to be performed in this report
-    if (numUpkeepsPassedChecks == 0) revert StaleReport();
+    if (numUpkeepsPassedChecks == 0) {
+      return;
+    }
 
     // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
@@ -151,7 +130,7 @@ contract KeeperRegistry2_1 is
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Check if this upkeep was already performed in this report
-        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
+        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(_blockNum())) {
           revert InvalidReport();
         }
 
@@ -165,7 +144,7 @@ contract KeeperRegistry2_1 is
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
         // Store last perform block number for upkeep
-        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(_blockNum());
       }
     }
 
@@ -224,6 +203,33 @@ contract KeeperRegistry2_1 is
     }
   }
 
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit,
+    address admin,
+    bytes calldata checkData,
+    bytes calldata offchainConfig
+  ) external returns (uint256 id, address forwarderAddress) {
+    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
+    id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
+    AutomationForwarder forwarder = new AutomationForwarder(target);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
+    s_storage.nonce++;
+    s_upkeepOffchainConfig[id] = offchainConfig;
+    emit UpkeepRegistered(id, gasLimit, admin);
+    return (id, address(forwarder));
+  }
+
+  function addFunds(uint256 id, uint96 amount) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    i_link.transferFrom(msg.sender, address(this), amount);
+    emit FundsAdded(id, msg.sender, amount);
+  }
+
   /**
    * @notice simulates the upkeep with the perform data returned from
    * checkUpkeep
@@ -263,9 +269,9 @@ contract KeeperRegistry2_1 is
     emit FundsAdded(id, sender, uint96(amount));
   }
 
-  ////////
-  // SETTERS
-  ////////
+  /////////////
+  // SETTERS //
+  /////////////
 
   /**
    * @inheritdoc OCR2Abstract
@@ -358,7 +364,7 @@ contract KeeperRegistry2_1 is
     s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.latestConfigBlockNumber = uint32(_blockNum());
     s_storage.configCount += 1;
 
     s_latestConfigDigest = _configDigestFromConfigData(
@@ -386,164 +392,9 @@ contract KeeperRegistry2_1 is
     );
   }
 
-  ////////
-  // GETTERS
-  ////////
-
-  /**
-   * @notice read all of the details about an upkeep
-   */
-  function getUpkeep(uint256 id) external view override returns (UpkeepInfo memory upkeepInfo) {
-    Upkeep memory reg = s_upkeep[id];
-    upkeepInfo = UpkeepInfo({
-      target: reg.target,
-      executeGas: reg.executeGas,
-      checkData: s_checkData[id],
-      balance: reg.balance,
-      admin: s_upkeepAdmin[id],
-      maxValidBlocknumber: reg.maxValidBlocknumber,
-      lastPerformBlockNumber: reg.lastPerformBlockNumber,
-      amountSpent: reg.amountSpent,
-      paused: reg.paused,
-      offchainConfig: s_upkeepOffchainConfig[id]
-    });
-    return upkeepInfo;
-  }
-
-  /**
-   * @notice retrieve active upkeep IDs. Active upkeep is defined as an upkeep which is not paused and not canceled.
-   * @param startIndex starting index in list
-   * @param maxCount max number of upkeep IDs to retrieve (0 = unlimited)
-   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-   * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
-   */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
-    uint256 maxIdx = s_upkeepIDs.length();
-    if (startIndex >= maxIdx) revert IndexOutOfRange();
-    if (maxCount == 0 || maxCount + startIndex > maxIdx) {
-      maxCount = maxIdx - startIndex;
-    }
-    uint256[] memory ids = new uint256[](maxCount);
-    for (uint256 idx = 0; idx < maxCount; idx++) {
-      ids[idx] = s_upkeepIDs.at(startIndex + idx);
-    }
-    return ids;
-  }
-
-  /**
-   * @notice read the current info about any transmitter address
-   */
-  function getTransmitterInfo(address query)
-    external
-    view
-    override
-    returns (
-      bool active,
-      uint8 index,
-      uint96 balance,
-      uint96 lastCollected,
-      address payee
-    )
-  {
-    Transmitter memory transmitter = s_transmitters[query];
-    uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
-    uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
-
-    return (
-      transmitter.active,
-      transmitter.index,
-      (transmitter.balance + pooledShare),
-      transmitter.lastCollected,
-      s_transmitterPayees[query]
-    );
-  }
-
-  /**
-   * @notice read the current info about any signer address
-   */
-  function getSignerInfo(address query) external view returns (bool active, uint8 index) {
-    Signer memory signer = s_signers[query];
-    return (signer.active, signer.index);
-  }
-
-  /**
-   * @notice read the current state of the registry
-   */
-  function getState()
-    external
-    view
-    override
-    returns (
-      State memory state,
-      OnchainConfig memory config,
-      address[] memory signers,
-      address[] memory transmitters,
-      uint8 f
-    )
-  {
-    state = State({
-      nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
-      totalPremium: s_hotVars.totalPremium,
-      numUpkeeps: s_upkeepIDs.length(),
-      configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      latestConfigDigest: s_latestConfigDigest,
-      latestEpoch: s_hotVars.latestEpoch,
-      paused: s_hotVars.paused
-    });
-
-    config = OnchainConfig({
-      paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-      flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
-      checkGasLimit: s_storage.checkGasLimit,
-      stalenessSeconds: s_hotVars.stalenessSeconds,
-      gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-      minUpkeepSpend: s_storage.minUpkeepSpend,
-      maxPerformGas: s_storage.maxPerformGas,
-      maxCheckDataSize: s_storage.maxCheckDataSize,
-      maxPerformDataSize: s_storage.maxPerformDataSize,
-      fallbackGasPrice: s_fallbackGasPrice,
-      fallbackLinkPrice: s_fallbackLinkPrice,
-      transcoder: s_storage.transcoder,
-      registrar: s_storage.registrar
-    });
-
-    return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
-  }
-
-  /**
-   * @notice calculates the minimum balance required for an upkeep to remain eligible
-   * @param id the upkeep id to calculate minimum balance for
-   */
-  function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(s_upkeep[id].executeGas);
-  }
-
-  /**
-   * @notice calculates the maximum payment for a given gas limit
-   * @param gasLimit the gas to calculate payment for
-   */
-  function getMaxPaymentForGas(uint32 gasLimit) public view returns (uint96 maxPayment) {
-    HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
-  }
-
-  /**
-   * @notice retrieves the migration permission for a peer registry
-   */
-  function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
-    return s_peerRegistryMigrationPermission[peer];
-  }
-
-  /**
-   * @notice retrieves the address of the logic address
-   */
-  function getKeeperRegistryLogicAddress() external view returns (address) {
-    return i_keeperRegistryLogic;
-  }
+  /////////////
+  // GETTERS //
+  /////////////
 
   /**
    * @inheritdoc OCR2Abstract
@@ -582,44 +433,6 @@ contract KeeperRegistry2_1 is
   ////////
 
   /**
-   * @dev This is the address to which proxy functions are delegated to
-   */
-  function _implementation() internal view override returns (address) {
-    return i_keeperRegistryLogic;
-  }
-
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available
-   */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
-    assembly {
-      let g := gas()
-      // Compute g -= PERFORM_GAS_CUSHION and check for underflow
-      if lt(g, PERFORM_GAS_CUSHION) {
-        revert(0, 0)
-      }
-      g := sub(g, PERFORM_GAS_CUSHION)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
-        revert(0, 0)
-      }
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(target)) {
-        revert(0, 0)
-      }
-      // call and return whether we succeeded. ignore return data
-      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
-    }
-    return success;
-  }
-
-  /**
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
@@ -655,7 +468,7 @@ contract KeeperRegistry2_1 is
       return false;
     }
 
-    if (blockhash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
+    if (_blockHash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
@@ -663,7 +476,7 @@ contract KeeperRegistry2_1 is
       return false;
     }
 
-    if (upkeep.maxValidBlocknumber <= block.number) {
+    if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId);
@@ -718,9 +531,8 @@ contract KeeperRegistry2_1 is
   {
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    success = _callWithExactGas(upkeep.executeGas, upkeep.target, callData);
+    success = upkeep.forwarder.forward(upkeep.executeGas, callData);
     gasUsed = gasUsed - gasleft();
-
     return (success, gasUsed);
   }
 
@@ -767,264 +579,5 @@ contract KeeperRegistry2_1 is
       return calculatedGasOverhead;
     }
     return cappedGasOverhead;
-  }
-
-  ////////
-  // PROXY FUNCTIONS - EXECUTED THROUGH FALLBACK
-  ////////
-
-  /**
-   * @notice adds a new upkeep
-   * @param target address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when
-   * performing upkeep
-   * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external override returns (uint256 id) {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice simulated by keepers via eth_call to see if the upkeep needs to be
-   * performed. It returns the success status / failure reason along with the perform data payload.
-   * @param id identifier of the upkeep to check
-   */
-  function checkUpkeep(uint256 id)
-    external
-    override
-    cannotExecute
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData,
-      UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed,
-      uint256 fastGasWei,
-      uint256 linkNative
-    )
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice prevent an upkeep from being performed in the future
-   * @param id upkeep to be canceled
-   */
-  function cancelUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice pause an upkeep
-   * @param id upkeep to be paused
-   */
-  function pauseUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice unpause an upkeep
-   * @param id upkeep to be resumed
-   */
-  function unpauseUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice update the check data of an upkeep
-   * @param id the id of the upkeep whose check data needs to be updated
-   * @param newCheckData the new check data
-   */
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice adds LINK funding for an upkeep by transferring from the sender's
-   * LINK balance
-   * @param id upkeep to fund
-   * @param amount number of LINK to transfer
-   */
-  function addFunds(uint256 id, uint96 amount) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice removes funding from a canceled upkeep
-   * @param id upkeep to withdraw funds from
-   * @param to destination address for sending remaining funds
-   */
-  function withdrawFunds(uint256 id, address to) external {
-    // Executed through logic contract
-    // Restricted to nonRentrant in logic contract as this is not callable from a user's performUpkeep
-    _fallback();
-  }
-
-  /**
-   * @notice allows the admin of an upkeep to modify gas limit
-   * @param id upkeep to be change the gas limit for
-   * @param gasLimit new gas limit for the upkeep
-   */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice allows the admin of an upkeep to modify the offchain config
-   * @param id upkeep to be change the gas limit for
-   * @param config instructs oracles of offchain config preferences
-   */
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws a transmitter's payment, callable only by the transmitter's payee
-   * @param from transmitter address
-   * @param to address to send the payment to
-   */
-  function withdrawPayment(address from, address to) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of a transmitter's payee to another address
-   * @param transmitter address of the transmitter to transfer payee role
-   * @param proposed address to nominate for next payeeship
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of payee role for a transmitter
-   * @param transmitter address to accept the payee role for
-   */
-  function acceptPayeeship(address transmitter) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of an upkeep's admin role to another address
-   * @param id the upkeep id to transfer admin
-   * @param proposed address to nominate for the new upkeep admin
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of admin role for an upkeep
-   * @param id the upkeep id
-   */
-  function acceptUpkeepAdmin(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function migrateUpkeeps(uint256[] calldata ids, address destination)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  ////////
-  // OWNER RESTRICTED FUNCTIONS
-  ////////
-
-  /**
-   * @notice recovers LINK funds improperly transferred to the registry
-   * @dev In principle this function’s execution cost could exceed block
-   * gas limit. However, in our anticipated deployment, the number of upkeeps and
-   * transmitters will be low enough to avoid this problem.
-   */
-  function recoverFunds() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws LINK funds collected through cancellation fees
-   */
-  function withdrawOwnerFunds() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice update the list of payees corresponding to the transmitters
-   * @param payees addresses corresponding to transmitters who are allowed to
-   * move payments which have been accrued
-   */
-  function setPayees(address[] calldata payees) external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they should not perform upkeeps until the
-   * contract has been unpaused
-   */
-  function pause() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they can perform upkeeps once again after
-   * having been paused
-   */
-  function unpause() external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice sets the peer registry migration permission
-   */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
-    // Executed through logic contract
-    // Restricted to onlyOwner in logic contract
-    _fallback();
   }
 }

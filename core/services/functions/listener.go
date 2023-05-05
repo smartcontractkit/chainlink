@@ -3,6 +3,7 @@ package functions
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -11,7 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,7 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 var (
@@ -97,9 +103,17 @@ var (
 )
 
 const (
-	CBORParseTaskName   string = "decode_cbor"
-	ParseResultTaskName string = "parse_result"
-	ParseErrorTaskName  string = "parse_error"
+	ParseResultTaskName  string = "parse_result"
+	ParseErrorTaskName   string = "parse_error"
+	ParseDomainsTaskName string = "parse_domains"
+	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
+	PipelineObservationSource string = `
+		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
+		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
+		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
+		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
+		run_computation -> parse_result -> parse_error -> parse_domains
+	`
 )
 
 type FunctionsListener struct {
@@ -119,26 +133,28 @@ type FunctionsListener struct {
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
+	urlsMonEndpoint   commontypes.MonitoringEndpoint
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:         oracle,
-		oracleHexAddr:  oracle.Address().Hex(),
-		job:            jb,
-		pipelineRunner: runner,
-		jobORM:         jobORM,
-		logBroadcaster: logBroadcaster,
-		mbOracleEvents: utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:         make(chan struct{}),
-		pluginORM:      pluginORM,
-		pluginConfig:   pluginConfig,
-		logger:         lggr,
-		mailMon:        mailMon,
+		oracle:          oracle,
+		oracleHexAddr:   oracle.Address().Hex(),
+		job:             job,
+		pipelineRunner:  runner,
+		jobORM:          jobORM,
+		logBroadcaster:  logBroadcaster,
+		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:          make(chan struct{}),
+		pluginORM:       pluginORM,
+		pluginConfig:    pluginConfig,
+		logger:          lggr,
+		mailMon:         mailMon,
+		urlsMonEndpoint: urlsMonEndpoint,
 	}
 }
 
@@ -319,31 +335,6 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
-	requestData := make(map[string]interface{})
-	requestData["requestId"] = formatRequestId(request.RequestId)
-	meta := make(map[string]interface{})
-	meta["oracleRequest"] = requestData
-
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    l.job.ID,
-			"externalJobID": l.job.ExternalJobID,
-			"name":          l.job.Name.ValueOrZero(),
-		},
-		"jobRun": map[string]interface{}{
-			"meta":                  meta,
-			"logBlockHash":          request.Raw.BlockHash,
-			"logBlockNumber":        request.Raw.BlockNumber,
-			"logTxHash":             request.Raw.TxHash,
-			"logAddress":            request.Raw.Address,
-			"logTopics":             request.Raw.Topics,
-			"logData":               request.Raw.Data,
-			"blockReceiptsRoot":     lb.ReceiptsRoot(),
-			"blockTransactionsRoot": lb.TransactionsRoot(),
-			"blockStateRoot":        lb.StateRoot(),
-		},
-	})
-
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
@@ -366,20 +357,48 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	requestData, cborParseErr := cbor.ParseDietCBOR(request.Data)
+	if cborParseErr != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
+		return
+	}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": map[string]interface{}{
+				"requestId":         formatRequestId(request.RequestId),
+				"subscriptionOwner": request.SubscriptionOwner,
+				"subscriptionId":    request.SubscriptionId,
+				"requestData":       requestData,
+			},
+		},
+	})
+
+	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
+	spec := pipeline.Spec{
+		DotDagSource:      PipelineObservationSource,
+		ID:                l.job.PipelineSpec.ID,
+		JobID:             l.job.PipelineSpec.JobID,
+		JobName:           l.job.PipelineSpec.JobName,
+		JobType:           l.job.PipelineSpec.JobType,
+		CreatedAt:         l.job.CreatedAt,
+		MaxTaskDuration:   l.job.MaxTaskDuration,
+		ForwardingAllowed: l.job.ForwardingAllowed,
+	}
+
+	run := pipeline.NewRun(spec, vars)
 	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
 	if err != nil {
 		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
 		return
 	}
 	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
-
-	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
-	if cborParseErr != nil {
-		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
-		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
-		return
-	}
 
 	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
 	if errResult != nil {
@@ -405,6 +424,19 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	if errErr != nil {
 		l.logger.Errorw("failed to extract error", "requestID", formatRequestId(request.RequestId), "err", errErr)
 		return
+	}
+
+	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
+	if errDomains != nil {
+		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
+	} else if len(reportedDomainsJson) > 0 {
+		var reportedDomains []string
+		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
+		if errJson != nil {
+			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
+		} else if len(reportedDomains) > 0 {
+			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
+		}
 	}
 
 	if len(computationError) != 0 {
@@ -476,5 +508,20 @@ func (l *FunctionsListener) timeoutRequests() {
 				l.logger.Debug("no requests to time out")
 			}
 		}
+	}
+}
+
+func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
+	r := &telem.FunctionsRequest{
+		RequestId:   formatRequestId(requestId),
+		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
+		Domains:     domains,
+	}
+
+	bytes, err := proto.Marshal(r)
+	if err != nil {
+		l.logger.Warnw("telem.FunctionsRequest marshal error", "err", err)
+	} else {
+		l.urlsMonEndpoint.SendLog(bytes)
 	}
 }

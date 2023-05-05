@@ -3,8 +3,7 @@ package feeds_test
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/mock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,15 +21,9 @@ type TestRPCHandlers struct {
 
 func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	var (
-		svc            = &mocks.Service{}
+		svc            = mocks.NewService(t)
 		feedsManagerID = int64(1)
 	)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			svc,
-		)
-	})
 
 	return &TestRPCHandlers{
 		RPCHandlers:    feeds.NewRPCHandlers(svc, feedsManagerID),
@@ -42,7 +35,7 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
 		ctx     = testutils.Context(t)
-		jobID   = uuid.NewV4()
+		jobID   = uuid.New()
 		spec    = FluxMonitorTestSpec
 		version = int64(1)
 	)
@@ -68,7 +61,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 func Test_RPCHandlers_DeleteJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
-		jobID = uuid.NewV4()
+		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
 
@@ -88,7 +81,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 func Test_RPCHandlers_RevokeJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
-		jobID = uuid.NewV4()
+		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
 

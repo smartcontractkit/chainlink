@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -65,7 +65,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 func (jc *JobsController) Show(c *gin.Context) {
 	var err error
 	jobSpec := job.Job{}
-	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
+	if externalJobID, pErr := uuid.Parse(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
 		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {

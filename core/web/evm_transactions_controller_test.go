@@ -7,6 +7,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -24,7 +25,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	db := app.GetSqlxDB()
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -37,7 +38,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.GasPrice = assets.NewWeiI(3)
+	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 
@@ -80,16 +81,16 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
-	require.Len(t, tx.EthTxAttempts, 1)
-	attempt := tx.EthTxAttempts[0]
-	attempt.EthTx = tx
+	require.Len(t, tx.TxAttempts, 1)
+	attempt := tx.TxAttempts[0]
+	attempt.Tx = tx
 
-	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
+	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.String())
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -113,12 +114,12 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.TxmORM()
+	borm := app.TxmStorageService()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
-	require.Len(t, tx.EthTxAttempts, 1)
-	attempt := tx.EthTxAttempts[0]
+	require.Len(t, tx.TxAttempts, 1)
+	attempt := tx.TxAttempts[0]
 
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
 	t.Cleanup(cleanup)

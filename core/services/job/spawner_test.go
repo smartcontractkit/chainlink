@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -79,7 +80,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil).Maybe()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -186,7 +187,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, spawner.Start(testutils.Context(t)))
 
 		eventually.AwaitOrFail(t)
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
@@ -260,6 +260,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			Client:        ethClient,
 			GeneralConfig: config,
 			LogPoller:     lp,
+			KeyStore:      ethKeyStore,
 		}
 		cs := evmtest.NewChainSet(t, testopts)
 
@@ -270,9 +271,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-		relayers := make(map[relay.Network]relaytypes.Relayer)
+		relayers := make(map[relay.Network]func() (loop.Relayer, error))
 		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
-		relayers[relay.EVM] = evmRelayer
+		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
+		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, config,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)

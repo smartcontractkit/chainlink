@@ -11,7 +11,7 @@ jobs:
       bash-cicd-scripts-src: ${{ steps.bash-cicd-scripts.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # v2.10.2
         id: bash-cicd-scripts
         with:
@@ -25,7 +25,7 @@ jobs:
     needs: [changes]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run ShellCheck
         if: needs.changes.outputs.bash-cicd-scripts-src == 'true'
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
@@ -40,7 +40,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Install shellspec
         if: needs.changes.outputs.bash-cicd-scripts-src == 'true'
         env:

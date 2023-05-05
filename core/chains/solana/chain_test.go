@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -48,7 +48,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	testChain := chain{
 		id:          "devnet",
-		nodes:       solORM.NodesForChain,
+		nodes:       solORM.Nodes,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
@@ -219,20 +219,18 @@ type mockConfigs struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockConfigs) GetNodesByChainIDs(chainIDs []string) (nodes []db.Node, err error) {
-	panic("implement me")
+func (m *mockConfigs) Nodes(chainID string) (nodes []db.Node, err error) {
+	return m.nodesForChain, nil
 }
 
-func (m *mockConfigs) NodesForChain(chainID string, offset, limit int) (nodes []db.Node, count int, err error) {
-	return m.nodesForChain, len(m.nodesForChain), nil
-}
-
-func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]chains.ChainConfig, int, error) {
+func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error) {
 	panic("unimplemented")
 }
 
-func (m *mockConfigs) NodeNamed(s string) (db.Node, error) { panic("unimplemented") }
+func (m *mockConfigs) Node(s string) (db.Node, error) { panic("unimplemented") }
 
-func (m *mockConfigs) Nodes(offset, limit int) (nodes []db.Node, count int, err error) {
+func (m *mockConfigs) NodeStatus(s string) (types.NodeStatus, error) { panic("unimplemented") }
+
+func (m *mockConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	panic("unimplemented")
 }

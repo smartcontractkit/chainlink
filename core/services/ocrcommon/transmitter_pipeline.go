@@ -33,7 +33,7 @@ type pipelineTransmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.TransmitCheckerSpec
+	checker                     txmgr.EvmTransmitCheckerSpec
 	pr                          pipeline.Runner
 	spec                        job.Job
 	chainID                     string
@@ -46,7 +46,7 @@ func NewPipelineTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
+	checker txmgr.EvmTransmitCheckerSpec,
 	pr pipeline.Runner,
 	spec job.Job,
 	chainID string,
@@ -64,7 +64,7 @@ func NewPipelineTransmitter(
 	}
 }
 
-func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, _ *txmgr.EthTxMeta) error {
 	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{

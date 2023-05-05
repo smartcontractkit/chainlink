@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 type Config interface {
@@ -30,6 +30,7 @@ func NewServices(
 	lggr logger.Logger,
 	argsNoPlugin libocr2.OracleArgs,
 	cfg Config,
+	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -50,6 +51,7 @@ func NewServices(
 		*jb.PipelineSpec,
 		lggr,
 		runResults,
+		chEnhancedTelem,
 	)
 	wrappedPluginFactory := relaymercury.NewFactory(
 		ds,

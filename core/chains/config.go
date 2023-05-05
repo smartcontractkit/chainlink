@@ -5,30 +5,27 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-type ChainConfigs[I ID] interface {
-	Chains(offset, limit int, ids ...I) ([]ChainConfig, int, error)
+type ChainConfigs interface {
+	Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error)
 }
 
 type NodeConfigs[I ID, N Node] interface {
-	GetNodesByChainIDs(chainIDs []I) (nodes []N, err error)
-	NodeNamed(string) (N, error)
-	Nodes(offset, limit int) (nodes []N, count int, err error)
-	NodesForChain(chainID I, offset, limit int) (nodes []N, count int, err error)
+	Node(name string) (N, error)
+	Nodes(chainID I) (nodes []N, err error)
+
+	NodeStatus(name string) (types.NodeStatus, error)
+	NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
 }
 
 // Configs holds chain and node configurations.
 type Configs[I ID, N Node] interface {
-	ChainConfigs[I]
+	ChainConfigs
 	NodeConfigs[I, N]
-}
-
-type ChainConfig struct {
-	ID      string
-	Enabled bool
-	Cfg     string // TOML
 }
 
 func EnsureChains[I ID](q pg.Q, prefix string, ids []I) (err error) {

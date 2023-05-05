@@ -25,6 +25,8 @@ import (
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+
 	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
@@ -39,7 +41,7 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 
@@ -709,6 +711,34 @@ func (_m *GeneralConfig) Dev() bool {
 	return r0
 }
 
+// DevWebServer provides a mock function with given fields:
+func (_m *GeneralConfig) DevWebServer() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// DisableRateLimiting provides a mock function with given fields:
+func (_m *GeneralConfig) DisableRateLimiting() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // EVMConfigs provides a mock function with given fields:
 func (_m *GeneralConfig) EVMConfigs() v2.EVMConfigs {
 	ret := _m.Called()
@@ -978,6 +1008,20 @@ func (_m *GeneralConfig) HTTPServerWriteTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// InfiniteDepthQueries provides a mock function with given fields:
+func (_m *GeneralConfig) InfiniteDepthQueries() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -1292,7 +1336,7 @@ func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
 }
 
 // LogConfiguration provides a mock function with given fields: log
-func (_m *GeneralConfig) LogConfiguration(log config.LogFn) {
+func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
 }
 
@@ -1389,6 +1433,22 @@ func (_m *GeneralConfig) LogUnixTimestamps() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// MercuryCredentials provides a mock function with given fields: credName
+func (_m *GeneralConfig) MercuryCredentials(credName string) *ocr2models.MercuryCredentials {
+	ret := _m.Called(credName)
+
+	var r0 *ocr2models.MercuryCredentials
+	if rf, ok := ret.Get(0).(func(string) *ocr2models.MercuryCredentials); ok {
+		r0 = rf(credName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
+		}
 	}
 
 	return r0
@@ -1609,6 +1669,20 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// OCRDevelopmentMode provides a mock function with given fields:
+func (_m *GeneralConfig) OCRDevelopmentMode() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2684,6 +2758,20 @@ func (_m *GeneralConfig) VRFPassword() string {
 
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ValidateDB provides a mock function with given fields:
+func (_m *GeneralConfig) ValidateDB() error {
 	ret := _m.Called()
 
 	var r0 error

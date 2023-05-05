@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -1135,7 +1135,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		expectedBlock = 5
 	)
 	var (
-		ethClient = evmmocks.NewClient(t)
+		ethClient = evmclimocks.NewClient(t)
 		contract0 = newMockContract()
 		contract1 = newMockContract()
 		contract2 = newMockContract()
@@ -1143,7 +1143,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
-	ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
@@ -1683,9 +1683,9 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	testutils.SkipShortDB(t)
 	gm := gomega.NewWithT(t)
 
-	ethClient := evmmocks.NewClient(t)
+	ethClient := evmclimocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	ethClient.On("ChainID").Return(big.NewInt(0)).Maybe()
+	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
 	logsChCh := make(chan evmtest.RawSub[types.Log])
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(

@@ -17,7 +17,6 @@ import (
 )
 
 //go:generate mockery --quiet --name Spawner --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Delegate --output ./mocks/ --case=underscore
 
 type (
 	// Spawner manages the spinning up and down of the long-running
@@ -50,7 +49,7 @@ type (
 		lggr             logger.Logger
 
 		utils.StartStopOnce
-		chStop              chan struct{}
+		chStop              utils.StopChan
 		lbDependentAwaiters []utils.DependentAwaiter
 	}
 
@@ -203,7 +202,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	srvs, err := delegate.ServicesForSpec(jb)
 	if err != nil {
 		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "error", err)
-		cctx, cancel := utils.ContextFromChan(js.chStop)
+		cctx, cancel := js.chStop.NewCtx()
 		defer cancel()
 		js.orm.TryRecordError(jb.ID, err.Error(), pg.WithParentCtx(cctx))
 		js.activeJobs[jb.ID] = aj
@@ -236,7 +235,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	}
 
 	q := js.q.WithOpts(qopts...)
-	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	pctx, cancel := js.chStop.Ctx(q.ParentCtx)
 	defer cancel()
 	q.ParentCtx = pctx
 
@@ -281,7 +280,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	}()
 
 	q := js.q.WithOpts(qopts...)
-	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
+	pctx, cancel := js.chStop.Ctx(q.ParentCtx)
 	defer cancel()
 	q.ParentCtx = pctx
 	ctx, cancel := q.Context()

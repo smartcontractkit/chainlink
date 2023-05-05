@@ -69,13 +69,19 @@ func (_m *OCR2) Delete(id string) error {
 	return r0
 }
 
-// EnsureKeys provides a mock function with given fields:
-func (_m *OCR2) EnsureKeys() error {
-	ret := _m.Called()
+// EnsureKeys provides a mock function with given fields: enabledChains
+func (_m *OCR2) EnsureKeys(enabledChains ...chaintype.ChainType) error {
+	_va := make([]interface{}, len(enabledChains))
+	for _i := range enabledChains {
+		_va[_i] = enabledChains[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(...chaintype.ChainType) error); ok {
+		r0 = rf(enabledChains...)
 	} else {
 		r0 = ret.Error(0)
 	}

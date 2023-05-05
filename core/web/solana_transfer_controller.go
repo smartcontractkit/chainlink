@@ -1,16 +1,12 @@
 package web
 
 import (
+	"math/big"
 	"net/http"
 
-	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-
-	solanaGo "github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -26,8 +22,8 @@ type SolanaTransfersController struct {
 
 // Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
-	solanaChains := tc.App.GetChains().Solana
-	if solanaChains == nil {
+	relayerSrv := tc.App.GetChains().Solana
+	if relayerSrv == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return
 	}
@@ -41,69 +37,33 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("missing solanaChainID"))
 		return
 	}
-	chain, err := solanaChains.Chain(c.Request.Context(), tr.SolanaChainID)
-	switch err {
-	case chains.ErrNotFound, chains.ErrChainIDEmpty:
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	case nil:
-		break
-	default:
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
 	if tr.From.IsZero() {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("source address is missing: %v", tr.From))
 		return
 	}
-
 	if tr.Amount == 0 {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("amount must be greater than zero"))
 		return
 	}
 
-	txm := chain.TxManager()
-	var reader client.Reader
-	reader, err = chain.Reader()
+	relayer, err := relayerSrv.Relayer()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("chain unreachable: %v", err))
 		return
 	}
-
-	blockhash, err := reader.LatestBlockhash()
+	amount := new(big.Int).SetUint64(tr.Amount)
+	err = relayer.SendTx(c, tr.SolanaChainID, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to get latest block hash: %v", err))
-		return
-	}
-
-	tx, err := solanaGo.NewTransaction(
-		[]solanaGo.Instruction{
-			system.NewTransferInstruction(
-				tr.Amount,
-				tr.From,
-				tr.To,
-			).Build(),
-		},
-		blockhash.Value.Blockhash,
-		solanaGo.TransactionPayer(tr.From),
-	)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to create tx: %v", err))
-		return
-	}
-
-	if !tr.AllowHigherAmounts {
-		if err = solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to validate balance: %v", err))
+		switch err {
+		case chains.ErrNotFound, chains.ErrChainIDEmpty:
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		case nil:
+			break
+		default:
+			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-	}
-
-	err = txm.Enqueue("", tx)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("transaction failed: %v", err))
-		return
 	}
 
 	resource := presenters.NewSolanaMsgResource("sol_transfer_"+uuid.New().String(), tr.SolanaChainID)
@@ -115,21 +75,4 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		"solanaTransactionResource": resource,
 	})
 	jsonAPIResponse(c, resource, "solana_tx")
-}
-
-func solanaValidateBalance(reader client.Reader, from solanaGo.PublicKey, amount uint64, msg string) error {
-	balance, err := reader.Balance(from)
-	if err != nil {
-		return err
-	}
-
-	fee, err := reader.GetFeeForMessage(msg)
-	if err != nil {
-		return err
-	}
-
-	if balance < (amount + fee) {
-		return errors.Errorf("balance %d is too low for this transaction to be executed: amount %d + fee %d", balance, amount, fee)
-	}
-	return nil
 }

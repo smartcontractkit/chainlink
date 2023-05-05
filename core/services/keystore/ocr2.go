@@ -20,7 +20,7 @@ type OCR2 interface {
 	Delete(id string) error
 	Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKeys() error
+	EnsureKeys(enabledChains ...chaintype.ChainType) error
 }
 
 type ocr2 struct {
@@ -131,14 +131,14 @@ func (ks ocr2) Export(id string, password string) ([]byte, error) {
 	return ocr2key.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
-func (ks ocr2) EnsureKeys() error {
+func (ks ocr2) EnsureKeys(enabledChains ...chaintype.ChainType) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
 		return ErrLocked
 	}
 
-	for _, chainType := range chaintype.SupportedChainTypes {
+	for _, chainType := range enabledChains {
 		keys, err := ks.getAllOfType(chainType)
 		if err != nil {
 			return err
@@ -153,7 +153,7 @@ func (ks ocr2) EnsureKeys() error {
 			return err
 		}
 
-		ks.logger.Infof("Created OCR2 key with ID %s", created.ID())
+		ks.logger.Infof("Created OCR2 key with ID %s for chain type %s", created.ID(), chainType)
 	}
 
 	return nil

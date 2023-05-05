@@ -137,10 +137,6 @@ func (ks *cosmos) EnsureKey() error {
 	return ks.safeAddKey(key)
 }
 
-var (
-	ErrNoCosmosKey = errors.New("no cosmos keys exist")
-)
-
 func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 	key, found := ks.keyRing.Cosmos[id]
 	if !found {

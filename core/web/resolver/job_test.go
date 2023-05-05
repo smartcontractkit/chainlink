@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
@@ -26,7 +26,7 @@ import (
 // in the `spec_test` file
 func TestResolver_Jobs(t *testing.T) {
 	var (
-		externalJobID = uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001"))
+		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
 
 		query = `
 			query GetJobs {
@@ -137,7 +137,7 @@ func TestResolver_Jobs(t *testing.T) {
 func TestResolver_Job(t *testing.T) {
 	var (
 		id            = int32(1)
-		externalJobID = uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001"))
+		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
 
 		query = `
 			query GetJob {
@@ -366,7 +366,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	id := int32(123)
-	extJID := uuid.NewV4()
+	extJID := uuid.New()
 	mutation := `
 		mutation DeleteJob($id: ID!) {
 			deleteJob(id: $id) {

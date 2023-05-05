@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -199,7 +199,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440002")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440002")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
@@ -302,7 +302,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440005")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440005")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 

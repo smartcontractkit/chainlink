@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 type FunctionsBillingRegistryEventsMockCommitment struct {
@@ -151,11 +152,11 @@ func NewFunctionsBillingRegistryEventsMockFilterer(address common.Address, filte
 }
 
 func bindFunctionsBillingRegistryEventsMock(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(FunctionsBillingRegistryEventsMockABI))
+	parsed, err := FunctionsBillingRegistryEventsMockMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_FunctionsBillingRegistryEventsMock *FunctionsBillingRegistryEventsMockRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

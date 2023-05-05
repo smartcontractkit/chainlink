@@ -17,20 +17,18 @@ import (
 )
 
 type Configs interface {
-	chains.ChainConfigs[utils.Big]
+	chains.ChainConfigs
 	chains.NodeConfigs[utils.Big, Node]
 }
 
 type Node struct {
-	ID         int32
 	Name       string
 	EVMChainID utils.Big
-	WSURL      null.String `db:"ws_url"`
-	HTTPURL    null.String `db:"http_url"`
+	WSURL      null.String
+	HTTPURL    null.String
 	SendOnly   bool
-	// State doesn't exist in the DB, it's used to hold an in-memory state for
-	// rendering
-	State string `db:"-"`
+
+	State string
 }
 
 // Receipt represents an ethereum receipt.
@@ -82,14 +80,14 @@ func FromGethReceipt(gr *gethTypes.Receipt) *Receipt {
 // Batch calls to the RPC will return a pointer to an empty Receipt struct
 // Easiest way to check if the receipt was missing is to see if the hash is 0x0
 // Real receipts will always have the TxHash set
-func (r Receipt) IsZero() bool {
+func (r *Receipt) IsZero() bool {
 	return r.TxHash == utils.EmptyHash
 }
 
 // IsUnmined returns true if the receipt is for a TX that has not been mined yet.
 // Supposedly according to the spec this should never happen, but Parity does
 // it anyway.
-func (r Receipt) IsUnmined() bool {
+func (r *Receipt) IsUnmined() bool {
 	return r.BlockHash == utils.EmptyHash
 }
 
@@ -188,6 +186,22 @@ func (r *Receipt) Scan(value interface{}) error {
 
 func (r *Receipt) Value() (driver.Value, error) {
 	return json.Marshal(r)
+}
+
+func (r *Receipt) GetStatus() uint64 {
+	return r.Status
+}
+
+func (r *Receipt) GetTxHash() common.Hash {
+	return r.TxHash
+}
+
+func (r *Receipt) TxHashString() string {
+	return r.TxHash.String()
+}
+
+func (r *Receipt) GetBlockNumber() int64 {
+	return r.BlockNumber.Int64()
 }
 
 // Log represents a contract log event.

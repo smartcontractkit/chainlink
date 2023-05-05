@@ -15,7 +15,6 @@ import (
 	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -45,7 +44,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := new(htmocks.HeadTracker)
+			mht := htmocks.NewHeadTracker(t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{
@@ -53,10 +52,6 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				},
 				active: actives,
 			}
-
-			mht.On("LatestChain").Return(&evmtypes.Head{
-				Number: test.LatestHead,
-			})
 
 			keys, err := rg.GetActiveUpkeepIDs(context.Background())
 

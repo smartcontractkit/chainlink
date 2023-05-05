@@ -5,6 +5,7 @@ package mocks
 import (
 	time "time"
 
+	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -78,6 +79,22 @@ func (_m *Config) LogSQL() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// MercuryCredentials provides a mock function with given fields: credName
+func (_m *Config) MercuryCredentials(credName string) *models.MercuryCredentials {
+	ret := _m.Called(credName)
+
+	var r0 *models.MercuryCredentials
+	if rf, ok := ret.Get(0).(func(string) *models.MercuryCredentials); ok {
+		r0 = rf(credName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.MercuryCredentials)
+		}
 	}
 
 	return r0
@@ -207,6 +224,20 @@ func (_m *Config) OCR2KeyBundleID() (string, error) {
 
 // OCR2TraceLogging provides a mock function with given fields:
 func (_m *Config) OCR2TraceLogging() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// OCRDevelopmentMode provides a mock function with given fields:
+func (_m *Config) OCRDevelopmentMode() bool {
 	ret := _m.Called()
 
 	var r0 bool

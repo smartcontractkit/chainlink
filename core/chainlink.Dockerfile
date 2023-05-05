@@ -12,12 +12,10 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
-COPY common common
-COPY core core
-COPY operator_ui operator_ui
+COPY . .
 
 # Build the golang binary
-RUN make chainlink-build
+RUN make install-chainlink
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
@@ -35,7 +33,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
 # Dependency of CosmWasm/wasmd
-COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.*.so /usr/lib/
+COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
 RUN chmod 755 /usr/lib/libwasmvm.*.so
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
@@ -43,6 +41,9 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
   fi
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
+# explicit set the cache dir. needed so both root and non-root user has an explicit location
+ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

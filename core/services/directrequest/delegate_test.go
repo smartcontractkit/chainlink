@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -41,8 +41,9 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
 	delegate := directrequest.NewDelegate(lggr, runner, nil, cc, mailMon)
@@ -80,17 +81,17 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon})
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg)
 	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, cc, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
-	jb.ExternalJobID = uuid.NewV4()
+	jb.ExternalJobID = uuid.New()
 	if specF != nil {
 		specF(jb)
 	}

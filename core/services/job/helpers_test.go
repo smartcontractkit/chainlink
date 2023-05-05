@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -169,7 +170,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, testutils.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
 	require.NoError(t, err)
@@ -213,10 +214,11 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		Name:          null.NewString("a job", true),
 		Type:          job.OffchainReporting,
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
+	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	_, err := ocr.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
@@ -251,7 +253,7 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, transmitterAddress commo
 func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	t.Helper()
 
-	id := uuid.NewV4()
+	id := uuid.New()
 	var jb = job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,
@@ -308,7 +310,7 @@ func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralC
 func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {
 	t.Helper()
 
-	id := uuid.NewV4()
+	id := uuid.New()
 	var jb = job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,

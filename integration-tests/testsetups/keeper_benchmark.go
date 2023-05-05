@@ -12,22 +12,22 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -63,8 +63,10 @@ type KeeperBenchmarkTestInputs struct {
 	RegistryVersions       []ethereum.KeeperRegistryVersion  // Registry version to use
 	PreDeployedConsumers   []string                          // PreDeployed consumer contracts to re-use in test
 	UpkeepResetterAddress  string
-	InitialBatchReset      bool
+	ForceSingleTxnKey      bool
 	BlockTime              time.Duration
+	DeltaStage             time.Duration
+	DeleteJobsOnEnd        bool
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -96,7 +98,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 	k.chainClient.ParallelTransactions(true)
 
-	if len(inputs.RegistryVersions) > 1 {
+	if len(inputs.RegistryVersions) > 1 && !inputs.ForceSingleTxnKey {
 		for nodeIndex, node := range k.chainlinkNodes {
 			for registryIndex := 1; registryIndex < len(inputs.RegistryVersions); registryIndex++ {
 				l.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
@@ -106,13 +108,20 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 		}
 	}
 
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	err = k.chainClient.WaitForEvents()
+	require.NoError(t, err, "Failed waiting for LINK Contract deployment")
+
+	ethFeed, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
+	gasFeed, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
+	err = k.chainClient.WaitForEvents()
+	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
+
 	for index := range inputs.RegistryVersions {
 		l.Info().Int("Index", index).Msg("Starting Test Setup")
-
-		linkToken, err := contractDeployer.DeployLinkTokenContract()
-		require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-		err = k.chainClient.WaitForEvents()
-		require.NoError(t, err, "Failed waiting for LINK Contract deployment")
 
 		k.keeperRegistries[index], k.keeperRegistrars[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
 			t,
@@ -132,10 +141,17 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 			inputs.UpkeepResetterAddress,
 			k.chainlinkNodes,
 			inputs.BlockTime,
+			ethFeed,
+			gasFeed,
 		)
 	}
 
-	for index := range inputs.RegistryVersions {
+	var keysToFund = inputs.RegistryVersions
+	if inputs.ForceSingleTxnKey {
+		keysToFund = inputs.RegistryVersions[0:1]
+	}
+
+	for index := range keysToFund {
 		// Fund chainlink nodes
 		nodesToFund := k.chainlinkNodes
 		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 {
@@ -177,27 +193,44 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 	startTime := time.Now()
 
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
+	var consumerContractsToReset []contracts.KeeperConsumerBenchmark
 
 	for rIndex := range k.keeperRegistries {
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(
-			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.BlockTime*5,
+		if k.Inputs.DeltaStage == 0 {
+			k.Inputs.DeltaStage = k.Inputs.BlockTime * 5
+		}
+
+		var txKeyId = rIndex
+		if inputs.ForceSingleTxnKey {
+			txKeyId = 0
+		}
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
+			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId,
 		)
+		require.NoError(t, err, "Building OCR config shouldn't fail")
 
 		// Send keeper jobs to registry and chainlink nodes
 		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
-			actions.CreateOCRKeeperJobs(t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), rIndex)
+			actions.CreateOCRKeeperJobs(t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), txKeyId)
 			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")
-			// Give time for OCR nodes to bootstrap
-			time.Sleep(2 * time.Minute)
 		} else {
-			actions.CreateKeeperJobsWithKeyIndex(t, k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex, ocrConfig)
+			actions.CreateKeeperJobsWithKeyIndex(t, k.chainlinkNodes, k.keeperRegistries[rIndex], txKeyId, ocrConfig)
 		}
 		err = k.chainClient.WaitForEvents()
 		require.NoError(t, err, "Error waiting for registry setConfig")
-		// Reset upkeeps so that they become eligible gradually after the test starts
-		actions.ResetUpkeeps(t, contractDeployer, k.chainClient, inputs.NumberOfContracts, inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
-			inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, k.keeperConsumerContracts[rIndex], inputs.UpkeepResetterAddress)
+		for _, consumerContract := range k.keeperConsumerContracts[rIndex] {
+			consumerContractsToReset = append(consumerContractsToReset, consumerContract)
+			log.Debug().Str("Contract", consumerContract.Address()).Msg("Added consumer contract to reset queue")
+		}
+	}
+
+	log.Debug().Int("consumerContractsToReset", len(consumerContractsToReset)).Msg("Reset Queue Length")
+	// Reset upkeeps so that they become eligible gradually after the test starts
+	actions.ResetUpkeeps(t, contractDeployer, k.chainClient, len(consumerContractsToReset), inputs.BlockRange, inputs.BlockInterval, inputs.CheckGasToBurn,
+		inputs.PerformGasToBurn, inputs.FirstEligibleBuffer, consumerContractsToReset, inputs.UpkeepResetterAddress)
+
+	for rIndex := range k.keeperRegistries {
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
 			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
@@ -250,8 +283,10 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 	k.TestReporter.Summary.EndTime = endTime.UnixMilli() + (30 * time.Second.Milliseconds())
 
 	for rIndex := range k.keeperRegistries {
-		// Delete keeper jobs on chainlink nodes
-		actions.DeleteKeeperJobsWithId(t, k.chainlinkNodes, rIndex+1)
+		if inputs.DeleteJobsOnEnd {
+			// Delete keeper jobs on chainlink nodes
+			actions.DeleteKeeperJobsWithId(t, k.chainlinkNodes, rIndex+1)
+		}
 	}
 
 	l.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")

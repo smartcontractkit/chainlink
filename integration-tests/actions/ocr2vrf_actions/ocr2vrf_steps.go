@@ -8,14 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -69,7 +68,17 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	l.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
 }
 
-func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chainlink, dkg contracts.DKG, vrfBeacon contracts.VRFBeacon, coordinator contracts.VRFCoordinatorV3, mockETHLinkFeed contracts.MockETHLINKFeed, keyID string, vrfBeaconAllowedConfirmationDelays []string, coordinatorConfig *ocr2vrftypes.CoordinatorConfig) *OCR2VRFPluginConfig {
+func SetAndGetOCR2VRFPluginConfig(
+	t *testing.T,
+	nonBootstrapNodes []*client.Chainlink,
+	dkg contracts.DKG,
+	vrfBeacon contracts.VRFBeacon,
+	coordinator contracts.VRFCoordinatorV3,
+	mockETHLinkFeed contracts.MockETHLINKFeed,
+	keyID string,
+	vrfBeaconAllowedConfirmationDelays []string,
+	coordinatorConfig *ocr2vrftypes.CoordinatorConfig,
+) *OCR2VRFPluginConfig {
 	var (
 		dkgKeyConfigs      []DKGKeyConfig
 		transmitters       []string
@@ -200,6 +209,7 @@ func RequestAndRedeemRandomness(
 	numberOfRandomWordsToRequest uint16,
 	subscriptionID,
 	confirmationDelay *big.Int,
+	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
 	l := utils.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomness(
@@ -215,7 +225,7 @@ func RequestAndRedeemRandomness(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
@@ -227,7 +237,7 @@ func RequestAndRedeemRandomness(
 	return requestID
 }
 
-func RequestRandomnessFulfillment(
+func RequestRandomnessFulfillmentAndWaitForFulfilment(
 	t *testing.T,
 	consumer contracts.VRFBeaconConsumer,
 	chainClient blockchain.EVMClient,
@@ -235,6 +245,7 @@ func RequestRandomnessFulfillment(
 	numberOfRandomWordsToRequest uint16,
 	subscriptionID *big.Int,
 	confirmationDelay *big.Int,
+	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
 	l := utils.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomnessFulfillment(
@@ -252,7 +263,7 @@ func RequestRandomnessFulfillment(
 
 	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
 
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(time.Minute * 5)
+	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
 	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
 

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	pkgerrors "github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -43,7 +43,6 @@ const (
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {

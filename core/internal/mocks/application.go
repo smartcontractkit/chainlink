@@ -11,9 +11,13 @@ import (
 
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	common "github.com/ethereum/go-ethereum/common"
+
 	context "context"
 
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+
+	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
@@ -35,9 +39,11 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 
@@ -495,16 +501,16 @@ func (_m *Application) Stop() error {
 	return r0
 }
 
-// TxmORM provides a mock function with given fields:
-func (_m *Application) TxmORM() txmgr.ORM {
+// TxmStorageService provides a mock function with given fields:
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList] {
 	ret := _m.Called()
 
-	var r0 txmgr.ORM
-	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.ORM)
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList])
 		}
 	}
 

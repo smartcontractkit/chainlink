@@ -1,16 +1,18 @@
 package functions_test
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
@@ -25,11 +27,15 @@ import (
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	job_mocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -39,6 +45,7 @@ type FunctionsListenerUniverse struct {
 	jobORM         *job_mocks.ORM
 	pluginORM      *functions_mocks.ORM
 	logBroadcaster *log_mocks.Broadcaster
+	ingressClient  *sync_mocks.TelemetryIngressClient
 }
 
 func ptr[T any](t T) *T { return &t }
@@ -54,45 +61,53 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon})
+	kst := cltest.NewKeyStore(t, db, cfg)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
 	chain := cc.Chains()[0]
 	lggr := logger.TestLogger(t)
 
 	jobORM := job_mocks.NewORM(t)
 	pluginORM := functions_mocks.NewORM(t)
-	jb := &job.Job{
+	jsonConfig := job.JSONConfig{
+		"requestTimeoutSec":               timeoutSec,
+		"requestTimeoutCheckFrequencySec": 1,
+		"requestTimeoutBatchLookupSize":   1,
+		"listenerEventHandlerTimeoutSec":  1,
+	}
+	jb := job.Job{
 		Type:          job.OffchainReporting2,
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 		PipelineSpec:  &pipeline.Spec{},
 		OCR2OracleSpec: &job.OCR2OracleSpec{
-			PluginConfig: job.JSONConfig{
-				"requestTimeoutSec":               timeoutSec,
-				"requestTimeoutCheckFrequencySec": 1,
-				"requestTimeoutBatchLookupSize":   1,
-				"listenerEventHandlerTimeoutSec":  1,
-			},
+			PluginConfig: jsonConfig,
 		},
 	}
 
-	oracle, err := functions.NewDROracle(*jb, runner, jobORM, pluginORM, chain, lggr, nil, mailMon)
+	var pluginConfig config.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	require.NoError(t, err)
 
-	serviceArray, err := oracle.GetServices()
+	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(common.HexToAddress("0xa"), chain.Client())
 	require.NoError(t, err)
-	assert.Len(t, serviceArray, 1)
-	service := serviceArray[0]
+
+	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
+
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
 
 	return &FunctionsListenerUniverse{
 		runner:         runner,
-		service:        service.(*functions_service.FunctionsListener),
+		service:        functionsListener,
 		jobORM:         jobORM,
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
+		ingressClient:  ingressClient,
 	}
 }
 
-func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
+func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
 	uni := NewFunctionsListenerUniverse(t, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
@@ -100,10 +115,6 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 	require.NoError(t, err)
 
 	log := log_mocks.NewBroadcast(t)
-	log.On("ReceiptsRoot").Return(common.Hash{})
-	log.On("TransactionsRoot").Return(common.Hash{})
-	log.On("StateRoot").Return(common.Hash{})
-
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
 		RequestId:          RequestID,
@@ -111,7 +122,7 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 		RequestInitiator:   common.Address{},
 		SubscriptionId:     0,
 		SubscriptionOwner:  common.Address{},
-		Data:               []byte("data"),
+		Data:               cbor,
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
@@ -120,7 +131,6 @@ func PrepareAndStartFunctionsListener(t *testing.T, expectPipelineRun bool) (*Fu
 		return uni, log, nil
 	}
 
-	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	runBeganAwaiter := cltest.NewAwaiter()
 	uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
 		Return(false, nil).
@@ -143,12 +153,13 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
@@ -157,16 +168,49 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
+func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte(`["github.com","google.com"]`), nil)
+	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
+
+	var sentMessage []byte
+	uni.ingressClient.On("Send", mock.Anything).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	})
+
+	uni.service.HandleLog(log)
+
+	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	uni.service.Close()
+
+	assert.NotEmpty(t, sentMessage)
+
+	var req telem.FunctionsRequest
+	err := proto.Unmarshal(sentMessage, &req)
+	assert.NoError(t, err)
+	assert.Equal(t, "0x"+RequestID.String(), req.RequestId)
+	assert.EqualValues(t, []string{"github.com", "google.com"}, req.Domains)
+}
+
 func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return([]byte{}, nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
 	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
+	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	uni.service.HandleLog(log)
@@ -179,15 +223,17 @@ func TestFunctionsListener_HandleOracleRequestCBORParsingError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, true)
+	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte("invalid cbor"), false)
 
+	done := make(chan bool)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.CBORParseTaskName, mock.Anything).Return(nil, errors.New("bad cbor"))
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		done <- true
+	})
 
 	uni.service.HandleLog(log)
-
-	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	<-done
 	uni.service.Close()
 }
 
@@ -216,7 +262,7 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 
 	var ormCallExited sync.WaitGroup
 	ormCallExited.Add(1)
-	uni, log, _ := PrepareAndStartFunctionsListener(t, false)
+	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte{}, false)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		var queryerWrapper pg.Q
 		args.Get(3).(pg.QOpt)(&queryerWrapper)

@@ -217,7 +217,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		cfg := chain.Config()
 		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
 
-		var checker txmgr.TransmitCheckerSpec
+		var checker txmgr.EvmTransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
@@ -236,7 +236,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
 		if jb.ForwardingAllowed {
-			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(concreteSpec.TransmitterAddress.Address())
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(effectiveTransmitterAddress)
 			if fwderr == nil {
 				effectiveTransmitterAddress = fwdrAddress
 			} else {
@@ -290,6 +290,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			configOverrider = configOverriderService
 		}
 
+		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+			services = append(services, enhancedTelemService)
+		}
+
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrDB,
 			Datasource: ocrcommon.NewDataSourceV1(
@@ -298,7 +304,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 				*jb.PipelineSpec,
 				lggr,
 				runResults,
-				d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA),
+				enhancedTelemChan,
 			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
@@ -317,9 +323,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		oracleCtx := job.NewServiceAdapter(oracle)
 		services = append(services, oracleCtx)
 
-		if !jb.OCROracleSpec.CaptureEATelemetry {
-			lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
-		}
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.

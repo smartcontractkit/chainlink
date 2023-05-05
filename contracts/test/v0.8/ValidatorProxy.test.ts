@@ -332,7 +332,7 @@ describe('ValidatorProxy', () => {
               .connect(aggregator)
               .validate(200, 300, 400, 500)
             const receipt = await resp.wait()
-            assert.equal(receipt.gasUsed.toString(), '32406')
+            assert.equal(receipt.gasUsed.toString(), '32373')
           })
         })
 
@@ -374,7 +374,7 @@ describe('ValidatorProxy', () => {
               .connect(aggregator)
               .validate(2000, 3000, 4000, 5000)
             const receipt = await resp.wait()
-            assert.equal(receipt.gasUsed.toString(), '40495')
+            assert.equal(receipt.gasUsed.toString(), '40429')
           })
         })
       })

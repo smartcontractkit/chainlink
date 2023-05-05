@@ -30,6 +30,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+func NewEvmHash() common.Hash {
+	return utils.NewHash()
+}
+
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gas.MockConfig {
 	cfg := gas.NewMockConfig()
 	cfg.EvmEIP1559DynamicFeesF = true
@@ -1823,7 +1827,8 @@ func (m *MockAttempt) Fee() (f gas.EvmFee) {
 
 	d := m.dynamicFee()
 	if d.FeeCap != nil && d.TipCap != nil {
-		f.Dynamic = &d
+		f.DynamicFeeCap = d.FeeCap
+		f.DynamicTipCap = d.TipCap
 	}
 	return f
 }
@@ -1840,7 +1845,7 @@ func (m *MockAttempt) dynamicFee() gas.DynamicFee {
 
 }
 
-func (m *MockAttempt) GetChainSpecificGasLimit() uint32 {
+func (m *MockAttempt) GetChainSpecificFeeLimit() uint32 {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -1865,7 +1870,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	)
 
 	attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-		&MockAttempt{TxType: 0x0, Hash: utils.NewHash()},
+		&MockAttempt{TxType: 0x0, Hash: NewEvmHash()},
 	}
 
 	t.Run("skips connectivity check if latest block is not present", func(t *testing.T) {
@@ -1977,10 +1982,10 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
 
 		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 		}
 
 		t.Run("passes check if all blocks have percentile price higher or exactly at the highest transaction gas price", func(t *testing.T) {
@@ -2028,8 +2033,8 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0})
 
 		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(1), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(1), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		t.Run("passes check if both transactions are ok", func(t *testing.T) {
@@ -2050,8 +2055,8 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		})
 
 		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(11), GasTipCap: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(11), GasTipCap: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		t.Run("fails check if dynamic fee transaction fails", func(t *testing.T) {
@@ -2099,10 +2104,10 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(30), GasTipCap: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 		}
 
 		t.Run("passes check if all blocks have 90th percentile price higher than highest transaction tip cap", func(t *testing.T) {
@@ -2136,7 +2141,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			cfg.BlockHistoryEstimatorCheckInclusionPercentileF = 5
 
 			attempts = []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-				&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasFeeCap: assets.NewWeiI(4), GasTipCap: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+				&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasFeeCap: assets.NewWeiI(4), GasTipCap: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 			}
 
 			err := bhe.CheckConnectivity(attempts)
@@ -2169,7 +2174,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		bhe.OnNewLongestChain(testutils.Context(t), head)
 
 		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x0, Hash: utils.NewHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		_, _, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, gas.MakeEvmPriorAttempts(attempts))
@@ -2276,7 +2281,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		attempts := []txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]{
-			&MockAttempt{TxType: 0x2, Hash: utils.NewHash(), GasTipCap: originalFee.TipCap, GasFeeCap: originalFee.FeeCap, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			&MockAttempt{TxType: 0x2, Hash: NewEvmHash(), GasTipCap: originalFee.TipCap, GasFeeCap: originalFee.FeeCap, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		_, _, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, gas.MakeEvmPriorAttempts(attempts))

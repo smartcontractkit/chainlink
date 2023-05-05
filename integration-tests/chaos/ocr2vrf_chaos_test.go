@@ -30,7 +30,7 @@ var (
 	defaultOCR2VRFSettings = map[string]interface{}{
 		"replicas": "6",
 		"toml": client.AddNetworkDetailedConfig(
-			config.BaseOCR2VRFTomlConfig,
+			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			networks.SelectedNetwork),
 	}
@@ -181,6 +181,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,
 				ocr2vrf_constants.ConfirmationDelay,
+				ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
@@ -207,6 +208,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 				ocr2vrf_constants.NumberOfRandomWordsToRequest,
 				subID,
 				ocr2vrf_constants.ConfirmationDelay,
+				ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 			)
 
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
