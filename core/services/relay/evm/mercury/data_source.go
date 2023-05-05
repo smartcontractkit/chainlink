@@ -6,19 +6,26 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+//go:generate mockery --quiet --name ChainHeadTracker --output ./mocks/ --case=underscore
+type ChainHeadTracker interface {
+	Client() evmclient.Client
+	HeadTracker() httypes.HeadTracker
+}
 
 type datasource struct {
 	pipelineRunner pipeline.Runner
@@ -29,13 +36,14 @@ type datasource struct {
 
 	mu sync.RWMutex
 
-	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
+	chEnhancedTelem  chan<- ocrcommon.EnhancedTelemetryMercuryData
+	chainHeadTracker ChainHeadTracker
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker ChainHeadTracker) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
@@ -57,7 +65,12 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			finaltrrs = append(finaltrrs, trr)
 		}
 	}
+
 	parsed, err := ds.parse(finaltrrs)
+	if err != nil {
+		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
+	}
+	ds.setCurrentBlock(ctx, &parsed)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
 		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
@@ -68,7 +81,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 
 	}
 
-	return parsed, err
+	return parsed, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -79,28 +92,30 @@ func toBigInt(val interface{}) (*big.Int, error) {
 	return dec.BigInt(), nil
 }
 
-// parse expects the output of observe to be five values, in the following order:
-// 0. benchmark price
-// 1. bid
-// 2. ask
-// 3. current block number
-// 4. current block hash
-// 5. current block timestamp
+// parse expects the output of observe to be three values, in the following order:
+// 1. benchmark price
+// 2. bid
+// 3. ask
 //
 // returns error on parse errors: if something is the wrong type
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		// only return terminal trrs from executeRun
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	if len(trrs) != 6 {
-		return obs, fmt.Errorf("invalid number of results, expected: 6, got: %d", len(trrs))
+	if len(finaltrrs) != 3 {
+		return obs, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(finaltrrs))
 	}
 	merr = errors.Join(
-		setBenchmarkPrice(&obs, trrs[0].Result),
-		setBid(&obs, trrs[1].Result),
-		setAsk(&obs, trrs[2].Result),
-		setCurrentBlockNum(&obs, trrs[3].Result),
-		setCurrentBlockHash(&obs, trrs[4].Result),
-		setCurrentBlockTimestamp(&obs, trrs[5].Result),
+		setBenchmarkPrice(&obs, finaltrrs[0].Result),
+		setBid(&obs, finaltrrs[1].Result),
+		setAsk(&obs, finaltrrs[2].Result),
 	)
 
 	return obs, merr
@@ -139,43 +154,6 @@ func setAsk(obs *relaymercury.Observation, res pipeline.Result) error {
 	return nil
 }
 
-func setCurrentBlockNum(obs *relaymercury.Observation, res pipeline.Result) error {
-	if res.Error != nil {
-		obs.CurrentBlockNum.Err = res.Error
-	} else if val, is := res.Value.(int64); !is {
-		return fmt.Errorf("failed to parse CurrentBlockNum: expected int64, got: %T (%v)", res.Value, res.Value)
-	} else {
-		obs.CurrentBlockNum.Val = val
-	}
-	return nil
-}
-
-func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) error {
-	if res.Error != nil {
-		obs.CurrentBlockHash.Err = res.Error
-	} else if val, is := res.Value.(common.Hash); !is {
-		return fmt.Errorf("failed to parse CurrentBlockHash: expected hash, got: %T (%v)", res.Value, res.Value)
-	} else {
-		obs.CurrentBlockHash.Val = val.Bytes()
-	}
-	return nil
-}
-
-func setCurrentBlockTimestamp(obs *relaymercury.Observation, res pipeline.Result) error {
-	if res.Error != nil {
-		obs.CurrentBlockTimestamp.Err = res.Error
-	} else if val, is := res.Value.(time.Time); !is {
-		return fmt.Errorf("failed to parse CurrentBlockTimestamp: expected time.Time, got: %T (%v)", res.Value, res.Value)
-	} else {
-		if val.IsZero() {
-			obs.CurrentBlockTimestamp.Val = 0
-		} else {
-			obs.CurrentBlockTimestamp.Val = uint64(val.Unix())
-		}
-	}
-	return nil
-}
-
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
@@ -193,4 +171,39 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 	}
 
 	return run, trrs, err
+}
+
+func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) {
+	latestHead, err := ds.getCurrentBlock(ctx)
+	if err != nil {
+		obs.CurrentBlockNum.Err = err
+		obs.CurrentBlockHash.Err = err
+		obs.CurrentBlockTimestamp.Err = err
+		return
+	}
+	obs.CurrentBlockNum.Val = latestHead.Number
+	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
+
+	if latestHead.Timestamp.IsZero() {
+		obs.CurrentBlockTimestamp.Val = 0
+	} else {
+		obs.CurrentBlockTimestamp.Val = uint64(latestHead.Timestamp.Unix())
+	}
+}
+
+func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
+	// Use the headtracker's view of the latest block, this is very fast since
+	// it doesn't make any external network requests, and it is the
+	// headtracker's job to ensure it has an up-to-date view of the chain based
+	// on responses from all available RPC nodes
+	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
+	if latestHead == nil {
+		logger.Sugared(ds.lggr).AssumptionViolation("HeadTracker unexpectedly returned nil head, falling back to RPC call")
+		var err error
+		latestHead, err = ds.chainHeadTracker.Client().HeadByNumber(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return latestHead, nil
 }
