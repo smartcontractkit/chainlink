@@ -1804,7 +1804,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.SetEthClient(ethClient)
+	ec.SetClient(txmgr.NewEvmTxmClient(ethClient))
 
 	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1842,7 +1842,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	var attempt1_2 txmgr.EvmTxAttempt
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.SetEthClient(ethClient)
+	ec.SetClient(txmgr.NewEvmTxmClient(ethClient))
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)

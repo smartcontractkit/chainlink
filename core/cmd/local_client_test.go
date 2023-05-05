@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -275,9 +276,9 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		})).Once().Return(nil)
+		}), mock.Anything).Once().Return(clienttypes.Successful, nil)
 	}
 
 	assert.NoError(t, client.RebroadcastTransactions(c))

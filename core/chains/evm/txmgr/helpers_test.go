@@ -2,12 +2,10 @@ package txmgr
 
 import (
 	"context"
-
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SetEthClient(ethClient evmclient.Client) {
-	ec.ethClient = ethClient
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SetClient(client TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) {
+	ec.client = client
 }
 
 func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) StartInternal() error {
@@ -30,7 +28,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	return ec.closeInternal()
 }
 
-func (er *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, R, FEE, ADD]) ResendUnconfirmed() error {
+func (er *EthResender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, R, FEE, ADD]) ResendUnconfirmed() error {
 	return er.resendUnconfirmed()
 }
 
