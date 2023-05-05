@@ -556,6 +556,9 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	uni.backend.Commit()
 
+	redemptionRequestID, err := uni.consumer.SMostRecentRequestID(nil)
+	require.NoError(t, err)
+
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead) * (gas price) / (LINK/ETH ratio)
 	// = (50_000 * 1 Gwei) / .01
@@ -594,9 +597,15 @@ linkEthFeedAddress     	= "%s"
 
 	t.Log("waiting for fulfillment")
 
+	var balanceAfterRefund *big.Int
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
-	var balanceAfterRefund *big.Int
+	gomega.NewWithT(t).Eventually(func() bool {
+		_, err := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
+		t.Logf("TestRedeemRandomness err: %+v", err)
+		return err == nil
+	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
+
 	gomega.NewWithT(t).Eventually(func() bool {
 		// Ensure a refund is provided. Refund amount comes out to ~20_500_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
@@ -605,13 +614,6 @@ linkEthFeedAddress     	= "%s"
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, uni.subID)
 		require.NoError(t, err)
 		balanceAfterRefund = subAfterRefund.Balance
-
-		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, big.NewInt(0))
-		t.Logf("TestRedeemRandomness err: %+v", err1)
-		if err1 != nil {
-			return false
-		}
-
 		if ok := ((balanceAfterRefund.Cmp(refundUpperBound) == -1) && (balanceAfterRefund.Cmp(refundLowerBound) == 1)); !ok {
 			t.Logf("unexpected sub balance after refund: %d", balanceAfterRefund)
 			return false
@@ -663,6 +665,20 @@ linkEthFeedAddress     	= "%s"
 	// payout node operators
 	totalNopPayout := new(big.Int)
 	for idx, payeeTransactor := range payeeTransactors {
+		// Fund the payee with some ETH.
+		n, err := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
+		require.NoError(t, err)
+		tx := types.NewTransaction(
+			n, payeeTransactor.From,
+			assets.Ether(1).ToInt(),
+			21000,
+			assets.GWei(1).ToInt(),
+			nil)
+		signedTx, err := uni.owner.Signer(uni.owner.From, tx)
+		require.NoError(t, err)
+		err = uni.backend.SendTransaction(testutils.Context(t), signedTx)
+		require.NoError(t, err)
+
 		_, err = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
 		require.NoError(t, err)
 		uni.backend.Commit()
@@ -704,10 +720,10 @@ linkEthFeedAddress     	= "%s"
 	gomega.NewWithT(t).Eventually(func() bool {
 
 		var errs []error
-		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(0))
+		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(1))
+		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
 		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))

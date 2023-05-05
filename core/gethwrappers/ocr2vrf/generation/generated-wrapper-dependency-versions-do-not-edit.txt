@@ -1,8 +1,8 @@
 GETH_VERSION: 1.11.5
 dkg: ../../../contracts/solc/v0.8.19/DKG.abi ../../../contracts/solc/v0.8.19/DKG.bin f67f628c5af590c898d46789e5500f36d3b0eca442e66a334968776c6fc9b4ed
-load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.bin 0f84e4431ec3fd6f31147c4a4019cef0f070267e70a459a8486fb3e31f476053
+load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.bin ca76ade764440e6e3cbfe9460c808181ce074e2a08d6aba1de26a64e0584f4f0
 vrf_beacon: ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin 3a4a2d151887612128eec950c723ceef5324dfa430a7dd621b9106d350178df0
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 60e09ad748d8bafb6654f1a785ff0a9fc729c9514291d853129f681db86956b3
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 3382345ca312245aa53141cd44e60f4c99d18021efc9c412aeb4c4b2efc8eb94
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
-vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin 7118a45e22f22d873645966f1757e812bd6a5af813a25a9f39a033445a7dd3c0
-vrf_router: ../../../contracts/solc/v0.8.19/VRFRouter.abi ../../../contracts/solc/v0.8.19/VRFRouter.bin e091a91d274a2ba36ddfc40b7fbb4b5824bfcda65d242d32e35cc2b2e9c30aca
+vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin 8bf832393106bd89800d6f759629de95f4ba700fe769e2f3be6cc23b4969502b
+vrf_router: ../../../contracts/solc/v0.8.19/VRFRouter.abi ../../../contracts/solc/v0.8.19/VRFRouter.bin aa62e3e974d4cf2b06ae871876043c70fa7938b35bcf04fac7f1b1f8a91600bf
