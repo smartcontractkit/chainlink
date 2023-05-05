@@ -2,10 +2,11 @@ package plugins
 
 import (
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -13,17 +14,24 @@ import (
 
 func TestPromServer(t *testing.T) {
 
-	s := NewPromServer(0, logger.TestLogger(t))
+	testReg := prometheus.NewRegistry()
+	testMetric := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "test_metric",
+	})
+	testReg.MustRegister(testMetric)
+	testMetric.Inc()
+
+	s := NewPromServer(0, logger.TestLogger(t), WithRegistry(testReg))
 	require.NoError(t, s.Start())
 
-	tcpAddr, ok := s.Addr().(*net.TCPAddr)
-	require.True(t, ok, "expect tcp listener")
-
-	url := fmt.Sprintf("http://localhost:%d/metrics", tcpAddr.Port)
+	url := fmt.Sprintf("http://localhost:%d/metrics", s.Port())
 	resp, err := http.Get(url)
 	require.NoError(t, err)
 	require.NoError(t, err, "endpoint %s", url)
 	require.NotNil(t, resp.Body)
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Contains(t, string(b), "test_metric")
 	defer resp.Body.Close()
 
 	require.NoError(t, s.Close())

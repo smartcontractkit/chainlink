@@ -82,6 +82,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
+	loopRoutes(app, api)
 
 	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
 	// https://smartcontract-it.atlassian.net/browse/BCF-2062
@@ -229,8 +230,10 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	loopRegistry := NewLoopRegistry(app)
 	r.GET("/discovery", ginHandlerFromHTTP(loopRegistry.discoveryHandler))
-	loopMetrics := r.Group("/plugins")
-	loopMetrics.GET("/", ginHandlerFromHTTP(loopRegistry.pluginMetricHandler))
+	//loopMetrics := r.Group("/plugins")
+	//r.GET("/plugins", ginHandlerFromHTTP(loopRegistry.pluginMetricHandler))
+	r.GET("/plugins/:NAME/metrics", ginHandlerFromHTTP(loopRegistry.pluginMetricHandler))
+
 }
 
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {

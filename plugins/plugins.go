@@ -10,12 +10,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// LoggingConfigurer controls static logging related configuration that is inherited from the chainlink application to the
+// given LOOP executable.
 type LoggingConfigurer interface {
 	LogLevel() zapcore.Level
 	JSONConsole() bool
 	LogUnixTimestamps() bool
 }
 
+// EnvConfigurer is the configuration interface between the application and the LOOP.
+// It separates static and dynamic configuration. Logging configuration can and is inherited statically while the
+// port the the LOOP is to use for prometheus, which is created dynamically at run time the chainlink Application.
 type EnvConfigurer interface {
 	LoggingConfigurer
 	PrometheusPort() int
@@ -38,7 +43,7 @@ func SetEnvConfig(cmd *exec.Cmd, cfg EnvConfigurer) {
 	)
 }
 
-func GetEnvConfig() (*EnvConfig, error) {
+func GetEnvConfig() (*envConfig, error) {
 	logLevelStr := os.Getenv("CL_LOG_LEVEL")
 	logLevel, err := zapcore.ParseLevel(logLevelStr)
 	if err != nil {
@@ -49,7 +54,7 @@ func GetEnvConfig() (*EnvConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT = %q: %w", promPortStr, err)
 	}
-	return &EnvConfig{
+	return &envConfig{
 		logLevel:       logLevel,
 		jsonConsole:    strings.EqualFold("true", os.Getenv("CL_JSON_CONSOLE")),
 		unixTimestamps: strings.EqualFold("true", os.Getenv("CL_UNIX_TS")),
@@ -57,15 +62,16 @@ func GetEnvConfig() (*EnvConfig, error) {
 	}, nil
 }
 
-type EnvConfig struct {
+// envConfig is an implementation of EnvConfigurer.
+type envConfig struct {
 	logLevel       zapcore.Level
 	jsonConsole    bool
 	unixTimestamps bool
 	prometheusPort int
 }
 
-func NewEnvConfig(logLevel zapcore.Level, jsonConsole bool, unixTimestamps bool, prometheusPort int) *EnvConfig {
-	return &EnvConfig{
+func NewEnvConfig(logLevel zapcore.Level, jsonConsole bool, unixTimestamps bool, prometheusPort int) EnvConfigurer {
+	return &envConfig{
 		logLevel:       logLevel,
 		jsonConsole:    jsonConsole,
 		unixTimestamps: unixTimestamps,
@@ -73,18 +79,18 @@ func NewEnvConfig(logLevel zapcore.Level, jsonConsole bool, unixTimestamps bool,
 	}
 }
 
-func (e *EnvConfig) LogLevel() zapcore.Level {
+func (e *envConfig) LogLevel() zapcore.Level {
 	return e.logLevel
 }
 
-func (e *EnvConfig) JSONConsole() bool {
+func (e *envConfig) JSONConsole() bool {
 	return e.jsonConsole
 }
 
-func (e *EnvConfig) LogUnixTimestamps() bool {
+func (e *envConfig) LogUnixTimestamps() bool {
 	return e.unixTimestamps
 }
 
-func (e *EnvConfig) PrometheusPort() int {
+func (e *envConfig) PrometheusPort() int {
 	return e.prometheusPort
 }

@@ -140,7 +140,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 
-	pluginConfigs map[string]plugins.EnvConfigurer
+	LOOPConfigs map[string]plugins.EnvConfigurer
 
 	started     bool
 	startStopMu sync.Mutex
@@ -498,8 +498,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 
-		pluginConfigs: pluginConfigs,
-		sqlxDB:        opts.SqlxDB,
+		LOOPConfigs: pluginConfigs,
+		sqlxDB:      opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -585,7 +585,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 }
 
 func (app *ChainlinkApplication) GetPluginConfig() map[string]plugins.EnvConfigurer {
-	return app.pluginConfigs
+	return app.LOOPConfigs
 }
 
 // Stop allows the application to exit by halting schedules, closing
