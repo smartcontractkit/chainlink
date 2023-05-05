@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -42,7 +41,7 @@ type TxManager[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] interface {
@@ -71,7 +70,7 @@ type Txm[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	ADD any,
@@ -98,7 +97,7 @@ type Txm[
 	wg       sync.WaitGroup
 
 	reaper           *Reaper[CHAIN_ID]
-	ethResender      *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
+	ethResender      *EthResender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
 	ethBroadcaster   *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	ethConfirmer     *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
@@ -511,75 +510,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendE
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
-// send broadcasts the transaction to the ethereum network, writes any relevant
-// data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction[
-	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
-	FEE txmgrtypes.Fee,
-	ADD any,
-](ctx context.Context, ethClient evmclient.Client, a txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], e txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], logger logger.Logger) *evmclient.SendError {
-	signedTx, err := GetGethSignedTx(a.SignedRawTx)
-	if err != nil {
-		return evmclient.NewFatalSendError(err)
-	}
-
-	err = ethClient.SendTransaction(ctx, signedTx)
-
-	a.Tx = e // for logging
-	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "feeLimit", e.FeeLimit, "attempt", a)
-	sendErr := evmclient.NewSendError(err)
-	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
-		return nil
-	}
-	return sendErr
-}
-
-// sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
-// May be useful for clearing stuck nonces
-func sendEmptyTransaction[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
-	R txmgrtypes.ChainReceipt[TX_HASH],
-	FEE txmgrtypes.Fee,
-	ADD any,
-](
-	ctx context.Context,
-	ethClient evmclient.Client,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ],
-	seq SEQ,
-	gasLimit uint32,
-	fee FEE,
-	fromAddress ADDR,
-) (_ *gethTypes.Transaction, err error) {
-	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
-
-	attempt, err := txAttemptBuilder.NewEmptyTxAttempt(seq, gasLimit, fee, fromAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = ethClient.SendTransaction(ctx, signedTx)
-	return signedTx, err
-}
-
 type NullTxManager[
 	CHAIN_ID txmgrtypes.ID,
 	HEAD txmgrtypes.Head,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] struct {

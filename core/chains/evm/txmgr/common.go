@@ -30,7 +30,7 @@ func batchSendTransactions[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	ADD any,
@@ -118,7 +118,7 @@ func ToGethFees[FEE txmgrtypes.Fee](f FEE) (fee gas.EvmFee, err error) {
 // helper function to convert chain-agnostic/generic type to EVM specific type
 // used to bridge functionality to EVM specific chain-client
 // TODO: remove when chain-client interface is generic: https://smartcontract-it.atlassian.net/browse/BCI-1222
-func ToGenericReceipt[TX_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH]](r *evmtypes.Receipt) (receipt R, err error) {
+func ToGenericReceipt[TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]](r *evmtypes.Receipt) (receipt R, err error) {
 	b, err := json.Marshal(r)
 	if err != nil {
 		return
