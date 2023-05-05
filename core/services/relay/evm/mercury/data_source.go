@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
@@ -163,10 +164,14 @@ func setCurrentBlockHash(obs *relaymercury.Observation, res pipeline.Result) err
 func setCurrentBlockTimestamp(obs *relaymercury.Observation, res pipeline.Result) error {
 	if res.Error != nil {
 		obs.CurrentBlockTimestamp.Err = res.Error
-	} else if val, is := res.Value.(uint64); !is {
-		return fmt.Errorf("failed to parse CurrentBlockTimestamp: expected uint64, got: %T (%v)", res.Value, res.Value)
+	} else if val, is := res.Value.(time.Time); !is {
+		return fmt.Errorf("failed to parse CurrentBlockTimestamp: expected time.Time, got: %T (%v)", res.Value, res.Value)
 	} else {
-		obs.CurrentBlockTimestamp.Val = val
+		if val.IsZero() {
+			obs.CurrentBlockTimestamp.Val = 0
+		} else {
+			obs.CurrentBlockTimestamp.Val = uint64(val.Unix())
+		}
 	}
 	return nil
 }
