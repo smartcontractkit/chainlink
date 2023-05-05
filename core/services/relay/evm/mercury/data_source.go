@@ -36,8 +36,8 @@ type datasource struct {
 
 	mu sync.RWMutex
 
-	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainHeadTracker   ChainHeadTracker
+	chEnhancedTelem  chan<- ocrcommon.EnhancedTelemetryMercuryData
+	chainHeadTracker ChainHeadTracker
 }
 
 var _ relaymercury.DataSource = &datasource{}
@@ -65,7 +65,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			finaltrrs = append(finaltrrs, trr)
 		}
 	}
-	
+
 	parsed, err := ds.parse(finaltrrs)
 	if err != nil {
 		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
