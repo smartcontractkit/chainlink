@@ -57,6 +57,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -366,6 +367,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainCfgs evmtypes.Configs
+	lp := logpoller.LogPollerDisabled
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -374,6 +376,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			externalInitiatorManager = dep
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
+		case logpoller.LogPoller:
+			lp = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -414,6 +418,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
 			}
 			return ethClient
+		},
+		GenLogPoller: func(*big.Int) logpoller.LogPoller {
+			return lp
 		},
 		MailMon: mailMon,
 	})

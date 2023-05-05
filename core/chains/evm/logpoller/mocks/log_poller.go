@@ -571,13 +571,13 @@ func (_m *LogPoller) Ready() error {
 	return r0
 }
 
-// RegisterFilter provides a mock function with given fields: filter
-func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) error {
-	ret := _m.Called(filter)
+// RegisterFilter provides a mock function with given fields: filter, q
+func (_m *LogPoller) RegisterFilter(filter logpoller.Filter, q pg.Queryer) error {
+	ret := _m.Called(filter, q)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(logpoller.Filter) error); ok {
-		r0 = rf(filter)
+	if rf, ok := ret.Get(0).(func(logpoller.Filter, pg.Queryer) error); ok {
+		r0 = rf(filter, q)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -17,23 +17,30 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateForwarder provides a mock function with given fields: addr, evmChainId
-func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big) (forwarders.Forwarder, error) {
-	ret := _m.Called(addr, evmChainId)
+// CreateForwarder provides a mock function with given fields: addr, evmChainId, qopts
+func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big, qopts ...pg.QOpt) (forwarders.Forwarder, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, addr, evmChainId)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 forwarders.Forwarder
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) (forwarders.Forwarder, error)); ok {
-		return rf(addr, evmChainId)
+	if rf, ok := ret.Get(0).(func(common.Address, utils.Big, ...pg.QOpt) (forwarders.Forwarder, error)); ok {
+		return rf(addr, evmChainId, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) forwarders.Forwarder); ok {
-		r0 = rf(addr, evmChainId)
+	if rf, ok := ret.Get(0).(func(common.Address, utils.Big, ...pg.QOpt) forwarders.Forwarder); ok {
+		r0 = rf(addr, evmChainId, qopts...)
 	} else {
 		r0 = ret.Get(0).(forwarders.Forwarder)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, utils.Big) error); ok {
-		r1 = rf(addr, evmChainId)
+	if rf, ok := ret.Get(1).(func(common.Address, utils.Big, ...pg.QOpt) error); ok {
+		r1 = rf(addr, evmChainId, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

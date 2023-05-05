@@ -7,10 +7,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -64,22 +69,46 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 
 func TestShell_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
+	addr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+
+	var lp = mocklogpoller.NewLogPoller(t)
+	lp.On("Name").Return("mock logpoller")
+	lp.On("Start", mock.Anything).Return(nil)
+	lp.On("Ready").Return(nil)
+	lp.On("HealthReport").Return(map[string]error{})
 
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = id
 		c.EVM[0].Enabled = ptr(true)
+		c.Feature.LogPoller = ptr(true)
+	}, func(sopts *startOptions) {
+		sopts.FlagsAndDeps = []interface{}{lp}
 	})
 	client, r := app.NewShellAndRenderer()
+
+	chain, err := app.GetChains().EVM.Get(id.ToInt())
+	require.NotNil(t, chain.LogPoller())
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.TrackForwarder, set, "")
 
-	require.NoError(t, set.Set("address", "0x5431F5F973781809D18643b87B44921b11355d81"))
-	require.NoError(t, set.Set("evmChainID", id.String()))
+	require.NoError(t, set.Set("address", addr.String()))
+	require.NoError(t, set.Set("evm-chain-id", id.String()))
 
-	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		filter, ok := args.Get(0).(logpoller.Filter)
+		require.True(t, ok, "Expected logpoller.Filter for 1st arg of RegisterFilter, got %T", args.Get(0))
+		assert.Equal(t, logpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr), filter.Name)
+		assert.Equal(t, evmtypes.AddressArray{addr}, filter.Addresses)
+
+		tx, ok := args.Get(1).(*sqlx.Tx)
+		require.True(t, ok, "Expected *sqlx.Tx for 2nd arg of RegisterFilter, got: %T", args.Get(1))
+		assert.Equal(t, "txdb", tx.DriverName())
+	})
+
+	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
 	createOutput, ok := r.Renders[0].(*cmd.EVMForwarderPresenter)
@@ -97,6 +126,14 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 
 	require.NoError(t, set.Parse([]string{createOutput.ID}))
 
+	// DeleteForwarder() must remove proper log filter
+	lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		assert.Equal(t, logpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr), args.Get(0))
+		tx, ok := args.Get(1).(*sqlx.Tx)
+		require.True(t, ok, "Expected *sqlx.Tx for 2nd arg of RegisterFilter, got: %T", args.Get(1))
+		assert.Equal(t, "txdb", tx.DriverName())
+	})
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteForwarder(c))
 
@@ -105,6 +142,7 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	require.Len(t, r.Renders, 3)
 	fwds = *r.Renders[2].(*cmd.EVMForwarderPresenters)
 	require.Equal(t, 0, len(fwds))
+	lp.On("Close").Return(nil)
 }
 
 func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
