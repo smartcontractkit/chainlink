@@ -32,7 +32,7 @@ type PriorAttempt[F Fee, TX_HASH types.Hashable] interface {
 // FeeEstimator provides a generic interface for fee estimation
 //
 //go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
-type FeeEstimator[H Head, F Fee, MAXPRICE any, TX_HASH types.Hashable] interface {
+type FeeEstimator[H types.Head, F Fee, MAXPRICE any, TX_HASH types.Hashable] interface {
 	services.ServiceCtx
 	HeadTrackable[H]
 

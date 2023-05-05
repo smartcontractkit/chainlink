@@ -38,7 +38,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
+	HEAD types.Head,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
@@ -67,7 +67,7 @@ type reset struct {
 
 type Txm[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
+	HEAD types.Head,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
@@ -542,7 +542,7 @@ func sendTransaction[
 // May be useful for clearing stuck nonces
 func sendEmptyTransaction[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
+	HEAD types.Head,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ txmgrtypes.Sequence,
@@ -576,7 +576,7 @@ func sendEmptyTransaction[
 
 type NullTxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
+	HEAD types.Head,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH],

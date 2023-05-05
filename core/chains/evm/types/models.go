@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
@@ -42,7 +41,7 @@ type Head struct {
 	TotalDifficulty  *utils.Big
 }
 
-var _ txmgrtypes.Head = &Head{}
+var _ types.Head = &Head{}
 
 // NewHead returns a Head instance.
 func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
@@ -63,7 +62,7 @@ func (h *Head) BlockHash() common.Hash {
 	return h.Hash
 }
 
-func (h *Head) GetParent() txmgrtypes.Head {
+func (h *Head) GetParent() types.Head {
 	if h.Parent == nil {
 		return nil
 	}
@@ -79,7 +78,7 @@ func (h *Head) EarliestInChain() *Head {
 }
 
 // EarliestHeadInChain recurses through parents until it finds the earliest one
-func (h *Head) EarliestHeadInChain() txmgrtypes.Head {
+func (h *Head) EarliestHeadInChain() types.Head {
 	return h.EarliestInChain()
 }
 
