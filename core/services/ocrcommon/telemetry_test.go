@@ -423,26 +423,29 @@ var trrsMercury = pipeline.TaskRunResults{
 func TestGetFinalValues(t *testing.T) {
 	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{}
 	o := mercury.Observation{
-		BenchmarkPrice:   mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
-		Bid:              mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
-		Ask:              mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
-		CurrentBlockNum:  mercury.ObsResult[int64]{Val: 123456789},
-		CurrentBlockHash: mercury.ObsResult[[]byte]{Val: common.HexToHash("0x123321").Bytes()},
+		BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
+		Bid:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
+		Ask:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
+		CurrentBlockNum:       mercury.ObsResult[int64]{Val: 123456789},
+		CurrentBlockHash:      mercury.ObsResult[[]byte]{Val: common.HexToHash("0x123321").Bytes()},
+		CurrentBlockTimestamp: mercury.ObsResult[uint64]{Val: 987654321},
 	}
 
-	benchmarkPrice, bid, ask, blockNr, blockHash := e.getFinalValues(o)
+	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp := e.getFinalValues(o)
 	require.Equal(t, benchmarkPrice, int64(111111))
 	require.Equal(t, bid, int64(222222))
 	require.Equal(t, ask, int64(333333))
 	require.Equal(t, blockNr, int64(123456789))
 	require.Equal(t, blockHash, common.HexToHash("0x123321").Bytes())
+	require.Equal(t, blockTimestamp, uint64(987654321))
 
-	benchmarkPrice, bid, ask, blockNr, blockHash = e.getFinalValues(mercury.Observation{})
+	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp = e.getFinalValues(mercury.Observation{})
 	require.Equal(t, benchmarkPrice, int64(0))
 	require.Equal(t, bid, int64(0))
 	require.Equal(t, ask, int64(0))
 	require.Equal(t, blockNr, int64(0))
 	require.Nil(t, blockHash)
+	require.Equal(t, blockTimestamp, uint64(0))
 }
 
 func TestGetPricesFromResults(t *testing.T) {
@@ -578,11 +581,12 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercury,
 		Observation: mercury.Observation{
-			BenchmarkPrice:   mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
-			Bid:              mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
-			Ask:              mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
-			CurrentBlockNum:  mercury.ObsResult[int64]{Val: 123456789},
-			CurrentBlockHash: mercury.ObsResult[[]byte]{Val: common.HexToHash("0x123321").Bytes()},
+			BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
+			Bid:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
+			Ask:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
+			CurrentBlockNum:       mercury.ObsResult[int64]{Val: 123456789},
+			CurrentBlockHash:      mercury.ObsResult[[]byte]{Val: common.HexToHash("0x123321").Bytes()},
+			CurrentBlockTimestamp: mercury.ObsResult[uint64]{Val: 987654321},
 		},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
@@ -598,6 +602,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 		DpAsk:                         123456789.1,
 		CurrentBlockNumber:            123456789,
 		CurrentBlockHash:              common.HexToHash("0x123321").String(),
+		CurrentBlockTimestamp:         987654321,
 		BridgeTaskRunStartedTimestamp: trrsMercury[0].CreatedAt.UnixMilli(),
 		BridgeTaskRunEndedTimestamp:   trrsMercury[0].FinishedAt.Time.UnixMilli(),
 		ProviderRequestedTimestamp:    92233720368547760,
