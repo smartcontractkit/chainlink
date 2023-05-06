@@ -25,9 +25,9 @@ runs:
       - name: Set go cache keys
         shell: bash
         id: go-cache-dir
-        run: |
-          echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
-          echo "::set-output name=gobuildcache::$(go env GOCACHE)" 
+        run: | 
+          echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT 
+          echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
         name: Cache Go Modules
