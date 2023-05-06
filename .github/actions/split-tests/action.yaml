@@ -11,7 +11,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@10693b3829bf86eb2572aef5f3571dcf5ca9287d #v2.2.2
+    - uses: pnpm/action-setup@c3b53f6a16e57305370b4ae5a540c2077a1d50dd #v2.2.4
       with:
         version: ^7.0.0
 
