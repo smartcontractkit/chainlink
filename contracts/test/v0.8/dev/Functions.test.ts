@@ -13,7 +13,7 @@ let roles: Roles
 before(async () => {
   roles = (await getUsers()).roles
   concreteFunctionsTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsTestHelper.sol:FunctionsTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsTestHelper.sol:FunctionsTestHelper',
     roles.defaultAccount,
   )
 })
