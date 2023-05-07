@@ -20,7 +20,7 @@ runs:
       - name: Get branch name
         if: ${{ inputs.only-modules == 'false' }}
         id: branch-name
-        uses: tj-actions/branch-names@09ab61130975078eb7cde103fe8d2ae1649a1853 #v6.1
+        uses: tj-actions/branch-names@2e5354c6733793113f416314375826df030ada23 #v6.5
 
       - name: Set go cache keys
         shell: bash
