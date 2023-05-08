@@ -1,0 +1,7 @@
+exec chainlink node db create-migration --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db create-migration

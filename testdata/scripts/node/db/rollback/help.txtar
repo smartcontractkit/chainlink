@@ -1,0 +1,7 @@
+exec chainlink node db rollback --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db rollback
