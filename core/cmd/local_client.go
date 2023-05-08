@@ -162,6 +162,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Hidden: !devMode,
 					Action: client.ResetDatabase,
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "dangerWillRobinson",
@@ -174,6 +177,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage:  "Reset database and load fixtures.",
 					Hidden: !devMode,
 					Action: client.PrepareTestDatabase,
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "user-only",
@@ -194,7 +200,10 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: client.StatusDatabase,
-					Flags:  []cli.Flag{},
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
+					Flags: []cli.Flag{},
 				},
 				{
 					Name:   "migrate",
@@ -219,6 +228,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage:  "Create a new migration.",
 					Hidden: !devMode,
 					Action: client.CreateMigration,
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "type",
