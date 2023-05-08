@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -108,30 +109,19 @@ type KeeperConsumerPerformance interface {
 	SetPerformGasToBurn(ctx context.Context, gas *big.Int) error
 }
 
-// KeeperConsumerBenchmark is a keeper consumer contract that is more complicated than the typical consumer,
+// AutomationConsumerBenchmark is a keeper consumer contract that is more complicated than the typical consumer,
 // it's intended to only be used for benchmark tests.
-type KeeperConsumerBenchmark interface {
+type AutomationConsumerBenchmark interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
-	CheckEligible(ctx context.Context) (bool, error)
-	GetUpkeepCount(ctx context.Context) (*big.Int, error)
-	SetCheckGasToBurn(ctx context.Context, gas *big.Int) error
-	SetPerformGasToBurn(ctx context.Context, gas *big.Int) error
-	Reset(ctx context.Context) error
-	SetSpread(ctx context.Context, testRange *big.Int, averageEligibilityCadence *big.Int) error
-	SetFirstEligibleBuffer(ctx context.Context, firstEligibleBuffer *big.Int) error
+	CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error)
+	GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error)
 }
 
 type KeeperPerformDataChecker interface {
 	Address() string
 	Counter(ctx context.Context) (*big.Int, error)
 	SetExpectedData(ctx context.Context, expectedData []byte) error
-}
-
-type UpkeepResetter interface {
-	Address() string
-	ResetManyConsumerBenchmark(ctx context.Context, upkeepAddresses []string, testRange *big.Int,
-		averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error
 }
 
 type UpkeepPerformedLog struct {
@@ -1175,19 +1165,20 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) logDetails() {
 
 // KeeperConsumerBenchmarkRoundConfirmer is a header subscription that awaits for a round of upkeeps
 type KeeperConsumerBenchmarkRoundConfirmer struct {
-	instance KeeperConsumerBenchmark
+	instance AutomationConsumerBenchmark
 	registry KeeperRegistry
 	upkeepID *big.Int
 	doneChan chan bool
 	context  context.Context
 	cancel   context.CancelFunc
 
-	firstBlockNum   uint64                                     // Records the number of the first block that came in
-	lastBlockNum    uint64                                     // Records the number of the last block that came in
-	blockRange      int64                                      // How many blocks to watch upkeeps for
-	upkeepSLA       int64                                      // SLA after which an upkeep is counted as 'missed'
-	metricsReporter *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
-	upkeepIndex     int64
+	firstBlockNum      uint64                                     // Records the number of the first block that came in
+	lastBlockNum       uint64                                     // Records the number of the last block that came in
+	blockRange         int64                                      // How many blocks to watch upkeeps for
+	upkeepSLA          int64                                      // SLA after which an upkeep is counted as 'missed'
+	metricsReporter    *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
+	upkeepIndex        int64
+	firstEligibleuffer int64
 
 	// State variables, changes as we get blocks
 	blocksSinceSubscription int64   // How many blocks have passed since subscribing
@@ -1202,13 +1193,14 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
 // Used to track and log benchmark test results for keepers
 func NewKeeperConsumerBenchmarkRoundConfirmer(
-	contract KeeperConsumerBenchmark,
+	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,
 	blockRange int64,
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
+	firstEligibleuffer int64,
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerBenchmarkRoundConfirmer{
@@ -1229,6 +1221,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
 		firstBlockNum:           0,
+		firstEligibleuffer:      firstEligibleuffer,
 	}
 }
 
@@ -1244,7 +1237,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 	// Increment block counters
 	o.blocksSinceSubscription++
 
-	upkeepCount, err := o.instance.GetUpkeepCount(context.Background())
+	upkeepCount, err := o.instance.GetUpkeepCount(context.Background(), big.NewInt(o.upkeepIndex))
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1271,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		o.blocksSinceEligible = 0
 	}
 
-	isEligible, err := o.instance.CheckEligible(context.Background())
+	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleuffer))
 	if err != nil {
 		return err
 	}
@@ -1562,125 +1555,38 @@ func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(ctx context.C
 	return v.client.ProcessTransaction(tx)
 }
 
-type EthereumUpkeepResetter struct {
-	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepResetter
-	address  *common.Address
-}
-
-func (v *EthereumUpkeepResetter) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumUpkeepResetter) ResetManyConsumerBenchmark(ctx context.Context, upkeepAddressesStr []string, testRange *big.Int,
-	averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	upkeepAddresses := make([]common.Address, 0)
-	for _, a := range upkeepAddressesStr {
-		upkeepAddresses = append(upkeepAddresses, common.HexToAddress(a))
-	}
-	tx, err := v.consumer.ResetManyConsumerBenchmark(opts, upkeepAddresses, testRange, averageEligibilityCadence, firstEligibleBuffer, checkGasToBurn, performGasToBurn)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// EthereumKeeperConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
+// EthereumAutomationConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
 // Benchmark tests.
-type EthereumKeeperConsumerBenchmark struct {
+type EthereumAutomationConsumerBenchmark struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumerBenchmark
+	consumer *automation_consumer_benchmark.AutomationConsumerBenchmark
 	address  *common.Address
 }
 
-func (v *EthereumKeeperConsumerBenchmark) Address() string {
+func (v *EthereumAutomationConsumerBenchmark) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumKeeperConsumerBenchmark) Fund(ethAmount *big.Float) error {
+func (v *EthereumAutomationConsumerBenchmark) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount)
 }
 
-func (v *EthereumKeeperConsumerBenchmark) CheckEligible(ctx context.Context) (bool, error) {
+func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	eligible, err := v.consumer.CheckEligible(opts)
+	eligible, err := v.consumer.CheckEligible(opts, id, _range, firstEligibleBuffer)
 	return eligible, err
 }
 
-func (v *EthereumKeeperConsumerBenchmark) GetUpkeepCount(ctx context.Context) (*big.Int, error) {
+func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	eligible, err := v.consumer.GetCountPerforms(opts)
+	eligible, err := v.consumer.GetCountPerforms(opts, id)
 	return eligible, err
-}
-
-func (v *EthereumKeeperConsumerBenchmark) SetCheckGasToBurn(ctx context.Context, gas *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.SetCheckGasToBurn(opts, gas)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumKeeperConsumerBenchmark) SetPerformGasToBurn(ctx context.Context, gas *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.SetPerformGasToBurn(opts, gas)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumKeeperConsumerBenchmark) Reset(ctx context.Context) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.Reset(opts)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumKeeperConsumerBenchmark) SetSpread(ctx context.Context, testRange *big.Int, averageEligibilityCadence *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.SetSpread(opts, testRange, averageEligibilityCadence)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumKeeperConsumerBenchmark) SetFirstEligibleBuffer(ctx context.Context, firstEligibleBuffer *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.SetFirstEligibleBuffer(opts, firstEligibleBuffer)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
 }
 
 // EthereumKeeperRegistrar corresponds to the registrar which is used to send requests to the registry when

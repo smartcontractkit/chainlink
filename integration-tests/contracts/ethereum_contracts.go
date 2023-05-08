@@ -692,18 +692,6 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-// LoadExistingLinkToken loads an EthereumLinkToken with a specific address
-func (l *EthereumLinkToken) LoadExistingLinkToken(address string, client blockchain.EVMClient) error {
-	l.address = common.HexToAddress(address)
-	instance, err := link_token_interface.NewLinkToken(l.address, client.(*blockchain.EthereumClient).Client)
-	if err != nil {
-		return err
-	}
-	l.client = client
-	l.instance = instance
-	return nil
-}
-
 // EthereumOffchainAggregator represents the offchain aggregation contract
 type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient

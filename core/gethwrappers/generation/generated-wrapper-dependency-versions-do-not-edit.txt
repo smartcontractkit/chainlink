@@ -3,6 +3,7 @@ aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface.a
 aggregator_v3_interface: ../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 authorized_forwarder: ../../contracts/solc/v0.7/AuthorizedForwarder.abi ../../contracts/solc/v0.7/AuthorizedForwarder.bin f126b772f088772779918fa3a250e7ccf13855ee5bce44c17691bb7b3e62f043
 authorized_receiver: ../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../contracts/solc/v0.7/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
+automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin f52c76f1aaed4be541d82d97189d70f5aa027fc9838037dd7a7d21910c8c488e
 batch_blockhash_store: ../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../contracts/solc/v0.8.6/BatchBlockhashStore.bin c5ab26709a01050402615659403f32d5cd1b85f3ad6bb6bfe021692f4233cf19
 batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
 blockhash_store: ../../contracts/solc/v0.6/BlockhashStore.abi ../../contracts/solc/v0.6/BlockhashStore.bin a0dc60bcc4bf071033d23fddf7ae936c6a4d1dd81488434b7e24b7aa1fabc37c

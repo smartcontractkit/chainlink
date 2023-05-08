@@ -44,6 +44,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin KeeperRegistryLogic keeper_registry_logic2_0
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/UpkeepTranscoder.abi ../../contracts/solc/v0.8.6/UpkeepTranscoder.bin UpkeepTranscoder upkeep_transcoder
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.abi ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.bin MercuryLookupCompatibleInterface mercury_lookup_compatible_interface
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin AutomationConsumerBenchmark automation_consumer_benchmark
 
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorMock.abi ../../contracts/solc/v0.8.6/VRFCoordinatorMock.bin VRFCoordinatorMock vrf_coordinator_mock
