@@ -31,7 +31,7 @@ type Delegate struct {
 	isNewlyCreatedJob bool
 }
 
-type Configurer interface {
+type Config interface {
 	validate.Config
 }
 
@@ -41,7 +41,7 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg Configurer,
+	cfg Config,
 	relayers map[relay.Network]func() (loop.Relayer, error),
 ) *Delegate {
 	return &Delegate{

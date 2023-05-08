@@ -10,23 +10,23 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// LoggingConfigurer controls static logging related configuration that is inherited from the chainlink application to the
+// LoggingConfig controls static logging related configuration that is inherited from the chainlink application to the
 // given LOOP executable.
-type LoggingConfigurer interface {
+type LoggingConfig interface {
 	LogLevel() zapcore.Level
 	JSONConsole() bool
 	LogUnixTimestamps() bool
 }
 
-// EnvConfigurer is the configuration interface between the application and the LOOP.
+// EnvConfig is the configuration interface between the application and the LOOP.
 // It separates static and dynamic configuration. Logging configuration can and is inherited statically while the
 // port the the LOOP is to use for prometheus, which is created dynamically at run time the chainlink Application.
-type EnvConfigurer interface {
-	LoggingConfigurer
+type EnvConfig interface {
+	LoggingConfig
 	PrometheusPort() int
 }
 
-func SetEnvConfig(cmd *exec.Cmd, cfg EnvConfigurer) {
+func SetEnvConfig(cmd *exec.Cmd, cfg EnvConfig) {
 	forward := func(name string) {
 		if v, ok := os.LookupEnv(name); ok {
 			cmd.Env = append(cmd.Env, name+"="+v)
@@ -43,7 +43,7 @@ func SetEnvConfig(cmd *exec.Cmd, cfg EnvConfigurer) {
 	)
 }
 
-func GetEnvConfig() (EnvConfigurer, error) {
+func GetEnvConfig() (EnvConfig, error) {
 	logLevelStr := os.Getenv("CL_LOG_LEVEL")
 	logLevel, err := zapcore.ParseLevel(logLevelStr)
 	if err != nil {
@@ -62,7 +62,7 @@ func GetEnvConfig() (EnvConfigurer, error) {
 	}, nil
 }
 
-// envConfig is an implementation of EnvConfigurer.
+// envConfig is an implementation of EnvConfig.
 type envConfig struct {
 	logLevel       zapcore.Level
 	jsonConsole    bool
@@ -70,7 +70,7 @@ type envConfig struct {
 	prometheusPort int
 }
 
-func NewEnvConfig(logLevel zapcore.Level, jsonConsole bool, unixTimestamps bool, prometheusPort int) EnvConfigurer {
+func NewEnvConfig(logLevel zapcore.Level, jsonConsole bool, unixTimestamps bool, prometheusPort int) EnvConfig {
 	return &envConfig{
 		logLevel:       logLevel,
 		jsonConsole:    jsonConsole,

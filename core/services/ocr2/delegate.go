@@ -56,7 +56,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
-	cfg                   DeletgateConfigurer
+	cfg                   DeletgateConfig
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
 	dkgSignKs             keystore.DKGSign
@@ -67,21 +67,21 @@ type Delegate struct {
 	mailMon               *utils.MailboxMonitor
 }
 
-type DeletgateConfigurer interface {
+type DeletgateConfig interface {
 	validate.Config
-	plugins.EnvConfigurer
+	plugins.EnvConfig
 }
 
-// concrete implementation of DelegateConfigurer so it can be explicitly composed
+// concrete implementation of DelegateConfig so it can be explicitly composed
 type delegateConfig struct {
 	validate.Config
-	plugins.EnvConfigurer
+	plugins.EnvConfig
 }
 
-func NewDelegateConfig(vc validate.Configurer, pluginEnv plugins.EnvConfigurer) DeletgateConfigurer {
+func NewDelegateConfig(vc validate.Config, pluginEnv plugins.EnvConfig) DeletgateConfig {
 	return &delegateConfig{
-		Configurer:    vc,
-		EnvConfigurer: pluginEnv,
+		Config:    vc,
+		EnvConfig: pluginEnv,
 	}
 }
 
@@ -95,7 +95,7 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg DeletgateConfigurer,
+	cfg DeletgateConfig,
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,

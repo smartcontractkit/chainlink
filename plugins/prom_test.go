@@ -22,6 +22,8 @@ func TestPromServer(t *testing.T) {
 	testMetric.Inc()
 
 	s := NewPromServer(0, logger.TestLogger(t), WithRegistry(testReg))
+	// check that port is not resolved yet
+	require.Equal(t, UnresolvedPort, s.Port())
 	require.NoError(t, s.Start())
 
 	url := fmt.Sprintf("http://localhost:%d/metrics", s.Port())

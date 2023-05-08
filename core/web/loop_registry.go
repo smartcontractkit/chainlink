@@ -3,11 +3,12 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"sort"
-	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
@@ -20,7 +21,7 @@ const invalidPort = -1
 type LoopRegistry struct {
 	exposedPromPort int
 	// read only so no mutex needed
-	pluginLookupFn func() map[string]plugins.EnvConfigurer
+	pluginLookupFn func() map[string]plugins.EnvConfig
 }
 
 func NewLoopRegistry(app chainlink.Application) *LoopRegistry {
@@ -58,13 +59,13 @@ func (l *LoopRegistry) get(name string) (pluginConfig, bool) {
 
 func (l *LoopRegistry) discoveryHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	groups := make([]*targetgroup.Group, 0)
+	var groups []*targetgroup.Group
 
 	for _, p := range l.list() {
 		// create a metric target for each running plugin
 		target := &targetgroup.Group{
 			Targets: []model.LabelSet{
-				{model.AddressLabel: model.LabelValue(fmt.Sprintf("host.docker.internal:%d", l.exposedPromPort))},
+				{model.AddressLabel: model.LabelValue(fmt.Sprintf("localhost:%d", l.exposedPromPort))},
 			},
 			Labels: map[model.LabelName]model.LabelValue{
 				model.MetricsPathLabel: model.LabelValue(pluginMetricPath(p.name)),
@@ -82,38 +83,34 @@ func (l *LoopRegistry) discoveryHandler(w http.ResponseWriter, req *http.Request
 	w.Write(b)
 }
 
-func (l *LoopRegistry) pluginMetricHandler(w http.ResponseWriter, req *http.Request) {
-	// route to metric handler for the target
+func (l *LoopRegistry) pluginMetricHandler(gc *gin.Context) {
 
-	pluginName := extractPluginName(req.URL.Path)
-
+	pluginName := gc.Param("name")
 	p, ok := l.get(pluginName)
 
 	if !ok {
-		w.Write([]byte(fmt.Sprintf("plugin '%s' does not exist", pluginName)))
+
+		gc.Data(http.StatusNotFound, "text/plain", []byte(fmt.Sprintf("plugin %q does not exist", html.EscapeString(pluginName))))
 		return
 	}
 
 	pluginURL := fmt.Sprintf("http://localhost:%d/metrics", p.port)
 	res, err := http.Get(pluginURL)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
 	defer res.Body.Close()
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginName), err)
+		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
-	w.Write(b)
+	gc.Data(http.StatusOK, "text/plain", b)
+
 }
 
 func pluginMetricPath(name string) string {
-	return fmt.Sprintf("plugins/%s/metrics", name)
-}
-
-func extractPluginName(urlPath string) string {
-	temp := strings.TrimLeft(urlPath, "/")
-	return strings.Split(temp, "/")[1]
+	return fmt.Sprintf("/plugins/%s/metrics", name)
 }

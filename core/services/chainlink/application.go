@@ -79,7 +79,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
 
-	GetLoopEnvConfig() map[string]plugins.EnvConfigurer
+	GetLoopEnvConfig() map[string]plugins.EnvConfig
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -140,7 +140,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 
-	LOOPConfigs map[string]plugins.EnvConfigurer
+	LOOPConfigs map[string]plugins.EnvConfig
 
 	started     bool
 	startStopMu sync.Mutex
@@ -207,7 +207,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	loopConfigs := make(map[string]plugins.EnvConfigurer)
+	loopConfigs := make(map[string]plugins.EnvConfig)
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
 		srvcs = append(srvcs, auditLogger)
@@ -584,7 +584,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 	return nil
 }
 
-func (app *ChainlinkApplication) GetLoopEnvConfig() map[string]plugins.EnvConfigurer {
+func (app *ChainlinkApplication) GetLoopEnvConfig() map[string]plugins.EnvConfig {
 	return app.LOOPConfigs
 }
 

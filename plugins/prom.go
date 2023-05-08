@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const UnresolvedPort = -1
+
 type PromServer struct {
 	port        int
 	srvr        *http.Server
@@ -78,9 +80,16 @@ func (p *PromServer) Name() string {
 	return fmt.Sprintf("%s-prom-server", p.lggr.Name())
 }
 
+// Port is the resolved port and is only known after Start().
+// returns UnresolvedPort before it is resolved or if there was an error during resolution.
 func (p *PromServer) Port() int {
+	if p.tcpListener == nil {
+		return UnresolvedPort
+	}
 	// always safe to cast because we explicitly have a tcp listener
-	// doesn't seem to be direct access to Port without the addr casting
+	// there is direct access to Port without the addr casting
+	// Note: addr `:0` is not resolved to non-zero port until ListenTCP is called
+	// net.ResolveTCPAddr sounds promising, but doesn't work in practice
 	return p.tcpListener.Addr().(*net.TCPAddr).Port
 
 }

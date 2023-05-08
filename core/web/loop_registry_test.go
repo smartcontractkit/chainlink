@@ -75,40 +75,50 @@ func TestLoopRegistry(t *testing.T) {
 
 	// shim a reference to the promserver that is running in our mock loop
 	// this ensures the client.Get calls below have a reference to mock loop impl
-
-	app.LOOPConfigs = map[string]plugins.EnvConfigurer{
+	app.LOOPConfigs = map[string]plugins.EnvConfig{
 		"foo": plugins.NewEnvConfig(app.Config.LogLevel(), app.Config.JSONConsole(), app.Config.LogUnixTimestamps(), mockLoop.PromServer.Port()),
 	}
+	expectedEndPoint := "/plugins/foo/metrics"
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	require.Len(t, app.GetLoopEnvConfig(), 1)
-
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
-	// under the covers this is routing thru the app into loop registry
-	resp, cleanup := client.Get("/discovery")
-	t.Cleanup(cleanup)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	t.Run("discovery endpoint", func(t *testing.T) {
+		// under the covers this is routing thru the app into loop registry
+		resp, cleanup := client.Get("/discovery")
+		t.Cleanup(cleanup)
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	b, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	t.Logf("disco response %s", b)
+		b, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		t.Logf("discovery response %s", b)
+		require.Contains(t, string(b), expectedEndPoint)
+	})
 
-	// plugin name `foo` matches key in PluginConfigs
-	resp, cleanup2 := client.Get("/plugins/foo/metrics")
-	t.Cleanup(cleanup2)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	t.Run("plugin metrics OK", func(t *testing.T) {
+		// plugin name `foo` matches key in PluginConfigs
+		resp, cleanup := client.Get(expectedEndPoint)
+		t.Cleanup(cleanup)
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	b, err = io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	t.Logf("plugin metrics response %s", b)
+		b, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		t.Logf("plugin metrics response %s", b)
 
-	var (
-		exceptedCount  = 1
-		expectedMetric = fmt.Sprintf("%s %d", testMetricName, exceptedCount)
-	)
-	require.Contains(t, string(b), expectedMetric)
+		var (
+			exceptedCount  = 1
+			expectedMetric = fmt.Sprintf("%s %d", testMetricName, exceptedCount)
+		)
+		require.Contains(t, string(b), expectedMetric)
+	})
 
+	t.Run("no existent plugin metrics ", func(t *testing.T) {
+		// request plugin that doesn't exist
+		resp, cleanup := client.Get("/plugins/noexist/metrics")
+		t.Cleanup(cleanup)
+		cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+	})
 }
