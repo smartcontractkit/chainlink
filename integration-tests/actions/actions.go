@@ -236,6 +236,23 @@ func TeardownSuite(
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
+	// Delete all jobs to stop using the funds
+	for _, node := range chainlinkNodes {
+		jobs, _, err := node.ReadJobs()
+		if err != nil {
+			return errors.Wrap(err, "error reading jobs from chainlink node")
+		}
+		for _, maps := range jobs.Data {
+			if _, ok := maps["id"]; !ok {
+				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+			}
+			id := maps["id"].(string)
+			_, err := node.DeleteJob(id)
+			if err != nil {
+				return errors.Wrap(err, "error deleting job from chainlink node")
+			}
+		}
+	}
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
 			if err := returnFunds(chainlinkNodes, c); err != nil {
