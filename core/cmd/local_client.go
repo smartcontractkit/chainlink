@@ -156,9 +156,6 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
-			Before: func(ctx *clipkg.Context) error {
-				return client.configExitErr(client.Config.ValidateDB)
-			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
@@ -188,7 +185,10 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "version",
 					Usage:  "Display the current database version.",
 					Action: client.VersionDatabase,
-					Flags:  []cli.Flag{},
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
+					Flags: []cli.Flag{},
 				},
 				{
 					Name:   "status",
@@ -200,13 +200,19 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: client.MigrateDatabase,
-					Flags:  []cli.Flag{},
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
+					Flags: []cli.Flag{},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: client.RollbackDatabase,
-					Flags:  []cli.Flag{},
+					Before: func(ctx *clipkg.Context) error {
+						return client.configExitErr(client.Config.ValidateDB)
+					},
+					Flags: []cli.Flag{},
 				},
 				{
 					Name:   "create-migration",
