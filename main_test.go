@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -55,7 +54,6 @@ func hasScripts(t *testing.T, dir string) bool {
 }
 
 func commonEnv(env *testscript.Env) error {
-	env.Setenv(string(v2.EnvDev), "true")
 	env.Setenv("HOME", "$WORK/home")
 	env.Setenv("VERSION", static.Version)
 	env.Setenv("COMMIT_SHA", static.Sha)

@@ -697,20 +697,6 @@ func (_m *GeneralConfig) DefaultLogLevel() zapcore.Level {
 	return r0
 }
 
-// Dev provides a mock function with given fields:
-func (_m *GeneralConfig) Dev() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // DevWebServer provides a mock function with given fields:
 func (_m *GeneralConfig) DevWebServer() bool {
 	ret := _m.Called()
