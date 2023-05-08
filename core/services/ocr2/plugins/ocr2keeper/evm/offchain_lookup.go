@@ -273,12 +273,10 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			if resp.StatusCode == http.StatusNotFound {
 				// there are 2 possible causes for 404: incorrect URL and querying a block where report has not been generated
 				r.lggr.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
-				// return NOT FOUND for retry
+				// return 404 for retry
 				return fmt.Errorf("%d", http.StatusNotFound)
 			} else if resp.StatusCode != http.StatusOK {
-				// put all other status code to cooldown cache
-				r.lggr.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
-				return fmt.Errorf("%d", resp.StatusCode)
+				return fmt.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
 			}
 
 			var m MercuryResponse
@@ -287,9 +285,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 				r.lggr.Errorf("MercuryLookup failed to unmarshal body to MercuryResponse at block %s for upkeep Id %s feed %s: %v", ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
 				return err1
 			}
-			r.lggr.Debugf("MercuryLookup Response at block %s for upkeep Id %s feed %s: %s", ml.query.String(), upkeepId.String(), ml.feeds[index], m.ChainlinkBlob)
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
+				r.lggr.Debugf("MercuryLookup failed to decode chainlinkBlob %s at block %s for upkeep Id %s feed %s: %v", m.ChainlinkBlob, ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
 				return err1
 			}
 			ch <- MercuryBytes{Index: index, Bytes: blobBytes}
