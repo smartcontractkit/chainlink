@@ -124,8 +124,7 @@ type EthBroadcaster[
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
-	// map address string to channel
-	triggers map[string]chan struct{}
+	triggers map[ADDR]chan struct{}
 
 	chStop utils.StopChan
 	wg     sync.WaitGroup
@@ -133,6 +132,8 @@ type EthBroadcaster[
 	initSync  sync.Mutex
 	isStarted bool
 	utils.StartStopOnce
+
+	parseAddr func(string) (ADDR, error)
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
@@ -164,6 +165,7 @@ func NewEthBroadcaster(
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
+		parseAddr:        stringToGethAddress,
 	}
 
 	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
@@ -203,10 +205,10 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}
 	eb.wg.Add(len(eb.enabledAddresses))
-	eb.triggers = make(map[string]chan struct{})
+	eb.triggers = make(map[ADDR]chan struct{})
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
-		eb.triggers[addr.String()] = triggerCh
+		eb.triggers[addr] = triggerCh
 		go eb.monitorEthTxs(addr, triggerCh)
 	}
 
@@ -253,7 +255,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 
 // Trigger forces the monitor for a particular address to recheck for new eth_txes
 // Logs error and does nothing if address was not registered on startup
-func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Trigger(addr string) {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Trigger(addr ADDR) {
 	if eb.isStarted {
 		triggerCh, exists := eb.triggers[addr]
 		if !exists {
@@ -278,7 +280,12 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
-			eb.Trigger(ev.Payload)
+			addr, err := eb.parseAddr(ev.Payload)
+			if err != nil {
+				eb.logger.Errorw("failed to parse address in trigger", "error", err)
+				continue
+			}
+			eb.Trigger(addr)
 		case <-eb.chStop:
 			return
 		}

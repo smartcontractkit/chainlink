@@ -360,7 +360,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) runLo
 	for {
 		select {
 		case address := <-b.trigger:
-			b.ethBroadcaster.Trigger(address.String())
+			b.ethBroadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:

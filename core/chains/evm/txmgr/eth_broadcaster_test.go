@@ -1948,9 +1948,9 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	eb, err := NewTestEthBroadcaster(t, txStore, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, &testCheckerFactory{}, false)
 	require.NoError(t, err)
 
-	eb.Trigger(testutils.NewAddress().String())
-	eb.Trigger(testutils.NewAddress().String())
-	eb.Trigger(testutils.NewAddress().String())
+	eb.Trigger(testutils.NewAddress())
+	eb.Trigger(testutils.NewAddress())
+	eb.Trigger(testutils.NewAddress())
 }
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
