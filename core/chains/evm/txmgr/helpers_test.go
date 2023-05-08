@@ -2,9 +2,11 @@ package txmgr
 
 import (
 	"context"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 )
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SetClient(client TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SetClient(client txmgrtypes.TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) {
 	ec.client = client
 }
 
