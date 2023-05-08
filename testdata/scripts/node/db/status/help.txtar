@@ -4,4 +4,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink node db status
+   chainlink node db status - Display the current database migration status.
+
+USAGE:
+   chainlink node db status [arguments...]

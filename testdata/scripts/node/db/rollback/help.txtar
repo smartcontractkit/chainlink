@@ -4,4 +4,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink node db rollback
+   chainlink node db rollback - Roll back the database to a previous <version>. Rolls back a single migration if no version specified.
+
+USAGE:
+   chainlink node db rollback [arguments...]

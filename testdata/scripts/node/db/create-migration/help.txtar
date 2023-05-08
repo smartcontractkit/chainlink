@@ -4,4 +4,11 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink node db create-migration
+   chainlink node db create-migration - Create a new migration.
+
+USAGE:
+   chainlink node db create-migration [command options] [arguments...]
+
+OPTIONS:
+   --type go  set to go to generate a .go migration (instead of .sql)
+   

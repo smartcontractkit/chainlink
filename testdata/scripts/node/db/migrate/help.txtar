@@ -4,4 +4,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink node db migrate
+   chainlink node db migrate - Migrate the database to the latest version.
+
+USAGE:
+   chainlink node db migrate [arguments...]
