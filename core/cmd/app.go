@@ -73,18 +73,11 @@ func NewApp(client *Client) *cli.App {
 
 		// setup a default config and logger
 		// these will be overwritten later if a TOML config is specified
-		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		if err := client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
 			return err
-		} else {
-			client.Config = cfg
-			client.Logger = lggr
-			client.CloseLogger = closeLggr
 		}
 
 		if c.IsSet("config") || c.IsSet("secrets") {
-			if err := client.setConfig(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
-				return err
-			}
 			client.configInitialized = true
 		}
 
@@ -206,7 +199,7 @@ func NewApp(client *Client) *cli.App {
 					return nil
 				}
 				// flags here, or ENV VAR only
-				return client.setConfig(&opts, c.StringSlice("config"), c.String("secrets"))
+				return client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets"))
 			},
 		},
 		{
