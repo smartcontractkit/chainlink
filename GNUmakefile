@@ -95,6 +95,11 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 	# put the go:generate_disabled directive back
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
+.PHONY: go-solidity-wrappers-functions
+go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_functions
+	go generate ./core/gethwrappers/go_generate_functions.go
+
 .PHONY: generate
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
