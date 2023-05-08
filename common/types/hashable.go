@@ -9,4 +9,5 @@ type Hashable interface {
 	comparable
 
 	Bytes() []byte
+	Hex() string
 }
