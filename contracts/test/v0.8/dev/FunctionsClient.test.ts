@@ -195,6 +195,8 @@ describe('FunctionsClientTestHelper', () => {
       await expect(oracle.callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, anyValue)
         .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
