@@ -37,7 +37,7 @@ func TestScripts(t *testing.T) {
 				t.Parallel()
 				testscript.Run(t, testscript.Params{
 					Dir:   path,
-					Setup: commonEnv(t),
+					Setup: commonEnv,
 				})
 			})
 		}
@@ -54,12 +54,10 @@ func hasScripts(t *testing.T, dir string) bool {
 	return len(matches) > 0
 }
 
-func commonEnv(t *testing.T) func(env *testscript.Env) error {
-	return func(env *testscript.Env) error {
-		env.Setenv(string(v2.EnvDev), "true")
-		env.Setenv("HOME", "$WORK/home")
-		env.Setenv("VERSION", static.Version)
-		env.Setenv("COMMIT_SHA", static.Sha)
-		return nil
-	}
+func commonEnv(env *testscript.Env) error {
+	env.Setenv(string(v2.EnvDev), "true")
+	env.Setenv("HOME", "$WORK/home")
+	env.Setenv("VERSION", static.Version)
+	env.Setenv("COMMIT_SHA", static.Sha)
+	return nil
 }
