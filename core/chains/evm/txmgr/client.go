@@ -12,61 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-type TxmClient[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
-	ADD any,
-] interface {
-	BatchSendTransactions(
-		ctx context.Context,
-		store txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-		attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		bathSize int,
-		lggr logger.Logger,
-	) ([]clienttypes.SendTxReturnCode, []error, error)
-	SendTransactionReturnCode(
-		ctx context.Context,
-		tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		lggr logger.Logger,
-	) (clienttypes.SendTxReturnCode, error)
-	PendingNonceAt(ctx context.Context, addr ADDR) (int64, error)
-	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
-	BatchGetReceipts(
-		ctx context.Context,
-		attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-	) (txReceipt []R, txErr []error, err error)
-	SendEmptyTransaction(
-		ctx context.Context,
-		txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ],
-		seq SEQ,
-		gasLimit uint32,
-		fee FEE,
-		fromAddress ADDR,
-	) (txhash string, err error)
-	CallContract(
-		ctx context.Context,
-		attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		blockNumber *big.Int,
-	) (rpcErr fmt.Stringer, extractErr error)
-}
-
-type EvmTxmClient = TxmClient[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 
 var _ EvmTxmClient = (*evmTxmClient)(nil)
 
