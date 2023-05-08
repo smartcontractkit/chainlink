@@ -72,6 +72,7 @@ func NewTestEthBroadcaster(
 	// Mark instance as test
 	ethBroadcaster.DisableUnstartedEthTxAutoProcessing()
 	err = ethBroadcaster.Start(testutils.Context(t))
+	t.Cleanup(func() { assert.NoError(t, ethBroadcaster.Close()) })
 	return ethBroadcaster, err
 }
 
