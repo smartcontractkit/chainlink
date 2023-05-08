@@ -384,7 +384,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		relayers := make(map[relay.Network]func() (loop.Relayer, error))
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore, eventBroadcaster)
 			relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: chains.EVM}
 			relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
@@ -418,6 +418,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			relayers,
 			mailMon,
+			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,

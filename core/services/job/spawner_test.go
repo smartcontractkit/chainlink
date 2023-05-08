@@ -272,12 +272,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 		relayers := make(map[relay.Network]func() (loop.Relayer, error))
-		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
+		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore, nil)
 		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
 		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, config,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
+			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon, nil)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{

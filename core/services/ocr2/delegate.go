@@ -67,6 +67,7 @@ type Delegate struct {
 	relayers              map[relay.Network]func() (loop.Relayer, error)
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
+	eventBroadcaster      pg.EventBroadcaster
 }
 
 type Config interface {
@@ -91,6 +92,7 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers map[relay.Network]func() (loop.Relayer, error),
 	mailMon *utils.MailboxMonitor,
+	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
@@ -108,6 +110,7 @@ func NewDelegate(
 		relayers:              relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
+		eventBroadcaster:      eventBroadcaster,
 	}
 }
 
@@ -208,7 +211,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 	relayer, err := relayerFn()
 	if err != nil {
-		//TODO defer in order to retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+		// TODO defer in order to retry https://smartcontract-it.atlassian.net/browse/BCF-2112
 		return nil, fmt.Errorf("failed to get relayer: %w", err)
 	}
 	effectiveTransmitterID := transmitterID
@@ -674,6 +677,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			},
 			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
+			d.eventBroadcaster,
 		)
 		if err2 != nil {
 			return nil, err2

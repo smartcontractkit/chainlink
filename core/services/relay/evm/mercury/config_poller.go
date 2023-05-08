@@ -90,6 +90,7 @@ type ConfigPoller struct {
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
+	notifyCh           chan struct{}
 }
 
 func FilterName(addr common.Address) string {
@@ -97,8 +98,13 @@ func FilterName(addr common.Address) string {
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	if err != nil {
+		return nil, err
+	}
+
+	subscription, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +114,16 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 		feedId:             feedId,
+		notifyCh:           make(chan struct{}, 1),
 	}
+	go cp.startLogSubscription(subscription)
 
 	return cp, nil
 }
 
 // Notify abstracts the logpoller.LogPoller Notify() implementation
 func (lp *ConfigPoller) Notify() <-chan struct{} {
-	return lp.destChainLogPoller.Notify(feedIdTopicIndex, lp.feedId)
+	return lp.notifyCh
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
@@ -167,4 +175,29 @@ func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		return 0, err
 	}
 	return uint64(latest), nil
+}
+
+func (lp *ConfigPoller) startLogSubscription(subscription pg.Subscription) {
+	feedIdPgHex := lp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
+	for {
+		event, ok := <-subscription.Events()
+		if !ok {
+			lp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
+			return
+		}
+
+		// Event payload is a comma separated list of hex encoded topic values.
+		topicValues := strings.Split(event.Payload, ",")
+		if len(topicValues) <= feedIdTopicIndex {
+			continue
+		}
+		if topicValues[feedIdTopicIndex] != feedIdPgHex {
+			continue
+		}
+
+		select {
+		case lp.notifyCh <- struct{}{}:
+		default:
+		}
+	}
 }

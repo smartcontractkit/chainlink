@@ -20,7 +20,6 @@ import (
 	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
@@ -44,22 +44,24 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db          *sqlx.DB
-	chainSet    evm.ChainSet
-	lggr        logger.Logger
-	cfg         RelayerConfig
-	ks          keystore.Master
-	mercuryPool wsrpc.Pool
+	db               *sqlx.DB
+	chainSet         evm.ChainSet
+	lggr             logger.Logger
+	cfg              RelayerConfig
+	ks               keystore.Master
+	mercuryPool      wsrpc.Pool
+	eventBroadcaster pg.EventBroadcaster
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
-		db:          db,
-		chainSet:    chainSet,
-		lggr:        lggr.Named("Relayer"),
-		cfg:         cfg,
-		ks:          ks,
-		mercuryPool: wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		db:               db,
+		chainSet:         chainSet,
+		lggr:             lggr.Named("Relayer"),
+		cfg:              cfg,
+		ks:               ks,
+		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		eventBroadcaster: eventBroadcaster,
 	}
 }
 
@@ -103,7 +105,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -128,7 +130,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
-	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args)
+	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -245,7 +247,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -267,10 +269,12 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	var cp ConfigPoller
 
 	if relayConfig.FeedID != nil {
-		cp, err = mercury.NewConfigPoller(lggr,
+		cp, err = mercury.NewConfigPoller(
+			lggr,
 			chain.LogPoller(),
 			contractAddress,
 			*relayConfig.FeedID,
+			eventBroadcaster,
 		)
 	} else {
 		cp, err = NewConfigPoller(lggr,
@@ -413,7 +417,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 }
 
 func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}

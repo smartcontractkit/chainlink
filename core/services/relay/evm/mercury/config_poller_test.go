@@ -9,18 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -56,10 +58,15 @@ func TestMercuryConfigPoller(t *testing.T) {
 	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
+	subscription := pgmocks.NewSubscription(t)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
 
-	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
+	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
+	subscription.On("Events").Return(nil)
+
+	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
 	require.NoError(t, err)
 
 	notify := logPoller.Notify()
@@ -145,7 +152,65 @@ func TestMercuryConfigPoller(t *testing.T) {
 	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
 	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
-	assert.Len(t, notify, 1)
+}
+
+func TestNotify(t *testing.T) {
+	feedIDStr := "8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"
+	feedIDBytes, err := hexutil.Decode("0x" + feedIDStr)
+	require.NoError(t, err)
+	feedID := common.BytesToHash(feedIDBytes)
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err)
+	b := backends.NewSimulatedBackend(core.GenesisAlloc{
+		user.From: {Balance: big.NewInt(1000000000000000000)}},
+		5*ethconfig.Defaults.Miner.GasCeil)
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := pgtest.NewQConfig(false)
+	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
+	subscription := pgmocks.NewSubscription(t)
+	require.NoError(t, lp.Start(ctx))
+	t.Cleanup(func() { lp.Close() })
+
+	eventCh := make(chan pg.Event)
+
+	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
+	subscription.On("Events").Return((<-chan pg.Event)(eventCh))
+
+	logPoller, err := NewConfigPoller(lggr, lp, common.Address{1}, feedID, eventBroadcaster)
+	require.NoError(t, err)
+
+	notify := logPoller.Notify()
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{} // No topic values
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "val1"} // missing feedId topic value
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1,val2"} // wrong index
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "val1,val2,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong index
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "val1,0x8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // 0x prefix
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
+	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
+
+	eventCh <- pg.Event{Payload: "val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
+	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 }
 
 func onchainPublicKeyToAddress(publicKeys []types.OnchainPublicKey) (addresses []common.Address, err error) {
