@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -57,7 +55,6 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
-	NewSendErrorReturnCode(tx *types.Transaction, fromAddress common.Address, err error) (clienttypes.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
@@ -77,6 +74,8 @@ type Client interface {
 	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+
+	IsL2() bool
 }
 
 // This interface only exists so that we can generate a mock for it.  It is
@@ -206,76 +205,7 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	return client.NewSendErrorReturnCode(tx, fromAddress, err)
-}
-
-func (client *client) NewSendErrorReturnCode(tx *types.Transaction, fromAddress common.Address, err error) (clienttypes.SendTxReturnCode, error) {
-	sendError := NewSendError(err)
-	if sendError == nil {
-		return clienttypes.Successful, err
-	}
-	if sendError.Fatal() {
-		client.logger.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
-		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return clienttypes.Fatal, err
-	}
-	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		// Nonce too low indicated that a transaction at this nonce was confirmed already.
-		// Mark it as TransactionAlreadyKnown.
-		return clienttypes.TransactionAlreadyKnown, err
-	}
-	if sendError.IsReplacementUnderpriced() {
-		client.logger.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
-			"Eth node returned error: '%s'. "+
-			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
-
-		// Assume success and hand off to the next cycle.
-		return clienttypes.Successful, err
-	}
-	if sendError.IsTransactionAlreadyInMempool() {
-		client.logger.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
-		return clienttypes.Successful, err
-	}
-	if sendError.IsTemporarilyUnderpriced() {
-		client.logger.Infow("Transaction temporarily underpriced", "err", sendError.Error())
-		return clienttypes.Successful, err
-	}
-	if sendError.IsTerminallyUnderpriced() {
-		return clienttypes.Underpriced, err
-	}
-	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
-		if client.pool.ChainType().IsL2() {
-			return clienttypes.FeeOutOfValidRange, err
-		}
-		return clienttypes.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
-	}
-	if sendError.IsNonceTooHighError() {
-		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
-		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
-		// reached the client yet. The correct thing to do is to mark it as retryable.
-		client.logger.Warnw("Transaction has a nonce gap.", "err", err)
-		return clienttypes.Retryable, err
-	}
-	if sendError.IsInsufficientEth() {
-		client.logger.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
-			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
-		), "err", sendError)
-		return clienttypes.InsufficientFunds, err
-	}
-	if sendError.IsTimeout() {
-		return clienttypes.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
-	}
-	if sendError.IsTxFeeExceedsCap() {
-		client.logger.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
-			"etx", tx,
-			"err", sendError,
-			"id", "RPCTxFeeCapExceeded",
-		)
-		return clienttypes.ExceedsMaxFee, err
-	}
-	return clienttypes.Unknown, err
+	return NewSendErrorReturnCode(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set
@@ -419,4 +349,8 @@ func (client *client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem
 // instead.
 func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return client.pool.SuggestGasTipCap(ctx)
+}
+
+func (client *client) IsL2() bool {
+	return client.pool.ChainType().IsL2()
 }

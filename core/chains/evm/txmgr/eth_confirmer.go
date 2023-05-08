@@ -339,15 +339,15 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	txCodes, _, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr)
+	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
 	var ethTxIDsToUnconfirm []int64
-	for idx, code := range txCodes {
-		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
-		if code != clienttypes.Successful {
-			if code == clienttypes.TransactionAlreadyKnown {
+	for idx, txErr := range txErrs {
+		// Add to Unconfirm array, all tx where error wasn't TransactionAlreadyKnown.
+		if txErr != nil {
+			if txCodes[idx] == clienttypes.TransactionAlreadyKnown {
 				continue
 			}
 		}

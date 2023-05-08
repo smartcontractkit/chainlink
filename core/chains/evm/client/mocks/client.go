@@ -445,6 +445,20 @@ func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header
 	return r0, r1
 }
 
+// IsL2 provides a mock function with given fields:
+func (_m *Client) IsL2() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // LINKBalance provides a mock function with given fields: ctx, address, linkAddress
 func (_m *Client) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
 	ret := _m.Called(ctx, address, linkAddress)
@@ -490,30 +504,6 @@ func (_m *Client) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// NewSendErrorReturnCode provides a mock function with given fields: tx, fromAddress, err
-func (_m *Client) NewSendErrorReturnCode(tx *types.Transaction, fromAddress common.Address, err error) (chainsclient.SendTxReturnCode, error) {
-	ret := _m.Called(tx, fromAddress, err)
-
-	var r0 chainsclient.SendTxReturnCode
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*types.Transaction, common.Address, error) (chainsclient.SendTxReturnCode, error)); ok {
-		return rf(tx, fromAddress, err)
-	}
-	if rf, ok := ret.Get(0).(func(*types.Transaction, common.Address, error) chainsclient.SendTxReturnCode); ok {
-		r0 = rf(tx, fromAddress, err)
-	} else {
-		r0 = ret.Get(0).(chainsclient.SendTxReturnCode)
-	}
-
-	if rf, ok := ret.Get(1).(func(*types.Transaction, common.Address, error) error); ok {
-		r1 = rf(tx, fromAddress, err)
 	} else {
 		r1 = ret.Error(1)
 	}

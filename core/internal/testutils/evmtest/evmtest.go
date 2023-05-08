@@ -291,6 +291,7 @@ func NewEthClientMock(t *testing.T) *evmclimocks.Client {
 func NewEthClientMockWithDefaultChain(t *testing.T) *evmclimocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
+	c.On("IsL2").Return(false).Maybe()
 	return c
 }
 

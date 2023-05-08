@@ -126,11 +126,6 @@ func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.T
 	return clienttypes.Successful, nil
 }
 
-func (nc *NullClient) NewSendErrorReturnCode(_ *types.Transaction, _ common.Address, err error) (clienttypes.SendTxReturnCode, error) {
-	nc.lggr.Debug("NewSendErrorReturnCode")
-	return clienttypes.Successful, nil
-}
-
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	nc.lggr.Debug("SendTransaction")
 	return nil
@@ -231,3 +226,8 @@ func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 
 // NodeStates implements evmclient.Client
 func (nc *NullClient) NodeStates() map[string]string { return nil }
+
+func (nc *NullClient) IsL2() bool {
+	nc.lggr.Debug("IsL2")
+	return false
+}

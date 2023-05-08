@@ -374,10 +374,6 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 
 func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	return c.NewSendErrorReturnCode(tx, fromAddress, err)
-}
-
-func (c *SimulatedBackendClient) NewSendErrorReturnCode(_ *types.Transaction, _ common.Address, err error) (clienttypes.SendTxReturnCode, error) {
 	if err == nil {
 		return clienttypes.Successful, nil
 	}
@@ -673,4 +669,8 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	}
 
 	return callMsg
+}
+
+func (c *SimulatedBackendClient) IsL2() bool {
+	return false
 }

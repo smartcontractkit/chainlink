@@ -22,6 +22,20 @@ type TxStore[ADDR types.Hashable, CHAIN_ID txmgrtypes.ID, TX_HASH types.Hashable
 	mock.Mock
 }
 
+// Abandon provides a mock function with given fields: id, addr
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Abandon(id CHAIN_ID, addr ADDR) error {
+	ret := _m.Called(id, addr)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR) error); ok {
+		r0 = rf(id, addr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CheckEthTxQueueCapacity provides a mock function with given fields: fromAddress, maxQueuedTransactions, chainID, qopts
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CheckEthTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

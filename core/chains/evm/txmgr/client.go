@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -9,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -78,22 +78,31 @@ func NewEvmTxmClient(c evmclient.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
-func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErr []error, err error) {
-	reqs, err := batchSendTransactions(ctx, txStore, attempts, batchSize, lggr, c.client)
-	if err != nil {
-		return nil, nil, err
+func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
+	// preallocate
+	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
+	txErrs = make([]error, len(attempts))
+
+	reqs, batchErr := batchSendTransactions(ctx, txStore, attempts, batchSize, lggr, c.client)
+	err = errors.Join(err, batchErr) // this error does not block processing
+
+	// safety check - exits before processing
+	if len(reqs) != len(attempts) {
+		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
+		err = errors.Join(err, lenErr)
+		lggr.Criticalw("Mismatched length", "error", err)
+		return
 	}
 
 	// for each batched tx convert response to standard error code
-	codes = make([]clienttypes.SendTxReturnCode, len(reqs))
-	txErr = make([]error, len(reqs))
 	for i := range reqs {
-		// convert to tx for logging purposes
-		tx, err := GetGethSignedTx(attempts[i].SignedRawTx)
-		if err != nil {
-			return nil, nil, err
+		// convert to tx for logging purposes - exits early if error occurs
+		tx, signedErr := GetGethSignedTx(attempts[i].SignedRawTx)
+		if signedErr != nil {
+			err = errors.Join(err, signedErr)
+			return
 		}
-		codes[i], txErr[i] = c.client.NewSendErrorReturnCode(tx, attempts[i].Tx.FromAddress, reqs[i].Error)
+		codes[i], txErrs[i] = evmclient.NewSendErrorReturnCode(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
 	}
 	return
 }
@@ -135,7 +144,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 	}
 
 	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
-		return nil, nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext")
+		return nil, nil, fmt.Errorf("EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext: %w", err)
 	}
 
 	for _, req := range reqs {
@@ -174,7 +183,7 @@ func (c *evmTxmClient) SendEmptyTransaction(
 		return txhash, err
 	}
 
-	err = c.client.SendTransaction(ctx, signedTx)
+	_, err = c.client.SendTransactionReturnCode(ctx, signedTx, fromAddress)
 	return signedTx.Hash().String(), err
 }
 

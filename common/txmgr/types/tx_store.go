@@ -81,6 +81,7 @@ type TxStore[
 	UpdateEthTxFatalError(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) error
 	Close()
+	Abandon(id CHAIN_ID, addr ADDR) error
 }
 
 type TxHistoryReaper[CHAIN_ID ID] interface {
