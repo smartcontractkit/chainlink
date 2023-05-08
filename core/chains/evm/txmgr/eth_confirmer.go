@@ -19,7 +19,7 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -113,10 +113,10 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD types.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	HEAD commontypes.Head[TX_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH commontypes.Hashable,
+	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
@@ -259,14 +259,14 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ProcessHead(ctx context.Context, head types.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ProcessHead(ctx context.Context, head commontypes.Head[TX_HASH]) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) processHead(ctx context.Context, head types.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) processHead(ctx context.Context, head commontypes.Head[TX_HASH]) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
@@ -980,7 +980,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head commontypes.Head[TX_HASH]) error {
 	if head.ChainLength() < ec.config.FinalityDepth() {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.FinalityDepth(),
@@ -1035,12 +1035,12 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 
 func hasReceiptInLongestChain[
 	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
+	ADDR commontypes.Hashable,
+	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
-](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head types.Head) bool {
+](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[TX_HASH]) bool {
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
@@ -1056,7 +1056,7 @@ func hasReceiptInLongestChain[
 	}
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head types.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[TX_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1147,7 +1147,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ResumePendingTaskRuns(ctx context.Context, head types.Head) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ResumePendingTaskRuns(ctx context.Context, head commontypes.Head[TX_HASH]) error {
 
 	receiptsPlus, err := ec.txStore.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 
@@ -1182,8 +1182,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 // transaction.
 func observeUntilTxConfirmed[
 	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
+	ADDR commontypes.Hashable,
+	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
