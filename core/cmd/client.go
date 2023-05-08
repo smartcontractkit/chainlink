@@ -90,7 +90,7 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	configInitialized bool
+	flagsProcessed bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {

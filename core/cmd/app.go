@@ -78,7 +78,7 @@ func NewApp(client *Client) *cli.App {
 		}
 
 		if c.IsSet("config") || c.IsSet("secrets") {
-			client.configInitialized = true
+			client.flagsProcessed = true
 		}
 
 		if c.Bool("json") {
@@ -190,7 +190,7 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				if client.configInitialized {
+				if client.flagsProcessed {
 					if c.IsSet("config") || c.IsSet("secrets") {
 						// invalid mix of flags here and root
 						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
