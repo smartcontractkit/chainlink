@@ -52,6 +52,7 @@ func TestMercurySetCurrentBlock(t *testing.T) {
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
 		assert.Equal(t, h.Hash.Bytes(), obs.CurrentBlockHash.Val)
+		assert.Equal(t, uint64(h.Timestamp.Unix()), obs.CurrentBlockTimestamp.Val)
 
 		chainHeadTracker.AssertExpectations(t)
 		headTracker.AssertExpectations(t)
@@ -75,6 +76,7 @@ func TestMercurySetCurrentBlock(t *testing.T) {
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
 		assert.Equal(t, h.Hash.Bytes(), obs.CurrentBlockHash.Val)
+		assert.Equal(t, uint64(h.Timestamp.Unix()), obs.CurrentBlockTimestamp.Val)
 
 		chainHeadTracker.AssertExpectations(t)
 		ethClient.AssertExpectations(t)
@@ -100,6 +102,7 @@ func TestMercurySetCurrentBlock(t *testing.T) {
 
 		assert.Equal(t, err, obs.CurrentBlockNum.Err)
 		assert.Equal(t, err, obs.CurrentBlockHash.Err)
+		assert.Equal(t, err, obs.CurrentBlockTimestamp.Err)
 
 		chainHeadTracker.AssertExpectations(t)
 		ethClient.AssertExpectations(t)
