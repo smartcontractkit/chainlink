@@ -26,25 +26,23 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     lastBlock = ARB_SYS.arbBlockNumber();
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDStr";
+    feedLabel = "feedIDStr"; // or feedIDHex
     feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
-    queryLabel = "blockNumber";
+    queryLabel = "blockNumber"; // timestmap not supported yet
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
-    bytes memory performData = new bytes(0);
-    //    for (uint256 i = 0; i < values.length; i++) {
-    //      performData = bytes.concat(performData, values[i]);
-    //    }
-    performData = bytes.concat(performData, extraData);
-    return (true, performData);
+    // do sth about the chainlinkBlob data in values and extraData
+    return (true, extraData);
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
     if (!eligible()) {
       return (false, data);
     }
-    revert MercuryLookup(feedLabel, feeds, queryLabel, ARB_SYS.arbBlockNumber(), data);
+    // encode ARB_SYS as extraData to verify that it is provided to mercuryCallback correctly.
+    // in reality, this can be any data or empty
+    revert MercuryLookup(feedLabel, feeds, queryLabel, ARB_SYS.arbBlockNumber(), abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {

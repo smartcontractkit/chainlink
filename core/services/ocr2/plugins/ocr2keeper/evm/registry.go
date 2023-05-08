@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -107,9 +108,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
-			clientID:      mc.Username,
-			clientKey:     mc.Password,
-			url:           mc.URL,
+			cred:          mc,
 			abi:           mercuryLookupCompatibleABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
@@ -167,10 +166,8 @@ type activeUpkeep struct {
 }
 
 type MercuryConfig struct {
-	clientID      string
-	clientKey     string
+	cred          *models.MercuryCredentials
 	abi           abi.ABI
-	url           string
 	upkeepCache   *cache.Cache
 	cooldownCache *cache.Cache
 	apiErrCache   *cache.Cache
@@ -571,6 +568,11 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 	}
 
 	if mercuryEnabled {
+		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
+			chResult <- checkResult{
+				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
+			}
+		}
 		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
 		if err != nil {
 			chResult <- checkResult{

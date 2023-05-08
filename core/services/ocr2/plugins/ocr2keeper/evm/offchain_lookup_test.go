@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm/mocks"
 )
 
@@ -67,8 +68,11 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
-			clientID:      "FakeClientID",
-			clientKey:     "FakeClientKey",
+			cred: &models.MercuryCredentials{
+				URL:      "https://google.com",
+				Username: "FakeClientID",
+				Password: "FakeClientKey",
+			},
 			abi:           mercuryCompatibleABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,

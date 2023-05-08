@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -21,9 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
@@ -53,7 +52,8 @@ type MercuryBytes struct {
 
 // mercuryLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
-	var e error
+	// return error only if there are errors which stops the process
+	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
 	for i := range upkeepResults {
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
@@ -73,35 +73,31 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
-		r.lggr.Infof("[MercuryLookup] performData %+v", upkeepResults[i].PerformData)
 		// if it doesn't decode to the offchain custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
-		r.lggr.Infof("[MercuryLookup] mercuryLookup %+v", mercuryLookup)
 		if err != nil {
-			//upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
-			r.lggr.Debugf("[MercuryLookup] not an offchain revert decodeMercuryLookup: %v", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
+			r.lggr.Debugf("[MercuryLookup] decodeMercuryLookup: %v", err)
 			return nil, err
 		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			//upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
 			r.lggr.Errorf("[MercuryLookup] buildCallOpts: %v", err)
 			return nil, err
 		}
 		// need upkeep info for offchainConfig and to hit callback
 		upkeepInfo, err := r.getUpkeepInfo(upkeepId, opts)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
 			r.lggr.Errorf("[MercuryLookup] GetUpkeep: %v", err)
 			return nil, err
 		}
 
 		// 	do the http request
-		values, err := r.doRequest(mercuryLookup, upkeepId)
+		values, err := r.doRequest(ctx, mercuryLookup, upkeepId)
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
-			e = multierr.Append(e, err)
+			r.lggr.Errorf("[MercuryLookup] doRequest: %v", err)
 			continue
 		}
 
@@ -109,7 +105,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
 			r.lggr.Errorf("[MercuryLookup] mercuryLookupCallback err: %v", err)
-			return nil, err
+			continue
 		}
 		if !needed {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
@@ -121,12 +117,10 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
 		upkeepResults[i].State = types.Eligible
 		upkeepResults[i].PerformData = performData
-		r.lggr.Infof("[MercuryLookup] Success: %+v\n", upkeepResults[i])
+		r.lggr.Infof("[MercuryLookup] Success: %+v", upkeepResults[i])
 	}
-	if e != nil {
-		r.lggr.Errorf("[MercuryLookup] Error: %v", e)
-	}
-	return upkeepResults, e
+	// don't surface error to plugin bc MercuryLookup process should be self-contained.
+	return upkeepResults, nil
 }
 
 func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
@@ -156,7 +150,7 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 	e := r.mercury.abi.Errors["MercuryLookup"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unpack error")
+		return nil, fmt.Errorf("unpack error: %w", err)
 	}
 	errorParameters := unpack.([]interface{})
 
@@ -174,29 +168,30 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *MercuryLookup, values [][]byte, upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo, opts *bind.CallOpts) (bool, []byte, error) {
 	payload, err := r.mercury.abi.Pack("mercuryCallback", values, mercuryLookup.extraData)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "callback args pack error")
+		return false, nil, fmt.Errorf("callback args pack error: %w", err)
 	}
 
 	checkUpkeepGasLimit := uint32(200000) + uint32(6500000) + uint32(300000) + upkeepInfo.ExecuteGas
 	callbackMsg := ethereum.CallMsg{
 		From: r.addr,             // registry addr
 		To:   &upkeepInfo.Target, // upkeep addr
+		//Gas:  0,                // if Arbitrum gives intrinsic gas too low error, provide infinite gas to push through the call
 		Gas:  uint64(checkUpkeepGasLimit),
 		Data: payload,
 	}
 
 	callbackResp, err := r.client.CallContract(ctx, callbackMsg, opts.BlockNumber)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "call contract callback error")
+		return false, nil, fmt.Errorf("call contract callback error: %w", err)
 	}
 
 	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "abi new bytes type error")
+		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
 	}
 	boolTyp, err := abi.NewType("bool", "", nil)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "abi new bool type error")
+		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
 	}
 	callbackOutput := abi.Arguments{
 		{Name: "upkeepNeeded", Type: boolTyp},
@@ -204,7 +199,7 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 	}
 	unpack, err := callbackOutput.Unpack(callbackResp)
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "callback output unpack error")
+		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
 	}
 
 	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
@@ -212,11 +207,11 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 		return false, nil, nil
 	}
 	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
-	r.lggr.Infof("upkeep needed: %v data: %v", upkeepNeeded, performData)
+	r.lggr.Infof("[MercuryLookup] upkeep needed: %v data: %v", upkeepNeeded, performData)
 	return true, performData, nil
 }
 
-func (r *EvmRegistry) doRequest(ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
+func (r *EvmRegistry) doRequest(ctx context.Context, ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
 	// TODO when mercury has multi feed endpoint. we can use this instead of below
 	//multiFeed, err := r.multiFeedRequest(&client, upkeepId, ml)
 	//if err != nil {
@@ -226,41 +221,38 @@ func (r *EvmRegistry) doRequest(ml *MercuryLookup, upkeepId *big.Int) ([][]byte,
 
 	ch := make(chan MercuryBytes, len(ml.feeds))
 	for i := range ml.feeds {
-		go r.singleFeedRequest(ch, upkeepId, i, ml)
+		go r.singleFeedRequest(ctx, ch, upkeepId, i, ml)
 	}
 	var reqErr error
 	results := make([][]byte, len(ml.feeds))
 	for i := 0; i < len(results); i++ {
 		m := <-ch
 		if m.Error != nil {
-			reqErr = multierr.Append(reqErr, errors.Wrapf(m.Error, "upkeep ID %s feed[%s] at block %s", upkeepId.String(), ml.feeds[i], ml.query.String()))
+			reqErr = errors.Join(reqErr, fmt.Errorf("upkeep ID %s feed[%s] at block %s: %w", upkeepId.String(), ml.feeds[i], ml.query.String(), m.Error))
 		}
 		results[m.Index] = m.Bytes
-	}
-	if reqErr != nil {
-		r.lggr.Debugf("MercuryLookup: doRequest multierr: %v", upkeepId.String(), ml.query.String(), reqErr)
 	}
 	return results, reqErr
 }
 
-func (r *EvmRegistry) singleFeedRequest(ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *MercuryLookup) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *MercuryLookup) {
 	q := url.Values{
 		ml.feedLabel:  {ml.feeds[index]},
 		ml.queryLabel: {ml.query.String()},
 	}
-	reqUrl := fmt.Sprintf("%s/client?%s", r.mercury.url, q.Encode())
+	reqUrl := fmt.Sprintf("%s/client?%s", r.mercury.cred.URL, q.Encode())
 	r.lggr.Debugf("MercuryLookup request URL: %s", reqUrl)
 
-	req, err := http.NewRequest(http.MethodGet, reqUrl, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
 		ch <- MercuryBytes{Index: index, Error: err}
 		return
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, "/client?"+q.Encode(), []byte{}, r.mercury.clientID, r.mercury.clientKey, ts)
+	signature := r.generateHMAC(http.MethodGet, "/client?"+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", r.mercury.clientID)
+	req.Header.Set("Authorization", r.mercury.cred.Username)
 	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
 	req.Header.Set("X-Authorization-Signature-SHA256", signature)
 
@@ -282,11 +274,11 @@ func (r *EvmRegistry) singleFeedRequest(ch chan<- MercuryBytes, upkeepId *big.In
 				// there are 2 possible causes for 404: incorrect URL and querying a block where report has not been generated
 				r.lggr.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
 				// return NOT FOUND for retry
-				return errors.New(strconv.Itoa(http.StatusNotFound))
+				return fmt.Errorf("%d", http.StatusNotFound)
 			} else if resp.StatusCode != http.StatusOK {
 				// put all other status code to cooldown cache
 				r.lggr.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
-				return errors.Errorf("Status code %d", resp.StatusCode)
+				return fmt.Errorf("%d", resp.StatusCode)
 			}
 
 			var m MercuryResponse
