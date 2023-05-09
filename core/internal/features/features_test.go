@@ -670,7 +670,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
@@ -752,7 +752,7 @@ func setupForwarderEnabledNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
