@@ -30,19 +30,19 @@ import (
 
 type MedianConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
-	plugins.EnvConfig
+	plugins.ProcessConfig
 }
 
 // concrete implementation of MedianConfig
 type medianConfig struct {
 	jobPipelineMaxSuccessfulRuns uint64
-	plugins.EnvConfig
+	plugins.ProcessConfig
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginEnv plugins.EnvConfig) MedianConfig {
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginProcessCfg plugins.ProcessConfig) MedianConfig {
 	return &medianConfig{
 		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
-		EnvConfig:                    pluginEnv,
+		ProcessConfig:                pluginProcessCfg,
 	}
 }
 
@@ -61,6 +61,7 @@ func NewMedianServices(ctx context.Context,
 	cfg MedianConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
+
 ) (srvs []job.ServiceCtx, err error) {
 	var pluginConfig config.PluginConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -185,7 +186,7 @@ type medianService struct {
 	utils.StartStopOnce
 
 	lggr    logger.Logger
-	cfg     plugins.EnvConfig
+	cfg     plugins.ProcessConfig
 	cmdName string
 
 	client *plugin.Client
@@ -193,7 +194,7 @@ type medianService struct {
 	loop.PluginMedian
 }
 
-func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.EnvConfig) *medianService {
+func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.ProcessConfig) *medianService {
 	return &medianService{cmdName: cmdName, lggr: lggr.Named("PluginMedianService"), cfg: cfg}
 }
 
@@ -210,7 +211,9 @@ func (m *medianService) Start(ctx context.Context) error {
 func (m *medianService) Launch() error {
 	cc := loop.PluginMedianClientConfig(m.lggr)
 	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
-	plugins.SetEnvConfig(cc.Cmd, m.cfg)
+
+	envConfig := m.cfg.GenerateEnvConfig(m.cmdName)
+	plugins.SetCmdEnvFromConfig(cc.Cmd, envConfig)
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
 	if err != nil {

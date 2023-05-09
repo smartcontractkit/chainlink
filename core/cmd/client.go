@@ -272,7 +272,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), portManager.Register(cmdName))
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
-				plugins.SetEnvConfig(cmd, envConfig)
+				plugins.SetCmdEnvFromConfig(cmd, envConfig)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
 			chains.Solana = chainPluginService

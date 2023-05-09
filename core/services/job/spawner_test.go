@@ -32,6 +32,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -276,7 +277,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
 		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, config,
+		processConfig := plugins.NewProcessConfig(config, func(name string) int { return 0 })
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
+
+		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 

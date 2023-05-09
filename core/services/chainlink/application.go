@@ -410,8 +410,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
 			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
-		envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), opts.PortManager.Register(job.OffchainReporting.String()))
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, envConfig)
+		processConfig := plugins.NewProcessConfig(cfg, opts.PortManager.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, processConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
