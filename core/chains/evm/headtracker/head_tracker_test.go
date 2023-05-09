@@ -556,7 +556,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	checker := txmmocks.NewHeadTrackable[*evmtypes.Head](t)
+	checker := txmmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg, orm, checker)
