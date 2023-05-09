@@ -2,17 +2,11 @@ package mercury
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -22,58 +16,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestMercuryConfigPoller(t *testing.T) {
 	feedID := utils.NewHash()
 	feedIDBytes := [32]byte(feedID)
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
-		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
 
-	proxyAddress, _, _, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
-	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
-	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress)
-	require.NoError(t, err, "failed to deploy test mercury verifier contract")
-	b.Commit()
+	th := SetupTH(t, feedID)
+	th.subscription.On("Events").Return(nil)
 
-	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(false)
-	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	subscription := pgmocks.NewSubscription(t)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { lp.Close() })
-
-	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
-	subscription.On("Events").Return(nil)
-
-	logPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
-	require.NoError(t, err)
-
-	notify := logPoller.Notify()
+	notify := th.configPoller.Notify()
 	assert.Empty(t, notify)
 
 	// Should have no config to begin with.
-	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
+	_, config, err := th.configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
 
@@ -123,27 +82,27 @@ func TestMercuryConfigPoller(t *testing.T) {
 		offchainTransmitters[i] = oracles[i].OffchainPublicKey
 		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
 	}
-	_, err = verifierContract.SetConfig(user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err, "failed to setConfig with feed ID")
-	b.Commit()
+	th.backend.Commit()
 
-	latest, err := b.BlockByNumber(testutils.Context(t), nil)
+	latest, err := th.backend.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
-	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))
+	require.NoError(t, th.logPoller.Replay(testutils.Context(t), latest.Number().Int64()-1))
 
 	// Send blocks until we see the config updated.
 	var configBlock uint64
 	var digest [32]byte
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		b.Commit()
-		configBlock, digest, err = logPoller.LatestConfigDetails(testutils.Context(t))
+		th.backend.Commit()
+		configBlock, digest, err = th.configPoller.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the config returned is the one we configured.
-	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
+	newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
@@ -160,35 +119,12 @@ func TestNotify(t *testing.T) {
 	require.NoError(t, err)
 	feedID := common.BytesToHash(feedIDBytes)
 
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
-		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(false)
-	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	subscription := pgmocks.NewSubscription(t)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { lp.Close() })
-
 	eventCh := make(chan pg.Event)
 
-	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
-	subscription.On("Events").Return((<-chan pg.Event)(eventCh))
+	th := SetupTH(t, feedID)
+	th.subscription.On("Events").Return((<-chan pg.Event)(eventCh))
 
-	logPoller, err := NewConfigPoller(lggr, lp, common.Address{1}, feedID, eventBroadcaster)
-	require.NoError(t, err)
-
-	notify := logPoller.Notify()
+	notify := th.configPoller.Notify()
 	assert.Empty(t, notify)
 
 	eventCh <- pg.Event{} // No topic values
