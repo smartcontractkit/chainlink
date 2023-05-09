@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	htrkutils "github.com/smartcontractkit/chainlink/v2/common/headtracker/utils"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
@@ -72,10 +73,7 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
-	for h.Parent != nil {
-		h = h.Parent
-	}
-	return h
+	return htrkutils.EarliestInChain[*Head, common.Hash](h)
 }
 
 // EarliestHeadInChain recurses through parents until it finds the earliest one
