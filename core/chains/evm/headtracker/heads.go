@@ -6,28 +6,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
-
-// Heads is a collection of heads. All methods are thread-safe.
-type Heads interface {
-	// LatestHead returns the block header with the highest number that has been seen, or nil.
-	LatestHead() *evmtypes.Head
-	// HeadByHash returns a head for the specified hash, or nil.
-	HeadByHash(hash common.Hash) *evmtypes.Head
-	// AddHeads adds newHeads to the collection, eliminates duplicates,
-	// sorts by head number, fixes parents and cuts off old heads (historyDepth).
-	AddHeads(historyDepth uint, newHeads ...*evmtypes.Head)
-	// Count returns number of heads in the collection.
-	Count() int
-}
 
 type heads struct {
 	heads []*evmtypes.Head
 	mu    sync.RWMutex
 }
 
-func NewHeads() Heads {
+var _ htrktypes.Heads[*evmtypes.Head, common.Hash] = (*heads)(nil)
+
+func NewHeads() htrktypes.Heads[*evmtypes.Head, common.Hash] {
 	return &heads{}
 }
 
