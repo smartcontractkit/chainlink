@@ -162,9 +162,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Hidden: !devMode,
 					Action: client.ResetDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "dangerWillRobinson",
@@ -177,9 +175,7 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Usage:  "Reset database and load fixtures.",
 					Hidden: !devMode,
 					Action: client.PrepareTestDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "user-only",
@@ -191,46 +187,36 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "version",
 					Usage:  "Display the current database version.",
 					Action: client.VersionDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
-					Flags: []cli.Flag{},
+					Before: client.validateDB,
+					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: client.StatusDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
-					Flags: []cli.Flag{},
+					Before: client.validateDB,
+					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: client.MigrateDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
-					Flags: []cli.Flag{},
+					Before: client.validateDB,
+					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: client.RollbackDatabase,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
-					Flags: []cli.Flag{},
+					Before: client.validateDB,
+					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "create-migration",
 					Usage:  "Create a new migration.",
 					Hidden: !devMode,
 					Action: client.CreateMigration,
-					Before: func(ctx *clipkg.Context) error {
-						return client.configExitErr(client.Config.ValidateDB)
-					},
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "type",
@@ -695,6 +681,12 @@ func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	}
 	fmt.Println("Valid configuration.")
 	return nil
+}
+
+// ValidateDB is a BeforeFunc to run prior to database sub commands
+// the ctx must be that of the last subcommand to be validated
+func (cli *Client) validateDB(ctx *clipkg.Context) error {
+	return cli.configExitErr(cli.Config.ValidateDB)
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
