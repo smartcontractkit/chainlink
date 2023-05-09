@@ -534,6 +534,32 @@ func (_m *VRFCoordinatorInterface) FilterRandomnessFulfillmentRequested(opts *bi
 	return r0, r1
 }
 
+// FilterRandomnessRedeemed provides a mock function with given fields: opts, requestID, requester
+func (_m *VRFCoordinatorInterface) FilterRandomnessRedeemed(opts *bind.FilterOpts, requestID []*big.Int, requester []common.Address) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator, error) {
+	ret := _m.Called(opts, requestID, requester)
+
+	var r0 *vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator, error)); ok {
+		return rf(opts, requestID, requester)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) *vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator); ok {
+		r0 = rf(opts, requestID, requester)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int, []common.Address) error); ok {
+		r1 = rf(opts, requestID, requester)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterRandomnessRequested provides a mock function with given fields: opts, requestID, requester
 func (_m *VRFCoordinatorInterface) FilterRandomnessRequested(opts *bind.FilterOpts, requestID []*big.Int, requester []common.Address) (*vrf_coordinator.VRFCoordinatorRandomnessRequestedIterator, error) {
 	ret := _m.Called(opts, requestID, requester)
@@ -1202,30 +1228,6 @@ func (_m *VRFCoordinatorInterface) MigrationVersion(opts *bind.CallOpts) (uint8,
 	return r0, r1
 }
 
-// MinDelay provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) MinDelay(opts *bind.CallOpts) (uint16, error) {
-	ret := _m.Called(opts)
-
-	var r0 uint16
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (uint16, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) uint16); ok {
-		r0 = rf(opts)
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // NUMCONFDELAYS provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) NUMCONFDELAYS(opts *bind.CallOpts) (uint8, error) {
 	ret := _m.Called(opts)
@@ -1628,6 +1630,32 @@ func (_m *VRFCoordinatorInterface) ParseRandomnessFulfillmentRequested(log types
 	return r0, r1
 }
 
+// ParseRandomnessRedeemed provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseRandomnessRedeemed(log types.Log) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemed, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorRandomnessRedeemed
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemed, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorRandomnessRedeemed); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessRedeemed)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseRandomnessRequested provides a mock function with given fields: log
 func (_m *VRFCoordinatorInterface) ParseRandomnessRequested(log types.Log) (*vrf_coordinator.VRFCoordinatorRandomnessRequested, error) {
 	ret := _m.Called(log)
@@ -1938,17 +1966,17 @@ func (_m *VRFCoordinatorInterface) ProcessVRFOutputs(opts *bind.TransactOpts, vr
 	return r0, r1
 }
 
-// RedeemRandomness provides a mock function with given fields: opts, sender, arg1, requestID, arg3
-func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sender common.Address, arg1 *big.Int, requestID *big.Int, arg3 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, sender, arg1, requestID, arg3)
+// RedeemRandomness provides a mock function with given fields: opts, sender, subID, requestIDArg, arg3
+func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sender common.Address, subID *big.Int, requestIDArg *big.Int, arg3 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, sender, subID, requestIDArg, arg3)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, sender, arg1, requestID, arg3)
+		return rf(opts, sender, subID, requestIDArg, arg3)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) *types.Transaction); ok {
-		r0 = rf(opts, sender, arg1, requestID, arg3)
+		r0 = rf(opts, sender, subID, requestIDArg, arg3)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1956,7 +1984,7 @@ func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sen
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) error); ok {
-		r1 = rf(opts, sender, arg1, requestID, arg3)
+		r1 = rf(opts, sender, subID, requestIDArg, arg3)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1990,17 +2018,17 @@ func (_m *VRFCoordinatorInterface) RemoveConsumer(opts *bind.TransactOpts, subId
 	return r0, r1
 }
 
-// RequestRandomness provides a mock function with given fields: opts, requester, subID, numWords, confirmationDelayArg, arg4
-func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confirmationDelayArg *big.Int, arg4 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+// RequestRandomness provides a mock function with given fields: opts, requester, subID, numWords, confDelayArg, arg4
+func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confDelayArg *big.Int, arg4 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, requester, subID, numWords, confDelayArg, arg4)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		return rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) *types.Transaction); ok {
-		r0 = rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		r0 = rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -2008,7 +2036,7 @@ func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, re
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) error); ok {
-		r1 = rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		r1 = rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2016,17 +2044,17 @@ func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, re
 	return r0, r1
 }
 
-// RequestRandomnessFulfillment provides a mock function with given fields: opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6
-func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confirmationDelayArg *big.Int, callbackGasLimit uint32, arguments []byte, arg6 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+// RequestRandomnessFulfillment provides a mock function with given fields: opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6
+func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confDelayArg *big.Int, callbackGasLimit uint32, arguments []byte, arg6 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		return rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) *types.Transaction); ok {
-		r0 = rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		r0 = rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -2034,7 +2062,7 @@ func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.Trans
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) error); ok {
-		r1 = rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		r1 = rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2652,6 +2680,32 @@ func (_m *VRFCoordinatorInterface) WatchRandomnessFulfillmentRequested(opts *bin
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested, []*big.Int, []common.Address) error); ok {
+		r1 = rf(opts, sink, requestID, requester)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchRandomnessRedeemed provides a mock function with given fields: opts, sink, requestID, requester
+func (_m *VRFCoordinatorInterface) WatchRandomnessRedeemed(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, requestID []*big.Int, requester []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, requestID, requester)
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) (event.Subscription, error)); ok {
+		return rf(opts, sink, requestID, requester)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) event.Subscription); ok {
+		r0 = rf(opts, sink, requestID, requester)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) error); ok {
 		r1 = rf(opts, sink, requestID, requester)
 	} else {
 		r1 = ret.Error(1)
