@@ -110,7 +110,7 @@ go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts 
 .PHONY: go-solidity-wrappers-llo
 go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_llo
-	go generate ./core/gethwrappers/llo
+	go generate ./core/gethwrappers/go_generate_llo.go
 
 .PHONY: generate
 generate: abigen codecgen mockery ## Execute all go:generate commands.
