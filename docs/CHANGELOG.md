@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 
+### Changed
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
+
 ### Fixed
  - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
