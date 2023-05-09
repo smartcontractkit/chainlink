@@ -48,7 +48,6 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 				*c.Insecure.DevWebServer = true
 				*c.Insecure.DisableRateLimiting = true
 				*c.Insecure.InfiniteDepthQueries = true
-				*c.Insecure.OCRDevelopmentMode = true
 				*c.AuditLogger.Enabled = true
 			}}.New(logger.TestLogger(t))
 		require.NoError(t, err)
@@ -59,7 +58,6 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		assert.False(t, config.DevWebServer())
 		assert.False(t, config.DisableRateLimiting())
 		assert.False(t, config.InfiniteDepthQueries())
-		assert.False(t, config.OCRDevelopmentMode())
 	})
 
 	t.Run("ValidateConfig fails if insecure config is set on non-dev builds", func(t *testing.T) {

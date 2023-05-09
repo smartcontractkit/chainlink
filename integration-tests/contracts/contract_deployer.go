@@ -12,6 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -32,9 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
@@ -302,6 +303,24 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
+	}, err
+}
+
+func (e *EthereumContractDeployer) NewLinkTokenContract(address common.Address) (LinkToken, error) {
+	newToken, err := link_token_interface.NewLinkToken(address, e.client.Backend())
+	if err != nil {
+		return nil, err
+	}
+	log.Info().
+		Str("Contract Address", address.Hex()).
+		Str("Contract Name", "LINK Token").
+		Str("From", e.client.GetDefaultWallet().Address()).
+		Str("Network Name", e.client.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &EthereumLinkToken{
+		client:   e.client,
+		instance: newToken,
+		address:  address,
 	}, err
 }
 
