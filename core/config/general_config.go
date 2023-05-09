@@ -88,7 +88,6 @@ type BasicConfig interface {
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	DefaultLogLevel() zapcore.Level
-	Dev() bool
 	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
