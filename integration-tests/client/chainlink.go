@@ -1133,10 +1133,20 @@ func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) 
 				return nil, nil, err
 			}
 		}
-
-		ocrKey, _, err := n.CreateOCR2Key(chainName)
+		keys, _, err := n.ReadOCR2Keys()
 		if err != nil {
 			return nil, nil, err
+		}
+		var ocrKey *OCR2Key
+		for _, key := range keys.Data {
+			if key.Attributes.ChainType == chainName {
+				ocrKey = &OCR2Key{Data: key}
+				break
+			}
+		}
+
+		if ocrKey == nil {
+			return nil, nil, fmt.Errorf("no OCR key found for chain %s", chainName)
 		}
 		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
 		if err != nil {

@@ -38,7 +38,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
-	github.com/lib/pq v1.10.7
+	github.com/lib/pq v1.10.9
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.7
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
@@ -61,7 +61,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230502211324-be7ebf280a94
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230505214134-c890447508f9
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230424191709-c9fec8c08e1b
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239
 	github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc

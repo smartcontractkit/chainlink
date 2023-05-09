@@ -1,0 +1,10 @@
+exec chainlink node db migrate --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db migrate - Migrate the database to the latest version.
+
+USAGE:
+   chainlink node db migrate [arguments...]

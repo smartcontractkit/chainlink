@@ -110,7 +110,7 @@ runs:
 
     - name: Generate docker metadata for root image
       id: meta-root
-      uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       with:
         flavor: |
           suffix=-root,onlatest=true
@@ -147,7 +147,7 @@ runs:
 
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
-      uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       with:
         flavor: |
           latest=auto
