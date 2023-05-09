@@ -3371,7 +3371,10 @@ describe('KeeperRegistry2_1', () => {
           await expect(tx)
             .to.emit(registry, 'UpkeepRegistered')
             .withArgs(upkeepId, executeGas, await admin.getAddress())
-          await expect(tx).to.emit(registry, 'UpkeepOffchainConfigSet')
+
+          await expect(tx)
+            .to.emit(registry, 'UpkeepOffchainConfigSet')
+            .withArgs(upkeepId, offchainConfig)
 
           const registration = await registry.getUpkeep(upkeepId)
 
