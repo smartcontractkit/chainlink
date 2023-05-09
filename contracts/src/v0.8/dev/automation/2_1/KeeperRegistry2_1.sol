@@ -217,6 +217,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
+    emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id, address(forwarder));
   }
 
