@@ -27,7 +27,7 @@ func TestPromServer(t *testing.T) {
 	require.NoError(t, s.Start())
 
 	url := fmt.Sprintf("http://localhost:%d/metrics", s.Port())
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint
 	require.NoError(t, err)
 	require.NoError(t, err, "endpoint %s", url)
 	require.NotNil(t, resp.Body)

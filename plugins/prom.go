@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -37,7 +38,10 @@ func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromSer
 	s := &PromServer{
 		port: port,
 		lggr: lggr,
-		srvr: &http.Server{},
+		srvr: &http.Server{
+			// reasonable default based on typical prom poll interval of 15s.
+			ReadTimeout: 5 * time.Second,
+		},
 
 		handler: promhttp.Handler(),
 	}
