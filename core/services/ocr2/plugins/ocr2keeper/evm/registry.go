@@ -115,6 +115,8 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			apiErrCache:   apiErrCache,
 		},
 		hc: &http.Client{
+			// this timeout is a catch-all default value and should be less than delta round
+			// the actual timeout is determined by the context from plugin
 			Timeout: 2 * time.Second,
 		},
 	}
