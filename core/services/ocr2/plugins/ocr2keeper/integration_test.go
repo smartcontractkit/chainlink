@@ -174,12 +174,15 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func parseUpkeepEventsFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) (*big.Int, []byte) {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(receipt.Logs), 2)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
-	return parsedLog.Id
+	parsedLogCfg, err := registry.ParseUpkeepOffchainConfigSet(*receipt.Logs[1])
+	require.NoError(t, err)
+	return parsedLog.Id, parsedLogCfg.OffchainConfig
 }
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
@@ -354,8 +357,8 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
 	backend.Commit()
-	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
-
+	upkeepID, upkeepCfg := parseUpkeepEventsFromTx(t, registry, registrationTx, backend)
+	require.NotNil(t, upkeepCfg)
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 	require.NoError(t, err)
@@ -615,8 +618,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
 	backend.Commit()
-	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
-
+	upkeepID, upkeepCfg := parseUpkeepEventsFromTx(t, registry, registrationTx, backend)
+	require.NotNil(t, upkeepCfg)
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 	require.NoError(t, err)
