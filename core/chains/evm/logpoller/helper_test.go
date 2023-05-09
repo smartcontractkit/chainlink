@@ -110,10 +110,3 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
 }
-
-func (th *TestHarness) assertNotifyHasAtLeast(t *testing.T, notifyCh <-chan struct{}, len int) {
-	require.Len(t, notifyCh, len)
-	for i := 0; i < len; i++ {
-		<-notifyCh
-	}
-}
