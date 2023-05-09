@@ -690,8 +690,8 @@ func setDKGConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,
@@ -746,8 +746,8 @@ func setVRFConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,
