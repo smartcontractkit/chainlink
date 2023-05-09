@@ -164,7 +164,7 @@ func CreateOCRKeeperJobs(
 					"chainID": int(chainID),
 				},
 				PluginConfig: map[string]interface{}{
-					"mercuryCredentialName": "cred1",
+					"mercuryCredentialName": "\"cred1\"",
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
