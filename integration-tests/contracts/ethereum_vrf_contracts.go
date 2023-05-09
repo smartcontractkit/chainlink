@@ -1113,6 +1113,7 @@ func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	numWords uint16,
 	subID, confirmationDelayArg *big.Int,
+	requestGasLimit uint32,
 	callbackGasLimit uint32,
 	arguments []byte,
 ) (*types.Receipt, error) {
@@ -1120,6 +1121,9 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	if err != nil {
 		return nil, err
 	}
+	// overriding gas limit because gas estimated by TestRequestRandomnessFulfillment
+	// is incorrect
+	opts.GasLimit = uint64(requestGasLimit)
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
 		opts,
 		subID,

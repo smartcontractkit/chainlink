@@ -253,6 +253,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 		subscriptionID,
 		confirmationDelay,
 		200_000,
+		100_000,
 		nil,
 	)
 	require.NoError(t, err, "Error requesting Randomness Fulfillment")

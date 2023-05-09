@@ -131,6 +131,7 @@ type VRFBeaconConsumer interface {
 	RequestRandomnessFulfillment(
 		numWords uint16,
 		subID, confirmationDelayArg *big.Int,
+		requestGasLimit,
 		callbackGasLimit uint32,
 		arguments []byte,
 	) (*types.Receipt, error)
