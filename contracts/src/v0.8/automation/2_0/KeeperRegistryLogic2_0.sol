@@ -165,7 +165,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepOffchainConfigSet(id, offchainConfig);
     return id;
   }
 
