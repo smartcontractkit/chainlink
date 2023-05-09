@@ -6,9 +6,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -19,12 +19,12 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL       string
-	Email     string
-	Password  string
-	RemoteIP  string
-	ChartName string
-	PodName   string
+	URL        string
+	Email      string
+	Password   string
+	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName  string
+	PodName    string
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -869,9 +869,10 @@ type OCRTaskJobSpec struct {
 
 // P2PData holds the remote ip and the peer id and port
 type P2PData struct {
-	RemoteIP   string
-	RemotePort string
-	PeerID     string
+	ServiceName string
+	RemoteIP    string
+	RemotePort  string
+	PeerID      string
 }
 
 func (p *P2PData) P2PV2Bootstrapper() string {
@@ -894,7 +895,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 			return "", err
 		}
 		peers = append(peers, P2PData{
-			RemoteIP: peer.RemoteIP(),
+			RemoteIP: peer.InternalIP(),
 			PeerID:   p2pKeys.Data[0].Attributes.PeerID,
 		})
 	}

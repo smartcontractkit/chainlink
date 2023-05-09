@@ -991,9 +991,9 @@ func (c *Chainlink) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetN
 	return &response, resp.RawResponse, err
 }
 
-// RemoteIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
-func (c *Chainlink) RemoteIP() string {
-	return c.Config.RemoteIP
+// InternalIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
+func (c *Chainlink) InternalIP() string {
+	return c.Config.InternalIP
 }
 
 // Profile starts a profile session on the Chainlink node for a pre-determined length, then runs the provided function
@@ -1068,19 +1068,19 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	var clients []*Chainlink
 	for _, nodeDetails := range e.ChainlinkNodeDetails {
 		c, err := NewChainlink(&ChainlinkConfig{
-			URL:       nodeDetails.LocalURL,
-			Email:     "notreal@fakeemail.ch",
-			Password:  "fj293fbBnlQ!f9vNs",
-			RemoteIP:  parseHostname(nodeDetails.LocalURL),
-			ChartName: nodeDetails.ChartName,
-			PodName:   nodeDetails.PodName,
+			URL:        nodeDetails.LocalIP,
+			Email:      "notreal@fakeemail.ch",
+			Password:   "fj293fbBnlQ!f9vNs",
+			InternalIP: parseHostname(nodeDetails.InternalIP),
+			ChartName:  nodeDetails.ChartName,
+			PodName:    nodeDetails.PodName,
 		})
 		if err != nil {
 			return nil, err
 		}
 		log.Debug().
 			Str("URL", c.Config.URL).
-			Str("Remote IP", c.Config.RemoteIP).
+			Str("Internal IP", c.Config.InternalIP).
 			Str("Chart Name", c.Config.ChartName).
 			Str("Pod Name", c.Config.PodName).
 			Msg("Connected to Chainlink node")

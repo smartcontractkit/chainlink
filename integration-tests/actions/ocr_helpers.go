@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -190,7 +191,7 @@ func CreateOCRJobs(
 	if err != nil {
 		return err
 	}
-	for _, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances { // Establish bootstrap node for each OCR contract
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
@@ -207,7 +208,7 @@ func CreateOCRJobs(
 			return fmt.Errorf("creating bootstrap job have failed: %w", err)
 		}
 
-		for _, node := range workerNodes {
+		for _, node := range workerNodes { // Build OCR jobs for each node for each OCR contract
 			nodeP2PIds, err := node.MustReadP2PKeys()
 			if err != nil {
 				return fmt.Errorf("reading P2P keys from OCR node have failed: %w", err)

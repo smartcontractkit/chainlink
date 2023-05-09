@@ -125,9 +125,24 @@ test_perf: test_need_operator_assets ## Run core node performance tests.
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
 
-# Update
-.PHONY: test_upgrade_node_version
-test_upgrade_node_version:
+# Migrations
+.PHONY: test_node_migrations
+test_node_migrations: install_gotestfmt ## Run all node migration tests
+	TEST_LOG_LEVEL="disabled" \
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_node_migrations_simulated
+test_node_migrations_simulated: install_gotestfmt
+	TEST_LOG_LEVEL="disabled" \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_node_migrations_verbose
+test_node_migrations_verbose:
+	go test -timeout 1h -count=1 -v $(args) ./migration
+
+.PHONY: test_node_migrations_simulated_verbose
+test_node_migrations_simulated_verbose:
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -v $(args) ./migration
 

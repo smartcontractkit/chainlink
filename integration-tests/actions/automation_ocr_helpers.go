@@ -119,7 +119,7 @@ func CreateOCRKeeperJobs(
 ) {
 	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
-	bootstrapNode.RemoteIP()
+	bootstrapNode.InternalIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -138,7 +138,7 @@ func CreateOCRKeeperJobs(
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
