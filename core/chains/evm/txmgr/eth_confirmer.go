@@ -1071,7 +1071,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()),
 		"txhash", attempt.Hash.String(),
 		"currentBlockNum", head.BlockNumber(),
-		"currentBlockHash", head.BlockHash().Hex(),
+		"currentBlockHash", head.BlockHash().String(),
 		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.BlockNumber),
 		"confirmedInBlockNum", receipt.BlockNumber,
 		"confirmedInBlockHash", receipt.BlockHash,
