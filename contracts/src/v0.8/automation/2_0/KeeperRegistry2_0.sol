@@ -571,7 +571,7 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc OCR2Abstract
    */
-  function latestConfigDigestAndEpoch()
+  function latestConfigDigestAndEpoch(uint8 instanceId)
     external
     view
     override
@@ -581,7 +581,7 @@ contract KeeperRegistry2_0 is
       uint32 epoch
     )
   {
-    return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
+    return (false, s_latestConfigDigest, s_hotVars.latestEpoch[instanceId]);
   }
 
   ////////
