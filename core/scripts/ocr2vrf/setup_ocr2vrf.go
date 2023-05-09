@@ -340,7 +340,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	vrfRouterAddress := deployVRFRouter(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
 
 	fmt.Println("Registering VRF coordinator...")
 	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
