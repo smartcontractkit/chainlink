@@ -92,7 +92,7 @@ type TxmClient[
 	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		txAttemptBuilder TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ],
+		txAttemptBuilder TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,
