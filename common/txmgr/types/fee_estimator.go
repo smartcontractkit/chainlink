@@ -23,7 +23,7 @@ type Fee fmt.Stringer
 //go:generate mockery --quiet --name PriorAttempt --output ./mocks/ --case=underscore
 type PriorAttempt[F Fee, TX_HASH types.Hashable] interface {
 	Fee() F
-	GetChainSpecificGasLimit() uint32
+	GetChainSpecificFeeLimit() uint32
 	GetBroadcastBeforeBlockNum() *int64
 	GetHash() TX_HASH
 	GetTxType() int
@@ -32,9 +32,9 @@ type PriorAttempt[F Fee, TX_HASH types.Hashable] interface {
 // FeeEstimator provides a generic interface for fee estimation
 //
 //go:generate mockery --quiet --name FeeEstimator --output ./mocks/ --case=underscore
-type FeeEstimator[H Head, F Fee, MAXPRICE any, TX_HASH types.Hashable] interface {
+type FeeEstimator[H types.Head[TX_HASH], F Fee, MAXPRICE any, TX_HASH types.Hashable] interface {
 	services.ServiceCtx
-	HeadTrackable[H]
+	HeadTrackable[H, TX_HASH]
 
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice MAXPRICE, opts ...Opt) (fee F, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee F, feeLimit uint32, maxFeePrice MAXPRICE, attempts []PriorAttempt[F, TX_HASH]) (bumpedFee F, chainSpecificFeeLimit uint32, err error)

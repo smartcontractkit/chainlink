@@ -12,7 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -27,12 +30,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
@@ -303,6 +306,24 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 	}, err
 }
 
+func (e *EthereumContractDeployer) NewLinkTokenContract(address common.Address) (LinkToken, error) {
+	newToken, err := link_token_interface.NewLinkToken(address, e.client.Backend())
+	if err != nil {
+		return nil, err
+	}
+	log.Info().
+		Str("Contract Address", address.Hex()).
+		Str("Contract Name", "LINK Token").
+		Str("From", e.client.GetDefaultWallet().Address()).
+		Str("Network Name", e.client.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &EthereumLinkToken{
+		client:   e.client,
+		instance: newToken,
+		address:  address,
+	}, err
+}
+
 // DefaultOffChainAggregatorOptions returns some base defaults for deploying an OCR contract
 func DefaultOffChainAggregatorOptions() OffchainOptions {
 	return OffchainOptions{
@@ -383,11 +404,11 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 
 // DeployAPIConsumer deploys api consumer for oracle
 func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsumer, error) {
-	addr, _, instance, err := e.client.DeployContract("APIConsumer", func(
+	addr, _, instance, err := e.client.DeployContract("TestAPIConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployAPIConsumer(auth, backend, common.HexToAddress(linkAddr))
+		return test_api_consumer_wrapper.DeployTestAPIConsumer(auth, backend, common.HexToAddress(linkAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -395,7 +416,7 @@ func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsum
 	return &EthereumAPIConsumer{
 		address:  addr,
 		client:   e.client,
-		consumer: instance.(*ethereum.APIConsumer),
+		consumer: instance.(*test_api_consumer_wrapper.TestAPIConsumer),
 	}, err
 }
 
@@ -422,14 +443,14 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployMockETHLINKAggregator(auth, backend, answer)
+		return mock_ethlink_aggregator_wrapper.DeployMockETHLINKAggregator(auth, backend, answer)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumMockETHLINKFeed{
 		client:  e.client,
-		feed:    instance.(*ethereum.MockETHLINKAggregator),
+		feed:    instance.(*mock_ethlink_aggregator_wrapper.MockETHLINKAggregator),
 		address: address,
 	}, err
 }
@@ -439,14 +460,14 @@ func (e *EthereumContractDeployer) DeployMockGasFeed(answer *big.Int) (MockGasFe
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployMockGASAggregator(auth, backend, answer)
+		return mock_gas_aggregator_wrapper.DeployMockGASAggregator(auth, backend, answer)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumMockGASFeed{
 		client:  e.client,
-		feed:    instance.(*ethereum.MockGASAggregator),
+		feed:    instance.(*mock_gas_aggregator_wrapper.MockGASAggregator),
 		address: address,
 	}, err
 }

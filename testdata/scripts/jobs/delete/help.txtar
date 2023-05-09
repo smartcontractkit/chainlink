@@ -1,0 +1,9 @@
+exec chainlink jobs delete --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink jobs delete - Delete a job
+
+USAGE:
+   chainlink jobs delete [arguments...]

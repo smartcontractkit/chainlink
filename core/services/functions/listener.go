@@ -140,11 +140,11 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
-		job:             jb,
+		job:             job,
 		pipelineRunner:  runner,
 		jobORM:          jobORM,
 		logBroadcaster:  logBroadcaster,
@@ -170,6 +170,7 @@ func (l *FunctionsListener) Start(context.Context) error {
 				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
 				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
 				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
+				ocr2dr_oracle.OCR2DROracleResponseTransmitted{}.Topic():  {},
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
@@ -274,6 +275,8 @@ func (l *FunctionsListener) processOracleEvents() {
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
@@ -511,10 +514,11 @@ func (l *FunctionsListener) timeoutRequests() {
 	}
 }
 
-func (l *FunctionsListener) reportSourceCodeDomains(requestId [32]byte, domains []string) {
+func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
 	r := &telem.FunctionsRequest{
-		RequestId: requestId[:],
-		Domains:   domains,
+		RequestId:   formatRequestId(requestId),
+		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
+		Domains:     domains,
 	}
 
 	bytes, err := proto.Marshal(r)
