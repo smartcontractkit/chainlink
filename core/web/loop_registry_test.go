@@ -36,10 +36,10 @@ func configurePromRegistry(t *testing.T) {
 	testRegistry.MustRegister(testMetric)
 }
 
-func newMockLoopImpl(t *testing.T) *mockLoopImpl {
+func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 	return &mockLoopImpl{
 		t:          t,
-		PromServer: plugins.NewPromServer(0, logger.TestLogger(t).Named("mock-loop"), plugins.WithRegistry(testRegistry)),
+		PromServer: plugins.NewPromServer(port, logger.TestLogger(t).Named("mock-loop"), plugins.WithRegistry(testRegistry)),
 	}
 }
 
@@ -63,27 +63,27 @@ func TestLoopRegistry(t *testing.T) {
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
-
-	// set up a test register and test metric that is used by
-	// our mock loop impl
-	configurePromRegistry(t)
-
-	mockLoop := newMockLoopImpl(t)
-	mockLoop.start()
-	defer mockLoop.close()
-	mockLoop.run()
-
 	// shim a reference to the promserver that is running in our mock loop
 	// this ensures the client.Get calls below have a reference to mock loop impl
-	app.LOOPConfigs = map[string]plugins.EnvConfig{
-		"foo": plugins.NewEnvConfig(app.Config.LogLevel(), app.Config.JSONConsole(), app.Config.LogUnixTimestamps(), mockLoop.PromServer.Port()),
-	}
-	expectedEndPoint := "/plugins/foo/metrics"
+
+	expectedEndPoint := "/plugins/mockLoopImpl/metrics"
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	require.Len(t, app.GetLoopEnvConfig(), 1)
+	// register a mock loop
+	loop := app.GetLoopRegistry().Register("mockLoopImpl", app.Config)
+	require.NotNil(t, loop)
+	require.Len(t, app.GetLoopRegistry().List(), 1)
+
+	// set up a test prometheus registry and test metric that is used by
+	// our mock loop impl and isolated from the default prom register
+	configurePromRegistry(t)
+	mockLoop := newMockLoopImpl(t, loop.EnvCfg.PrometheusPort())
+	mockLoop.start()
+	defer mockLoop.close()
+	mockLoop.run()
+
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	t.Run("discovery endpoint", func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestLoopRegistry(t *testing.T) {
 	})
 
 	t.Run("plugin metrics OK", func(t *testing.T) {
-		// plugin name `foo` matches key in PluginConfigs
+		// plugin name `mockLoopImpl` matches key in PluginConfigs
 		resp, cleanup := client.Get(expectedEndPoint)
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)

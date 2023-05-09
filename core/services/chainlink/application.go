@@ -79,7 +79,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
 
-	GetLoopEnvConfig() map[string]plugins.EnvConfig
+	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -139,8 +139,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
-
-	LOOPConfigs map[string]plugins.EnvConfig
+	loopRegistry             *plugins.LoopRegistry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -161,7 +160,7 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
-	PortManager              *PluginPortManager
+	LoopRegistry             *plugins.LoopRegistry
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -207,7 +206,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	loopConfigs := make(map[string]plugins.EnvConfig)
+	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// as OCR2 job implementations, in the case of Median today.
+	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
+	// we need to initialize in case we serve OCR2 LOOPs
+	loopRegistry := opts.LoopRegistry
+	if loopRegistry == nil {
+		loopRegistry = plugins.NewLoopRegistry()
+	}
+
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
 		srvcs = append(srvcs, auditLogger)
@@ -410,7 +417,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
 			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
-		processConfig := plugins.NewProcessConfig(cfg, opts.PortManager.Register)
+		processConfig := plugins.NewProcessConfig(cfg, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, processConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
@@ -497,9 +504,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
+		loopRegistry:             loopRegistry,
 
-		LOOPConfigs: loopConfigs,
-		sqlxDB:      opts.SqlxDB,
+		sqlxDB: opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -584,8 +591,8 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 	return nil
 }
 
-func (app *ChainlinkApplication) GetLoopEnvConfig() map[string]plugins.EnvConfig {
-	return app.LOOPConfigs
+func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+	return app.loopRegistry
 }
 
 // Stop allows the application to exit by halting schedules, closing

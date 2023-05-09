@@ -277,7 +277,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
 		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
 
-		processConfig := plugins.NewProcessConfig(config, func(name string) int { return 0 })
+		processConfig := plugins.NewProcessConfig(config, func(name string, cfg plugins.LoggingConfig) *plugins.RegisteredLoop { return nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,

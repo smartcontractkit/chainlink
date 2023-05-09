@@ -223,7 +223,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MailMon:          mailMon,
 	}
 
-	portManager := chainlink.NewPluginPortManager()
+	loopRegistry := plugins.NewLoopRegistry()
 
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
@@ -269,10 +269,11 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
-			envConfig := plugins.NewEnvConfig(cfg.LogLevel(), cfg.JSONConsole(), cfg.LogUnixTimestamps(), portManager.Register(cmdName))
+
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
-				plugins.SetCmdEnvFromConfig(cmd, envConfig)
+				solLoop := loopRegistry.Register(solLggr.Name(), cfg)
+				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
 			chains.Solana = chainPluginService
@@ -338,7 +339,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
-		PortManager:              portManager,
+		LoopRegistry:             loopRegistry,
 	})
 }
 

@@ -212,8 +212,11 @@ func (m *medianService) Launch() error {
 	cc := loop.PluginMedianClientConfig(m.lggr)
 	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
 
-	envConfig := m.cfg.GenerateEnvConfig(m.cmdName)
-	plugins.SetCmdEnvFromConfig(cc.Cmd, envConfig)
+	// use logger name to ensure
+	//envConfig := m.cfg.GenerateEnvConfig(m.lggr.Name())
+	registeredLoop := m.cfg.RegisterLOOP(m.lggr.Name())
+
+	plugins.SetCmdEnvFromConfig(cc.Cmd, registeredLoop.EnvCfg)
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
 	if err != nil {

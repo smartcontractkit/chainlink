@@ -18,42 +18,37 @@ type LoggingConfig interface {
 	LogUnixTimestamps() bool
 }
 
-// PortReserver enables a loop implementation to reserve a port for its prometheus server
-// the ReservePort implementation must be idempotent.
-type PortReserver interface {
-	ReservePort(string) int
-}
-
 // ProcessConfig generates configuration for loop commands
 type ProcessConfig interface {
 	LoggingConfig
-	PortReserver
-	GenerateEnvConfig(loopCmd string) EnvConfig
+	RegisterLOOP(loopId string) *RegisteredLoop
+	//GenerateEnvConfig(loopId string) EnvConfig
 }
 
 type processConfig struct {
 	LoggingConfig
-	portReservationFn func(id string) int
+	//portReservationFn  func(id string) int
+	loopEnvGeneratorFn func(loopId string, loopStaticCfg LoggingConfig) *RegisteredLoop
 }
 
-// NewProcessConfig portReservationFn must act as a global, idempotent registry.
-func NewProcessConfig(lc LoggingConfig, portReservationFn func(loopCmd string) int) ProcessConfig {
+// NewProcessConfig loopEnvGeneratorFn must act as a global, idempotent registry function.
+func NewProcessConfig(lc LoggingConfig, loopEnvGeneratorFn func(loopId string, loopStaticCfg LoggingConfig) *RegisteredLoop) ProcessConfig {
 	return &processConfig{
-		LoggingConfig:     lc,
-		portReservationFn: portReservationFn,
+		LoggingConfig: lc,
+		//portReservationFn:  portReservationFn,
+		loopEnvGeneratorFn: loopEnvGeneratorFn,
 	}
 }
 
-// ReservePort provides globally unique ports for a given loop cmd and is idempotent
-func (pc *processConfig) ReservePort(loopCmd string) int {
-	// in practice this func is a callback to the control logic that configures each LOOP plugin, i.e. the chainlink application
-	return pc.portReservationFn(loopCmd)
+func (pc *processConfig) RegisterLOOP(id string) *RegisteredLoop {
+	return pc.loopEnvGeneratorFn(id, pc.LoggingConfig)
 }
 
-func (pc *processConfig) GenerateEnvConfig(loopCmd string) EnvConfig {
-	return NewEnvConfig(pc.LogLevel(), pc.JSONConsole(), pc.LogUnixTimestamps(), pc.ReservePort(loopCmd))
+/*
+func (pc *processConfig) GenerateEnvConfig(loopId string) EnvConfig {
+	return NewEnvConfig(pc.LogLevel(), pc.JSONConsole(), pc.LogUnixTimestamps(), pc.portReservationFn(loopId))
 }
-
+*/
 // EnvConfig is the configuration interface between the application and the LOOP, which is passed via the environment.
 // It separates static and dynamic configuration. Logging configuration can and is inherited statically while the
 // port the the LOOP is to use for prometheus, which is created dynamically at run time the chainlink Application.
