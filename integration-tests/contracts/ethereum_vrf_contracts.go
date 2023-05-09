@@ -927,8 +927,8 @@ func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint3
 	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
 		opts,
 		vrf_coordinator.VRFCoordinatorConfig{
-			MaxCallbackGasLimit:        2.5e6,
-			MaxCallbackArgumentsLength: 160, // 5 EVM words
+			MaxCallbackGasLimit:        maxCallbackGasLimit,
+			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
 		},
 	)
 	if err != nil {
