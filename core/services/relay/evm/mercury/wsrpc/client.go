@@ -122,7 +122,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	} else {
 		lggr.Debugw("Transmit succeeded", "resp", resp)
 		incRequestStatusMetric(statusSuccess)
-		setRequestLatencyMetric(float64(time.Since(start)))
+		setRequestLatencyMetric(float64(time.Since(start).Milliseconds()))
 	}
 	return
 }

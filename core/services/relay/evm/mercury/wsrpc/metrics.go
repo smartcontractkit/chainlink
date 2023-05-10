@@ -24,10 +24,11 @@ var (
 		Help:      "Number of request status made to the Mercury WSRPC server",
 	}, []string{"status"})
 
-	requestLatencyMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+	requestLatencyMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "mercury",
 		Name:      "wsrpc_request_latency",
 		Help:      "Latency of requests made to the Mercury WSRPC server",
+		Buckets:   []float64{10, 30, 100, 300, 1000, 3000, 10000},
 	})
 )
 
@@ -44,5 +45,5 @@ func incRequestStatusMetric(status reqStatus) {
 }
 
 func setRequestLatencyMetric(latency float64) {
-	requestLatencyMetric.Set(latency)
+	requestLatencyMetric.Observe(latency)
 }
