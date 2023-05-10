@@ -13,6 +13,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -33,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
