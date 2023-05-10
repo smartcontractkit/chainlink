@@ -572,6 +572,9 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	uni.backend.Commit()
 
+	fulfillmentRequestID, err := uni.consumer.SMostRecentRequestID(nil)
+	require.NoError(t, err)
+
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)
 	// = ((50_000 + 100_000) * 1 Gwei) / .01
@@ -584,6 +587,12 @@ linkEthFeedAddress     	= "%s"
 	_, err = uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, uni.subID, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
 	require.NoError(t, err)
 	uni.backend.Commit()
+
+	batchFulfillmentRequestID1, err := uni.loadTestConsumer.SRequestIDs(nil, big.NewInt(0), big.NewInt(0))
+	require.NoError(t, err)
+
+	batchFulfillmentRequestID2, err := uni.loadTestConsumer.SRequestIDs(nil, big.NewInt(0), big.NewInt(1))
+	require.NoError(t, err)
 
 	// There is no premium on these requests, so the cost of the requests should have been:
 	// = ((request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)) * batch size
@@ -726,13 +735,13 @@ linkEthFeedAddress     	= "%s"
 		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
-		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
+		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, fulfillmentRequestID, big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(2), big.NewInt(0))
+		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID1, big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(3), big.NewInt(0))
+		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID2, big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
 		batchTotalRequests, err := uni.loadTestConsumer.STotalRequests(nil)
