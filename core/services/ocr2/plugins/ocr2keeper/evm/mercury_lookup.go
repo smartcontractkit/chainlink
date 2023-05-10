@@ -78,7 +78,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
-		// if it doesn't decode to the offchain custom error continue/skip
+		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
 		if err != nil {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR

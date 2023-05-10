@@ -105,7 +105,7 @@ func (r *EvmRegistry) buildRevertBytesHelper() []byte {
 	return payload
 }
 
-func TestEvmRegistry_offchainLookup(t *testing.T) {
+func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	setupRegistry := setupEVMRegistry(t)
 	// load json response for testdata
 	btcBlob, e := os.ReadFile("./testdata/btc-usd.json")
@@ -131,7 +131,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
 		ExecuteGas:       5000000,
 	}
-	upkeepResultReasonOffchain := types.UpkeepResult{
+	upkeepResultReasonMercury := types.UpkeepResult{
 		Key:              upkeepKey,
 		State:            types.NotEligible,
 		FailureReason:    UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR,
@@ -230,7 +230,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "skip - revert data does not decode to offchain lookup",
+			name: "skip - revert data does not decode to mercury lookup",
 			input: []types.UpkeepResult{
 				{
 					Key:           upkeepKey,
@@ -256,7 +256,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 			callbackResp:  callbackResp,
 			upkeepInfoErr: errors.New("ouch"),
 
-			want:          []types.UpkeepResult{upkeepResultReasonOffchain},
+			want:          []types.UpkeepResult{upkeepResultReasonMercury},
 			mockGetUpkeep: true,
 			wantErr:       errors.New("ouch"),
 		},
@@ -345,7 +345,7 @@ func TestEvmRegistry_offchainLookup(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_decodeOffchainLookup(t *testing.T) {
+func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    []byte
@@ -397,7 +397,7 @@ func TestEvmRegistry_decodeOffchainLookup(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_offchainLookupCallback(t *testing.T) {
+func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 	executeGas := uint32(100)
 	gas := uint32(200000) + uint32(6500000) + uint32(300000) + executeGas
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
