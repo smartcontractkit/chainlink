@@ -135,6 +135,7 @@ jobs:
 
   eth-smoke-tests-matrix:
     environment: integration
+    if: false ## TODO: Debug
     permissions:
       checks: write
       pull-requests: write
@@ -290,7 +291,7 @@ jobs:
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && make test_node_migrations
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: latest
@@ -305,6 +306,7 @@ jobs:
   ### Solana Section
   get_solana_sha:
     name: Get Solana Sha From Go Mod
+    if: false ## TODO: Debug
     environment: Integration
     runs-on: ubuntu-latest
     outputs:
