@@ -16,18 +16,18 @@ var (
 	aliveMetric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "mercury",
 		Name:      "wsrpc_connection_alive",
-		Help:      "Total time spent connected to the WSRPC server",
+		Help:      "Total time spent connected to the Mercury WSRPC server",
 	})
 	requestsStatusMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "mercury",
 		Name:      "wsrpc_requests_status_count",
-		Help:      "Number of request status made to the WSRPC server",
+		Help:      "Number of request status made to the Mercury WSRPC server",
 	}, []string{"status"})
 
 	requestLatencyMetric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "mercury",
 		Name:      "wsrpc_request_latency",
-		Help:      "Latency of requests made to the WSRPC server",
+		Help:      "Latency of requests made to the Mercury WSRPC server",
 	})
 )
 
