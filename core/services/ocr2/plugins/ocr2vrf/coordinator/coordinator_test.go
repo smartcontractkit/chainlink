@@ -569,15 +569,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 					ConfirmationDelay: 195,
 					Callbacks: []ocr2vrftypes.AbstractCostedCallbackRequest{
 						{
-							RequestID:    1,
+							RequestID:    big.NewInt(1),
 							BeaconHeight: 195,
 						},
 						{
-							RequestID:    2,
+							RequestID:    big.NewInt(2),
 							BeaconHeight: 195,
 						},
 						{
-							RequestID:    3,
+							RequestID:    big.NewInt(3),
 							BeaconHeight: 195,
 						},
 					},
@@ -1456,6 +1456,7 @@ func newRandomnessRequestedLog(
 		NextBeaconOutputHeight: nextBeaconOutputHeight,
 		NumWords:               1,
 		SubID:                  big.NewInt(1),
+		CostJuels:              big.NewInt(50_000),
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
@@ -1466,7 +1467,7 @@ func newRandomnessRequestedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords)
+	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords, e.CostJuels)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)
@@ -1523,12 +1524,13 @@ func newRandomnessFulfillmentRequestedLog(
 	//    address indexed requester,
 	//    uint64 nextBeaconOutputHeight,
 	//    ConfirmationDelay confDelay,
-	//    uint64 subID,
+	//    uint256 subID,
 	//    uint16 numWords,
 	//    uint32 gasAllowance,
 	//    uint256 gasPrice,
 	//    uint256 weiPerUnitLink,
-	//    bytes arguments
+	//    bytes arguments,
+	//    uint256 costJuels
 	//);
 	e := vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested{
 		ConfDelay:              big.NewInt(confDelay),
@@ -1540,6 +1542,7 @@ func newRandomnessFulfillmentRequestedLog(
 		WeiPerUnitLink:         big.NewInt(0),
 		SubID:                  big.NewInt(1),
 		Requester:              common.HexToAddress("0x1234567890"),
+		CostJuels:              big.NewInt(50_000),
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
@@ -1551,7 +1554,7 @@ func newRandomnessFulfillmentRequestedLog(
 		}
 	}
 	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords,
-		e.GasAllowance, e.GasPrice, e.WeiPerUnitLink, e.Arguments)
+		e.GasAllowance, e.GasPrice, e.WeiPerUnitLink, e.Arguments, e.CostJuels)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)

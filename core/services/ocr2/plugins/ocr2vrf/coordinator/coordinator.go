@@ -126,7 +126,7 @@ type blockInReport struct {
 
 type callback struct {
 	blockNumber uint64
-	requestID   uint64
+	requestID   *big.Int
 }
 
 type callbackInReport struct {
@@ -455,7 +455,7 @@ func (c *coordinator) ReportBlocks(
 
 	// Pull request IDs from elligible callbacks for logging. There should only be
 	// at most 100-200 elligible callbacks in a report.
-	var reqIDs []uint64
+	var reqIDs []*big.Int
 	for _, c := range callbacks {
 		reqIDs = append(reqIDs, c.RequestID)
 	}
@@ -495,7 +495,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 
 			// Also get the blockhash for the most recent cached report on this callback,
 			// if one exists.
-			cacheKey := getCallbackCacheKey(l.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(l.RequestID)
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			if t != nil {
 				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
@@ -632,7 +632,7 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 					ConfirmationDelay: uint32(r.ConfDelay.Uint64()),
 					SubscriptionID:    r.SubID,
 					Price:             big.NewInt(0), // TODO: no price tracking
-					RequestID:         requestID.Uint64(),
+					RequestID:         requestID,
 					NumWords:          r.NumWords,
 					Requester:         r.Requester,
 					Arguments:         r.Arguments,
@@ -671,7 +671,7 @@ func (c *coordinator) filterEligibleCallbacks(
 
 		// Check that the callback is elligible.
 		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			cacheKey := getCallbackCacheKey(r.RequestID.Int64())
+			cacheKey := getCallbackCacheKey(r.RequestID)
 			t := c.toBeTransmittedCallbacks.GetItem(cacheKey)
 			// If the callback is found in the cache and the recentBlockHash from the report containing the callback
 			// is correct, then the callback is in-flight and should not be included in the current observation. If that
@@ -886,7 +886,7 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
-		cacheKey := getCallbackCacheKey(int64(cb.requestID))
+		cacheKey := getCallbackCacheKey(cb.requestID)
 		c.toBeTransmittedCallbacks.CacheItem(cb, cacheKey, now)
 		c.lggr.Debugw("Request is being transmitted", "requestID", cb.requestID)
 	}
@@ -1055,8 +1055,8 @@ func getBlockCacheKey(blockNumber uint64, confDelay uint64) common.Hash {
 // The blockhash of the callback does not need to be included in the key. Instead,
 // the callback cached at a given key contains a blockhash that is checked for validity
 // against the log poller's current state.
-func getCallbackCacheKey(requestID int64) common.Hash {
-	return common.BigToHash(big.NewInt(requestID))
+func getCallbackCacheKey(requestID *big.Int) common.Hash {
+	return common.BigToHash(requestID)
 }
 
 // logAndEmitFunctionDuration logs the time in milliseconds and emits metrics in nanosecond for function duration
