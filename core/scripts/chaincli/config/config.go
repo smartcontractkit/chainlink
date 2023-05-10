@@ -123,7 +123,7 @@ func (c *Config) Validate() error {
 func init() {
 	// Represented in WEI, which is 1000 Ether
 	viper.SetDefault("APPROVE_AMOUNT", "100000000000000000000000")
-	viper.SetDefault("GAS_LIMIT", 12000000)
+	viper.SetDefault("GAS_LIMIT", 8000000)
 	viper.SetDefault("PAYMENT_PREMIUM_PBB", 200000000)
 	viper.SetDefault("FLAT_FEE_MICRO_LINK", 0)
 	viper.SetDefault("BLOCK_COUNT_PER_TURN", 1)

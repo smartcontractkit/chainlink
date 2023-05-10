@@ -293,7 +293,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		},
 		// only retry when the error is 404 Not Found
 		retry.RetryIf(func(err error) bool {
-			return err == fmt.Errorf("%d", http.StatusNotFound)
+			return errors.Is(err, fmt.Errorf("%d", http.StatusNotFound))
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
