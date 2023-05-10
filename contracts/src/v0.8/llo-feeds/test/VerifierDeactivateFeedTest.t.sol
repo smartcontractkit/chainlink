@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifier, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../../../../src/v0.8/Verifier.sol";
-import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
+import {Verifier} from "../Verifier.sol";
+import {VerifierProxy} from "../VerifierProxy.sol";
 
 contract VerifierActivateFeedTest is BaseTestWithConfiguredVerifier {
   function test_revertsIfNotOwnerActivateFeed() public {
