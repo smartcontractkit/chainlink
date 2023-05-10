@@ -35,11 +35,6 @@ type MercuryLookup struct {
 	extraData  []byte
 }
 
-// MercuryMultiResponse TODO guessing on this
-type MercuryMultiResponse struct {
-	ChainlinkBlobs []string `json:"chainlinkBlob"`
-}
-
 type MercuryResponse struct {
 	ChainlinkBlob string `json:"chainlinkBlob"`
 }

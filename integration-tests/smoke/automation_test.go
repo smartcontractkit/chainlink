@@ -117,7 +117,7 @@ func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "basic-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "basic-upkeep", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -184,7 +184,7 @@ func TestAutomatedAddFunds(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "add-funds", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "add-funds", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -236,7 +236,7 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "pause-unpause", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "pause-unpause", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -320,7 +320,7 @@ func TestAutomatedRegisterUpkeep(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "register-upkeep", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "register-upkeep", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -393,7 +393,7 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "pause-registry", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "pause-registry", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -452,7 +452,7 @@ func TestAutomatedKeeperNodesDown(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "keeper-nodes-down", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "keeper-nodes-down", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -539,7 +539,7 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 	t.Parallel()
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "perform-simulation", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "perform-simulation", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -594,7 +594,7 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "gas-limit", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "gas-limit", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -675,7 +675,7 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	// Now increase checkGasLimit on registry
 	highCheckGasLimit := automationDefaultRegistryConfig
 	highCheckGasLimit.CheckGasLimit = uint32(5000000)
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second, false)
 	require.NoError(t, err, "Error building OCR config")
 	err = registry.SetConfig(highCheckGasLimit, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")
@@ -696,7 +696,7 @@ func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
-		t, "update-check-data", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+		t, "update-check-data", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
@@ -756,9 +756,31 @@ func TestUpdateCheckData(t *testing.T) {
 	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 }
 
+func TestMercuryLookup(t *testing.T) {
+	t.Parallel()
+	l := utils.GetTestLogger(t)
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+		t, "automation-mercury-lookup", true, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
+	)
+	if onlyStartRunner {
+		return
+	}
+
+	_, ids := actions.DeployMercuryUpkeeps(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit)
+
+	gom := gomega.NewGomegaWithT(t)
+
+	gom.Eventually(func(g gomega.Gomega) {
+		for i := 0; i < len(ids); i++ {
+			l.Info().Str("upkeep deployed", ids[i].String()).Msg("Upkeep ID")
+		}
+	}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+}
+
 func setupAutomationTest(
 	t *testing.T,
 	testName string,
+	mercuryEnabled bool,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 ) (
@@ -839,7 +861,7 @@ func setupAutomationTest(
 
 		actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second, mercuryEnabled)
 		require.NoError(t, err, "Error building OCR config vars")
 		err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")

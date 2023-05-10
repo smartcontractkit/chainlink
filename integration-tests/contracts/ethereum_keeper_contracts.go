@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -19,6 +20,7 @@ import (
 	goabi "github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
@@ -134,6 +136,11 @@ type UpkeepResetter interface {
 		averageEligibilityCadence *big.Int, firstEligibleBuffer *big.Int, checkGasToBurn *big.Int, performGasToBurn *big.Int) error
 }
 
+type MercuryUpkeep interface {
+	Address() string
+	Counter(ctx context.Context) (*big.Int, error)
+}
+
 type UpkeepPerformedLog struct {
 	Id      *big.Int
 	Success bool
@@ -214,6 +221,29 @@ func (v *EthereumKeeperRegistry) Address() string {
 
 func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount)
+}
+
+// EthereumMercuryUpkeep represents keeper consumer (upkeep) contract
+type EthereumMercuryUpkeep struct {
+	client        blockchain.EVMClient
+	mercuryUpkeep *mercury_upkeep_wrapper.MercuryUpkeep
+	address       *common.Address
+}
+
+func (m *EthereumMercuryUpkeep) Address() string {
+	return m.address.Hex()
+}
+
+func (m *EthereumMercuryUpkeep) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(m.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := m.mercuryUpkeep.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
 }
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {

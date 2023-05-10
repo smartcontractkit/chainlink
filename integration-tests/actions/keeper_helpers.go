@@ -563,6 +563,37 @@ func DeployUpkeepPerformCounterRestrictive(
 	return upkeepCounters
 }
 
+func DeployMercuryUpkeepContracts(
+	t *testing.T,
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	numberOfContracts int,
+) []contracts.MercuryUpkeep {
+	l := utils.GetTestLogger(t)
+	mercuryUpkeepContracts := make([]contracts.MercuryUpkeep, 0)
+
+	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+		// Deploy mercury upkeep
+		mercuryUpkeeps, err := contractDeployer.DeployMercuryUpkeep(big.NewInt(5000), big.NewInt(5))
+		require.NoError(t, err, "Deploying MercuryUpkeep instance %d shouldn't fail", contractCount+1)
+		mercuryUpkeepContracts = append(mercuryUpkeepContracts, mercuryUpkeeps)
+		l.Debug().
+			Str("Contract Address", mercuryUpkeeps.Address()).
+			Int("Number", contractCount+1).
+			Int("Out Of", numberOfContracts).
+			Msg("Deployed Mercury Upkeep Contract")
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+			err = client.WaitForEvents()
+			require.NoError(t, err, "Failed to wait for MercuryUpkeep deployments")
+		}
+	}
+	err := client.WaitForEvents()
+	require.NoError(t, err, "Failed waiting for to deploy all mercury upkeep contracts")
+	l.Info().Msg("Successfully deployed all Mercury Upkeep Contracts")
+
+	return mercuryUpkeepContracts
+}
+
 // RegisterNewUpkeeps registers the given amount of new upkeeps, using the registry and registrar
 // which are passed as parameters.
 // It returns the newly deployed contracts (consumers), as well as their upkeep IDs.

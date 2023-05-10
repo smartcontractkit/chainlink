@@ -33,8 +33,9 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
+	mercuryEnabled bool,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, mercuryEnabled)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -44,6 +45,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	registrar string,
 	deltaStage time.Duration,
 	keyIndex int,
+	mercuryEnabled bool,
 ) (contracts.OCRv2Config, error) {
 	l := utils.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -69,6 +71,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 			SamplingJobDuration:  3000,
 			MinConfirmations:     0,
 			MaxUpkeepBatchSize:   1,
+			MercuryLookup:        mercuryEnabled,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		20*time.Millisecond,   // maxDurationObservation time.Duration,
@@ -264,6 +267,28 @@ func DeployPerformDataCheckerConsumers(
 	expectedData []byte,
 ) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
 	upkeeps := DeployPerformDataChecker(t, contractDeployer, client, numberOfUpkeeps, expectedData)
+	var upkeepsAddresses []string
+	for _, upkeep := range upkeeps {
+		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
+	}
+	upkeepIds := RegisterUpkeepContracts(
+		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
+	)
+	return upkeeps, upkeepIds
+}
+
+func DeployMercuryUpkeeps(
+	t *testing.T,
+	registry contracts.KeeperRegistry,
+	registrar contracts.KeeperRegistrar,
+	linkToken contracts.LinkToken,
+	contractDeployer contracts.ContractDeployer,
+	client blockchain.EVMClient,
+	numberOfUpkeeps int,
+	linkFundsForEachUpkeep *big.Int,
+	upkeepGasLimit uint32,
+) ([]contracts.MercuryUpkeep, []*big.Int) {
+	upkeeps := DeployMercuryUpkeepContracts(t, contractDeployer, client, numberOfUpkeeps)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())

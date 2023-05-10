@@ -12,6 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -25,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
@@ -32,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
@@ -70,6 +72,7 @@ type ContractDeployer interface {
 	DeployKeeperPerformDataChecker(expectedData []byte) (KeeperPerformDataChecker, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
+	DeployMercuryUpkeep(testRange, updateInterval *big.Int) (MercuryUpkeep, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
@@ -705,6 +708,32 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
+}
+
+func (e *EthereumContractDeployer) DeployMercuryUpkeep(testRange, updateInterval *big.Int) (MercuryUpkeep, error) {
+	address, _, instance, err := e.client.DeployContract("MercuryUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return mercury_upkeep_wrapper.DeployMercuryUpkeep(
+			auth,
+			backend,
+			testRange,
+			updateInterval,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = e.client.WaitForEvents()
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryUpkeep{
+		client:        e.client,
+		mercuryUpkeep: instance.(*mercury_upkeep_wrapper.MercuryUpkeep),
+		address:       address,
+	}, nil
 }
 
 func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error) {
