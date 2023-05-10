@@ -1,6 +1,10 @@
 package headtracker
 
-import "time"
+import (
+	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+)
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 
@@ -11,4 +15,32 @@ type Config interface {
 	EvmHeadTrackerHistoryDepth() uint32
 	EvmHeadTrackerMaxBufferSize() uint32
 	EvmHeadTrackerSamplingInterval() time.Duration
+}
+
+type EvmHtrkConfig types.HtrkConfig
+
+var _ EvmHtrkConfig = (*evmHtrkConfig)(nil)
+
+type evmHtrkConfig struct {
+	Config
+}
+
+func NewEvmHtrkConfig(c Config) *evmHtrkConfig {
+	return &evmHtrkConfig{c}
+}
+
+func (c *evmHtrkConfig) FinalityDepth() uint32 {
+	return c.EvmFinalityDepth()
+}
+
+func (c *evmHtrkConfig) HeadTrackerHistoryDepth() uint32 {
+	return c.EvmHeadTrackerHistoryDepth()
+}
+
+func (c *evmHtrkConfig) HeadTrackerMaxBufferSize() uint32 {
+	return c.EvmHeadTrackerMaxBufferSize()
+}
+
+func (c *evmHtrkConfig) HeadTrackerSamplingInterval() time.Duration {
+	return c.EvmHeadTrackerSamplingInterval()
 }
