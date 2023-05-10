@@ -308,6 +308,24 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 	}, err
 }
 
+func (e *EthereumContractDeployer) NewLinkTokenContract(address common.Address) (LinkToken, error) {
+	newToken, err := link_token_interface.NewLinkToken(address, e.client.Backend())
+	if err != nil {
+		return nil, err
+	}
+	log.Info().
+		Str("Contract Address", address.Hex()).
+		Str("Contract Name", "LINK Token").
+		Str("From", e.client.GetDefaultWallet().Address()).
+		Str("Network Name", e.client.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &EthereumLinkToken{
+		client:   e.client,
+		instance: newToken,
+		address:  address,
+	}, err
+}
+
 // DefaultOffChainAggregatorOptions returns some base defaults for deploying an OCR contract
 func DefaultOffChainAggregatorOptions() OffchainOptions {
 	return OffchainOptions{

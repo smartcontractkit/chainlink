@@ -134,7 +134,7 @@ func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiE
 
 	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
 	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
-	// cache for Offchainlookup Upkeeps that are on ice due to errors
+	// cache for Mercurylookup Upkeeps that are on ice due to errors
 	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
 
 	// cache for tracking errors for an Upkeep during MercuryLookup

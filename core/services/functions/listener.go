@@ -170,6 +170,7 @@ func (l *FunctionsListener) Start(context.Context) error {
 				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
 				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
 				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
+				ocr2dr_oracle.OCR2DROracleResponseTransmitted{}.Topic():  {},
 			},
 			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 		})
@@ -274,6 +275,8 @@ func (l *FunctionsListener) processOracleEvents() {
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
 					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
+					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}

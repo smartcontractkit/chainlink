@@ -348,7 +348,9 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 			)
 		} else if k.cfg.UpkeepMercury {
-			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(k.buildTxOpts(ctx), k.client,
+			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+				k.buildTxOpts(ctx),
+				k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
 				big.NewInt(k.cfg.UpkeepInterval),
 				false,

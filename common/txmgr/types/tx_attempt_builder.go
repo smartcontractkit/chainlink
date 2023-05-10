@@ -14,7 +14,7 @@ import (
 //
 //go:generate mockery --quiet --name TxAttemptBuilder --output ./mocks/ --case=underscore
 type TxAttemptBuilder[
-	HEAD Head, // HEAD - chain head type
+	HEAD types.Head[TX_HASH], // HEAD - chain head type
 	FEE Fee, // FEE - chain fee type
 	ADDR types.Hashable, // ADDR - chain address type
 	TX_HASH types.Hashable, // TX_HASH - chain tx hash type
@@ -24,7 +24,7 @@ type TxAttemptBuilder[
 ] interface {
 	// interfaces for running the underlying estimator
 	services.ServiceCtx
-	HeadTrackable[HEAD]
+	HeadTrackable[HEAD, TX_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
 	NewTxAttempt(ctx context.Context, tx TX, lggr logger.Logger, opts ...Opt) (attempt TXATTEMPT, fee FEE, feeLimit uint32, retryable bool, err error)

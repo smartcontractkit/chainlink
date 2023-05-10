@@ -238,7 +238,7 @@ func StartNewNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true
+		c.Insecure.OCRDevelopmentMode = ptr(true)
 
 		c.Feature.LogPoller = ptr(true)
 
