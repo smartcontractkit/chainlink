@@ -351,6 +351,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
 				big.NewInt(k.cfg.UpkeepInterval),
+				false,
 			)
 		} else {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,

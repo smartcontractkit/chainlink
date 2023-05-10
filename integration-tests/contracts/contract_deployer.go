@@ -720,6 +720,10 @@ func (e *EthereumContractDeployer) DeployMercuryUpkeep(testRange, updateInterval
 			backend,
 			testRange,
 			updateInterval,
+			// the integration test flag is needed bc this contract will need to query ARB_SYS precompile contracts
+			// in order to use L2 block number. in integration tests, we just use L1 block number.
+			// in the future, Mercury endpoint will accept a timestamp param, so we can remove this flag.
+			true,
 		)
 	})
 	if err != nil {
