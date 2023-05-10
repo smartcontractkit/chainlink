@@ -2,6 +2,7 @@ package wsrpc
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -59,7 +60,10 @@ func (w *client) Start(_ context.Context) error {
 			wsrpc.WithLogger(w.logger),
 		)
 		if err != nil {
+			setLivenessMetric(false)
 			return errors.Wrap(err, "failed to dial wsrpc client")
+		} else {
+			setLivenessMetric(true)
 		}
 		w.conn = conn
 		w.client = pb.NewMercuryClient(conn)
@@ -97,6 +101,7 @@ func (w *client) Healthy() (err error) {
 func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
 	lggr := w.logger.With("req.Payload", hexutil.Encode(req.Payload))
 	lggr.Debug("Transmit")
+	start := time.Now()
 	ok := w.IfStarted(func() {
 		if ready := w.conn.WaitForReady(ctx); !ready {
 			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
@@ -110,10 +115,14 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	}
 	if err != nil {
 		lggr.Errorw("Transmit failed", "err", err, "req", req, "resp", resp)
+		incRequestStatusMetric(statusFailed)
 	} else if resp.Error != "" {
 		lggr.Errorw("Transmit failed; mercury server returned error", "err", resp.Error, "req", req, "resp", resp)
+		incRequestStatusMetric(statusFailed)
 	} else {
 		lggr.Debugw("Transmit succeeded", "resp", resp)
+		incRequestStatusMetric(statusSuccess)
+		setRequestLatencyMetric(float64(time.Since(start)))
 	}
 	return
 }
