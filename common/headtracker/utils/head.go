@@ -27,6 +27,22 @@ func IsInChain[H types.Head[HASH], HASH types.Hashable](h H, blockHash HASH) boo
 	return false
 }
 
+// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
+// If not in chain, returns the zero hash
+func HashAtHeight[H types.Head[HASH], HASH types.Hashable](h H, blockNum int64) interface{} {
+	for {
+		if h.BlockNumber() == blockNum {
+			return h.BlockHash()
+		}
+		if h.GetParent() != nil {
+			h = h.GetParent().(H)
+		} else {
+			break
+		}
+	}
+	return nil
+}
+
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func ChainLength[H types.Head[HASH], HASH types.Hashable](h H) uint32 {
 	if h.Equals(nil) {

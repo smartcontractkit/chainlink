@@ -89,17 +89,11 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 // If not in chain, returns the zero hash
 func (h *Head) HashAtHeight(blockNum int64) common.Hash {
-	for {
-		if h.Number == blockNum {
-			return h.Hash
-		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
+	hash := htrkutils.HashAtHeight[*Head, common.Hash](h, blockNum)
+	if hash == nil {
+		return common.Hash{}
 	}
-	return common.Hash{}
+	return hash.(common.Hash)
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
