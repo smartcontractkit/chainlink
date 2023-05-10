@@ -233,7 +233,7 @@ func setupNodeOCR2(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
 
@@ -690,8 +690,8 @@ func setDKGConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,
@@ -746,8 +746,8 @@ func setVRFConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,

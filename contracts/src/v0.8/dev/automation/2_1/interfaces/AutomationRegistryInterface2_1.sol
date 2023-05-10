@@ -82,6 +82,7 @@ struct State {
  */
 struct UpkeepInfo {
   address target;
+  address forwarder;
   uint32 executeGas;
   bytes checkData;
   uint96 balance;
@@ -110,7 +111,7 @@ interface AutomationRegistryBaseInterface {
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
-  ) external returns (uint256 id);
+  ) external returns (uint256 id, address forwarder);
 
   function cancelUpkeep(uint256 id) external;
 
