@@ -31,6 +31,7 @@ func NewServices(
 	argsNoPlugin libocr2.OracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
+	chainHeadTracker mercury.ChainHeadTracker,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -52,6 +53,7 @@ func NewServices(
 		lggr,
 		runResults,
 		chEnhancedTelem,
+		chainHeadTracker,
 	)
 	wrappedPluginFactory := relaymercury.NewFactory(
 		ds,
