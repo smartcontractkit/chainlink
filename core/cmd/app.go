@@ -30,9 +30,6 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	devMode := v2.EnvDev.IsTrue() || build.Dev
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -73,19 +70,12 @@ func NewApp(client *Client) *cli.App {
 
 		// setup a default config and logger
 		// these will be overwritten later if a TOML config is specified
-		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		if err := client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
 			return err
-		} else {
-			client.Config = cfg
-			client.Logger = lggr
-			client.CloseLogger = closeLggr
 		}
 
 		if c.IsSet("config") || c.IsSet("secrets") {
-			if err := client.setConfig(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
-				return err
-			}
-			client.configInitialized = true
+			client.flagsProcessed = true
 		}
 
 		if c.Bool("json") {
@@ -185,7 +175,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode),
+			Subcommands: initLocalSubCmds(client, build.IsProd()),
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "config, c",
@@ -197,7 +187,7 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				if client.configInitialized {
+				if client.flagsProcessed {
 					if c.IsSet("config") || c.IsSet("secrets") {
 						// invalid mix of flags here and root
 						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
@@ -206,7 +196,7 @@ func NewApp(client *Client) *cli.App {
 					return nil
 				}
 				// flags here, or ENV VAR only
-				return client.setConfig(&opts, c.StringSlice("config"), c.String("secrets"))
+				return client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets"))
 			},
 		},
 		{

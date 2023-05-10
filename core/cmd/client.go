@@ -36,6 +36,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -90,7 +91,7 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	configInitialized bool
+	flagsProcessed bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {
@@ -112,30 +113,40 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
-	secretsTOML := ""
 	if secretsFile != "" {
 		b, err := os.ReadFile(secretsFile)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
-		secretsTOML = string(b)
+
+		secretsTOML := string(b)
+		err = opts.ParseSecrets(secretsTOML)
+		if err != nil {
+			return err
+		}
 	}
-	err := opts.ParseSecrets(secretsTOML)
-	if err != nil {
-		return err
-	}
+
 	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 		return err
 	} else {
+		// If the logger has already been set due to prior initialization, close it out here.
+		if cli.CloseLogger != nil {
+			err := cli.CloseLogger()
+			if err != nil {
+				return errors.Wrap(err, "failed to close initialized logger")
+			}
+		}
+
 		cli.Config = cfg
 		cli.Logger = lggr
 		cli.CloseLogger = closeLggr
 	}
+
 	return nil
 }
 
@@ -379,7 +390,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -443,7 +454,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	var sentryenv string
 	if env := cfg.SentryEnvironment(); env != "" {
 		sentryenv = env
-	} else if cfg.Dev() {
+	} else if !build.IsProd() {
 		sentryenv = "dev"
 	} else {
 		sentryenv = "prod"

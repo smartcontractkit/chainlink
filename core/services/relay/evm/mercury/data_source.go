@@ -178,10 +178,17 @@ func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Obs
 	if err != nil {
 		obs.CurrentBlockNum.Err = err
 		obs.CurrentBlockHash.Err = err
+		obs.CurrentBlockTimestamp.Err = err
 		return
 	}
 	obs.CurrentBlockNum.Val = latestHead.Number
 	obs.CurrentBlockHash.Val = latestHead.Hash.Bytes()
+
+	if latestHead.Timestamp.IsZero() {
+		obs.CurrentBlockTimestamp.Val = 0
+	} else {
+		obs.CurrentBlockTimestamp.Val = uint64(latestHead.Timestamp.Unix())
+	}
 }
 
 func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, error) {
