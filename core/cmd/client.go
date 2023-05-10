@@ -281,9 +281,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
 
+			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
+			}
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
-				solLoop := loopRegistry.Register(solLggr.Name(), cfg)
 				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})

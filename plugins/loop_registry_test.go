@@ -13,17 +13,20 @@ func TestPluginPortManager(t *testing.T) {
 	lc := plugins.NewLoggingConfig(zapcore.DebugLevel, false, false)
 	// register one
 	m := plugins.NewLoopRegistry()
-	pFoo := m.Register("foo", lc)
+	pFoo, err := m.Register("foo", lc)
+	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
-	require.Equal(t, pFoo.EnvCfg.PrometheusPort(), plugins.PluginDefaultPort)
+	require.Greater(t, pFoo.EnvCfg.PrometheusPort(), 0)
 	require.Equal(t, lc.JSONConsole(), pFoo.EnvCfg.JSONConsole())
 	require.Equal(t, lc.LogLevel(), pFoo.EnvCfg.LogLevel())
 	require.Equal(t, lc.LogUnixTimestamps(), pFoo.EnvCfg.LogUnixTimestamps())
 	// test idempotent
-	pSame := m.Register("foo", lc)
+	pSame, err := m.Register("foo", lc)
+	require.NoError(t, err)
 	require.Equal(t, pFoo, pSame)
 	// ensure increasing port assignment
-	pBar := m.Register("bar", lc)
+	pBar, err := m.Register("bar", lc)
+	require.NoError(t, err)
 	require.Equal(t, "bar", pBar.Name)
-	require.Greater(t, pBar.EnvCfg.PrometheusPort(), pFoo.EnvCfg.PrometheusPort())
+	require.Equal(t, pFoo.EnvCfg.PrometheusPort()+1, pBar.EnvCfg.PrometheusPort())
 }

@@ -72,7 +72,8 @@ func TestLoopRegistry(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// register a mock loop
-	loop := app.GetLoopRegistry().Register("mockLoopImpl", app.Config)
+	loop, err := app.GetLoopRegistry().Register("mockLoopImpl", app.Config)
+	require.NoError(t, err)
 	require.NotNil(t, loop)
 	require.Len(t, app.GetLoopRegistry().List(), 1)
 

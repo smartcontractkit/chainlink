@@ -213,7 +213,10 @@ func (m *medianService) Launch() error {
 	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
 
 	// use logger name to ensure unique naming
-	registeredLoop := m.cfg.RegisterLOOP(m.lggr.Name())
+	registeredLoop, err := m.cfg.RegisterLOOP(m.lggr.Name())
+	if err != nil {
+		return fmt.Errorf("failed to register loop: %w", err)
+	}
 	plugins.SetCmdEnvFromConfig(cc.Cmd, registeredLoop.EnvCfg)
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
