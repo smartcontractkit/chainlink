@@ -43,7 +43,7 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          Config
+	config          EvmHtrkConfig
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
@@ -57,7 +57,7 @@ type headTracker struct {
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config Config,
+	config EvmHtrkConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,
@@ -211,7 +211,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.FinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
@@ -223,7 +223,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 func (ht *headTracker) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	samplingInterval := ht.config.HeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
@@ -276,7 +276,7 @@ func (ht *headTracker) backfillLoop() {
 					break
 				}
 				{
-					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
+					err := ht.Backfill(ctx, head, uint(ht.config.FinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
