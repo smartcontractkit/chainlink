@@ -4,21 +4,25 @@ import "../interfaces/automation/AutomationCompatibleInterface.sol";
 import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
 import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
-
 interface IVerifierProxy {
   /**
    * @notice Verifies that the data encoded has been signed
-     * correctly by routing to the correct verifier.
-     * @param signedReport The encoded data to be verified.
-     * @return verifierResponse The encoded response from the verifier.
-     */
-  function verify(bytes memory signedReport)
-  external
-  returns (bytes memory verifierResponse);
+   * correctly by routing to the correct verifier.
+   * @param signedReport The encoded data to be verified.
+   * @return verifierResponse The encoded response from the verifier.
+   */
+  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 }
 
 contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
-  event MercuryPerformEvent(address indexed origin, address indexed sender, uint256 indexed blockNumber, bytes v0, bytes v1, bytes ed);
+  event MercuryPerformEvent(
+    address indexed origin,
+    address indexed sender,
+    uint256 indexed blockNumber,
+    bytes v0,
+    bytes v1,
+    bytes ed
+  );
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   IVerifierProxy internal constant VERIFIER = IVerifierProxy(0xa4D813064dc6E2eFfaCe02a060324626d4C5667f);
@@ -42,7 +46,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     counter = 0;
     feedLabel = "feedIDStr"; // or feedIDHex
     feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
-    queryLabel = "blockNumber"; // timestmap not supported yet
+    queryLabel = "blockNumber"; // timestamp not supported yet
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
