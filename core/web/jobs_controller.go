@@ -221,12 +221,12 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	switch jobType {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
+		if !config.FeatureOffchainReporting() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
+		if !config.FeatureOffchainReporting2() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
