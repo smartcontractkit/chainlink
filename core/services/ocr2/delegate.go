@@ -69,19 +69,19 @@ type Delegate struct {
 
 type DelegateConfig interface {
 	validate.Config
-	plugins.ProcessConfig
+	plugins.RegistrarConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
 type delegateConfig struct {
 	validate.Config
-	plugins.ProcessConfig
+	plugins.RegistrarConfig
 }
 
-func NewDelegateConfig(vc validate.Config, pluginProcessCfg plugins.ProcessConfig) DelegateConfig {
+func NewDelegateConfig(vc validate.Config, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
-		Config:        vc,
-		ProcessConfig: pluginProcessCfg,
+		Config:          vc,
+		RegistrarConfig: pluginProcessCfg,
 	}
 }
 

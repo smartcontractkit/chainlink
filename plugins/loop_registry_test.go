@@ -4,17 +4,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func TestPluginPortManager(t *testing.T) {
+	lc := plugins.NewLoggingConfig(zapcore.DebugLevel, false, false)
+	// register one
 	m := plugins.NewLoopRegistry()
-	pFoo := m.Register("foo", v2.NewTestGeneralConfig(t))
-	require.Equal(t, pFoo, plugins.PluginDefaultPort)
-	pSame := m.Register("foo", v2.NewTestGeneralConfig(t))
+	pFoo := m.Register("foo", lc)
+	require.Equal(t, "foo", pFoo.Name)
+	require.Equal(t, pFoo.EnvCfg.PrometheusPort(), plugins.PluginDefaultPort)
+	require.Equal(t, lc.JSONConsole(), pFoo.EnvCfg.JSONConsole())
+	require.Equal(t, lc.LogLevel(), pFoo.EnvCfg.LogLevel())
+	require.Equal(t, lc.LogUnixTimestamps(), pFoo.EnvCfg.LogUnixTimestamps())
+	// test idempotent
+	pSame := m.Register("foo", lc)
 	require.Equal(t, pFoo, pSame)
-	pBar := m.Register("bar", v2.NewTestGeneralConfig(t))
-	require.Greater(t, pBar, pFoo)
+	// ensure increasing port assignment
+	pBar := m.Register("bar", lc)
+	require.Equal(t, "bar", pBar.Name)
+	require.Greater(t, pBar.EnvCfg.PrometheusPort(), pFoo.EnvCfg.PrometheusPort())
 }

@@ -72,7 +72,7 @@ func (m *LoopRegistry) create(pluginName string, staticCfg LoggingConfig) (*Regi
 		return nil, ErrExists
 	}
 	nextPort := PluginDefaultPort + len(m.registry)
-	envCfg := NewEnvConfig(staticCfg.LogLevel(), staticCfg.JSONConsole(), staticCfg.LogUnixTimestamps(), nextPort)
+	envCfg := NewEnvConfig(staticCfg, nextPort)
 
 	m.registry[pluginName] = &RegisteredLoop{Name: pluginName, EnvCfg: envCfg}
 	return m.registry[pluginName], nil

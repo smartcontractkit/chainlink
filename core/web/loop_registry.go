@@ -20,45 +20,16 @@ const invalidPort = -1
 type LoopRegistryServer struct {
 	exposedPromPort int
 	registry        *plugins.LoopRegistry
-	// read only so no mutex needed
-	//pluginLookupFn func() map[string]plugins.EnvConfig
 }
 
-func NewLoopRegistry(app chainlink.Application) *LoopRegistryServer {
+func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 	return &LoopRegistryServer{
 		exposedPromPort: int(app.GetConfig().Port()),
 		registry:        app.GetLoopRegistry(),
 	}
 }
 
-type pluginConfig struct {
-	name string
-	port int
-}
-
-/*
-// list returns deterministic list of loop's known the registry
-
-	func (l *LoopRegistryServer) list() []pluginConfig {
-		var out []pluginConfig
-		for name, cfg := range l.pluginLookupFn() {
-			out = append(out, pluginConfig{name: name, port: cfg.PrometheusPort()})
-		}
-		sort.Slice(out, func(i, j int) bool {
-			return out[i].port < out[j].port
-		})
-		return out
-	}
-
-	func (l *LoopRegistryServer) get(name string) (pluginConfig, bool) {
-		result := pluginConfig{name: name, port: invalidPort}
-		envCfg, exists := l.pluginLookupFn()[name]
-		if exists {
-			result.port = envCfg.PrometheusPort()
-		}
-		return result, exists
-	}
-*/
+// discoveryHandler implements service discovery of prom endpoints for LOOPs in the registry
 func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var groups []*targetgroup.Group
@@ -85,19 +56,18 @@ func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.R
 	w.Write(b)
 }
 
+// pluginMetricHandlers routes from endpoints published in service discovery to the the backing LOOP endpoint
 func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 
 	pluginName := gc.Param("name")
 	p, ok := l.registry.Get(pluginName)
-
 	if !ok {
-
 		gc.Data(http.StatusNotFound, "text/plain", []byte(fmt.Sprintf("plugin %q does not exist", html.EscapeString(pluginName))))
 		return
 	}
 
 	pluginURL := fmt.Sprintf("http://localhost:%d/metrics", p.EnvCfg.PrometheusPort())
-	res, err := http.Get(pluginURL)
+	res, err := http.Get(pluginURL) //nolint
 	if err != nil {
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return

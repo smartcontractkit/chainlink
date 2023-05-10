@@ -259,16 +259,16 @@ func (_m *Application) GetLogger() logger.SugaredLogger {
 	return r0
 }
 
-// GetLoopEnvConfig provides a mock function with given fields:
-func (_m *Application) GetLoopEnvConfig() map[string]plugins.EnvConfig {
+// GetLoopRegistry provides a mock function with given fields:
+func (_m *Application) GetLoopRegistry() *plugins.LoopRegistry {
 	ret := _m.Called()
 
-	var r0 map[string]plugins.EnvConfig
-	if rf, ok := ret.Get(0).(func() map[string]plugins.EnvConfig); ok {
+	var r0 *plugins.LoopRegistry
+	if rf, ok := ret.Get(0).(func() *plugins.LoopRegistry); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]plugins.EnvConfig)
+			r0 = ret.Get(0).(*plugins.LoopRegistry)
 		}
 	}
 

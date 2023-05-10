@@ -228,7 +228,7 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 }
 
 func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	loopRegistry := NewLoopRegistry(app)
+	loopRegistry := NewLoopRegistryServer(app)
 	r.GET("/discovery", ginHandlerFromHTTP(loopRegistry.discoveryHandler))
 	r.GET("/plugins/:name/metrics", loopRegistry.pluginMetricHandler)
 

@@ -30,19 +30,19 @@ import (
 
 type MedianConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
-	plugins.ProcessConfig
+	plugins.RegistrarConfig
 }
 
 // concrete implementation of MedianConfig
 type medianConfig struct {
 	jobPipelineMaxSuccessfulRuns uint64
-	plugins.ProcessConfig
+	plugins.RegistrarConfig
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginProcessCfg plugins.ProcessConfig) MedianConfig {
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
 	return &medianConfig{
 		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
-		ProcessConfig:                pluginProcessCfg,
+		RegistrarConfig:              pluginProcessCfg,
 	}
 }
 
@@ -186,7 +186,7 @@ type medianService struct {
 	utils.StartStopOnce
 
 	lggr    logger.Logger
-	cfg     plugins.ProcessConfig
+	cfg     plugins.RegistrarConfig
 	cmdName string
 
 	client *plugin.Client
@@ -194,7 +194,7 @@ type medianService struct {
 	loop.PluginMedian
 }
 
-func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.ProcessConfig) *medianService {
+func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.RegistrarConfig) *medianService {
 	return &medianService{cmdName: cmdName, lggr: lggr.Named("PluginMedianService"), cfg: cfg}
 }
 
@@ -212,10 +212,8 @@ func (m *medianService) Launch() error {
 	cc := loop.PluginMedianClientConfig(m.lggr)
 	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
 
-	// use logger name to ensure
-	//envConfig := m.cfg.GenerateEnvConfig(m.lggr.Name())
+	// use logger name to ensure unique naming
 	registeredLoop := m.cfg.RegisterLOOP(m.lggr.Name())
-
 	plugins.SetCmdEnvFromConfig(cc.Cmd, registeredLoop.EnvCfg)
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
