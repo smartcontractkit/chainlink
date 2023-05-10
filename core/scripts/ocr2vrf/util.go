@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -56,8 +57,8 @@ func deployVRFRouter(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress, linkEthFeed, router string) common.Address {
-	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(
+func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress, linkEthFeed, router string) (common.Address, *vrf_coordinator.VRFCoordinator) {
+	_, tx, coordinator, err := vrf_coordinator.DeployVRFCoordinator(
 		e.Owner,
 		e.Ec,
 		beaconPeriodBlocks,
@@ -66,7 +67,16 @@ func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, li
 		common.HexToAddress(router),
 	)
 	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID), coordinator
+}
+
+func configureVRFCoordinator(e helpers.Environment, coordinator *vrf_coordinator.VRFCoordinator, maxCbGasLimit, maxCbArgsLen uint32) *gethtypes.Receipt {
+	tx, err := coordinator.SetConfig(e.Owner, vrf_coordinator.VRFCoordinatorConfig{
+		MaxCallbackGasLimit:        maxCbGasLimit,
+		MaxCallbackArgumentsLength: maxCbArgsLen,
+	})
+	helpers.PanicErr(err)
+	return helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf coordinator setConfig")
 }
 
 func deployAuthorizedForwarder(e helpers.Environment, link common.Address, owner common.Address) common.Address {
