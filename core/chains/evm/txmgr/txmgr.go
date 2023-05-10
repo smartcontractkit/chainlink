@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -36,15 +36,15 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	HEAD commontypes.Head[TX_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH commontypes.Hashable,
+	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] interface {
-	txmgrtypes.HeadTrackable[HEAD]
+	txmgrtypes.HeadTrackable[HEAD, TX_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateEthTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error)
@@ -65,10 +65,10 @@ type reset struct {
 
 type Txm[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	HEAD commontypes.Head[TX_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH commontypes.Hashable,
+	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
@@ -505,9 +505,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendE
 
 type NullTxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
+	HEAD commontypes.Head[TX_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,

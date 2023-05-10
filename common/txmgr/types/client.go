@@ -62,7 +62,7 @@ type Events[EVENT any, EVENTOPS any] interface {
 
 type TxmClient[
 	CHAIN_ID ID,
-	HEAD Head,
+	HEAD types.Head[TX_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
