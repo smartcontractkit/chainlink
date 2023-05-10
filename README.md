@@ -254,6 +254,8 @@ pnpm i
 ```bash
 pnpm test
 ```
+NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
+Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
 ### Code Generation
 
