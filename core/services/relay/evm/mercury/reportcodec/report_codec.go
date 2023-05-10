@@ -36,8 +36,8 @@ func getReportTypes() abi.Arguments {
 		{Name: "ask", Type: mustNewType("int192")},
 		{Name: "currentBlockNum", Type: mustNewType("uint64")},
 		{Name: "currentBlockHash", Type: mustNewType("bytes32")},
-		{Name: "currentBlockTimestamp", Type: mustNewType("uint64")},
 		{Name: "validFromBlockNum", Type: mustNewType("uint64")},
+		{Name: "currentBlockTimestamp", Type: mustNewType("uint64")},
 	})
 }
 
