@@ -23,4 +23,6 @@ type Head[HASH Hashable] interface {
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) HASH
+
+	Equals(other Head[HASH]) bool
 }

@@ -83,17 +83,7 @@ func (h *Head) EarliestHeadInChain() commontypes.Head[common.Hash] {
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
 func (h *Head) IsInChain(blockHash common.Hash) bool {
-	for {
-		if h.Hash == blockHash {
-			return true
-		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
-	}
-	return false
+	return htrkutils.IsInChain(h, blockHash)
 }
 
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
@@ -135,20 +125,7 @@ func (h *Head) ChainLength() uint32 {
 
 // ChainHashes returns an array of block hashes by recursively looking up parents
 func (h *Head) ChainHashes() []common.Hash {
-	var hashes []common.Hash
-
-	for {
-		hashes = append(hashes, h.Hash)
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
-			break
-		}
-	}
-	return hashes
+	return htrkutils.ChainHashes[*Head, common.Hash](h)
 }
 
 func (h *Head) ChainString() string {
@@ -193,6 +170,17 @@ func (h *Head) GreaterThan(r *Head) bool {
 		return true
 	}
 	return h.Number > r.Number
+}
+
+// Equals compares two heads memory address and returns true if they are equal
+func (h *Head) Equals(r commontypes.Head[common.Hash]) bool {
+	if h == nil && r == nil {
+		return true
+	}
+	if h == nil || r == nil {
+		return false
+	}
+	return h == r
 }
 
 // NextInt returns the next BlockNumber as big.int, or nil if nil to represent latest.
