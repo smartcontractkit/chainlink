@@ -621,7 +621,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, d.cfg.MercuryCredentials(credName))
+		keeperProvider, rgstry, encoder, logProvider, rp, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, d.cfg.MercuryCredentials(credName))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
@@ -676,6 +676,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		return []job.ServiceCtx{
 			runResultSaver,
+			rp, // log poller registry bubbled up as a start/stop service
 			keeperProvider,
 			rgstry,
 			logProvider,

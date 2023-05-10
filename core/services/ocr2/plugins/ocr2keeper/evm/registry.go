@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -46,7 +45,13 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryServiceV2_0(
+	addr common.Address,
+	client evm.Chain,
+	mc *models.MercuryCredentials,
+	lggr logger.Logger,
+	rp *RegistryPoller,
+) (*EvmRegistry, error) {
 	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -64,7 +69,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			chHead: make(chan types.BlockKey, 1),
 		},
 		lggr:     lggr,
-		poller:   client.LogPoller(),
+		rp:       rp,
 		addr:     addr,
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
@@ -76,25 +81,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		chLog:    make(chan logpoller.Log, 1000),
 	}
 
-	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
-	}
-
 	return r, nil
-}
-
-var upkeepStateEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(), // unpauses an upkeep
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),    // updates the gas limit for an upkeep
-}
-
-var upkeepActiveEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
@@ -110,25 +97,30 @@ type activeUpkeep struct {
 
 type EvmRegistry struct {
 	HeadProvider
-	sync          utils.StartStopOnce
-	lggr          logger.Logger
-	poller        logpoller.LogPoller
-	addr          common.Address
-	client        client.Client
-	registry      *keeper_registry_wrapper2_0.KeeperRegistry
-	abi           abi.ABI
-	packer        *evmRegistryPackerV2_0
-	chLog         chan logpoller.Log
-	reInit        *time.Timer
-	mu            sync.RWMutex
-	txHashes      map[string]bool
-	lastPollBlock int64
-	ctx           context.Context
-	cancel        context.CancelFunc
-	active        map[string]activeUpkeep
-	headFunc      func(types.BlockKey)
-	runState      int
-	runError      error
+	lggr logger.Logger
+	// poller logpoller.LogPoller
+
+	rp *RegistryPoller
+
+	addr     common.Address
+	client   client.Client
+	registry *keeper_registry_wrapper2_0.KeeperRegistry
+	abi      abi.ABI
+	packer   *evmRegistryPackerV2_0
+	chLog    chan logpoller.Log
+	reInit   *time.Timer
+	mu       sync.RWMutex
+	txHashes map[string]bool
+
+	ctx      context.Context
+	cancel   context.CancelFunc
+	active   map[string]activeUpkeep
+	headFunc func(types.BlockKey)
+
+	// run state properties
+	sync     utils.StartStopOnce
+	runState int
+	runError error
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
@@ -173,32 +165,34 @@ func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdenti
 	return id.Bytes(), nil
 }
 
+// Name implements the job.ServiceCtx interface
 func (r *EvmRegistry) Name() string {
 	return r.lggr.Name()
 }
 
+// Start implements the job.ServiceCtx interface
 func (r *EvmRegistry) Start(ctx context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+
 		r.ctx, r.cancel = context.WithCancel(context.Background())
 		r.reInit = time.NewTimer(reInitializationDelay)
 
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
-				err := f()
-				if err != nil {
+				if err := f(); err != nil {
 					lggr.Errorf("failed to initialize upkeeps", err)
 				}
 
 				for {
 					select {
 					case <-tmr.C:
-						err = f()
-						if err != nil {
+						if err := f(); err != nil {
 							lggr.Errorf("failed to re-initialize upkeeps", err)
 						}
+
 						tmr.Reset(reInitializationDelay)
 					case <-cx.Done():
 						return
@@ -215,8 +209,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						err := f()
-						if err != nil {
+						if err := f(); err != nil {
 							lggr.Errorf("failed to poll logs for upkeeps", err)
 						}
 					case <-cx.Done():
@@ -233,8 +226,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 				for {
 					select {
 					case l := <-ch:
-						err := f(l)
-						if err != nil {
+						if err := f(l); err != nil {
 							lggr.Errorf("failed to process log for upkeep", err)
 						}
 					case <-cx.Done():
@@ -249,17 +241,21 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 	})
 }
 
+// Stop implements the job.ServiceCtx interface
 func (r *EvmRegistry) Close() error {
 	return r.sync.StopOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+
 		r.cancel()
 		r.runState = 0
 		r.runError = nil
+
 		return nil
 	})
 }
 
+// Ready implements the job.ServiceCtx interface
 func (r *EvmRegistry) Ready() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -267,9 +263,11 @@ func (r *EvmRegistry) Ready() error {
 	if r.runState == 1 {
 		return nil
 	}
+
 	return r.sync.Ready()
 }
 
+// HealthReport implements the job.ServiceCtx interface
 func (r *EvmRegistry) HealthReport() map[string]error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -277,6 +275,7 @@ func (r *EvmRegistry) HealthReport() map[string]error {
 	if r.runState > 1 {
 		r.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", r.runError))
 	}
+
 	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
@@ -284,18 +283,23 @@ func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
+	r.lggr.Debugf("Re-initializing active upkeeps list")
 	idMap := make(map[string]activeUpkeep)
 
-	r.lggr.Debugf("Re-initializing active upkeeps list")
+	var (
+		offset int
+		ids    []*big.Int
+		err    error
+	)
+
 	// get active upkeep ids from contract
-	ids, err := r.getLatestIDsFromContract(startupCtx)
-	if err != nil {
+	if ids, err = r.getLatestIDsFromContract(startupCtx); err != nil {
 		return fmt.Errorf("failed to get ids from contract: %s", err)
 	}
 
-	var offset int
 	for offset < len(ids) {
 		batch := FetchUpkeepConfigBatchSize
+
 		if len(ids)-offset < batch {
 			batch = len(ids) - offset
 		}
@@ -320,40 +324,24 @@ func (r *EvmRegistry) initialize() error {
 }
 
 func (r *EvmRegistry) pollLogs() error {
-	var latest int64
-	var end int64
-	var err error
+	var (
+		logs []logpoller.Log
+		err  error
+	)
 
-	if end, err = r.poller.LatestBlock(); err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	if _, logs, err = r.rp.GetLatest(
+		r.ctx,
+		logEventLookback,
+		keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
+		keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
+		keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(), // unpauses an upkeep
+		keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),    // updates the gas limit for an upkeep
+	); err != nil {
+		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
 	}
 
-	r.mu.Lock()
-	latest = r.lastPollBlock
-	r.lastPollBlock = end
-	r.mu.Unlock()
-
-	// if start and end are the same, no polling needs to be done
-	if latest == 0 || latest == end {
-		return nil
-	}
-
-	{
-		var logs []logpoller.Log
-
-		if logs, err = r.poller.LogsWithSigs(
-			end-logEventLookback,
-			end,
-			upkeepStateEvents,
-			r.addr,
-			pg.WithParentCtx(r.ctx),
-		); err != nil {
-			return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
-		}
-
-		for _, log := range logs {
-			r.chLog <- log
-		}
+	for _, log := range logs {
+		r.chLog <- log
 	}
 
 	return nil
@@ -361,21 +349,6 @@ func (r *EvmRegistry) pollLogs() error {
 
 func UpkeepFilterName(addr common.Address) string {
 	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
-}
-
-func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need
-	err := r.poller.RegisterFilter(logpoller.Filter{
-		Name:      UpkeepFilterName(addr),
-		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
-		Addresses: []common.Address{addr},
-	})
-	if err != nil {
-		r.mu.Lock()
-		r.mu.Unlock()
-	}
-	return err
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
