@@ -156,15 +156,13 @@ func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
-			Before: func(ctx *clipkg.Context) error {
-				return client.configExitErr(client.Config.ValidateDB)
-			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Hidden: safe,
 					Action: client.ResetDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "dangerWillRobinson",
@@ -177,6 +175,7 @@ func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 					Usage:  "Reset database and load fixtures.",
 					Hidden: safe,
 					Action: client.PrepareTestDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "user-only",
@@ -188,24 +187,28 @@ func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 					Name:   "version",
 					Usage:  "Display the current database version.",
 					Action: client.VersionDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: client.StatusDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: client.MigrateDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: client.RollbackDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
@@ -213,6 +216,7 @@ func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 					Usage:  "Create a new migration.",
 					Hidden: safe,
 					Action: client.CreateMigration,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "type",
@@ -677,6 +681,12 @@ func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	}
 	fmt.Println("Valid configuration.")
 	return nil
+}
+
+// ValidateDB is a BeforeFunc to run prior to database sub commands
+// the ctx must be that of the last subcommand to be validated
+func (cli *Client) validateDB(ctx *clipkg.Context) error {
+	return cli.configExitErr(cli.Config.ValidateDB)
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
