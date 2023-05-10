@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -116,7 +117,7 @@ func TestMain(m *testing.M) {
 func TestAutomatedBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "basic-upkeep", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -183,7 +184,7 @@ func TestAutomatedBasic(t *testing.T) {
 func TestAutomatedAddFunds(t *testing.T) {
 	t.Parallel()
 
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "add-funds", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -235,7 +236,7 @@ func TestAutomatedAddFunds(t *testing.T) {
 func TestAutomatedPauseUnPause(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "pause-unpause", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -319,7 +320,7 @@ func TestAutomatedPauseUnPause(t *testing.T) {
 func TestAutomatedRegisterUpkeep(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "register-upkeep", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -392,7 +393,7 @@ func TestAutomatedRegisterUpkeep(t *testing.T) {
 func TestAutomatedPauseRegistry(t *testing.T) {
 	t.Parallel()
 
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "pause-registry", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -451,7 +452,7 @@ func TestAutomatedPauseRegistry(t *testing.T) {
 func TestAutomatedKeeperNodesDown(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "keeper-nodes-down", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -538,7 +539,7 @@ func TestAutomatedKeeperNodesDown(t *testing.T) {
 func TestAutomatedPerformSimulation(t *testing.T) {
 	t.Parallel()
 
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "perform-simulation", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -593,7 +594,7 @@ func TestAutomatedPerformSimulation(t *testing.T) {
 func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "gas-limit", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -695,7 +696,7 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "update-check-data", false, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -759,7 +760,7 @@ func TestUpdateCheckData(t *testing.T) {
 func TestMercuryLookup(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "automation-mercury-lookup", true, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
@@ -791,6 +792,7 @@ func setupAutomationTest(
 	registry contracts.KeeperRegistry,
 	registrar contracts.KeeperRegistrar,
 	onlyStartRunner bool,
+	mockServer *ctfClient.MockserverClient,
 ) {
 	network := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
@@ -839,6 +841,8 @@ func setupAutomationTest(
 		require.NoError(t, err, "Error building contract deployer")
 		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		require.NoError(t, err, "Error connecting to Chainlink nodes")
+		mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
+		require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 		chainClient.ParallelTransactions(true)
 
 		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
@@ -873,5 +877,5 @@ func setupAutomationTest(
 		})
 	}
 
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, mockServer
 }

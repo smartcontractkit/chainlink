@@ -67,7 +67,7 @@ func DeployBenchmarkKeeperContracts(
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 	if registryVersion == ethereum.RegistryVersion_2_0 {
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig, err := BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime, 0)
+		ocrConfig, err := BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime, 0, false)
 		require.NoError(t, err, "OCR config should be built successfully")
 		err = registry.SetConfig(*registrySettings, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")
