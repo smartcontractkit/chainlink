@@ -25,5 +25,5 @@ compileContract llo-feeds/Verifier.sol
 compileContract llo-feeds/VerifierProxy.sol
 
 #Test | Mocks
-compileContract llo-feeds/tests/mocks/ErroredVerifier.sol
-compileContract llo-feeds/tests/mocks/ExposedVerifier.sol
+compileContract llo-feeds/test/mocks/ErroredVerifier.sol
+compileContract llo-feeds/test/mocks/ExposedVerifier.sol
