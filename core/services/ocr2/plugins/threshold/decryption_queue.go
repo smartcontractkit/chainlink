@@ -42,6 +42,7 @@ type completedRequest struct {
 type decryptionQueue struct {
 	maxQueueLength                int
 	maxCiphertextBytes            int
+	maxCiphertextIdLen            int
 	completedRequestsCacheTimeout time.Duration
 	pendingRequestQueue           []CiphertextId
 	pendingRequests               map[string]pendingRequest
@@ -56,10 +57,11 @@ var (
 	_ job.ServiceCtx           = &decryptionQueue{}
 )
 
-func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
+func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertextIdLen int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
 	dq := decryptionQueue{
 		maxQueueLength,
 		maxCiphertextBytes,
+		maxCiphertextIdLen,
 		completedRequestsCacheTimeout,
 		[]CiphertextId{},
 		make(map[string]pendingRequest),
@@ -71,6 +73,10 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedReq
 }
 
 func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error) {
+	if len(ciphertextId) > dq.maxCiphertextIdLen {
+		return nil, errors.New("ciphertextId too large")
+	}
+
 	if len(ciphertext) > dq.maxCiphertextBytes {
 		return nil, errors.New("ciphertext too large")
 	}
