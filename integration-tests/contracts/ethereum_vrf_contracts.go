@@ -919,6 +919,24 @@ func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consume
 	return coordinator.client.ProcessTransaction(tx)
 }
 
+func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint32, maxCallbackArgumentsLength uint32) error {
+	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
+		opts,
+		vrf_coordinator.VRFCoordinatorConfig{
+			MaxCallbackGasLimit:        maxCallbackGasLimit,
+			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return coordinator.client.ProcessTransaction(tx)
+}
+
 // EthereumVRFBeacon represents VRFBeacon contract
 type EthereumVRFBeacon struct {
 	address   *common.Address
@@ -1095,6 +1113,7 @@ func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	numWords uint16,
 	subID, confirmationDelayArg *big.Int,
+	requestGasLimit uint32,
 	callbackGasLimit uint32,
 	arguments []byte,
 ) (*types.Receipt, error) {
@@ -1102,6 +1121,9 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	if err != nil {
 		return nil, err
 	}
+	// overriding gas limit because gas estimated by TestRequestRandomnessFulfillment
+	// is incorrect
+	opts.GasLimit = uint64(requestGasLimit)
 	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
 		opts,
 		subID,

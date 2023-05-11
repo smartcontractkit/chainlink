@@ -24,11 +24,7 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     bytes calldata data
   ) external returns (bool);
 
-  function ownerTransferAndCall(
-    address to,
-    uint256 value,
-    bytes calldata data
-  ) external returns (bool success);
+  function ownerTransferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success);
 
   function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable;
 
