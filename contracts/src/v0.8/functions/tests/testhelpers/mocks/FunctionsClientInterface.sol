@@ -20,9 +20,5 @@ interface FunctionsClientInterface {
    * @param err Aggregated error either from the user code or from the execution pipeline.
    * Either response or error parameter will be set, but never both.
    */
-  function handleOracleFulfillment(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) external;
+  function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external;
 }
