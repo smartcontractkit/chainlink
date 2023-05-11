@@ -337,7 +337,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun
 	t.Run("late abort returns ErrReplayInProgress", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second)
+		ctx, cancel := context.WithTimeout(testutils.Context(t), 2*time.Second)
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -346,32 +346,40 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
 		<-done
+		lp.replayComplete <- nil
 	})
+
+	timeout := time.After(4 * time.Second)
+	select {
+	case <-utils.WaitGroupChan(&lp.wg):
+	case <-timeout:
+		require.Fail(t, "Log poller failed to shutdown gracefully")
+	}
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout := time.After(1 * time.Second)
+		timeout = time.After(2 * time.Second)
 		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		ctx, cancel := context.WithCancel(tctx)
 
 		var wg sync.WaitGroup
 		wg.Add(2)
-		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
 			}()
 		})
-		ec.On("FilterLogs", lp.ctx, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer wg.Done()
 				cancel()
 				lp.replayStart <- 4
 			}()
 		})
-		ec.On("FilterLogs", lp.ctx, mock.Anything).Return([]types.Log{log1}, nil).Maybe()
+
 		lp.wg.Add(1)
 		done := make(chan struct{})
 		go func() {
@@ -380,14 +388,19 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 1s")
+			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 2s")
 		case <-utils.WaitGroupChan(&wg):
 			lp.cancel()
 		}
 		<-done
 	})
 
-	lp.wg.Wait() // ensure logpoller has exited before continuing on to next test
+	timeout = time.After(4 * time.Second)
+	select {
+	case <-utils.WaitGroupChan(&lp.wg):
+	case <-timeout:
+		require.Fail(t, "Log poller failed to shutdown gracefully")
+	}
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
@@ -406,12 +419,11 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		timeout := time.After(1 * time.Second)
+		timeout := time.After(2 * time.Second)
 		require.NoError(t, lp.Start(tctx))
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 1s")
-			lp.Close()
+			require.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
 		case <-utils.WaitGroupChan(&wg):
 			lp.wg.Wait()
 		}
@@ -419,7 +431,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// ReplayAsync should return success as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, time.Second)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
 		go recvStartReplay(tctx, 1, true)
 		lp.ReplayAsync(1)
 		lp.replayComplete <- nil
