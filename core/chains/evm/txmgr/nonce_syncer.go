@@ -54,11 +54,11 @@ type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.H
 var _ NonceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
-	txStore   EvmTxStore
-	ethClient evmclient.Client
-	chainID   *big.Int
-	logger    logger.Logger
-	kst       EvmKeyStore
+	txStore EvmTxStore
+	client  EvmTxmClient
+	chainID *big.Int
+	logger  logger.Logger
+	kst     EvmKeyStore
 }
 
 // NewNonceSyncer returns a new syncer
@@ -70,11 +70,11 @@ func NewNonceSyncer(
 ) EvmNonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
-		txStore:   txStore,
-		ethClient: ethClient,
-		chainID:   ethClient.ConfiguredChainID(),
-		logger:    lggr,
-		kst:       kst,
+		txStore: txStore,
+		client:  NewEvmTxmClient(ethClient),
+		chainID: ethClient.ConfiguredChainID(),
+		logger:  lggr,
+		kst:     kst,
 	}
 }
 
@@ -139,7 +139,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 	return err
 }
 
-func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
-	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
-	return nextNonce, errors.WithStack(err)
+func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (uint64, error) {
+	nextNonce, err := s.client.PendingNonceAt(ctx, account)
+	return uint64(nextNonce), errors.WithStack(err)
 }

@@ -57,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -78,6 +79,8 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
+
+	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -137,6 +140,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	loopRegistry             *plugins.LoopRegistry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -157,6 +161,7 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
+	LoopRegistry             *plugins.LoopRegistry
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -201,6 +206,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// as OCR2 job implementations, in the case of Median today.
+	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
+	// we need to initialize in case we serve OCR2 LOOPs
+	loopRegistry := opts.LoopRegistry
+	if loopRegistry == nil {
+		loopRegistry = plugins.NewLoopRegistry()
+	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
@@ -404,6 +418,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
 			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
 		}
+		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -412,7 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
@@ -490,6 +506,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
+		loopRegistry:             loopRegistry,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -574,6 +591,10 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 		return app.stop()
 	}
 	return nil
+}
+
+func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+	return app.loopRegistry
 }
 
 // Stop allows the application to exit by halting schedules, closing

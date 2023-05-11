@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -56,7 +57,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
-	cfg                   Config
+	cfg                   DelegateConfig
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
 	dkgSignKs             keystore.DKGSign
@@ -68,9 +69,22 @@ type Delegate struct {
 	eventBroadcaster      pg.EventBroadcaster
 }
 
-type Config interface {
+type DelegateConfig interface {
 	validate.Config
-	plugins.EnvConfig
+	plugins.RegistrarConfig
+}
+
+// concrete implementation of DelegateConfig so it can be explicitly composed
+type delegateConfig struct {
+	validate.Config
+	plugins.RegistrarConfig
+}
+
+func NewDelegateConfig(vc validate.Config, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+	return &delegateConfig{
+		Config:          vc,
+		RegistrarConfig: pluginProcessCfg,
+	}
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -83,7 +97,7 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg Config,
+	cfg DelegateConfig,
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
@@ -385,8 +399,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+		mConfig := median.NewMedianConfig(d.cfg.JobPipelineMaxSuccessfulRuns(), d.cfg)
 
-		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, enhancedTelemChan, errorLog)
+		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))

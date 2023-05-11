@@ -142,7 +142,7 @@ contract FunctionsOracleOriginal is
    * @inheritdoc FunctionsOracleInterface
    */
   function getRequiredFee(
-    bytes calldata, /* data */
+    bytes calldata /* data */,
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
@@ -201,8 +201,8 @@ contract FunctionsOracleOriginal is
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _validateReport(
-    bytes32, /* configDigest */
-    uint40, /* epochAndRound */
+    bytes32 /* configDigest */,
+    uint40 /* epochAndRound */,
     bytes memory /* report */
   ) internal pure override returns (bool) {
     // validate within _report to save gas
