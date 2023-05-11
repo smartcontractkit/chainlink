@@ -83,6 +83,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
+	loopRoutes(app, api)
 
 	guiAssetRoutes(engine, config.DisableRateLimiting(), app.GetLogger())
 
@@ -218,6 +219,13 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	hc := HealthController{app}
 	r.GET("/readyz", hc.Readyz)
 	r.GET("/health", hc.Health)
+}
+
+func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	loopRegistry := NewLoopRegistryServer(app)
+	r.GET("/discovery", ginHandlerFromHTTP(loopRegistry.discoveryHandler))
+	r.GET("/plugins/:name/metrics", loopRegistry.pluginMetricHandler)
+
 }
 
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
