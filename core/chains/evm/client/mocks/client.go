@@ -11,6 +11,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+
 	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -640,19 +642,19 @@ func (_m *Client) SimulateTransaction(ctx context.Context, tx *types.Transaction
 }
 
 // SubscribeFilterLogs provides a mock function with given fields: ctx, q, ch
-func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (commontypes.Subscription, error) {
 	ret := _m.Called(ctx, q, ch)
 
-	var r0 ethereum.Subscription
+	var r0 commontypes.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) (ethereum.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) (commontypes.Subscription, error)); ok {
 		return rf(ctx, q, ch)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) ethereum.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) commontypes.Subscription); ok {
 		r0 = rf(ctx, q, ch)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
+			r0 = ret.Get(0).(commontypes.Subscription)
 		}
 	}
 
@@ -666,19 +668,19 @@ func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 }
 
 // SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
+func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (commontypes.Subscription, error) {
 	ret := _m.Called(ctx, ch)
 
-	var r0 ethereum.Subscription
+	var r0 commontypes.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) (ethereum.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) (commontypes.Subscription, error)); ok {
 		return rf(ctx, ch)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) ethereum.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) commontypes.Subscription); ok {
 		r0 = rf(ctx, ch)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
+			r0 = ret.Get(0).(commontypes.Subscription)
 		}
 	}
 
