@@ -4,7 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-// Heads is a collection of heads. All methods are thread-safe.
+// Heads is a collection of heads. Implementations must be safe for concurrent use.
 type Heads[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	// LatestHead returns the block header with the highest number that has been seen, or nil.
 	LatestHead() H
