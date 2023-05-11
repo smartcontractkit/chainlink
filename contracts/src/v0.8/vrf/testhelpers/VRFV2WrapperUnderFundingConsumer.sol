@@ -14,11 +14,7 @@ contract VRFV2WrapperUnderFundingConsumer is ConfirmedOwner {
     VRF_V2_WRAPPER = VRFV2WrapperInterface(_vrfV2Wrapper);
   }
 
-  function makeRequest(
-    uint32 _callbackGasLimit,
-    uint16 _requestConfirmations,
-    uint32 _numWords
-  ) external onlyOwner {
+  function makeRequest(uint32 _callbackGasLimit, uint16 _requestConfirmations, uint32 _numWords) external onlyOwner {
     LINK.transferAndCall(
       address(VRF_V2_WRAPPER),
       // Pay less than the needed amount

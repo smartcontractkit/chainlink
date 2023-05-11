@@ -31,11 +31,7 @@ contract MockLinkToken {
     return balances[_address];
   }
 
-  function transferAndCall(
-    address _to,
-    uint256 _value,
-    bytes calldata _data
-  ) public returns (bool success) {
+  function transferAndCall(address _to, uint256 _value, bytes calldata _data) public returns (bool success) {
     transfer(_to, _value);
     if (isContract(_to)) {
       contractFallback(_to, _value, _data);
@@ -51,11 +47,7 @@ contract MockLinkToken {
     return length > 0;
   }
 
-  function contractFallback(
-    address _to,
-    uint256 _value,
-    bytes calldata _data
-  ) private {
+  function contractFallback(address _to, uint256 _value, bytes calldata _data) private {
     ERC677ReceiverInterface receiver = ERC677ReceiverInterface(_to);
     receiver.onTokenTransfer(msg.sender, _value, _data);
   }

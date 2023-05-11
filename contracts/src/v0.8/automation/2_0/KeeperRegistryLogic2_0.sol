@@ -27,7 +27,9 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address fastGasFeed
   ) KeeperRegistryBase2_0(mode, link, linkNativeFeed, fastGasFeed) {}
 
-  function checkUpkeep(uint256 id)
+  function checkUpkeep(
+    uint256 id
+  )
     external
     cannotExecute
     returns (
