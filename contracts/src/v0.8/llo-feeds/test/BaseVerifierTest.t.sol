@@ -114,15 +114,7 @@ contract BaseTest is Test {
     Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
-  )
-    internal
-    pure
-    returns (
-      bytes32[] memory rawRs,
-      bytes32[] memory rawSs,
-      bytes32 rawVs
-    )
-  {
+  ) internal pure returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) {
     bytes32[] memory rs = new bytes32[](signers.length);
     bytes32[] memory ss = new bytes32[](signers.length);
     bytes memory vs = new bytes(signers.length);
