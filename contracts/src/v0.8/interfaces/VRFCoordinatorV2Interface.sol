@@ -8,14 +8,7 @@ interface VRFCoordinatorV2Interface {
    * @return maxGasLimit global max for request gas limit
    * @return s_provingKeyHashes list of registered key hashes
    */
-  function getRequestConfig()
-    external
-    view
-    returns (
-      uint16,
-      uint32,
-      bytes32[] memory
-    );
+  function getRequestConfig() external view returns (uint16, uint32, bytes32[] memory);
 
   /**
    * @notice Request a set of random words.
@@ -68,15 +61,9 @@ interface VRFCoordinatorV2Interface {
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
-  function getSubscription(uint64 subId)
-    external
-    view
-    returns (
-      uint96 balance,
-      uint64 reqCount,
-      address owner,
-      address[] memory consumers
-    );
+  function getSubscription(
+    uint64 subId
+  ) external view returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers);
 
   /**
    * @notice Request subscription owner transfer.

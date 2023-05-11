@@ -465,30 +465,16 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     feedVerifierState.latestConfigDigest = configDigest;
   }
 
-  function latestConfigDigestAndEpoch(bytes32 feedId)
-    external
-    view
-    override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
-  {
+  function latestConfigDigestAndEpoch(
+    bytes32 feedId
+  ) external view override returns (bool scanLogs, bytes32 configDigest, uint32 epoch) {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
     return (false, feedVerifierState.latestConfigDigest, feedVerifierState.latestEpoch);
   }
 
-  function latestConfigDetails(bytes32 feedId)
-    external
-    view
-    override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    )
-  {
+  function latestConfigDetails(
+    bytes32 feedId
+  ) external view override returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest) {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
     return (
       feedVerifierState.configCount,

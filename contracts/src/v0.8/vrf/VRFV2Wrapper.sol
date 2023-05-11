@@ -82,8 +82,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     int256 requestWeiPerUnitLink;
     uint256 juelsPaid;
   }
-  mapping(uint256 => Callback) /* requestID */ /* callback */
-    public s_callbacks;
+  mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
   constructor(
     address _link,
@@ -198,13 +197,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    *
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    */
-  function calculateRequestPrice(uint32 _callbackGasLimit)
-    external
-    view
-    override
-    onlyConfiguredNotDisabled
-    returns (uint256)
-  {
+  function calculateRequestPrice(
+    uint32 _callbackGasLimit
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
     int256 weiPerUnitLink = getFeedData();
     return calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
@@ -218,13 +213,10 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    * @param _requestGasPriceWei is the gas price in wei used for the estimation.
    */
-  function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei)
-    external
-    view
-    override
-    onlyConfiguredNotDisabled
-    returns (uint256)
-  {
+  function estimateRequestPrice(
+    uint32 _callbackGasLimit,
+    uint256 _requestGasPriceWei
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
     int256 weiPerUnitLink = getFeedData();
     return calculateRequestPriceInternal(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
@@ -257,11 +249,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @param _data is the abi-encoded VRF request parameters: uint32 callbackGasLimit,
    *        uint16 requestConfirmations, and uint32 numWords.
    */
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes calldata _data
-  ) external onlyConfiguredNotDisabled {
+  function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     require(msg.sender == address(LINK), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
@@ -355,11 +343,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()

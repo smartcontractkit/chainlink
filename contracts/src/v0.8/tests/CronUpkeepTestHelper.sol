@@ -26,11 +26,7 @@ contract CronUpkeepTestHelper is CronUpkeep {
    * directly from strings. This is gas-intensive and shouldn't be done outside
    * of testing environments.
    */
-  function createCronJobFromString(
-    address target,
-    bytes memory handler,
-    string memory cronString
-  ) external {
+  function createCronJobFromString(address target, bytes memory handler, string memory cronString) external {
     Spec memory spec = cronString.toSpec();
     createCronJobFromSpec(target, handler, spec);
   }
