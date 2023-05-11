@@ -58,9 +58,7 @@ contract BatchBlockhashStore {
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       try BHS.getBlockhash(blockNumbers[i]) returns (bytes32 bh) {
         blockHashes[i] = bh;
-      } catch Error(
-        string memory /* reason */
-      ) {
+      } catch Error(string memory /* reason */) {
         blockHashes[i] = 0x0;
       }
     }

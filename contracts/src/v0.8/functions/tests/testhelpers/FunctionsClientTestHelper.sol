@@ -14,10 +14,10 @@ contract FunctionsClientTestHelper is FunctionsClient {
 
   constructor(address oracle) FunctionsClient(oracle) {}
 
-  function sendSimpleRequestWithJavaScript(string memory sourceCode, uint64 subscriptionId)
-    public
-    returns (bytes32 requestId)
-  {
+  function sendSimpleRequestWithJavaScript(
+    string memory sourceCode,
+    uint64 subscriptionId
+  ) public returns (bytes32 requestId) {
     Functions.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
     requestId = sendRequest(request, subscriptionId, 20_000);
@@ -34,11 +34,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     return estimateCost(request, subscriptionId, 20_000, gasCost);
   }
 
-  function fulfillRequest(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) internal override {
+  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_revertFulfillRequest) {
       revert("asked to revert");
     }

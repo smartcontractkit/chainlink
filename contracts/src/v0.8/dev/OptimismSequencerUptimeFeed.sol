@@ -64,11 +64,7 @@ contract OptimismSequencerUptimeFeed is
    * @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
    * @param initialStatus The initial status of the feed
    */
-  constructor(
-    address l1SenderAddress,
-    address l2CrossDomainMessengerAddr,
-    bool initialStatus
-  ) {
+  constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
     setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
     uint64 timestamp = uint64(block.timestamp);
@@ -136,11 +132,7 @@ contract OptimismSequencerUptimeFeed is
    * @param status Sequencer status
    * @param timestamp The L1 block timestamp of status update
    */
-  function recordRound(
-    uint80 roundId,
-    bool status,
-    uint64 timestamp
-  ) private {
+  function recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     uint64 updatedAt = uint64(block.timestamp);
     Round memory nextRound = Round(status, timestamp, updatedAt);
     FeedState memory feedState = FeedState(roundId, status, timestamp, updatedAt);
@@ -231,18 +223,14 @@ contract OptimismSequencerUptimeFeed is
   }
 
   /// @inheritdoc AggregatorV3Interface
-  function getRoundData(uint80 _roundId)
+  function getRoundData(
+    uint80 _roundId
+  )
     public
     view
     override
     checkAccess
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     if (isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
@@ -262,13 +250,7 @@ contract OptimismSequencerUptimeFeed is
     view
     override
     checkAccess
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     FeedState memory feedState = s_feedState;
 

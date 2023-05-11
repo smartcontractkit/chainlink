@@ -61,10 +61,10 @@ interface FunctionsOracleInterface {
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getRequiredFee(bytes calldata data, FunctionsBillingRegistryInterface.RequestBilling calldata billing)
-    external
-    view
-    returns (uint96);
+  function getRequiredFee(
+    bytes calldata data,
+    FunctionsBillingRegistryInterface.RequestBilling calldata billing
+  ) external view returns (uint96);
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
@@ -89,9 +89,5 @@ interface FunctionsOracleInterface {
    * @param gasLimit Gas limit for the fulfillment callback
    * @return requestId A unique request identifier (unique per DON)
    */
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint32 gasLimit
-  ) external returns (bytes32);
+  function sendRequest(uint64 subscriptionId, bytes calldata data, uint32 gasLimit) external returns (bytes32);
 }
