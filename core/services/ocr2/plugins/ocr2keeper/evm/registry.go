@@ -668,6 +668,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			var err error
+			r.lggr.Errorf("UnpackCheckResult key %s checkResult: %s", keys[i].String(), *checkResults[i])
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err

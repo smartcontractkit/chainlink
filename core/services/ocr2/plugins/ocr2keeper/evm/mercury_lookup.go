@@ -118,7 +118,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
 		upkeepResults[i].State = types.Eligible
 		upkeepResults[i].PerformData = performData
-		r.lggr.Infof("[MercuryLookup] Success: %+v", upkeepResults[i])
+		r.lggr.Infof("[MercuryLookup] upkeep %s block %s successful with perform data: %+v", upkeepId.String(), block.String(), performData)
 	}
 	// don't surface error to plugin bc MercuryLookup process should be self-contained.
 	return upkeepResults, nil
@@ -184,30 +184,7 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 		return false, nil, fmt.Errorf("call contract callback error: %w", err)
 	}
 
-	typBytes, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
-	}
-	boolTyp, err := abi.NewType("bool", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
-	}
-	callbackOutput := abi.Arguments{
-		{Name: "upkeepNeeded", Type: boolTyp},
-		{Name: "performData", Type: typBytes},
-	}
-	unpack, err := callbackOutput.Unpack(callbackResp)
-	if err != nil {
-		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
-	}
-
-	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
-	if !upkeepNeeded {
-		return false, nil, nil
-	}
-	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
-	r.lggr.Infof("[MercuryLookup] upkeep needed: %v data: %v", upkeepNeeded, performData)
-	return true, performData, nil
+	return r.packer.UnpackMercuryLookupResult(callbackResp)
 }
 
 func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
