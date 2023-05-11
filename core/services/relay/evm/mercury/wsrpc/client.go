@@ -62,9 +62,8 @@ func (w *client) Start(_ context.Context) error {
 		if err != nil {
 			setLivenessMetric(false)
 			return errors.Wrap(err, "failed to dial wsrpc client")
-		} else {
-			setLivenessMetric(true)
 		}
+		setLivenessMetric(true)
 		w.conn = conn
 		w.client = pb.NewMercuryClient(conn)
 		return nil
