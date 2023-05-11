@@ -92,6 +92,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 			}
 			return true
 		})).Run(func(args mock.Arguments) {}).Return(nil)
+
 		err := er.ResendUnconfirmed()
 		require.NoError(t, err)
 
