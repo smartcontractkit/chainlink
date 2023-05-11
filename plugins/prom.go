@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const UnresolvedPort = -1
-
 type PromServer struct {
 	port        int
 	srvr        *http.Server
@@ -85,10 +83,10 @@ func (p *PromServer) Name() string {
 }
 
 // Port is the resolved port and is only known after Start().
-// returns UnresolvedPort before it is resolved or if there was an error during resolution.
+// returns -1 before it is resolved or if there was an error during resolution.
 func (p *PromServer) Port() int {
 	if p.tcpListener == nil {
-		return UnresolvedPort
+		return -1
 	}
 	// always safe to cast because we explicitly have a tcp listener
 	// there is direct access to Port without the addr casting

@@ -15,8 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const invalidPort = -1
-
 type LoopRegistryServer struct {
 	exposedPromPort int
 	registry        *plugins.LoopRegistry

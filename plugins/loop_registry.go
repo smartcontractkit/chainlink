@@ -8,7 +8,6 @@ import (
 
 const (
 	pluginDefaultPort = 2112
-	invalidPort       = -1
 )
 
 var ErrExists = errors.New("plugin already registered")
