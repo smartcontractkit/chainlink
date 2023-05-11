@@ -9,6 +9,7 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -54,7 +55,7 @@ type Client interface {
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (commontypes.Subscription, error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
 
@@ -64,7 +65,7 @@ type Client interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
-	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (commontypes.Subscription, error)
 
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
@@ -76,13 +77,6 @@ type Client interface {
 	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-}
-
-// This interface only exists so that we can generate a mock for it.  It is
-// identical to `ethereum.Subscription`.
-type Subscription interface {
-	Err() <-chan error
-	Unsubscribe()
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
@@ -374,14 +368,14 @@ func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	return client.pool.FilterLogs(ctx, q)
 }
 
-func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (commontypes.Subscription, error) {
 	client.logger.Debugw("evmclient.Client#SubscribeFilterLogs(...)",
 		"q", q,
 	)
 	return client.pool.SubscribeFilterLogs(ctx, q, ch)
 }
 
-func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
+func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (commontypes.Subscription, error) {
 	csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {
@@ -390,7 +384,7 @@ func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 	return csf, nil
 }
 
-func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
 	return client.pool.EthSubscribe(ctx, channel, args...)
 }
 
