@@ -67,9 +67,7 @@ contract CanaryUpkeep1_2 is KeeperCompatibleInterface, ConfirmedOwner {
   /**
    * @notice returns true if keeper array is not empty and sufficient time has passed
    */
-  function checkUpkeep(
-    bytes calldata /* checkData */
-  ) external view override returns (bool, bytes memory) {
+  function checkUpkeep(bytes calldata /* checkData */) external view override returns (bool, bytes memory) {
     bool upkeepNeeded = block.timestamp >= s_interval + s_timestamp;
     return (upkeepNeeded, bytes(""));
   }
@@ -78,9 +76,7 @@ contract CanaryUpkeep1_2 is KeeperCompatibleInterface, ConfirmedOwner {
    * @notice checks keepers array limit, timestamp limit, and requires transaction origin must be the anticipated keeper.
    * If all checks pass, update the keeper index and timestamp. Otherwise, revert this transaction.
    */
-  function performUpkeep(
-    bytes calldata /* performData */
-  ) external override {
+  function performUpkeep(bytes calldata /* performData */) external override {
     (State memory _s, Config memory _c, address[] memory keepers) = i_keeperRegistry.getState();
     if (keepers.length == 0) {
       revert NoKeeperNodes();
