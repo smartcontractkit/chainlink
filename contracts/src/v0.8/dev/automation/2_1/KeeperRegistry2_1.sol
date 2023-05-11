@@ -237,11 +237,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function simulatePerformUpkeep(uint256 id, bytes calldata performData)
-    external
-    cannotExecute
-    returns (bool success, uint256 gasUsed)
-  {
+  function simulatePerformUpkeep(
+    uint256 id,
+    bytes calldata performData
+  ) external cannotExecute returns (bool success, uint256 gasUsed) {
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
@@ -254,11 +253,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @param sender the account which transferred the funds
    * @param amount number of LINK transfer
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  ) external override {
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
     if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
@@ -404,11 +399,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     external
     view
     override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    )
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest)
   {
     return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_latestConfigDigest);
   }
@@ -420,11 +411,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     external
     view
     override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
   }
@@ -525,11 +512,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @dev calls the Upkeep target with the performData param passed in by the
    * transmitter and the exact gas required by the Upkeep
    */
-  function _performUpkeep(Upkeep memory upkeep, bytes memory performData)
-    private
-    nonReentrant
-    returns (bool success, uint256 gasUsed)
-  {
+  function _performUpkeep(
+    Upkeep memory upkeep,
+    bytes memory performData
+  ) private nonReentrant returns (bool success, uint256 gasUsed) {
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     success = upkeep.forwarder.forward(upkeep.executeGas, callData);

@@ -135,17 +135,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
    * @notice read the current info about any transmitter address
    */
-  function getTransmitterInfo(address query)
-    external
-    view
-    returns (
-      bool active,
-      uint8 index,
-      uint96 balance,
-      uint96 lastCollected,
-      address payee
-    )
-  {
+  function getTransmitterInfo(
+    address query
+  ) external view returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) {
     Transmitter memory transmitter = s_transmitters[query];
     uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
     uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);

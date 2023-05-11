@@ -17,21 +17,12 @@ contract MockOptimismL2CrossDomainMessenger is IL2CrossDomainMessenger {
     s_sender = newSender;
   }
 
-  function sendMessage(
-    address _target,
-    bytes memory _message,
-    uint32 _gasLimit
-  ) public {
+  function sendMessage(address _target, bytes memory _message, uint32 _gasLimit) public {
     emit SentMessage(_target, msg.sender, _message, s_nonce, _gasLimit);
     s_nonce++;
   }
 
-  function relayMessage(
-    address _target,
-    address _sender,
-    bytes memory _message,
-    uint256 _messageNonce
-  ) external {}
+  function relayMessage(address _target, address _sender, bytes memory _message, uint256 _messageNonce) external {}
 
   receive() external payable {}
 }
