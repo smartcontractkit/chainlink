@@ -292,6 +292,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
+
+	// We start log poller before starting the chains, because the evm contract forwarder (started
+	// as a subservice of tx mgr) depends on log poller
+	if cfg.Feature().LogPoller() {
+		for _, c := range chains.EVM.Chains() {
+			srvcs = append(srvcs, c.LogPoller())
+		}
+	}
+
 	srvcs = append(srvcs, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
@@ -458,14 +467,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
-
-	// We start the log poller after the job spawner
-	// so jobs have a chance to apply their initial log filters.
-	if cfg.Feature().LogPoller() {
-		for _, c := range chains.EVM.Chains() {
-			srvcs = append(srvcs, c.LogPoller())
-		}
-	}
 
 	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {

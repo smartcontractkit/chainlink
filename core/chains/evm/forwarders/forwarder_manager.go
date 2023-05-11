@@ -86,7 +86,8 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
-			if err2 := f.subscribeForwardersLogs(fwdrs, nil); err2 != nil {
+			err = f.checkLogPollerStatus()
+			if err != nil {
 				return err
 			}
 		}
@@ -196,23 +197,11 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	}
 }
 
-func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder, q pg.Queryer) error {
-	for _, fwdr := range fwdrs {
-		if err := f.SubscribeSendersChangedLogs(fwdr.Address, q); err != nil {
-			return err
-		}
+func (f *FwdMgr) checkLogPollerStatus() error {
+	if err := f.logpoller.Ready(); err != nil {
+		return errors.Wrapf(err, "Log poller is required for contract forwarder to receive AuthorizedSendersChanged logs")
 	}
 	return nil
-}
-
-func (f *FwdMgr) SubscribeSendersChangedLogs(addr common.Address, q pg.Queryer) error {
-	if err := f.logpoller.Ready(); err != nil {
-		f.logger.Warnw("Unable to subscribe to AuthorizedSendersChanged logs", "forwarder", addr, "err", err)
-		return nil
-	}
-
-	err := f.logpoller.RegisterFilter(NewLogFilter(addr), nil)
-	return err
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
