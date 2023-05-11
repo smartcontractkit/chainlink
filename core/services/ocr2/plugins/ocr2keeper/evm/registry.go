@@ -34,10 +34,17 @@ import (
 )
 
 const (
-	DefaultUpkeepExpiration   = 10 * time.Minute
+	// DefaultUpkeepExpiration decides how long an upkeep info will be valid for. after it expires, a getUpkeepInfo
+	// call will be made to the registry to obtain the most recent upkeep info and refresh this cache.
+	DefaultUpkeepExpiration = 10 * time.Minute
+	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
+	// 10 minutes, subsequent failures will result in double amount of cool down period.
 	DefaultCooldownExpiration = 5 * time.Second
-	DefaultApiErrExpiration   = 10 * time.Minute
-	CleanupInterval           = 15 * time.Minute
+	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
+	// to decide how long the cool down period will be.
+	DefaultApiErrExpiration = 10 * time.Minute
+	// CleanupInterval decides when the expired items in cache will be deleted.
+	CleanupInterval = 15 * time.Minute
 )
 
 var (
@@ -114,11 +121,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
-		hc: &http.Client{
-			// this timeout is a catch-all default value and should be less than delta round
-			// the actual timeout is determined by the context from plugin
-			Timeout: 2 * time.Second,
-		},
+		hc: http.DefaultClient,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -189,7 +192,6 @@ type EvmRegistry struct {
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	_             string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -741,7 +743,6 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			}
 
 			if !simulatePerformSuccess {
-				checkResults[performToKeyIdx[i]].FailureReason = UPKEEP_FAILURE_REASON_TARGET_PERFORM_REVERTED
 				checkResults[performToKeyIdx[i]].State = types.NotEligible
 			}
 		}

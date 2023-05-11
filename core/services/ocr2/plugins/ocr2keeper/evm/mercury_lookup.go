@@ -35,11 +35,6 @@ type MercuryLookup struct {
 	extraData  []byte
 }
 
-// MercuryMultiResponse TODO guessing on this
-type MercuryMultiResponse struct {
-	ChainlinkBlobs []string `json:"chainlinkBlob"`
-}
-
 type MercuryResponse struct {
 	ChainlinkBlob string `json:"chainlinkBlob"`
 }
@@ -74,47 +69,47 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		// checking if this upkeep is in cooldown from api errors
 		_, onIce := r.mercury.cooldownCache.Get(upkeepId.String())
 		if onIce {
-			r.lggr.Infof("[MercuryLookup] cooldown Skipping UpkeepId %s at block %s\n", upkeepId.String(), block.String())
+			r.lggr.Infof("[MercuryLookup] upkeep %s block %s skipped bc of cool down", upkeepId.String(), block.String())
 			continue
 		}
 
 		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
-			r.lggr.Debugf("[MercuryLookup] decodeMercuryLookup: %v", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
+			r.lggr.Debugf("[MercuryLookup] upkeep %s block %s decodeMercuryLookup: %v", upkeepId.String(), block.String(), err)
 			return nil, err
 		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			r.lggr.Errorf("[MercuryLookup] buildCallOpts: %v", err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s buildCallOpts: %v", upkeepId.String(), block.String(), err)
 			return nil, err
 		}
 		// need upkeep info for offchainConfig and to hit callback
 		upkeepInfo, err := r.getUpkeepInfo(upkeepId, opts)
 		if err != nil {
-			r.lggr.Errorf("[MercuryLookup] GetUpkeep: %v", err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s GetUpkeep: %v", upkeepId.String(), block.String(), err)
 			return nil, err
 		}
 
-		// 	do the http request
-		values, err := r.doRequest(ctx, mercuryLookup, upkeepId)
+		// do the mercury lookup request
+		values, err := r.doMercuryRequest(ctx, mercuryLookup, upkeepId)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
-			r.lggr.Errorf("[MercuryLookup] doRequest: %v", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s doMercuryRequest: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
 
 		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo, opts)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR
-			r.lggr.Errorf("[MercuryLookup] mercuryLookupCallback err: %v", err)
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s mercuryLookupCallback err: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
 		if !needed {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-			r.lggr.Debug("[MercuryLookup] callback reports upkeep not needed")
+			r.lggr.Debugf("[MercuryLookup] upkeep %s block %s callback reports upkeep not needed", upkeepId.String(), block.String())
 			continue
 		}
 
@@ -135,7 +130,7 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (kee
 	u, found := r.mercury.upkeepCache.Get(upkeepId.String())
 	if found {
 		upkeepInfo = u.(keeper_registry_wrapper2_0.UpkeepInfo)
-		r.lggr.Debugf("[MercuryLookup] cache hit UpkeepInfo: %+v\n", upkeepInfo)
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %s cache hit UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
 	} else {
 		upkeepInfo, err = r.registry.GetUpkeep(opts, upkeepId)
 		if err != nil {
@@ -144,7 +139,7 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (kee
 		if upkeepInfo.Target == zero {
 			return upkeepInfo, errors.New("upkeepInfo should not be nil")
 		}
-		r.lggr.Debugf("[MercuryLookup] cache miss UpkeepInfo: %+v\n", upkeepInfo)
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %s cache miss UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
 		r.mercury.upkeepCache.Set(upkeepId.String(), upkeepInfo, cache.DefaultExpiration)
 	}
 	return upkeepInfo, nil
@@ -176,12 +171,10 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 		return false, nil, fmt.Errorf("callback args pack error: %w", err)
 	}
 
-	//checkUpkeepGasLimit := uint32(200000) + uint32(6500000) + uint32(300000) + upkeepInfo.ExecuteGas
 	callbackMsg := ethereum.CallMsg{
-		From: r.addr,             // registry addr
-		To:   &upkeepInfo.Target, // upkeep addr
-		Gas:  0,                  // if Arbitrum Goerli gives intrinsic gas too low error, provide infinite gas to push through the call
-		//Gas:  uint64(checkUpkeepGasLimit),
+		From: common.HexToAddress("0x"),
+		To:   &upkeepInfo.Target,
+		Gas:  0,
 		Data: payload,
 	}
 
@@ -216,7 +209,7 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 	return true, performData, nil
 }
 
-func (r *EvmRegistry) doRequest(ctx context.Context, ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
+func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
 	ch := make(chan MercuryBytes, len(ml.feeds))
 	for i := range ml.feeds {
 		go r.singleFeedRequest(ctx, ch, upkeepId, i, ml)
@@ -226,7 +219,7 @@ func (r *EvmRegistry) doRequest(ctx context.Context, ml *MercuryLookup, upkeepId
 	for i := 0; i < len(results); i++ {
 		m := <-ch
 		if m.Error != nil {
-			reqErr = errors.Join(reqErr, fmt.Errorf("upkeep ID %s feed[%s] at block %s: %w", upkeepId.String(), ml.feeds[i], ml.query.String(), m.Error))
+			reqErr = errors.Join(reqErr, fmt.Errorf("feed[%s]: %w", ml.feeds[i], m.Error))
 		}
 		results[m.Index] = m.Bytes
 	}
@@ -258,34 +251,34 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		func() error {
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
-				r.lggr.Errorf("MercuryLookup GET request fails at block %s for upkeep Id %s feed %s: %v", ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
+				r.lggr.Errorf("[MercuryLookup] upkeep %s block %s GET request fails for feed %s: %v", upkeepId.String(), ml.query.String(), ml.feeds[index], err1)
 				return err1
 			}
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
-				r.lggr.Errorf("MercuryLookup fails to read response body at block %s for upkeep Id %s feed %s: %v", ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
+				r.lggr.Errorf("[MercuryLookup] upkeep %s block %s fails to read response body for feed %s: %v", upkeepId.String(), ml.query.String(), ml.feeds[index], err1)
 				return err1
 			}
 
 			if resp.StatusCode == http.StatusNotFound {
 				// there are 2 possible causes for 404: incorrect URL and querying a block where report has not been generated
-				r.lggr.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
+				r.lggr.Errorf("[MercuryLookup] upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.query.String(), resp.StatusCode, ml.feeds[index])
 				// return 404 for retry
 				return fmt.Errorf("%d", http.StatusNotFound)
 			} else if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("MercuryLookup received status code %d at block %s for upkeep Id %s feed %s", resp.StatusCode, ml.query.String(), upkeepId.String(), ml.feeds[index])
+				return fmt.Errorf("[MercuryLookup] upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.query.String(), resp.StatusCode, ml.feeds[index])
 			}
 
 			var m MercuryResponse
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
-				r.lggr.Errorf("MercuryLookup failed to unmarshal body to MercuryResponse at block %s for upkeep Id %s feed %s: %v", ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
+				r.lggr.Errorf("[MercuryLookup] upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", upkeepId.String(), ml.query.String(), ml.feeds[index], err1)
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
-				r.lggr.Debugf("MercuryLookup failed to decode chainlinkBlob %s at block %s for upkeep Id %s feed %s: %v", m.ChainlinkBlob, ml.query.String(), upkeepId.String(), ml.feeds[index], err1)
+				r.lggr.Debugf("[MercuryLookup] upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", upkeepId.String(), ml.query.String(), m.ChainlinkBlob, ml.feeds[index], err1)
 				return err1
 			}
 			ch <- MercuryBytes{Index: index, Bytes: blobBytes}
@@ -299,7 +292,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		retry.Delay(RetryDelay),
 		retry.Attempts(TotalAttempt))
 
-	// if all retries fail, it's very likely the feed IDs are incorrect, put into cooldown
+	// if all retries fail, it's very likely the feed IDs are incorrect or block number is too old or too new, put into cooldownf
 	if retryErr != nil {
 		ch <- MercuryBytes{Index: index, Error: retryErr}
 		r.setCachesOnAPIErr(upkeepId)
@@ -323,7 +316,7 @@ func (r *EvmRegistry) generateHMAC(method string, path string, body []byte, clie
 
 // setCachesOnAPIErr when an off chain look up request fails or gets a 4xx/5xx response code we increment error count and put the upkeep in cooldown state
 func (r *EvmRegistry) setCachesOnAPIErr(upkeepId *big.Int) {
-	r.lggr.Infof("MercuryLookup: adding %s to API error cache", upkeepId.String())
+	r.lggr.Infof("[MercuryLookup] adding %s to API error cache", upkeepId.String())
 	errCount := 1
 	cacheKey := upkeepId.String()
 	e, ok := r.mercury.apiErrCache.Get(cacheKey)
