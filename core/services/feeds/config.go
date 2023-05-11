@@ -10,7 +10,6 @@ import (
 type Config interface {
 	pg.QConfig
 	config.OCR2Config
-	Dev() bool
 	OCRDevelopmentMode() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool

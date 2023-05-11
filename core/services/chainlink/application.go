@@ -23,6 +23,7 @@ import (
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -718,8 +719,8 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if !app.GetConfig().Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CL_DEV=true to use")
+	if build.IsProd() {
+		return 0, errors.New("manual job runs not supported on secure builds")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
