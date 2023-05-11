@@ -33,7 +33,7 @@ const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 // if gas bumping is disabled)
 type EthResender[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD types.Head[TX_HASH],
+	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
