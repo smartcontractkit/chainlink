@@ -11,15 +11,15 @@ import (
 
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
-	ctf_ethereum "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -93,7 +93,7 @@ func TestVRFV2Soak(t *testing.T) {
 		86400,
 		33825,
 		linkEthFeedResponse,
-		ctf_ethereum.VRFCoordinatorV2FeeConfig{
+		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: 1,
 			FulfillmentFlatFeeLinkPPMTier2: 1,
 			FulfillmentFlatFeeLinkPPMTier3: 1,
@@ -223,12 +223,21 @@ PriceMax = '%d gwei'
 			}
 
 			l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
-			status, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+
+			_, err = WaitForRandRequestToBeFulfilled(consumer, lastRequestID, time.Second * 30)
+
+
+			//todo - wrap exisiting error§
 			if err != nil {
-				return fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+				return fmt.Errorf("error occurred waiting for Randomness Request Status, error: %w", err)
 			}
 
-			//TODO - need to check status.Fulfilled via go channel, timeout after some time if status not changed to True
+			//status, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+			//if err != nil {
+			//	return fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+			//}
+
+			//TODO - need to check status.Fulfilled via go channel (pull consumer.GetRequestStatus()), timeout after some time if status not changed to True
 
 
 
@@ -375,24 +384,26 @@ func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.Connected
 	return evmConfig
 }
 
+func WaitForRandRequestToBeFulfilled(consumer contracts.VRFv2Consumer, lastRequestID *big.Int, timeout time.Duration) (contracts.RequestStatus, error) {
+	requestStatusChannel := make(chan contracts.RequestStatus)
 
+	go func() {
+		requestStatus, _ := consumer.GetRequestStatus(context.Background(), lastRequestID)
 
-func (beacon *EthereumVRFBeacon) WaitForRandRequestToBeFulfilled(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
-	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
-	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
+		//todo - how to handle error if error occurs in goroutine?
+		//if err != nil {
+		//	return nil, fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+		//}
+		requestStatusChannel <- requestStatus
+	}()
 
 	for {
 		select {
-		case err := <-subscription.Err():
-			return nil, err
 		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for new transmission event")
-		case newTransmissionEvent := <-newTransmissionEventsChannel:
-			return newTransmissionEvent, nil
+			//todo - default value for struct? which value to return when error occurs
+			return contracts.RequestStatus{} , fmt.Errorf("timeout waiting for new transmission event")
+		case requestStatus := <-requestStatusChannel:
+			return requestStatus, nil
 		}
 	}
 }
