@@ -27,7 +27,12 @@ type JsonRPCError struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-func DecodeRequest(msgBytes []byte) (*Message, error) {
+type JsonRPCCodec struct {
+}
+
+var _ Codec = (*JsonRPCCodec)(nil)
+
+func (*JsonRPCCodec) DecodeRequest(msgBytes []byte) (*Message, error) {
 	var request JsonRPCRequest
 	err := json.Unmarshal(msgBytes, &request)
 	if err != nil {
@@ -40,7 +45,7 @@ func DecodeRequest(msgBytes []byte) (*Message, error) {
 	return request.Params, nil
 }
 
-func EncodeRequest(msg *Message) ([]byte, error) {
+func (*JsonRPCCodec) EncodeRequest(msg *Message) ([]byte, error) {
 	request := JsonRPCRequest{
 		Version: "2.0",
 		Id:      msg.Body.MessageId,
@@ -50,7 +55,7 @@ func EncodeRequest(msg *Message) ([]byte, error) {
 	return json.Marshal(request)
 }
 
-func DecodeResponse(msgBytes []byte) (*Message, error) {
+func (*JsonRPCCodec) DecodeResponse(msgBytes []byte) (*Message, error) {
 	var response JsonRPCResponse
 	err := json.Unmarshal(msgBytes, &response)
 	if err != nil {
@@ -65,7 +70,7 @@ func DecodeResponse(msgBytes []byte) (*Message, error) {
 	return response.Result, nil
 }
 
-func EncodeResponse(msg *Message) ([]byte, error) {
+func (*JsonRPCCodec) EncodeResponse(msg *Message) ([]byte, error) {
 	response := JsonRPCResponse{
 		Version: "2.0",
 		Id:      msg.Body.MessageId,
@@ -74,7 +79,7 @@ func EncodeResponse(msg *Message) ([]byte, error) {
 	return json.Marshal(response)
 }
 
-func EncodeNewErrorResponse(id string, code int, message string, data []byte) ([]byte, error) {
+func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int, message string, data []byte) ([]byte, error) {
 	response := JsonRPCResponse{
 		Version: "2.0",
 		Id:      id,
