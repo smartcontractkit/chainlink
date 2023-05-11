@@ -349,18 +349,13 @@ func TestLogPoller_Replay(t *testing.T) {
 		lp.replayComplete <- nil
 	})
 
-	timeout := time.After(4 * time.Second)
-	select {
-	case <-utils.WaitGroupChan(&lp.wg):
-	case <-timeout:
-		require.Fail(t, "Log poller failed to shutdown gracefully")
-	}
+	lp.wg.Wait()
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout = time.After(2 * time.Second)
+		timeout := time.After(2 * time.Second)
 		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		ctx, cancel := context.WithCancel(tctx)
 
@@ -395,12 +390,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		<-done
 	})
 
-	timeout = time.After(4 * time.Second)
-	select {
-	case <-utils.WaitGroupChan(&lp.wg):
-	case <-timeout:
-		require.Fail(t, "Log poller failed to shutdown gracefully")
-	}
+	lp.wg.Wait()
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
