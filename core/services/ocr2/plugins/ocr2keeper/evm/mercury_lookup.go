@@ -172,10 +172,9 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 		return false, nil, fmt.Errorf("callback args pack error: %w", err)
 	}
 
+	// use gas 0 to provide infinite gas and from empty address
 	callbackMsg := ethereum.CallMsg{
-		From: common.HexToAddress("0x"),
 		To:   &upkeepInfo.Target,
-		Gas:  0,
 		Data: payload,
 	}
 

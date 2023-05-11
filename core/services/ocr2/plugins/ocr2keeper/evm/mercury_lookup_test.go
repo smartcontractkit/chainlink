@@ -399,7 +399,6 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 
 func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 	executeGas := uint32(100)
-	gas := uint32(200000) + uint32(6500000) + uint32(300000) + executeGas
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -501,9 +500,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			payload, err := r.mercury.abi.Pack("mercuryCallback", values, tt.mercuryLookup.extraData)
 			require.Nil(t, err)
 			callbackMsg := ethereum.CallMsg{
-				From: from,
 				To:   &to,
-				Gas:  uint64(gas),
 				Data: payload,
 			}
 			client.On("CallContract", mock.Anything, callbackMsg, tt.opts.BlockNumber).Return(tt.callbackResp, tt.callbackErr)
