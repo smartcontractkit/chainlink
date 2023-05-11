@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/graph-gophers/dataloader"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -259,7 +259,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(testutils.Context(t), app)
 
-		ejID := uuid.NewV4()
+		ejID := uuid.New()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
 
 		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)
@@ -285,12 +285,12 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	ethTxIDs := []int64{1, 2, 3}
 
 	attempt1 := txmgr.EvmTxAttempt{
-		ID:      int64(1),
-		EthTxID: ethTxIDs[0],
+		ID:   int64(1),
+		TxID: ethTxIDs[0],
 	}
 	attempt2 := txmgr.EvmTxAttempt{
-		ID:      int64(1),
-		EthTxID: ethTxIDs[1],
+		ID:   int64(1),
+		TxID: ethTxIDs[1],
 	}
 
 	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
@@ -376,10 +376,10 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	}
 
 	attempt1 := txmgr.EvmTxAttempt{
-		ID:          int64(1),
-		EthTxID:     ethTxID,
-		Hash:        ethTxHash,
-		EthReceipts: []txmgr.EvmReceipt{receipt},
+		ID:       int64(1),
+		TxID:     ethTxID,
+		Hash:     ethTxHash,
+		Receipts: []txmgr.EvmReceipt{receipt},
 	}
 
 	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{

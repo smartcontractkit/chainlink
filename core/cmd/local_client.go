@@ -32,7 +32,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -50,7 +52,7 @@ import (
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
 
-func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -154,15 +156,13 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
-			Before: func(ctx *clipkg.Context) error {
-				return client.Config.ValidateDB()
-			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.ResetDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "dangerWillRobinson",
@@ -173,8 +173,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				{
 					Name:   "preparetest",
 					Usage:  "Reset database and load fixtures.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.PrepareTestDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "user-only",
@@ -186,31 +187,36 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "version",
 					Usage:  "Display the current database version.",
 					Action: client.VersionDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: client.StatusDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: client.MigrateDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: client.RollbackDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "create-migration",
 					Usage:  "Create a new migration.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.CreateMigration,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "type",
@@ -271,7 +277,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if cli.Config.Dev() || build.Dev {
+	if build.IsDev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
@@ -621,7 +627,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(nonces, gasPriceWei, address, uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
 	return cli.errorOut(err)
 }
 
@@ -670,14 +676,17 @@ var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or p
 // ConfigValidate validate the client configuration and pretty-prints results
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	cli.Config.LogConfiguration(func(f string, params ...any) { fmt.Printf(f, params...) })
-	err := cli.Config.Validate()
-	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
+	if err := cli.configExitErr(cli.Config.Validate); err != nil {
+		return err
 	}
 	fmt.Println("Valid configuration.")
 	return nil
+}
+
+// ValidateDB is a BeforeFunc to run prior to database sub commands
+// the ctx must be that of the last subcommand to be validated
+func (cli *Client) validateDB(ctx *clipkg.Context) error {
+	return cli.configExitErr(cli.Config.ValidateDB)
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL

@@ -54,17 +54,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.consumer,
   )
 
@@ -788,6 +788,8 @@ describe('FunctionsRegistry', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(
         oracle
           .connect(roles.oracleNode)
@@ -795,6 +797,8 @@ describe('FunctionsRegistry', () => {
       )
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
 

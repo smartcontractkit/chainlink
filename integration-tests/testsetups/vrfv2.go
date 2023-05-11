@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -139,14 +139,13 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 }
 
 // Networks returns the networks that the test is running on
-func (o *VRFV2SoakTest) TearDownVals(t *testing.T) (
-	*testing.T,
+func (v *VRFV2SoakTest) TearDownVals() (
 	*environment.Environment,
 	[]*client.Chainlink,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, o.testEnvironment, o.ChainlinkNodes, &o.TestReporter, o.chainClient
+	return v.testEnvironment, v.ChainlinkNodes, &v.TestReporter, v.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present

@@ -263,7 +263,7 @@ func (c *chain) HealthReport() map[string]error {
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return errors.New("unsupported") //TODO
+	return chains.ErrLOOPPUnsupported
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

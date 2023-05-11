@@ -16,6 +16,7 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   TEST_SUITE: smoke
   TEST_ARGS: -test.timeout 30m
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
 
 jobs:
   changes:
@@ -52,7 +53,16 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    name: Build Chainlink Image
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+    name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
@@ -63,7 +73,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
+          this-job-name: Build Chainlink Image ${{ matrix.image.name }}
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -75,16 +85,17 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
           repository: chainlink
-          tag: ${{ github.sha }}
+          tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@2c9f401149f6c25fb632067b7e6626aebeee5d69
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
-          push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ github.sha }}
+          cl_dockerfile: ${{ matrix.image.dockerfile }}
+          push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ github.sha }}${{ matrix.image.tag-suffix }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Print Chainlink Image Built
@@ -164,6 +175,10 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: ocr2
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: runlog
             nodes: 1
             os: ubuntu-latest
@@ -330,7 +345,13 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes, get_projectserum_version, solana-test-image-exists, get_solana_sha]
+    needs:
+      [
+        changes,
+        get_projectserum_version,
+        solana-test-image-exists,
+        get_solana_sha,
+      ]
     container:
       image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
       env:
@@ -366,7 +387,13 @@ jobs:
       contents: read
     name: Solana Build Test Image
     runs-on: ubuntu20.04-16cores-64GB
-    needs: [solana-build-contracts, solana-test-image-exists, changes, get_solana_sha]
+    needs:
+      [
+        solana-build-contracts,
+        solana-test-image-exists,
+        changes,
+        get_solana_sha,
+      ]
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
@@ -401,9 +428,23 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: Solana Smoke Tests
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            tag-suffix: ""
+          - name: (plugins)
+            tag-suffix: -plugins
+    name: Solana Smoke Tests ${{ matrix.image.name }}
     runs-on: ubuntu-latest
-    needs: [build-chainlink, solana-build-contracts, solana-test-image-exists, changes, get_solana_sha, solana-build-test-image]
+    needs:
+      [
+        build-chainlink,
+        solana-build-contracts,
+        solana-test-image-exists,
+        changes,
+        get_solana_sha,
+      ]
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -417,7 +458,7 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests
+          this-job-name: Solana Smoke Tests ${{ matrix.image.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
@@ -431,7 +472,7 @@ jobs:
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
+          cl_image_tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod

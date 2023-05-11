@@ -1,7 +1,7 @@
 package chainlink
 
 import (
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
@@ -13,7 +13,7 @@ func (g *generalConfig) AppID() uuid.UUID {
 		if g.c.AppID != (uuid.UUID{}) {
 			return // already set (e.g. test override)
 		}
-		g.c.AppID = uuid.NewV4() // randomize
+		g.c.AppID = uuid.New() // randomize
 	})
 	return g.c.AppID
 }

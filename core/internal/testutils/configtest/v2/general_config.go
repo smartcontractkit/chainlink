@@ -41,7 +41,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
-	c.DevMode = true
+	c.Insecure.OCRDevelopmentMode = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
 	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
 

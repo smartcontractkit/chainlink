@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
@@ -46,7 +47,7 @@ func (r *EthTransactionResolver) To() string {
 }
 
 func (r *EthTransactionResolver) GasLimit() string {
-	return stringutils.FromInt64(int64(r.tx.GasLimit))
+	return stringutils.FromInt64(int64(r.tx.FeeLimit))
 }
 
 func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
@@ -59,19 +60,20 @@ func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
 }
 
 func (r *EthTransactionResolver) Value() string {
-	return r.tx.Value.String()
+	v := assets.Eth(r.tx.Value)
+	return v.String()
 }
 
 func (r *EthTransactionResolver) EVMChainID() graphql.ID {
-	return graphql.ID(r.tx.EVMChainID.String())
+	return graphql.ID(r.tx.ChainID.String())
 }
 
 func (r *EthTransactionResolver) Nonce() *string {
-	if r.tx.Nonce == nil {
+	if r.tx.Sequence == nil {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.tx.Nonce)
+	value := stringutils.FromInt64(*r.tx.Sequence)
 
 	return &value
 }

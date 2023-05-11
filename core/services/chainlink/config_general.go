@@ -146,7 +146,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		o.Config.DevMode = v2.EnvDev.IsTrue()
 
 		err = o.Secrets.setEnv()
 		if err != nil {
@@ -199,28 +198,22 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	return g.validate()
+	return g.validate(g.secrets.Validate)
 }
 
-func (g *generalConfig) validate(secrets ...v2.Validated) error {
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
 	err := multierr.Combine(
 		validateEnv(),
-		g.c.Validate())
-
-	if len(secrets) == 0 {
-		err = multierr.Append(err, g.secrets.Validate())
-	} else {
-		for _, s := range secrets {
-			err = multierr.Append(err, s.ValidateConfig())
-		}
-	}
+		g.c.Validate(),
+		secretsValidationFn(),
+	)
 
 	_, errList := utils.MultiErrorList(err)
 	return errList
 }
 
 func (g *generalConfig) ValidateDB() error {
-	return g.validate(&g.secrets.Database)
+	return g.validate(g.secrets.ValidateDB)
 }
 
 //go:embed legacy.env
@@ -260,10 +253,6 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
 // ConfigTOML implements chainlink.ConfigV2
 func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
-}
-
-func (g *generalConfig) Dev() bool {
-	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -413,7 +402,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if g.Dev() {
+	if !build.IsProd() {
 		return "develop"
 	}
 	return "production"
@@ -1070,22 +1059,23 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
-	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
 		*g.c.Insecure.DevWebServer
 }
 
 func (g *generalConfig) OCRDevelopmentMode() bool {
-	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+	// OCRDevelopmentMode is allowed in TestBuilds as well
+	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
 		*g.c.Insecure.OCRDevelopmentMode
 }
 
 func (g *generalConfig) DisableRateLimiting() bool {
-	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
 		*g.c.Insecure.DisableRateLimiting
 }
 
 func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
 }
 

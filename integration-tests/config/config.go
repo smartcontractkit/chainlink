@@ -10,15 +10,7 @@ Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
 
-	BaseVRFV2NetworkDetailTomlConfig = `BlockBackfillDepth = 500
-MinIncomingConfirmations = 3
-[EVM.GasEstimator]
-LimitDefault = 3500000
-[EVM.Transactions]
-MaxQueued = 10000
-`
-
-	BaseOCR2VRFTomlConfig = `[Feature]
+	BaseOCR2Config = `[Feature]
 LogPoller = true
 
 [OCR2]
@@ -29,6 +21,14 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+
+	BaseVRFV2NetworkDetailTomlConfig = `BlockBackfillDepth = 500
+MinIncomingConfirmations = 3
+[EVM.GasEstimator]
+LimitDefault = 3500000
+[EVM.Transactions]
+MaxQueued = 10000
+`
 
 	DefaultOCR2VRFNetworkDetailTomlConfig = `FinalityDepth = 5
 [EVM.GasEstimator]
