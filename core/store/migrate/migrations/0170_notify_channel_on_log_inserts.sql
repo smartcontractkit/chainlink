@@ -7,8 +7,9 @@ AS $$
 BEGIN
     PERFORM pg_notify(
         'insert_on_evm_logs'::text,
-        -- comma separated list of hex encoded topic values
-        array_to_string(array(SELECT encode(unnest(NEW.topics), 'hex')), ',')
+        -- hex encoded address plus comma separated list of hex encoded topic values
+        -- e.g. "<address>:<topicVal1>,<topicVal2>"
+        encode(NEW.address, 'hex') || ':' || array_to_string(array(SELECT encode(unnest(NEW.topics), 'hex')), ',')
     );
     RETURN NULL;
 END

@@ -127,25 +127,31 @@ func TestNotify(t *testing.T) {
 	notify := th.configPoller.Notify()
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{} // No topic values
+	eventCh <- pg.Event{} // Empty event
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "val1"} // missing feedId topic value
+	eventCh <- pg.Event{Payload: "address"} // missing topic values
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1,val2"} // wrong index
+	eventCh <- pg.Event{Payload: "address:val1"} // missing feedId topic value
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "val1,val2,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong index
+	eventCh <- pg.Event{Payload: "address:8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1,val2"} // wrong index
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "val1,0x8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // 0x prefix
+	eventCh <- pg.Event{Payload: "address:val1,val2,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong index
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
+	eventCh <- pg.Event{Payload: "address:val1,0x8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // 0x prefix
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
 	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 
-	eventCh <- pg.Event{Payload: "val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
+	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // try second time
+	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
+
+	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1:additional"}
 	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 }
 

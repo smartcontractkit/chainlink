@@ -20,6 +20,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -159,6 +160,8 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 type ConfigPoller interface {
 	ocrtypes.ContractConfigTracker
 
+	Start()
+	Close() error
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
@@ -223,6 +226,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 				}
 			}()
 		}
+		c.configPoller.Start()
 		return nil
 	})
 }
@@ -231,7 +235,7 @@ func (c *configWatcher) Close() error {
 	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
 		c.replayCancel()
 		c.wg.Wait()
-		return nil
+		return c.configPoller.Close()
 	})
 }
 

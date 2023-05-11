@@ -91,6 +91,7 @@ type ConfigPoller struct {
 	addr               common.Address
 	feedId             common.Hash
 	notifyCh           chan struct{}
+	subscription       pg.Subscription
 }
 
 func FilterName(addr common.Address) string {
@@ -115,25 +116,36 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		addr:               addr,
 		feedId:             feedId,
 		notifyCh:           make(chan struct{}, 1),
+		subscription:       subscription,
 	}
-	go cp.startLogSubscription(subscription)
 
 	return cp, nil
 }
 
+// Start the subscription to Postgres' notify events.
+func (cp *ConfigPoller) Start() {
+	go cp.startLogSubscription()
+}
+
+// Close the subscription to Postgres' notify events.
+func (cp *ConfigPoller) Close() error {
+	cp.subscription.Close()
+	return nil
+}
+
 // Notify abstracts the logpoller.LogPoller Notify() implementation
-func (lp *ConfigPoller) Notify() <-chan struct{} {
-	return lp.notifyCh
+func (cp *ConfigPoller) Notify() <-chan struct{} {
+	return cp.notifyCh
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
-func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
-	return lp.destChainLogPoller.Replay(ctx, fromBlock)
+func (cp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
+	return cp.destChainLogPoller.Replay(ctx, fromBlock)
 }
 
 // LatestConfigDetails returns the latest config details from the logs
-func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, 1, pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	logs, err := cp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -149,8 +161,8 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 // LatestConfig returns the latest config from the logs on a certain block
-func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	lgs, err := cp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -161,13 +173,13 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	lp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
+	cp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
 	return latestConfigSet.ContractConfig, nil
 }
 
 // LatestBlockHeight returns the latest block height from the logs
-func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latest, err := lp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
@@ -177,17 +189,23 @@ func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	return uint64(latest), nil
 }
 
-func (lp *ConfigPoller) startLogSubscription(subscription pg.Subscription) {
-	feedIdPgHex := lp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
+func (cp *ConfigPoller) startLogSubscription() {
+	feedIdPgHex := cp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
 	for {
-		event, ok := <-subscription.Events()
+		event, ok := <-cp.subscription.Events()
 		if !ok {
-			lp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
+			cp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
 			return
 		}
 
-		// Event payload is a comma separated list of hex encoded topic values.
-		topicValues := strings.Split(event.Payload, ",")
+		// Event payload should look like: "<address>:<topicVal1>,<topicVal2>"
+		addressTopicValues := strings.Split(event.Payload, ":")
+		if len(addressTopicValues) < 2 {
+			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
+			continue
+		}
+
+		topicValues := strings.Split(addressTopicValues[1], ",")
 		if len(topicValues) <= feedIdTopicIndex {
 			continue
 		}
@@ -196,7 +214,7 @@ func (lp *ConfigPoller) startLogSubscription(subscription pg.Subscription) {
 		}
 
 		select {
-		case lp.notifyCh <- struct{}{}:
+		case cp.notifyCh <- struct{}{}:
 		default:
 		}
 	}

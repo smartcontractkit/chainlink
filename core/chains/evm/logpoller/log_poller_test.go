@@ -18,6 +18,7 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/rand"
@@ -30,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -940,4 +942,55 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
+}
+
+func TestNotifyAfterInsert(t *testing.T) {
+	t.Parallel()
+
+	// Use a non-transactional db for this test because notify events
+	// are not delivered until the transaction is committed.
+	var dbURL string
+	_, sqlxDB := heavyweight.FullTestDBV2(t, "notify_after_insert_log", func(c *chainlink.Config, s *chainlink.Secrets) {
+		dbURL = s.Database.URL.URL().String()
+	})
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	chainID := big.NewInt(1337)
+	o := logpoller.NewORM(chainID, sqlxDB, lggr, pgtest.NewQConfig(true))
+
+	listener := pq.NewListener(dbURL, time.Second, time.Second, nil)
+	err := listener.Listen(pg.ChannelInsertOnEVMLogs)
+	require.NoError(t, err)
+
+	log := logpoller.Log{
+		EvmChainId:     utils.NewBig(chainID),
+		LogIndex:       10,
+		BlockHash:      testutils.Random32Byte(),
+		BlockNumber:    100,
+		BlockTimestamp: time.Now(),
+		Topics: pq.ByteaArray{
+			testutils.NewAddress().Bytes(),
+			testutils.NewAddress().Bytes(),
+		},
+		EventSig:  testutils.Random32Byte(),
+		Address:   testutils.NewAddress(),
+		TxHash:    testutils.Random32Byte(),
+		Data:      []byte("test_data"),
+		CreatedAt: time.Now(),
+	}
+
+	err = o.InsertLogs([]logpoller.Log{log})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		event := <-listener.Notify
+		expectedPayload := fmt.Sprintf(
+			"%s:%s,%s",
+			hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
+			hexutil.Encode(log.Topics[0])[2:],
+			hexutil.Encode(log.Topics[1])[2:],
+		)
+		require.Equal(t, event.Extra, expectedPayload)
+		return true
+	}, time.Second, 10*time.Millisecond)
 }
