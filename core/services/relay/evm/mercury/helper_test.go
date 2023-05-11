@@ -65,6 +65,8 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
 	require.NoError(t, err)
 
+	configPoller.Start()
+
 	return TestHarness{
 		configPoller:     configPoller,
 		user:             user,
