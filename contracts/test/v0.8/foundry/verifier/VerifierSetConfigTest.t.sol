@@ -6,6 +6,10 @@ import {Verifier} from "../../../../src/v0.8/Verifier.sol";
 import {VerifierProxy} from "../../../../src/v0.8/VerifierProxy.sol";
 
 contract VerifierSetConfigTest is BaseTest {
+  function setUp() public virtual override {
+    BaseTest.setUp();
+  }
+
   function test_revertsIfCalledByNonOwner() public {
     vm.expectRevert("Only callable by owner");
     Signer[] memory signers = _getSigners(MAX_ORACLES);
@@ -103,6 +107,8 @@ contract VerifierSetConfigTest is BaseTest {
 
   function test_correctlyUpdatesTheConfig() public {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
+
+    s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(
       FEED_ID,
       _getSignerAddresses(signers),
