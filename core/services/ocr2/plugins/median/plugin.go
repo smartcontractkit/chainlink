@@ -30,7 +30,24 @@ import (
 
 type MedianConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
-	plugins.EnvConfig
+	plugins.RegistrarConfig
+}
+
+// concrete implementation of MedianConfig
+type medianConfig struct {
+	jobPipelineMaxSuccessfulRuns uint64
+	plugins.RegistrarConfig
+}
+
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
+	return &medianConfig{
+		jobPipelineMaxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
+		RegistrarConfig:              pluginProcessCfg,
+	}
+}
+
+func (m *medianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+	return m.jobPipelineMaxSuccessfulRuns
 }
 
 func NewMedianServices(ctx context.Context,
@@ -44,6 +61,7 @@ func NewMedianServices(ctx context.Context,
 	cfg MedianConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
+
 ) (srvs []job.ServiceCtx, err error) {
 	var pluginConfig config.PluginConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -168,7 +186,7 @@ type medianService struct {
 	utils.StartStopOnce
 
 	lggr    logger.Logger
-	cfg     plugins.EnvConfig
+	cfg     plugins.RegistrarConfig
 	cmdName string
 
 	client *plugin.Client
@@ -176,7 +194,7 @@ type medianService struct {
 	loop.PluginMedian
 }
 
-func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.EnvConfig) *medianService {
+func NewPluginMedianService(cmdName string, lggr logger.Logger, cfg plugins.RegistrarConfig) *medianService {
 	return &medianService{cmdName: cmdName, lggr: lggr.Named("PluginMedianService"), cfg: cfg}
 }
 
@@ -193,7 +211,13 @@ func (m *medianService) Start(ctx context.Context) error {
 func (m *medianService) Launch() error {
 	cc := loop.PluginMedianClientConfig(m.lggr)
 	cc.Cmd = exec.Command(m.cmdName) //nolint:gosec
-	plugins.SetEnvConfig(cc.Cmd, m.cfg)
+
+	// use logger name to ensure unique naming
+	registeredLoop, err := m.cfg.RegisterLOOP(m.lggr.Name())
+	if err != nil {
+		return fmt.Errorf("failed to register loop: %w", err)
+	}
+	plugins.SetCmdEnvFromConfig(cc.Cmd, registeredLoop.EnvCfg)
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
 	if err != nil {

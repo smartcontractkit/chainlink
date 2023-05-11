@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -34,7 +33,6 @@ type Delegate struct {
 
 type Config interface {
 	validate.Config
-	plugins.EnvConfig
 }
 
 // NewDelegateBootstrap creates a new Delegate
