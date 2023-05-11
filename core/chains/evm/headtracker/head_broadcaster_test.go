@@ -70,7 +70,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(logger, ethClient, headtracker.NewEvmHtrkConfig(evmCfg), hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
 	t.Cleanup(func() { require.NoError(t, services.MultiClose{mailMon, hb, ht}.Close()) })

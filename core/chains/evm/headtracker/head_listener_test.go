@@ -43,7 +43,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
+	hl := headtracker.NewHeadListener(lggr, ethClient, headtracker.NewEvmHtrkConfig(evmcfg), chStop)
 
 	var headCount atomic.Int32
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -105,7 +105,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg.BlockEmissionIdleWarningThreshold()
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
+	hl := headtracker.NewHeadListener(lggr, ethClient, headtracker.NewEvmHtrkConfig(evmcfg), chStop)
 
 	firstHeadAwaiter := cltest.NewAwaiter()
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -168,7 +168,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, nil)
 			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 			chStop := make(chan struct{})
-			hl := headtracker.NewHeadListener(l, ethClient, evmcfg, chStop)
+			hl := headtracker.NewHeadListener(l, ethClient, headtracker.NewEvmHtrkConfig(evmcfg), chStop)
 
 			hnhCalled := make(chan *evmtypes.Head)
 			hnh := func(_ context.Context, header *evmtypes.Head) error {
