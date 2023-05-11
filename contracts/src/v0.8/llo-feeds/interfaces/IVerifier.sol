@@ -45,14 +45,9 @@ interface IVerifier is IERC165 {
    * @return configDigest
    * @return epoch
    */
-  function latestConfigDigestAndEpoch(bytes32 feedId)
-    external
-    view
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    );
+  function latestConfigDigestAndEpoch(
+    bytes32 feedId
+  ) external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
   /**
    * @notice information about current offchain reporting protocol configuration
@@ -61,12 +56,7 @@ interface IVerifier is IERC165 {
    * @return blockNumber block at which this config was set
    * @return configDigest domain-separation tag for current config
    */
-  function latestConfigDetails(bytes32 feedId)
-    external
-    view
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    );
+  function latestConfigDetails(
+    bytes32 feedId
+  ) external view returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 }
