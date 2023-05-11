@@ -122,7 +122,7 @@ type EthConfirmer[
 	utils.StartStopOnce
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	lggr    logger.Logger
-	client  txmgrtypes.TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	resumeCallback ResumeCallback
 	config         EvmConfirmerConfig
@@ -1058,7 +1058,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	if gasLimit == 0 {
 		gasLimit = ec.config.FeeLimitDefault()
 	}
-	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder, seq, gasLimit, fee, fromAddress)
+	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}

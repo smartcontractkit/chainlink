@@ -62,7 +62,6 @@ type Events[EVENT any, EVENTOPS any] interface {
 
 type TxmClient[
 	CHAIN_ID ID,
-	HEAD types.Head[TX_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
@@ -71,6 +70,7 @@ type TxmClient[
 	FEE Fee,
 	ADD any,
 ] interface {
+	ConfiguredChainID() CHAIN_ID
 	BatchSendTransactions(
 		ctx context.Context,
 		store TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
@@ -92,7 +92,7 @@ type TxmClient[
 	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		txAttemptBuilder TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		emptyTxBuilder func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error),
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,
