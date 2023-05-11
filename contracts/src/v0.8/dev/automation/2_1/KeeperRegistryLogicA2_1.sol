@@ -40,7 +40,9 @@ contract KeeperRegistryLogicA2_1 is
 
   uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
 
-  function checkUpkeep(uint256 id)
+  function checkUpkeep(
+    uint256 id
+  )
     external
     cannotExecute
     returns (
@@ -274,10 +276,10 @@ contract KeeperRegistryLogicA2_1 is
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function migrateUpkeeps(uint256[] calldata ids, address destination)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
+  function migrateUpkeeps(
+    uint256[] calldata ids,
+    address destination
+  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
@@ -322,10 +324,9 @@ contract KeeperRegistryLogicA2_1 is
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
+  function receiveUpkeeps(
+    bytes calldata encodedUpkeeps
+  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL

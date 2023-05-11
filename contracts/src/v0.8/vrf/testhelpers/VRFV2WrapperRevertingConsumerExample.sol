@@ -5,10 +5,10 @@ import "../VRFV2WrapperConsumerBase.sol";
 import "../../ConfirmedOwner.sol";
 
 contract VRFV2WrapperRevertingConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
-  constructor(address _link, address _vrfV2Wrapper)
-    ConfirmedOwner(msg.sender)
-    VRFV2WrapperConsumerBase(_link, _vrfV2Wrapper)
-  {}
+  constructor(
+    address _link,
+    address _vrfV2Wrapper
+  ) ConfirmedOwner(msg.sender) VRFV2WrapperConsumerBase(_link, _vrfV2Wrapper) {}
 
   function makeRequest(
     uint32 _callbackGasLimit,
