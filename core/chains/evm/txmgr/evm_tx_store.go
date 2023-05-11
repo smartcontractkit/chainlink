@@ -1581,3 +1581,8 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 
 	return nil
 }
+
+func (o *evmTxStore) Abandon(chainID *big.Int, addr common.Address) error {
+	_, err := o.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
+	return err
+}
