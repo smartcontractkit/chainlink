@@ -147,7 +147,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentif
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
+func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 

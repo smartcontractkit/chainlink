@@ -5,14 +5,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	stdlog "log"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	v1 "github.com/smartcontractkit/ocr2keepers/encoder/v1"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
+	"github.com/smartcontractkit/ocr2keepers/pkg/observer"
+	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -20,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -651,6 +658,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 		}
 
+		enc := v1.NewEncoder()
+
+		wrapper := &logWriter{l: ocrLogger}
+		prefixedLogger := stdlog.New(wrapper, "[keepers-plugin] ", stdlog.Lshortfile)
+
+		pollingObserver := polling.NewPollingObserver(
+			prefixedLogger,
+			rgstry,
+			polling.NewKeyProvider(rgstry),
+			cfg.MaxServiceWorkers,
+			cfg.ServiceQueueLength,
+			cfg.CacheExpiration.Value(),
+			cfg.CacheEvictionInterval.Value(),
+			//coordinator.NewReportCoordinator(rgstry, time.Duration(20*60*1000)*time.Millisecond, time.Duration(20*60*1000)*time.Millisecond, logProvider, 5, prefixedLogger),
+			coordinator.NewReportCoordinator(rgstry, time.Duration(20)*time.Minute, cfg.CacheEvictionInterval.Value(), logProvider, 5, prefixedLogger),
+			enc,
+			enc,
+			rgstry,
+		)
+
 		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -659,6 +686,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			KeepersDatabase:              ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
+			PrefixedLogger:               prefixedLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
@@ -671,6 +699,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
 			MaxServiceWorkers:            cfg.MaxServiceWorkers,
 			ServiceQueueLength:           cfg.ServiceQueueLength,
+			Observers:                    []observer.Observer{pollingObserver},
 		}
 		pluginService, err2 := ocr2keepers.NewDelegate(conf)
 		if err2 != nil {
@@ -787,4 +816,14 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(l.jobID, msg)
+}
+
+type logWriter struct {
+	l commontypes.Logger
+}
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	l.l.Debug(string(p), nil)
+	n = len(p)
+	return
 }
