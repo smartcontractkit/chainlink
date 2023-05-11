@@ -134,7 +134,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	upkeepResultReasonMercury := types.UpkeepResult{
 		Key:              upkeepKey,
 		State:            types.NotEligible,
-		FailureReason:    UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR,
+		FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 		GasUsed:          big.NewInt(27071),
 		PerformData:      revertPerformData,
 		FastGasWei:       big.NewInt(2000000000),
@@ -244,7 +244,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 				{
 					Key:           upkeepKey,
 					State:         types.NotEligible,
-					FailureReason: UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR,
+					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					PerformData:   []byte{},
 				},
 			},

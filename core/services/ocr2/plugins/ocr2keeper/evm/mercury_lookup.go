@@ -54,6 +54,7 @@ const (
 func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
 	// return error only if there are errors which stops the process
 	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
+	// TODO (AUTO-2862): parallelize the mercury lookup work for all upkeeps
 	for i := range upkeepResults {
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
