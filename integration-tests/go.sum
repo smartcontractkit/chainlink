@@ -1328,7 +1328,7 @@ github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/slack-go/slack v0.12.2 h1:x3OppyMyGIbbiyFhsBmpf9pwkUzMhthJMRNmNlA4LaQ=
 github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
-github.com/smartcontractkit/chainlink-cosmos v0.1.7-0.20230424184432-20550926ba07 h1:LBjS7F3Xy9jYlgiEMMMU5f+i/v7oZ97MYseyF6aY7ts=
+github.com/smartcontractkit/chainlink-cosmos v0.4.0 h1:xYLAcJJIm0cyMtYtMaosO45bykEwcwQOmZz3mz46Y2A=
 github.com/smartcontractkit/chainlink-env v0.3.29 h1:hcIw/BeuB0wKiiE3umAUNBZzWkHO24XF3OW9xSrlMbI=
 github.com/smartcontractkit/chainlink-env v0.3.29/go.mod h1:9c0Czq4a6wZKY20BcoAlK29DnejQIiLo/MwKYtSFnHk=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230502211324-be7ebf280a94 h1:DRj8mhOSNmf6Mt9XY1CGXmmiNis1Jjmx22m+LVdDUW4=
@@ -1338,8 +1338,8 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfd
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239/go.mod h1:RZzvRfGjMe4lBOT1H/MRfjnNoyUWOiHlOcHx/BZYg+M=
 github.com/smartcontractkit/chainlink-testing-framework v1.11.6 h1:W5BfxVDRWZ/PepyMUyJqR8w8XcnFbP4aZqL+ha+DiaA=
 github.com/smartcontractkit/chainlink-testing-framework v1.11.6/go.mod h1:76JD6PEhH9QActeOUKfPjm/4Cfyn+cpp3u0ASoq0RpU=
-github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc h1:aSCDAai0Dmbhp/KHTtJnC/EJcaEz4CAO80SKRzRZiQA=
-github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
+github.com/smartcontractkit/libocr v0.0.0-20230503222226-29f534b2de1a h1:NFTlIAjSwx9vBYZeUerd0DDsvg+zZ5TSESw4dPNdwJk=
+github.com/smartcontractkit/libocr v0.0.0-20230503222226-29f534b2de1a/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.6.14 h1:Rg+SYd8PCyd4CcCetwnRKjVEQsHVsV6QOaWcLhi+6sg=
 github.com/smartcontractkit/ocr2keepers v0.6.14/go.mod h1:gqIksJFzdXFsHfGdCWm1uTxbwvAltgcwcaqIgAStC1A=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230501212125-88509cd4bc03 h1:cR+698TzpJrsYoud0nT5f4SqdAyPzd0+6mBi8isE5Tk=
