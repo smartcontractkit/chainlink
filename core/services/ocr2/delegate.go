@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	"github.com/smartcontractkit/ocr2keepers/pkg/ratio"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -667,8 +668,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			prefixedLogger,
 			rgstry,
 			polling.NewKeyProvider(rgstry),
+			ratio.SampleRatio(0.98),
 			cfg.MaxServiceWorkers,
 			cfg.ServiceQueueLength,
+			time.Duration(time.Minute*60),
 			cfg.CacheExpiration.Value(),
 			cfg.CacheEvictionInterval.Value(),
 			//coordinator.NewReportCoordinator(rgstry, time.Duration(20*60*1000)*time.Millisecond, time.Duration(20*60*1000)*time.Millisecond, logProvider, 5, prefixedLogger),
