@@ -23,18 +23,10 @@ type Head[BLOCK_HASH Hashable] interface {
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
-}
 
-// HeadTrackerHead is a Chain Agnostic Head interface used by the HeadTracker
-type HeadTrackerHead[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
-	Head[BLOCK_HASH]
+	// GetParent returns the parent head
+	GetParent() Head[BLOCK_HASH]
 
-	GetParent() H
-	SetParent(parent H)
-}
-
-type TxmgrHead[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
-	Head[BLOCK_HASH]
-
-	GetParent() H
+	// SetParent sets the parent head
+	SetParent(parent Head[BLOCK_HASH])
 }
