@@ -40,6 +40,7 @@ type LogPoller interface {
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
+	LogsCreatedInTxHash(txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -908,6 +909,10 @@ func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common
 
 func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLogsWithSigsByBlockRangeFilter(start, end, address, eventSigs, qopts...)
+}
+
+func (lp *logPoller) LogsCreatedInTxHash(txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsByTxHash(txHash, qopts...)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.

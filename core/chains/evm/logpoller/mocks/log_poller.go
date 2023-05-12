@@ -376,6 +376,39 @@ func (_m *LogPoller) Logs(start int64, end int64, eventSig common.Hash, address 
 	return r0, r1
 }
 
+// LogsCreatedInTxHash provides a mock function with given fields: txHash, qopts
+func (_m *LogPoller) LogsCreatedInTxHash(txHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, txHash)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(txHash, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(txHash, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(txHash, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LogsDataWordGreaterThan provides a mock function with given fields: eventSig, address, wordIndex, wordValueMin, confs, qopts
 func (_m *LogPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))

@@ -223,6 +223,19 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
+func (o *ORM) SelectLogsByTxHash(txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+		SELECT * FROM evm_logs
+		WHERE evm_chain_id = $1 AND tx_hash = $2
+		ORDER BY log_index ASC`, utils.NewBig(o.chainID), txHash)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
 // emitted from the given address.
 func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) (logs []Log, err error) {

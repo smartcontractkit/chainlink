@@ -42,6 +42,10 @@ func (disabled) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...p
 	return nil, ErrDisabled
 }
 
+func (disabled) LogsCreatedInTxHash(txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
 func (disabled) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
