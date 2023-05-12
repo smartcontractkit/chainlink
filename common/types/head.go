@@ -29,7 +29,12 @@ type Head[BLOCK_HASH Hashable] interface {
 type HeadTrackerHead[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	Head[BLOCK_HASH]
 
-	// Parent is the head's parent block
 	GetParent() H
 	SetParent(parent H)
+}
+
+type TxmgrHead[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
+	Head[BLOCK_HASH]
+
+	GetParent() H
 }
