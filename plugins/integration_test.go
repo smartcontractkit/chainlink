@@ -34,7 +34,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-
+	log.Printf("env %v", strings.Join(os.Environ(), "\n"))
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -128,7 +128,8 @@ func TestMain(m *testing.M) {
 		Env: []string{
 			// TODO this will need to change to work in CI, probably...
 			// it is a hack to ensure the the two container can communicate over the physical host
-			"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "host.docker.internal", 1),
+			//"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "host.docker.internal", 1),
+			"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "docker", 1),
 			"CL_DEV=true",
 			"CL_PASSWORD_KEYSTORE=ThisIsATestPassword123456"},
 		// hackery to get the container to run the solana loop
@@ -152,14 +153,33 @@ func TestMain(m *testing.M) {
 	// comment out to keep container for debugging
 	resourcePurger.register(chainlinkResource)
 
+	err = pool.Client.Logs(docker.LogsOptions{
+		Context:           nil,
+		Container:         loopImageName,
+		OutputStream:      os.Stdout,
+		ErrorStream:       os.Stderr,
+		InactivityTimeout: 0,
+		Tail:              "",
+		Since:             0,
+		Follow:            true,
+		Stdout:            true,
+		Stderr:            true,
+		Timestamps:        true,
+		RawTerminal:       false,
+	})
+	if err != nil {
+		log.Fatalf("failed to get chainlink container logs")
+	}
 	port := chainlinkResource.GetPort("6688/tcp")
 	if port == "" {
 		log.Fatal("failed to resolve chainlink port 6688")
 	}
 	chainlinkBaseUrl = fmt.Sprintf("http://localhost:%s", port)
 
+	log.Println("polling for start...")
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	if err := pool.Retry(func() error {
+		log.Println("...attempting to connect...")
 		url := chainlinkBaseUrl + "/health"
 		resp, gerr := http.Get(url) // nolint
 		if gerr != nil {
@@ -170,6 +190,23 @@ func TestMain(m *testing.M) {
 		}
 		return nil
 	}); err != nil {
+		lerr := pool.Client.Logs(docker.LogsOptions{
+			Context:           nil,
+			Container:         loopImageName,
+			OutputStream:      os.Stdout,
+			ErrorStream:       os.Stderr,
+			InactivityTimeout: 0,
+			Tail:              "",
+			Since:             0,
+			Follow:            true,
+			Stdout:            true,
+			Stderr:            true,
+			Timestamps:        true,
+			RawTerminal:       false,
+		})
+		if lerr != nil {
+			log.Printf("failed to get chainlink container logs")
+		}
 		log.Fatalf("Could not connect to chainlink container: %s", err)
 	}
 
