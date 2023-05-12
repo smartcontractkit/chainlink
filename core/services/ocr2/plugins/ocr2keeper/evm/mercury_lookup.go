@@ -77,9 +77,8 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
 			r.lggr.Debugf("[MercuryLookup] upkeep %s block %s decodeMercuryLookup: %v", upkeepId.String(), block.String(), err)
-			return nil, err
+			continue
 		}
 
 		opts, err := r.buildCallOpts(ctx, block)
@@ -97,14 +96,12 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		// do the mercury lookup request
 		values, err := r.doMercuryRequest(ctx, mercuryLookup, upkeepId)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s doMercuryRequest: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
 
 		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo, opts)
 		if err != nil {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %s mercuryLookupCallback err: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
@@ -263,7 +260,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		},
 		// only retry when the error is 404 Not Found
 		retry.RetryIf(func(err error) bool {
-			return errors.Is(err, fmt.Errorf("%d", http.StatusNotFound))
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound)
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
