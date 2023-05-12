@@ -319,7 +319,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case <-ctx.Done():
 			err = ctx.Err()
 		}
-		require.NoError(t, err, "Timed out waiting to receive replay request from lp.replayStart")
+		assert.NoError(t, err, "Timed out waiting to receive replay request from lp.replayStart")
 	}
 
 	// Replay() should return error code received from replayComplete
@@ -337,7 +337,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun
 	t.Run("late abort returns ErrReplayInProgress", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(testutils.Context(t), 2*time.Second)
+		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second) // Intentionally abort replay after 1s
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -347,9 +347,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
 		<-done
 		lp.replayComplete <- nil
+		lp.wg.Wait()
 	})
-
-	lp.wg.Wait()
 
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
@@ -359,8 +358,14 @@ func TestLogPoller_Replay(t *testing.T) {
 		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		ctx, cancel := context.WithCancel(tctx)
 
+		defer func() {
+			lp.cancel()
+			lp.wg.Wait()
+		}()
+
 		var wg sync.WaitGroup
 		wg.Add(2)
+
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer wg.Done()
@@ -376,27 +381,23 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 
 		lp.wg.Add(1)
-		done := make(chan struct{})
 		go func() {
-			defer close(done)
 			lp.run()
 		}()
 		select {
 		case <-timeout:
 			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 2s")
 		case <-utils.WaitGroupChan(&wg):
-			lp.cancel()
 		}
-		<-done
 	})
-
-	lp.wg.Wait()
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
+
 		var wg sync.WaitGroup
 		wg.Add(2)
+
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer wg.Done()
@@ -409,27 +410,49 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
+		go func() {
+			select {
+			case <-lp.replayStart: // unblock replayStart<- goroutine if it's stuck
+			default:
+			}
+			wg.Wait()
+			lp.Close()
+			lp.wg.Wait()
+		}()
+
 		timeout := time.After(2 * time.Second)
 		require.NoError(t, lp.Start(tctx))
 		select {
 		case <-timeout:
-			require.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
+			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
 		case <-utils.WaitGroupChan(&wg):
-			lp.wg.Wait()
 		}
 	})
 
-	// ReplayAsync should return success as soon as replayStart is received
+	// ReplayAsync should return as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
 		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
-		go recvStartReplay(tctx, 1, true)
-		lp.ReplayAsync(1)
-		lp.replayComplete <- nil
+		defer func() {
+			lp.replayComplete <- nil
+			lp.cancel()
+			lp.wg.Wait()
+		}()
+
+		done := make(chan struct{})
+		go func() {
+			lp.ReplayAsync(1)
+			close(done)
+		}()
+		recvStartReplay(tctx, 1, true)
+		<-done
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
 		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
-		defer lp.cancel()
+		defer func() {
+			lp.cancel()
+			lp.wg.Wait()
+		}()
 		anyErr := errors.New("async error")
 		observedLogs.TakeAll()
 
@@ -440,7 +463,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
 		case <-lp.ctx.Done():
-			require.Fail(t, "failed to receive replayComplete signal")
+			assert.Fail(t, "failed to receive replayComplete signal within 2s")
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
