@@ -19,6 +19,10 @@ type Head[BLOCK_HASH Hashable] interface {
 
 	// Parent is the head's parent block
 	GetParent() Head[BLOCK_HASH]
+	SetParent(parent *Head[BLOCK_HASH])
+
+	// ParentHash is the head's parent block hash
+	GetParentHash() BLOCK_HASH
 
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash

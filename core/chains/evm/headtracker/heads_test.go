@@ -71,7 +71,7 @@ func TestHeads_AddHeads(t *testing.T) {
 	t.Parallel()
 
 	uncleHash := utils.NewHash()
-	heads := headtracker.NewHeads()
+	heads := headtracker.NewHeads[*evmtypes.Head, common.Hash]()
 
 	var testHeads []*evmtypes.Head
 	var parentHash common.Hash
