@@ -87,7 +87,7 @@ type TransmitChecker[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD types.Head[TX_HASH],
+	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
