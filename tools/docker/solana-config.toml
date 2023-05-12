@@ -1,0 +1,24 @@
+ExplorerURL = 'ws://explorer:3001'
+
+[Log]
+Level = 'info'
+
+[WebServer]
+SecureCookies = false
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '5s'
+
+
+
+[[Solana]]
+ChainID = 'testnet' # Example
+Enabled = true # Default
+
+[[Solana.Nodes]]
+Name = 'chainstack' # Example
+URL = 'https://nd-086-122-802.p2pify.com/b36f181a4f62d93a330bda8fdb288031' # Example

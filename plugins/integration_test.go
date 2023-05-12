@@ -45,12 +45,13 @@ func TestMain(m *testing.M) {
 	}
 	cleaner := newPurger(pool)
 
+	// resources registered with the clean with be purged
 	defer cleaner.cleanup()
 
-	//TODO parallelize container builds and start
+	// parallelize node build and postgres startup
+	// TODO: in ci can we use an existing chainlink image rather than building here? there ought to be one from the CI setup
 	var (
-		buildWg sync.WaitGroup
-		//errMu sync.Mutex
+		buildWg  sync.WaitGroup
 		buildErr error
 	)
 
@@ -77,13 +78,13 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("Could not start pg resource: %s", err)
 	}
-	defer pool.Purge(pgResource)
-
+	// register to purge postgres container
 	cleaner.register(pgResource)
+
 	hostAndPort := pgResource.GetHostPort("5432/tcp")
 	databaseUrl := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", pgUser, pgPassword, hostAndPort, dbName)
 	log.Println("Connecting to database on url: ", databaseUrl)
-	pgResource.Expire(120) // Tell docker to hard kill the container in 300 seconds
+	pgResource.Expire(300) // Tell docker to hard kill the container in 300 seconds
 
 	pgMaxWait := 90 * time.Second
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
@@ -113,19 +114,22 @@ func TestMain(m *testing.M) {
 			"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "host.docker.internal", 1),
 			"CL_DEV=true",
 			"CL_PASSWORD_KEYSTORE=ThisIsATestPassword123456"},
+		// hackery to get the container to run the solana loop
 		Entrypoint: []string{
-			"chainlink", "-c", "/run/secrets/docker/config.toml", "-s", "/run/secrets/docker/dev-secrets.toml", "node",
+			"chainlink", "-c", "/run/secrets/docker/solana-config.toml", "-s", "/run/secrets/docker/secure-secrets.toml", "node",
 			"start", "-d", "-p", "/run/secrets/clroot/password.txt", "-a", "/run/secrets/clroot/apicredentials",
 		},
-		Mounts: []string{"/Users/kreherma/git/cll/chainlink/tools/clroot:/run/secrets/clroot", "/Users/kreherma/git/cll/chainlink/tools/docker:/run/secrets/docker"},
+
+		// TODO fix these paths for CI. note: must be full paths
+		Mounts: []string{"/Users/kreherma/git/cll/chainlink/tools/clroot:/run/secrets/clroot",
+			"/Users/kreherma/git/cll/chainlink/tools/docker:/run/secrets/docker"},
 	})
 
 	if err != nil {
 		log.Fatalf("failed to run chainlink image %s", err)
 	}
-	defer pool.Purge(chainlinkResource)
 	// comment out to keep container for debugging
-	//cleaner.register(chainlinkResource)
+	cleaner.register(chainlinkResource)
 
 	port := chainlinkResource.GetPort("6688/tcp")
 	if port == "" {
@@ -134,7 +138,6 @@ func TestMain(m *testing.M) {
 	chainlinkBaseUrl = fmt.Sprintf("http://localhost:%s", port)
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	// the minio client does not do service discovery for you (i.e. it does not check if connection can be established), so we have to use the health check
 	if err := pool.Retry(func() error {
 		url := chainlinkBaseUrl + "/health"
 		resp, err := http.Get(url)
@@ -160,6 +163,7 @@ func TestMain(m *testing.M) {
 
 func buildChainlinkImage(pool *dockertest.Pool, id string) error {
 	// Build and run the given Dockerfile
+	// TODO fix paths for CI
 	err := os.Chdir("/Users/kreherma/git/cll/chainlink")
 	if err != nil {
 		return fmt.Errorf("failed to chdir for building image: %w", err)
@@ -185,17 +189,7 @@ func purge(pool *dockertest.Pool, resource *dockertest.Resource) error {
 	}
 	return nil
 }
-func TestInDocker(t *testing.T) {
-
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		log.Fatalf("Could not construct pool: %s", err)
-	}
-
-	err = pool.Client.Ping()
-	if err != nil {
-		log.Fatalf("Could not connect to Docker: %s", err)
-	}
+func TestContainerEndpoints(t *testing.T) {
 
 	resp, err := http.Get(chainlinkBaseUrl + "/health")
 	require.NoError(t, err)
@@ -206,14 +200,22 @@ func TestInDocker(t *testing.T) {
 	require.NotNil(t, resp)
 	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	t.Log("node metrics", b)
+	t.Log("node metrics", string(b))
 
 	resp, err = http.Get(chainlinkBaseUrl + "/discovery")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	b, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	t.Log("node discovery", b)
+	t.Log("node discovery", string(b))
+
+	// note that value `Solana` is created by the node (via the logger name today) and could be brittle
+	resp, err = http.Get(chainlinkBaseUrl + "/plugins/Solana/metrics")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	b, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	t.Log("solana loop metrics", string(b))
 
 }
 
@@ -250,8 +252,4 @@ func (p *purger) register(r *dockertest.Resource) {
 	p.mu.Lock()
 	p.mu.Unlock()
 	p.resources = append(p.resources, r)
-}
-
-func TestRealbob(t *testing.T) {
-	// all tests
 }
