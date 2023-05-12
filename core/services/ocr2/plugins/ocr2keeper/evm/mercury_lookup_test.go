@@ -134,7 +134,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	upkeepResultReasonMercury := types.UpkeepResult{
 		Key:              upkeepKey,
 		State:            types.NotEligible,
-		FailureReason:    UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR,
+		FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 		GasUsed:          big.NewInt(27071),
 		PerformData:      revertPerformData,
 		FastGasWei:       big.NewInt(2000000000),
@@ -230,7 +230,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "skip - revert data does not decode to mercury lookup",
+			name: "skip - revert data does not decode to mercury lookup, not surfacing errors",
 			input: []types.UpkeepResult{
 				{
 					Key:           upkeepKey,
@@ -244,11 +244,10 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 				{
 					Key:           upkeepKey,
 					State:         types.NotEligible,
-					FailureReason: UPKEEP_FAILURE_REASON_MERCURY_LOOKUP_ERROR,
+					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					PerformData:   []byte{},
 				},
 			},
-			wantErr: errors.New("unpack error: invalid data for unpacking"),
 		},
 		{
 			name:          "skip - error - no upkeep",
@@ -399,7 +398,6 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 
 func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 	executeGas := uint32(100)
-	gas := uint32(200000) + uint32(6500000) + uint32(300000) + executeGas
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -501,9 +499,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			payload, err := r.mercury.abi.Pack("mercuryCallback", values, tt.mercuryLookup.extraData)
 			require.Nil(t, err)
 			callbackMsg := ethereum.CallMsg{
-				From: from,
 				To:   &to,
-				Gas:  uint64(gas),
 				Data: payload,
 			}
 			client.On("CallContract", mock.Anything, callbackMsg, tt.opts.BlockNumber).Return(tt.callbackResp, tt.callbackErr)

@@ -144,7 +144,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 			MinConfirmations:     1,
-			MercuryLookup:        true,
+			MercuryLookup:        d.cfg.UpkeepMercury,
 		}.Encode(), // reportingPluginConfig []byte,
 		50*time.Millisecond, // maxDurationQuery time.Duration,
 		5*time.Second,       // maxDurationObservation time.Duration,
