@@ -65,14 +65,15 @@ func TestMain(m *testing.M) {
 	// pulls an image, creates a container based on it and runs it
 	pgResource, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
-		Tag:        "11",
+		Tag:        "15",
+		Name:       "pg-15-loop-test",
 		Env: []string{
 			"POSTGRES_PASSWORD=" + pgPassword,
 			"POSTGRES_USER=" + pgUser,
 			"POSTGRES_DB=" + dbName,
 			"listen_addresses = '*'",
 		},
-	}, autoCleanupOpts)
+	})
 	if err != nil {
 		log.Fatalf("Could not start pg resource: %s", err)
 	}
@@ -82,9 +83,9 @@ func TestMain(m *testing.M) {
 	hostAndPort := pgResource.GetHostPort("5432/tcp")
 	databaseUrl := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", pgUser, pgPassword, hostAndPort, dbName)
 	log.Println("Connecting to database on url: ", databaseUrl)
-	pgResource.Expire(300) // Tell docker to hard kill the container in 300 seconds
+	pgResource.Expire(120) // Tell docker to hard kill the container in 300 seconds
 
-	pgMaxWait := 240 * time.Second
+	pgMaxWait := 90 * time.Second
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	pool.MaxWait = pgMaxWait
 	if err = pool.Retry(func() error {
@@ -112,6 +113,11 @@ func TestMain(m *testing.M) {
 			"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "host.docker.internal", 1),
 			"CL_DEV=true",
 			"CL_PASSWORD_KEYSTORE=ThisIsATestPassword123456"},
+		Entrypoint: []string{
+			"chainlink", "-c", "/run/secrets/docker/config.toml", "-s", "/run/secrets/docker/dev-secrets.toml", "node",
+			"start", "-d", "-p", "/run/secrets/clroot/password.txt", "-a", "/run/secrets/clroot/apicredentials",
+		},
+		Mounts: []string{"/Users/kreherma/git/cll/chainlink/tools/clroot:/run/secrets/clroot", "/Users/kreherma/git/cll/chainlink/tools/docker:/run/secrets/docker"},
 	})
 
 	if err != nil {
