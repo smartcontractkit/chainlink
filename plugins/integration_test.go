@@ -47,7 +47,11 @@ func TestMain(m *testing.M) {
 
 	resourcePurger := newPurger(pool)
 	// resources registered with the clean with be purged
-	defer resourcePurger.cleanup()
+	defer func() {
+		if cerr := resourcePurger.cleanup(); cerr != nil {
+			log.Fatalf("failed to cleanup resources: %s", cerr)
+		}
+	}()
 
 	// parallelize node build and postgres startup
 	// TODO: in ci can we use an existing chainlink image rather than building here? there ought to be one from the CI setup
@@ -82,7 +86,7 @@ func TestMain(m *testing.M) {
 			"POSTGRES_DB=" + dbName,
 			"listen_addresses = '*'",
 		},
-	})
+	}, autoCleanupOpts)
 	if err != nil {
 		log.Fatalf("Could not start pg resource: %s", err)
 	}
@@ -92,7 +96,10 @@ func TestMain(m *testing.M) {
 	hostAndPort := pgResource.GetHostPort("5432/tcp")
 	databaseUrl := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", pgUser, pgPassword, hostAndPort, dbName)
 	log.Println("Connecting to database on url: ", databaseUrl)
-	pgResource.Expire(300) // Tell docker to hard kill the container in 300 seconds. Acts as a hard cut off for the test suite, too
+	err = pgResource.Expire(300) // Tell docker to hard kill the container in 300 seconds. Acts as a hard cut off for the test suite, too
+	if err != nil {
+		log.Fatalf("failed to set pg expiry: %s", err)
+	}
 
 	pgMaxWait := 90 * time.Second
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
@@ -154,9 +161,9 @@ func TestMain(m *testing.M) {
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	if err := pool.Retry(func() error {
 		url := chainlinkBaseUrl + "/health"
-		resp, err := http.Get(url)
-		if err != nil {
-			return err
+		resp, gerr := http.Get(url) // nolint
+		if gerr != nil {
+			return gerr
 		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("status code not OK")
@@ -170,25 +177,27 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// defer'd call will not run with os.Exit, so if we are here, explicitly cleanup
-	resourcePurger.cleanup()
+	if err := resourcePurger.cleanup(); err != nil {
+		log.Fatalf("failed to cleanup resources after tests finished with code %d: %s", code, err)
+	}
 
 	os.Exit(code)
 }
 
 func TestContainerEndpoints(t *testing.T) {
 
-	resp, err := http.Get(chainlinkBaseUrl + "/health")
+	resp, err := http.Get(chainlinkBaseUrl + "/health") //nolint
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	resp, err = http.Get(chainlinkBaseUrl + "/metrics")
+	resp, err = http.Get(chainlinkBaseUrl + "/metrics") //nolint
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	t.Log("node metrics", string(b))
 
-	resp, err = http.Get(chainlinkBaseUrl + "/discovery")
+	resp, err = http.Get(chainlinkBaseUrl + "/discovery") //nolint
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	b, err = io.ReadAll(resp.Body)
@@ -197,7 +206,7 @@ func TestContainerEndpoints(t *testing.T) {
 	// note that value `Solana` is created by the node (via the logger name today) and could be brittle
 	require.Contains(t, string(b), "/plugins/Solana/metrics", "expected solana plugin metric endpoint in %s", b)
 
-	resp, err = http.Get(chainlinkBaseUrl + "/plugins/Solana/metrics")
+	resp, err = http.Get(chainlinkBaseUrl + "/plugins/Solana/metrics") //nolint
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	b, err = io.ReadAll(resp.Body)
@@ -217,33 +226,42 @@ func buildChainlinkImage(ctxDir string, pool *dockertest.Pool, id string) error 
 	if err != nil {
 		return fmt.Errorf("failed to build chainlink image: %w", err)
 	}
+	pruned, err := pool.Client.PruneImages(docker.PruneImagesOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to prune images after build: %w", err)
+	}
+	log.Printf("pruned %+v", *pruned)
 	return nil
 }
 
 type purger struct {
 	pool      *dockertest.Pool
 	mu        sync.Mutex
-	resources []*dockertest.Resource
+	resources map[string]*wrappedResource
+}
+
+type wrappedResource struct {
+	purged   bool
+	resource *dockertest.Resource
 }
 
 func newPurger(pool *dockertest.Pool) *purger {
 	return &purger{
 		pool:      pool,
-		resources: make([]*dockertest.Resource, 0),
+		resources: make(map[string]*wrappedResource),
 	}
 }
 
 // safe to call multiple times
-// UNSAFE to address any resource afterward
 func (p *purger) cleanup() error {
 	var err error
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, r := range p.resources {
-		if r != nil {
-			if rerr := p.pool.Purge(r); rerr != nil {
+		if !r.purged {
+			if rerr := p.pool.Purge(r.resource); rerr != nil {
 				err = errors.Join(err, rerr)
-				r = nil
+				r.purged = true
 			}
 		}
 	}
@@ -252,6 +270,6 @@ func (p *purger) cleanup() error {
 
 func (p *purger) register(r *dockertest.Resource) {
 	p.mu.Lock()
-	p.mu.Unlock()
-	p.resources = append(p.resources, r)
+	defer p.mu.Unlock()
+	p.resources[r.Container.Name] = &wrappedResource{purged: false, resource: r}
 }
