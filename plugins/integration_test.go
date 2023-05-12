@@ -127,16 +127,16 @@ func TestMain(m *testing.M) {
 		// hackery to get the container to run the solana loop
 		Entrypoint: []string{
 			"chainlink",
-			"-c", "/run/secrets/docker/solana-config.toml",
-			"-s", "/run/secrets/docker/secure-secrets.toml",
+			"-c", "/run/secrets/node/solana-config.toml",
+			"-s", "/run/secrets/node/secure-secrets.toml",
 			"node", "start",
 			"-d",
-			"-p", "/run/secrets/clroot/password.txt",
-			"-a", "/run/secrets/clroot/apicredentials",
+			"-p", "/run/secrets/api/password.txt",
+			"-a", "/run/secrets/api/apicredentials",
 		},
 
-		Mounts: []string{rootDir + "/tools/clroot:/run/secrets/clroot",
-			rootDir + "/tools/docker:/run/secrets/docker"},
+		Mounts: []string{rootDir + "/tools/clroot:/run/secrets/api",
+			rootDir + "/plugins/test_data:/run/secrets/node"},
 	})
 
 	if err != nil {
@@ -195,15 +195,14 @@ func TestContainerEndpoints(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("node discovery", string(b))
 	// note that value `Solana` is created by the node (via the logger name today) and could be brittle
-	require.Contains(t, string(b), "/plugins/Solana/metrics")
+	require.Contains(t, string(b), "/plugins/Solana/metrics", "expected solana plugin metric endpoint in %s", b)
 
 	resp, err = http.Get(chainlinkBaseUrl + "/plugins/Solana/metrics")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	b, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	t.Log("solana loop metrics", string(b))
-	require.Contains(t, string(b), "solana_txm_tx_pending")
+	require.Contains(t, string(b), "solana_txm_tx_pending", "expected solana specific metric in %s", b)
 
 }
 
