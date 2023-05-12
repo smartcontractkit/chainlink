@@ -2068,7 +2068,7 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).addFunds(upkeepId, tooLow)
       let checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(
@@ -2079,7 +2079,7 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).addFunds(upkeepId, oneWei)
       checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
       assert.equal(checkUpkeepResult.upkeepNeeded, true)
     })
 
@@ -2118,7 +2118,7 @@ describe('KeeperRegistry2_1', () => {
       // upkeep 1 check should return false, 2 should return true
       let checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepID1)
+        .callStatic['checkUpkeep(uint256)'](upkeepID1)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(
         checkUpkeepResult.upkeepFailureReason,
@@ -2127,7 +2127,7 @@ describe('KeeperRegistry2_1', () => {
 
       checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepID2)
+        .callStatic['checkUpkeep(uint256)'](upkeepID2)
       assert.equal(checkUpkeepResult.upkeepNeeded, true)
 
       // upkeep 1 perform should return with insufficient balance using max performData size
@@ -2337,7 +2337,7 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(await owner.getAddress())
-          .callStatic.checkUpkeep(upkeepId),
+          .callStatic['checkUpkeep(uint256)'](upkeepId),
         'OnlySimulatedBackend()',
       )
     })
@@ -2347,7 +2347,7 @@ describe('KeeperRegistry2_1', () => {
 
       const checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
@@ -2363,7 +2363,7 @@ describe('KeeperRegistry2_1', () => {
 
       const checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
@@ -2379,7 +2379,7 @@ describe('KeeperRegistry2_1', () => {
 
       const checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
@@ -2393,7 +2393,7 @@ describe('KeeperRegistry2_1', () => {
     it('returns false and error code if user is out of funds', async () => {
       const checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
@@ -2414,7 +2414,7 @@ describe('KeeperRegistry2_1', () => {
         await mock.setShouldRevertCheck(true)
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic.checkUpkeep(upkeepId)
+          .callStatic['checkUpkeep(uint256)'](upkeepId)
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
 
         const wrappedPerfromData = ethers.utils.defaultAbiCoder.decode(
@@ -2439,7 +2439,7 @@ describe('KeeperRegistry2_1', () => {
         await mock.setCanCheck(false)
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic.checkUpkeep(upkeepId)
+          .callStatic['checkUpkeep(uint256)'](upkeepId)
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
@@ -2460,7 +2460,7 @@ describe('KeeperRegistry2_1', () => {
 
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic.checkUpkeep(upkeepId)
+          .callStatic['checkUpkeep(uint256)'](upkeepId)
 
         assert.equal(checkUpkeepResult.upkeepNeeded, false)
         assert.equal(checkUpkeepResult.performData, '0x')
@@ -2479,7 +2479,7 @@ describe('KeeperRegistry2_1', () => {
 
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic.checkUpkeep(upkeepId, {
+          .callStatic['checkUpkeep(uint256)'](upkeepId, {
             blockTag: latestBlock.number,
           })
 
@@ -2515,7 +2515,7 @@ describe('KeeperRegistry2_1', () => {
         const gas = checkGasLimit.add(checkGasOverhead)
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic.checkUpkeep(upkeepId, {
+          .callStatic['checkUpkeep(uint256)'](upkeepId, {
             gasLimit: gas,
           })
 
