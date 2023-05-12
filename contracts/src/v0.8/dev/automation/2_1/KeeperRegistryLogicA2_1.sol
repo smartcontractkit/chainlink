@@ -40,10 +40,30 @@ contract KeeperRegistryLogicA2_1 is
 
   uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
 
+  /**
+   * @dev this function will be deprecated in a future version of chainlink automation
+   */
   function checkUpkeep(
     uint256 id
   )
     external
+    returns (
+      bool upkeepNeeded,
+      bytes memory performData,
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
+    )
+  {
+    return checkUpkeep(id, s_checkData[id]);
+  }
+
+  function checkUpkeep(
+    uint256 id,
+    bytes memory checkData
+  )
+    public
     cannotExecute
     returns (
       bool upkeepNeeded,
@@ -73,7 +93,7 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
 
     gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
+    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
