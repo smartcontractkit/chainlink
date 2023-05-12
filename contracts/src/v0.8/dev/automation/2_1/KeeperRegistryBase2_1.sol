@@ -172,6 +172,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     OPTIMISM
   }
 
+  enum Trigger {
+    CONDITION,
+    LOG,
+    CRON,
+    READY
+  }
+
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint8 f; // maximum number of faulty oracles
@@ -218,19 +225,29 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  // This struct is used to pack information about the user's check function
-  struct PerformDataWrapper {
-    uint32 checkBlockNumber; // Block number-1 on which check was simulated
-    bytes32 checkBlockhash; // blockhash of checkBlockNumber. Used for reorg protection
-    bytes performData; // actual performData that user's check returned
+  struct ConditionalTrigger {
+    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
+    bytes32 blockHash;
+  }
+
+  struct LogTrigger {
+    uint32 blockNum;
+    uint32 logIndex;
+    bytes32 blockHash;
+    bytes32 txHash;
+  }
+
+  struct CronTrigger {
+    uint256 timestamp;
   }
 
   // Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
-    uint256[] upkeepIds; // Ids of upkeeps
-    PerformDataWrapper[] wrappedPerformDatas; // Contains checkInfo and performData for the corresponding upkeeps
+    uint256[] upkeepIds;
+    bytes[] triggers;
+    bytes[] performDatas;
   }
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
@@ -251,10 +268,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
-    uint32 checkBlockNumber,
+    uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    uint96 totalPayment
+    bytes trigger
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
@@ -272,7 +289,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
-  constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
+  constructor(
+    Mode mode,
+    address link,
+    address linkNativeFeed,
+    address fastGasFeed
+  ) ConfirmedOwner(msg.sender) {
     // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
