@@ -271,7 +271,12 @@ func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId *bi
 
 // returns subscription ID that belongs to the given owner. Returns result found first
 func findSubscriptionID(e helpers.Environment, vrfCoordinatorAddr string) *big.Int {
-	fopts := &bind.FilterOpts{}
+	// Use most recent 500 blocks as search window.
+	head, err := e.Ec.BlockNumber(context.Background())
+	helpers.PanicErr(err)
+	fopts := &bind.FilterOpts{
+		Start: head - 500,
+	}
 
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 	subscriptionIterator, err := coordinator.FilterSubscriptionCreated(fopts, nil, []common.Address{e.Owner.From})
