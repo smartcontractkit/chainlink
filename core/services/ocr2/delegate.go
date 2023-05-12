@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	stdlog "log"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -647,6 +650,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 		}
 
+		wrapper := &logWriter{l: ocrLogger}
+		prefixedLogger := stdlog.New(wrapper, "[keepers-plugin] ", stdlog.Lshortfile)
+
 		conf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -655,6 +661,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			KeepersDatabase:              ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
+			PrefixedLogger:               prefixedLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
@@ -783,4 +790,14 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(l.jobID, msg)
+}
+
+type logWriter struct {
+	l commontypes.Logger
+}
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	l.l.Debug(string(p), nil)
+	n = len(p)
+	return
 }
