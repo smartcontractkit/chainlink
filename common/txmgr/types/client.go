@@ -92,7 +92,7 @@ type TxmClient[
 	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		emptyTxBuilder func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error),
+		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error),
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,

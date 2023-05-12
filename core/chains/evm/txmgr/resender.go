@@ -54,16 +54,16 @@ type Resender[
 	chDone chan struct{}
 }
 
-// NewEthResender creates a new concrete EthResender
-func NewEthResender(
+// NewEvnResender creates a new concrete EvmResender
+func NewEvmResender(
 	lggr logger.Logger,
 	txStore EvmTxStore,
-	ethClient EvmTxmClient,
+	evmClient EvmTxmClient,
 	ks EvmKeyStore,
 	pollInterval time.Duration,
 	config EvmResenderConfig,
 ) *EvmResender {
-	return NewResender(lggr, txStore, ethClient, ks, pollInterval, config)
+	return NewResender(lggr, txStore, evmClient, ks, pollInterval, config)
 }
 
 func NewResender[
@@ -84,7 +84,7 @@ func NewResender[
 	config txmgrtypes.ResenderConfig,
 ) *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD] {
 	if config.TxResendAfterThreshold() == 0 {
-		panic("EthResender requires a non-zero threshold")
+		panic("Resender requires a non-zero threshold")
 	}
 	// todo: add context to evmTxStore
 	ctx, cancel := context.WithCancel(context.Background())
@@ -95,7 +95,7 @@ func NewResender[
 		client.ConfiguredChainID(),
 		pollInterval,
 		config,
-		lggr.Named("EthResender"),
+		lggr.Named("Resender"),
 		make(map[string]time.Time),
 		ctx,
 		cancel,

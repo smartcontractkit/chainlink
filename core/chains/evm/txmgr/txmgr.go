@@ -95,7 +95,7 @@ type Txm[
 	wg       sync.WaitGroup
 
 	reaper           *Reaper[CHAIN_ID]
-	ethResender      *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
+	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
 	ethBroadcaster   *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	ethConfirmer     *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
@@ -148,7 +148,7 @@ func NewTxm(
 		nonceSyncer:      nonceSyncer,
 		ethBroadcaster:   ethBroadcaster,
 		ethConfirmer:     ethConfirmer,
-		ethResender:      ethResender,
+		resender:         ethResender,
 	}
 
 	if cfg.TxResendAfterThreshold() <= 0 {
@@ -187,8 +187,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Start
 			b.reaper.Start()
 		}
 
-		if b.ethResender != nil {
-			b.ethResender.Start()
+		if b.resender != nil {
+			b.resender.Start()
 		}
 
 		if b.fwdMgr != nil {
@@ -239,8 +239,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Close
 		if b.reaper != nil {
 			b.reaper.Stop()
 		}
-		if b.ethResender != nil {
-			b.ethResender.Stop()
+		if b.resender != nil {
+			b.resender.Stop()
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
