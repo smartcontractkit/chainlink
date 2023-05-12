@@ -37,11 +37,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
   string public queryLabel;
   bool public immutable integrationTest;
 
-  constructor(
-    uint256 _testRange,
-    uint256 _interval,
-    bool _integrationTest
-  ) {
+  constructor(uint256 _testRange, uint256 _interval, bool _integrationTest) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
