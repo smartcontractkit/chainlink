@@ -230,7 +230,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "skip - revert data does not decode to mercury lookup",
+			name: "skip - revert data does not decode to mercury lookup, not surfacing errors",
 			input: []types.UpkeepResult{
 				{
 					Key:           upkeepKey,
@@ -248,7 +248,6 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 					PerformData:   []byte{},
 				},
 			},
-			wantErr: errors.New("unpack error: invalid data for unpacking"),
 		},
 		{
 			name:          "skip - error - no upkeep",
