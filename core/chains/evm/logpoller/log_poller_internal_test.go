@@ -355,13 +355,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
 		timeout := time.After(2 * time.Second)
-		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		ctx, cancel := context.WithCancel(tctx)
-
-		defer func() {
-			lp.cancel()
-			lp.wg.Wait()
-		}()
 
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -380,7 +374,18 @@ func TestLogPoller_Replay(t *testing.T) {
 			}()
 		})
 
+		lp.ctx, lp.cancel = context.WithCancel(tctx)
 		lp.wg.Add(1)
+		defer func() {
+			select {
+			case <-lp.replayStart:
+			default:
+			}
+			wg.Wait()
+			lp.cancel()
+			lp.wg.Wait()
+		}()
+
 		go func() {
 			lp.run()
 		}()
@@ -410,18 +415,18 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		go func() {
+		timeout := time.After(2 * time.Second)
+		require.NoError(t, lp.Start(tctx))
+
+		defer func() {
 			select {
 			case <-lp.replayStart: // unblock replayStart<- goroutine if it's stuck
 			default:
 			}
 			wg.Wait()
 			lp.Close()
-			lp.wg.Wait()
 		}()
 
-		timeout := time.After(2 * time.Second)
-		require.NoError(t, lp.Start(tctx))
 		select {
 		case <-timeout:
 			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
