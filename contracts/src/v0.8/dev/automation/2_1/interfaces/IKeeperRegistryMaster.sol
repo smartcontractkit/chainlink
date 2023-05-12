@@ -116,29 +116,11 @@ interface IKeeperRegistryMaster {
 
   function i_next() external view returns (address);
 
-  function latestConfigDetails()
-    external
-    view
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    );
+  function latestConfigDetails() external view returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    );
+  function latestConfigDigestAndEpoch() external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes memory data
-  ) external;
+  function onTokenTransfer(address sender, uint256 amount, bytes memory data) external;
 
   function owner() external view returns (address);
 
@@ -179,7 +161,9 @@ interface IKeeperRegistryMaster {
 
   function cancelUpkeep(uint256 id) external;
 
-  function checkUpkeep(uint256 id)
+  function checkUpkeep(
+    uint256 id
+  )
     external
     returns (
       bool upkeepNeeded,
@@ -237,16 +221,9 @@ interface IKeeperRegistryMaster {
       uint8 f
     );
 
-  function getTransmitterInfo(address query)
-    external
-    view
-    returns (
-      bool active,
-      uint8 index,
-      uint96 balance,
-      uint96 lastCollected,
-      address payee
-    );
+  function getTransmitterInfo(
+    address query
+  ) external view returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee);
 
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
 

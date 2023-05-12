@@ -47,7 +47,10 @@ contract KeeperRegistry1_3 is
    * @param keeperRegistryLogic the address of keeper registry logic
    * @param config registry config settings
    */
-  constructor(KeeperRegistryLogic1_3 keeperRegistryLogic, Config memory config)
+  constructor(
+    KeeperRegistryLogic1_3 keeperRegistryLogic,
+    Config memory config
+  )
     KeeperRegistryBase1_3(
       keeperRegistryLogic.PAYMENT_MODEL(),
       keeperRegistryLogic.REGISTRY_GAS_OVERHEAD(),
@@ -88,7 +91,10 @@ contract KeeperRegistry1_3 is
    * @param id identifier of the upkeep to check
    * @param from the address to simulate performing the upkeep from
    */
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(
+    uint256 id,
+    address from
+  )
     external
     override
     cannotExecute
@@ -110,12 +116,10 @@ contract KeeperRegistry1_3 is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData)
-    external
-    override
-    whenNotPaused
-    returns (bool success)
-  {
+  function performUpkeep(
+    uint256 id,
+    bytes calldata performData
+  ) external override whenNotPaused returns (bool success) {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
@@ -183,11 +187,7 @@ contract KeeperRegistry1_3 is
    * @param sender the account which transferred the funds
    * @param amount number of LINK transfer
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  ) external override {
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
@@ -346,7 +346,9 @@ contract KeeperRegistry1_3 is
   /**
    * @notice read all of the details about an upkeep
    */
-  function getUpkeep(uint256 id)
+  function getUpkeep(
+    uint256 id
+  )
     external
     view
     override
@@ -399,16 +401,7 @@ contract KeeperRegistry1_3 is
   /**
    * @notice read the current info about any keeper address
    */
-  function getKeeperInfo(address query)
-    external
-    view
-    override
-    returns (
-      address payee,
-      bool active,
-      uint96 balance
-    )
-  {
+  function getKeeperInfo(address query) external view override returns (address payee, bool active, uint96 balance) {
     KeeperInfo memory keeper = s_keeperInfo[query];
     return (keeper.payee, keeper.active, keeper.balance);
   }
@@ -420,11 +413,7 @@ contract KeeperRegistry1_3 is
     external
     view
     override
-    returns (
-      State memory state,
-      Config memory config,
-      address[] memory keepers
-    )
+    returns (State memory state, Config memory config, address[] memory keepers)
   {
     Storage memory store = s_storage;
     state.nonce = store.nonce;
@@ -510,11 +499,7 @@ contract KeeperRegistry1_3 is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available
    */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow

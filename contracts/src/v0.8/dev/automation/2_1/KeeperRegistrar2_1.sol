@@ -350,10 +350,10 @@ contract KeeperRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @dev verify registration request and emit RegistrationRequested event
    */
-  function _register(RegistrationParams memory params, address sender)
-    private
-    returns (uint256 upkeepId, address forwarder)
-  {
+  function _register(
+    RegistrationParams memory params,
+    address sender
+  ) private returns (uint256 upkeepId, address forwarder) {
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }

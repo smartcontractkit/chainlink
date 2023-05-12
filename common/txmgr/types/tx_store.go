@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ type TxStore[
 	// Represents a unique Block Hash for a chain
 	BLOCK_HASH types.Hashable,
 	// Represents a onchain receipt object that a chain's RPC returns
-	R ChainReceipt[TX_HASH],
+	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
 	SEQ Sequence,
 	// Represents the chain specific fee type
@@ -80,6 +81,7 @@ type TxStore[
 	UpdateEthTxFatalError(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], qopts ...pg.QOpt) error
 	UpdateEthTxForRebroadcast(etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD]) error
 	Close()
+	Abandon(id CHAIN_ID, addr ADDR) error
 }
 
 type TxHistoryReaper[CHAIN_ID ID] interface {
@@ -98,7 +100,7 @@ type ReceiptPlus[R any] struct {
 }
 
 // R is the raw unparsed transaction receipt
-type Receipt[R ChainReceipt[TX_HASH], TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
+type Receipt[R ChainReceipt[TX_HASH, BLOCK_HASH], TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
 	ID               int64
 	TxHash           TX_HASH
 	BlockHash        BLOCK_HASH
@@ -110,8 +112,13 @@ type Receipt[R ChainReceipt[TX_HASH], TX_HASH types.Hashable, BLOCK_HASH types.H
 
 type QueryerFunc = func(tx pg.Queryer) error
 
-type ChainReceipt[TX_HASH types.Hashable] interface {
+type ChainReceipt[TX_HASH, BLOCK_HASH types.Hashable] interface {
 	GetStatus() uint64
 	GetTxHash() TX_HASH
-	GetBlockNumber() int64
+	GetBlockNumber() *big.Int
+	IsZero() bool
+	IsUnmined() bool
+	GetFeeUsed() uint64
+	GetTransactionIndex() uint
+	GetBlockHash() BLOCK_HASH
 }
