@@ -17,14 +17,19 @@ type Head[BLOCK_HASH Hashable] interface {
 	// Hash is the head's block hash
 	BlockHash() BLOCK_HASH
 
-	// Parent is the head's parent block
-	GetParent() Head[BLOCK_HASH]
-	SetParent(parent Head[BLOCK_HASH])
-
 	// ParentHash is the head's parent block hash
 	GetParentHash() BLOCK_HASH
 
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
+}
+
+// HeadTrackerHead is a Chain Agnostic Head interface used by the HeadTracker
+type HeadTrackerHead[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
+	Head[BLOCK_HASH]
+
+	// Parent is the head's parent block
+	GetParent() H
+	SetParent(parent H)
 }
