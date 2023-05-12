@@ -26,7 +26,6 @@ type Head[BLOCK_HASH Hashable] interface {
 
 	// GetParent returns the parent head
 	GetParent() Head[BLOCK_HASH]
-
 	// SetParent sets the parent head
 	SetParent(parent Head[BLOCK_HASH])
 }
