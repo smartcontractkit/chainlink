@@ -784,8 +784,9 @@ func setupAutomationTest(
 		automationEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
 	chainlinkChart := chainlink.New(0, map[string]any{
-		"replicas": "5",
-		"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+		"replicas":    "5",
+		"toml":        client.AddNetworksConfig(automationBaseTOML, network),
+		"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
 	})
 
 	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
