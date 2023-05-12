@@ -181,7 +181,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
-    uint8 f; // maximum number of faulty oracles
+    uint8 f; // maximum  number of faulty oracles
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
@@ -225,7 +225,22 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct ConditionalTrigger {
+  /**
+   * @dev structure of offchain config for log triggers
+   */
+  struct LogTriggerConfig {
+    address contractAddress;
+    bytes32 topic0;
+    bytes32 topic1;
+    bytes32 topic2;
+    bytes32 topic3;
+    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
+  }
+
+  /**
+   * @dev used for both conditional and ready trigger types
+   */
+  struct BlockTrigger {
     uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
     bytes32 blockHash;
   }
@@ -289,12 +304,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
-  constructor(
-    Mode mode,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed
-  ) ConfirmedOwner(msg.sender) {
+  constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
     // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
@@ -336,6 +346,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param paused if this upkeep is paused
+   * TODO - moving this function off of base will probaly save a fair amount of space for one of the contracts (either master or LogicA)
    */
   function _createUpkeep(
     uint256 id,
@@ -369,8 +380,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
   }
-
-  // TODO - check which of these need to be on BASE vs which can be assigned to a specific contract
 
   /**
    * @dev retrieves feed data for fast gas/native and link/native prices. if the feed
@@ -514,6 +523,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     s_transmitters[transmitterAddress] = transmitter;
 
     return transmitter.balance;
+  }
+
+  function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
+    // TODO
+    return Trigger.CONDITION;
   }
 
   /**
