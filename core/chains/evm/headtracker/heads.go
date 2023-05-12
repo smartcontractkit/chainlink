@@ -4,26 +4,41 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type heads[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
-	heads []H
-	mu    sync.RWMutex
+type heads[H commontypes.HeadTrackerHead[H, BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
+	heads  []H
+	mu     sync.RWMutex
+	getNil func() H
 }
 
-func NewHeads[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable]() *heads[H, BLOCK_HASH] {
-	return &heads[H, BLOCK_HASH]{}
+func NewEvmHeads() *heads[*evmtypes.Head, common.Hash] {
+	return NewHeads[*evmtypes.Head, common.Hash](
+		func() *evmtypes.Head { return nil },
+	)
 }
 
-func (h *heads[H, BLOCK_HASH]) LatestHead() *H {
+func NewHeads[
+	H commontypes.HeadTrackerHead[H, BLOCK_HASH],
+	BLOCK_HASH commontypes.Hashable,
+](getNil func() H) *heads[H, BLOCK_HASH] {
+	return &heads[H, BLOCK_HASH]{
+		getNil: getNil,
+	}
+}
+
+func (h *heads[H, BLOCK_HASH]) LatestHead() H {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	if len(h.heads) == 0 {
-		return nil
+		return h.getNil()
 	}
-	return &h.heads[0]
+	return h.heads[0]
 }
 
 func (h *heads[H, BLOCK_HASH]) HeadByHash(hash BLOCK_HASH) *H {
@@ -49,7 +64,7 @@ func (h *heads[H, BLOCK_HASH]) AddHeads(historyDepth uint, newHeads ...H) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	headsMap := make(map[BLOCK_HASH]*H, len(h.heads)+len(newHeads))
+	headsMap := make(map[BLOCK_HASH]H, len(h.heads)+len(newHeads))
 	for _, head := range append(h.heads, newHeads...) {
 		if head.BlockHash() == head.GetParentHash() {
 			// shouldn't happen but it is untrusted input
@@ -58,9 +73,9 @@ func (h *heads[H, BLOCK_HASH]) AddHeads(historyDepth uint, newHeads ...H) {
 		// copy all head objects to avoid races when a previous head chain is used
 		// elsewhere (since we mutate Parent here)
 		headCopy := head
-		headCopy.SetParent(nil) // always build it from scratch in case it points to a head too old to be included
+		headCopy.SetParent(h.getNil()) // always build it from scratch in case it points to a head too old to be included
 		// map eliminates duplicates
-		headsMap[head.BlockHash()] = &headCopy
+		headsMap[head.BlockHash()] = headCopy
 	}
 
 	heads := make([]H, len(headsMap))
@@ -68,7 +83,7 @@ func (h *heads[H, BLOCK_HASH]) AddHeads(historyDepth uint, newHeads ...H) {
 	{
 		var i int
 		for _, head := range headsMap {
-			heads[i] = *head
+			heads[i] = head
 			i++
 		}
 	}
