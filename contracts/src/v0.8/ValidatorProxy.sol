@@ -160,15 +160,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @return hasProposal bool
    * @return proposed address
    */
-  function getAggregators()
-    external
-    view
-    returns (
-      address current,
-      bool hasProposal,
-      address proposed
-    )
-  {
+  function getAggregators() external view returns (address current, bool hasProposal, address proposed) {
     current = s_currentAggregator.target;
     hasProposal = s_currentAggregator.hasNewProposal;
     proposed = s_proposedAggregator;
@@ -216,11 +208,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
   function getValidators()
     external
     view
-    returns (
-      AggregatorValidatorInterface current,
-      bool hasProposal,
-      AggregatorValidatorInterface proposed
-    )
+    returns (AggregatorValidatorInterface current, bool hasProposal, AggregatorValidatorInterface proposed)
   {
     current = s_currentValidator.target;
     hasProposal = s_currentValidator.hasNewProposal;

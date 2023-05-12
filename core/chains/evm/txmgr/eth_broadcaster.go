@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -59,13 +57,13 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 type ProcessUnstartedEthTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH], FEE txmgrtypes.Fee, ADD any] interface {
+type TransmitCheckerFactory[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], FEE txmgrtypes.Fee, ADD any] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec txmgrtypes.TransmitCheckerSpec[ADDR]) (TransmitChecker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH], FEE txmgrtypes.Fee, ADD any] interface {
+type TransmitChecker[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], FEE txmgrtypes.Fee, ADD any] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
@@ -89,19 +87,19 @@ type TransmitChecker[CHAIN_ID txmgrtypes.ID, ADDR types.Hashable, TX_HASH, BLOCK
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD types.Head[TX_HASH],
+	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] struct {
-	logger    logger.Logger
-	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-	ethClient evmclient.Client
-	txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ]
+	logger  logger.Logger
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	client  txmgrtypes.TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	nonceSyncer    NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
@@ -155,7 +153,7 @@ func NewEthBroadcaster(
 	b := &EvmBroadcaster{
 		logger:           logger,
 		txStore:          txStore,
-		ethClient:        ethClient,
+		client:           NewEvmTxmClient(ethClient),
 		TxAttemptBuilder: txAttemptBuilder,
 		nonceSyncer:      nonceSyncer,
 		chainID:          ethClient.ConfiguredChainID(),
@@ -166,7 +164,7 @@ func NewEthBroadcaster(
 		initSync:         sync.Mutex{},
 		isStarted:        false,
 		autoSyncNonce:    autoSyncNonce,
-		parseAddr:        stringToGethAddress, // note: still evm-specific
+		parseAddr:        stringToGethAddress,
 	}
 
 	b.processUnstartedEthTxsImpl = b.processUnstartedEthTxs
@@ -529,22 +527,8 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 	}
 	cancel()
 
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		lgr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
-		etx.Error = null.StringFrom(err.Error())
-		return eb.saveFatallyErroredTransaction(lgr, &etx), true
-	}
-
-	// TODO: When eth client is generalized, remove this address conversion logic below
-	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
-	if err != nil {
-		return errors.Wrapf(err, "failed to do address format conversion"), true
-	}
-
 	lgr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
-	errType, err := eb.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
 
 	if errType != clienttypes.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt
@@ -636,15 +620,12 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "err", err, "etx", etx, "attempt", attempt)
-		nextNonce, e := eb.ethClient.PendingNonceAt(ctx, fromAddress)
+		nextNonce, e := eb.client.PendingNonceAt(ctx, etx.FromAddress)
 		if e != nil {
 			err = multierr.Combine(e, err)
 			return errors.Wrapf(err, "failed to fetch latest pending nonce after encountering unknown RPC error while sending transaction"), true
 		}
-		if nextNonce > math.MaxInt64 {
-			return errors.Errorf("nonce overflow, got: %v", nextNonce), true
-		}
-		if int64(nextNonce) > *etx.Sequence {
+		if nextNonce > *etx.Sequence {
 			// Despite the error, the RPC node considers the previously sent
 			// transaction to have been accepted. In this case, the right thing to
 			// do is assume success and hand off to EthConfirmer
@@ -720,7 +701,7 @@ func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE,
 	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit)
 }
 
-func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], initialBroadcastAt time.Time, newFee gas.EvmFee, newFeeLimit uint32) (err error, retyrable bool) {
+func (eb *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint32) (err error, retyrable bool) {
 	if err = eb.txStore.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}

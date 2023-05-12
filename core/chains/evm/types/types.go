@@ -196,12 +196,20 @@ func (r *Receipt) GetTxHash() common.Hash {
 	return r.TxHash
 }
 
-func (r *Receipt) TxHashString() string {
-	return r.TxHash.String()
+func (r *Receipt) GetBlockNumber() *big.Int {
+	return r.BlockNumber
 }
 
-func (r *Receipt) GetBlockNumber() int64 {
-	return r.BlockNumber.Int64()
+func (r *Receipt) GetFeeUsed() uint64 {
+	return r.GasUsed
+}
+
+func (r *Receipt) GetTransactionIndex() uint {
+	return r.TransactionIndex
+}
+
+func (r *Receipt) GetBlockHash() common.Hash {
+	return r.BlockHash
 }
 
 // Log represents a contract log event.

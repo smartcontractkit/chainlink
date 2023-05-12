@@ -8,10 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -113,20 +110,20 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[TX_HASH],
+	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
 	BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] struct {
 	utils.StartStopOnce
-	txStore   txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-	lggr      logger.Logger
-	ethClient evmclient.Client
-	txmgrtypes.TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ]
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	lggr    logger.Logger
+	client  txmgrtypes.TxmClient[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	resumeCallback ResumeCallback
 	config         EvmConfirmerConfig
 	chainID        CHAIN_ID
@@ -142,6 +139,7 @@ type EthConfirmer[
 	isStarted bool
 
 	nConsecutiveBlocksChainTooShort int
+	isReceiptNil                    func(R) bool
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
@@ -157,7 +155,7 @@ func NewEthConfirmer(
 	return &EvmConfirmer{
 		txStore:                         txStore,
 		lggr:                            lggr,
-		ethClient:                       ethClient,
+		client:                          NewEvmTxmClient(ethClient),
 		TxAttemptBuilder:                txAttemptBuilder,
 		resumeCallback:                  nil,
 		config:                          config,
@@ -167,6 +165,7 @@ func NewEthConfirmer(
 		initSync:                        sync.Mutex{},
 		isStarted:                       false,
 		nConsecutiveBlocksChainTooShort: 0,
+		isReceiptNil:                    func(r *evmtypes.Receipt) bool { return r == nil }, // note still EVM specific
 	}
 }
 
@@ -259,14 +258,14 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ProcessHead(ctx context.Context, head commontypes.Head[TX_HASH]) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ProcessHead(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) processHead(ctx context.Context, head commontypes.Head[TX_HASH]) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) processHead(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
@@ -340,16 +339,15 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
 	var ethTxIDsToUnconfirm []int64
-	for idx, req := range reqs {
-		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
-		if req.Error != nil {
-			err := evmclient.NewSendError(req.Error)
-			if err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() {
+	for idx, txErr := range txErrs {
+		// Add to Unconfirm array, all tx where error wasn't TransactionAlreadyKnown.
+		if txErr != nil {
+			if txCodes[idx] == clienttypes.TransactionAlreadyKnown {
 				continue
 			}
 		}
@@ -390,7 +388,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		// separateLikelyConfirmedAttempts is used as an optimisation: there is
 		// no point trying to fetch receipts for attempts with a nonce higher
 		// than the highest nonce the RPC node thinks it has seen
-		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, uint64(minedSequence))
+		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, minedSequence)
 		likelyConfirmedCount := len(likelyConfirmed)
 		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
@@ -418,16 +416,16 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) separateLikelyConfirmedAttempts(from ADDR, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], minedSequence uint64) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD] {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) separateLikelyConfirmedAttempts(from ADDR, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], minedSequence SEQ) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD] {
 	if len(attempts) == 0 {
 		return attempts
 	}
 
 	firstAttemptNonce := *attempts[len(attempts)-1].Tx.Sequence
 	lastAttemptNonce := *attempts[0].Tx.Sequence
-	latestMinedNonce := int64(minedSequence) - 1 // this can be -1 if a transaction has never been mined on this account
+	latestMinedNonce := minedSequence.Int64() - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
-		len(attempts), from, minedSequence, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedSequence", minedSequence, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+		len(attempts), from, minedSequence.Int64(), latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedSequence", minedSequence, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	// attempts are ordered by nonce ASC
@@ -440,7 +438,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		// 5 total attempts, highest has nonce 4
 		// minedSequence=3
 		// likelyConfirmed will be attempts[0:3] which gives the first 3 transactions, as expected
-		if *attempts[i].Tx.Sequence > int64(minedSequence) {
+		if *attempts[i].Tx.Sequence > minedSequence.Int64() {
 			ec.lggr.Debugf("Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].Tx.Sequence)
 			likelyConfirmed = attempts[0:i]
 			break
@@ -489,20 +487,13 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	return nil
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (nonce evmtypes.Nonce, err error) {
-	// TODO: Remove this when client gets generalized
-	gethAddr, err := stringToGethAddress(from.String())
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed to do address format conversion")
-	}
-	return ec.ethClient.SequenceAt(ctx, gethAddr, nil)
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (SEQ, error) {
+	return ec.client.SequenceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) batchFetchReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], blockNum int64) (receipts []R, err error) {
-	var reqs []rpc.BatchElem
-
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if ec.config.UseForwarders() {
 		err = ec.txStore.PreloadEthTxes(attempts)
@@ -511,39 +502,17 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 		}
 	}
 
-	for _, attempt := range attempts {
-		// TODO: When eth client is generalized, remove this hash conversion logic below
-		// https://smartcontract-it.atlassian.net/browse/BCI-1222
-		var gethHash common.Hash
-		gethHash, err = stringToGethHash(attempt.Hash.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to do address format conversion")
-		}
-		req := rpc.BatchElem{
-			Method: "eth_getTransactionReceipt",
-			Args:   []interface{}{gethHash},
-			Result: &evmtypes.Receipt{},
-		}
-		reqs = append(reqs, req)
-	}
-
 	lggr := ec.lggr.Named("batchFetchReceipts").With("blockNum", blockNum)
 
-	err = ec.ethClient.BatchCallContext(ctx, reqs)
+	txReceipts, txErrs, err := ec.client.BatchGetReceipts(ctx, attempts)
 	if err != nil {
-		return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext")
+		return nil, err
 	}
 
-	for i, req := range reqs {
+	for i := range txReceipts {
 		attempt := attempts[i]
-		result, err := req.Result, req.Error
-
-		// TODO: remove when client is generalized (should return expected types)
-		// https://smartcontract-it.atlassian.net/browse/BCI-1222
-		receipt, is := result.(*evmtypes.Receipt)
-		if !is {
-			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
-		}
+		receipt := txReceipts[i]
+		err := txErrs[i]
 
 		l := logger.Sugared(attempt.Tx.GetLogger(lggr).With(
 			"txHash", attempt.Hash.String(), "ethTxAttemptID", attempt.ID,
@@ -555,7 +524,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 			continue
 		}
 
-		if receipt == nil {
+		if ec.isReceiptNil(receipt) {
 			// NOTE: This should never happen, but it seems safer to check
 			// regardless to avoid a potential panic
 			l.AssumptionViolation("got nil receipt")
@@ -567,60 +536,31 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 			continue
 		}
 
-		l = logger.Sugared(l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex))
+		l = logger.Sugared(l.With("blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex()))
 
 		if receipt.IsUnmined() {
 			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
 			continue
 		}
 
-		l.Debugw("Got receipt for transaction", "blockNumber", receipt.BlockNumber, "gasUsed", receipt.GasUsed)
+		l.Debugw("Got receipt for transaction", "blockNumber", receipt.GetBlockNumber(), "feeUsed", receipt.GetFeeUsed())
 
-		if receipt.TxHash.String() != attempt.Hash.String() {
-			l.Errorf("Invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.String())
+		if receipt.GetTxHash().String() != attempt.Hash.String() {
+			l.Errorf("Invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.GetTxHash().String(), attempt.Hash.String())
 			continue
 		}
 
-		if receipt.BlockNumber == nil {
+		if receipt.GetBlockNumber() == nil {
 			l.Error("Invariant violation, receipt was missing block number")
 			continue
 		}
 
-		// TODO: Remove below address conversions when ethClient.CallContract is generalized.
-		// https://smartcontract-it.atlassian.net/browse/BCI-1222
-		gethFromAddr, err := stringToGethAddress(attempt.Tx.FromAddress.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to do address format conversion")
-		}
-		gethToAddr, err := stringToGethAddress(attempt.Tx.ToAddress.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to do address format conversion")
-		}
-		if receipt.Status == 0 {
-			// Do an eth call to obtain the revert reason.
-			// TODO: fold into chain client + remove conversion
-			// https://smartcontract-it.atlassian.net/browse/BCI-1222
-			fee, convertErr := ToGethFees(attempt.Fee())
-			if convertErr != nil {
-				return nil, fmt.Errorf("failed to convert fee to geth types: %w", convertErr)
-			}
-
-			_, errCall := ec.ethClient.CallContract(ctx, ethereum.CallMsg{
-				From:       gethFromAddr,
-				To:         &gethToAddr,
-				Gas:        uint64(attempt.Tx.FeeLimit),
-				GasPrice:   fee.Legacy.ToInt(),
-				GasFeeCap:  fee.DynamicFeeCap.ToInt(),
-				GasTipCap:  fee.DynamicTipCap.ToInt(),
-				Value:      nil,
-				Data:       attempt.Tx.EncodedPayload,
-				AccessList: nil,
-			}, receipt.BlockNumber)
-			rpcError, errExtract := evmclient.ExtractRPCError(errCall)
+		if receipt.GetStatus() == 0 {
+			rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
 			if errExtract == nil {
-				l.Warnw("transaction reverted on-chain", "hash", receipt.TxHash, "rpcError", rpcError.String())
+				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
 			} else {
-				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.TxHash, "err", err)
+				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
 			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
@@ -634,18 +574,11 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 			meta, metaErr := attempt.Tx.GetMeta()
 			if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
-				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
+				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
 			}
 		}
 
-		// TODO: remove conversion once chain client is generic
-		// https://smartcontract-it.atlassian.net/browse/BCI-1222
-		r, receiptErr := ToGenericReceipt[TX_HASH, R](receipt)
-		if receiptErr != nil {
-			return nil, fmt.Errorf("failed to convert geth receipt to generic receipt: %w", receiptErr)
-		}
-
-		receipts = append(receipts, r)
+		receipts = append(receipts, receipt)
 	}
 
 	return
@@ -874,24 +807,8 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	}
 
 	now := time.Now()
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
-		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	}
-
-	// TODO: When eth client is generalized, remove this address conversion logic below
-	// https://smartcontract-it.atlassian.net/browse/BCI-852
-	fromAddress, err := stringToGethAddress(etx.FromAddress.String())
-	if err != nil {
-		// WARNING: This should never happen!
-		// Until the eth client is generalized we can consider this error as fatal.
-		lggr.Criticalw("Failed to do address format conversion", "err", err)
-		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	}
-
-	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
-	errType, sendError := ec.ethClient.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
+	errType, sendError := ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
 
 	switch errType {
 	case clienttypes.Underpriced:
@@ -980,7 +897,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head commontypes.Head[TX_HASH]) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 	if head.ChainLength() < ec.config.FinalityDepth() {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.FinalityDepth(),
@@ -1037,10 +954,10 @@ func hasReceiptInLongestChain[
 	CHAIN_ID txmgrtypes.ID,
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
-](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[TX_HASH]) bool {
+](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[BLOCK_HASH]) bool {
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
@@ -1056,7 +973,7 @@ func hasReceiptInLongestChain[
 	}
 }
 
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[TX_HASH]) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], head commontypes.Head[BLOCK_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1124,7 +1041,9 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
 			}
-			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx, ec.lggr); err != nil {
+			attempt.Tx = *etx // for logging
+			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt)
+			if errCode, err := ec.client.SendTransactionReturnCode(context.TODO(), *etx, attempt, ec.lggr); errCode != clienttypes.Successful && err != nil {
 				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.Fee())
 				continue
 			}
@@ -1139,15 +1058,15 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	if gasLimit == 0 {
 		gasLimit = ec.config.FeeLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.TxAttemptBuilder, seq, gasLimit, fee, fromAddress)
+	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return "", errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
-	return tx.Hash().String(), nil
+	return txhash, nil
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ResumePendingTaskRuns(ctx context.Context, head commontypes.Head[TX_HASH]) error {
+func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) ResumePendingTaskRuns(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 
 	receiptsPlus, err := ec.txStore.FindEthReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 
@@ -1184,7 +1103,7 @@ func observeUntilTxConfirmed[
 	CHAIN_ID txmgrtypes.ID,
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ](chainID CHAIN_ID, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], receipts []R) {
@@ -1212,7 +1131,7 @@ func observeUntilTxConfirmed[
 				return 0
 			})
 			if broadcastBefore > 0 {
-				blocksElapsed := r.GetBlockNumber() - broadcastBefore
+				blocksElapsed := r.GetBlockNumber().Int64() - broadcastBefore
 				promBlocksUntilTxConfirmed.
 					WithLabelValues(chainID.String()).
 					Observe(float64(blocksElapsed))
