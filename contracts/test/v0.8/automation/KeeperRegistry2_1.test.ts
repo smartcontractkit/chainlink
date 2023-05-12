@@ -44,6 +44,14 @@ enum Mode {
   OPTIMISM,
 }
 
+// copied from KeeperRegistryBase2_1.sol
+enum Trigger {
+  CONDITION,
+  LOG,
+  CRON,
+  READY,
+}
+
 async function getUpkeepID(tx: ContractTransaction) {
   const receipt = await tx.wait()
   for (const event of receipt.events || []) {
@@ -300,8 +308,8 @@ describe('KeeperRegistry2_1', () => {
   let mockArbGasInfo: MockArbGasInfo
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
-  let upkeepId: BigNumber
-  let afUpkeepId: BigNumber
+  let upkeepId: BigNumber // basic upkeep
+  let afUpkeepId: BigNumber // auto funding upkeep
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -2565,45 +2573,31 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#getActiveUpkeepIDs', () => {
+  describe('#getActiveUpkeepIDs / #getActiveUpkeepIDsByType', () => {
     // we have 2 upkeeps registered
 
-    it('reverts if startIndex is out of bounds ', async () => {
-      await evmRevert(registry.getActiveUpkeepIDs(4, 0), 'IndexOutOfRange()')
+    it('reverts if startIndex is greater than end index ', async () => {
+      await evmRevert(registry.getActiveUpkeepIDs(1, 0), 'IndexOutOfRange()')
     })
 
-    it('reverts if startIndex + maxCount is out of bounds', async () => {
-      await evmRevert(registry.getActiveUpkeepIDs(0, 4))
-    })
-
-    it('returns upkeep IDs bounded by maxCount', async () => {
+    it('returns upkeep IDs within range', async () => {
       let upkeepIds = await registry.getActiveUpkeepIDs(0, 1)
-      assert(
-        upkeepIds.length == 1,
-        'Only maxCount number of upkeeps should be returned',
-      )
-      assert(upkeepIds[0].eq(upkeepId), 'Correct upkeep ID should be returned')
-
-      upkeepIds = await registry.getActiveUpkeepIDs(1, 1)
-      assert(
-        upkeepIds.length == 1,
-        'Only maxCount number of upkeeps should be returned',
-      )
-      assert(
-        upkeepIds[0].eq(afUpkeepId),
-        'Correct upkeep ID should be returned',
-      )
+      assert(upkeepIds.length == 1)
+      assert(upkeepIds[0].eq(upkeepId))
+      upkeepIds = await registry.getActiveUpkeepIDs(1, 2)
+      assert(upkeepIds.length == 1)
+      assert(upkeepIds[0].eq(afUpkeepId))
+      upkeepIds = await registry.getActiveUpkeepIDs(0, 2)
+      assert(upkeepIds.length == 2)
+      assert(upkeepIds[0].eq(upkeepId))
+      assert(upkeepIds[1].eq(afUpkeepId))
+      upkeepIds = await registry.getActiveUpkeepIDs(0, 100)
+      assert(upkeepIds.length == 2)
+      assert(upkeepIds[0].eq(upkeepId))
+      assert(upkeepIds[1].eq(afUpkeepId))
     })
 
-    it('returns all upkeep IDs if maxCount is 0', async () => {
-      const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
-      assert(upkeepIds.length == 2, 'All upkeeps should be returned')
-      assert(upkeepIds[0].eq(upkeepId), 'Correct upkeep ID should be returned')
-      assert(
-        upkeepIds[1].eq(afUpkeepId),
-        'Correct upkeep ID should be returned',
-      )
-    })
+    it.skip('filters upkeeps by type', async () => {})
   })
 
   describe('#getMaxPaymentForGas', () => {

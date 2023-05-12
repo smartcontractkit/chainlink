@@ -115,19 +115,55 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
    * @notice retrieve active upkeep IDs. Active upkeep is defined as an upkeep which is not paused and not canceled.
    * @param startIndex starting index in list
-   * @param maxCount max count to retrieve (0 = unlimited)
+   * @param endIndex end index. non-inclusive
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
+   * by suppling as many results as it can within the bounds of the upkeep set
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
-    uint256 maxIdx = s_upkeepIDs.length();
-    if (startIndex >= maxIdx) revert IndexOutOfRange();
-    if (maxCount == 0) {
-      maxCount = maxIdx - startIndex;
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 endIndex) external view returns (uint256[] memory) {
+    uint256 maxIndex = s_upkeepIDs.length();
+    endIndex = endIndex > maxIndex ? maxIndex : endIndex;
+    if (startIndex > endIndex) revert IndexOutOfRange();
+    uint256 count = endIndex - startIndex;
+    uint256[] memory ids = new uint256[](count);
+    for (uint256 idx = 0; idx < count; idx++) {
+      ids[idx] = s_upkeepIDs.at(idx + startIndex);
     }
+    return ids;
+  }
+
+  /**
+   * @notice retrieve active upkeep IDs within the range, filtered by the provided type
+   * @param startIndex starting index in list
+   * @param endIndex end index. non-inclusive
+   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
+   * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
+   * by suppling as many results as it can within the bounds of the upkeep set
+   */
+  function getActiveUpkeepIDsByType(
+    uint256 startIndex,
+    uint256 endIndex,
+    Trigger trigger
+  ) external view returns (uint256[] memory) {
+    uint256 maxIndex = s_upkeepIDs.length();
+    endIndex = endIndex > maxIndex ? maxIndex : endIndex;
+    if (startIndex > endIndex) revert IndexOutOfRange();
+    uint256 maxCount = endIndex - startIndex;
+    uint256 numFound;
     uint256[] memory ids = new uint256[](maxCount);
     for (uint256 idx = 0; idx < maxCount; idx++) {
-      ids[idx] = s_upkeepIDs.at(startIndex + idx);
+      uint256 id = s_upkeepIDs.at(idx + startIndex);
+      if (getTriggerType(id) == trigger) {
+        ids[numFound] = id;
+        numFound++;
+      }
+    }
+    if (numFound != maxCount) {
+      assembly {
+        mstore(ids, numFound)
+      }
     }
     return ids;
   }
