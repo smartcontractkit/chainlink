@@ -74,25 +74,25 @@ type TxmClient[
 	BatchSendTransactions(
 		ctx context.Context,
 		store TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 		bathSize int,
 		lggr logger.Logger,
 	) ([]clienttypes.SendTxReturnCode, []error, error)
 	SendTransactionReturnCode(
 		ctx context.Context,
-		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
-		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 		lggr logger.Logger,
 	) (clienttypes.SendTxReturnCode, error)
-	PendingNonceAt(ctx context.Context, addr ADDR) (int64, error)
+	PendingNonceAt(ctx context.Context, addr ADDR) (SEQ, error)
 	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 	BatchGetReceipts(
 		ctx context.Context,
-		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error),
+		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error),
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,
@@ -100,7 +100,7 @@ type TxmClient[
 	) (txhash string, err error)
 	CallContract(
 		ctx context.Context,
-		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 		blockNumber *big.Int,
 	) (rpcErr fmt.Stringer, extractErr error)
 }

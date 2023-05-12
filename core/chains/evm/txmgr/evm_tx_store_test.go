@@ -361,7 +361,7 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 
 		time1 := time.Now()
 		etx := cltest.NewEthTx(t, fromAddress)
-		etx.Sequence = new(int64)
+		etx.Sequence = new(evmtypes.Nonce)
 		etx.State = txmgr.EthTxUnconfirmed
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
@@ -1213,7 +1213,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	nonce := int64(123)
+	nonce := evmtypes.Nonce(123)
 
 	t.Run("update successful", func(t *testing.T) {
 		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
@@ -1443,7 +1443,7 @@ func TestORM_CheckEthTxQueueCapacity(t *testing.T) {
 	})
 
 	var n int64
-	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, n, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(n), fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, n, fromAddress)
 	n++

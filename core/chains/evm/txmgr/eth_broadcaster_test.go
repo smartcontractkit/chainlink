@@ -180,7 +180,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 
 	t.Run("existing eth_txes with broadcast_at or error", func(t *testing.T) {
-		nonce := int64(342)
+		nonce := evmtypes.Nonce(342)
 		errStr := "some error"
 
 		etxUnconfirmed := txmgr.EvmTx{
@@ -768,7 +768,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	value := big.Int(assets.NewEthValue(142))
 	gasLimit := uint32(242)
 	encodedPayload := []byte{0, 1}
-	nextNonce := int64(916714082576372851)
+	nextNonce := evmtypes.Nonce(916714082576372851)
 	firstNonce := nextNonce
 	secondNonce := nextNonce + 1
 	cfg := configtest.NewGeneralConfig(t, nil)

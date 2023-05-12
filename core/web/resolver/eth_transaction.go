@@ -73,7 +73,7 @@ func (r *EthTransactionResolver) Nonce() *string {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.tx.Sequence)
+	value := stringutils.FromInt64((*r.tx.Sequence).Int64())
 
 	return &value
 }
