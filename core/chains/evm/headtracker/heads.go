@@ -89,7 +89,7 @@ func (h *heads[H, BLOCK_HASH]) AddHeads(historyDepth uint, newHeads ...H) {
 		head := heads[i]
 		parent, exists := headsMap[head.GetParentHash()]
 		if exists {
-			head.GetParent() = parent
+			head.SetParent(parent)
 		}
 	}
 

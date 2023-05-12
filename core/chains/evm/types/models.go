@@ -70,8 +70,8 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
-func (h *Head) SetParent(parent *Head) {
-	h.Parent = parent
+func (h *Head) SetParent(parent commontypes.Head[common.Hash]) {
+	h.Parent = parent.(*Head)
 }
 
 func (h *Head) GetParentHash() common.Hash {

@@ -19,7 +19,7 @@ type Head[BLOCK_HASH Hashable] interface {
 
 	// Parent is the head's parent block
 	GetParent() Head[BLOCK_HASH]
-	SetParent(parent *Head[BLOCK_HASH])
+	SetParent(parent Head[BLOCK_HASH])
 
 	// ParentHash is the head's parent block hash
 	GetParentHash() BLOCK_HASH
