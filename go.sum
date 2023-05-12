@@ -771,6 +771,8 @@ github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJS
 github.com/jhump/protoreflect v1.12.1-0.20220721211354-060cc04fc18b h1:izTof8BKh/nE1wrKOrloNA5q4odOarjf+Xpe+4qow98=
 github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75 h1:KYTOmcwuezD27O7vNF15lj8H7imCBMXCq1RzCdj4e3A=
 github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
+github.com/jmank88/libocr v0.0.0-20230612221310-b34d1ec22335 h1:q3v54bp4vCpFshDFCXnH4W7/ljpnDkldq0BBhvrQkAc=
+github.com/jmank88/libocr v0.0.0-20230612221310-b34d1ec22335/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmhodges/levigo v1.0.0 h1:q5EC36kV79HWeTBWsod3mG11EgStG3qArTKcvlksN1U=
 github.com/jmhodges/levigo v1.0.0/go.mod h1:Q6Qx+uH3RAqyK4rFQroq9RL7mdkABMcfhEI+nNuzMJQ=
@@ -1399,8 +1401,6 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb50359
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592/go.mod h1:km46XAo6xebV4Q+WyRFfo3E2t80YqTkegJM4FEfo5/Y=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 h1:ZblU/X27pIHAZ7c/37TZf7ykZ4jkfVUmvIcchyO2rnw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482/go.mod h1:bQmQtng05ueHYaLRKtAr1/LCaUWvOaE5ch008u5yJ+M=
-github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1 h1:caG9BWjnCxN/HPBA5ltDGadDraZAsjGIct4S8lh8D5c=
-github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/smartcontractkit/ocr2keepers v0.7.0 h1:5csjgDFQEO+kXr45vPX3o/v//X2bznNCWhgn94Qp6n0=
 github.com/smartcontractkit/ocr2keepers v0.7.0/go.mod h1:13Q6zuYWLByKXzzcSoi7L01bT8OzxM//XgMZQeCZVP0=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230607140106-3de6d0aed120 h1:iG9aRJxfZRxlPNKPqbUioEHyfvHvp1B1V11Fo+BK4pc=
