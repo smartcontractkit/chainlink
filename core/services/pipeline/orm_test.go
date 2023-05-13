@@ -4,27 +4,27 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ormconfig struct {
@@ -164,7 +164,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 		r.PipelineTaskRuns = []pipeline.TaskRun{
 			{
-				ID:            uuid.NewV4(),
+				ID:            uuid.New(),
 				PipelineRunID: r.ID,
 				Type:          "bridge",
 				DotID:         "ds1",
@@ -172,7 +172,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 				FinishedAt:    null.TimeFrom(now.Add(100 * time.Millisecond)),
 			},
 			{
-				ID:            uuid.NewV4(),
+				ID:            uuid.New(),
 				PipelineRunID: r.ID,
 				Type:          "median",
 				DotID:         "answer2",
@@ -207,7 +207,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -216,7 +216,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 		},
 		// finished task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
@@ -247,7 +247,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -287,7 +287,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	now := time.Now()
 
-	ds1_id := uuid.NewV4()
+	ds1_id := uuid.New()
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
 	_, err = db.NamedQuery(`
@@ -316,7 +316,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		},
 		// finished task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
@@ -345,7 +345,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	run := mustInsertAsyncRun(t, orm)
 
-	ds1_id := uuid.NewV4()
+	ds1_id := uuid.New()
 	now := time.Now()
 	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
@@ -369,7 +369,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 		},
 		// finished task with json output
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "cbor_parse",
 			DotID:         "ds2",
@@ -379,7 +379,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 		},
 		// finished task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
@@ -431,7 +431,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -440,7 +440,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 		},
 		// finished task
 		{
-			ID:            uuid.NewV4(),
+			ID:            uuid.New(),
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
@@ -476,7 +476,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.PipelineTaskRuns = []pipeline.TaskRun{
 			// finished task
 			{
-				ID:            uuid.NewV4(),
+				ID:            uuid.New(),
 				PipelineRunID: run.ID,
 				Type:          "median",
 				DotID:         "answer2",
@@ -520,7 +520,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config)
 	bridgeORM := bridges.NewORM(db, lggr, config)
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
@@ -534,7 +534,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 			UpdatedAt:       timestamp,
 			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
 		},
-		ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
 			ID:           1,
 			DotDagSource: "",
@@ -549,8 +549,8 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, job.Keeper, keeperJob.Type)
 
-	runID1 := uuid.NewV4()
-	runID2 := uuid.NewV4()
+	runID1 := uuid.New()
+	runID2 := uuid.New()
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: keeperJob.PipelineSpecID,
@@ -621,7 +621,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config)
 	bridgeORM := bridges.NewORM(db, lggr, config)
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
@@ -634,7 +634,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 			UpdatedAt:       timestamp,
 			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
 		},
-		ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
 			ID:           1,
 			DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -649,7 +649,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, job.DirectRequest, drJob.Type)
 
-	runningID := uuid.NewV4()
+	runningID := uuid.New()
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: drJob.PipelineSpecID,
@@ -673,7 +673,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
 		PipelineTaskRuns: []pipeline.TaskRun{{
-			ID:        uuid.NewV4(),
+			ID:        uuid.New(),
 			Type:      pipeline.TaskTypeHTTP,
 			Index:     1,
 			Output:    pipeline.JSONSerializable{},

@@ -24,25 +24,22 @@ import (
 
 	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/parse"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-type ConfigV2 interface {
-	// ConfigTOML returns both the user provided and effective configuration as TOML.
-	ConfigTOML() (user, effective string)
-}
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
@@ -104,7 +101,7 @@ func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
-func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
+func (o GeneralConfigOpts) New(lggr logger.Logger) (GeneralConfig, error) {
 	cfg, err := o.init()
 	if err != nil {
 		return nil, err
@@ -113,8 +110,8 @@ func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, er
 	return cfg, nil
 }
 
-// NewAndLogger returns a coreconfig.GeneralConfig for the given options, and a logger.Logger (with close func).
-func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logger, func() error, error) {
+// NewAndLogger returns a GeneralConfig for the given options, and a logger.Logger (with close func).
+func (o GeneralConfigOpts) NewAndLogger() (GeneralConfig, logger.Logger, func() error, error) {
 	cfg, err := o.init()
 	if err != nil {
 		return nil, nil, nil, err
@@ -149,7 +146,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		o.Config.DevMode = v2.EnvDev.IsTrue()
 
 		err = o.Secrets.setEnv()
 		if err != nil {
@@ -172,15 +168,14 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	}
 
 	cfg := &generalConfig{
-		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
-		c: &o.Config, secrets: &o.Secrets,
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
-	}
-
-	if err2 := utils.EnsureDirAndMaxPerms(cfg.RootDir(), os.FileMode(0700)); err2 != nil {
-		return nil, fmt.Errorf(`failed to create root directory %q: %w`, cfg.RootDir(), err2)
 	}
 
 	return cfg, nil
@@ -188,6 +183,10 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
+}
+
+func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	return g.c.Cosmos
 }
 
 func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
@@ -199,31 +198,26 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(
+	return g.validate(g.secrets.Validate)
+}
+
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
+	err := multierr.Combine(
 		validateEnv(),
 		g.c.Validate(),
-		g.secrets.Validate()))
-	return err
+		secretsValidationFn(),
+	)
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
 }
 
-//go:embed cfgtest/dump/empty-strings.env
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(g.secrets.ValidateDB)
+}
+
+//go:embed legacy.env
 var emptyStringsEnv string
-
-var legacyEnvToV2 = map[string]string{
-	"CHAINLINK_DEV": "CL_DEV",
-
-	"DATABASE_URL":                            "CL_DATABASE_URL",
-	"DATABASE_BACKUP_URL":                     "CL_DATABASE_BACKUP_URL",
-	"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK": "CL_DATABASE_ALLOW_SIMPLE_PASSWORDS",
-
-	"EXPLORER_ACCESS_KEY": "CL_EXPLORER_ACCESS_KEY",
-	"EXPLORER_SECRET":     "CL_EXPLORER_SECRET",
-
-	"PYROSCOPE_AUTH_TOKEN": "CL_PYROSCOPE_AUTH_TOKEN",
-
-	"LOG_COLOR":          "CL_LOG_COLOR",
-	"LOG_SQL_MIGRATIONS": "CL_LOG_SQL_MIGRATIONS",
-}
 
 // validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
 func validateEnv() (err error) {
@@ -242,36 +236,23 @@ func validateEnv() (err error) {
 			return errors.Errorf("malformed .env file line: %s", kv)
 		}
 		k := kv[:i]
-		if k == "LOG_LEVEL" {
-			continue // exceptional case of permitting legacy env w/o equivalent v2
-		}
-		v, ok := os.LookupEnv(k)
+		_, ok := os.LookupEnv(k)
 		if ok {
-			if k2, ok2 := legacyEnvToV2[k]; ok2 {
-				if v2 := os.Getenv(k2); v != v2 {
-					err = multierr.Append(err, fmt.Errorf("environment variables %s and %s must be equal, or %s must not be set", k, k2, k2))
-				}
-			} else {
-				err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
-			}
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
 		}
 	}
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2
 func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
-}
-
-func (g *generalConfig) Dev() bool {
-	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -386,6 +367,15 @@ func (g *generalConfig) SolanaEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) CosmosEnabled() bool {
+	for _, c := range g.c.Cosmos {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *generalConfig) StarkNetEnabled() bool {
 	for _, c := range g.c.Starknet {
 		if c.IsEnabled() {
@@ -412,7 +402,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if g.Dev() {
+	if !build.IsProd() {
 		return "develop"
 	}
 	return "production"
@@ -477,10 +467,6 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	}
 	return s
 }
-
-func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
-
-func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
 
 func (g *generalConfig) BridgeResponseURL() *url.URL {
 	if g.c.WebServer.BridgeResponseURL.IsZero() {
@@ -738,6 +724,10 @@ func (g *generalConfig) OCRTraceLogging() bool {
 	return *g.c.P2P.TraceLogging
 }
 
+func (g *generalConfig) OCRCaptureEATelemetry() bool {
+	return *g.c.OCR.CaptureEATelemetry
+}
+
 func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return *g.c.OCR.DefaultTransactionQueueDepth
 }
@@ -776,6 +766,10 @@ func (g *generalConfig) OCR2KeyBundleID() (string, error) {
 
 func (g *generalConfig) OCR2TraceLogging() bool {
 	return *g.c.P2P.TraceLogging
+}
+
+func (g *generalConfig) OCR2CaptureEATelemetry() bool {
+	return *g.c.OCR2.CaptureEATelemetry
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
@@ -1061,6 +1055,28 @@ func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 
 func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+// Insecure config
+func (g *generalConfig) DevWebServer() bool {
+	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
+		*g.c.Insecure.DevWebServer
+}
+
+func (g *generalConfig) OCRDevelopmentMode() bool {
+	// OCRDevelopmentMode is allowed in TestBuilds as well
+	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
+		*g.c.Insecure.OCRDevelopmentMode
+}
+
+func (g *generalConfig) DisableRateLimiting() bool {
+	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
+		*g.c.Insecure.DisableRateLimiting
+}
+
+func (g *generalConfig) InfiniteDepthQueries() bool {
+	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
+		*g.c.Insecure.InfiniteDepthQueries
 }
 
 var (

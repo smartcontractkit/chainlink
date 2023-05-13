@@ -14,10 +14,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ContractTransmitter interface {
@@ -28,8 +29,14 @@ type ContractTransmitter interface {
 var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte) error
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
 	FromAddress() gethcommon.Address
+}
+
+type ReportToEthMetadata func([]byte) (*txmgr.EthTxMeta, error)
+
+func reportToEthTxMetaNoop([]byte) (*txmgr.EthTxMeta, error) {
+	return nil, nil
 }
 
 type contractTransmitter struct {
@@ -40,6 +47,11 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	reportToEthTxMeta   ReportToEthMetadata
+}
+
+func transmitterFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
 }
 
 func NewOCRContractTransmitter(
@@ -49,15 +61,19 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	reportToEthTxMeta ReportToEthMetadata,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
-	filterName := logpoller.FilterName("OCR ContractTransmitter", address.String())
-	err := lp.RegisterFilter(logpoller.Filter{Name: filterName, EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+
+	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
+	}
+	if reportToEthTxMeta == nil {
+		reportToEthTxMeta = reportToEthTxMetaNoop
 	}
 	return &contractTransmitter{
 		contractAddress:     address,
@@ -66,7 +82,8 @@ func NewOCRContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr,
+		lggr:                lggr.Named("OCRContractTransmitter"),
+		reportToEthTxMeta:   reportToEthTxMeta,
 	}, nil
 }
 
@@ -86,14 +103,19 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress)
+	txMeta, err := oc.reportToEthTxMeta(report)
+	if err != nil {
+		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
+	}
+
+	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress, "txMeta", txMeta)
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
 }
 
 type contractReader interface {
@@ -172,9 +194,8 @@ func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
 func (oc *contractTransmitter) Close() error                    { return nil }
 
 // Has no state/lifecycle so it's always healthy and ready
-func (oc *contractTransmitter) Healthy() error { return nil }
-func (oc *contractTransmitter) Ready() error   { return nil }
+func (oc *contractTransmitter) Ready() error { return nil }
 func (oc *contractTransmitter) HealthReport() map[string]error {
-	return map[string]error{oc.Name(): oc.Healthy()}
+	return map[string]error{oc.Name(): nil}
 }
-func (oc *contractTransmitter) Name() string { return "" }
+func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }

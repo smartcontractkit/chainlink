@@ -3,10 +3,10 @@ package pipeline
 import (
 	"net/http"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 )
 
 const (
@@ -60,9 +60,4 @@ func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore,
 	t.keyStore = keyStore
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
-}
-
-func (t *ETHGetBlockTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
-	t.chainSet = cc
-	t.config = config
 }

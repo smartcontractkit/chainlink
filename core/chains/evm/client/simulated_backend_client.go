@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,11 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // SimulatedBackendClient is an Client implementation using a simulated
@@ -109,6 +111,10 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 	}
 }
 
+func (c *SimulatedBackendClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
+	return c.b.FilterLogs(ctx, q)
+}
+
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	return c.b.FilterLogs(ctx, q)
@@ -120,14 +126,9 @@ func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethe
 	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
-// GetEthBalance helper to get eth balance
-func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
-	panic("not implemented")
-}
-
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
-	return c.b.Blockchain().CurrentBlock().Number()
+	return c.b.Blockchain().CurrentBlock().Number
 }
 
 var balanceOfABIString = `[
@@ -162,9 +163,7 @@ func init() {
 	}
 }
 
-// GetERC20Balance returns the balance of the given address for the token
-// contract address.
-func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
+func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
@@ -185,13 +184,18 @@ func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address co
 }
 
 // GetLINKBalance get link balance.
-func (c *SimulatedBackendClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
 	panic("not implemented")
 }
 
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)
+}
+
+func (c *SimulatedBackendClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	tx, _, err = c.b.TransactionByHash(ctx, txHash)
+	return
 }
 
 func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *big.Int, err error) {
@@ -238,6 +242,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
+		Timestamp:  time.Unix(int64(header.Time), 0),
 	}, nil
 }
 
@@ -254,6 +259,7 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
+		Timestamp:  time.Unix(int64(header.Time), 0),
 	}, nil
 }
 
@@ -267,9 +273,18 @@ func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Ha
 	return c.b.BlockByHash(ctx, hash)
 }
 
+func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	panic("not implemented")
+}
+
 // ChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) ChainID() *big.Int {
+func (c *SimulatedBackendClient) ConfiguredChainID() *big.Int {
 	return c.chainId
+}
+
+// ChainID RPC call
+func (c *SimulatedBackendClient) ChainID() (*big.Int, error) {
+	panic("not implemented")
 }
 
 // PendingNonceAt gets pending nonce i.e. mempool nonce.
@@ -278,8 +293,9 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 }
 
 // NonceAt gets nonce as of a specified block.
-func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return c.b.NonceAt(ctx, account, blockNumber)
+func (c *SimulatedBackendClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+	nonce, err := c.b.NonceAt(ctx, account, blockNumber)
+	return evmtypes.Nonce(nonce), err
 }
 
 // BalanceAt gets balance as of a specified block.
@@ -356,6 +372,18 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 	return c.b.HeaderByHash(ctx, h)
 }
 
+func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+	err := c.SendTransaction(ctx, tx)
+	if err == nil {
+		return clienttypes.Successful, nil
+	}
+	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
+		return clienttypes.Fatal, err
+	}
+	// All remaining error messages returned from SendTransaction are considered Unknown.
+	return clienttypes.Unknown, err
+}
+
 // SendTransaction sends a transaction.
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
@@ -375,6 +403,10 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 
 	err = c.b.SendTransaction(ctx, tx)
 	return err
+}
+
+func (c *SimulatedBackendClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	panic("not implemented")
 }
 
 type revertError struct {
@@ -488,13 +520,15 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			switch v := elem.Result.(type) {
 			case *evmtypes.Head:
 				b[i].Result = &evmtypes.Head{
-					Number: header.Number.Int64(),
-					Hash:   header.Hash(),
+					Number:    header.Number.Int64(),
+					Hash:      header.Hash(),
+					Timestamp: time.Unix(int64(header.Time), 0).UTC(),
 				}
 			case *evmtypes.Block:
 				b[i].Result = &evmtypes.Block{
-					Number: header.Number.Int64(),
-					Hash:   header.Hash(),
+					Number:    header.Number.Int64(),
+					Hash:      header.Hash(),
+					Timestamp: time.Unix(int64(header.Time), 0),
 				}
 			default:
 				return errors.Errorf("SimulatedBackendClient Unexpected Type %T", v)
@@ -531,6 +565,28 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			resp, err := c.b.CallContract(ctx, callMsg, nil)
 			*(b[i].Result.(*string)) = hexutil.Encode(resp)
 			b[i].Error = err
+		case "eth_getHeaderByNumber":
+			if len(elem.Args) != 1 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getHeaderByNumber", len(elem.Args))
+			}
+			blockNum, is := elem.Args[0].(string)
+			if !is {
+				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber, got: %T", elem.Args[0])
+			}
+			n, err := hexutil.DecodeBig(blockNum)
+			if err != nil {
+				return errors.Errorf("error while converting hex block number %s to big.Int ", blockNum)
+			}
+			header, err := c.b.HeaderByNumber(ctx, n)
+			if err != nil {
+				return err
+			}
+			switch v := elem.Result.(type) {
+			case *types.Header:
+				b[i].Result = header
+			default:
+				return errors.Errorf("SimulatedBackendClient Unexpected Type %T", v)
+			}
 		default:
 			return errors.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
@@ -613,4 +669,8 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	}
 
 	return callMsg
+}
+
+func (c *SimulatedBackendClient) IsL2() bool {
+	return false
 }

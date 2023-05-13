@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message EnhancedEAMercury {
+  string data_source=1;
+  double dp_benchmark_price=2;
+  double dp_bid=3;
+  double dp_ask=4;
+  int64 current_block_number=5;
+  string current_block_hash=6;
+  uint64 current_block_timestamp=7;
+  int64 bridge_task_run_started_timestamp=8;
+  int64 bridge_task_run_ended_timestamp=9;
+  int64 provider_requested_timestamp=10;
+  int64 provider_received_timestamp=11;
+  int64 provider_data_stream_established=12;
+  int64 provider_indicated_time=13;
+  string feed=14;
+  int64 observation_benchmark_price=15;
+  int64 observation_bid=16;
+  int64 observation_ask=17;
+  string config_digest = 18;
+  int64 round=19;
+  int64 epoch=20;
+  string asset_symbol=21;
+}

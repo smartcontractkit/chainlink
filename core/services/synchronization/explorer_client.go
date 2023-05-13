@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/gorilla/websocket"
 )
@@ -59,7 +58,7 @@ type ExplorerClient interface {
 type NoopExplorerClient struct{}
 
 func (NoopExplorerClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopExplorerClient) Name() string                   { return "" }
+func (NoopExplorerClient) Name() string                   { return "NoopExplorerClient" }
 
 // Url always returns underlying url.
 func (NoopExplorerClient) Url() url.URL { return url.URL{} }
@@ -72,9 +71,6 @@ func (NoopExplorerClient) Start(context.Context) error { return nil }
 
 // Close is a no-op
 func (NoopExplorerClient) Close() error { return nil }
-
-// Healthy is a no-op
-func (NoopExplorerClient) Healthy() error { return nil }
 
 // Ready is a no-op
 func (NoopExplorerClient) Ready() error { return nil }
@@ -99,7 +95,7 @@ type explorerClient struct {
 	secret           string
 	lggr             logger.Logger
 
-	chStop        chan struct{}
+	chStop        utils.StopChan
 	wg            sync.WaitGroup
 	writePumpDone chan struct{}
 
@@ -150,7 +146,9 @@ func (ec *explorerClient) Name() string {
 }
 
 func (ec *explorerClient) HealthReport() map[string]error {
-	return map[string]error{ec.Name(): ec.Healthy()}
+	return map[string]error{
+		ec.Name(): ec.StartStopOnce.Healthy(),
+	}
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
@@ -169,7 +167,10 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	case ExplorerBinaryMessage:
 		send = ec.sendBinary
 	default:
-		log.Panicf("send on explorer client received unsupported message type %d", messageType)
+		err := fmt.Errorf("send on explorer client received unsupported message type %d", messageType)
+		ec.SvcErrBuffer.Append(err)
+		ec.lggr.Critical(err.Error())
+		return
 	}
 	select {
 	case send <- data:
@@ -240,7 +241,7 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
 func (ec *explorerClient) connectAndWritePump() {
 	defer ec.wg.Done()
-	ctx, cancel := utils.ContextFromChan(ec.chStop)
+	ctx, cancel := ec.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

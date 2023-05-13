@@ -3,14 +3,15 @@ package feeds
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 const (
@@ -18,6 +19,55 @@ const (
 	JobTypeOffchainReporting  = "ocr"
 	JobTypeOffchainReporting2 = "ocr2"
 )
+
+type PluginType string
+
+const (
+	PluginTypeCommit  PluginType = "COMMIT"
+	PluginTypeExecute PluginType = "EXECUTE"
+	PluginTypeMedian  PluginType = "MEDIAN"
+	PluginTypeMercury PluginType = "MERCURY"
+	PluginTypeUnknown PluginType = "UNKNOWN"
+)
+
+func FromPluginTypeInput(pt PluginType) string {
+	return strings.ToLower(string(pt))
+}
+
+func ToPluginType(s string) (PluginType, error) {
+	switch s {
+	case "commit":
+		return PluginTypeCommit, nil
+	case "execute":
+		return PluginTypeExecute, nil
+	case "median":
+		return PluginTypeMedian, nil
+	case "mercury":
+		return PluginTypeMercury, nil
+	default:
+		return PluginTypeUnknown, errors.New("unknown plugin type")
+	}
+}
+
+type Plugins struct {
+	Commit  bool `json:"commit"`
+	Execute bool `json:"execute"`
+	Median  bool `json:"median"`
+	Mercury bool `json:"mercury"`
+}
+
+func (p Plugins) Value() (driver.Value, error) {
+	return json.Marshal(p)
+}
+
+func (p *Plugins) Scan(value interface{}) error {
+	b, ok := value.(string)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal([]byte(b), &p)
+}
 
 type ChainType string
 
@@ -109,6 +159,7 @@ type OCR2Config struct {
 	Multiaddr   null.String `json:"multiaddr"`
 	P2PPeerID   null.String `json:"p2p_peer_id"`
 	KeyBundleID null.String `json:"key_bundle_id"`
+	Plugins     Plugins     `json:"plugins"`
 }
 
 func (c OCR2Config) Value() (driver.Value, error) {
@@ -170,6 +221,9 @@ const (
 	// but cancelled by the node op. A cancelled spec is not being run by the
 	// node.
 	SpecStatusCancelled SpecStatus = "cancelled"
+	// SpecStatusRevoked defines a spec status which was revoked. A revoked spec cannot be
+	// approved.
+	SpecStatusRevoked SpecStatus = "revoked"
 )
 
 // JobProposalSpec defines a versioned proposed spec for a JobProposal.

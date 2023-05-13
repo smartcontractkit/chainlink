@@ -13,6 +13,7 @@
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
+/core/chains/cosmos @archseer @cfal
 
 # Services
 /core/services/cron @samsondav
@@ -41,6 +42,9 @@
 
 /core/services/webhook @samsondav
 
+# Chainlink Functions related services
+core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
+
 # API
 /core/web @jkongie
 
@@ -51,9 +55,11 @@
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @alexroan @se3000 @connorwstein
+/contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
+/contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
@@ -61,7 +67,7 @@
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
-/.github/** @alexroan @chainchad @javuto @jkongie @jmank88 @samsondav
+/.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
 /.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team

@@ -6,12 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_SolanaKeyStore_E2E(t *testing.T) {
@@ -106,5 +107,27 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
+	})
+
+	t.Run("sign tx", func(t *testing.T) {
+		defer reset()
+		newKey, err := solkey.New()
+		require.NoError(t, err)
+		require.NoError(t, ks.Add(newKey))
+
+		// sign unknown ID
+		_, err = ks.Sign(testutils.Context(t), "not-real", nil)
+		assert.Error(t, err)
+
+		// sign known key
+		payload := []byte{1}
+		sig, err := ks.Sign(testutils.Context(t), newKey.ID(), payload)
+		require.NoError(t, err)
+
+		directSig, err := newKey.Sign(payload)
+		require.NoError(t, err)
+
+		// signatures should match using keystore sign or key sign
+		assert.Equal(t, directSig, sig)
 	})
 }

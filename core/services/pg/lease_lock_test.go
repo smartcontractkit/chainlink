@@ -5,23 +5,23 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseLock {
-	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg)
+	return pg.NewLeaseLock(db, uuid.New(), logger.TestLogger(t), cfg)
 }
 
 func Test_LeaseLock(t *testing.T) {
@@ -71,7 +71,7 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		otherAppID := uuid.NewV4()
+		otherAppID := uuid.New()
 
 		// simulate another application holding lease to force it to retry
 		res, err := db.Exec(`UPDATE lease_lock SET client_id=$1,expires_at=NOW()+'1 day'::interval`, otherAppID)

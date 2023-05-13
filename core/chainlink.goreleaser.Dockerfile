@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
-  && apt-get update && apt-get install -y postgresql-client-14 \
+  && apt-get update && apt-get install -y postgresql-client-15 \
   && apt-get clean all
 
 COPY . /usr/local/bin/
@@ -23,6 +23,9 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
   fi
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
+# explicit set the cache dir. needed so both root and non-root user has an explicit location
+ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

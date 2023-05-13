@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -39,38 +39,38 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -93,7 +93,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -391,7 +391,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
 			var jobID [32]byte
-			copy(jobID[:], j.ExternalJobID.Bytes())
+			copy(jobID[:], j.ExternalJobID[:])
 			tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
 			require.NoError(t, err)
 			b.Commit()
@@ -430,7 +430,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
 			var jobIDSingleWord [32]byte
-			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
+			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID[:])
 			tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
 			require.NoError(t, err)
 			b.Commit()
@@ -466,6 +466,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
+	require.Len(t, sendingKeys, 1)
 
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
@@ -515,7 +516,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -560,7 +561,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -597,7 +598,7 @@ observationSource   = """
 		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
 		assert.Equal(t, []*string([]*string(nil)), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -669,7 +670,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
@@ -751,7 +752,7 @@ func setupForwarderEnabledNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
@@ -1077,7 +1078,6 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
 		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, fmt.Sprintf("b_%d", 1), b, ocrnetworking.NetworkingStackV2, nil)
-		// bootstrapCfg.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra
@@ -1310,7 +1310,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient := cltest.NewEthMocks(t)
-	ethClient.On("ChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
+	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
@@ -1366,7 +1366,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start(testutils.Context(t)))
@@ -1378,11 +1378,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	}
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
-	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.GetLegacyGas(testutils.Context(t), nil, 500_000, maxGasPrice)
+	estimator := chain.GasEstimator()
+	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)
-	assert.Equal(t, "41.5 gwei", gasPrice.String())
+	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
@@ -1401,9 +1401,9 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
-		gasPrice, _, err := estimator.GetLegacyGas(testutils.Context(t), nil, 500000, maxGasPrice)
+		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice)
 		require.NoError(t, err)
-		return gasPrice.String()
+		return gasPrice.Legacy.String()
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
 }
 

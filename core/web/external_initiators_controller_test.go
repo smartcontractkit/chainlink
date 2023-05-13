@@ -7,13 +7,15 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +68,10 @@ func TestValidateExternalInitiator(t *testing.T) {
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -129,7 +134,10 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -154,7 +162,10 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -179,7 +190,10 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -194,7 +208,10 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	exi := bridges.ExternalInitiator{
@@ -213,7 +230,10 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplicationWithConfig(t,
+		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)

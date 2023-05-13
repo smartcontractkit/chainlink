@@ -6,6 +6,8 @@
 ChainID = '1' # Example
 # Enabled enables this chain.
 Enabled = true # Default
+# AutoCreateKey, if set to true, will ensure that there is always at least one transmit key for the given chain.
+AutoCreateKey = true # Default
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
 BlockBackfillDepth = 10 # Default
@@ -41,7 +43,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 # **ADVANCED**
 # LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
-LogBackfillBatchSize = 100 # Default
+LogBackfillBatchSize = 1000 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
@@ -62,7 +64,7 @@ NoNewHeadsThreshold = '3m' # Default
 # OperatorFactoryAddress is the address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 # RPCDefaultBatchSize is the default batch size for batched RPC calls.
-RPCDefaultBatchSize = 100 # Default
+RPCDefaultBatchSize = 250 # Default
 # **ADVANCED**
 # RPCBlockQueryDelay controls the number of blocks to trail behind head in the block history estimator and balance monitor.
 # For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
@@ -234,7 +236,7 @@ Keeper = 100_000 # Example
 [EVM.GasEstimator.BlockHistory]
 # BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
 # If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize`.
-BatchSize = 4 # Default
+BatchSize = 25 # Default
 # BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 BlockHistorySize = 8 # Default
 # CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.

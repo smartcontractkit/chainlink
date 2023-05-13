@@ -10,15 +10,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -228,24 +229,28 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
-	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	failingLogLevel zapcore.Level,                   // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
+	l := utils.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
+	// Delete all jobs to stop depleting the funds
+	DeleteAllJobs(chainlinkNodes)
+
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
 			if err := returnFunds(chainlinkNodes, c); err != nil {
 				// This printed line is required for tests that use real funds to propagate the failure
 				// out to the system running the test. Do not remove
 				fmt.Println(environment.FAILED_FUND_RETURN)
-				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+				l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 						"Environment is left running so you can try manually!")
 			}
 		} else {
-			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
 		// nolint
 		if c != nil {
@@ -268,16 +273,40 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
+	l := utils.GetTestLogger(t)
 	var err error
 	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
-		log.Warn().Err(err).Msg("Error writing test report")
+		l.Warn().Err(err).Msg("Error writing test report")
 	}
+	// Delete all jobs to stop depleting the funds
+	DeleteAllJobs(chainlinkNodes)
+
 	if err = returnFunds(chainlinkNodes, client); err != nil {
-		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}
 	return err
+}
+
+func DeleteAllJobs(chainlinkNodes []*client.Chainlink) error {
+	for _, node := range chainlinkNodes {
+		jobs, _, err := node.ReadJobs()
+		if err != nil {
+			return errors.Wrap(err, "error reading jobs from chainlink node")
+		}
+		for _, maps := range jobs.Data {
+			if _, ok := maps["id"]; !ok {
+				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+			}
+			id := maps["id"].(string)
+			_, err := node.DeleteJob(id)
+			if err != nil {
+				return errors.Wrap(err, "error deleting job from chainlink node")
+			}
+		}
+	}
+	return nil
 }
 
 // Returns all the funds from the chainlink nodes to the networks default address

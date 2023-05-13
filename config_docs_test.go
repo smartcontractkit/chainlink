@@ -1,4 +1,4 @@
-package chainlink
+package main
 
 import (
 	_ "embed"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/core/config/v2/docs"
+	"github.com/smartcontractkit/chainlink/v2/core/config/v2/docs"
 )
 
 var (

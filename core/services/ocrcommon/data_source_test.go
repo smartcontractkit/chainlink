@@ -1,20 +1,23 @@
 package ocrcommon_test
 
 import (
+	"math/big"
 	"testing"
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 var (
@@ -23,7 +26,7 @@ var (
 )
 
 func Test_InMemoryDataSource(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
@@ -36,15 +39,13 @@ func Test_InMemoryDataSource(t *testing.T) {
 		}, nil)
 
 	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
-	val, err := ds.Observe(testutils.Context(t))
+	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
-
-	var ()
+	runner := pipelinemocks.NewRunner(t)
 
 	jsonParseTask := pipeline.JSONParseTask{
 		BaseTask: pipeline.BaseTask{},
@@ -83,7 +84,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 		pipeline.Spec{},
 		logger.TestLogger(t),
 	)
-	val, err := ds.Observe(testutils.Context(t))
+	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	assert.Equal(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
@@ -93,7 +94,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 }
 
 func Test_NewDataSourceV2(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
@@ -106,9 +107,30 @@ func Test_NewDataSourceV2(t *testing.T) {
 		}, nil)
 
 	resChan := make(chan pipeline.Run, 100)
-	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan)
-	val, err := ds.Observe(testutils.Context(t))
+	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
+	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String())   // returns expected value after pipeline run
 	assert.Equal(t, pipeline.Run{}, <-resChan) // expected data properly passed to channel
+}
+
+func Test_NewDataSourceV1(t *testing.T) {
+	runner := pipelinemocks.NewRunner(t)
+	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+		Return(pipeline.Run{}, pipeline.TaskRunResults{
+			{
+				Result: pipeline.Result{
+					Value: mockValue,
+					Error: nil,
+				},
+				Task: &pipeline.HTTPTask{},
+			},
+		}, nil)
+
+	resChan := make(chan pipeline.Run, 100)
+	ds := ocrcommon.NewDataSourceV1(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
+	val, err := ds.Observe(testutils.Context(t), ocrtypes.ReportTimestamp{})
+	require.NoError(t, err)
+	assert.Equal(t, mockValue, new(big.Int).Set(val).String()) // returns expected value after pipeline run
+	assert.Equal(t, pipeline.Run{}, <-resChan)                 // expected data properly passed to channel
 }

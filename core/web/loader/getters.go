@@ -7,19 +7,21 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
 // ErrInvalidType indicates that results loaded is not the type expected
 var ErrInvalidType = errors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
-func GetChainByID(ctx context.Context, id string) (*types.DBChain, error) {
+func GetChainByID(ctx context.Context, id string) (*relaytypes.ChainStatus, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -28,7 +30,7 @@ func GetChainByID(ctx context.Context, id string) (*types.DBChain, error) {
 		return nil, err
 	}
 
-	chain, ok := result.(types.DBChain)
+	chain, ok := result.(relaytypes.ChainStatus)
 	if !ok {
 		return nil, ErrInvalidType
 	}
@@ -197,7 +199,7 @@ func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
 }
 
 // GetEthTxAttemptsByEthTxID fetches the attempts for an eth transaction.
-func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EthTxAttempt, error) {
+func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EvmTxAttempt, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.EthTxAttemptsByEthTxIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -206,7 +208,7 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EthTxAtt
 		return nil, err
 	}
 
-	attempts, ok := result.([]txmgr.EthTxAttempt)
+	attempts, ok := result.([]txmgr.EvmTxAttempt)
 	if !ok {
 		return nil, ErrInvalidType
 	}

@@ -11,16 +11,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	evmlogpoller "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
@@ -71,14 +71,19 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 	return &fwdMgr
 }
 
+func (f *FwdMgr) Name() string {
+	return f.logger.Name()
+}
+
 // Start starts Forwarder Manager.
 func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
 		f.logger.Debug("Initializing EVM forwarder manager")
+		chainId := f.evmClient.ConfiguredChainID()
 
-		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+		fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*chainId))
 		if err != nil {
-			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", f.evmClient.ChainID())
+			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
@@ -103,13 +108,13 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 	})
 }
 
-func (f *FwdMgr) filterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return evmlogpoller.FilterName("ForwarderManager AuthorizedSendersChanged", addr.String())
 }
 
-func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Address, err error) {
+func (f *FwdMgr) ForwarderFor(addr common.Address) (forwarder common.Address, err error) {
 	// Gets forwarders for current chain.
-	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
+	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ConfiguredChainID()))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -129,12 +134,13 @@ func (f *FwdMgr) GetForwarderForEOA(addr common.Address) (forwarder common.Addre
 	return common.Address{}, errors.Errorf("Cannot find forwarder for given EOA")
 }
 
-func (f *FwdMgr) GetForwardedPayload(dest common.Address, origPayload []byte) ([]byte, error) {
+func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {
 	databytes, err := f.getForwardedPayload(dest, origPayload)
 	if err != nil {
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
 				"err", err, "to", dest, "payload", origPayload)
+			f.SvcErrBuffer.Append(err)
 		}
 	}
 	return databytes, nil
@@ -207,7 +213,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 
 	err := f.logpoller.RegisterFilter(
 		evmlogpoller.Filter{
-			Name:      f.filterName(addr),
+			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
 			Addresses: []common.Address{addr},
 		})
@@ -314,4 +320,8 @@ func (f *FwdMgr) Close() error {
 		f.wg.Wait()
 		return nil
 	})
+}
+
+func (f *FwdMgr) HealthReport() map[string]error {
+	return map[string]error{f.Name(): f.StartStopOnce.Healthy()}
 }

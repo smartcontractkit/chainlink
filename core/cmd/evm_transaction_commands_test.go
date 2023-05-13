@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func TestClient_IndexTransactions(t *testing.T) {
@@ -25,8 +25,8 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmStorageService(), 0, 1, from)
+	attempt := tx.TxAttempts[0]
 
 	// page 1
 	set := flag.NewFlagSet("test transactions", 0)
@@ -40,7 +40,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	renderedTxs := *r.Renders[0].(*cmd.EthTxPresenters)
 	assert.Equal(t, 1, len(renderedTxs))
-	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
+	assert.Equal(t, attempt.Hash.String(), renderedTxs[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
@@ -65,14 +65,14 @@ func TestClient_ShowTransaction(t *testing.T) {
 	db := app.GetSqlxDB()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	borm := cltest.NewTxmORM(t, db, app.GetConfig())
+	borm := cltest.NewTxStore(t, db, app.GetConfig())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
+	attempt := tx.TxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
 	cltest.FlagSetApplyFromAction(client.ShowTransaction, set, "")
 
-	require.NoError(t, set.Parse([]string{attempt.Hash.Hex()}))
+	require.NoError(t, set.Parse([]string{attempt.Hash.String()}))
 
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ShowTransaction(c))
@@ -89,7 +89,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmStorageService(), 0, 1, from)
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
@@ -102,8 +102,8 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts := *r.Renders[0].(*cmd.EthTxPresenters)
-	require.Len(t, tx.EthTxAttempts, 1)
-	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+	require.Len(t, tx.TxAttempts, 1)
+	assert.Equal(t, tx.TxAttempts[0].Hash.String(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
@@ -155,16 +155,16 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EthTx{}
-	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
-	require.Equal(t, "100.500000000000000000", etx.Value.String())
-	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
+	dbEvmTx := txmgr.DbEthTx{}
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.Equal(t, "100.500000000000000000", dbEvmTx.Value.String())
+	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
+	require.Equal(t, to, dbEvmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &etx.FromAddress, output.From)
-	assert.Equal(t, &etx.ToAddress, output.To)
-	assert.Equal(t, etx.Value.String(), output.Value)
+	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
+	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
+	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 }
 
 func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
@@ -208,14 +208,14 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := txmgr.EthTx{}
-	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
-	require.Equal(t, "1.000000000000000000", etx.Value.String())
-	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
+	dbEvmTx := txmgr.DbEthTx{}
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.Equal(t, "1.000000000000000000", dbEvmTx.Value.String())
+	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
+	require.Equal(t, to, dbEvmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &etx.FromAddress, output.From)
-	assert.Equal(t, &etx.ToAddress, output.To)
-	assert.Equal(t, etx.Value.String(), output.Value)
+	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
+	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
+	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 }

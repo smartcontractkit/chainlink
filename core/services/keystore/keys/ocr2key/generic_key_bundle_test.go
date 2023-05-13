@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 type (
@@ -107,6 +107,20 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		newBundle := newKeyBundle(&solanaKeyring{})
 		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
 		assert.Equal(t, bundle.ID(), newBundle.ID())
+	})
+
+	t.Run("Cosmos", func(t *testing.T) {
+		// onchain key
+		bundle, err := newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
+		require.NoError(t, err)
+		bundleBytes, err := bundle.Marshal()
+		require.NoError(t, err)
+
+		// test unmarshalling again to ensure ID has not changed
+		// the underlying bytes have changed, but ID should be preserved
+		otherBundle := newKeyBundle(&cosmosKeyring{})
+		require.NoError(t, otherBundle.Unmarshal(bundleBytes))
+		assert.Equal(t, bundle.ID(), otherBundle.ID())
 	})
 
 	t.Run("MissingID", func(t *testing.T) {

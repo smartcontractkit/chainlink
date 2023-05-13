@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_DB_ReadWriteState(t *testing.T) {
@@ -197,12 +197,12 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	odb2 := ocr.NewTestDB(t, sqlDB, spec2.ID)
 	configDigest := cltest.MakeConfigDigest(t)
 
-	k := ocrtypes.PendingTransmissionKey{
+	k := ocrtypes.ReportTimestamp{
 		ConfigDigest: configDigest,
 		Epoch:        0,
 		Round:        1,
 	}
-	k2 := ocrtypes.PendingTransmissionKey{
+	k2 := ocrtypes.ReportTimestamp{
 		ConfigDigest: configDigest,
 		Epoch:        1,
 		Round:        2,
@@ -251,7 +251,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
 		require.NoError(t, err)
 
-		kRedHerring := ocrtypes.PendingTransmissionKey{
+		kRedHerring := ocrtypes.ReportTimestamp{
 			ConfigDigest: ocrtypes.ConfigDigest{43},
 			Epoch:        1,
 			Round:        2,

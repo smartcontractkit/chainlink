@@ -5,12 +5,12 @@ import (
 	"time"
 
 	// need to make sure pgx driver is registered before opening connection
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 type ConnectionConfig interface {
@@ -29,7 +29,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		uri = uuid.NewV4().String()
+		uri = uuid.New().String()
 	}
 
 	// Initialize sql/sqlx
@@ -50,5 +50,19 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	db.SetMaxOpenConns(config.ORMMaxOpenConns())
 	db.SetMaxIdleConns(config.ORMMaxIdleConns())
 
-	return db, nil
+	return db, disallowReplica(db)
+}
+
+func disallowReplica(db *sqlx.DB) error {
+	var val string
+	err := db.Get(&val, "SHOW session_replication_role")
+	if err != nil {
+		return err
+	}
+
+	if val == "replica" {
+		return fmt.Errorf("invalid `session_replication_role`: %s. Refusing to connect to replica database. Writing to a replica will corrupt the database", val)
+	}
+
+	return nil
 }

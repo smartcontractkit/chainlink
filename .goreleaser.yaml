@@ -22,11 +22,10 @@ builds:
       - linux
     goarch:
       - arm64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
     flags:
@@ -34,19 +33,18 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
     goos:
       - linux
     goarch:
       - amd64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
       - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
     flags:
@@ -54,19 +52,18 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: darwin-arm64
     goos:
       - darwin
     goarch:
       - arm64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target aarch64-macos $ZIG_FLAGS_DARWIN
     flags:
@@ -74,19 +71,18 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=@executable/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: darwin-amd64
     goos:
       - darwin
     goarch:
       - amd64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target x86_64-macos $ZIG_FLAGS_DARWIN
       - CCX=$ZIG_EXEC c++ -target x86_64-macos $ZIG_FLAGS_DARWIN
     flags:
@@ -94,8 +90,8 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=@executable/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Version }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
 dockers:

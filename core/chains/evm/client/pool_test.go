@@ -17,11 +17,11 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type poolConfig struct {
@@ -157,11 +157,13 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
+			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID, "")
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
 			}
+			assert.True(t, p.ChainType().IsValid())
+			assert.False(t, p.ChainType().IsL2())
 			if test.errStr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.errStr)
@@ -247,7 +249,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	nodes := []evmclient.Node{n1, n2, n3}
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -321,7 +323,9 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
+	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID, "")
 
+	assert.True(t, p.ChainType().IsValid())
+	assert.False(t, p.ChainType().IsL2())
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }

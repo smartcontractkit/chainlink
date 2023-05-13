@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 func TestResolver_GetJobProposal(t *testing.T) {
@@ -38,8 +38,8 @@ func TestResolver_GetJobProposal(t *testing.T) {
 		}`
 
 	jpID := int64(1)
-	ejID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
-	rUUID := uuid.NewV4()
+	ejID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+	rUUID := uuid.New()
 	name := "job_proposal_1"
 	result := `
 		{

@@ -64,7 +64,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
-		t, slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed,
+		headerText, o.namespace, o.csvLocation,
 	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
@@ -255,8 +255,11 @@ func (o *OCRSoakTestReport) ProcessOCRReport() bool {
 			}
 		}
 	}
-	o.averageRoundBlocks = totalRoundBlocks / o.totalRounds
-	o.averageRoundTime = totalRoundTime / time.Duration(o.totalRounds)
+	if o.totalRounds > 0 {
+		o.averageRoundBlocks = totalRoundBlocks / o.totalRounds
+		o.averageRoundTime = totalRoundTime / time.Duration(o.totalRounds)
+	}
+
 	return len(o.AnomalousAnswerIndexes) > 0
 }
 

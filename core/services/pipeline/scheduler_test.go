@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type event struct {
@@ -145,7 +145,7 @@ func TestScheduler(t *testing.T) {
 				require.Equal(t, event.expected, taskRun.task.DotID())
 				now := time.Now()
 				s.report(testutils.Context(t), TaskRunResult{
-					ID:         uuid.NewV4(),
+					ID:         uuid.New(),
 					Task:       taskRun.task,
 					Result:     event.result,
 					FinishedAt: null.TimeFrom(now),

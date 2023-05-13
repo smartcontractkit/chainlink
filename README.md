@@ -9,7 +9,6 @@
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)](https://hub.docker.com/r/smartcontract/chainlink/tags)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
 [![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
-[![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci&logo=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 [![Official documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=blue)](https://docs.chain.link/)
@@ -35,9 +34,9 @@ regarding Chainlink social accounts, news, and networking.
 
 1. [Install Go 1.20](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
-3. Install [Postgres (>= 11.x and < 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+3. Install [Postgres (>= 11.x and <= 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
    - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
 5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
@@ -50,11 +49,8 @@ For the latest information on setting up a development environment, see the [Dev
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 
-An ARM64 supported Docker image will be built by default on ARM64 systems (Apple Silicon), but there is also an option to add an extra `LIBWASMVM_ARCH` build argument and choose between `aarch64` or `x86_64`:
-
 ```bash
-# LIBWASMVM_ARCH (libwasmvm.so) architecture choice, defaults to output of `uname -m` (arch) if unset
-$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
 ```
 
 ### Ethereum Execution Client Requirements
@@ -73,12 +69,12 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
-  - https://github.com/NethermindEth/nethermind/issues/4384
+  - ~https://github.com/NethermindEth/nethermind/issues/4384~
 - [Besu](https://github.com/hyperledger/besu)
   Blocking issues:
   - https://github.com/hyperledger/besu/issues/4212
-  - https://github.com/hyperledger/besu/issues/4192
-  - https://github.com/hyperledger/besu/issues/4114
+  - ~https://github.com/hyperledger/besu/issues/4192~
+  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946
@@ -88,12 +84,15 @@ We cannot recommend specific version numbers for ethereum nodes since the softwa
 
 ## Running a local Chainlink node
 
-**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by setting the following env vars:
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can disable this by using a `dev build` using `make chainlink-dev` and setting the TOML fields:
 
-```
-CHAINLINK_DEV=true
-CHAINLINK_TLS_PORT=0
-SECURE_COOKIES=false
+```toml
+[WebServer]
+SecureCookies = false
+TLS.HTTPSPort = 0
+
+[Insecure]
+DevWebServer = true
 ```
 
 Alternatively, you can generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
@@ -168,8 +167,7 @@ go generate ./...
 5. Prepare your development environment:
 
 ```bash
-export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-export CL_DATABASE_URL=$DATABASE_URL
+export CL_DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 ```
 
 Note: Other environment variables should not be set for all tests to pass
@@ -177,7 +175,7 @@ Note: Other environment variables should not be set for all tests to pass
 6.  Drop/Create test database and run migrations:
 
 ```
-go run ./core/main.go local db preparetest
+make testdb
 ```
 
 If you do end up modifying the migrations for the database, you will need to rerun
@@ -223,6 +221,24 @@ go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 
 https://go.dev/doc/fuzz/
 
+### Go Modules
+
+This repository contains three Go modules:
+
+```mermaid
+flowchart RL
+    github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/integration-tests --> github.com/smartcontractkit/chainlink/v2
+    github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
+
+```
+The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
+so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
+can be run on all three modules using:
+```
+make gomodtidy
+```
+
 ### Solidity
 
 Inside the `contracts/` directory:
@@ -238,6 +254,8 @@ pnpm i
 ```bash
 pnpm test
 ```
+NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
+Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
 ### Code Generation
 
@@ -266,7 +284,7 @@ initdb
 pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
 createdb chainlink_test -h localhost
 createuser --superuser --password chainlink -h localhost
-# then type a test password, e.g.: chainlink, and set it in shell.nix DATABASE_URL
+# then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
 ```
 
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`

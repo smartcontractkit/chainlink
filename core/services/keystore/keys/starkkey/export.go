@@ -4,8 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
 	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "StarkNet"
@@ -35,7 +35,7 @@ func ToEncryptedJSON(key stark.Key, password string, scryptParams utils.ScryptPa
 		func(id string, key stark.Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
-				PublicKey: key.AccountAddressStr(),
+				PublicKey: key.StarkKeyStr(),
 				Crypto:    cryptoJSON,
 			}, nil
 		},

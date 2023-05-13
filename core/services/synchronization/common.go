@@ -4,9 +4,13 @@ package synchronization
 type TelemetryType string
 
 const (
-	OCR            TelemetryType = "ocr"
-	OCR2Median     TelemetryType = "ocr2-median"
-	OCR2VRF        TelemetryType = "ocr2-vrf"
-	OCR2Automation TelemetryType = "ocr2-automation"
-	OCR2Functions  TelemetryType = "ocr2-functions"
+	EnhancedEA        TelemetryType = "enhanced-ea"
+	FunctionsRequests TelemetryType = "functions-requests"
+	EnhancedEAMercury TelemetryType = "enhanced-ea-mercury"
+	OCR               TelemetryType = "ocr"
+	OCR2Automation    TelemetryType = "ocr2-automation"
+	OCR2Functions     TelemetryType = "ocr2-functions"
+	OCR2Median        TelemetryType = "ocr2-median"
+	OCR2Mercury       TelemetryType = "ocr2-mercury"
+	OCR2VRF           TelemetryType = "ocr2-vrf"
 )

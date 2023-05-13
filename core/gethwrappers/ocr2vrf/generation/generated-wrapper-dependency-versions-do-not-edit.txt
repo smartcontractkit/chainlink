@@ -1,8 +1,8 @@
-GETH_VERSION: 1.10.26
-dkg: ../../../contracts/solc/v0.8.15/DKG.abi ../../../contracts/solc/v0.8.15/DKG.bin 3e53a9a7c49246add2366d3bca7ff65135661a09533365befadea671fe7d9b8a
-load_test_beacon_consumer: ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/LoadTestBeaconVRFConsumer.bin 267e42e590d30405495522813427135312b3cb670de803978cf87b8619a16cf5
-vrf_beacon: ../../../contracts/solc/v0.8.15/VRFBeacon.abi ../../../contracts/solc/v0.8.15/VRFBeacon.bin 8e0a20864852b40a0fa204bc6d7b4d96374ad128c0dfec6db4e9e1190437bee5
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin f6e099801f8a80c6f299ab271b22e549ef2b03148ac3c04b11141166ea34fab2
+GETH_VERSION: 1.11.5
+dkg: ../../../contracts/solc/v0.8.19/DKG.abi ../../../contracts/solc/v0.8.19/DKG.bin f67f628c5af590c898d46789e5500f36d3b0eca442e66a334968776c6fc9b4ed
+load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.bin 4376386cfcf0e7de085e2c4e7687478b5388f193e933265a04bf9d07fd22953f
+vrf_beacon: ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin 482c42567b01bedbc7c926b1b1edde0634b2e96be43d86a9a7d3412984dd5119
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 1e61069819a6dc054133cd7b7c9ec6d7871b8fe8390cde7d16272a01cb8f8a07
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
-vrf_coordinator: ../../../contracts/solc/v0.8.15/VRFCoordinator.abi ../../../contracts/solc/v0.8.15/VRFCoordinator.bin eeb50f63ebf4556a2f01d60c428a88af41f90ef7a6b483b75685e917388aa395
-vrf_router: ../../../contracts/solc/v0.8.15/VRFRouter.abi ../../../contracts/solc/v0.8.15/VRFRouter.bin ffdd3501be41bdfbc97ab215cd2c303f41701eedb6ed1a9142ae05a6b6a65765
+vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin 7f5f081ed03f8243200085bd4afc6545074198aeba93a445a41f2d6ad17559b6
+vrf_router: ../../../contracts/solc/v0.8.19/VRFRouter.abi ../../../contracts/solc/v0.8.19/VRFRouter.bin 3d5bac8144deb9770d4b7cd70dc88d5583fa986acf1d3823c01f5b8305e35670

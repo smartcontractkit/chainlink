@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,33 +23,42 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 var prometheus *ginprom.Prometheus
@@ -66,9 +77,9 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         config.GeneralConfig // initialized in Before
-	Logger                         logger.Logger        // initialized in Before
-	CloseLogger                    func() error         // called in After
+	Config                         chainlink.GeneralConfig // initialized in Before
+	Logger                         logger.Logger           // initialized in Before
+	CloseLogger                    func() error            // called in After
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -79,25 +90,76 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+
+	flagsProcessed bool
 }
 
-func (cli *Client) errorOut(err error) error {
+func (cli *Client) errorOut(err error) cli.ExitCoder {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
 }
 
+// exitOnConfigError is helper that executes as validation func and
+// pretty-prints errors
+func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
+	err := validateFn()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	return nil
+}
+
+func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+	if err := loadOpts(opts, configFiles...); err != nil {
+		return err
+	}
+
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
+		}
+
+		secretsTOML := string(b)
+		err = opts.ParseSecrets(secretsTOML)
+		if err != nil {
+			return err
+		}
+	}
+
+	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		return err
+	} else {
+		// If the logger has already been set due to prior initialization, close it out here.
+		if cli.CloseLogger != nil {
+			err := cli.CloseLogger()
+			if err != nil {
+				return errors.Wrap(err, "failed to close initialized logger")
+			}
+		}
+
+		cli.Config = cfg
+		cli.Logger = lggr
+		cli.CloseLogger = closeLggr
+	}
+
+	return nil
+}
+
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	// Avoid double initializations.
 	initOnce.Do(func() {
 		initPrometheus(cfg)
@@ -105,7 +167,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
-	// Set up the versioning ORM
+	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
 
 	if static.Version != static.Unset {
@@ -150,20 +212,14 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
 	if cfg.EVMEnabled() {
-		if h, ok := cfg.(v2.HasEVMConfigs); ok {
-			var ids []utils.Big
-			for _, c := range h.EVMConfigs() {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = evm.NewORM(db, appLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup EVM chains")
-				}
-			}
-		} else {
-			if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
-				return nil, err
+		var ids []utils.Big
+		for _, c := range cfg.EVMConfigs() {
+			c := c
+			ids = append(ids, *c.ChainID)
+		}
+		if len(ids) > 0 {
+			if err = evm.EnsureChains(db, appLggr, cfg, ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
 	}
@@ -177,44 +233,75 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		EventBroadcaster: eventBroadcaster,
 		MailMon:          mailMon,
 	}
+
+	loopRegistry := plugins.NewLoopRegistry()
+
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
+	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
+	if cfg.CosmosEnabled() {
+		cosmosLggr := appLggr.Named("Cosmos")
+		opts := cosmos.ChainSetOpts{
+			Config:           cfg,
+			Logger:           cosmosLggr,
+			DB:               db,
+			KeyStore:         keyStore.Cosmos(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		cfgs := cfg.CosmosConfigs()
+		opts.Configs = cosmos.NewConfigs(cfgs)
+		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
+		}
+	}
+
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			DB:       db,
-			KeyStore: keyStore.Solana(),
+		cfgs := cfg.SolanaConfigs()
+		var ids []string
+		for _, c := range cfgs {
+			c := c
+			ids = append(ids, *c.ChainID)
 		}
-		if newCfg, ok := cfg.(interface {
-			SolanaConfigs() solana.SolanaConfigs
-		}); ok {
-			cfgs := newCfg.SolanaConfigs()
-			var ids []string
-			for _, c := range cfgs {
-				c := c
-				ids = append(ids, *c.ChainID)
+		if len(ids) > 0 {
+			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
-			if len(ids) > 0 {
-				if err = solana.NewORM(db, solLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup Solana chains")
-				}
+		}
+
+		if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+			tomls, err := toml.Marshal(struct {
+				Solana solana.SolanaConfigs
+			}{Solana: cfgs})
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
-			opts.ORM = solana.NewORMImmut(cfgs)
-			chains.Solana, err = solana.NewChainSetImmut(opts, cfgs)
+
+			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
+			}
+			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
+				cmd := exec.Command(cmdName)
+				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
+				return cmd
+			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
+			chains.Solana = chainPluginService
 		} else {
-			if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Solana nodes")
+			opts := solana.ChainSetOpts{
+				Logger:   solLggr,
+				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+				Configs:  solana.NewConfigs(cfgs),
 			}
-			opts.ORM = solana.NewORM(db, solLggr, cfg)
-			chains.Solana, err = solana.NewChainSet(opts)
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Solana chainset")
+			chainSet, err := solana.NewChainSet(opts, cfgs)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to load Solana chainset")
+			}
+			chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 		}
 	}
 
@@ -225,29 +312,19 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 			Logger:   starkLggr,
 			KeyStore: keyStore.StarkNet(),
 		}
-		if newCfg, ok := cfg.(interface {
-			StarknetConfigs() starknet.StarknetConfigs
-		}); ok {
-			cfgs := newCfg.StarknetConfigs()
-			var ids []string
-			for _, c := range cfgs {
-				c := c
-				ids = append(ids, *c.ChainID)
-			}
-			if len(ids) > 0 {
-				if err = starknet.NewORM(db, starkLggr, cfg).EnsureChains(ids); err != nil {
-					return nil, errors.Wrap(err, "failed to setup StarkNet chains")
-				}
-			}
-			opts.ORM = starknet.NewORMImmut(cfgs)
-			chains.StarkNet, err = starknet.NewChainSetImmut(opts, cfgs)
-		} else {
-			if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
-				return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
-			}
-			opts.ORM = starknet.NewORM(db, starkLggr, cfg)
-			chains.StarkNet, err = starknet.NewChainSet(opts)
+		cfgs := cfg.StarknetConfigs()
+		var ids []string
+		for _, c := range cfgs {
+			c := c
+			ids = append(ids, *c.ChainID)
 		}
+		if len(ids) > 0 {
+			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
+			}
+		}
+		opts.Configs = starknet.NewConfigs(cfgs)
+		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
@@ -276,10 +353,11 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
+		LoopRegistry:             loopRegistry,
 	})
 }
 
-func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -292,7 +370,7 @@ func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, ap
 		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
 		return nil
 	}
-	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
 	if err != nil {
@@ -315,7 +393,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -379,7 +457,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	var sentryenv string
 	if env := cfg.SentryEnvironment(); env != "" {
 		sentryenv = env
-	} else if cfg.Dev() {
+	} else if !build.IsProd() {
 		sentryenv = "dev"
 	} else {
 		sentryenv = "prod"
@@ -402,7 +480,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -438,7 +516,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTSPort=0 in your config)")
+	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
@@ -703,6 +781,31 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 
 func (d DiskCookieStore) cookiePath() string {
 	return path.Join(d.Config.RootDir(), "cookie")
+}
+
+type UserCache struct {
+	dir        string
+	lggr       func() logger.Logger // func b/c we don't have the final logger at construction time
+	ensureOnce sync.Once
+}
+
+func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) {
+	cd, err := os.UserCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	return &UserCache{dir: filepath.Join(cd, "chainlink", subdir), lggr: lggr}, nil
+}
+
+func (cs *UserCache) ensure() {
+	if err := os.MkdirAll(cs.dir, 0700); err != nil {
+		cs.lggr().Errorw("Failed to make user cache dir", "dir", cs.dir, "err", err)
+	}
+}
+
+func (cs *UserCache) RootDir() string {
+	cs.ensureOnce.Do(cs.ensure)
+	return cs.dir
 }
 
 // SessionRequestBuilder is an interface that returns a SessionRequest,

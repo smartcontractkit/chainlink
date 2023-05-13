@@ -41,7 +41,7 @@ var (
 		URLs:                      []string{"ws://source-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://source-chain-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -58,7 +58,7 @@ var (
 		URLs:                      []string{"ws://dest-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://dest-chain-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
@@ -74,9 +74,20 @@ var (
 		URLs:                      []string{"ws://simulated-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://simulated-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{2 * time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
+	}
+
+	EthereumMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Ethereum Mainnet",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   1,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
 	}
 
 	// sepoliaTestnet https://sepolia.dev/
@@ -86,7 +97,7 @@ var (
 		ChainID:                   11155111,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -98,9 +109,20 @@ var (
 		ChainID:                   5,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{5 * time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	KlaytnMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Klaytn Mainnet",
+		ClientImplementation:      blockchain.KlaytnClientImplementation,
+		ChainID:                   8217,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
 	}
 
 	// klaytnBaobab https://klaytn.foundation/
@@ -110,7 +132,18 @@ var (
 		ChainID:                   1001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	MetisAndromeda blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Metis Andromeda",
+		ClientImplementation:      blockchain.MetisClientImplementation,
+		ChainID:                   1088,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
@@ -122,9 +155,20 @@ var (
 		ChainID:                   588,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	ArbitrumMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Arbitrum Mainnet",
+		ClientImplementation:      blockchain.ArbitrumClientImplementation,
+		ChainID:                   42161,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
 	}
 
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
@@ -134,8 +178,19 @@ var (
 		ChainID:                   421613,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
+	}
+
+	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Optimism Mainnet",
+		ClientImplementation:      blockchain.MetisClientImplementation, // Optimism Bedrock has not been released yet, use Metis for Legacy Tx Support
+		ChainID:                   10,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
 
@@ -146,9 +201,20 @@ var (
 		ChainID:                   420,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+	}
+
+	RSKMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "RSK Mainnet",
+		ClientImplementation:      blockchain.RSKClientImplementation,
+		ChainID:                   30,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
 	}
 
 	// rskTestnet https://www.rsk.co/
@@ -158,9 +224,20 @@ var (
 		ChainID:                   31,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	PolygonMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Polygon Mainnet",
+		ClientImplementation:      blockchain.PolygonClientImplementation,
+		ChainID:                   137,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
 	}
 
 	// PolygonMumbai https://mumbai.polygonscan.com/
@@ -170,18 +247,62 @@ var (
 		ChainID:                   80001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
 
-	Avalanche = blockchain.EVMNetwork{
+	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Avalanche Mainnet",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   43114,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	AvalancheFuji = blockchain.EVMNetwork{
 		Name:                      "Avalanche Fuji",
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   43113,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
+	Quorum = blockchain.EVMNetwork{
+		Name:                      "Quorum",
+		ClientImplementation:      blockchain.QuorumClientImplementation,
+		ChainID:                   1337,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	BaseGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Base Goerli",
+		ClientImplementation:      blockchain.OptimismClientImplementation,
+		ChainID:                   84531,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	CeloAlfajores = blockchain.EVMNetwork{
+		Name:                      "Celo Alfajores",
+		ClientImplementation:      blockchain.CeloClientImplementation,
+		ChainID:                   44787,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 	}
@@ -192,15 +313,23 @@ var (
 		"SIMULATED_2":      SimulatedEVMNonDev2,
 		"SIMULATED_NONDEV": SimulatedEVMNonDev,
 		// "GENERAL":         generalEVM, // See above
-		"GOERLI":          GoerliTestnet,
-		"SEPOLIA":         SepoliaTestnet,
-		"KLAYTN_BAOBAB":   KlaytnBaobab,
-		"METIS_STARDUST":  MetisStardust,
-		"ARBITRUM_GOERLI": ArbitrumGoerli,
-		"OPTIMISM_GOERLI": OptimismGoerli,
-		"RSK":             RSKTestnet,
-		"MUMBAI":          PolygonMumbai,
-		"AVALANCHE_FUJI":  Avalanche,
+		"ETHEREUM_MAINNET": EthereumMainnet,
+		"GOERLI":           GoerliTestnet,
+		"SEPOLIA":          SepoliaTestnet,
+		"KLAYTN_MAINNET":   KlaytnMainnet,
+		"KLAYTN_BAOBAB":    KlaytnBaobab,
+		"METIS_ANDROMEDA":  MetisAndromeda,
+		"METIS_STARDUST":   MetisStardust,
+		"ARBITRUM_MAINNET": ArbitrumMainnet,
+		"ARBITRUM_GOERLI":  ArbitrumGoerli,
+		"OPTIMISM_MAINNET": OptimismMainnet,
+		"OPTIMISM_GOERLI":  OptimismGoerli,
+		"BASE_GOERLI":      BaseGoerli,
+		"CELO_ALFAJORES":   CeloAlfajores,
+		"RSK":              RSKTestnet,
+		"MUMBAI":           PolygonMumbai,
+		"AVALANCHE_FUJI":   AvalancheFuji,
+		"QUORUM":           Quorum,
 	}
 )
 

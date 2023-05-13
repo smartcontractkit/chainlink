@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
@@ -195,6 +195,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: InsufficientFunds", true, "Nethermind"},
 			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
 			{"insufficient funds", true, "Klaytn"},
+			{"insufficient funds for gas * price + value + gatewayFee", true, "celo"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -213,6 +214,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
 			{"invalid gas fee cap", true, "Klaytn"},
 			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
+			{"tx fee (1.10 of currency celo) exceeds the configured cap (1.00 celo)", true, "celo"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

@@ -11,8 +11,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
 type jobType string
@@ -43,6 +43,8 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
 	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
+	maxCallbackGasLimit := fs.Uint("max-cb-gas-limit", 2.5e6, "max callback gas limit")
+	maxCallbackArgumentsLength := fs.Uint("max-cb-args-length", 32*10 /* 10 EVM words */, "max callback arguments length")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
@@ -90,7 +92,10 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	vrfRouterAddress := deployVRFRouter(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+
+	fmt.Println("Configuring VRF coordinator...")
+	configureVRFCoordinator(e, vrfCoordinator, uint32(*maxCallbackGasLimit), uint32(*maxCallbackArgumentsLength))
 
 	fmt.Println("Registering VRF coordinator...")
 	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
@@ -335,7 +340,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	vrfRouterAddress := deployVRFRouter(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
 
 	fmt.Println("Registering VRF coordinator...")
 	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())

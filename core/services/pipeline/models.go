@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Spec struct {
@@ -272,7 +272,7 @@ func (tr TaskRun) GetID() string {
 }
 
 func (tr *TaskRun) SetID(value string) error {
-	ID, err := uuid.FromString(value)
+	ID, err := uuid.Parse(value)
 	if err != nil {
 		return err
 	}
