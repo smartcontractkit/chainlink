@@ -10,15 +10,18 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/pelletier/go-toml/v2"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric/global"
 	"go.uber.org/multierr"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsol "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func main() {
@@ -29,23 +32,25 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
+	slggr := logger.Sugared(lggr)
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
 		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
 	}
-	defer func() {
-		err := promServer.Close()
-		if err != nil {
-			lggr.Errorf("error closing prometheus server: %s", err)
-		}
-	}()
+	defer slggr.ErrorIfFn(promServer.Close, "Failed to close prometheus server")
+
+	providers, err := plugins.NewTelemetryProviders("chainlink-solana", envCfg.AppID().String(), lggr)
+	if err != nil {
+		lggr.Fatalw("Failed to setup telemetry", "err", err)
+	}
+	defer slggr.ErrorIfFn(providers.Close, "Failed to close telemetry providers")
+	otel.SetTracerProvider(providers)
+	global.SetMeterProvider(providers)
 
 	cp := &pluginRelayer{lggr: lggr}
-	defer func() {
-		logger.Sugared(lggr).ErrorIfFn(cp.Close, "pluginRelayer")
-	}()
+	defer slggr.ErrorIfFn(cp.Close, "chainPlugin")
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -59,7 +64,12 @@ func main() {
 				PluginServer: cp,
 			},
 		},
-		GRPCServer: plugin.DefaultGRPCServer,
+		GRPCServer: func(opts []grpc.ServerOption) *grpc.Server {
+			return grpc.NewServer(append(opts,
+				grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+				grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+			)...)
+		},
 	})
 }
 

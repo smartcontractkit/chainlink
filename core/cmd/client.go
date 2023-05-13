@@ -27,13 +27,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric/global"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -164,6 +165,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	initOnce.Do(func() {
 		initPrometheus(cfg)
 	})
+
+	telemetry, err := plugins.NewTelemetryProviders("chainlink", cfg.AppID().String())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to setup telemetry")
+	}
+	otel.SetTracerProvider(telemetry)
+	global.SetMeterProvider(telemetry)
 
 	err = handleNodeVersioning(db, appLggr, cfg)
 	if err != nil {
@@ -316,6 +324,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		LoopRegistry:             loopRegistry,
+		Telemetry:                telemetry,
 	})
 }
 

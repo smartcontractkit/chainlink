@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -141,6 +140,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	Telemetry                *plugins.TelemetryProviders
 
 	started     bool
 	startStopMu sync.Mutex
@@ -162,6 +162,7 @@ type ApplicationOpts struct {
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
 	LoopRegistry             *plugins.LoopRegistry
+	Telemetry                *plugins.TelemetryProviders
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -503,6 +504,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
+		Telemetry:                opts.Telemetry,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -614,6 +616,11 @@ func (app *ChainlinkApplication) stop() (err error) {
 				err = multierr.Append(err, lerr)
 			}
 		}()
+		if app.Telemetry != nil {
+			defer func() {
+				err = multierr.Append(err, app.Telemetry.Close())
+			}()
+		}
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
