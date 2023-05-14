@@ -10,7 +10,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type heads[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
+type heads[H commontypes.HeadTrackerHead[H, BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
 	heads  []H
 	mu     sync.RWMutex
 	getNil func() H
@@ -23,7 +23,7 @@ func NewEvmHeads() *heads[*evmtypes.Head, common.Hash] {
 }
 
 func NewHeads[
-	H commontypes.Head[BLOCK_HASH],
+	H commontypes.HeadTrackerHead[H, BLOCK_HASH],
 	BLOCK_HASH commontypes.Hashable,
 ](getNil func() H) *heads[H, BLOCK_HASH] {
 	return &heads[H, BLOCK_HASH]{
