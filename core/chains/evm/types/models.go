@@ -70,6 +70,14 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
+func (h *Head) SetParent(parent *Head) {
+	h.Parent = parent
+}
+
+func (h *Head) GetParentHash() common.Hash {
+	return h.ParentHash
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	for h.Parent != nil {
