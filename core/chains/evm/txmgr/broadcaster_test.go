@@ -67,10 +67,10 @@ func NewTestEthBroadcaster(
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, keyStore)
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, ethClient, txmgr.NewEvmTxmConfig(config), keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
-	ethBroadcaster.DisableUnstartedEthTxAutoProcessing()
+	ethBroadcaster.DisableUnstartedTxAutoProcessing()
 	err = ethBroadcaster.Start(testutils.Context(t))
 	t.Cleanup(func() { assert.NoError(t, ethBroadcaster.Close()) })
 	return ethBroadcaster, err
@@ -90,9 +90,9 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	estimator := txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, gethCommon.Hash](t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, ethKeyStore, estimator)
 
-	eb := txmgr.NewEthBroadcaster(
+	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		ethClient,
+		txmgr.NewEvmTxmClient(ethClient),
 		txmgr.NewEvmTxmConfig(evmcfg),
 		ethKeyStore,
 		eventBroadcaster,
@@ -156,7 +156,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	gasLimit := uint32(242)
 
 	t.Run("no eth_txes at all", func(t *testing.T) {
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	})
@@ -174,7 +174,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	})
@@ -209,7 +209,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTx(&etxUnconfirmed))
 		require.NoError(t, txStore.InsertEthTx(&etxWithError))
 
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	})
@@ -286,7 +286,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, txStore.InsertEthTx(&earlierEthTx))
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 
@@ -388,7 +388,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -456,7 +456,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			require.NoError(t, txStore.InsertEthTx(&ethTx))
 
 			{
-				retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				assert.NoError(t, err)
 				assert.False(t, retryable)
 			}
@@ -490,7 +490,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			require.NoError(t, txStore.InsertEthTx(&ethTx))
 
 			{
-				retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				assert.NoError(t, err)
 				assert.False(t, retryable)
 			}
@@ -526,7 +526,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			require.NoError(t, txStore.InsertEthTx(&ethTx))
 
 			{
-				retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				assert.NoError(t, err)
 				assert.False(t, retryable)
 			}
@@ -579,7 +579,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 		require.NoError(t, txStore.InsertEthTx(&ethTx))
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -612,7 +612,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 		require.NoError(t, txStore.InsertEthTx(&ethTx))
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -642,7 +642,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 		require.NoError(t, txStore.InsertEthTx(&ethTx))
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -675,9 +675,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		<-chBlock
 	})
 
-	eb := txmgr.NewEthBroadcaster(
+	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		ethClient,
+		txmgr.NewEvmTxmClient(ethClient),
 		evmcfg,
 		ethKeyStore,
 		&pg.NullEventBroadcaster{},
@@ -687,7 +687,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		&testCheckerFactory{},
 		false,
 	)
-	eb.DisableUnstartedEthTxAutoProcessing()
+	eb.DisableUnstartedTxAutoProcessing()
 
 	etx := txmgr.EvmTx{
 		FromAddress:    fromAddress,
@@ -714,7 +714,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	}()
 
 	{
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	}
@@ -757,7 +757,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 
 	// Do the thing
 	{
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
 		assert.False(t, retryable)
 	}
@@ -832,7 +832,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -871,7 +871,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -910,7 +910,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -948,7 +948,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -987,7 +987,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Retryable, failedToReachNodeError).Once()
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), failedToReachNodeError.Error())
 		assert.True(t, retryable)
@@ -1037,7 +1037,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1108,7 +1108,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1155,7 +1155,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
 
 			{
-				retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				assert.NoError(t, err)
 				assert.False(t, retryable)
 			}
@@ -1206,7 +1206,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return tx.Nonce() == localNextNonce
 				}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
 
-				retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "something exploded in the callback")
 				assert.True(t, retryable)
@@ -1228,7 +1228,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
 
 				{
-					retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+					retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 					assert.NoError(t, err)
 					assert.False(t, retryable)
 				}
@@ -1242,10 +1242,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					lggr := logger.TestLogger(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg, lggr), evmcfg)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, ethKeyStore, estimator)
-					eb = txmgr.NewEthBroadcaster(txStore, ethClient, txmgr.NewEvmTxmConfig(evmcfg), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
+					eb = txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					require.NoError(t, err)
 					{
-						retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+						retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 						assert.NoError(t, err)
 						assert.False(t, retryable)
 					}
@@ -1280,7 +1280,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
 			assert.Contains(t, err.Error(), "error while sending transaction")
@@ -1311,7 +1311,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce+1, nil).Once()
 
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1350,7 +1350,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), retryableErrorExample)
 		assert.True(t, retryable)
@@ -1374,7 +1374,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1413,7 +1413,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("pending nonce fetch failed")).Once()
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), retryableErrorExample)
 		require.Contains(t, err.Error(), "pending nonce fetch failed")
@@ -1438,7 +1438,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1478,7 +1478,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce+1, nil).Once()
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.False(t, retryable)
 
@@ -1530,7 +1530,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			require.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1567,7 +1567,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Retryable, failedToReachNodeError).Once()
 
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 		assert.True(t, retryable)
@@ -1599,7 +1599,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Do the thing
 		{
-			retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
 		}
@@ -1649,7 +1649,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
 
 		// Do the thing
-		retryable, err := eb2.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 		assert.True(t, retryable)
@@ -1675,7 +1675,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(clienttypes.InsufficientFunds, errors.New(insufficientEthError)).Once()
 
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 		assert.True(t, retryable)
@@ -1714,7 +1714,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(clienttypes.Retryable, errors.New(nonceGapError)).Once()
 
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), nonceGapError)
 		assert.True(t, retryable)
@@ -1768,7 +1768,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Underpriced, errors.New(underpricedError)).Once()
 
 		// Check gas tip cap verification
-		retryable, err := eb2.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
 		assert.True(t, retryable)
@@ -1801,7 +1801,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		eb2, err := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg2, &testCheckerFactory{}, false)
 		require.NoError(t, err)
 
-		retryable, err := eb2.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 wei for key")
 		assert.True(t, retryable)
@@ -1828,7 +1828,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EvmGasBumpWei().ToInt(), big.NewInt(2)))) == 0
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
-		retryable, err = eb2.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err = eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.NoError(t, err)
 		assert.False(t, retryable)
 
@@ -1884,7 +1884,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 		require.NoError(t, txStore.InsertEthTx(&etx))
 		// Do the thing
-		retryable, err := eb.ProcessUnstartedEthTxs(testutils.Context(t), fromAddress)
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not sign transaction")
 		assert.True(t, retryable)
@@ -2006,7 +2006,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, estimator)
 
-		eb := txmgr.NewEthBroadcaster(txStore, ethClient, evmTxmCfg, kst, eventBroadcaster, txBuilder, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, kst, eventBroadcaster, txBuilder, nil, lggr, checkerFactory, false)
 		eb.Start(testutils.Context(t))
 
 		defer func() { assert.NoError(t, eb.Close()) }()
@@ -2019,7 +2019,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, estimator)
 
 		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, kst)
-		eb := txmgr.NewEthBroadcaster(txStore, ethClient, evmTxmCfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -2049,8 +2049,8 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, estimator)
 		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, kst)
-		eb := txmgr.NewEthBroadcaster(txStore, ethClient, evmTxmCfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
-		eb.DisableUnstartedEthTxAutoProcessing()
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb.DisableUnstartedTxAutoProcessing()
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()

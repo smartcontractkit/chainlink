@@ -3,7 +3,7 @@ package types
 import "time"
 
 // UNIT - fee unit
-type TxmConfig[UNIT any] interface {
+type TxmConfig[UNIT Unit] interface {
 	BroadcasterConfig[UNIT]
 	ConfirmerConfig[UNIT]
 	ResenderConfig
@@ -15,7 +15,7 @@ type TxmConfig[UNIT any] interface {
 }
 
 // UNIT - fee unit
-type BroadcasterConfig[UNIT any] interface {
+type BroadcasterConfig[UNIT Unit] interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	MaxInFlightTransactions() uint32
 
@@ -26,7 +26,7 @@ type BroadcasterConfig[UNIT any] interface {
 }
 
 // UNIT - fee unit
-type ConfirmerConfig[UNIT any] interface {
+type ConfirmerConfig[UNIT Unit] interface {
 	RPCDefaultBatchSize() uint32
 	UseForwarders() bool
 	FeeBumpTxDepth() uint16
