@@ -125,10 +125,6 @@ const forwarderAdditionalEOACount = 4
 
 func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
 	lggr := logger.Sugared(cli.Logger.Named("ConfigureOCR2VRFNode"))
-	err := cli.Config.Validate()
-	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
-	}
 	lggr.Infow(
 		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
 		"Version", static.Version, "SHA", static.Sha)
@@ -150,6 +146,11 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	}
 
 	cli.Config.SetPasswords(pwd, vrfpwd)
+
+	err := cli.Config.Validate()
+	if err != nil {
+		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
+	}
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
 	rootCtx, cancel := context.WithCancel(context.Background())
