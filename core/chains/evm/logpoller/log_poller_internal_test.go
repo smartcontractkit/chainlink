@@ -399,7 +399,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	// remove Maybe expectation from prior subtest, as it will override all expected calls in future subtests
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe().Unset()
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Unset()
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
