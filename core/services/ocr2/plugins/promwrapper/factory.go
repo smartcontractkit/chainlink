@@ -21,7 +21,7 @@ func (p *promFactory) NewReportingPlugin(config types.ReportingPluginConfig) (ty
 		return nil, types.ReportingPluginInfo{}, err
 	}
 
-	prom := New(plugin, p.name, p.chainType, p.chainID, config)
+	prom := New(plugin, p.name, p.chainType, p.chainID, config, nil)
 	return prom, info, nil
 }
 
