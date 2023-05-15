@@ -3,14 +3,16 @@ package mercury
 import (
 	"sync"
 	"testing"
+	
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 type TestTransmissionWithReport struct {
