@@ -69,7 +69,7 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 		// copy all head objects to avoid races when a previous head chain is used
 		// elsewhere (since we mutate Parent here)
 		headCopy := *head
-		headCopy.Parent = nil // always build it from scratch in case it points to a head too old to be included
+		headCopy.Parent = h.getNil() // always build it from scratch in case it points to a head too old to be included
 		// map eliminates duplicates
 		headsMap[head.Hash] = &headCopy
 	}
