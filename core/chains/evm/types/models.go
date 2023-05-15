@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,6 +41,7 @@ type Head struct {
 	StateRoot        common.Hash
 	Difficulty       *utils.Big
 	TotalDifficulty  *utils.Big
+	parentMu         sync.RWMutex
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -53,6 +55,7 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 		ParentHash: parentHash,
 		Timestamp:  time.Unix(int64(timestamp), 0),
 		EVMChainID: chainID,
+		parentMu:   sync.RWMutex{},
 	}
 }
 
@@ -65,6 +68,9 @@ func (h *Head) BlockHash() common.Hash {
 }
 
 func (h *Head) GetParent() commontypes.Head[common.Hash] {
+	h.parentMu.RLock()
+	defer h.parentMu.RUnlock()
+
 	if h.Parent == nil {
 		return nil
 	}
@@ -72,6 +78,9 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 }
 
 func (h *Head) SetParent(parent *Head) {
+	h.parentMu.Lock()
+	defer h.parentMu.Unlock()
+
 	h.Parent = parent
 }
 
