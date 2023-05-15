@@ -293,16 +293,6 @@ func WaitForRandRequestToBeFulfilled(
 		}
 	}
 
-	//go func() {
-	//	requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
-	//
-	//	//todo - how to handle error if error occurs in goroutine?
-	//	if err != nil {
-	//		return nil, fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
-	//	}
-	//	requestStatusChannel <- requestStatus
-	//}()
-
 	for {
 		select {
 		case <-time.After(timeout):
