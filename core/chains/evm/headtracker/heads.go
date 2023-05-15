@@ -32,7 +32,7 @@ func (h *heads) LatestHead() *evmtypes.Head {
 	defer h.mu.RUnlock()
 
 	if len(h.heads) == 0 {
-		return nil
+		return h.getNil()
 	}
 	return h.heads[0]
 }
@@ -46,7 +46,7 @@ func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 			return head
 		}
 	}
-	return nil
+	return h.getNil()
 }
 
 func (h *heads) Count() int {
