@@ -318,7 +318,8 @@ p2pv2Bootstrappers = [
 chainID = %d
 
 [pluginConfig]
-maxServiceWorkers = 100`
+maxServiceWorkers = 100
+mercuryCredentialName = "%s"`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
@@ -334,6 +335,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 			nodeAddr,                // transmitterID - node wallet address
 			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
 			k.cfg.ChainID,           // chainID
+			k.cfg.MercuryCredName,   // mercury credential name
 		),
 	})
 	if err != nil {
