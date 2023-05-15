@@ -27,11 +27,7 @@ contract VRFOwnerlessConsumerExample is VRFConsumerBase, ERC677ReceiverInterface
    * @param _amount The amount of LINK transferred to pay for this request.
    * @param _data The data passed to transferAndCall on LinkToken. Must be an abi-encoded key hash.
    */
-  function onTokenTransfer(
-    address, /* sender */
-    uint256 _amount,
-    bytes calldata _data
-  ) external override {
+  function onTokenTransfer(address /* sender */, uint256 _amount, bytes calldata _data) external override {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }

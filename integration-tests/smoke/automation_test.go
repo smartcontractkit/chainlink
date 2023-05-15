@@ -780,8 +780,9 @@ func setupAutomationTest(
 		})
 	}
 	chainlinkChart := chainlink.New(0, map[string]any{
-		"replicas": "5",
-		"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+		"replicas":    "5",
+		"toml":        client.AddNetworksConfig(automationBaseTOML, network),
+		"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
 	})
 
 	testEnvironment := environment.New(&environment.Config{
