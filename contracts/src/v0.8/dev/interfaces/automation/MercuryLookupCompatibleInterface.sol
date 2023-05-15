@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 interface MercuryLookupCompatibleInterface {
+  error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
+
   /**
    * @notice any contract which wants to utilize MercuryLookup feature needs to
    * implement this interface as well as the automation compatible interface.
