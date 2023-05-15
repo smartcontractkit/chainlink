@@ -43,7 +43,7 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          EvmHtrkConfig
+	config          EvmConfig
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
@@ -57,7 +57,7 @@ type headTracker struct {
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config EvmHtrkConfig,
+	config EvmConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,

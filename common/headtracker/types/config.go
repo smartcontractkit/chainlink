@@ -2,7 +2,7 @@ package types
 
 import "time"
 
-type HtrkConfig interface {
+type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	FinalityDepth() uint32
 	HeadTrackerHistoryDepth() uint32
