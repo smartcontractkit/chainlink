@@ -1089,6 +1089,34 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	return clients, nil
 }
 
+// ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say though a Helm upgrade
+func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*Chainlink) (err error) {
+	for _, node := range nodes {
+		for _, details := range testEnvironment.ChainlinkNodeDetails {
+			if details.ChartName == node.Config.ChartName { // Make the link from client to pod consistent
+				node, err = NewChainlink(&ChainlinkConfig{
+					URL:        details.LocalIP,
+					Email:      "notreal@fakeemail.ch",
+					Password:   "fj293fbBnlQ!f9vNs",
+					InternalIP: parseHostname(details.InternalIP),
+					ChartName:  details.ChartName,
+					PodName:    details.PodName,
+				})
+				if err != nil {
+					return err
+				}
+				log.Debug().
+					Str("URL", node.Config.URL).
+					Str("Internal IP", node.Config.InternalIP).
+					Str("Chart Name", node.Config.ChartName).
+					Str("Pod Name", node.Config.PodName).
+					Msg("Reconnected to Chainlink node")
+			}
+		}
+	}
+	return nil
+}
+
 func parseHostname(s string) string {
 	r := regexp.MustCompile(`://(?P<Host>.*):`)
 	return r.FindStringSubmatch(s)[1]

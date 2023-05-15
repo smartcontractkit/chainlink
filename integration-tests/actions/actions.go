@@ -378,5 +378,9 @@ func UpgradeChainlinkNodeVersions(
 			return err
 		}
 	}
-	return testEnvironment.Run()
+	err := testEnvironment.RunUpdated(len(nodes))
+	if err != nil { // Run the new environment and wait for changes to show
+		return err
+	}
+	return client.ReconnectChainlinkNodes(testEnvironment, nodes)
 }
