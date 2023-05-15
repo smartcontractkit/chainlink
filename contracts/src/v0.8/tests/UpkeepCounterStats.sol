@@ -20,12 +20,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
   event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
   event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
-  event PerformingUpkeep(
-    uint256 firstPerformBlock,
-    uint256 lastBlock,
-    uint256 previousBlock,
-    uint256 counter
-  );
+  event PerformingUpkeep(uint256 firstPerformBlock, uint256 lastBlock, uint256 previousBlock, uint256 counter);
 
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -40,7 +35,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
   mapping(uint256 => uint256) public gasLimits;
   mapping(uint256 => bytes) public checkDatas;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
-  mapping(uint256 => uint256[]) public delays;  // how to query for delays for a certain past period: calendar day and/or past 24 hours
+  mapping(uint256 => uint256[]) public delays; // how to query for delays for a certain past period: calendar day and/or past 24 hours
 
   mapping(uint256 => mapping(uint16 => uint256[])) public bucketedDelays;
   mapping(uint256 => mapping(uint16 => uint256[])) public timestampDelays;
@@ -62,7 +57,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
 
   constructor(address registrarAddress) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
-    (,,, address registryAddress,) = registrar.getRegistrationConfig();
+    (, , , address registryAddress, ) = registrar.getRegistrationConfig();
     registry = KeeperRegistry2_0(payable(address(registryAddress)));
     linkToken = registrar.LINK();
   }
@@ -85,7 +80,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
    */
   function setConfig(KeeperRegistrar2_0 newRegistrar) external {
     registrar = newRegistrar;
-    (,,, address registryAddress,) = registrar.getRegistrationConfig();
+    (, , , address registryAddress, ) = registrar.getRegistrationConfig();
     registry = KeeperRegistry2_0(payable(address(registryAddress)));
     linkToken = registrar.LINK();
 
@@ -132,7 +127,13 @@ contract UpkeepCounterStats is ConfirmedOwner {
    * @param checkGasToBurn the amount of check gas to burn
    * @param performGasToBurn the amount of perform gas to burn
    */
-  function batchRegisterUpkeeps(uint8 number, uint32 gasLimit, uint96 amount, uint256 checkGasToBurn, uint256 performGasToBurn) external {
+  function batchRegisterUpkeeps(
+    uint8 number,
+    uint32 gasLimit,
+    uint96 amount,
+    uint256 checkGasToBurn,
+    uint256 performGasToBurn
+  ) external {
     KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
       name: "test",
       encryptedEmail: bytes(""),
@@ -204,10 +205,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
-    (uint256 upkeepId) = abi.decode(
-      checkData,
-      (uint256)
-    );
+    uint256 upkeepId = abi.decode(checkData, (uint256));
 
     uint256 performDataSize = performDataSizes[upkeepId];
     uint256 checkGasToBurn = checkGasToBurns[upkeepId];
@@ -225,10 +223,7 @@ contract UpkeepCounterStats is ConfirmedOwner {
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (uint256 upkeepId, ) = abi.decode(
-      performData,
-      (uint256, bytes)
-    );
+    (uint256 upkeepId, ) = abi.decode(performData, (uint256, bytes));
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
     uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
     uint256 blockNum = block.number;
@@ -435,7 +430,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return (sum, n);
   }
 
-  function getSumTimestampBucketedDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
+  function getSumTimestampBucketedDelayLastNPerforms(
+    uint256 upkeepId,
+    uint256 n
+  ) public view returns (uint256, uint256) {
     uint256 len = this.getTimestampBucketedDelaysLength(upkeepId);
     if (n == 0 || n >= len) {
       n = len;
@@ -460,7 +458,10 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return getSumDelayLastNPerforms(delays, delays.length);
   }
 
-  function getSumDelayInTimestampBucket(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256, uint256) {
+  function getSumDelayInTimestampBucket(
+    uint256 upkeepId,
+    uint16 timestampBucket
+  ) public view returns (uint256, uint256) {
     uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
     return getSumDelayLastNPerforms(delays, delays.length);
   }
@@ -517,7 +518,11 @@ contract UpkeepCounterStats is ConfirmedOwner {
     return (upkeepIds, pxDelays);
   }
 
-  function getPxDelayInTimestampBucket(uint256 upkeepId, uint256 p, uint16 timestampBucket) public view returns (uint256) {
+  function getPxDelayInTimestampBucket(
+    uint256 upkeepId,
+    uint256 p,
+    uint16 timestampBucket
+  ) public view returns (uint256) {
     uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
     return getPxDelayLastNPerforms(delays, p, delays.length);
   }
@@ -543,16 +548,12 @@ contract UpkeepCounterStats is ConfirmedOwner {
     quickSort(subArr, int256(0), int256(subArr.length - 1));
 
     if (p == 100) {
-      return  subArr[subArr.length - 1];
+      return subArr[subArr.length - 1];
     }
     return subArr[(p * subArr.length) / 100];
   }
 
-  function quickSort(
-    uint256[] memory arr,
-    int256 left,
-    int256 right
-  ) private pure {
+  function quickSort(uint256[] memory arr, int256 left, int256 right) private pure {
     int256 i = left;
     int256 j = right;
     if (i == j) return;
