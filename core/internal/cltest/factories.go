@@ -463,8 +463,14 @@ func MustInsertRandomKey(
 				nonce = int64(v)
 			case int64:
 				nonce = v
+			case evmtypes.Nonce:
+				nonce = v.Int64()
 			case bool:
 				enabled = v
+			case utils.Big, []utils.Big: // skip for chainIDs
+				continue
+			default:
+				require.NoError(t, fmt.Errorf("unknown type in MustInsertRandomKey: %T", opt))
 			}
 		}
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
