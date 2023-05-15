@@ -139,13 +139,14 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 }
 
 // Networks returns the networks that the test is running on
-func (v *VRFV2SoakTest) TearDownVals() (
+func (v *VRFV2SoakTest) TearDownVals(t *testing.T) (
+	*testing.T,
 	*environment.Environment,
 	[]*client.Chainlink,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return v.testEnvironment, v.ChainlinkNodes, &v.TestReporter, v.chainClient
+	return t, v.testEnvironment, v.ChainlinkNodes, &v.TestReporter, v.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present

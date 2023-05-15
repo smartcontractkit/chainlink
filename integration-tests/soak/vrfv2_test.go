@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 
@@ -41,11 +42,8 @@ func TestVRFV2Soak(t *testing.T) {
 	testInputs.SetForRemoteRunner()
 	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
-
 	testEnvironment := setupVRFV2Environment(t, testNetwork, config.BaseVRFV2NetworkDetailTomlConfig, "")
 
-
-	//testEnvironment, testNetwork, testInputs := SetupVRFV2SoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -65,10 +63,6 @@ func TestVRFV2Soak(t *testing.T) {
 	require.NoError(t, err)
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err)
-	//t.Cleanup(func() {
-	//	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-	//	require.NoError(t, err, "Error tearing down environment")
-	//})
 	chainClient.ParallelTransactions(true)
 
 	linkToken, err := contractDeployer.DeployLinkTokenContract()
@@ -126,7 +120,6 @@ func TestVRFV2Soak(t *testing.T) {
 	)
 
 	var (
-		job                   *client.Job
 		encodedProvingKeys    = make([][2]*big.Int, 0)
 		nativeTokenKeyAddress string
 	)
@@ -135,7 +128,7 @@ func TestVRFV2Soak(t *testing.T) {
 		require.NoError(t, err)
 		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
-		jobUUID := uuid.NewV4()
+		jobUUID := uuid.New()
 		os := &client.VRFV2TxPipelineSpec{
 			Address: coordinator.Address(),
 		}
@@ -143,7 +136,7 @@ func TestVRFV2Soak(t *testing.T) {
 		require.NoError(t, err)
 		nativeTokenKeyAddress, err = chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err)
-		job, err = chainlinkNode.MustCreateJob(&client.VRFV2JobSpec{
+		_, err = chainlinkNode.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
 			FromAddresses:            []string{nativeTokenKeyAddress},
@@ -213,10 +206,6 @@ PriceMax = '%d gwei'
 				return errors.New("error occurred Requesting Randomness")
 			}
 
-			//todo - how to make assertions in soak test?
-			//gom := gomega.NewGomegaWithT(t)
-			//timeout := time.Minute * 2
-			//var lastRequestID *big.Int
 			lastRequestID, err := consumer.GetLastRequestId(context.Background())
 			if err != nil {
 				return errors.New("error occurred getting Last Request ID")
@@ -224,42 +213,11 @@ PriceMax = '%d gwei'
 
 			l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
-			_, err = WaitForRandRequestToBeFulfilled(consumer, lastRequestID, time.Second * 30)
+			_, err = WaitForRandRequestToBeFulfilled(consumer, lastRequestID, time.Second*20, l)
 
-
-			//todo - wrap exisiting error§
 			if err != nil {
 				return fmt.Errorf("error occurred waiting for Randomness Request Status, error: %w", err)
 			}
-
-			//status, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
-			//if err != nil {
-			//	return fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
-			//}
-
-			//TODO - need to check status.Fulfilled via go channel (pull consumer.GetRequestStatus()), timeout after some time if status not changed to True
-
-
-
-			//gom.Eventually(func(g gomega.Gomega) {
-				jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-
-
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				g.Expect(status.Fulfilled).Should(gomega.BeTrue())
-				l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
-
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				for _, w := range status.RandomWords {
-					l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-					g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
-				}
-			}, timeout, "1s", ).Should(gomega.Succeed())
-
 			return nil
 		},
 	})
@@ -280,6 +238,7 @@ PriceMax = '%d gwei'
 	//				linkTokenContract = tempLinkToken
 
 	//todo - how to add report?
+
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(vrfV2SoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
@@ -291,54 +250,6 @@ PriceMax = '%d gwei'
 	vrfV2SoakTest.Run(t)
 }
 
-//func SetupVRFV2SoakEnv(t *testing.T, networkDetailTomlConfig string, existingNamespace string) (*environment.Environment, blockchain.EVMNetwork, testsetups.VRFV2SoakTestInputs) {
-//	//var testInputs testsetups.VRFV2SoakTestInputs
-//	//err := envconfig.Process("VRFV2", &testInputs)
-//	//require.NoError(t, err, "Error reading OCR soak test inputs")
-//	//testInputs.SetForRemoteRunner()
-//	//testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
-//
-//	gethChartConfig := getGethChartConfig(testNetwork)
-//
-//	if existingNamespace != "" {
-//		testEnvironment = environment.New(&environment.Config{
-//			Namespace: existingNamespace,
-//			Test:      t,
-//		})
-//	} else {
-//		testEnvironment = environment.New(&environment.Config{
-//			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-//			Test:            t,
-//		})
-//	}
-//
-//	baseEnvironmentConfig := &environment.Config{
-//		TTL: time.Hour * 720, // 30 days,
-//		NamespacePrefix: fmt.Sprintf(
-//			"soak-vrfv2-%s",
-//			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
-//		),
-//		Test: t,
-//	}
-//
-//	testEnvironment := environment.New(baseEnvironmentConfig).
-//		AddHelm(ethereum.New(&ethereum.Props{
-//			NetworkName: network.Name,
-//			Simulated:   network.Simulated,
-//			WsURLs:      network.URLs,
-//		}))
-//
-//	testEnvironment.AddHelm(chainlink.New(0, map[string]any{
-//		"toml": client.AddNetworkDetailedConfig("", networkDetailTOML, network),
-//	}))
-//
-//	err = testEnvironment.Run()
-//	require.NoError(t, err, "Error launching test environment")
-//	return testEnvironment, network, testInputs
-//}
-
-
-
 func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, networkDetailTomlConfig string, existingNamespace string) (testEnvironment *environment.Environment) {
 	gethChartConfig := getGethChartConfig(testNetwork)
 
@@ -346,13 +257,13 @@ func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, netw
 		testEnvironment = environment.New(&environment.Config{
 			Namespace: existingNamespace,
 			Test:      t,
-			TTL: time.Hour * 720, // 30 days,
+			TTL:       time.Hour * 720, // 30 days,
 		})
 	} else {
 		testEnvironment = environment.New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 			Test:            t,
-			TTL: time.Hour * 720, // 30 days,
+			TTL:             time.Hour * 720, // 30 days,
 		})
 	}
 
@@ -370,7 +281,6 @@ func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, netw
 	return testEnvironment
 }
 
-
 func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.ConnectedChart {
 
 	evmConfig := ethereum.New(nil)
@@ -384,24 +294,47 @@ func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.Connected
 	return evmConfig
 }
 
-func WaitForRandRequestToBeFulfilled(consumer contracts.VRFv2Consumer, lastRequestID *big.Int, timeout time.Duration) (contracts.RequestStatus, error) {
+func WaitForRandRequestToBeFulfilled(
+	consumer contracts.VRFv2Consumer,
+	lastRequestID *big.Int,
+	timeout time.Duration,
+	l zerolog.Logger,
+) (contracts.RequestStatus, error) {
+	g := new(errgroup.Group)
 	requestStatusChannel := make(chan contracts.RequestStatus)
 
-	go func() {
-		requestStatus, _ := consumer.GetRequestStatus(context.Background(), lastRequestID)
-
-		//todo - how to handle error if error occurs in goroutine?
-		//if err != nil {
-		//	return nil, fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
-		//}
+	g.Go(func() error {
+		requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+		if err != nil {
+			return err
+		}
 		requestStatusChannel <- requestStatus
-	}()
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return contracts.RequestStatus{}, err
+	} else {
+		status := <-requestStatusChannel
+		for _, w := range status.RandomWords {
+			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+		}
+	}
+
+	//go func() {
+	//	requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+	//
+	//	//todo - how to handle error if error occurs in goroutine?
+	//	if err != nil {
+	//		return nil, fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+	//	}
+	//	requestStatusChannel <- requestStatus
+	//}()
 
 	for {
 		select {
 		case <-time.After(timeout):
-			//todo - default value for struct? which value to return when error occurs
-			return contracts.RequestStatus{} , fmt.Errorf("timeout waiting for new transmission event")
+			return contracts.RequestStatus{}, fmt.Errorf("timeout waiting for new transmission event")
 		case requestStatus := <-requestStatusChannel:
 			return requestStatus, nil
 		}
