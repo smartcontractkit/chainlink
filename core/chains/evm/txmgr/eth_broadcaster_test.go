@@ -298,7 +298,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, earlierTransaction.FromAddress)
 		assert.Equal(t, fromAddress, earlierTransaction.FromAddress)
 		require.NotNil(t, earlierTransaction.Sequence)
-		assert.Equal(t, int64(0), *earlierTransaction.Sequence)
+		assert.Equal(t, evmtypes.Nonce(0), *earlierTransaction.Sequence)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.NotNil(t, earlierTransaction.InitialBroadcastAt)
 		assert.Len(t, earlierTransaction.TxAttempts, 1)
@@ -329,7 +329,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, laterTransaction.FromAddress)
 		assert.Equal(t, fromAddress, laterTransaction.FromAddress)
 		require.NotNil(t, laterTransaction.Sequence)
-		assert.Equal(t, int64(1), *laterTransaction.Sequence)
+		assert.Equal(t, evmtypes.Nonce(1), *laterTransaction.Sequence)
 		assert.NotNil(t, laterTransaction.BroadcastAt)
 		assert.NotNil(t, earlierTransaction.InitialBroadcastAt)
 		assert.Len(t, laterTransaction.TxAttempts, 1)
@@ -401,7 +401,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, eipTxWithAl.FromAddress)
 		assert.Equal(t, fromAddress, eipTxWithAl.FromAddress)
 		require.NotNil(t, eipTxWithAl.Sequence)
-		assert.Equal(t, int64(4), *eipTxWithAl.Sequence)
+		assert.Equal(t, evmtypes.Nonce(4), *eipTxWithAl.Sequence)
 		assert.NotNil(t, eipTxWithAl.BroadcastAt)
 		assert.NotNil(t, eipTxWithAl.InitialBroadcastAt)
 		assert.True(t, eipTxWithAl.AdditionalParameters.Valid)
@@ -1124,7 +1124,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotEqual(t, etx1.CreatedAt, *etx1.BroadcastAt)
 		assert.NotNil(t, etx1.InitialBroadcastAt)
 		require.NotNil(t, etx1.Sequence)
-		assert.Equal(t, int64(0), *etx1.Sequence)
+		assert.Equal(t, evmtypes.Nonce(0), *etx1.Sequence)
 		assert.False(t, etx1.Error.Valid)
 		assert.Len(t, etx1.TxAttempts, 1)
 
@@ -1293,7 +1293,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		assert.Nil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
-		assert.Equal(t, int64(localNextNonce), *etx.Sequence)
+		assert.Equal(t, evmtypes.Nonce(localNextNonce), *etx.Sequence)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
@@ -1322,7 +1322,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.NotNil(t, etx.BroadcastAt)
 		assert.NotNil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
-		assert.Equal(t, int64(localNextNonce), *etx.Sequence)
+		assert.Equal(t, evmtypes.Nonce(localNextNonce), *etx.Sequence)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]

@@ -1567,10 +1567,10 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		require.Len(t, etxs, 2)
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
 		assert.Equal(t, *etxWithoutAttempts.Sequence, *(etxs[0].Sequence))
-		require.Equal(t, int64(5), *etxWithoutAttempts.Sequence)
+		require.Equal(t, evmtypes.Nonce(5), *etxWithoutAttempts.Sequence)
 		assert.Equal(t, etx4.ID, etxs[1].ID)
 		assert.Equal(t, *etx4.Sequence, *(etxs[1].Sequence))
-		require.Equal(t, int64(7), *etx4.Sequence)
+		require.Equal(t, evmtypes.Nonce(7), *etx4.Sequence)
 	})
 
 	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etxWithoutAttempts.ID)

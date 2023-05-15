@@ -65,8 +65,8 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
-	assert.Equal(t, int64(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, evmtypes.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
 	assert.Len(t, txs[0].TxAttempts, 2, "all eth tx attempts are preloaded")
 	assert.Len(t, txs[1].TxAttempts, 1)
 	assert.Equal(t, int64(3), *txs[0].TxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
@@ -76,7 +76,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
-	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
 }
 
 func TestORM_EthTransactions(t *testing.T) {
@@ -113,8 +113,8 @@ func TestORM_EthTransactions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, int64(1), *txs[0].Sequence, "transactions should be sorted by nonce")
-	assert.Equal(t, int64(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, evmtypes.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
 	assert.Len(t, txs[0].TxAttempts, 0, "eth tx attempts should not be preloaded")
 	assert.Len(t, txs[1].TxAttempts, 0)
 }
@@ -690,7 +690,7 @@ func TestORM_FindEthTxWithNonce(t *testing.T) {
 
 	t.Run("returns transaction if it exists", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
-		require.Equal(t, int64(777), *etx.Sequence)
+		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
 
 		res, err := txStore.FindEthTxWithNonce(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
