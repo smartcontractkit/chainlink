@@ -42,7 +42,7 @@ func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 	defer h.mu.RUnlock()
 
 	for _, head := range h.heads {
-		if head.Hash == hash {
+		if head.BlockHash() == hash {
 			return head
 		}
 	}
@@ -62,16 +62,16 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 
 	headsMap := make(map[common.Hash]*evmtypes.Head, len(h.heads)+len(newHeads))
 	for _, head := range append(h.heads, newHeads...) {
-		if head.Hash == head.ParentHash {
+		if head.BlockHash() == head.GetParentHash() {
 			// shouldn't happen but it is untrusted input
 			continue
 		}
 		// copy all head objects to avoid races when a previous head chain is used
 		// elsewhere (since we mutate Parent here)
 		headCopy := *head
-		headCopy.Parent = h.getNil() // always build it from scratch in case it points to a head too old to be included
+		headCopy.SetParent(h.getNil()) // always build it from scratch in case it points to a head too old to be included
 		// map eliminates duplicates
-		headsMap[head.Hash] = &headCopy
+		headsMap[head.BlockHash()] = &headCopy
 	}
 
 	heads := make([]*evmtypes.Head, len(headsMap))
@@ -87,7 +87,7 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 	// sort the heads
 	sort.SliceStable(heads, func(i, j int) bool {
 		// sorting from the highest number to lowest
-		return heads[i].Number > heads[j].Number
+		return heads[i].BlockNumber() > heads[j].BlockNumber()
 	})
 
 	// cut off the oldest
@@ -98,9 +98,9 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 	// assign parents
 	for i := 0; i < len(heads)-1; i++ {
 		head := heads[i]
-		parent, exists := headsMap[head.ParentHash]
+		parent, exists := headsMap[head.GetParentHash()]
 		if exists {
-			head.Parent = parent
+			head.SetParent(parent)
 		}
 	}
 
