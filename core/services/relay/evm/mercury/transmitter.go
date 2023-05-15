@@ -140,9 +140,9 @@ func (mt *mercuryTransmitter) runloop() {
 			// the runloop here
 			return
 		} else if err != nil {
-			// TODO: log this
+			mt.lggr.Errorw("Transmit report failed", "req", t.Req, "error", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
-				// TODO: log this?
+				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
 			}
 			// Wait a backoff duration before pulling the latest back off
@@ -153,18 +153,17 @@ func (mt *mercuryTransmitter) runloop() {
 			case <-mt.stopCh:
 				return
 			}
+		}
+
+		b.Reset()
+		if res.Error == "" {
+			mt.lggr.Debugw("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
 		} else {
-			b.Reset()
-			if res.Error == "" {
-				mt.lggr.Debugw("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
-			} else {
-				// We don't need to retry here because the mercury server
-				// has confirmed it received the report. We only need to retry
-				// on networking/unknown errors
-				err := errors.New(res.Error)
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", err)
-			}
-			continue
+			// We don't need to retry here because the mercury server
+			// has confirmed it received the report. We only need to retry
+			// on networking/unknown errors
+			err := errors.New(res.Error)
+			mt.lggr.Errorw("Transmit report failed; mercury server returned error", "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", err)
 		}
 	}
 }
