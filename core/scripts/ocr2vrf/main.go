@@ -349,10 +349,15 @@ func main() {
 		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		subID := cmd.String("sub-id", "", "subscription ID")
-		requestID := cmd.Int64("request-id", 0, "request ID")
+		requestID := cmd.String("request-id", "0", "request ID")
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), big.NewInt(*requestID), *numWords)
+		reqIdInt, ok := big.NewInt(0).SetString(*requestID, 10)
+		if !ok {
+			fmt.Println("Failed to parse request ID to big int", *requestID)
+			os.Exit(1)
+		}
+		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), reqIdInt, *numWords)
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
