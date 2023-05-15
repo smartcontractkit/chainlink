@@ -83,6 +83,12 @@ func (tq *TransmitQueue) BlockingPop() (t *Transmission) {
 	return t
 }
 
+func (tq *TransmitQueue) IsEmpty() bool {
+	tq.mu.RLock()
+	defer tq.mu.RUnlock()
+	return tq.pq.Len() == 0
+}
+
 func (tq *TransmitQueue) Start(context.Context) error { return nil }
 func (tq *TransmitQueue) Close() error {
 	tq.cond.L.Lock()
@@ -120,6 +126,9 @@ func (tq *TransmitQueue) status() (merr error) {
 // pop latest Transmission from the heap
 // Not thread-safe
 func (tq *TransmitQueue) pop() *Transmission {
+	if tq.pq.Len() == 0 {
+		return nil
+	}
 	return heap.Pop(tq.pq).(*Transmission)
 }
 
