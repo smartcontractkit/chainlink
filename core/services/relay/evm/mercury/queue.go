@@ -48,6 +48,8 @@ func NewTransmitQueue(lggr logger.Logger, maxlen int) *TransmitQueue {
 
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
 	tq.cond.L.Lock()
+	defer tq.cond.L.Unlock()
+	
 	if tq.closed {
 		return false
 	}
@@ -57,9 +59,10 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
 		heap.Remove(tq.pq, tq.pq.Len()-1)
 	}
+
 	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})
-	tq.cond.L.Unlock()
 	tq.cond.Signal()
+	
 	return true
 }
 
@@ -67,18 +70,15 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 // If the queue is closed, it will immediately return nil
 func (tq *TransmitQueue) BlockingPop() (t *Transmission) {
 	tq.cond.L.Lock()
+	defer tq.cond.L.Unlock()
 	if tq.closed {
 		return nil
 	}
-	t = tq.pop()
-	tq.cond.L.Unlock()
-	for t == nil {
+	for t = tq.pop(); t == nil; t = tq.pop() {
 		tq.cond.Wait()
 		if tq.closed {
 			return nil
 		}
-		t = tq.pop()
-		tq.cond.L.Unlock()
 	}
 	return t
 }
