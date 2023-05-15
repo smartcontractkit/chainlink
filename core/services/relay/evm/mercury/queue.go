@@ -49,7 +49,7 @@ func NewTransmitQueue(lggr logger.Logger, maxlen int) *TransmitQueue {
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
 	tq.cond.L.Lock()
 	defer tq.cond.L.Unlock()
-	
+
 	if tq.closed {
 		return false
 	}
@@ -62,7 +62,7 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 
 	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})
 	tq.cond.Signal()
-	
+
 	return true
 }
 
