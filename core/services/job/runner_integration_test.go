@@ -190,7 +190,7 @@ func TestRunner(t *testing.T) {
 
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
-		cfg.On("Dev").Return(true)
+		cfg.On("OCRDevelopmentMode").Return(true)
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
@@ -230,7 +230,7 @@ func TestRunner(t *testing.T) {
 		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
@@ -267,7 +267,7 @@ answer1      [type=median index=0];
 		// Duplicate bridge names that exist is ok
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"

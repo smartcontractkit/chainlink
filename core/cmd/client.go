@@ -33,10 +33,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -58,6 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 var prometheus *ginprom.Prometheus
@@ -90,7 +91,7 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	configInitialized bool
+	flagsProcessed bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {
@@ -112,30 +113,40 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
-	secretsTOML := ""
 	if secretsFile != "" {
 		b, err := os.ReadFile(secretsFile)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
-		secretsTOML = string(b)
+
+		secretsTOML := string(b)
+		err = opts.ParseSecrets(secretsTOML)
+		if err != nil {
+			return err
+		}
 	}
-	err := opts.ParseSecrets(secretsTOML)
-	if err != nil {
-		return err
-	}
+
 	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 		return err
 	} else {
+		// If the logger has already been set due to prior initialization, close it out here.
+		if cli.CloseLogger != nil {
+			err := cli.CloseLogger()
+			if err != nil {
+				return errors.Wrap(err, "failed to close initialized logger")
+			}
+		}
+
 		cli.Config = cfg
 		cli.Logger = lggr
 		cli.CloseLogger = closeLggr
 	}
+
 	return nil
 }
 
@@ -222,6 +233,9 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		EventBroadcaster: eventBroadcaster,
 		MailMon:          mailMon,
 	}
+
+	loopRegistry := plugins.NewLoopRegistry()
+
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
@@ -266,9 +280,14 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to marshal Solana configs")
 			}
+
+			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
+			}
 			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
-				plugins.SetEnvConfig(cmd, cfg)
+				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
 			chains.Solana = chainPluginService
@@ -334,6 +353,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
+		LoopRegistry:             loopRegistry,
 	})
 }
 
@@ -373,7 +393,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -437,7 +457,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	var sentryenv string
 	if env := cfg.SentryEnvironment(); env != "" {
 		sentryenv = env
-	} else if cfg.Dev() {
+	} else if !build.IsProd() {
 		sentryenv = "dev"
 	} else {
 		sentryenv = "prod"

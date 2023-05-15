@@ -47,7 +47,7 @@ race.*
 golangci-lint-output.txt
 
 # DB state
-db/
+./db/
 .s.PGSQL.5432.lock
 
 # can be left behind by tests

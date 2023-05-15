@@ -14,11 +14,7 @@ contract VRFLoadTestOwnerlessConsumer is VRFConsumerBase, ERC677ReceiverInterfac
 
   uint256 public s_responseCount;
 
-  constructor(
-    address _vrfCoordinator,
-    address _link,
-    uint256 _price
-  ) VRFConsumerBase(_vrfCoordinator, _link) {
+  constructor(address _vrfCoordinator, address _link, uint256 _price) VRFConsumerBase(_vrfCoordinator, _link) {
     PRICE = _price;
   }
 
@@ -31,11 +27,7 @@ contract VRFLoadTestOwnerlessConsumer is VRFConsumerBase, ERC677ReceiverInterfac
    * @param _amount The amount of LINK transferred to pay for these requests.
    * @param _data The data passed to transferAndCall on LinkToken. Must be an abi-encoded key hash.
    */
-  function onTokenTransfer(
-    address,
-    uint256 _amount,
-    bytes calldata _data
-  ) external override {
+  function onTokenTransfer(address, uint256 _amount, bytes calldata _data) external override {
     if (msg.sender != address(LINK)) {
       revert("only callable from LINK");
     }
