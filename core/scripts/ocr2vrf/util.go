@@ -40,9 +40,38 @@ import (
 )
 
 var (
-	suite pairing.Suite = &altbn_128.PairingSuite{}
-	g1                  = suite.G1()
-	g2                  = suite.G2()
+	suite              pairing.Suite = &altbn_128.PairingSuite{}
+	g1                               = suite.G1()
+	g2                               = suite.G2()
+	tomlConfigTemplate               = `
+	[P2P.V1]
+	Enabled = false
+
+	[P2P.V2]
+	Enabled = true
+	ListenAddresses = ["127.0.0.1:8000"]
+
+	[Feature]
+	LogPoller = true
+
+	[OCR2]
+	Enabled = true
+
+	[[EVM]]
+	FinalityDepth = 1
+	ChainID = '%d'
+
+	[EVM.Transactions]
+	ForwardersEnabled = %t
+
+	[EVM.HeadTracker]
+	HistoryDepth = 1
+
+	[[EVM.Nodes]]
+	Name = "chain1"
+	HTTPURL = "%s"
+	WSURL = "%s"
+	`
 )
 
 func deployDKG(e helpers.Environment) common.Address {
@@ -549,16 +578,15 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e help
 	return payload
 }
 
-func configureEnvironmentVariables(useForwarder bool, index int, databasePrefix string, databaseSuffixes string) {
-	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
-	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
-	helpers.PanicErr(os.Setenv("FEATURE_LOG_POLLER", "true"))
-	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
-	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
-	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
-	helpers.PanicErr(os.Setenv("ETH_HEAD_TRACKER_HISTORY_DEPTH", "1"))
-	helpers.PanicErr(os.Setenv("ETH_FINALITY_DEPTH", "1"))
-	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+func configureEnvironmentVariables(useForwarder bool, chainID int64, wsUrl string, ethURL string, index int, databasePrefix string, databaseSuffixes string) {
+	// Set permitted envars for v2.
+	helpers.PanicErr(os.Setenv("CL_DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+	helpers.PanicErr(os.Setenv("CL_CONFIG", fmt.Sprintf(tomlConfigTemplate, chainID, useForwarder, ethURL, wsUrl)))
+
+	// Unset prohibited envars for v2.
+	helpers.PanicErr(os.Unsetenv("ETH_URL"))
+	helpers.PanicErr(os.Unsetenv("ETH_HTTP_URL"))
+	helpers.PanicErr(os.Unsetenv("ETH_CHAIN_ID"))
 }
 
 func resetDatabase(client *cmd.Client, context *cli.Context) {
