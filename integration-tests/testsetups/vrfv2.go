@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ type VRFV2SoakTestInputs struct {
 	BlockchainClient     blockchain.EVMClient // Client for the test to connect to the blockchain with
 	TestDuration         time.Duration        `envconfig:"TEST_DURATION" default:"15m"`         // How long to run the test for (assuming things pass)
 	ChainlinkNodeFunding *big.Float           `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"` // Amount of ETH to fund each chainlink node with
-	SubscriptionFunding  *big.Float           `envconfig:"SUBSCRIPTION_FUNDING" default:"100"`  // Amount of Link to fund VRF Coordinator subscription
+	SubscriptionFunding  *big.Int             `envconfig:"SUBSCRIPTION_FUNDING" default:"100"`  // Amount of Link to fund VRF Coordinator subscription
 	StopTestOnError      bool                 // Do we want the test to stop after any error or just continue on
 
 	RequestsPerMinute int                   `envconfig:"REQUESTS_PER_MINUTE" default:"10"` // Number of requests for randomness per minute
@@ -156,7 +157,7 @@ func (v *VRFV2SoakTest) ensureInputValues(t *testing.T) {
 	v.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(t, inputs.RequestsPerMinute, 1, "Expecting at least 1 request per minute")
 	chainlinkNodeFunding, _ := inputs.ChainlinkNodeFunding.Float64()
-	subscriptionFunding, _ := inputs.SubscriptionFunding.Float64()
+	subscriptionFunding := inputs.SubscriptionFunding.Int64()
 	require.Greater(t, chainlinkNodeFunding, 0, "Need some amount of funding for Chainlink nodes")
 	require.Greater(t, subscriptionFunding, 0, "Need some amount of funding for VRF V2 Coordinator Subscription nodes")
 	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute, "Test duration should be longer than 1 minute")
@@ -167,6 +168,7 @@ func (i VRFV2SoakTestInputs) SetForRemoteRunner() {
 	os.Setenv("TEST_VRFV2_TEST_DURATION", i.TestDuration.String())
 	os.Setenv("TEST_VRFV2_CHAINLINK_NODE_FUNDING", i.ChainlinkNodeFunding.String())
 	os.Setenv("TEST_VRFV2_SUBSCRIPTION_FUNDING", i.SubscriptionFunding.String())
+	os.Setenv("TEST_VRFV2_REQUESTS_PER_MINUTE", strconv.Itoa(i.RequestsPerMinute))
 
 	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
 	for _, networkPrefix := range selectedNetworks {

@@ -34,6 +34,13 @@ import (
 )
 
 func TestVRFV2Soak(t *testing.T) {
+	linkEthFeedResponse := big.NewInt(1e18)
+	minimumConfirmations := 3
+	subID := uint64(1)
+	//linkFundingAmount := big.NewInt(100)
+	numberOfWords := uint32(3)
+	maxGasPriceGWei := 1000
+	callbackGasLimit := uint32(1000000)
 	l := utils.GetTestLogger(t)
 
 	var testInputs testsetups.VRFV2SoakTestInputs
@@ -43,19 +50,9 @@ func TestVRFV2Soak(t *testing.T) {
 	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	testEnvironment := setupVRFV2Environment(t, testNetwork, config.BaseVRFV2NetworkDetailTomlConfig, "")
-
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
-
-	//##################################################
-	linkEthFeedResponse := big.NewInt(1e18)
-	minimumConfirmations := 3
-	subID := uint64(1)
-	linkFundingAmount := big.NewInt(100)
-	numberOfWords := uint32(3)
-	maxGasPriceGWei := 1000
-	callbackGasLimit := uint32(1000000)
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
@@ -76,7 +73,7 @@ func TestVRFV2Soak(t *testing.T) {
 
 	consumer, err := contractDeployer.DeployVRFv2Consumer(coordinator.Address())
 	require.NoError(t, err)
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
+	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, testInputs.ChainlinkNodeFunding)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
@@ -116,7 +113,7 @@ func TestVRFV2Soak(t *testing.T) {
 		coordinator,
 		chainClient,
 		subID,
-		linkFundingAmount,
+		testInputs.SubscriptionFunding,
 	)
 
 	var (
@@ -184,13 +181,6 @@ PriceMax = '%d gwei'
 	chainlinkNodes, err = client.ConnectChainlinkNodes(newTestEnvironment)
 	require.NoError(t, err)
 
-	//##################################################
-
-	//chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	//require.NoError(t, err, "Error connecting to testNetwork")
-
-	//contractLoader, err := contracts.NewContractLoader(client)
-
 	vrfV2SoakTest := testsetups.NewVRFV2SoakTest(&testsetups.VRFV2SoakTestInputs{
 		BlockchainClient:     chainClient,
 		TestDuration:         testInputs.TestDuration,
@@ -222,29 +212,11 @@ PriceMax = '%d gwei'
 		},
 	})
 
-	//				// load the previously deployed consumer contract
-	//				evmClient := vrfv2SoakTest.Inputs.BlockchainClient.(*blockchain.EthereumMultinodeClient).DefaultClient
-	//				tempConsumer := &contracts.EthereumVRFConsumerV2{}
-	//				consumerAddress := os.Getenv("CONSUMER_ADDRESS")
-	//				err = tempConsumer.LoadExistingConsumer(consumerAddress, evmClient)
-	//				Expect(err).ShouldNot(HaveOccurred())
-	//				consumer = tempConsumer
-	//
-	//				// load the previously deployed link token contract
-	//				tempLinkToken := &contracts.EthereumLinkToken{}
-	//				linkTokenContractAddress := os.Getenv("LINK_TOKEN_CONTRACT_ADDRESS")
-	//				err = tempLinkToken.LoadExistingLinkToken(linkTokenContractAddress, evmClient)
-	//				Expect(err).ShouldNot(HaveOccurred())
-	//				linkTokenContract = tempLinkToken
-
-	//todo - how to add report?
-
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(vrfV2SoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
-	//todo - what should be in Setup?
 	vrfV2SoakTest.Setup(t, testEnvironment)
 	l.Info().Msg("Set up soak test")
 	vrfV2SoakTest.Run(t)
@@ -261,7 +233,7 @@ func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, netw
 		})
 	} else {
 		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+			NamespacePrefix: fmt.Sprintf("soak-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 			Test:            t,
 			TTL:             time.Hour * 720, // 30 days,
 		})
