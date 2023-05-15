@@ -10,12 +10,21 @@ import (
 )
 
 type heads struct {
-	heads []*evmtypes.Head
-	mu    sync.RWMutex
+	heads  []*evmtypes.Head
+	mu     sync.RWMutex
+	getNil func() *evmtypes.Head
 }
 
-func NewHeads() *heads {
-	return &heads{}
+func NewEvmHeads() *heads {
+	return NewHeads(
+		func() *evmtypes.Head { return nil },
+	)
+}
+
+func NewHeads(getNil func() *evmtypes.Head) *heads {
+	return &heads{
+		getNil: getNil,
+	}
 }
 
 func (h *heads) LatestHead() *evmtypes.Head {

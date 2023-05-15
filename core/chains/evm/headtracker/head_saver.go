@@ -22,7 +22,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver 
 		orm:    orm,
 		config: config,
 		logger: lggr.Named("HeadSaver"),
-		heads:  NewHeads(),
+		heads:  NewEvmHeads(),
 	}
 }
 
