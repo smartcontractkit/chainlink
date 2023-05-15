@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -43,7 +44,7 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          EvmConfig
+	config          commontypes.Config
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
@@ -57,7 +58,7 @@ type headTracker struct {
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config EvmConfig,
+	config Config,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,
@@ -68,7 +69,7 @@ func NewHeadTracker(
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
 		chainID:         *ethClient.ConfiguredChainID(),
-		config:          config,
+		config:          NewWrappedConfig(config),
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),

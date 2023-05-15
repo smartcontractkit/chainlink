@@ -17,30 +17,28 @@ type Config interface {
 	EvmHeadTrackerSamplingInterval() time.Duration
 }
 
-type EvmConfig types.Config
+var _ types.Config = (*wrappedConfig)(nil)
 
-var _ EvmConfig = (*evmConfig)(nil)
-
-type evmConfig struct {
+type wrappedConfig struct {
 	Config
 }
 
-func NewEvmConfig(c Config) *evmConfig {
-	return &evmConfig{c}
+func NewWrappedConfig(c Config) *wrappedConfig {
+	return &wrappedConfig{c}
 }
 
-func (c *evmConfig) FinalityDepth() uint32 {
+func (c *wrappedConfig) FinalityDepth() uint32 {
 	return c.EvmFinalityDepth()
 }
 
-func (c *evmConfig) HeadTrackerHistoryDepth() uint32 {
+func (c *wrappedConfig) HeadTrackerHistoryDepth() uint32 {
 	return c.EvmHeadTrackerHistoryDepth()
 }
 
-func (c *evmConfig) HeadTrackerMaxBufferSize() uint32 {
+func (c *wrappedConfig) HeadTrackerMaxBufferSize() uint32 {
 	return c.EvmHeadTrackerMaxBufferSize()
 }
 
-func (c *evmConfig) HeadTrackerSamplingInterval() time.Duration {
+func (c *wrappedConfig) HeadTrackerSamplingInterval() time.Duration {
 	return c.EvmHeadTrackerSamplingInterval()
 }

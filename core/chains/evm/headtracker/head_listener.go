@@ -29,7 +29,7 @@ var (
 )
 
 type headListener struct {
-	config           EvmConfig
+	config           Config
 	ethClient        evmclient.Client
 	logger           logger.Logger
 	chStop           utils.StopChan
@@ -40,7 +40,7 @@ type headListener struct {
 }
 
 // NewHeadListener creates a new HeadListener
-func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config EvmConfig, chStop chan struct{}) httypes.HeadListener {
+func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Config, chStop chan struct{}) httypes.HeadListener {
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
