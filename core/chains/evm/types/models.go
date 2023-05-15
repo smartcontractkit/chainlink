@@ -90,8 +90,8 @@ func (h *Head) GetParentHash() common.Hash {
 
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
-	for h.Parent != nil {
-		h = h.Parent
+	for h.GetParent() != nil {
+		h = h.GetParent().(*Head)
 	}
 	return h
 }
@@ -107,8 +107,8 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 		if h.Hash == blockHash {
 			return true
 		}
-		if h.Parent != nil {
-			h = h.Parent
+		if h.GetParent() != nil {
+			h = h.GetParent().(*Head)
 		} else {
 			break
 		}
@@ -123,8 +123,8 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 		if h.Number == blockNum {
 			return h.Hash
 		}
-		if h.Parent != nil {
-			h = h.Parent
+		if h.GetParent() != nil {
+			h = h.GetParent().(*Head)
 		} else {
 			break
 		}
@@ -140,12 +140,12 @@ func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
-		if h.Parent != nil {
+		if h.GetParent() != nil {
 			l++
-			if h == h.Parent {
+			if h == h.GetParent() {
 				panic("circular reference detected")
 			}
-			h = h.Parent
+			h = h.GetParent().(*Head)
 		} else {
 			break
 		}
@@ -159,11 +159,11 @@ func (h *Head) ChainHashes() []common.Hash {
 
 	for {
 		hashes = append(hashes, h.Hash)
-		if h.Parent != nil {
-			if h == h.Parent {
+		if h.GetParent() != nil {
+			if h == h.GetParent() {
 				panic("circular reference detected")
 			}
-			h = h.Parent
+			h = h.GetParent().(*Head)
 		} else {
 			break
 		}
@@ -176,12 +176,12 @@ func (h *Head) ChainString() string {
 
 	for {
 		sb.WriteString(h.String())
-		if h.Parent != nil {
-			if h == h.Parent {
+		if h.GetParent() != nil {
+			if h == h.GetParent() {
 				panic("circular reference detected")
 			}
 			sb.WriteString("->")
-			h = h.Parent
+			h = h.GetParent().(*Head)
 		} else {
 			break
 		}
