@@ -14,7 +14,7 @@ type headSaver struct {
 	orm    ORM
 	config Config
 	logger logger.Logger
-	heads  *heads[*evmtypes.Head, common.Hash]
+	heads  heads[*evmtypes.Head, common.Hash]
 }
 
 func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
@@ -22,7 +22,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver 
 		orm:    orm,
 		config: config,
 		logger: lggr.Named("HeadSaver"),
-		heads:  NewEvmHeads(),
+		heads:  *NewEvmHeads(),
 	}
 }
 
