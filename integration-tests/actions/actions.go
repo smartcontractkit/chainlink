@@ -229,7 +229,7 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
-	failingLogLevel zapcore.Level,                   // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
 	l := utils.GetTestLogger(t)
