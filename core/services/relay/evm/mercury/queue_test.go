@@ -1,13 +1,16 @@
 package mercury
 
 import (
+	"sync"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 type TestTransmissionWithReport struct {
@@ -59,7 +62,7 @@ func createTestTransmissions(t *testing.T) []TestTransmissionWithReport {
 
 func Test_Queue(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
 	transmitQueue := NewTransmitQueue(lggr, 7)
 
@@ -73,9 +76,43 @@ func Test_Queue(t *testing.T) {
 	})
 
 	t.Run("transmit queue is more than 50% full", func(t *testing.T) {
-		transmitQueue.Push(testTransmissions[0].tr, testTransmissions[0].ctx)
+		transmitQueue.Push(testTransmissions[2].tr, testTransmissions[0].ctx)
 		report := transmitQueue.HealthReport()
 		assert.Equal(t, report[transmitQueue.Name()].Error(), "transmit priority queue is greater than 50% full (4/7)")
 	})
 
+	t.Run("transmit queue pops the highest priority transmission", func(t *testing.T) {
+		tr := transmitQueue.BlockingPop()
+		assert.Equal(t, testTransmissions[2].tr, tr.Req)
+	})
+
+	t.Run("transmit queue is full and evicts the oldest transmission", func(t *testing.T) {
+		// add 5 more transmissions to overflow the queue
+		for i := 0; i < 5; i++ {
+			transmitQueue.Push(testTransmissions[1].tr, testTransmissions[1].ctx)
+		}
+		// expecting testTransmissions[0] to get evicted and not present in the queue anymore
+		testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
+		for i := 0; i < 7; i++ {
+			tr := transmitQueue.BlockingPop()
+			assert.NotEqual(t, tr, testTransmissions[0].tr)
+		}
+	})
+
+	t.Run("transmit queue blocks when empty and resumes when tranmission available", func(t *testing.T) {
+		assert.True(t, transmitQueue.IsEmpty())
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			tr := transmitQueue.BlockingPop()
+			assert.Equal(t, tr.Req, testTransmissions[0].tr)
+		}()
+		go func() {
+			defer wg.Done()
+			transmitQueue.Push(testTransmissions[0].tr, testTransmissions[0].ctx)
+		}()
+		wg.Wait()
+	})
 }
