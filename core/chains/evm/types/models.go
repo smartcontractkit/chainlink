@@ -43,6 +43,7 @@ type Head struct {
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
+var _ commontypes.HeadTrackerHead[*Head, common.Hash] = &Head{}
 
 // NewHead returns a Head instance.
 func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
