@@ -351,12 +351,7 @@ library Cron {
    * @param min the minimum value a field can have (usually 1 or 0)
    * @param max the maximum value a field can have (ex minute = 59, hour = 23)
    */
-  function validateField(
-    Field memory field,
-    string memory fieldName,
-    uint8 min,
-    uint8 max
-  ) private pure {
+  function validateField(Field memory field, string memory fieldName, uint8 min, uint8 max) private pure {
     if (field.fieldType == FieldType.WILD) {
       return;
     } else if (field.fieldType == FieldType.EXACT) {

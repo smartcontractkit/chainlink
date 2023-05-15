@@ -9,7 +9,6 @@ import (
 
 var (
 	EnvConfig          = Env("CL_CONFIG")
-	EnvDev             = Env("CL_DEV")
 	EnvSolanaPluginCmd = Env("CL_SOLANA_CMD")
 	EnvMedianPluginCmd = Env("CL_MEDIAN_CMD")
 

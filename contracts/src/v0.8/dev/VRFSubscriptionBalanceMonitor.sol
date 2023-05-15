@@ -173,13 +173,9 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    * @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
    * @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
    */
-  function checkUpkeep(bytes calldata)
-    external
-    view
-    override
-    whenNotPaused
-    returns (bool upkeepNeeded, bytes memory performData)
-  {
+  function checkUpkeep(
+    bytes calldata
+  ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     uint64[] memory needsFunding = getUnderfundedSubscriptions();
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
@@ -244,16 +240,9 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
   /**
    * @notice Gets configuration information for a subscription on the watchlist.
    */
-  function getSubscriptionInfo(uint64 subscriptionId)
-    external
-    view
-    returns (
-      bool isActive,
-      uint96 minBalanceJuels,
-      uint96 topUpAmountJuels,
-      uint56 lastTopUpTimestamp
-    )
-  {
+  function getSubscriptionInfo(
+    uint64 subscriptionId
+  ) external view returns (bool isActive, uint96 minBalanceJuels, uint96 topUpAmountJuels, uint56 lastTopUpTimestamp) {
     Target memory target = s_targets[subscriptionId];
     return (target.isActive, target.minBalanceJuels, target.topUpAmountJuels, target.lastTopUpTimestamp);
   }

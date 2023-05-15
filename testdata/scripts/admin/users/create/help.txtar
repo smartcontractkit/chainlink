@@ -1,0 +1,14 @@
+exec chainlink admin users create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin users create - Create a new API user
+
+USAGE:
+   chainlink admin users create [command options] [arguments...]
+
+OPTIONS:
+   --email value  Email of new user to create
+   --role value   Permission level of new user. Options: 'admin', 'edit', 'run', 'view'.
+   

@@ -5,6 +5,8 @@ package mocks
 import (
 	context "context"
 
+	common "github.com/ethereum/go-ethereum/common"
+
 	mock "github.com/stretchr/testify/mock"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -95,15 +97,15 @@ func (_m *HeadBroadcaster) Start(_a0 context.Context) error {
 }
 
 // Subscribe provides a mock function with given fields: callback
-func (_m *HeadBroadcaster) Subscribe(callback txmgrtypes.HeadTrackable[*types.Head]) (*types.Head, func()) {
+func (_m *HeadBroadcaster) Subscribe(callback txmgrtypes.HeadTrackable[*types.Head, common.Hash]) (*types.Head, func()) {
 	ret := _m.Called(callback)
 
 	var r0 *types.Head
 	var r1 func()
-	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head]) (*types.Head, func())); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head, common.Hash]) (*types.Head, func())); ok {
 		return rf(callback)
 	}
-	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head]) *types.Head); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.HeadTrackable[*types.Head, common.Hash]) *types.Head); ok {
 		r0 = rf(callback)
 	} else {
 		if ret.Get(0) != nil {
@@ -111,7 +113,7 @@ func (_m *HeadBroadcaster) Subscribe(callback txmgrtypes.HeadTrackable[*types.He
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgrtypes.HeadTrackable[*types.Head]) func()); ok {
+	if rf, ok := ret.Get(1).(func(txmgrtypes.HeadTrackable[*types.Head, common.Hash]) func()); ok {
 		r1 = rf(callback)
 	} else {
 		if ret.Get(1) != nil {
