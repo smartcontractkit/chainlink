@@ -352,11 +352,7 @@ func main() {
 		requestID := cmd.String("request-id", "0", "request ID")
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		reqIdInt, ok := big.NewInt(0).SetString(*requestID, 10)
-		if !ok {
-			fmt.Println("Failed to parse request ID to big int", *requestID)
-			os.Exit(1)
-		}
+		reqIdInt := decimal.RequireFromString(*requestID).BigInt()
 		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), reqIdInt, *numWords)
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
