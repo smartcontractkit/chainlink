@@ -12,10 +12,10 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type MockEvmTxManager = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, txmgr.EvmAccessList]
+type MockEvmTxManager = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList]
 
 func NewMockEvmTxManager(t *testing.T) *MockEvmTxManager {
-	return NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, gas.EvmFee, txmgr.EvmAccessList](t)
+	return NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList](t)
 }
 
 type MockEvmTxStore = mocks.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList]
