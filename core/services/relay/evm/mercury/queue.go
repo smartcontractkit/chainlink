@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"sync"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 var _ services.ServiceCtx = (*TransmitQueue)(nil)
