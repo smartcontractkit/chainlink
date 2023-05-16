@@ -34,7 +34,7 @@ func batchSendTransactions[
 ](
 	ctx context.Context,
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD],
+	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {

@@ -71,7 +71,7 @@ func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx EvmTx,
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
 
-func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n int64, err error) {
+func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n evmtypes.Nonce, err error) {
 	nextNonce, err := c.client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return n, err
@@ -80,7 +80,7 @@ func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Ad
 	if nextNonce > math.MaxInt64 {
 		return n, fmt.Errorf("nonce overflow, got: %v", nextNonce)
 	}
-	return int64(nextNonce), nil
+	return evmtypes.Nonce(nextNonce), nil
 }
 
 func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
