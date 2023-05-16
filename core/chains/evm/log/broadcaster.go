@@ -599,9 +599,7 @@ func (b *broadcaster) onNewHeads() {
 					b.logger.Errorf("Failed to query for log broadcasts, %v", err)
 					return
 				}
-				// Make a copy of latestHead
 				latestHeadCopy := latestHead
-
 				b.registrations.sendLogs(logs, latestHeadCopy, broadcasts, b.orm)
 			}
 			newMin := b.logPool.deleteOlderLogs(keptDepth)
