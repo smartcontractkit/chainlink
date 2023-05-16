@@ -22,8 +22,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -32,7 +30,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -43,8 +40,6 @@ import (
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr simplelogger.Logger
-
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 	secretsTOML   string // with env overdies includes, redacted
@@ -55,9 +50,6 @@ type generalConfig struct {
 	logLevelDefault zapcore.Level
 
 	appIDOnce sync.Once
-
-	randomP2PPort     uint16
-	randomP2PPortOnce sync.Once
 
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 
@@ -101,40 +93,13 @@ func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
-func (o GeneralConfigOpts) New(lggr logger.Logger) (GeneralConfig, error) {
+func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	cfg, err := o.init()
 	if err != nil {
 		return nil, err
 	}
-	cfg.lggr = lggr
+
 	return cfg, nil
-}
-
-// NewAndLogger returns a GeneralConfig for the given options, and a logger.Logger (with close func).
-func (o GeneralConfigOpts) NewAndLogger() (GeneralConfig, logger.Logger, func() error, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// placeholder so we can call config methods to bootstrap the real logger
-	cfg.lggr, err = simplelogger.New()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	lggrCfg := logger.Config{
-		LogLevel:       cfg.LogLevel(),
-		Dir:            cfg.LogFileDir(),
-		JsonConsole:    cfg.JSONConsole(),
-		UnixTS:         cfg.LogUnixTimestamps(),
-		FileMaxSizeMB:  int(cfg.LogFileMaxSize() / utils.MB),
-		FileMaxAgeDays: int(cfg.LogFileMaxAge()),
-		FileMaxBackups: int(cfg.LogFileMaxBackups()),
-	}
-	lggr, closeLggr := lggrCfg.New()
-
-	cfg.lggr = lggr
-	return cfg, lggr, closeLggr, nil
 }
 
 // new returns a new generalConfig, but with a nil lggr.
@@ -823,22 +788,6 @@ func (g *generalConfig) P2PListenIP() net.IP {
 func (g *generalConfig) P2PListenPort() uint16 {
 	v1 := g.c.P2P.V1
 	p := *v1.ListenPort
-	if p == 0 && *v1.Enabled {
-		g.randomP2PPortOnce.Do(func() {
-			addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-			if err != nil {
-				panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err))
-			}
-			l, err := net.ListenTCP("tcp", addr)
-			if err != nil {
-				panic(fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err))
-			}
-			defer l.Close()
-			g.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
-			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
-		})
-		return g.randomP2PPort
-	}
 	return p
 }
 
@@ -941,11 +890,9 @@ func (g *generalConfig) ReaperExpiration() models.Duration {
 
 func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
-	h, err := parse.HomeDir(d)
-	if err != nil {
-		g.lggr.Error("Failed to expand RootDir. You may need to set an explicit path", "err", err)
-		return d
-	}
+	// We can ignore this error here, since we validate that the RootDir is
+	// expandeable in config.Core.ValidateConfig().
+	h, _ := parse.HomeDir(d)
 	return h
 }
 
