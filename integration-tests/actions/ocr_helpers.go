@@ -489,6 +489,10 @@ func BuildGeneralOCR2Config(
 }
 
 func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra) {
+	return getOracleIdentitiesWithKeyIndex(t, chainlinkNodes, 0)
+}
+
+func getOracleIdentitiesWithKeyIndex(t *testing.T, chainlinkNodes []*client.Chainlink, keyIndex int) ([]int, []confighelper.OracleIdentityExtra) {
 	l := utils.GetTestLogger(t)
 	S := make([]int, len(chainlinkNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(chainlinkNodes))
@@ -499,7 +503,7 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 		go func(i int, cl *client.Chainlink) {
 			defer wg.Done()
 
-			address, err := cl.PrimaryEthAddress()
+			address, err := cl.EthAddresses()
 			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node: index %d", i)
 			ocr2Keys, err := cl.MustReadOCR2Keys()
 			require.NoError(t, err, "Shouldn't fail reading OCR2 keys from node")
@@ -538,7 +542,7 @@ func getOracleIdentities(t *testing.T, chainlinkNodes []*client.Chainlink) ([]in
 					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            p2pKeyID,
-					TransmitAccount:   types.Account(address),
+					TransmitAccount:   types.Account(address[keyIndex]),
 				},
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}

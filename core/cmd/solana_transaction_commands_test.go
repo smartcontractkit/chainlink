@@ -3,7 +3,9 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -20,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestClient_SolanaSendSol(t *testing.T) {
@@ -41,15 +42,9 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	require.NoError(t, err)
 	solanaClient.FundTestAccounts(t, []solanago.PublicKey{from.PublicKey()}, url)
 
-	chain, err := app.GetChains().Solana.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	reader, err := chain.Reader()
-	require.NoError(t, err)
-
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.PublicKey())
-		if !assert.NoError(t, err) {
+		coin, err := balance(from.PublicKey(), url)
+		if err != nil {
 			return false
 		}
 		return coin == 100*solanago.LAMPORTS_PER_SOL
@@ -69,7 +64,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.PublicKey())
+			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
@@ -106,7 +101,8 @@ func TestClient_SolanaSendSol(t *testing.T) {
 				time.Sleep(time.Second) // wait for tx execution
 
 				// Check balance
-				endBal, err = reader.Balance(from.PublicKey())
+				endBal, err = balance(from.PublicKey(), url)
+				require.NoError(t, err)
 				require.NoError(t, err)
 
 				// exit if difference found
@@ -120,11 +116,24 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			// Check balance
 			if assert.NotEqual(t, 0, startBal) && assert.NotEqual(t, 0, endBal) {
 				diff := startBal - endBal
-				receiveBal, err := reader.Balance(to.PublicKey())
+				receiveBal, err := balance(to.PublicKey(), url)
 				require.NoError(t, err)
 				assert.Equal(t, tt.amount, strconv.FormatUint(receiveBal, 10))
 				assert.Greater(t, diff, receiveBal)
 			}
 		})
 	}
+}
+
+func balance(key solanago.PublicKey, url string) (uint64, error) {
+	b, err := exec.Command("solana", "balance", "--lamports", key.String(), "--url", url).Output()
+	if err != nil {
+		return 0, err
+	}
+	b = bytes.TrimSuffix(b, []byte(" lamports\n"))
+	i, err := strconv.ParseUint(string(b), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
 }

@@ -28,9 +28,9 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
-	"github.com/ulule/limiter"
-	mgin "github.com/ulule/limiter/drivers/middleware/gin"
-	"github.com/ulule/limiter/drivers/store/memory"
+	"github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,6 +44,7 @@ import (
 // NewRouter returns *gin.Engine router that listens and responds to requests to the node for valid paths.
 func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
+	engine.RemoteIPHeaders = nil // don't trust default headers: "X-Forwarded-For", "X-Real-IP"
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
@@ -82,7 +83,9 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(engine, config.Dev(), app.GetLogger())
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	guiAssetRoutes(engine, config.Dev() || config.DisableRateLimiting(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -99,7 +102,10 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 
 	// Disable introspection and set a max query depth in production.
 	var schemaOpts []graphql.SchemaOpt
-	if !app.GetConfig().Dev() {
+
+	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+	// https://smartcontract-it.atlassian.net/browse/BCF-2062
+	if !app.GetConfig().Dev() && !app.GetConfig().InfiniteDepthQueries() {
 		schemaOpts = append(schemaOpts,
 			graphql.MaxDepth(10),
 		)
@@ -133,14 +139,17 @@ type SecurityConfig interface {
 	Dev() bool
 	TLSRedirect() bool
 	TLSHost() string
+	DevWebServer() bool
 }
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
 func secureOptions(cfg SecurityConfig) secure.Options {
 	return secure.Options{
-		FrameDeny:     true,
-		IsDevelopment: cfg.Dev(),
+		FrameDeny: true,
+		// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
+		// https://smartcontract-it.atlassian.net/browse/BCF-2062
+		IsDevelopment: cfg.Dev() || cfg.DevWebServer(),
 		SSLRedirect:   cfg.TLSRedirect(),
 		SSLHost:       cfg.TLSHost(),
 	}

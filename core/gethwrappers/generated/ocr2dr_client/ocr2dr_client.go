@@ -27,6 +27,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 type FunctionsRequest struct {
@@ -129,11 +130,11 @@ func NewOCR2DRClientFilterer(address common.Address, filterer bind.ContractFilte
 }
 
 func bindOCR2DRClient(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OCR2DRClientABI))
+	parsed, err := OCR2DRClientMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_OCR2DRClient *OCR2DRClientRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

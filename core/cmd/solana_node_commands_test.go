@@ -1,9 +1,9 @@
 package cmd_test
 
 import (
-	"net/url"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -52,11 +52,17 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	require.Len(t, nodes, 2)
 	n1 := nodes[0]
 	n2 := nodes[1]
-	assert.Equal(t, "first", n1.ID)
+	assert.Equal(t, id, n1.ChainID)
+	assert.Equal(t, *node1.Name, n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
-	assert.Equal(t, (*url.URL)(node1.URL).String(), n1.SolanaURL)
-	assert.Equal(t, "second", n2.ID)
+	wantConfig, err := toml.Marshal(node1)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig), n1.Config)
+	assert.Equal(t, id, n2.ChainID)
+	assert.Equal(t, *node2.Name, n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
-	assert.Equal(t, (*url.URL)(node2.URL).String(), n2.SolanaURL)
+	wantConfig2, err := toml.Marshal(node2)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
 }

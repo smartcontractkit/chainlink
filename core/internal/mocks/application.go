@@ -11,6 +11,8 @@ import (
 
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	common "github.com/ethereum/go-ethereum/common"
+
 	context "context"
 
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -34,6 +36,8 @@ import (
 	sqlx "github.com/smartcontractkit/sqlx"
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
@@ -495,16 +499,16 @@ func (_m *Application) Stop() error {
 	return r0
 }
 
-// TxmORM provides a mock function with given fields:
-func (_m *Application) TxmORM() txmgr.ORM {
+// TxmStorageService provides a mock function with given fields:
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.EthTx[common.Address, common.Hash], txmgr.EthTxAttempt[common.Address, common.Hash], types.Nonce] {
 	ret := _m.Called()
 
-	var r0 txmgr.ORM
-	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.EthTx[common.Address, common.Hash], txmgr.EthTxAttempt[common.Address, common.Hash], types.Nonce]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.EthTx[common.Address, common.Hash], txmgr.EthTxAttempt[common.Address, common.Hash], types.Nonce]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.ORM)
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, txmgrtypes.NewTx[common.Address, common.Hash], *types.Receipt, txmgr.EthTx[common.Address, common.Hash], txmgr.EthTxAttempt[common.Address, common.Hash], types.Nonce])
 		}
 	}
 

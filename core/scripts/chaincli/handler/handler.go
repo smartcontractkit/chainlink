@@ -41,6 +41,10 @@ import (
 const (
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
 	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs~#"
+	ethKeysEndpoint              = "/v2/keys/eth"
+	ocr2KeysEndpoint             = "/v2/keys/ocr2"
+	p2pKeysEndpoint              = "/v2/keys/p2p"
+	csaKeysEndpoint              = "/v2/keys/csa"
 )
 
 // baseHandler is the common handler with a common logic
@@ -446,7 +450,7 @@ func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
 
 // getNodeAddress returns chainlink node's wallet address
 func getNodeAddress(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, "/v2/keys/eth")
+	resp, err := nodeRequest(client, ethKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ETH keys: %s", err)
 	}
@@ -461,7 +465,7 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 
 // getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
 func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
-	resp, err := nodeRequest(client, "/v2/keys/ocr2")
+	resp, err := nodeRequest(client, ocr2KeysEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCR2 keys: %s", err)
 	}
@@ -484,7 +488,7 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 
 // getP2PKeyID returns chainlink node's P2P key ID
 func getP2PKeyID(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, "/v2/keys/p2p")
+	resp, err := nodeRequest(client, p2pKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get P2P keys: %s", err)
 	}

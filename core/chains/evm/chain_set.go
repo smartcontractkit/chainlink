@@ -7,9 +7,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/sqlx"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -36,8 +39,8 @@ var _ ChainSet = &chainSet{}
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.Chains[utils.Big]
-	chains.Nodes[utils.Big, types.Node]
+	chains.Chains
+	chains.Nodes
 
 	Get(id *big.Int) (Chain, error)
 
@@ -47,7 +50,7 @@ type ChainSet interface {
 
 	Configs() types.Configs
 
-	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
+	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 type chainSet struct {
@@ -85,6 +88,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	cll.logger.Infow(fmt.Sprintf("EVM: Started %d/%d chains, default chain ID is %s", len(cll.startedChains), len(cll.Chains()), defChainID), "startedEvmChainIDs", evmChainIDs)
 	return nil
 }
+
 func (cll *chainSet) Close() (err error) {
 	cll.logger.Debug("EVM: stopping")
 	for _, c := range cll.startedChains {
@@ -121,17 +125,21 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())
 		return cll.Default()
 	}
+	return cll.get(id.String())
+}
+
+func (cll *chainSet) get(id string) (Chain, error) {
 	cll.chainsMu.RLock()
 	defer cll.chainsMu.RUnlock()
-	c, exists := cll.chains[id.String()]
+	c, exists := cll.chains[id]
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Wrap(chains.ErrNotFound, fmt.Sprintf("failed to get chain with id %s", id.String()))
+	return nil, errors.Wrap(chains.ErrNotFound, fmt.Sprintf("failed to get chain with id %s", id))
 }
 
-func (cll *chainSet) Show(id utils.Big) (cfg chains.ChainConfig, err error) {
-	var cs []chains.ChainConfig
+func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes.ChainStatus, err error) {
+	var cs []relaytypes.ChainStatus
 	cs, _, err = cll.opts.Configs.Chains(0, -1, id)
 	if err != nil {
 		return
@@ -149,7 +157,7 @@ func (cll *chainSet) Show(id utils.Big) (cfg chains.ChainConfig, err error) {
 	return
 }
 
-func (cll *chainSet) Index(offset, limit int) ([]chains.ChainConfig, int, error) {
+func (cll *chainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
 	return cll.opts.Configs.Chains(offset, limit)
 }
 
@@ -188,20 +196,8 @@ func (cll *chainSet) Configs() types.Configs {
 	return cll.opts.Configs
 }
 
-func (cll *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []types.Node, count int, err error) {
-	nodes, count, err = cll.opts.Configs.Nodes(offset, limit)
-	if err != nil {
-		err = errors.Wrap(err, "GetNodes failed to load nodes from DB")
-		return
-	}
-	for i := range nodes {
-		cll.addStateToNode(&nodes[i])
-	}
-	return
-}
-
-func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
-	nodes, count, err = cll.opts.Configs.NodesForChain(chainID, offset, limit)
+func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
+	nodes, count, err = cll.opts.Configs.NodeStatusesPaged(offset, limit, chainIDs...)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -212,21 +208,9 @@ func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, of
 	return
 }
 
-func (cll *chainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error) {
-	nodes, err = cll.opts.Configs.GetNodesByChainIDs(chainIDs)
-	if err != nil {
-		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
-		return
-	}
-	for i := range nodes {
-		cll.addStateToNode(&nodes[i])
-	}
-	return
-}
-
-func (cll *chainSet) addStateToNode(n *types.Node) {
+func (cll *chainSet) addStateToNode(n *relaytypes.NodeStatus) {
 	cll.chainsMu.RLock()
-	chain, exists := cll.chains[n.EVMChainID.String()]
+	chain, exists := cll.chains[n.ChainID]
 	cll.chainsMu.RUnlock()
 	if !exists {
 		// The EVM chain is disabled
@@ -245,6 +229,15 @@ func (cll *chainSet) addStateToNode(n *types.Node) {
 	}
 	// The node is in the DB and the chain is enabled but it's not running
 	n.State = "NotLoaded"
+}
+
+func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
+	chain, err := cll.get(chainID)
+	if err != nil {
+		return err
+	}
+
+	return chain.SendTx(ctx, from, to, amount, balanceCheck)
 }
 
 type GeneralConfig interface {
@@ -267,7 +260,7 @@ type ChainSetOpts struct {
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(*big.Int) txmgr.TxManager
+	GenTxManager      func(*big.Int) txmgr.EvmTxManager
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
