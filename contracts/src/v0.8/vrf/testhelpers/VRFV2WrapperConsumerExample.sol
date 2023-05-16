@@ -13,13 +13,12 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
     bool fulfilled;
     uint256[] randomWords;
   }
-  mapping(uint256 => RequestStatus) /* requestId */ /* requestStatus */
-    public s_requests;
+  mapping(uint256 => RequestStatus) /* requestId */ /* requestStatus */ public s_requests;
 
-  constructor(address _link, address _vrfV2Wrapper)
-    ConfirmedOwner(msg.sender)
-    VRFV2WrapperConsumerBase(_link, _vrfV2Wrapper)
-  {}
+  constructor(
+    address _link,
+    address _vrfV2Wrapper
+  ) ConfirmedOwner(msg.sender) VRFV2WrapperConsumerBase(_link, _vrfV2Wrapper) {}
 
   function makeRequest(
     uint32 _callbackGasLimit,
@@ -40,15 +39,9 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
     emit WrappedRequestFulfilled(_requestId, _randomWords, s_requests[_requestId].paid);
   }
 
-  function getRequestStatus(uint256 _requestId)
-    external
-    view
-    returns (
-      uint256 paid,
-      bool fulfilled,
-      uint256[] memory randomWords
-    )
-  {
+  function getRequestStatus(
+    uint256 _requestId
+  ) external view returns (uint256 paid, bool fulfilled, uint256[] memory randomWords) {
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (request.paid, request.fulfilled, request.randomWords);
