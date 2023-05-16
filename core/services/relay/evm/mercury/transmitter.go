@@ -25,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// TODO: Revisit this choice of value
-// TODO: Ought we to have one queue per mercury server URL instead?
 const MaxTransmitQueueSize = 10_000
 
 type Transmitter interface {
