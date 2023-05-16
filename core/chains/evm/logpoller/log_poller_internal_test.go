@@ -367,9 +367,9 @@ func TestLogPoller_Replay(t *testing.T) {
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			cancel()
 			go func() {
 				defer wg.Done()
-				cancel()
 				lp.replayStart <- 4
 			}()
 		})
