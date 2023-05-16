@@ -91,7 +91,10 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	flagsProcessed bool
+	configFiles      []string
+	configFilesIsSet bool
+	secretsFile      string
+	secretsFileIsSet bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {
@@ -113,7 +116,7 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+func (cli *Client) initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
@@ -131,23 +134,9 @@ func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, config
 		}
 	}
 
-	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
-		return err
-	} else {
-		// If the logger has already been set due to prior initialization, close it out here.
-		if cli.CloseLogger != nil {
-			err := cli.CloseLogger()
-			if err != nil {
-				return errors.Wrap(err, "failed to close initialized logger")
-			}
-		}
-
-		cli.Config = cfg
-		cli.Logger = lggr
-		cli.CloseLogger = closeLggr
-	}
-
-	return nil
+	cfg, err := opts.New()
+	cli.Config = cfg
+	return err
 }
 
 // AppFactory implements the NewApplication method.
