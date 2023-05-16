@@ -154,49 +154,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		initPrometheus(cfg)
 	})
 
+	err = handleNodeVersioning(db, appLggr, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
-
-	// Set up the versioning Configs
-	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
-
-	if static.Version != static.Unset {
-		var appv, dbv *semver.Version
-		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
-		if err != nil {
-			// Exit immediately and don't touch the database if the app version is too old
-			return nil, errors.Wrap(err, "CheckVersion")
-		}
-
-		// Take backup if app version is newer than DB version
-		// Need to do this BEFORE migration
-		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
-				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-				} else {
-					return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-				}
-			}
-		}
-	}
-
-	// Migrate the database
-	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
-			return nil, errors.Wrap(err, "initializeORM#Migrate")
-		}
-	}
-
-	// Update to latest version
-	if static.Version != static.Unset {
-		version := versioning.NewNodeVersion(static.Version)
-		if err = verORM.UpsertNodeVersion(version); err != nil {
-			return nil, errors.Wrap(err, "UpsertNodeVersion")
-		}
-	}
-
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
@@ -344,6 +307,52 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		LoopRegistry:             loopRegistry,
 	})
+}
+
+// handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
+func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.GeneralConfig) error {
+	var err error
+	// Set up the versioning Configs
+	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
+
+	if static.Version != static.Unset {
+		var appv, dbv *semver.Version
+		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		if err != nil {
+			// Exit immediately and don't touch the database if the app version is too old
+			return fmt.Errorf("CheckVersion: %w", err)
+		}
+
+		// Take backup if app version is newer than DB version
+		// Need to do this BEFORE migration
+		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				} else {
+					return fmt.Errorf("initializeORM#FindLatestNodeVersion: %w", err)
+				}
+			}
+		}
+	}
+
+	// Migrate the database
+	if cfg.MigrateDatabase() {
+		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+			return fmt.Errorf("initializeORM#Migrate: %w", err)
+		}
+	}
+
+	// Update to latest version
+	if static.Version != static.Unset {
+		version := versioning.NewNodeVersion(static.Version)
+		if err = verORM.UpsertNodeVersion(version); err != nil {
+			return fmt.Errorf("UpsertNodeVersion: %w", err)
+		}
+	}
+	return nil
 }
 
 func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
