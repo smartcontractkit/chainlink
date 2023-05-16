@@ -296,7 +296,7 @@ jobs:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: latest
+          cl_image_tag: develop
           artifacts_location: ./integration-tests/migration/logs
           publish_check_name: Node Migration Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
