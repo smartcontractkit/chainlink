@@ -215,7 +215,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return false
 }
 
-func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
+func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead *evmtypes.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]bool)
 	for _, b := range broadcasts {
 		broadcastsExisting[b.AsKey()] = b.Consumed
@@ -385,7 +385,7 @@ type broadcastCreator interface {
 	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
 }
 
-func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
+func (r *handler) sendLog(log types.Log, latestHead *evmtypes.Head,
 	broadcasts map[LogBroadcastAsKey]bool,
 	bc broadcastCreator,
 	logger logger.Logger) {
