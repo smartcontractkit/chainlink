@@ -11,14 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.1.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.1.0 - 2023-05-16
 
 ### Changed
 
 - Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
   if any Database-specific configuration is invalid.
-
-<!-- unreleasedstop -->
 
 ## 2.0.0 - 2023-04-20
 
