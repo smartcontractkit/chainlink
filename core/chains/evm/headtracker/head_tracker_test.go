@@ -967,7 +967,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 }
 
-func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, orm headtracker.HeadStore[*evmtypes.Head, gethCommon.Hash]) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config)
@@ -981,7 +981,7 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 	}
 }
 
-func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client, cfg chainlink.GeneralConfig, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client, cfg chainlink.GeneralConfig, orm headtracker.HeadStore[*evmtypes.Head, gethCommon.Hash]) *headTrackerUniverse {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
@@ -999,7 +999,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 	}
 }
 
-func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
+func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, orm headtracker.HeadStore[*evmtypes.Head, gethCommon.Hash], checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config)

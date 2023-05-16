@@ -11,13 +11,13 @@ import (
 )
 
 type headSaver struct {
-	orm    ORM
+	orm    HeadStore[*evmtypes.Head, common.Hash]
 	config Config
 	logger logger.Logger
 	heads  Heads
 }
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
+func NewHeadSaver(lggr logger.Logger, orm HeadStore[*evmtypes.Head, common.Hash], config Config) httypes.HeadSaver {
 	return &headSaver{
 		orm:    orm,
 		config: config,

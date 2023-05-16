@@ -10,24 +10,25 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type ORM interface {
-	// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
-	// No advisory lock required because this is thread safe.
-	IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error
-	// TrimOldHeads deletes heads such that only the top N block numbers remain
+// Chain Agnostic HeadStore
+type HeadStore[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] interface {
+	// Insert Head into the DB
+	IdempotentInsertHead(ctx context.Context, head H) (err error)
+	// Delete heads from the DB beyond n blocks
 	TrimOldHeads(ctx context.Context, n uint) (err error)
-	// LatestHead returns the highest seen head
-	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
+	// Get the latest head from DB
+	LatestHead(ctx context.Context) (head H, err error)
 	// LatestHeads returns the latest heads up to given limit
 	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
-	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
+	// Find head by Hash from DB
+	HeadByHash(ctx context.Context, hash BLOCK_HASH) (head H, err error)
 }
 
 type orm struct {
@@ -35,7 +36,9 @@ type orm struct {
 	chainID utils.Big
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID big.Int) ORM {
+var _ HeadStore[*evmtypes.Head, common.Hash] = (*orm)(nil)
+
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID big.Int) HeadStore[*evmtypes.Head, common.Hash] {
 	return &orm{pg.NewQ(db, lggr.Named("HeadTrackerORM"), cfg), utils.Big(chainID)}
 }
 
