@@ -80,7 +80,7 @@ export default {
       },
     ],
     overrides: {
-      "src/v0.8/vrf/VRFCoordinatorV2.sol": {
+      'src/v0.8/vrf/VRFCoordinatorV2.sol': {
         version: '0.8.6',
         settings: {
           optimizer: {
@@ -90,9 +90,9 @@ export default {
           metadata: {
             bytecodeHash: 'none',
           },
-        }
-      }
-    }
+        },
+      },
+    },
   },
   contractSizer: {
     alphaSort: true,
