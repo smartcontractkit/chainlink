@@ -8,17 +8,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"golang.org/x/exp/maps"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -38,15 +36,15 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	HEAD commontypes.Head[BLOCK_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH commontypes.Hashable,
+	BLOCK_HASH commontypes.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] interface {
-	txmgrtypes.HeadTrackable[HEAD]
+	txmgrtypes.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateEthTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], err error)
@@ -67,11 +65,11 @@ type reset struct {
 
 type Txm[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	HEAD commontypes.Head[BLOCK_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH commontypes.Hashable,
+	BLOCK_HASH commontypes.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
 	FEE txmgrtypes.Fee,
 	ADD any,
@@ -81,7 +79,6 @@ type Txm[
 	txStore          txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	db               *sqlx.DB
 	q                pg.Q
-	ethClient        evmclient.Client
 	config           EvmTxmConfig
 	keyStore         txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	eventBroadcaster pg.EventBroadcaster
@@ -98,11 +95,11 @@ type Txm[
 	wg       sync.WaitGroup
 
 	reaper           *Reaper[CHAIN_ID]
-	ethResender      *EthResender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
+	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
 	ethBroadcaster   *EthBroadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	ethConfirmer     *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, gas.EvmFee, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ]
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	nonceSyncer      NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 }
 
@@ -136,7 +133,6 @@ func NewTxm(
 		txStore:          txStore,
 		db:               db,
 		q:                q,
-		ethClient:        ethClient,
 		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
@@ -152,7 +148,7 @@ func NewTxm(
 		nonceSyncer:      nonceSyncer,
 		ethBroadcaster:   ethBroadcaster,
 		ethConfirmer:     ethConfirmer,
-		ethResender:      ethResender,
+		resender:         ethResender,
 	}
 
 	if cfg.TxResendAfterThreshold() <= 0 {
@@ -191,8 +187,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Start
 			b.reaper.Start()
 		}
 
-		if b.ethResender != nil {
-			b.ethResender.Start()
+		if b.resender != nil {
+			b.resender.Start()
 		}
 
 		if b.fwdMgr != nil {
@@ -230,11 +226,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Reset
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) abandon(addr ADDR) (err error) {
-	gethAddr, err := stringToGethAddress(addr.String())
-	if err != nil {
-		return errors.Wrapf(err, "failed to do address format conversion")
-	}
-	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), gethAddr)
+	err = b.txStore.Abandon(b.chainID, addr)
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
 }
 
@@ -247,8 +239,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Close
 		if b.reaper != nil {
 			b.reaper.Stop()
 		}
-		if b.ethResender != nil {
-			b.ethResender.Stop()
+		if b.resender != nil {
+			b.resender.Stop()
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
@@ -511,75 +503,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendE
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
-// send broadcasts the transaction to the ethereum network, writes any relevant
-// data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction[
-	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
-	FEE txmgrtypes.Fee,
-	ADD any,
-](ctx context.Context, ethClient evmclient.Client, a txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], e txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], logger logger.Logger) *evmclient.SendError {
-	signedTx, err := GetGethSignedTx(a.SignedRawTx)
-	if err != nil {
-		return evmclient.NewFatalSendError(err)
-	}
-
-	err = ethClient.SendTransaction(ctx, signedTx)
-
-	a.Tx = e // for logging
-	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "feeLimit", e.FeeLimit, "attempt", a)
-	sendErr := evmclient.NewSendError(err)
-	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
-		return nil
-	}
-	return sendErr
-}
-
-// sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
-// May be useful for clearing stuck nonces
-func sendEmptyTransaction[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
-	R txmgrtypes.ChainReceipt[TX_HASH],
-	FEE txmgrtypes.Fee,
-	ADD any,
-](
-	ctx context.Context,
-	ethClient evmclient.Client,
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[HEAD, FEE, ADDR, TX_HASH, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, FEE, ADD], SEQ],
-	seq SEQ,
-	gasLimit uint32,
-	fee FEE,
-	fromAddress ADDR,
-) (_ *gethTypes.Transaction, err error) {
-	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
-
-	attempt, err := txAttemptBuilder.NewEmptyTxAttempt(seq, gasLimit, fee, fromAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = ethClient.SendTransaction(ctx, signedTx)
-	return signedTx, err
-}
-
 type NullTxManager[
 	CHAIN_ID txmgrtypes.ID,
-	HEAD txmgrtypes.Head,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH],
+	HEAD commontypes.Head[BLOCK_HASH],
+	ADDR commontypes.Hashable,
+	TX_HASH, BLOCK_HASH commontypes.Hashable,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] struct {

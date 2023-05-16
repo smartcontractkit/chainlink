@@ -30,6 +30,18 @@ func main() {
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
 
+	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
+	err = promServer.Start()
+	if err != nil {
+		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
+	}
+	defer func() {
+		err := promServer.Close()
+		if err != nil {
+			lggr.Errorf("error closing prometheus server: %s", err)
+		}
+	}()
+
 	cp := &chainPlugin{lggr: lggr}
 	defer func() {
 		logger.Sugared(lggr).ErrorIfFn(cp.Close, "chainPlugin")
@@ -70,9 +82,11 @@ func (c *chainPlugin) NewRelayer(ctx context.Context, config string, keystore lo
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
 	r := pkgsol.NewRelayer(c.lggr, chainSet)
+
 	c.mu.Lock()
 	c.closers = append(c.closers, chainSet, r)
 	c.mu.Unlock()
+
 	return &relay.RelayerAdapter{Relayer: r, RelayerExt: chainSet}, nil
 }
 
