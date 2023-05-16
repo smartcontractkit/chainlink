@@ -34,7 +34,7 @@ type ChainScopedOnlyConfig interface {
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
+	EvmGasBumpTxDepth() uint32
 	EvmGasBumpWei() *assets.Wei
 	EvmGasFeeCapDefault() *assets.Wei
 	EvmGasLimitDefault() uint32

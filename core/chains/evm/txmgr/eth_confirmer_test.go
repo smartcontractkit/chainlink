@@ -2591,7 +2591,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		etxCount := 4
 
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint16(depth))
+			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint32(depth))
 		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
