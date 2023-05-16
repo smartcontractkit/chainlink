@@ -280,6 +280,8 @@ jobs:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+      TEST_UPGRADE_VERSION: ${{ github.sha }}
       TEST_LOG_LEVEL: debug
       TEST_SUITE: migration
     steps:
