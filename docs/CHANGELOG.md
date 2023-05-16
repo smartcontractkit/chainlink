@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
- - Bumping batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+ - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
+ - Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
   - `LogBackfillBatchSize = 1000`
   - `RPCDefaultBatchSize: 250`
   - `GasEstimator.BatchSize = 25`
