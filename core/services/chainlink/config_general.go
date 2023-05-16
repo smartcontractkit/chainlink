@@ -890,9 +890,10 @@ func (g *generalConfig) ReaperExpiration() models.Duration {
 
 func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
-	// We can ignore this error here, since we validate that the RootDir is
-	// expandeable in config.Core.ValidateConfig().
-	h, _ := parse.HomeDir(d)
+	h, err := parse.HomeDir(d)
+	if err != nil {
+		panic(err) // never happens since we validate that the RootDir is expandable in config.Core.ValidateConfig().
+	}
 	return h
 }
 
