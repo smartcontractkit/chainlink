@@ -1457,6 +1457,7 @@ func newRandomnessRequestedLog(
 		NumWords:               1,
 		SubID:                  big.NewInt(1),
 		CostJuels:              big.NewInt(50_000),
+		NewSubBalance:          big.NewInt(100_000),
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
@@ -1467,7 +1468,7 @@ func newRandomnessRequestedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords, e.CostJuels)
+	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords, e.CostJuels, e.NewSubBalance)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)
@@ -1543,6 +1544,7 @@ func newRandomnessFulfillmentRequestedLog(
 		SubID:                  big.NewInt(1),
 		Requester:              common.HexToAddress("0x1234567890"),
 		CostJuels:              big.NewInt(50_000),
+		NewSubBalance:          big.NewInt(100_000),
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
@@ -1554,7 +1556,7 @@ func newRandomnessFulfillmentRequestedLog(
 		}
 	}
 	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords,
-		e.GasAllowance, e.GasPrice, e.WeiPerUnitLink, e.Arguments, e.CostJuels)
+		e.GasAllowance, e.GasPrice, e.WeiPerUnitLink, e.Arguments, e.CostJuels, e.NewSubBalance)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)
@@ -1608,7 +1610,7 @@ func newRandomWordsFulfilledLog(
 		SuccessfulFulfillment: successfulFulfillment,
 	}
 	packed, err := vrfCoordinatorABI.Events[randomWordsFulfilledEvent].Inputs.Pack(
-		e.RequestIDs, e.SuccessfulFulfillment, e.TruncatedErrorData)
+		e.RequestIDs, e.SuccessfulFulfillment, e.TruncatedErrorData, e.SubBalances, e.SubIDs)
 	require.NoError(t, err)
 	topic0 := vrfCoordinatorABI.Events[randomWordsFulfilledEvent].ID
 	return logpoller.Log{
