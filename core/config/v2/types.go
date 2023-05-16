@@ -114,7 +114,7 @@ func (c *Core) SetFrom(f *Core) {
 func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
 	if err != nil {
-		err = multierr.Append(verr, ErrInvalid{Name: "RootDir", Value: true, Msg: "Failed to expand RootDir. Please use an explicit path."})
+		err = multierr.Append(err, ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
 	}
 
 	return err
