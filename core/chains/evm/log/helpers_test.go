@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -273,7 +273,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	err := helper.pipelineHelper.Jrm.CreateJob(jb)
 	require.NoError(t, err)

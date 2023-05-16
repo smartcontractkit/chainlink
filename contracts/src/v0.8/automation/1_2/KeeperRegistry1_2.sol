@@ -52,7 +52,7 @@ contract KeeperRegistry1_2 is
   uint256 private constant PERFORM_GAS_CUSHION = 5_000;
   uint256 private constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 private constant PPB_BASE = 1_000_000_000;
-  uint64 private constant UINT64_MAX = 2**64 - 1;
+  uint64 private constant UINT64_MAX = 2 ** 64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
 
   address[] private s_keeperList;
@@ -180,12 +180,7 @@ contract KeeperRegistry1_2 is
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
    */
-  constructor(
-    address link,
-    address linkEthFeed,
-    address fastGasFeed,
-    Config memory config
-  ) ConfirmedOwner(msg.sender) {
+  constructor(address link, address linkEthFeed, address fastGasFeed, Config memory config) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -223,7 +218,10 @@ contract KeeperRegistry1_2 is
    * @param id identifier of the upkeep to check
    * @param from the address to simulate performing the upkeep from
    */
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(
+    uint256 id,
+    address from
+  )
     external
     override
     cannotExecute
@@ -257,12 +255,10 @@ contract KeeperRegistry1_2 is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData)
-    external
-    override
-    whenNotPaused
-    returns (bool success)
-  {
+  function performUpkeep(
+    uint256 id,
+    bytes calldata performData
+  ) external override whenNotPaused returns (bool success) {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
@@ -307,11 +303,7 @@ contract KeeperRegistry1_2 is
    * @param sender the account which transferred the funds
    * @param amount number of LINK transfer
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  ) external override {
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
@@ -512,7 +504,9 @@ contract KeeperRegistry1_2 is
   /**
    * @notice read all of the details about an upkeep
    */
-  function getUpkeep(uint256 id)
+  function getUpkeep(
+    uint256 id
+  )
     external
     view
     override
@@ -563,16 +557,7 @@ contract KeeperRegistry1_2 is
   /**
    * @notice read the current info about any keeper address
    */
-  function getKeeperInfo(address query)
-    external
-    view
-    override
-    returns (
-      address payee,
-      bool active,
-      uint96 balance
-    )
-  {
+  function getKeeperInfo(address query) external view override returns (address payee, bool active, uint96 balance) {
     KeeperInfo memory keeper = s_keeperInfo[query];
     return (keeper.payee, keeper.active, keeper.balance);
   }
@@ -584,11 +569,7 @@ contract KeeperRegistry1_2 is
     external
     view
     override
-    returns (
-      State memory state,
-      Config memory config,
-      address[] memory keepers
-    )
+    returns (State memory state, Config memory config, address[] memory keepers)
   {
     Storage memory store = s_storage;
     state.nonce = store.nonce;
@@ -789,11 +770,7 @@ contract KeeperRegistry1_2 is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available
    */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -820,12 +797,9 @@ contract KeeperRegistry1_2 is
    * @dev calls the Upkeep target with the performData param passed in by the
    * keeper and the exact gas required by the Upkeep
    */
-  function _performUpkeepWithParams(PerformParams memory params)
-    private
-    nonReentrant
-    validUpkeep(params.id)
-    returns (bool success)
-  {
+  function _performUpkeepWithParams(
+    PerformParams memory params
+  ) private nonReentrant validUpkeep(params.id) returns (bool success) {
     Upkeep memory upkeep = s_upkeep[params.id];
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
@@ -848,11 +822,7 @@ contract KeeperRegistry1_2 is
   /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
-  function _prePerformUpkeep(
-    Upkeep memory upkeep,
-    address from,
-    uint256 maxLinkPayment
-  ) private view {
+  function _prePerformUpkeep(Upkeep memory upkeep, address from, uint256 maxLinkPayment) private view {
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
     if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();

@@ -2,19 +2,20 @@ package mercury
 
 import (
 	"encoding/json"
+	"math/big"
 
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 type Config interface {
@@ -29,6 +30,8 @@ func NewServices(
 	lggr logger.Logger,
 	argsNoPlugin libocr2.OracleArgs,
 	cfg Config,
+	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
+	chainHeadTracker mercury.ChainHeadTracker,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -49,14 +52,21 @@ func NewServices(
 		*jb.PipelineSpec,
 		lggr,
 		runResults,
+		chEnhancedTelem,
+		chainHeadTracker,
 	)
-	argsNoPlugin.ReportingPluginFactory = relaymercury.NewFactory(
+	wrappedPluginFactory := relaymercury.NewFactory(
 		ds,
 		lggr,
 		ocr2Provider.OnchainConfigCodec(),
 		ocr2Provider.ReportCodec(),
 		ocr2Provider.ContractTransmitter(),
 	)
+	chain, err := jb.OCR2OracleSpec.RelayConfig.EVMChainID()
+	if err != nil {
+		return nil, errors.Wrap(err, "get chainset")
+	}
+	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "Mercury", string(jb.OCR2OracleSpec.Relay), big.NewInt(chain))
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
 		return nil, errors.WithStack(err)

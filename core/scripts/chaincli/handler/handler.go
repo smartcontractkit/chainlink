@@ -30,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	link "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -45,6 +46,40 @@ const (
 	ocr2KeysEndpoint             = "/v2/keys/ocr2"
 	p2pKeysEndpoint              = "/v2/keys/p2p"
 	csaKeysEndpoint              = "/v2/keys/csa"
+)
+
+const (
+	nodeTOML = `[Log]
+JSONConsole = true
+Level = 'debug'
+[WebServer]
+AllowOrigins = '*'
+SecureCookies = false
+SessionTimeout = '999h0m0s'
+[WebServer.TLS]
+HTTPSPort = 0
+[Feature]
+LogPoller = true
+[OCR2]
+Enabled = true
+[P2P]
+[P2P.V2]
+Enabled = true
+[Keeper]
+TurnLookBack = 0
+[[EVM]]
+ChainID = '%d'
+[[EVM.Nodes]]
+Name = 'node-0'
+WSURL = '%s'
+HTTPURL = '%s'
+`
+	secretTOML = `
+[Mercury.Credentials.cred1]
+URL = '%s'
+Username = '%s'
+Password = '%s'
+`
 )
 
 // baseHandler is the common handler with a common logic
@@ -64,7 +99,7 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
 	rpcClient, err := rpc.Dial(cfg.NodeURL)
 	if err != nil {
-		log.Fatal("failed to deal with ETH node", err)
+		log.Fatal("failed to deal with ETH node: ", err)
 	}
 	nodeClient := ethclient.NewClient(rpcClient)
 
@@ -178,7 +213,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
 	}
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraEnvVars ...string) (string, func(bool), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string) (string, func(bool), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -229,7 +264,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
 		Env: []string{
 			"POSTGRES_USER=postgres",
-			"POSTGRES_PASSWORD=development_password",
+			"POSTGRES_PASSWORD=verylongdatabasepassword",
 		},
 		ExposedPorts: nat.PortSet{"5432": struct{}{}},
 	}, nil, &network.NetworkingConfig{
@@ -265,23 +300,26 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to create creds files: %s", err)
 	}
 
+	var baseTOML = fmt.Sprintf(nodeTOML, h.cfg.ChainID, h.cfg.NodeURL, h.cfg.NodeHttpURL)
+	tomlFile, tomlFileCleanup, err := createTomlFile(baseTOML)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create toml file: %s", err)
+	}
+	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.MercuryURL, h.cfg.MercuryID, h.cfg.MercuryKey)
+	secretFile, secretTOMLFileCleanup, err := createTomlFile(secretTOMLStr)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create secret toml file: %s", err)
+	}
 	// Create container with mounted files
 	portStr := fmt.Sprintf("%d", port)
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.ChainlinkDockerImage,
-		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
-		Env: append([]string{
-			"DATABASE_URL=postgresql://postgres:development_password@" + postgresContainerName + ":5432/postgres?sslmode=disable",
-			"ETH_URL=" + h.cfg.NodeURL,
-			fmt.Sprintf("ETH_CHAIN_ID=%d", h.cfg.ChainID),
-			"LINK_CONTRACT_ADDRESS=" + h.cfg.LinkTokenAddr,
-			"DATABASE_BACKUP_MODE=lite",
-			"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true",
-			"LOG_LEVEL=debug",
-			"CHAINLINK_TLS_PORT=0",
-			"SECURE_COOKIES=false",
-			"ALLOW_ORIGINS=*",
-		}, extraEnvVars...),
+		Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
+		Env: []string{
+			"CL_CONFIG=" + extraTOML,
+			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
+			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
+		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
 		},
@@ -296,6 +334,16 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 				Type:   mount.TypeBind,
 				Source: passwordFile,
 				Target: "/run/secrets/chainlink-node-password",
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: tomlFile,
+				Target: "/run/secrets/01-config.toml",
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: secretFile,
+				Target: "/run/secrets/01-secret.toml",
 			},
 		},
 		PortBindings: nat.PortMap{
@@ -330,6 +378,8 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 	return addr, func(writeLogs bool) {
 		fileCleanup()
+		tomlFileCleanup()
+		secretTOMLFileCleanup()
 
 		if writeLogs {
 			var rdr io.ReadCloser
@@ -522,5 +572,19 @@ func createCredsFiles() (string, string, func(), error) {
 	return apiFile.Name(), passwordFile.Name(), func() {
 		os.RemoveAll(apiFile.Name())
 		os.RemoveAll(passwordFile.Name())
+	}, nil
+}
+
+// createTomlFile creates temporary file with TOML config
+func createTomlFile(tomlString string) (string, func(), error) {
+	// Create temporary file with chainlink node TOML config
+	tomlFile, err := os.CreateTemp("", "chainlink-toml-config")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create toml file: %s", err)
+	}
+	_, _ = tomlFile.WriteString(tomlString)
+
+	return tomlFile.Name(), func() {
+		os.RemoveAll(tomlFile.Name())
 	}, nil
 }

@@ -27,12 +27,14 @@ func batchSendTransactions[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	R any,
+	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
+	FEE txmgrtypes.Fee,
+	ADD any,
 ](
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, txmgrtypes.NewTx[ADDR, TX_HASH], R, EthTx[ADDR, TX_HASH], EthTxAttempt[ADDR, TX_HASH], SEQ],
-	attempts []EthTxAttempt[ADDR, TX_HASH],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {
@@ -44,7 +46,7 @@ func batchSendTransactions[
 	ethTxIDs := make([]int64, len(attempts))
 	hashes := make([]string, len(attempts))
 	for i, attempt := range attempts {
-		ethTxIDs[i] = attempt.EthTxID
+		ethTxIDs[i] = attempt.TxID
 		hashes[i] = attempt.Hash.String()
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
@@ -84,9 +86,4 @@ func stringToGethAddress(s string) (common.Address, error) {
 		return common.Address{}, fmt.Errorf("invalid hex address: %s", s)
 	}
 	return common.HexToAddress(s), nil
-}
-
-func stringToGethHash(s string) (h common.Hash, err error) {
-	err = h.UnmarshalText([]byte(s))
-	return
 }

@@ -3,6 +3,7 @@ package resolver
 import (
 	"database/sql"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,7 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -65,16 +68,16 @@ func TestResolver_EthTransaction(t *testing.T) {
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
-					GasLimit:       100,
-					Value:          assets.NewEthValue(100),
-					EVMChainID:     *utils.NewBigI(22),
-					Nonce:          nil,
+					FeeLimit:       100,
+					Value:          big.Int(assets.NewEthValue(100)),
+					ChainID:        big.NewInt(22),
+					Sequence:       nil,
 				}, nil)
 				f.Mocks.txmStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmTxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                assets.NewWeiI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
@@ -114,6 +117,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
+				nonce := evmtypes.Nonce(num)
 
 				f.Mocks.txmStore.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
@@ -121,16 +125,16 @@ func TestResolver_EthTransaction(t *testing.T) {
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
-					GasLimit:       100,
-					Value:          assets.NewEthValue(100),
-					EVMChainID:     *utils.NewBigI(22),
-					Nonce:          &num,
+					FeeLimit:       100,
+					Value:          big.Int(assets.NewEthValue(100)),
+					ChainID:        big.NewInt(22),
+					Sequence:       &nonce,
 				}, nil)
 				f.Mocks.txmStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmTxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                assets.NewWeiI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -249,16 +253,16 @@ func TestResolver_EthTransactions(t *testing.T) {
 						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						State:          txmgr.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
-						GasLimit:       100,
-						Value:          assets.NewEthValue(100),
-						EVMChainID:     *utils.NewBigI(22),
+						FeeLimit:       100,
+						Value:          big.Int(assets.NewEthValue(100)),
+						ChainID:        big.NewInt(22),
 					},
 				}, 1, nil)
 				f.Mocks.txmStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmTxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                assets.NewWeiI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -343,10 +347,10 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                assets.NewWeiI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
-						EthTx:                   txmgr.EvmTx{},
+						Tx:                      txmgr.EvmTx{},
 					},
 				}, 1, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
@@ -374,7 +378,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EvmTxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                assets.NewWeiI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},

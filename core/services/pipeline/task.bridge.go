@@ -176,8 +176,8 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			if !errors.Is(err, sql.ErrNoRows) {
-				lggr.Errorw("Bridge task: cache fallback failed",
+			if !errors.Is(cacheErr, sql.ErrNoRows) {
+				lggr.Warnw("Bridge task: cache fallback failed",
 					"err", cacheErr.Error(),
 					"url", url.String(),
 				)

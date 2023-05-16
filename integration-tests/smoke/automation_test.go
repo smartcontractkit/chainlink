@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -19,8 +22,6 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -674,7 +675,8 @@ func TestAutomatedCheckPerformGasLimit(t *testing.T) {
 	// Now increase checkGasLimit on registry
 	highCheckGasLimit := automationDefaultRegistryConfig
 	highCheckGasLimit.CheckGasLimit = uint32(5000000)
-	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
+	require.NoError(t, err, "Error building OCR config")
 	err = registry.SetConfig(highCheckGasLimit, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")
 	err = chainClient.WaitForEvents()
@@ -782,8 +784,9 @@ func setupAutomationTest(
 		automationEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
 	chainlinkChart := chainlink.New(0, map[string]any{
-		"replicas": "5",
-		"toml":     client.AddNetworksConfig(automationBaseTOML, network),
+		"replicas":    "5",
+		"toml":        client.AddNetworksConfig(automationBaseTOML, network),
+		"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
 	})
 
 	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
@@ -836,7 +839,8 @@ func setupAutomationTest(
 
 		actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
+		require.NoError(t, err, "Error building OCR config vars")
 		err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")
 		require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")

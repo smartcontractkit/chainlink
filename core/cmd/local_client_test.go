@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -25,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -64,7 +65,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
-			app.On("ID").Maybe().Return(uuid.NewV4())
+			app.On("ID").Maybe().Return(uuid.New())
 
 			ethClient := evmtest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
@@ -153,7 +154,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
-			app.On("ID").Maybe().Return(uuid.NewV4())
+			app.On("ID").Maybe().Return(uuid.New())
 
 			prompter := cmdMocks.NewPrompter(t)
 
@@ -244,7 +245,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	app := mocks.NewApplication(t)
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("ID").Maybe().Return(uuid.NewV4())
+	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -275,9 +276,9 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		})).Once().Return(nil)
+		}), mock.Anything).Once().Return(clienttypes.Successful, nil)
 	}
 
 	assert.NoError(t, client.RebroadcastTransactions(c))
@@ -319,7 +320,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("ID").Maybe().Return(uuid.NewV4())
+			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
@@ -348,9 +349,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
-				ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				})).Once().Return(nil)
+				}), mock.Anything).Once().Return(clienttypes.Successful, nil)
 			}
 
 			assert.NoError(t, client.RebroadcastTransactions(c))
@@ -390,12 +391,12 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("ID").Maybe().Return(uuid.NewV4())
+			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
-			ethClient.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 
 			lggr := logger.TestLogger(t)
 

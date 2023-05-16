@@ -26,6 +26,8 @@ import (
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+
 	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-contrib/sessions"
@@ -36,7 +38,7 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -848,20 +850,6 @@ func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
 	return r0
 }
 
-// Dev provides a mock function with given fields:
-func (_m *ChainScopedConfig) Dev() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // DevWebServer provides a mock function with given fields:
 func (_m *ChainScopedConfig) DevWebServer() bool {
 	ret := _m.Called()
@@ -1063,14 +1051,14 @@ func (_m *ChainScopedConfig) EvmGasBumpThreshold() uint64 {
 }
 
 // EvmGasBumpTxDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasBumpTxDepth() uint16 {
+func (_m *ChainScopedConfig) EvmGasBumpTxDepth() uint32 {
 	ret := _m.Called()
 
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint16)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
@@ -2140,6 +2128,22 @@ func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// MercuryCredentials provides a mock function with given fields: credName
+func (_m *ChainScopedConfig) MercuryCredentials(credName string) *ocr2models.MercuryCredentials {
+	ret := _m.Called(credName)
+
+	var r0 *ocr2models.MercuryCredentials
+	if rf, ok := ret.Get(0).(func(string) *ocr2models.MercuryCredentials); ok {
+		r0 = rf(credName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
+		}
 	}
 
 	return r0

@@ -39,12 +39,13 @@ func NewTxm(
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, client, keyStore)
 	q := pg.NewQ(db, lggr, cfg)
 
-	txmCfg := txmgr.NewEvmTxmConfig(cfg) // wrap Evm specific config
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, client, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
+	txmClient := txmgr.NewEvmTxmClient(client) // wrap Evm specific client
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmClient, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
 	ethConfirmer := txmgr.NewEthConfirmer(txStore, client, txmCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender
 	if cfg.EthTxResendAfterThreshold() > 0 {
-		ethResender = txmgr.NewEthResender(lggr, txStore, client, keyStore, txmgr.DefaultResenderPollInterval, txmCfg)
+		ethResender = txmgr.NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, txmCfg)
 	}
 	txm = txmgr.NewTxm(db, client, txmCfg, keyStore, eventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, q)
 	return txm, nil

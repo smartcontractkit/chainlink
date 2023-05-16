@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -87,7 +88,6 @@ type BasicConfig interface {
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	DefaultLogLevel() zapcore.Level
-	Dev() bool
 	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
@@ -127,6 +127,7 @@ type BasicConfig interface {
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
+	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
