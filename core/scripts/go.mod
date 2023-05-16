@@ -287,7 +287,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230505214134-c890447508f9 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230512120527-20561a014f8f // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230516001004-0216997a2508 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.1 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
