@@ -29,7 +29,7 @@ type BroadcasterConfig[UNIT any] interface {
 type ConfirmerConfig[UNIT any] interface {
 	RPCDefaultBatchSize() uint32
 	UseForwarders() bool
-	FeeBumpTxDepth() uint16
+	FeeBumpTxDepth() uint32
 	MaxInFlightTransactions() uint32
 	FeeLimitDefault() uint32
 
