@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -31,14 +32,23 @@ func main() {
 		}
 	}()
 
+	mp := median.NewPlugin(lggr)
+	err = mp.Start(context.Background())
+	if err != nil {
+		lggr.Fatalf("Failed to start median plugin: %s", err)
+	}
+
 	stop := make(chan struct{})
 	defer close(stop)
 
-	mp := median.NewPlugin(lggr, stop)
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: loop.PluginMedianHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
-			loop.PluginMedianName: loop.NewGRPCPluginMedian(mp, lggr),
+			loop.PluginMedianName: &loop.GRPCPluginMedian{
+				StopCh:       stop,
+				Logger:       lggr,
+				PluginServer: mp,
+			},
 		},
 		GRPCServer: plugin.DefaultGRPCServer,
 	})
