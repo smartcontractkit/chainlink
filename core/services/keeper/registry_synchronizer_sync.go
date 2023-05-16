@@ -175,7 +175,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
 func CalcPositioningConstant(upkeepID *utils.Big, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID.Mod(math.MaxInt64).Int64())
+	binary.PutVarint(upkeepBytes, upkeepID.Mod(utils.NewBigI(math.MaxInt64)).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {
