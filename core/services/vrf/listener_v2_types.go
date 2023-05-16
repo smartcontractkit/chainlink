@@ -25,7 +25,7 @@ type batchFulfillment struct {
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
-	maxLinks      []interface{}
+	maxLinks      []*big.Int
 	txHashes      []common.Hash
 }
 
@@ -47,7 +47,7 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 		lbs: []log.Broadcast{
 			result.req.lb,
 		},
-		maxLinks: []interface{}{
+		maxLinks: []*big.Int{
 			result.maxLink,
 		},
 		txHashes: []common.Hash{
