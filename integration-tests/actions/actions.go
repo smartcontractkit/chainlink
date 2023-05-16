@@ -371,7 +371,7 @@ func UpgradeChainlinkNodeVersions(
 	nodes ...*client.Chainlink,
 ) error {
 	if newImage == "" && newVersion == "" {
-		return errors.New("found empty image and version, must provide either a new image or a new version")
+		return errors.New("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
 	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {

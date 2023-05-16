@@ -2,7 +2,6 @@ package migration
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -28,7 +27,10 @@ func TestVersionUpgrade(t *testing.T) {
 		return
 	}
 
-	upgradeImage, upgradeVersion := os.Getenv("TEST_UPGRADE_IMAGE"), os.Getenv("TEST_UPGRADE_VERSION")
+	upgradeImage, err := utils.GetEnv("UPGRADE_IMAGE")
+	require.NoError(t, err, "Error getting upgrade image")
+	upgradeVersion, err := utils.GetEnv("UPGRADE_VERSION")
+	require.NoError(t, err, "Error getting upgrade version")
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
