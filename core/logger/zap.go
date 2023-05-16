@@ -18,10 +18,10 @@ type zapLogger struct {
 	callerSkip int
 }
 
-func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
+func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
 	encoderConfig := zap.NewProductionEncoderConfig()
 
-	if !cfg.UnixTS {
+	if !unixTS {
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 
