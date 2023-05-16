@@ -1252,7 +1252,13 @@ func (c *Chainlink) UpgradeVersion(testEnvironment *environment.Environment, new
 	if newImage == "" {
 		newImage = os.Getenv("CHAINLINK_IMAGE")
 	}
-	log.Info().Str("Chart Name", c.Config.ChartName).Str("New Image", newImage).Str("New Version", newVersion).Msg("Upgrading Chainlink Node")
+	log.Info().
+		Str("Chart Name", c.Config.ChartName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
 	upgradeVals := map[string]any{
 		"chainlink": map[string]any{
 			"image": map[string]any{
