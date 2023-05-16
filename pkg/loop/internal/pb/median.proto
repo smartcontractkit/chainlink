@@ -9,19 +9,19 @@ import "google/protobuf/timestamp.proto";
 import "relayer.proto";
 
 service PluginMedian {
-  rpc NewMedianPluginFactory (NewMedianPluginFactoryRequest) returns (NewMedianPluginFactoryReply) {}
+  rpc NewMedianFactory (NewMedianFactoryRequest) returns (NewMedianFactoryReply) {}
 }
 
-// NewMedianPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianPluginFactory].
-message NewMedianPluginFactoryRequest {
+// NewMedianFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+message NewMedianFactoryRequest {
   uint32 medianProviderID = 1;
   uint32 dataSourceID = 2;
   uint32 juelsPerFeeCoinDataSourceID = 3;
   uint32 errorLogID = 4;
 }
 
-// NewMedianPluginFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianPluginFactory].
-message NewMedianPluginFactoryReply {
+// NewMedianFactoryRequest has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianFactory].
+message NewMedianFactoryReply {
   uint32 reportingPluginFactoryID = 1;
 }
 

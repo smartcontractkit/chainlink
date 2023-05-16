@@ -35,7 +35,7 @@ type dataSourceClient struct {
 	grpc pb.DataSourceClient
 }
 
-func newDataSourceClient(cc *grpc.ClientConn) *dataSourceClient {
+func newDataSourceClient(cc grpc.ClientConnInterface) *dataSourceClient {
 	return &dataSourceClient{grpc: pb.NewDataSourceClient(cc)}
 }
 

@@ -2,6 +2,7 @@ package loop
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -13,39 +14,51 @@ import (
 var _ types.Service = (*serviceClient)(nil)
 
 type serviceClient struct {
-	*lggrBroker
-	cc   *grpc.ClientConn
+	b    *brokerExt
+	cc   grpc.ClientConnInterface
 	grpc pb.ServiceClient
 }
 
-func newServiceClient(lggrBroker *lggrBroker, cc *grpc.ClientConn) *serviceClient {
-	return &serviceClient{lggrBroker, cc, pb.NewServiceClient(cc)}
+func newServiceClient(b *brokerExt, cc grpc.ClientConnInterface) *serviceClient {
+	return &serviceClient{b, cc, pb.NewServiceClient(cc)}
 }
 
 func (s *serviceClient) Start(ctx context.Context) error {
-	_, err := s.grpc.Start(ctx, &emptypb.Empty{})
-	return err
+	return nil // no-op: server side starts automatically
 }
 
 func (s *serviceClient) Close() error {
-	_, err := s.grpc.Close(context.TODO(), &emptypb.Empty{})
+	ctx, cancel := s.b.ctx()
+	defer cancel()
+
+	_, err := s.grpc.Close(ctx, &emptypb.Empty{})
 	return err
 }
 
 func (s *serviceClient) Ready() error {
-	_, err := s.grpc.Ready(context.TODO(), &emptypb.Empty{})
+	ctx, cancel := s.b.ctx()
+	defer cancel()
+	ctx, cancel = context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	_, err := s.grpc.Ready(ctx, &emptypb.Empty{})
 	return err
 }
 
-func (s *serviceClient) Name() string { return s.lggr.Name() }
+func (s *serviceClient) Name() string { return s.b.lggr.Name() }
 
 func (s *serviceClient) HealthReport() map[string]error {
-	reply, err := s.grpc.HealthReport(context.TODO(), &emptypb.Empty{})
+	ctx, cancel := s.b.ctx()
+	defer cancel()
+	ctx, cancel = context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	reply, err := s.grpc.HealthReport(ctx, &emptypb.Empty{})
 	if err != nil {
-		return map[string]error{s.lggr.Name(): err}
+		return map[string]error{s.b.lggr.Name(): err}
 	}
 	hr := healthReport(reply.HealthReport)
-	hr[s.lggr.Name()] = nil
+	hr[s.b.lggr.Name()] = nil
 	return hr
 }
 
@@ -53,19 +66,26 @@ var _ pb.ServiceServer = (*serviceServer)(nil)
 
 type serviceServer struct {
 	pb.UnimplementedServiceServer
-	srv  types.Service
-	stop func()
-}
-
-func (s *serviceServer) Start(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, s.srv.Start(ctx)
+	srv types.Service
 }
 
 func (s *serviceServer) Close(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-	s.stop()
 	return &emptypb.Empty{}, s.srv.Close()
 }
 
 func (s *serviceServer) Ready(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, s.srv.Ready()
+}
+
+func (s *serviceServer) HealthReport(ctx context.Context, empty *emptypb.Empty) (*pb.HealthReportReply, error) {
+	var r pb.HealthReportReply
+	r.HealthReport = make(map[string]string)
+	for n, err := range s.srv.HealthReport() {
+		var serr string
+		if err != nil {
+			serr = err.Error()
+		}
+		r.HealthReport[n] = serr
+	}
+	return &r, nil
 }

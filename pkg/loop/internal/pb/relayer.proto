@@ -286,11 +286,9 @@ message FromAccountReply {
 }
 
 service Service {
-  rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Name (google.protobuf.Empty) returns (NameReply) {}
   rpc Close (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Ready (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc Healthy (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc HealthReport (google.protobuf.Empty) returns (HealthReportReply) {}
 }
 

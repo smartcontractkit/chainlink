@@ -123,6 +123,15 @@ func (s *StartStopOnce) IfStarted(f func()) (ok bool) {
 	return false
 }
 
+// Ready returns ErrNotStarted if the state is not started.
+func (s *StartStopOnce) Ready() error {
+	state := s.State()
+	if state == startStopOnceStarted {
+		return nil
+	}
+	return &errNotStarted{state: state}
+}
+
 // IfNotStopped runs the func and returns true if in any state other than Stopped
 func (s *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 	s.RLock()
@@ -135,15 +144,6 @@ func (s *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 	}
 	f()
 	return true
-}
-
-// Ready returns ErrNotStarted if the state is not started.
-func (s *StartStopOnce) Ready() error {
-	state := s.State()
-	if state == startStopOnceStarted {
-		return nil
-	}
-	return &errNotStarted{state: state}
 }
 
 // Healthy returns ErrNotStarted if the state is not started.

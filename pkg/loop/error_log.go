@@ -20,7 +20,7 @@ func (e errorLogClient) SaveError(ctx context.Context, msg string) error {
 	return err
 }
 
-func newErrorLogClient(cc *grpc.ClientConn) *errorLogClient {
+func newErrorLogClient(cc grpc.ClientConnInterface) *errorLogClient {
 	return &errorLogClient{pb.NewErrorLogClient(cc)}
 }
 

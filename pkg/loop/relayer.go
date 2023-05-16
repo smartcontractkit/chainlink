@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -19,93 +18,57 @@ var _ Relayer = (*relayerClient)(nil)
 
 // relayerClient adapts a GRPC [pb.RelayerClient] to implement [Relayer].
 type relayerClient struct {
-	*lggrBroker
+	*brokerExt
+	*serviceClient
 
 	relayer pb.RelayerClient
-	service pb.ServiceClient
-	closeFn func() error
 }
 
-func newRelayerClient(lb *lggrBroker, conn *grpc.ClientConn, deps ...*grpc.Server) *relayerClient {
-	return &relayerClient{lb.named("ChainRelayerClient"), pb.NewRelayerClient(conn), pb.NewServiceClient(conn), func() error {
-		for _, d := range deps {
-			time.AfterFunc(time.Second, d.GracefulStop)
-		}
-		return conn.Close()
-	}}
-}
-
-func (r *relayerClient) Start(ctx context.Context) error {
-	_, err := r.service.Start(context.TODO(), &emptypb.Empty{})
-	return err
-}
-
-func (r *relayerClient) Close() error {
-	_, err := r.service.Close(context.TODO(), &emptypb.Empty{})
-	err = errors.Join(err, r.closeFn())
-	return err
-}
-
-func (r *relayerClient) Ready() error {
-	_, err := r.service.Ready(context.TODO(), &emptypb.Empty{})
-	return err
-}
-
-func (r *relayerClient) Name() string { return r.lggr.Name() }
-
-func (r *relayerClient) HealthReport() map[string]error {
-	reply, err := r.service.HealthReport(context.TODO(), &emptypb.Empty{})
-	if err != nil {
-		return map[string]error{r.lggr.Name(): err}
-	}
-	hr := healthReport(reply.HealthReport)
-	hr[r.lggr.Name()] = nil
-	return hr
+func newRelayerClient(b *brokerExt, conn grpc.ClientConnInterface) *relayerClient {
+	b = b.named("ChainRelayerClient")
+	return &relayerClient{b, newServiceClient(b, conn), pb.NewRelayerClient(conn)}
 }
 
 func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
-	reply, err := r.relayer.NewConfigProvider(ctx, &pb.NewConfigProviderRequest{
-		RelayArgs: &pb.RelayArgs{
-			ExternalJobID: rargs.ExternalJobID[:],
-			JobID:         rargs.JobID,
-			ContractID:    rargs.ContractID,
-			New:           rargs.New,
-			RelayConfig:   rargs.RelayConfig,
-		},
+	cc := r.newClientConn("ConfigProvider", func(ctx context.Context) (uint32, resources, error) {
+		reply, err := r.relayer.NewConfigProvider(ctx, &pb.NewConfigProviderRequest{
+			RelayArgs: &pb.RelayArgs{
+				ExternalJobID: rargs.ExternalJobID[:],
+				JobID:         rargs.JobID,
+				ContractID:    rargs.ContractID,
+				New:           rargs.New,
+				RelayConfig:   rargs.RelayConfig,
+			},
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		return reply.ConfigProviderID, nil, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	providerConn, err := r.broker.Dial(reply.ConfigProviderID)
-	if err != nil {
-		return nil, ErrConnDial{Name: "ConfigProvider", ID: reply.ConfigProviderID, Err: err}
-	}
-	return newConfigProviderClient(r.named("ConfigProviderClient"), providerConn), nil
+	return newConfigProviderClient(r.named("ConfigProviderClient"), cc), nil
 }
 
 func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
-	reply, err := r.relayer.NewMedianProvider(ctx, &pb.NewMedianProviderRequest{
-		RelayArgs: &pb.RelayArgs{
-			ExternalJobID: rargs.ExternalJobID[:],
-			JobID:         rargs.JobID,
-			ContractID:    rargs.ContractID,
-			New:           rargs.New,
-			RelayConfig:   rargs.RelayConfig,
-		},
-		PluginArgs: &pb.PluginArgs{
-			TransmitterID: pargs.TransmitterID,
-			PluginConfig:  pargs.PluginConfig,
-		},
+	cc := r.newClientConn("MedianProvider", func(ctx context.Context) (uint32, resources, error) {
+		reply, err := r.relayer.NewMedianProvider(ctx, &pb.NewMedianProviderRequest{
+			RelayArgs: &pb.RelayArgs{
+				ExternalJobID: rargs.ExternalJobID[:],
+				JobID:         rargs.JobID,
+				ContractID:    rargs.ContractID,
+				New:           rargs.New,
+				RelayConfig:   rargs.RelayConfig,
+			},
+			PluginArgs: &pb.PluginArgs{
+				TransmitterID: pargs.TransmitterID,
+				PluginConfig:  pargs.PluginConfig,
+			},
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		return reply.MedianProviderID, nil, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	id := reply.MedianProviderID
-	factoryConn, err := r.broker.Dial(id)
-	if err != nil {
-		return nil, ErrConnDial{Name: "MedianProvider", ID: id, Err: err}
-	}
-	return newMedianProviderClient(r.lggrBroker, factoryConn), nil
+	return newMedianProviderClient(r.brokerExt, cc), nil
 }
 
 func (r *relayerClient) NewMercuryProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error) {
@@ -186,13 +149,13 @@ var _ pb.RelayerServer = (*relayerServer)(nil)
 type relayerServer struct {
 	pb.UnimplementedRelayerServer
 
-	*lggrBroker
+	*brokerExt
 
 	impl Relayer
 }
 
-func newChainRelayerServer(impl Relayer, lb *lggrBroker) *relayerServer {
-	return &relayerServer{impl: impl, lggrBroker: lb.named("ChainRelayerServer")}
+func newChainRelayerServer(impl Relayer, b *brokerExt) *relayerServer {
+	return &relayerServer{impl: impl, brokerExt: b.named("ChainRelayerServer")}
 }
 
 func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewConfigProviderRequest) (*pb.NewConfigProviderReply, error) {
@@ -210,17 +173,21 @@ func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewCo
 	if err != nil {
 		return nil, err
 	}
-	s := grpc.NewServer()
-	pb.RegisterServiceServer(s, &serviceServer{srv: cp, stop: func() {
-		time.AfterFunc(time.Second, s.GracefulStop)
-	}})
-	pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: cp.OffchainConfigDigester()})
-	pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: cp.ContractConfigTracker()})
-	const name = "ConfigProvider"
-	id, err := r.serve(s, name, resource{cp, name})
+	err = cp.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	const name = "ConfigProvider"
+	id, _, err := r.serve(name, func(s *grpc.Server) {
+		pb.RegisterServiceServer(s, &serviceServer{srv: cp})
+		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: cp.OffchainConfigDigester()})
+		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: cp.ContractConfigTracker()})
+	}, resource{cp, name})
+	if err != nil {
+		return nil, err
+	}
+
 	return &pb.NewConfigProviderReply{ConfigProviderID: id}, nil
 }
 
@@ -242,24 +209,26 @@ func (r *relayerServer) NewMedianProvider(ctx context.Context, request *pb.NewMe
 	if err != nil {
 		return nil, err
 	}
-	const name = "MedianProvider"
-	providerRes := resource{name: name, Closer: provider}
-	s := grpc.NewServer()
-	pb.RegisterServiceServer(s, &serviceServer{srv: provider, stop: func() {
-		time.AfterFunc(time.Second, s.GracefulStop)
-		r.closeAll(providerRes)
-	}})
-	pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
-	pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
-	pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
-	pb.RegisterReportCodecServer(s, &reportCodecServer{impl: provider.ReportCodec()})
-	pb.RegisterMedianContractServer(s, &medianContractServer{impl: provider.MedianContract()})
-	pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
-	id, err := r.serve(s, name)
+	err = provider.Start(ctx)
 	if err != nil {
-		r.closeAll(providerRes)
 		return nil, err
 	}
+	const name = "MedianProvider"
+	providerRes := resource{name: name, Closer: provider}
+
+	id, _, err := r.serve(name, func(s *grpc.Server) {
+		pb.RegisterServiceServer(s, &serviceServer{srv: provider})
+		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
+		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
+		pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
+		pb.RegisterReportCodecServer(s, &reportCodecServer{impl: provider.ReportCodec()})
+		pb.RegisterMedianContractServer(s, &medianContractServer{impl: provider.MedianContract()})
+		pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
+	}, providerRes)
+	if err != nil {
+		return nil, err
+	}
+
 	return &pb.NewMedianProviderReply{MedianProviderID: id}, nil
 }
 
@@ -318,7 +287,11 @@ func (r *relayerServer) SendTx(ctx context.Context, request *pb.SendTxRequest) (
 func healthReport(s map[string]string) (hr map[string]error) {
 	hr = make(map[string]error, len(s))
 	for n, e := range s {
-		hr[n] = errors.New(e)
+		var err error
+		if e != "" {
+			err = errors.New(e)
+		}
+		hr[n] = err
 	}
 	return hr
 }

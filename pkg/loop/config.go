@@ -20,9 +20,9 @@ type configProviderClient struct {
 	contractTracker  libocr.ContractConfigTracker
 }
 
-func newConfigProviderClient(lb *lggrBroker, cc *grpc.ClientConn) *configProviderClient {
-	c := &configProviderClient{serviceClient: newServiceClient(lb, cc)}
-	c.offchainDigester = &offchainConfigDigesterClient{pb.NewOffchainConfigDigesterClient(cc)}
+func newConfigProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *configProviderClient {
+	c := &configProviderClient{serviceClient: newServiceClient(b, cc)}
+	c.offchainDigester = &offchainConfigDigesterClient{b, pb.NewOffchainConfigDigesterClient(cc)}
 	c.contractTracker = &contractConfigTrackerClient{pb.NewContractConfigTrackerClient(cc)}
 	return c
 }
@@ -38,14 +38,17 @@ func (c *configProviderClient) ContractConfigTracker() libocr.ContractConfigTrac
 var _ libocr.OffchainConfigDigester = (*offchainConfigDigesterClient)(nil)
 
 type offchainConfigDigesterClient struct {
+	*brokerExt
 	grpc pb.OffchainConfigDigesterClient
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig) (digest libocr.ConfigDigest, err error) {
-	pbCfg := pbContractConfig(config)
+	ctx, cancel := o.ctx()
+	defer cancel()
+
 	var reply *pb.ConfigDigestReply
-	reply, err = o.grpc.ConfigDigest(context.TODO(), &pb.ConfigDigestRequest{
-		ContractConfig: pbCfg,
+	reply, err = o.grpc.ConfigDigest(ctx, &pb.ConfigDigestRequest{
+		ContractConfig: pbContractConfig(config),
 	})
 	if err != nil {
 		return
@@ -59,9 +62,12 @@ func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigestPrefix() libocr.ConfigDigestPrefix {
-	reply, err := o.grpc.ConfigDigestPrefix(context.TODO(), &pb.ConfigDigestPrefixRequest{})
+	ctx, cancel := o.ctx()
+	defer cancel()
+
+	reply, err := o.grpc.ConfigDigestPrefix(ctx, &pb.ConfigDigestPrefixRequest{})
 	if err != nil {
-		panic(err) //TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+		panic(err) //TODO only during shutdown https://smartcontract-it.atlassian.net/browse/BCF-2234
 	}
 	return libocr.ConfigDigestPrefix(reply.ConfigDigestPrefix)
 }

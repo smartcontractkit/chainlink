@@ -1,8 +1,9 @@
 package loop_test
 
 import (
-	"context"
 	"os/exec"
+	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,43 +12,49 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
-func TestPluginService(t *testing.T) {
+func TestRelayerService(t *testing.T) {
 	t.Parallel()
-	ps := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
+	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
 		return helperProcess(loop.PluginRelayerName)
 	}, configTOML, staticKeystore{})
-	require.NoError(t, ps.Start(context.Background()))
-	t.Cleanup(func() {
-		assert.NoError(t, ps.Close())
-	})
+	hook := relayer.TestHook()
+	require.NoError(t, relayer.Start(utils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
 
-	t.Run("Start", func(t *testing.T) {
-		relayer, err := ps.Relayer()
-		require.NoError(t, err)
+	t.Run("control", func(t *testing.T) {
 		testRelayer(t, relayer)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
-		ps.Kill()
+		hook.Kill()
 
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		relayer, err := ps.Relayer()
-		require.NoError(t, err)
 		testRelayer(t, relayer)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
-		ps.Reset()
+		hook.Reset()
 
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		relayer, err := ps.Relayer()
-		require.NoError(t, err)
 		testRelayer(t, relayer)
 	})
+}
+
+func TestRelayerService_recovery(t *testing.T) {
+	t.Parallel()
+	var limit atomic.Int32
+	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
+		return helperProcess(loop.PluginRelayerName, strconv.Itoa(int(limit.Add(1))))
+	}, configTOML, staticKeystore{})
+	require.NoError(t, relayer.Start(utils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
+
+	testRelayer(t, relayer)
 }

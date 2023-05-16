@@ -19,17 +19,23 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
-	testPlugin(t, loop.PluginMedianName, loop.NewGRPCPluginMedian(staticPluginMedian{}, logger.Test(t)), testPluginMedian)
+	stopCh := make(chan struct{})
+	if d, ok := t.Deadline(); ok {
+		time.AfterFunc(time.Until(d), func() { close(stopCh) })
+	}
+	testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{Logger: logger.Test(t), PluginServer: staticPluginMedian{}, StopCh: stopCh}, testPluginMedian)
 }
 
 func TestPluginMedianExec(t *testing.T) {
 	t.Parallel()
-	cc := loop.PluginMedianClientConfig(logger.Test(t))
+	median := loop.GRPCPluginMedian{Logger: logger.Test(t)}
+	cc := median.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginMedianName)
 	c := plugin.NewClient(cc)
 	client, err := c.Client()
@@ -43,11 +49,10 @@ func TestPluginMedianExec(t *testing.T) {
 }
 
 func testPluginMedian(t *testing.T, p loop.PluginMedian) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := utils.Context(t)
 
 	t.Run("PluginMedian", func(t *testing.T) {
-		factory, err := p.NewMedianPluginFactory(ctx, staticMedianProvider{}, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &staticErrorLog{})
+		factory, err := p.NewMedianFactory(ctx, staticMedianProvider{}, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &staticErrorLog{})
 		require.NoError(t, err)
 
 		t.Run("ReportingPluginFactory", func(t *testing.T) {
@@ -79,7 +84,17 @@ func testPluginMedian(t *testing.T, p loop.PluginMedian) {
 
 type staticPluginMedian struct{}
 
-func (s staticPluginMedian) NewMedianPluginFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog loop.ErrorLog) (libocr.ReportingPluginFactory, error) {
+func (s staticPluginMedian) Name() string { panic("implement me") }
+
+func (s staticPluginMedian) Start(ctx context.Context) error { return nil }
+
+func (s staticPluginMedian) Close() error { return nil }
+
+func (s staticPluginMedian) Ready() error { panic("implement me") }
+
+func (s staticPluginMedian) HealthReport() map[string]error { panic("implement me") }
+
+func (s staticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog loop.ErrorLog) (libocr.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix := ocd.ConfigDigestPrefix()
 	if gotDigestPrefix != configDigestPrefix {

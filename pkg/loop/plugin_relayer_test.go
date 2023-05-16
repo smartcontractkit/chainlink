@@ -7,27 +7,35 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 func TestPluginRelayer(t *testing.T) {
 	t.Parallel()
 
-	testPlugin(t, loop.PluginRelayerName, loop.NewGRPCPluginRelayer(staticPluginRelayer{}, logger.Test(t)), testPluginRelayer)
+	stopCh := make(chan struct{})
+	if d, ok := t.Deadline(); ok {
+		time.AfterFunc(time.Until(d), func() { close(stopCh) })
+	}
+	testPlugin(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{Logger: logger.Test(t), PluginServer: staticPluginRelayer{}, StopCh: stopCh}, testPluginRelayer)
 }
 
 func TestPluginRelayerExec(t *testing.T) {
 	t.Parallel()
-	cc := loop.PluginRelayerClientConfig(logger.Test(t))
+	relayer := loop.GRPCPluginRelayer{Logger: logger.Test(t)}
+	cc := relayer.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginRelayerName)
 	c := plugin.NewClient(cc)
 	client, err := c.Client()
@@ -41,8 +49,7 @@ func TestPluginRelayerExec(t *testing.T) {
 }
 
 func testPluginRelayer(t *testing.T, p loop.PluginRelayer) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := utils.Context(t)
 
 	t.Run("Relayer", func(t *testing.T) {
 		relayer, err := p.NewRelayer(ctx, configTOML, staticKeystore{})
@@ -54,7 +61,7 @@ func testPluginRelayer(t *testing.T, p loop.PluginRelayer) {
 }
 
 func testPlugin[I any](t *testing.T, name string, p plugin.Plugin, testFn func(*testing.T, I)) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(utils.Context(t))
 	defer cancel()
 
 	ch := make(chan *plugin.ReattachConfig, 1)
@@ -101,8 +108,7 @@ func testPlugin[I any](t *testing.T, name string, p plugin.Plugin, testFn func(*
 }
 
 func testRelayer(t *testing.T, relayer loop.Relayer) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := utils.Context(t)
 
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()
@@ -336,14 +342,36 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	cmd, args := args[0], args[1:]
+
+	limit := -1
+	if len(args) > 0 {
+		var err error
+		limit, err = strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse integer limit: %s\n", err)
+			os.Exit(2)
+		}
+	}
+
+	grpcServer := func(opts []grpc.ServerOption) *grpc.Server { return grpc.NewServer(opts...) }
+	if limit > -1 {
+		unary, stream := limitInterceptors(limit)
+		grpcServer = func(opts []grpc.ServerOption) *grpc.Server {
+			opts = append(opts, grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
+			return grpc.NewServer(opts...)
+		}
+	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
 	switch cmd {
 	case loop.PluginRelayerName:
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginRelayerName: loop.NewGRPCPluginRelayer(staticPluginRelayer{}, logger.Test(t)),
+				loop.PluginRelayerName: &loop.GRPCPluginRelayer{Logger: logger.Test(t), PluginServer: staticPluginRelayer{}, StopCh: stopCh},
 			},
-			GRPCServer: plugin.DefaultGRPCServer,
+			GRPCServer: grpcServer,
 		})
 		os.Exit(0)
 
@@ -351,14 +379,41 @@ func TestHelperProcess(t *testing.T) {
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginMedianHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginRelayerName: loop.NewGRPCPluginMedian(staticPluginMedian{}, logger.Test(t)),
+				loop.PluginRelayerName: &loop.GRPCPluginMedian{Logger: logger.Test(t), PluginServer: staticPluginMedian{}, StopCh: stopCh},
 			},
-			GRPCServer: plugin.DefaultGRPCServer,
+			GRPCServer: grpcServer,
 		})
 		os.Exit(0)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %q\n", cmd)
 		os.Exit(2)
+	}
+}
+
+// limitInterceptors returns a pair of interceptors which increment a shared count for each call and exit the program
+// when limit is reached.
+func limitInterceptors(limit int) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+	count := make(chan struct{})
+	go func() {
+		for i := 0; i < limit; i++ {
+			<-count
+		}
+		os.Exit(3)
+	}()
+	return limitUnaryInterceptor(count), limitStreamInterceptor(count)
+}
+
+func limitUnaryInterceptor(count chan<- struct{}) func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		count <- struct{}{}
+		return handler(ctx, req)
+	}
+}
+
+func limitStreamInterceptor(count chan<- struct{}) func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		count <- struct{}{}
+		return handler(srv, ss)
 	}
 }

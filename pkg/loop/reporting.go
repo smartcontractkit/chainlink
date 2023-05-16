@@ -2,7 +2,6 @@ package loop
 
 import (
 	"context"
-	"errors"
 	"math"
 	"time"
 
@@ -15,16 +14,19 @@ import (
 )
 
 type reportingPluginFactoryClient struct {
-	*lggrBroker
+	*brokerExt
 	grpc pb.ReportingPluginFactoryClient
 }
 
-func newReportingPluginFactoryClient(lb *lggrBroker, cc *grpc.ClientConn) *reportingPluginFactoryClient {
-	return &reportingPluginFactoryClient{lb.named("ReportingPluginProviderClient"), pb.NewReportingPluginFactoryClient(cc)}
+func newReportingPluginFactoryClient(b *brokerExt, cc grpc.ClientConnInterface) *reportingPluginFactoryClient {
+	return &reportingPluginFactoryClient{b.named("ReportingPluginProviderClient"), pb.NewReportingPluginFactoryClient(cc)}
 }
 
 func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	reply, err := r.grpc.NewReportingPlugin(context.TODO(), &pb.NewReportingPluginRequest{ReportingPluginConfig: &pb.ReportingPluginConfig{
+	ctx, cancel := r.ctx()
+	defer cancel()
+
+	reply, err := r.grpc.NewReportingPlugin(ctx, &pb.NewReportingPluginRequest{ReportingPluginConfig: &pb.ReportingPluginConfig{
 		ConfigDigest:                            config.ConfigDigest[:],
 		OracleID:                                uint32(config.OracleID),
 		N:                                       uint32(config.N),
@@ -41,10 +43,6 @@ func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.Reporting
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	rpConn, err := r.broker.Dial(reply.ReportingPluginID)
-	if err != nil {
-		return nil, types.ReportingPluginInfo{}, ErrConnDial{Name: "ReportingPlugin", ID: reply.ReportingPluginID, Err: err}
-	}
 	rpi := types.ReportingPluginInfo{
 		Name:          reply.ReportingPluginInfo.Name,
 		UniqueReports: reply.ReportingPluginInfo.UniqueReports,
@@ -54,7 +52,11 @@ func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.Reporting
 			MaxReportLength:      int(reply.ReportingPluginInfo.ReportingPluginLimits.MaxReportLength),
 		},
 	}
-	return newReportingPluginClient(rpConn), rpi, nil
+	cc, err := r.brokerExt.broker.Dial(reply.ReportingPluginID)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, err
+	}
+	return newReportingPluginClient(r.brokerExt, cc), rpi, nil
 }
 
 var _ pb.ReportingPluginFactoryServer = (*reportingPluginFactoryServer)(nil)
@@ -62,13 +64,13 @@ var _ pb.ReportingPluginFactoryServer = (*reportingPluginFactoryServer)(nil)
 type reportingPluginFactoryServer struct {
 	pb.UnimplementedReportingPluginFactoryServer
 
-	*lggrBroker
+	*brokerExt
 
 	impl types.ReportingPluginFactory
 }
 
-func newReportingPluginFactoryServer(impl types.ReportingPluginFactory, lb *lggrBroker) *reportingPluginFactoryServer {
-	return &reportingPluginFactoryServer{impl: impl, lggrBroker: lb.named("ReportingPluginFactoryServer")}
+func newReportingPluginFactoryServer(impl types.ReportingPluginFactory, b *brokerExt) *reportingPluginFactoryServer {
+	return &reportingPluginFactoryServer{impl: impl, brokerExt: b.named("ReportingPluginFactoryServer")}
 }
 
 func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, request *pb.NewReportingPluginRequest) (*pb.NewReportingPluginReply, error) {
@@ -94,15 +96,15 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
-	s := grpc.NewServer()
-	pb.RegisterReportingPluginServer(s, &reportingPluginServer{impl: rp, stop: func() {
-		time.AfterFunc(time.Second, s.GracefulStop)
-	}})
+
 	const name = "ReportingPlugin"
-	id, err := r.serve(s, name, resource{rp, name})
+	id, _, err := r.serve(name, func(s *grpc.Server) {
+		pb.RegisterReportingPluginServer(s, &reportingPluginServer{impl: rp})
+	}, resource{rp, name})
 	if err != nil {
 		return nil, err
 	}
+
 	return &pb.NewReportingPluginReply{ReportingPluginID: id, ReportingPluginInfo: &pb.ReportingPluginInfo{
 		Name:          rpi.Name,
 		UniqueReports: rpi.UniqueReports,
@@ -117,12 +119,12 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 var _ types.ReportingPlugin = (*reportingPluginClient)(nil)
 
 type reportingPluginClient struct {
-	grpc  pb.ReportingPluginClient
-	close func() error
+	*brokerExt
+	grpc pb.ReportingPluginClient
 }
 
-func newReportingPluginClient(cc *grpc.ClientConn) *reportingPluginClient {
-	return &reportingPluginClient{pb.NewReportingPluginClient(cc), cc.Close}
+func newReportingPluginClient(b *brokerExt, cc grpc.ClientConnInterface) *reportingPluginClient {
+	return &reportingPluginClient{b.named("ReportingPluginClient"), pb.NewReportingPluginClient(cc)}
 }
 
 func (r *reportingPluginClient) Query(ctx context.Context, timestamp types.ReportTimestamp) (types.Query, error) {
@@ -181,8 +183,10 @@ func (r *reportingPluginClient) ShouldTransmitAcceptedReport(ctx context.Context
 }
 
 func (r *reportingPluginClient) Close() error {
-	_, err := r.grpc.Close(context.TODO(), &emptypb.Empty{})
-	err = errors.Join(err, r.close())
+	ctx, cancel := r.ctx()
+	defer cancel()
+
+	_, err := r.grpc.Close(ctx, &emptypb.Empty{})
 	return err
 }
 
@@ -192,7 +196,6 @@ type reportingPluginServer struct {
 	pb.UnimplementedReportingPluginServer
 
 	impl types.ReportingPlugin
-	stop func()
 }
 
 func (r *reportingPluginServer) Query(ctx context.Context, request *pb.QueryRequest) (*pb.QueryReply, error) {
@@ -263,7 +266,6 @@ func (r *reportingPluginServer) ShouldTransmitAcceptedReport(ctx context.Context
 }
 
 func (r *reportingPluginServer) Close(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-	r.stop()
 	return &emptypb.Empty{}, r.impl.Close()
 }
 

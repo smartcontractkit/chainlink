@@ -3,7 +3,6 @@ package loop
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -28,16 +27,6 @@ func PluginRelayerHandshakeConfig() plugin.HandshakeConfig {
 	}
 }
 
-func PluginRelayerClientConfig(lggr logger.Logger) *plugin.ClientConfig {
-	return &plugin.ClientConfig{
-		HandshakeConfig: PluginRelayerHandshakeConfig(),
-		Plugins: map[string]plugin.Plugin{
-			PluginRelayerName: NewGRPCPluginRelayer(nil, lggr),
-		},
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-	}
-}
-
 type Keystore interface {
 	Accounts(ctx context.Context) (accounts []string, err error)
 	// Sign returns data signed by account.
@@ -57,86 +46,97 @@ type Relayer interface {
 
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
 
-	//TODO return info? s/SendTokens? remove https://smartcontract-it.atlassian.net/browse/BCF-2111
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-var _ plugin.GRPCPlugin = (*grpcPluginRelayer)(nil)
+var _ plugin.GRPCPlugin = (*GRPCPluginRelayer)(nil)
 
-// grpcPluginRelayer implements [plugin.GRPCPlugin] for [PluginRelayer].
-type grpcPluginRelayer struct {
+// GRPCPluginRelayer implements [plugin.GRPCPlugin] for [PluginRelayer].
+type GRPCPluginRelayer struct {
 	plugin.NetRPCUnsupportedPlugin
 
-	impl PluginRelayer
-	lggr logger.Logger
+	StopCh <-chan struct{}
+	Logger logger.Logger
+
+	PluginServer PluginRelayer
+
+	pluginClient *pluginRelayerClient
 }
 
-// NewGRPCPluginRelayer returns a new [plugin.Plugin] (which really only implements [plugin.GRPCPlugin]).
-// [PluginRelayer] is required for servers.
-func NewGRPCPluginRelayer(cp PluginRelayer, lggr logger.Logger) plugin.Plugin {
-	return &grpcPluginRelayer{impl: cp, lggr: lggr}
-}
-
-func (p *grpcPluginRelayer) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	pb.RegisterPluginRelayerServer(server, newRelayerPluginServer(p.lggr, broker, p.impl))
+func (p *GRPCPluginRelayer) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
+	pb.RegisterPluginRelayerServer(server, newPluginRelayerServer(p.StopCh, p.Logger, broker, p.PluginServer))
 	return nil
 }
 
-// GRPCClient implements [plugin.GRPCPlugin] and returns a [PluginRelayer].
-func (p *grpcPluginRelayer) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
-	return newRelayerPluginClient(p.lggr, broker, conn), nil
+// GRPCClient implements [plugin.GRPCPlugin] and returns the PluginServer [PluginRelayer], updated with the new broker and conn.
+func (p *GRPCPluginRelayer) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
+	if p.pluginClient == nil {
+		p.pluginClient = newPluginRelayerClient(p.StopCh, p.Logger, broker, conn)
+	} else {
+		p.pluginClient.refresh(broker, conn)
+	}
+	return p.pluginClient, nil
 }
 
-var _ PluginRelayer = (*relayerPluginClient)(nil)
+func (p *GRPCPluginRelayer) ClientConfig() *plugin.ClientConfig {
+	return &plugin.ClientConfig{
+		HandshakeConfig:  PluginRelayerHandshakeConfig(),
+		Plugins:          map[string]plugin.Plugin{PluginRelayerName: p},
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+	}
+}
 
-type relayerPluginClient struct {
-	*lggrBroker
+var _ PluginRelayer = (*pluginRelayerClient)(nil)
+
+type pluginRelayerClient struct {
+	*pluginClient
 
 	grpc pb.PluginRelayerClient
 }
 
-func newRelayerPluginClient(lggr logger.Logger, broker *plugin.GRPCBroker, conn *grpc.ClientConn) *relayerPluginClient {
-	lggr = logger.Named(lggr, "RelayerPluginClient")
-	return &relayerPluginClient{lggrBroker: &lggrBroker{lggr, broker}, grpc: pb.NewPluginRelayerClient(conn)}
+func newPluginRelayerClient(stopCh <-chan struct{}, lggr logger.Logger, broker *plugin.GRPCBroker, conn *grpc.ClientConn) *pluginRelayerClient {
+	lggr = logger.Named(lggr, "PluginRelayerClient")
+	pc := newPluginClient(stopCh, lggr, broker, conn)
+	return &pluginRelayerClient{pluginClient: pc, grpc: pb.NewPluginRelayerClient(pc)}
 }
 
-func (p *relayerPluginClient) NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error) {
-	ksSrv := grpc.NewServer()
-	pb.RegisterKeystoreServer(ksSrv, &keystoreServer{impl: keystore})
-	id, err := p.serve(ksSrv, "Keystore")
-	if err != nil {
-		return nil, err
-	}
-	reply, err := p.grpc.NewRelayer(ctx, &pb.NewRelayerRequest{
-		Config:     config,
-		KeystoreID: id,
+func (p *pluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error) {
+	cc := p.newClientConn("Relayer", func(ctx context.Context) (id uint32, deps resources, err error) {
+		var ksRes resource
+		id, ksRes, err = p.serve("Keystore", func(s *grpc.Server) {
+			pb.RegisterKeystoreServer(s, &keystoreServer{impl: keystore})
+		})
+		if err != nil {
+			return
+		}
+		deps.Add(ksRes)
+
+		reply, err := p.grpc.NewRelayer(ctx, &pb.NewRelayerRequest{
+			Config:     config,
+			KeystoreID: id,
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		return reply.RelayerID, nil, nil
 	})
-	if err != nil {
-		ksSrv.Stop()
-		return nil, err
-	}
-	conn, err := p.broker.Dial(reply.RelayerID)
-	if err != nil {
-		ksSrv.Stop()
-		return nil, ErrConnDial{Name: "Relayer", ID: reply.RelayerID, Err: err}
-	}
-	return newRelayerClient(p.lggrBroker, conn, ksSrv), nil
+	return newRelayerClient(p.brokerExt, cc), nil
 }
 
-type relayerPluginServer struct {
+type pluginRelayerServer struct {
 	pb.UnimplementedPluginRelayerServer
 
-	*lggrBroker
+	*brokerExt
 
 	impl PluginRelayer
 }
 
-func newRelayerPluginServer(lggr logger.Logger, broker *plugin.GRPCBroker, impl PluginRelayer) *relayerPluginServer {
+func newPluginRelayerServer(stopCh <-chan struct{}, lggr logger.Logger, broker *plugin.GRPCBroker, impl PluginRelayer) *pluginRelayerServer {
 	lggr = logger.Named(lggr, "RelayerPluginServer")
-	return &relayerPluginServer{lggrBroker: &lggrBroker{lggr, broker}, impl: impl}
+	return &pluginRelayerServer{brokerExt: &brokerExt{stopCh, lggr, broker}, impl: impl}
 }
 
-func (p *relayerPluginServer) NewRelayer(ctx context.Context, request *pb.NewRelayerRequest) (*pb.NewRelayerReply, error) {
+func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRelayerRequest) (*pb.NewRelayerReply, error) {
 	ksConn, err := p.broker.Dial(request.KeystoreID)
 	if err != nil {
 		return nil, ErrConnDial{Name: "Keystore", ID: request.KeystoreID, Err: err}
@@ -147,16 +147,22 @@ func (p *relayerPluginServer) NewRelayer(ctx context.Context, request *pb.NewRel
 		p.closeAll(ksRes)
 		return nil, err
 	}
-	relayerSrv := grpc.NewServer()
-	pb.RegisterServiceServer(relayerSrv, &serviceServer{srv: r, stop: func() {
-		time.AfterFunc(time.Second, relayerSrv.GracefulStop)
-	}})
-	pb.RegisterRelayerServer(relayerSrv, newChainRelayerServer(r, p.lggrBroker))
+	err = r.Start(ctx)
+	if err != nil {
+		p.closeAll(ksRes)
+		return nil, err
+	}
+
 	const name = "Relayer"
-	id, err := p.serve(relayerSrv, name, resource{r, name}, ksRes)
+	rRes := resource{r, name}
+	id, _, err := p.serve(name, func(s *grpc.Server) {
+		pb.RegisterServiceServer(s, &serviceServer{srv: r})
+		pb.RegisterRelayerServer(s, newChainRelayerServer(r, p.brokerExt))
+	}, rRes, ksRes)
 	if err != nil {
 		return nil, err
 	}
+
 	return &pb.NewRelayerReply{RelayerID: id}, nil
 }
 

@@ -11,6 +11,7 @@ import (
 
 type staticConfigProvider struct{}
 
+// TODO validate start/Close calls?
 func (s staticConfigProvider) Start(ctx context.Context) error { return nil }
 
 func (s staticConfigProvider) Close() error { return nil }

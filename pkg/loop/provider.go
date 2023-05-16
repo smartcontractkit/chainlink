@@ -14,6 +14,7 @@ import (
 var _ libocr.ContractTransmitter = (*contractTransmitterClient)(nil)
 
 type contractTransmitterClient struct {
+	*brokerExt
 	grpc pb.ContractTransmitterClient
 }
 
@@ -59,9 +60,12 @@ func (c *contractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Conte
 }
 
 func (c *contractTransmitterClient) FromAccount() libocr.Account {
-	reply, err := c.grpc.FromAccount(context.TODO(), &pb.FromAccountRequest{})
+	ctx, cancel := c.ctx()
+	defer cancel()
+
+	reply, err := c.grpc.FromAccount(ctx, &pb.FromAccountRequest{})
 	if err != nil {
-		panic(err) //TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+		panic(err) //TODO only during shutdown https://smartcontract-it.atlassian.net/browse/BCF-2234
 	}
 	return libocr.Account(reply.Account)
 }
