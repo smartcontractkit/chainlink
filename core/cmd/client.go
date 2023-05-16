@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -22,25 +23,33 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -49,6 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 var prometheus *ginprom.Prometheus
@@ -81,40 +91,62 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	configInitialized bool
+	flagsProcessed bool
 }
 
-func (cli *Client) errorOut(err error) error {
+func (cli *Client) errorOut(err error) cli.ExitCoder {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
 }
 
-func (cli *Client) setConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+// exitOnConfigError is helper that executes as validation func and
+// pretty-prints errors
+func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
+	err := validateFn()
+	if err != nil {
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return cli.errorOut(errors.New("invalid configuration"))
+	}
+	return nil
+}
+
+func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
 
-	secretsTOML := ""
 	if secretsFile != "" {
 		b, err := os.ReadFile(secretsFile)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
 		}
-		secretsTOML = string(b)
+
+		secretsTOML := string(b)
+		err = opts.ParseSecrets(secretsTOML)
+		if err != nil {
+			return err
+		}
 	}
-	err := opts.ParseSecrets(secretsTOML)
-	if err != nil {
-		return err
-	}
+
 	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
 		return err
 	} else {
+		// If the logger has already been set due to prior initialization, close it out here.
+		if cli.CloseLogger != nil {
+			err := cli.CloseLogger()
+			if err != nil {
+				return errors.Wrap(err, "failed to close initialized logger")
+			}
+		}
+
 		cli.Config = cfg
 		cli.Logger = lggr
 		cli.CloseLogger = closeLggr
 	}
+
 	return nil
 }
 
@@ -133,49 +165,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		initPrometheus(cfg)
 	})
 
+	err = handleNodeVersioning(db, appLggr, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
-
-	// Set up the versioning Configs
-	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
-
-	if static.Version != static.Unset {
-		var appv, dbv *semver.Version
-		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
-		if err != nil {
-			// Exit immediately and don't touch the database if the app version is too old
-			return nil, errors.Wrap(err, "CheckVersion")
-		}
-
-		// Take backup if app version is newer than DB version
-		// Need to do this BEFORE migration
-		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
-				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-				} else {
-					return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-				}
-			}
-		}
-	}
-
-	// Migrate the database
-	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
-			return nil, errors.Wrap(err, "initializeORM#Migrate")
-		}
-	}
-
-	// Update to latest version
-	if static.Version != static.Unset {
-		version := versioning.NewNodeVersion(static.Version)
-		if err = verORM.UpsertNodeVersion(version); err != nil {
-			return nil, errors.Wrap(err, "UpsertNodeVersion")
-		}
-	}
-
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
@@ -201,6 +196,9 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		EventBroadcaster: eventBroadcaster,
 		MailMon:          mailMon,
 	}
+
+	loopRegistry := plugins.NewLoopRegistry()
+
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
@@ -226,10 +224,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
-		}
 		cfgs := cfg.SolanaConfigs()
 		var ids []string
 		for _, c := range cfgs {
@@ -241,10 +235,36 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 				return nil, errors.Wrap(err, "failed to setup Solana chains")
 			}
 		}
-		opts.Configs = solana.NewConfigs(cfgs)
-		chains.Solana, err = solana.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Solana chainset")
+
+		if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+			tomls, err := toml.Marshal(struct {
+				Solana solana.SolanaConfigs
+			}{Solana: cfgs})
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to marshal Solana configs")
+			}
+
+			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
+			}
+			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
+				cmd := exec.Command(cmdName)
+				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
+				return cmd
+			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
+			chains.Solana = chainPluginService
+		} else {
+			opts := solana.ChainSetOpts{
+				Logger:   solLggr,
+				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+				Configs:  solana.NewConfigs(cfgs),
+			}
+			chainSet, err := solana.NewChainSet(opts, cfgs)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to load Solana chainset")
+			}
+			chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 		}
 	}
 
@@ -296,7 +316,54 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
+		LoopRegistry:             loopRegistry,
 	})
+}
+
+// handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
+func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.GeneralConfig) error {
+	var err error
+	// Set up the versioning Configs
+	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
+
+	if static.Version != static.Unset {
+		var appv, dbv *semver.Version
+		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		if err != nil {
+			// Exit immediately and don't touch the database if the app version is too old
+			return fmt.Errorf("CheckVersion: %w", err)
+		}
+
+		// Take backup if app version is newer than DB version
+		// Need to do this BEFORE migration
+		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				} else {
+					return fmt.Errorf("initializeORM#FindLatestNodeVersion: %w", err)
+				}
+			}
+		}
+	}
+
+	// Migrate the database
+	if cfg.MigrateDatabase() {
+		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+			return fmt.Errorf("initializeORM#Migrate: %w", err)
+		}
+	}
+
+	// Update to latest version
+	if static.Version != static.Unset {
+		version := versioning.NewNodeVersion(static.Version)
+		if err = verORM.UpsertNodeVersion(version); err != nil {
+			return fmt.Errorf("UpsertNodeVersion: %w", err)
+		}
+	}
+	return nil
 }
 
 func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
@@ -335,7 +402,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -399,7 +466,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	var sentryenv string
 	if env := cfg.SentryEnvironment(); env != "" {
 		sentryenv = env
-	} else if cfg.Dev() {
+	} else if !build.IsProd() {
 		sentryenv = "dev"
 	} else {
 		sentryenv = "prod"

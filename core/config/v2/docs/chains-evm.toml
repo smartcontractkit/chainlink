@@ -43,7 +43,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 # **ADVANCED**
 # LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
-LogBackfillBatchSize = 100 # Default
+LogBackfillBatchSize = 1000 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
@@ -64,7 +64,7 @@ NoNewHeadsThreshold = '3m' # Default
 # OperatorFactoryAddress is the address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 # RPCDefaultBatchSize is the default batch size for batched RPC calls.
-RPCDefaultBatchSize = 100 # Default
+RPCDefaultBatchSize = 250 # Default
 # **ADVANCED**
 # RPCBlockQueryDelay controls the number of blocks to trail behind head in the block history estimator and balance monitor.
 # For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
@@ -160,8 +160,8 @@ BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 # BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 BumpThreshold = 3 # Default
-# BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
-BumpTxDepth = 10 # Default
+# BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all). Can not be greater than EVM.Transactions.MaxInFlight. If not set, defaults to EVM.Transactions.MaxInFlight.
+BumpTxDepth = 16 # Example
 # EIP1559DynamicFees torces EIP-1559 transaction mode. Enabling EIP-1559 mode can help reduce gas costs on chains that support it. This is supported only on official Ethereum mainnet and testnets. It is not recommended to enable this setting on Polygon because the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are less likely to be included than legacy transactions.
 #
 # #### Technical details
@@ -236,7 +236,7 @@ Keeper = 100_000 # Example
 [EVM.GasEstimator.BlockHistory]
 # BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
 # If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize`.
-BatchSize = 4 # Default
+BatchSize = 25 # Default
 # BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 BlockHistorySize = 8 # Default
 # CheckInclusionBlocks is the number of recent blocks to use to detect if there is a transaction propagation/connectivity issue, and to prevent bumping in these cases.

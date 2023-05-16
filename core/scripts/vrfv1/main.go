@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -153,8 +153,7 @@ func main() {
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
 
-		uid, err := uuid.FromString(*jobID)
-		helpers.PanicErr(err)
+		uid := uuid.MustParse(*jobID)
 		tx, err := coordinator.RegisterProvingKey(
 			e.Owner,
 			decimal.RequireFromString(*fee).BigInt(),

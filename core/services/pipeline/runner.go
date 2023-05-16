@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -241,7 +241,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
-		task.Base().uuid = uuid.NewV4()
+		task.Base().uuid = uuid.New()
 
 		switch task.Type() {
 		case TaskTypeHTTP:
@@ -261,9 +261,6 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
-		case TaskTypeETHGetBlock:
-			task.(*ETHGetBlockTask).chainSet = r.chainSet
-			task.(*ETHGetBlockTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -324,7 +321,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}, func(err interface{}) {
 			t := time.Now()
 			scheduler.report(reportCtx, TaskRunResult{
-				ID:         uuid.NewV4(),
+				ID:         uuid.New(),
 				Task:       taskRun.task,
 				Result:     Result{Error: ErrRunPanicked{err}},
 				FinishedAt: null.TimeFrom(t),

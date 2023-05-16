@@ -262,11 +262,7 @@ abstract contract KeeperRegistryBase1_3 is ConfirmedOwner, ExecutionPrevention, 
   /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
-  function _prePerformUpkeep(
-    Upkeep memory upkeep,
-    address from,
-    uint256 maxLinkPayment
-  ) internal view {
+  function _prePerformUpkeep(Upkeep memory upkeep, address from, uint256 maxLinkPayment) internal view {
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();

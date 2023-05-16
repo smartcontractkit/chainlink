@@ -206,7 +206,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
@@ -214,7 +214,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
 [EVM.Transactions]
@@ -240,14 +240,13 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
@@ -290,7 +289,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
@@ -298,7 +297,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
 [EVM.Transactions]
@@ -324,14 +323,13 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
@@ -369,14 +367,14 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 10
 
 [EVM.Transactions]
@@ -402,14 +400,13 @@ LimitTransfer = 21000
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90

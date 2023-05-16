@@ -11,7 +11,6 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	"github.com/gin-gonic/gin"
@@ -86,9 +85,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = false
-	})
+	config := configtest.NewGeneralConfig(t, nil)
 	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

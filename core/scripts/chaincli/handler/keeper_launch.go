@@ -46,15 +46,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 	lggr, closeLggr := logger.NewLogger()
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
-	var extraEvars []string
+	var extraTOML string
 	if k.cfg.OCR2Keepers {
-		extraEvars = []string{
-			"FEATURE_OFFCHAIN_REPORTING2=true",
-			"FEATURE_LOG_POLLER=true",
-			"P2P_NETWORKING_STACK=V2",
-			"CHAINLINK_TLS_PORT=0",
-			"P2PV2_LISTEN_ADDRESSES=0.0.0.0:8000",
-		}
+		extraTOML = "[P2P]\n[P2P.V2]\nListenAddresses = [\"0.0.0.0:8000\"]"
 	}
 
 	// Run chainlink nodes and create jobs
@@ -69,7 +63,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 
 			// Run chainlink node
 			var err error
-			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraEvars...); err != nil {
+			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraTOML); err != nil {
 				log.Fatal("Failed to start node: ", err)
 			}
 		}(i)
@@ -324,7 +318,8 @@ p2pv2Bootstrappers = [
 chainID = %d
 
 [pluginConfig]
-maxServiceWorkers = 100`
+maxServiceWorkers = 100
+mercuryCredentialName = "%s"`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
 func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
@@ -340,6 +335,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 			nodeAddr,                // transmitterID - node wallet address
 			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
 			k.cfg.ChainID,           // chainID
+			k.cfg.MercuryCredName,   // mercury credential name
 		),
 	})
 	if err != nil {

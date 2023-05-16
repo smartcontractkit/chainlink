@@ -18,6 +18,7 @@ import (
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -132,25 +133,26 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	wg.Wait()
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
-		5*time.Second,         // deltaProgress time.Duration,
-		10*time.Second,        // deltaResend time.Duration,
-		2500*time.Millisecond, // deltaRound time.Duration,
-		40*time.Millisecond,   // deltaGrace time.Duration,
-		30*time.Second,        // deltaStage time.Duration,
-		50,                    // rMax uint8,
-		S,                     // s []int,
-		oracleIdentities,      // oracles []OracleIdentityExtra,
+		11*time.Second,       // deltaProgress time.Duration,
+		10*time.Second,       // deltaResend time.Duration,
+		5*time.Second,        // deltaRound time.Duration,
+		500*time.Millisecond, // deltaGrace time.Duration,
+		30*time.Second,       // deltaStage time.Duration,
+		50,                   // rMax uint8,
+		S,                    // s []int,
+		oracleIdentities,     // oracles []OracleIdentityExtra,
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 			MinConfirmations:     1,
+			MercuryLookup:        d.cfg.UpkeepMercury,
 		}.Encode(), // reportingPluginConfig []byte,
-		20*time.Millisecond,   // maxDurationQuery time.Duration,
-		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		800*time.Millisecond,  // maxDurationReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                     // f int,
-		nil,                   // onchainConfig []byte,
+		50*time.Millisecond, // maxDurationQuery time.Duration,
+		5*time.Second,       // maxDurationObservation time.Duration,
+		5*time.Second,       // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
+		10*time.Second,      // maxDurationShouldAcceptFinalizedReport time.Duration,
+		10*time.Second,      // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                   // f int,
+		nil,                 // onchainConfig []byte,
 	)
 	if err != nil {
 		return nil, err
