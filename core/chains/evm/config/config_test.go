@@ -56,6 +56,31 @@ func TestChainScopedConfig(t *testing.T) {
 		assert.Equal(t, assets.NewWeiI(42000000000), cfg2.EvmGasPriceDefault())
 	})
 
+	t.Run("EvmGasBumpTxDepthDefault", func(t *testing.T) {
+		t.Run("uses MaxInFlightTransactions when not set", func(t *testing.T) {
+			assert.Equal(t, cfg.EvmMaxInFlightTransactions(), cfg.EvmGasBumpTxDepth())
+		})
+
+		t.Run("uses customer configured value when set", func(t *testing.T) {
+			var override uint32 = 10
+			gasBumpOverrides := func(c *chainlink.Config, s *chainlink.Secrets) {
+				id := utils.NewBig(big.NewInt(rand.Int63()))
+				c.EVM[0] = &v2.EVMConfig{
+					ChainID: id,
+					Chain: v2.Defaults(id, &v2.Chain{
+						GasEstimator: v2.GasEstimator{
+							BumpTxDepth: ptr(uint32(override)),
+						},
+					}),
+				}
+			}
+			gcfg2 := configtest.NewGeneralConfig(t, gasBumpOverrides)
+			cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
+			assert.NotEqual(t, cfg2.EvmMaxInFlightTransactions(), cfg2.EvmGasBumpTxDepth())
+			assert.Equal(t, override, cfg2.EvmGasBumpTxDepth())
+		})
+	})
+
 	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
 		addr := testutils.NewAddress()
 		randomOtherAddr := testutils.NewAddress()
