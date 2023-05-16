@@ -371,13 +371,13 @@ func (c *Chain) ValidateConfig() (err error) {
 		}
 	}
 
-	if uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
+	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
 	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
-			Msg: "must be equal to or reater than FinalityDepth"})
+			Msg: "must be equal to or greater than FinalityDepth"})
 	}
 	if *c.FinalityDepth < 1 {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
@@ -464,7 +464,7 @@ type GasEstimator struct {
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
 	BumpThreshold *uint32
-	BumpTxDepth   *uint16
+	BumpTxDepth   *uint32
 
 	EIP1559DynamicFees *bool
 
