@@ -499,7 +499,7 @@ func TestKeeperDB_Uint256ToBit(t *testing.T) {
 		},
 		{
 			name:          "overflow",
-			input:         bigmath.Add(utils.MaxUint256, 1),
+			input:         bigmath.Add(utils.MaxUint256, big.NewInt(1)),
 			errorExpected: true,
 		},
 	} {

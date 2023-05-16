@@ -343,7 +343,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	// These are only used for logging, the exact value doesn't matter
 	// It can be overridden in the test that uses it
 	cfg := txmmocks.NewConfig(t)
-	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
+	cfg.On("EvmGasBumpTxDepth").Return(uint32(42)).Maybe().Once()
 	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
 	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
