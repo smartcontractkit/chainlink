@@ -135,8 +135,11 @@ func (c *ChainScoped) EvmGasBumpThreshold() uint64 {
 	return uint64(*c.cfg.GasEstimator.BumpThreshold)
 }
 
-func (c *ChainScoped) EvmGasBumpTxDepth() uint16 {
-	return *c.cfg.GasEstimator.BumpTxDepth
+func (c *ChainScoped) EvmGasBumpTxDepth() uint32 {
+	if c.cfg.GasEstimator.BumpTxDepth != nil {
+		return *c.cfg.GasEstimator.BumpTxDepth
+	}
+	return *c.cfg.Transactions.MaxInFlight
 }
 
 func (c *ChainScoped) EvmGasBumpWei() *assets.Wei {
