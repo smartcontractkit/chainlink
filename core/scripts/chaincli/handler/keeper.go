@@ -14,6 +14,8 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -347,6 +349,22 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 			)
+		} else if k.cfg.VerifiableLoadTest {
+			if k.cfg.UpkeepMercury {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_mercury_upkeep_wrapper.DeployVerifiableLoadMercuryUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
+				)
+			} else {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_upkeep_wrapper.DeployVerifiableLoadUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
+				)
+			}
 		} else if k.cfg.UpkeepMercury {
 			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
 				k.buildTxOpts(ctx),
