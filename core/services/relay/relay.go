@@ -42,7 +42,7 @@ type RelayerExt interface {
 
 var _ loop.Relayer = (*relayerAdapter)(nil)
 
-// relayerAdapter adapts a [types.Relayer] and [RelayerExt] to imlement [loop.Relayer].
+// relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
 	RelayerExt
