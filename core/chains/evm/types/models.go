@@ -55,7 +55,6 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 		ParentHash: parentHash,
 		Timestamp:  time.Unix(int64(timestamp), 0),
 		EVMChainID: chainID,
-		parentMu:   sync.RWMutex{},
 	}
 }
 

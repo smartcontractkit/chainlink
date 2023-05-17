@@ -16,7 +16,7 @@ type heads[H commontypes.HeadTrackerHead[H, BLOCK_HASH], BLOCK_HASH commontypes.
 	getNil func() H
 }
 
-func NewEvmHeads() *heads[*evmtypes.Head, common.Hash] {
+func NewEvmHeads() heads[*evmtypes.Head, common.Hash] {
 	return NewHeads[*evmtypes.Head, common.Hash](
 		func() *evmtypes.Head { return nil },
 	)
@@ -25,8 +25,8 @@ func NewEvmHeads() *heads[*evmtypes.Head, common.Hash] {
 func NewHeads[
 	H commontypes.HeadTrackerHead[H, BLOCK_HASH],
 	BLOCK_HASH commontypes.Hashable,
-](getNil func() H) *heads[H, BLOCK_HASH] {
-	return &heads[H, BLOCK_HASH]{
+](getNil func() H) heads[H, BLOCK_HASH] {
+	return heads[H, BLOCK_HASH]{
 		getNil: getNil,
 	}
 }
