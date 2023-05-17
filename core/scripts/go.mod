@@ -289,7 +289,7 @@ require (
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230516203704-babbd747746c // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230516001004-0216997a2508 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 // indirect
-	github.com/smartcontractkit/wsrpc v0.7.1 // indirect
+	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
