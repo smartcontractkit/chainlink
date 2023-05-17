@@ -7,13 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 )
 
-// upkeepEventsCmd represents the command to run the upkeep events counter command
-// In order to use this command, deploy, register, and fund the UpkeepCounter contract and run this command after it
-// emits events on chain.
+// verifiableLoad represents the command to get verifiable load testing details
 var verifiableLoad = &cobra.Command{
 	Use:   "verifiable-load",
-	Short: "Print upkeep perform events(stdout and csv file)",
-	Long:  `Print upkeep perform events and write to a csv file. args = hexaddr, fromBlock, toBlock`,
+	Short: "Print verifiable load testing details to console",
+	Long:  `Print verifiable load testing details to console, including details of every active upkeeps and total result`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)

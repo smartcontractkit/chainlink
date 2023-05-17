@@ -14,36 +14,6 @@ import (
 )
 
 func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
-	//chainId, err := k.client.ChainID(ctx)
-	//log.Println(chainId)
-	//addr, tx, v, err := verifiable_load_upkeep_wrapper.DeployVerifiableLoadUpkeep(k.buildTxOpts(ctx), k.client, common.HexToAddress(k.cfg.Registrar), false)
-	//if err != nil {
-	//	log.Fatalf("failed to deploy verifiable load upkeep: %v", err)
-	//}
-	//
-	//k.waitDeployment(ctx, tx)
-	//log.Println("verifiable load upkeep deployed:", addr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
-	//
-	//tx, err = k.linkToken.Approve(k.buildTxOpts(ctx), k.fromAddr, big.NewInt(3000000000000000000))
-	//if err != nil {
-	//	log.Fatalf("failed to approve: %v", err)
-	//}
-	//k.waitTx(ctx, tx)
-	//
-	//tx, err = k.linkToken.Transfer(k.buildTxOpts(ctx), addr, big.NewInt(3000000000000000000))
-	//if err != nil {
-	//	log.Fatalf("failed to transfer: %v", err)
-	//}
-	//k.waitTx(ctx, tx)
-	//
-	//tx, err = v.BatchRegisterUpkeeps(k.buildTxOpts(ctx), 1, 3000000, big.NewInt(1000000000000000000), big.NewInt(1000000), big.NewInt(1000000))
-	//if err != nil {
-	//	log.Fatalf("failed to batch register: %v", err)
-	//}
-	//k.waitTx(ctx, tx)
-	//
-	////v.BatchRegisterUpkeeps(txOpts, 1, 3000000)
-
 	addr := common.HexToAddress(k.cfg.VerifiableLoadContractAddress)
 	v, err := verifiable_load_upkeep_wrapper.NewVerifiableLoadUpkeep(addr, k.client)
 	if err != nil {
@@ -55,8 +25,6 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		From:    k.fromAddr,
 		Context: ctx,
 	}
-	uid := big.NewInt(0)
-	uid, _ = uid.SetString("101926416817634971218389061868275311034641546399220249757058712333177045691390", 10)
 
 	upkeepIds, err := v.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
 	if err != nil {
@@ -77,6 +45,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 			log.Fatalf("failed to get counter for %s: %v", id.String(), err)
 		}
 
+		// get all the buckets of an upkeep. 100 performs is a bucket.
 		b, err := v.Buckets(opts, id)
 		if err != nil {
 			log.Fatalf("failed to get current bucket count for %s: %v", id.String(), err)
@@ -86,6 +55,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		var delays []float64
 		var totalDelay float64
 		var totalPerforms uint64
+		// calculate total delays, total performs, and percentiles within a bucket
 		for i := uint16(0); i <= b; i++ {
 			bucketDelays, err := v.GetBucketedDelays(opts, id, i)
 			if err != nil {
@@ -112,6 +82,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		}
 		allUpkeepsTotalPerforms += totalPerforms
 
+		// calculate percentiles of all the performs of an upkeep
 		p50, _ := stats.Percentile(delays, 50)
 		p90, _ := stats.Percentile(delays, 90)
 		p95, _ := stats.Percentile(delays, 95)
@@ -123,6 +94,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 
 		log.Printf("%d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", totalPerforms, p50, p90, p95, p99, maxDelay, uint64(totalDelay), totalDelay/float64(totalPerforms))
 
+		// get all the timestamp buckets of an upkeep. performs which happen every 1 hour after the first perform fall into the same bucket.
 		t, err := v.TimestampBuckets(opts, id)
 		if err != nil {
 			log.Fatalf("failed to get timestamp bucket for %s: %v", id.String(), err)
@@ -131,6 +103,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		delays = nil
 		totalDelay = 0
 		totalPerforms = 0
+		// calculate total delays, total performs, and percentiles within a bucket
 		for i := uint16(0); i <= t; i++ {
 			timestampDelays, err := v.GetTimestampDelays(opts, id, i)
 			if err != nil {
