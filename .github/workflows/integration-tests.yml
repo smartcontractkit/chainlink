@@ -136,7 +136,6 @@ jobs:
 
   eth-smoke-tests-matrix:
     environment: integration
-    if: false ## TODO: Debug
     permissions:
       checks: write
       pull-requests: write
@@ -268,6 +267,7 @@ jobs:
   ### Migration tests
   node-migration-tests:
     name: Version Migration Tests
+    if: false ## TODO: Blocked on TT-341
     environment: integration
     permissions:
       checks: write
@@ -326,7 +326,6 @@ jobs:
   ### Solana Section
   get_solana_sha:
     name: Get Solana Sha From Go Mod
-    if: false ## TODO: Debug
     environment: Integration
     runs-on: ubuntu-latest
     outputs:
