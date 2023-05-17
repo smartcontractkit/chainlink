@@ -1,0 +1,8 @@
+[UserServerConfig]
+Port = 8080
+Path = "/user"
+ContentTypeHeader = "application/jsonrpc"
+
+[[Dons]]
+DonId = "example"
+HandlerName = "dummy"
