@@ -1,0 +1,11 @@
+[UserServerConfig]
+Port = 8088
+TLSEnabled = true
+TLSCertPath = "certificate.pem"
+TLSKeyPath = "key.pem"
+Path = "/user"
+ContentTypeHeader = "application/jsonrpc"
+
+[[Dons]]
+DonId = "example"
+HandlerName = "dummy"
