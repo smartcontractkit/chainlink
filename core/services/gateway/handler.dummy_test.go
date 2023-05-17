@@ -40,13 +40,13 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 
 	// User request
 	msg := gateway.Message{Body: gateway.MessageBody{MessageId: "1234"}}
-	callbackChan := make(chan gateway.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleUserMessage(context.Background(), &msg, callbackChan))
+	callbackCh := make(chan gateway.UserCallbackPayload, 1)
+	require.NoError(t, handler.HandleUserMessage(context.Background(), &msg, callbackCh))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
 	require.NoError(t, handler.HandleNodeMessage(context.Background(), &msg, "addr_1"))
 	require.NoError(t, handler.HandleNodeMessage(context.Background(), &msg, "addr_1"))
-	response := <-callbackChan
+	response := <-callbackCh
 	require.Equal(t, "1234", response.Msg.Body.MessageId)
 }
