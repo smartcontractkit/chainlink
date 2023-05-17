@@ -196,7 +196,7 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr2vrf-evm-simulated
     runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
+    name: ETH Smoke Tests ${{ matrix.product.name }} ${{matrix.testnet}}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
