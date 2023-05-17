@@ -64,6 +64,7 @@ type Config struct {
 	UpkeepMercury                   bool                   `mapstructure:"UPKEEP_MERCURY"`
 	VerifiableLoadTest              bool                   `mapstructure:"VERIFIABLE_LOAD_TEST"`
 	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
+	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`

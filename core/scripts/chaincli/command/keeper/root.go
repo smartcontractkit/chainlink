@@ -22,4 +22,5 @@ func init() {
 	RootCmd.AddCommand(ocr2UpkeepReportHistoryCmd)
 	RootCmd.AddCommand(ocr2UpdateConfigCmd)
 	RootCmd.AddCommand(scrapeNodes)
+	RootCmd.AddCommand(verifiableLoad)
 }

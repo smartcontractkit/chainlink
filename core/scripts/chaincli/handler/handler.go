@@ -154,7 +154,7 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 		log.Fatal("SuggestGasPrice failed: ", err)
 	}
 
-	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, 5)) // add 20%
+	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, big.NewInt(2))) // add 20%
 
 	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
 	if err != nil {
