@@ -360,7 +360,7 @@ describe('ProxyBalanceMonitor', () => {
         MAX_CHECK = (await pm.MAX_CHECK()).toNumber()
         proxyAddresses = []
         aggregators = []
-        const numAggregators = MAX_CHECK + 5
+        const numAggregators = MAX_CHECK + 50
         for (let idx = 0; idx < numAggregators; idx++) {
           const proxy = await deployMockContract(
             owner,

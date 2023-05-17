@@ -120,7 +120,7 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
     uint256 numChecked = 0;
     uint256 numToCheck = MAX_CHECK;
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
-    numToCheck = numTargets < MAX_CHECK ? numTargets : numTargets;
+    numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
     uint256 numFound = 0;
     address[] memory proxiesToFund = new address[](MAX_PERFORM);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
