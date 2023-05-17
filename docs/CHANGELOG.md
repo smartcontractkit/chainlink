@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- `LogBackfillBatchSize = 1000`
 	- `RPCDefaultBatchSize: 250`
 	- `GasEstimator.BatchSize = 25`
+- Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 
 <!-- unreleasedstop -->
 
