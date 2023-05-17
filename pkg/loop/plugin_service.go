@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
+const keepAliveTickDuration = 5 * time.Second //TODO from config
+
 type grpcPlugin interface {
 	plugin.Plugin
 	plugin.GRPCPlugin

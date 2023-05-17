@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
@@ -19,13 +20,13 @@ func TestRelayerService(t *testing.T) {
 	t.Parallel()
 	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
 		return helperProcess(loop.PluginRelayerName)
-	}, configTOML, staticKeystore{})
+	}, test.ConfigTOML, test.StaticKeystore{})
 	hook := relayer.TestHook()
 	require.NoError(t, relayer.Start(utils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
 
 	t.Run("control", func(t *testing.T) {
-		testRelayer(t, relayer)
+		test.TestRelayer(t, relayer)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -34,7 +35,7 @@ func TestRelayerService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		testRelayer(t, relayer)
+		test.TestRelayer(t, relayer)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestRelayerService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		testRelayer(t, relayer)
+		test.TestRelayer(t, relayer)
 	})
 }
 
@@ -52,9 +53,9 @@ func TestRelayerService_recovery(t *testing.T) {
 	var limit atomic.Int32
 	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
 		return helperProcess(loop.PluginRelayerName, strconv.Itoa(int(limit.Add(1))))
-	}, configTOML, staticKeystore{})
+	}, test.ConfigTOML, test.StaticKeystore{})
 	require.NoError(t, relayer.Start(utils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, relayer.Close()) })
 
-	testRelayer(t, relayer)
+	test.TestRelayer(t, relayer)
 }

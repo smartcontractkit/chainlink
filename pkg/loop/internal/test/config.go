@@ -1,12 +1,13 @@
-package loop_test
+package test
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
+
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 type staticConfigProvider struct{}

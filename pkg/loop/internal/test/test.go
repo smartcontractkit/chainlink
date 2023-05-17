@@ -1,16 +1,21 @@
-package loop_test
+package test
 
 import (
 	"math/big"
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
+
+const ConfigTOML = `[Foo]
+Bar = "Baz"
+`
 
 const (
 	account          = libocr.Account("testaccount")
@@ -34,14 +39,11 @@ var (
 	amount = big.NewInt(123456789)
 	chain  = types.ChainStatus{
 		ID:     chainID,
-		Config: configTOML,
+		Config: ConfigTOML,
 	}
-	chainID    = "chain-id"
-	chainIDs   = []string{"foo", "bar"}
-	chains     = []types.ChainStatus{chain, {ID: "test-id", Enabled: true}}
-	configTOML = `[Foo]
-Bar = "Baz"
-`
+	chainID            = "chain-id"
+	chainIDs           = []string{"foo", "bar"}
+	chains             = []types.ChainStatus{chain, {ID: "test-id", Enabled: true}}
 	configDigest       = libocr.ConfigDigest([32]byte{2: 10, 12: 16})
 	configDigestPrefix = libocr.ConfigDigestPrefix(99)
 	contractConfig     = libocr.ContractConfig{

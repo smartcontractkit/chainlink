@@ -1,6 +1,8 @@
 package loop
 
-import "github.com/smartcontractkit/chainlink-relay/pkg/types"
+import (
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+)
 
 const KeepAliveTickDuration = keepAliveTickDuration
 

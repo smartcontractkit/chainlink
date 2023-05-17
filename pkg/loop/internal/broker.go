@@ -1,4 +1,4 @@
-package loop
+package internal
 
 import (
 	"context"
@@ -7,46 +7,46 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
-// broker is a subset of the methods exported by *plugin.GRPCBroker.
-type broker interface {
+// Broker is a subset of the methods exported by *plugin.GRPCBroker.
+type Broker interface {
 	Accept(id uint32) (net.Listener, error)
 	Dial(id uint32) (conn *grpc.ClientConn, err error)
 	NextId() uint32
 }
 
-var _ broker = (*atomicBroker)(nil)
+var _ Broker = (*atomicBroker)(nil)
 
-// An atomicBroker implements [broker] and is backed by a swappable [*plugin.GRPCBroker]
+// An atomicBroker implements [Broker] and is backed by a swappable [*plugin.GRPCBroker]
 type atomicBroker struct {
-	broker atomic.Pointer[plugin.GRPCBroker]
+	broker atomic.Pointer[Broker]
 }
 
-func (a *atomicBroker) store(b *plugin.GRPCBroker) { a.broker.Store(b) }
+func (a *atomicBroker) store(b Broker) { a.broker.Store(&b) }
+func (a *atomicBroker) load() Broker   { return *a.broker.Load() }
 
 func (a *atomicBroker) Accept(id uint32) (net.Listener, error) {
-	return a.broker.Load().Accept(id)
+	return a.load().Accept(id)
 }
 
 func (a *atomicBroker) Dial(id uint32) (conn *grpc.ClientConn, err error) {
-	return a.broker.Load().Dial(id)
+	return a.load().Dial(id)
 }
 
 func (a *atomicBroker) NextId() uint32 {
-	return a.broker.Load().NextId()
+	return a.load().NextId()
 }
 
-// brokerExt extends a broker with various helper methods.
+// brokerExt extends a Broker with various helper methods.
 type brokerExt struct {
 	stopCh <-chan struct{}
 	lggr   logger.Logger
-	broker broker
+	broker Broker
 }
 
 // named returns a new [*brokerExt] with name added to the logger.

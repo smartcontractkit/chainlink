@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
@@ -25,7 +26,7 @@ func TestMedianService(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
 	t.Run("control", func(t *testing.T) {
-		testPluginMedian(t, median)
+		test.TestPluginMedian(t, median)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -34,7 +35,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		testPluginMedian(t, median)
+		test.TestPluginMedian(t, median)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		testPluginMedian(t, median)
+		test.TestPluginMedian(t, median)
 	})
 }
 
@@ -56,5 +57,5 @@ func TestMedianService_recovery(t *testing.T) {
 	require.NoError(t, median.Start(utils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
-	testPluginMedian(t, median)
+	test.TestPluginMedian(t, median)
 }

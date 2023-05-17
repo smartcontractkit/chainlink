@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"math/big"
 	"os/exec"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 var ErrPluginUnavailable = errors.New("plugin unavailable")
-
-const keepAliveTickDuration = 5 * time.Second //TODO from config
 
 var _ Relayer = (*RelayerService)(nil)
 

@@ -1,13 +1,13 @@
-package loop_test
+package test
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 )
 
-var _ loop.ErrorLog = (*staticErrorLog)(nil)
+var _ internal.ErrorLog = (*staticErrorLog)(nil)
 
 type staticErrorLog struct{}
 

@@ -4,7 +4,7 @@
 // - protoc             v3.21.12
 // source: relayer.proto
 
-package loop
+package pb
 
 import (
 	context "context"
