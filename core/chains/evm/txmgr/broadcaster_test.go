@@ -2007,7 +2007,8 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, estimator)
 
 		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, kst, eventBroadcaster, txBuilder, nil, lggr, checkerFactory, false)
-		eb.Start(testutils.Context(t))
+		err := eb.Start(testutils.Context(t))
+		assert.NoError(t, err)
 
 		defer func() { assert.NoError(t, eb.Close()) }()
 
