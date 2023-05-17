@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -150,4 +151,25 @@ func (ks *starknet) getByID(id string) (stark.Key, error) {
 		return stark.Key{}, KeyNotFoundError{ID: id, KeyType: "StarkNet"}
 	}
 	return key, nil
+}
+
+// StarkSigner adapts Starknet to [loop.Keystore].
+type StarkNetSigner struct {
+	StarkNet
+}
+
+func (s *StarkNetSigner) Accounts(ctx context.Context) ([]string, error) {
+	var accounts []string
+	ks, err := s.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range ks {
+		accounts = append(accounts, k.StarkKeyStr())
+	}
+	return accounts, nil
+}
+
+func (s *StarkNetSigner) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
+	return nil, fmt.Errorf("unimplemented")
 }
