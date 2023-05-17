@@ -154,7 +154,8 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 			},
 		},
 	}
-	ec.ProcessHead(ctx, &head)
+	err = ec.ProcessHead(ctx, &head)
+	require.NoError(t, err)
 	// Can successfully close once
 	err = ec.Close()
 	require.NoError(t, err)
