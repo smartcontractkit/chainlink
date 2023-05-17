@@ -12,7 +12,7 @@ interface IAggregatorProxy {
   function aggregator() external view returns (address);
 }
 
-interface IAggregator {
+interface ILinkAvailable {
   function linkAvailableForPayment() external view returns (int256 availableBalance);
 
   function transmitters() external view returns (address[] memory);
@@ -261,27 +261,27 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
    * @return address the address of the aggregator
    */
   function _needsFunding(address proxyAddress) private view returns (bool, address) {
-    IAggregator aggregator;
+    ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(proxyAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
-      aggregator = IAggregator(aggregatorAddress);
+      target = ILinkAvailable(aggregatorAddress);
     } catch {
       return (false, address(0));
     }
-    try aggregator.linkAvailableForPayment() returns (int256 balance) {
+    try target.linkAvailableForPayment() returns (int256 balance) {
       if (balance < 0 || uint256(balance) > s_minBalance) {
         return (false, address(0));
       }
     } catch {
       return (false, address(0));
     }
-    try aggregator.transmitters() returns (address[] memory transmitters) {
+    try target.transmitters() returns (address[] memory transmitters) {
       if (transmitters.length == 0) {
         return (false, address(0));
       }
     } catch {
       return (false, address(0));
     }
-    return (true, address(aggregator));
+    return (true, address(target));
   }
 }

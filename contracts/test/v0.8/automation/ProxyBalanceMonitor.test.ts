@@ -4,7 +4,7 @@ import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import * as h from '../../test-helpers/helpers'
 import { IAggregatorProxy__factory as IAggregatorProxyFactory } from '../../../typechain/factories/IAggregatorProxy__factory'
-import { IAggregator__factory as IAggregatorFactory } from '../../../typechain/factories/IAggregator__factory'
+import { ILinkAvailable__factory as ILinkAvailableFactory } from '../../../typechain/factories/ILinkAvailable__factory'
 import { ProxyBalanceMonitor, LinkToken } from '../../../typechain'
 import { BigNumber } from 'ethers'
 import { mineBlock } from '../../test-helpers/helpers'
@@ -76,10 +76,10 @@ const setup = async () => {
   proxy2 = await deployMockContract(owner, IAggregatorProxyFactory.abi)
   proxy3 = await deployMockContract(owner, IAggregatorProxyFactory.abi)
   proxy4 = await deployMockContract(owner, IAggregatorProxyFactory.abi)
-  aggregator1 = await deployMockContract(owner, IAggregatorFactory.abi)
-  aggregator2 = await deployMockContract(owner, IAggregatorFactory.abi)
-  aggregator3 = await deployMockContract(owner, IAggregatorFactory.abi)
-  aggregator4 = await deployMockContract(owner, IAggregatorFactory.abi)
+  aggregator1 = await deployMockContract(owner, ILinkAvailableFactory.abi)
+  aggregator2 = await deployMockContract(owner, ILinkAvailableFactory.abi)
+  aggregator3 = await deployMockContract(owner, ILinkAvailableFactory.abi)
+  aggregator4 = await deployMockContract(owner, ILinkAvailableFactory.abi)
 
   await proxy1.deployed()
   await proxy2.deployed()
@@ -368,7 +368,7 @@ describe('ProxyBalanceMonitor', () => {
           )
           const aggregator = await deployMockContract(
             owner,
-            IAggregatorFactory.abi,
+            ILinkAvailableFactory.abi,
           )
           await proxy.mock.aggregator.returns(aggregator.address)
           await aggregator.mock.linkAvailableForPayment.returns(0)
@@ -453,7 +453,7 @@ describe('ProxyBalanceMonitor', () => {
         )
         const aggregator = await deployMockContract(
           owner,
-          IAggregatorFactory.abi,
+          ILinkAvailableFactory.abi,
         )
         await proxy.mock.aggregator.returns(aggregator.address)
         await aggregator.mock.linkAvailableForPayment.returns(0)
