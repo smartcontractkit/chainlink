@@ -79,6 +79,20 @@ export default {
         settings: COMPILER_SETTINGS,
       },
     ],
+    overrides: {
+      'src/v0.8/vrf/VRFCoordinatorV2.sol': {
+        version: '0.8.6',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 10000, // see native_solc_compile_all
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
+    },
   },
   contractSizer: {
     alphaSort: true,
