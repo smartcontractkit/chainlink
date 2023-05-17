@@ -14,14 +14,14 @@ interface IAggregatorProxy {
 
 interface ILinkAvailable {
   function linkAvailableForPayment() external view returns (int256 availableBalance);
-
-  function transmitters() external view returns (address[] memory);
 }
 
 /**
  * @title The LinkAvailableBalanceMonitor contract.
- * @notice A keeper-compatible contract that monitors proxy-gated aggregators and funds them with LINK
- * based on balance returned from a custom function linkAvailableForPayment()
+ * @notice A keeper-compatible contract that monitors target contracts for balance from a custom
+ * function linkAvailableForPayment() and funds them with LINK if it falls below a defined
+ * threshold. Also supports aggregator proxy contracts monitoring which require fetching the actual
+ * target contract through a predefined interface.
  * @dev with 30 addresses as the MAX_PERFORM, the measured max gas usage of performUpkeep is around 2M
  * therefore, we recommend an upkeep gas limit of 3M (this has a 33% margin of safety). Although, nothing
  * prevents us from using 5M gas and increasing MAX_PERFORM, 30 seems like a reasonable batch size that
@@ -71,7 +71,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
 
   /**
    * @notice Sets the list of subscriptions to watch and their funding parameters
-   * @param addresses the list of proxy addresses to watch
+   * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
    */
   function setWatchList(address[] calldata addresses) external onlyOwner {
     // first, remove all existing addresses from list
@@ -93,7 +93,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
 
   /**
    * @notice Adds addresses to the watchlist without overwriting existing members
-   * @param addresses the list of proxy addresses to watch
+   * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
    */
   function addToWatchList(address[] calldata addresses) external onlyOwner {
     for (uint256 idx = 0; idx < addresses.length; idx++) {
@@ -114,7 +114,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
    * addresses in the list over latter ones.
    * @dev the function will check at most MAX_CHECK proxies in a single call
    * @dev the function returns a list with a max length of MAX_PERFORM
-   * @return list of proxy addresses whose aggregators are underfunded
+   * @return list of target addresses which are underfunded
    */
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint256 numTargets = s_watchList.length();
@@ -123,12 +123,12 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
     numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
     uint256 numFound = 0;
-    address[] memory proxiesToFund = new address[](MAX_PERFORM);
+    address[] memory targetsToFund = new address[](MAX_PERFORM);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
-      address proxy = s_watchList.at(idx);
-      (bool needsFunding, ) = _needsFunding(proxy);
+      address target = s_watchList.at(idx);
+      (bool needsFunding, ) = _needsFunding(target);
       if (needsFunding) {
-        proxiesToFund[numFound] = proxy;
+        targetsToFund[numFound] = target;
         numFound++;
         if (numFound == MAX_PERFORM) {
           break; // max number of addresses in batch reached
@@ -137,29 +137,29 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
     }
     if (numFound != MAX_PERFORM) {
       assembly {
-        mstore(proxiesToFund, numFound) // resize array to number of valid targets
+        mstore(targetsToFund, numFound) // resize array to number of valid targets
       }
     }
-    return proxiesToFund;
+    return targetsToFund;
   }
 
   /**
-   * @notice Send funds to the proxies provided.
-   * @param proxyAddresses the list of proxies to fund
+   * @notice Send funds to the targets provided.
+   * @param targetAddresses the list of targets to fund
    */
-  function topUp(address[] memory proxyAddresses) public whenNotPaused {
+  function topUp(address[] memory targetAddresses) public whenNotPaused {
     uint256 topUpAmount = s_topUpAmount;
-    uint256 stopIdx = proxyAddresses.length;
+    uint256 stopIdx = targetAddresses.length;
     uint256 numCanFund = LINK_TOKEN.balanceOf(address(this)) / topUpAmount;
     stopIdx = numCanFund < stopIdx ? numCanFund : stopIdx;
     for (uint256 idx = 0; idx < stopIdx; idx++) {
-      (bool needsFunding, address aggregator) = _needsFunding(proxyAddresses[idx]);
-      if (!s_watchList.contains(proxyAddresses[idx]) || !needsFunding) {
-        emit TopUpBlocked(proxyAddresses[idx]);
+      (bool needsFunding, address target) = _needsFunding(targetAddresses[idx]);
+      if (!s_watchList.contains(targetAddresses[idx]) || !needsFunding) {
+        emit TopUpBlocked(targetAddresses[idx]);
         continue;
       }
-      LINK_TOKEN.transfer(aggregator, topUpAmount);
-      emit TopUpSucceeded(proxyAddresses[idx]);
+      LINK_TOKEN.transfer(target, topUpAmount);
+      emit TopUpSucceeded(targetAddresses[idx]);
     }
   }
 
@@ -255,29 +255,22 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice checks the aggregator that the provided proxy points to, and determines
+   * @notice checks the target (could be direct target or IAggregatorProxy), and determines
    * if it is elligible for funding
-   * @param proxyAddress the proxy to check
-   * @return bool whether the aggregator needs funding or not
-   * @return address the address of the aggregator
+   * @param targetAddress the target to check
+   * @return bool whether the target needs funding or not
+   * @return address the address of the contract needing funding
    */
-  function _needsFunding(address proxyAddress) private view returns (bool, address) {
+  function _needsFunding(address targetAddress) private view returns (bool, address) {
     ILinkAvailable target;
-    IAggregatorProxy proxy = IAggregatorProxy(proxyAddress);
+    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
       target = ILinkAvailable(aggregatorAddress);
     } catch {
-      return (false, address(0));
+      target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
       if (balance < 0 || uint256(balance) > s_minBalance) {
-        return (false, address(0));
-      }
-    } catch {
-      return (false, address(0));
-    }
-    try target.transmitters() returns (address[] memory transmitters) {
-      if (transmitters.length == 0) {
         return (false, address(0));
       }
     } catch {
