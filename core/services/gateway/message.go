@@ -36,7 +36,7 @@ type MessageBody struct {
 	Sender    string `json:"sender"`
 
 	// Service-specific payload, decoded inside the Handler.
-	Payload json.RawMessage `json:"payload"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 func (m *Message) Validate() error {
