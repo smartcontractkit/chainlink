@@ -281,13 +281,13 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 
 		// start polling logs on an interval
 		{
-			go func(cx context.Context, lggr logger.Logger, f func() error) {
+			go func(cx context.Context, lggr logger.Logger, f func(ctx context.Context) error) {
 				ticker := time.NewTicker(time.Second)
 
 				for {
 					select {
 					case <-ticker.C:
-						err := f()
+						err := f(ctx)
 						if err != nil {
 							lggr.Errorf("failed to poll logs for upkeeps", err)
 						}
@@ -391,12 +391,12 @@ func (r *EvmRegistry) initialize() error {
 	return nil
 }
 
-func (r *EvmRegistry) pollLogs() error {
+func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 	var latest int64
 	var end int64
 	var err error
 
-	if end, err = r.poller.LatestBlock(); err != nil {
+	if end, err = r.poller.LatestBlock(pg.WithParentCtx(ctx)); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
