@@ -20,13 +20,13 @@ func TestMedianService(t *testing.T) {
 	t.Parallel()
 	median := loop.NewMedianService(logger.Test(t), func() *exec.Cmd {
 		return helperProcess(loop.PluginMedianName)
-	})
+	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
 	hook := median.TestHook()
 	require.NoError(t, median.Start(utils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
 	t.Run("control", func(t *testing.T) {
-		test.TestPluginMedian(t, median)
+		test.TestReportingPluginFactory(t, median)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		test.TestPluginMedian(t, median)
+		test.TestReportingPluginFactory(t, median)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * loop.KeepAliveTickDuration)
 
-		test.TestPluginMedian(t, median)
+		test.TestReportingPluginFactory(t, median)
 	})
 }
 
@@ -53,9 +53,9 @@ func TestMedianService_recovery(t *testing.T) {
 	var limit atomic.Int32
 	median := loop.NewMedianService(logger.Test(t), func() *exec.Cmd {
 		return helperProcess(loop.PluginMedianName, strconv.Itoa(int(limit.Add(1))))
-	})
+	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
 	require.NoError(t, median.Start(utils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
-	test.TestPluginMedian(t, median)
+	test.TestReportingPluginFactory(t, median)
 }

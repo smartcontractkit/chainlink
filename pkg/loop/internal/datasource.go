@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 

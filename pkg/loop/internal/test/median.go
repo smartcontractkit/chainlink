@@ -22,52 +22,47 @@ import (
 )
 
 func TestPluginMedian(t *testing.T, p internal.PluginMedian) {
-	ctx := utils.Context(t)
-
 	t.Run("PluginMedian", func(t *testing.T) {
-		factory, err := p.NewMedianFactory(ctx, staticMedianProvider{}, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &staticErrorLog{})
+		ctx := utils.Context(t)
+		factory, err := p.NewMedianFactory(ctx, StaticMedianProvider{}, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
 		require.NoError(t, err)
 
-		t.Run("ReportingPluginFactory", func(t *testing.T) {
-			rp, gotRPI, err := factory.NewReportingPlugin(reportingPluginConfig)
+		TestReportingPluginFactory(t, factory)
+	})
+}
+
+func TestReportingPluginFactory(t *testing.T, factory internal.ReportingPluginFactory) {
+	t.Run("ReportingPluginFactory", func(t *testing.T) {
+		rp, gotRPI, err := factory.NewReportingPlugin(reportingPluginConfig)
+		require.NoError(t, err)
+		assert.Equal(t, rpi, gotRPI)
+		t.Cleanup(func() { assert.NoError(t, rp.Close()) })
+		t.Run("ReportingPlugin", func(t *testing.T) {
+			ctx := utils.Context(t)
+			gotQuery, err := rp.Query(ctx, reportContext.ReportTimestamp)
 			require.NoError(t, err)
-			t.Cleanup(func() { assert.NoError(t, rp.Close()) })
-			t.Run("ReportingPlugin", func(t *testing.T) {
-				assert.Equal(t, rpi, gotRPI)
-				gotQuery, err := rp.Query(ctx, reportContext.ReportTimestamp)
-				require.NoError(t, err)
-				assert.Equal(t, query, []byte(gotQuery))
-				gotObs, err := rp.Observation(ctx, reportContext.ReportTimestamp, query)
-				require.NoError(t, err)
-				assert.Equal(t, observation, gotObs)
-				gotOk, gotReport, err := rp.Report(ctx, reportContext.ReportTimestamp, query, obs)
-				require.NoError(t, err)
-				assert.True(t, gotOk)
-				assert.Equal(t, report, gotReport)
-				gotShouldAccept, err := rp.ShouldAcceptFinalizedReport(ctx, reportContext.ReportTimestamp, report)
-				require.NoError(t, err)
-				assert.True(t, gotShouldAccept)
-				gotShouldTransmit, err := rp.ShouldTransmitAcceptedReport(ctx, reportContext.ReportTimestamp, report)
-				require.NoError(t, err)
-				assert.True(t, gotShouldTransmit)
-			})
+			assert.Equal(t, query, []byte(gotQuery))
+			gotObs, err := rp.Observation(ctx, reportContext.ReportTimestamp, query)
+			require.NoError(t, err)
+			assert.Equal(t, observation, gotObs)
+			gotOk, gotReport, err := rp.Report(ctx, reportContext.ReportTimestamp, query, obs)
+			require.NoError(t, err)
+			assert.True(t, gotOk)
+			assert.Equal(t, report, gotReport)
+			gotShouldAccept, err := rp.ShouldAcceptFinalizedReport(ctx, reportContext.ReportTimestamp, report)
+			require.NoError(t, err)
+			assert.True(t, gotShouldAccept)
+			gotShouldTransmit, err := rp.ShouldTransmitAcceptedReport(ctx, reportContext.ReportTimestamp, report)
+			require.NoError(t, err)
+			assert.True(t, gotShouldTransmit)
 		})
 	})
+
 }
 
 type StaticPluginMedian struct{}
 
-func (s StaticPluginMedian) Name() string { panic("implement me") }
-
-func (s StaticPluginMedian) Start(ctx context.Context) error { return nil }
-
-func (s StaticPluginMedian) Close() error { return nil }
-
-func (s StaticPluginMedian) Ready() error { panic("implement me") }
-
-func (s StaticPluginMedian) HealthReport() map[string]error { panic("implement me") }
-
-func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog internal.ErrorLog) (libocr.ReportingPluginFactory, error) {
+func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog internal.ErrorLog) (internal.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix := ocd.ConfigDigestPrefix()
 	if gotDigestPrefix != configDigestPrefix {
@@ -213,6 +208,16 @@ func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types
 
 type staticPluginFactory struct{}
 
+func (s staticPluginFactory) Name() string { panic("implement me") }
+
+func (s staticPluginFactory) Start(ctx context.Context) error { return nil }
+
+func (s staticPluginFactory) Close() error { return nil }
+
+func (s staticPluginFactory) Ready() error { panic("implement me") }
+
+func (s staticPluginFactory) HealthReport() map[string]error { panic("implement me") }
+
 func (s staticPluginFactory) NewReportingPlugin(config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
 	if config.ConfigDigest != reportingPluginConfig.ConfigDigest {
 		return nil, libocr.ReportingPluginInfo{}, fmt.Errorf("expected ConfigDigest %x but got %x", reportingPluginConfig.ConfigDigest, config.ConfigDigest)
@@ -253,35 +258,35 @@ func (s staticPluginFactory) NewReportingPlugin(config libocr.ReportingPluginCon
 	return staticReportingPlugin{}, rpi, nil
 }
 
-type staticMedianProvider struct{}
+type StaticMedianProvider struct{}
 
-func (s staticMedianProvider) Start(ctx context.Context) error { return nil }
+func (s StaticMedianProvider) Start(ctx context.Context) error { return nil }
 
-func (s staticMedianProvider) Close() error { return nil }
+func (s StaticMedianProvider) Close() error { return nil }
 
-func (s staticMedianProvider) Ready() error { panic("unimplemented") }
+func (s StaticMedianProvider) Ready() error { panic("unimplemented") }
 
-func (s staticMedianProvider) Name() string { panic("unimplemented") }
+func (s StaticMedianProvider) Name() string { panic("unimplemented") }
 
-func (s staticMedianProvider) HealthReport() map[string]error { panic("unimplemented") }
+func (s StaticMedianProvider) HealthReport() map[string]error { panic("unimplemented") }
 
-func (s staticMedianProvider) OffchainConfigDigester() libocr.OffchainConfigDigester {
+func (s StaticMedianProvider) OffchainConfigDigester() libocr.OffchainConfigDigester {
 	return staticOffchainConfigDigester{}
 }
 
-func (s staticMedianProvider) ContractConfigTracker() libocr.ContractConfigTracker {
+func (s StaticMedianProvider) ContractConfigTracker() libocr.ContractConfigTracker {
 	return staticContractConfigTracker{}
 }
 
-func (s staticMedianProvider) ContractTransmitter() libocr.ContractTransmitter {
+func (s StaticMedianProvider) ContractTransmitter() libocr.ContractTransmitter {
 	return staticContractTransmitter{}
 }
 
-func (s staticMedianProvider) ReportCodec() median.ReportCodec { return staticReportCodec{} }
+func (s StaticMedianProvider) ReportCodec() median.ReportCodec { return staticReportCodec{} }
 
-func (s staticMedianProvider) MedianContract() median.MedianContract { return staticMedianContract{} }
+func (s StaticMedianProvider) MedianContract() median.MedianContract { return staticMedianContract{} }
 
-func (s staticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+func (s StaticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
 	return staticOnchainConfigCodec{}
 }
 

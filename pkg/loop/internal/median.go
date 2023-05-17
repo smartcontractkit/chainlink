@@ -15,7 +15,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
@@ -24,8 +24,7 @@ type ErrorLog interface {
 }
 
 type PluginMedian interface {
-	types.Service
-	NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (libocr.ReportingPluginFactory, error)
+	NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (ReportingPluginFactory, error)
 }
 
 var _ PluginMedian = (*PluginMedianClient)(nil)
@@ -43,7 +42,7 @@ func NewPluginMedianClient(stopCh <-chan struct{}, lggr logger.Logger, broker Br
 	return &PluginMedianClient{pluginClient: pc, median: pb.NewPluginMedianClient(pc), serviceClient: newServiceClient(pc.brokerExt, pc)}
 }
 
-func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (libocr.ReportingPluginFactory, error) {
+func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (ReportingPluginFactory, error) {
 	cc := m.newClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps resources, err error) {
 		dataSourceID, dsRes, err := m.serve("DataSource", func(s *grpc.Server) {
 			pb.RegisterDataSourceServer(s, &dataSourceServer{impl: dataSource})
@@ -107,7 +106,6 @@ type pluginMedianServer struct {
 }
 
 func RegisterPluginMedianServer(server *grpc.Server, stopCh <-chan struct{}, lggr logger.Logger, broker Broker, impl PluginMedian) error {
-	pb.RegisterServiceServer(server, &serviceServer{srv: impl})
 	pb.RegisterPluginMedianServer(server, newPluginMedianServer(&brokerExt{stopCh, lggr, broker}, impl))
 	return nil
 }
@@ -155,7 +153,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 	}
 
 	id, _, err := m.serve("ReportingPluginProvider", func(s *grpc.Server) {
-		pb.RegisterServiceServer(s, &serviceServer{srv: provider})
+		pb.RegisterServiceServer(s, &serviceServer{srv: factory})
 		pb.RegisterReportingPluginFactoryServer(s, newReportingPluginFactoryServer(factory, m.brokerExt))
 	}, dsRes, juelsRes, providerRes, errorLogRes)
 	if err != nil {

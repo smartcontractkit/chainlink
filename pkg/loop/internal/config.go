@@ -8,7 +8,7 @@ import (
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 

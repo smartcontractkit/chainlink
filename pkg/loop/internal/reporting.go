@@ -5,24 +5,32 @@ import (
 	"math"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/libocr/commontypes"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
+
+type ReportingPluginFactory interface {
+	types.Service
+	libocr.ReportingPluginFactory
+}
 
 type reportingPluginFactoryClient struct {
 	*brokerExt
+	*serviceClient
 	grpc pb.ReportingPluginFactoryClient
 }
 
 func newReportingPluginFactoryClient(b *brokerExt, cc grpc.ClientConnInterface) *reportingPluginFactoryClient {
-	return &reportingPluginFactoryClient{b.named("ReportingPluginProviderClient"), pb.NewReportingPluginFactoryClient(cc)}
+	return &reportingPluginFactoryClient{b.named("ReportingPluginProviderClient"), newServiceClient(b, cc), pb.NewReportingPluginFactoryClient(cc)}
 }
 
-func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (r *reportingPluginFactoryClient) NewReportingPlugin(config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
 	ctx, cancel := r.ctx()
 	defer cancel()
 
@@ -41,12 +49,12 @@ func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.Reporting
 		MaxDurationShouldTransmitAcceptedReport: int64(config.MaxDurationShouldTransmitAcceptedReport),
 	}})
 	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
+		return nil, libocr.ReportingPluginInfo{}, err
 	}
-	rpi := types.ReportingPluginInfo{
+	rpi := libocr.ReportingPluginInfo{
 		Name:          reply.ReportingPluginInfo.Name,
 		UniqueReports: reply.ReportingPluginInfo.UniqueReports,
-		Limits: types.ReportingPluginLimits{
+		Limits: libocr.ReportingPluginLimits{
 			MaxQueryLength:       int(reply.ReportingPluginInfo.ReportingPluginLimits.MaxQueryLength),
 			MaxObservationLength: int(reply.ReportingPluginInfo.ReportingPluginLimits.MaxObservationLength),
 			MaxReportLength:      int(reply.ReportingPluginInfo.ReportingPluginLimits.MaxReportLength),
@@ -54,7 +62,7 @@ func (r *reportingPluginFactoryClient) NewReportingPlugin(config types.Reporting
 	}
 	cc, err := r.brokerExt.broker.Dial(reply.ReportingPluginID)
 	if err != nil {
-		return nil, types.ReportingPluginInfo{}, err
+		return nil, libocr.ReportingPluginInfo{}, err
 	}
 	return newReportingPluginClient(r.brokerExt, cc), rpi, nil
 }
@@ -66,15 +74,15 @@ type reportingPluginFactoryServer struct {
 
 	*brokerExt
 
-	impl types.ReportingPluginFactory
+	impl libocr.ReportingPluginFactory
 }
 
-func newReportingPluginFactoryServer(impl types.ReportingPluginFactory, b *brokerExt) *reportingPluginFactoryServer {
+func newReportingPluginFactoryServer(impl libocr.ReportingPluginFactory, b *brokerExt) *reportingPluginFactoryServer {
 	return &reportingPluginFactoryServer{impl: impl, brokerExt: b.named("ReportingPluginFactoryServer")}
 }
 
 func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, request *pb.NewReportingPluginRequest) (*pb.NewReportingPluginReply, error) {
-	cfg := types.ReportingPluginConfig{
+	cfg := libocr.ReportingPluginConfig{
 		OracleID:                                commontypes.OracleID(request.ReportingPluginConfig.OracleID),
 		N:                                       int(request.ReportingPluginConfig.N),
 		F:                                       int(request.ReportingPluginConfig.F),
@@ -116,7 +124,7 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 	}}, nil
 }
 
-var _ types.ReportingPlugin = (*reportingPluginClient)(nil)
+var _ libocr.ReportingPlugin = (*reportingPluginClient)(nil)
 
 type reportingPluginClient struct {
 	*brokerExt
@@ -127,7 +135,7 @@ func newReportingPluginClient(b *brokerExt, cc grpc.ClientConnInterface) *report
 	return &reportingPluginClient{b.named("ReportingPluginClient"), pb.NewReportingPluginClient(cc)}
 }
 
-func (r *reportingPluginClient) Query(ctx context.Context, timestamp types.ReportTimestamp) (types.Query, error) {
+func (r *reportingPluginClient) Query(ctx context.Context, timestamp libocr.ReportTimestamp) (libocr.Query, error) {
 	reply, err := r.grpc.Query(ctx, &pb.QueryRequest{
 		ReportTimestamp: pbReportTimestamp(timestamp),
 	})
@@ -137,7 +145,7 @@ func (r *reportingPluginClient) Query(ctx context.Context, timestamp types.Repor
 	return reply.Query, nil
 }
 
-func (r *reportingPluginClient) Observation(ctx context.Context, timestamp types.ReportTimestamp, query types.Query) (types.Observation, error) {
+func (r *reportingPluginClient) Observation(ctx context.Context, timestamp libocr.ReportTimestamp, query libocr.Query) (libocr.Observation, error) {
 	reply, err := r.grpc.Observation(ctx, &pb.ObservationRequest{
 		ReportTimestamp: pbReportTimestamp(timestamp),
 		Query:           query,
@@ -148,7 +156,7 @@ func (r *reportingPluginClient) Observation(ctx context.Context, timestamp types
 	return reply.Observation, nil
 }
 
-func (r *reportingPluginClient) Report(ctx context.Context, timestamp types.ReportTimestamp, query types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
+func (r *reportingPluginClient) Report(ctx context.Context, timestamp libocr.ReportTimestamp, query libocr.Query, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
 	reply, err := r.grpc.Report(ctx, &pb.ReportRequest{
 		ReportTimestamp: pbReportTimestamp(timestamp),
 		Query:           query,
@@ -160,7 +168,7 @@ func (r *reportingPluginClient) Report(ctx context.Context, timestamp types.Repo
 	return reply.ShouldReport, reply.Report, nil
 }
 
-func (r *reportingPluginClient) ShouldAcceptFinalizedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
+func (r *reportingPluginClient) ShouldAcceptFinalizedReport(ctx context.Context, timestamp libocr.ReportTimestamp, report libocr.Report) (bool, error) {
 	reply, err := r.grpc.ShouldAcceptFinalizedReport(ctx, &pb.ShouldAcceptFinalizedReportRequest{
 		ReportTimestamp: pbReportTimestamp(timestamp),
 		Report:          report,
@@ -171,7 +179,7 @@ func (r *reportingPluginClient) ShouldAcceptFinalizedReport(ctx context.Context,
 	return reply.ShouldAccept, nil
 }
 
-func (r *reportingPluginClient) ShouldTransmitAcceptedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
+func (r *reportingPluginClient) ShouldTransmitAcceptedReport(ctx context.Context, timestamp libocr.ReportTimestamp, report libocr.Report) (bool, error) {
 	reply, err := r.grpc.ShouldTransmitAcceptedReport(ctx, &pb.ShouldTransmitAcceptedReportRequest{
 		ReportTimestamp: pbReportTimestamp(timestamp),
 		Report:          report,
@@ -195,7 +203,7 @@ var _ pb.ReportingPluginServer = (*reportingPluginServer)(nil)
 type reportingPluginServer struct {
 	pb.UnimplementedReportingPluginServer
 
-	impl types.ReportingPlugin
+	impl libocr.ReportingPlugin
 }
 
 func (r *reportingPluginServer) Query(ctx context.Context, request *pb.QueryRequest) (*pb.QueryReply, error) {
@@ -269,7 +277,7 @@ func (r *reportingPluginServer) Close(ctx context.Context, empty *emptypb.Empty)
 	return &emptypb.Empty{}, r.impl.Close()
 }
 
-func pbReportTimestamp(ts types.ReportTimestamp) *pb.ReportTimestamp {
+func pbReportTimestamp(ts libocr.ReportTimestamp) *pb.ReportTimestamp {
 	return &pb.ReportTimestamp{
 		ConfigDigest: ts.ConfigDigest[:],
 		Epoch:        ts.Epoch,
@@ -277,7 +285,7 @@ func pbReportTimestamp(ts types.ReportTimestamp) *pb.ReportTimestamp {
 	}
 }
 
-func reportTimestamp(ts *pb.ReportTimestamp) (r types.ReportTimestamp, err error) {
+func reportTimestamp(ts *pb.ReportTimestamp) (r libocr.ReportTimestamp, err error) {
 	if l := len(ts.ConfigDigest); l != 32 {
 		err = ErrConfigDigestLen(l)
 		return
@@ -292,7 +300,7 @@ func reportTimestamp(ts *pb.ReportTimestamp) (r types.ReportTimestamp, err error
 	return
 }
 
-func pbAttributedObservations(obs []types.AttributedObservation) (r []*pb.AttributedObservation) {
+func pbAttributedObservations(obs []libocr.AttributedObservation) (r []*pb.AttributedObservation) {
 	for _, o := range obs {
 		r = append(r, &pb.AttributedObservation{
 			Observation: o.Observation,
@@ -302,7 +310,7 @@ func pbAttributedObservations(obs []types.AttributedObservation) (r []*pb.Attrib
 	return
 }
 
-func attributedObservations(pbos []*pb.AttributedObservation) (r []types.AttributedObservation, err error) {
+func attributedObservations(pbos []*pb.AttributedObservation) (r []libocr.AttributedObservation, err error) {
 	for _, pbo := range pbos {
 		o, err := attributedObservation(pbo)
 		if err != nil {
@@ -313,7 +321,7 @@ func attributedObservations(pbos []*pb.AttributedObservation) (r []types.Attribu
 	return
 }
 
-func attributedObservation(pbo *pb.AttributedObservation) (o types.AttributedObservation, err error) {
+func attributedObservation(pbo *pb.AttributedObservation) (o libocr.AttributedObservation, err error) {
 	o.Observation = pbo.Observation
 	if pbo.Observer > math.MaxUint8 {
 		err = ErrUint8Bounds{Name: "Observer", U: pbo.Observer}

@@ -7,11 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 )
 
-var _ internal.ErrorLog = (*staticErrorLog)(nil)
+var _ internal.ErrorLog = (*StaticErrorLog)(nil)
 
-type staticErrorLog struct{}
+type StaticErrorLog struct{}
 
-func (s *staticErrorLog) SaveError(ctx context.Context, msg string) error {
+func (s *StaticErrorLog) SaveError(ctx context.Context, msg string) error {
 	if msg != errMsg {
 		return fmt.Errorf("expected %q but got %q", errMsg, msg)
 	}

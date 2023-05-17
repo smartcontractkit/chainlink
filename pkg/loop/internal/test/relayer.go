@@ -83,7 +83,7 @@ func (s staticRelayer) NewMedianProvider(ctx context.Context, r types.RelayArgs,
 	if !reflect.DeepEqual(pargs, p) {
 		return nil, fmt.Errorf("expected plugin args %v but got %v", pargs, p)
 	}
-	return staticMedianProvider{}, nil
+	return StaticMedianProvider{}, nil
 }
 
 func (s staticRelayer) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {

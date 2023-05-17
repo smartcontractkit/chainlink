@@ -24,6 +24,8 @@ func PluginMedianHandshakeConfig() plugin.HandshakeConfig {
 	}
 }
 
+type ReportingPluginFactory = internal.ReportingPluginFactory
+
 type GRPCPluginMedian struct {
 	plugin.NetRPCUnsupportedPlugin
 
