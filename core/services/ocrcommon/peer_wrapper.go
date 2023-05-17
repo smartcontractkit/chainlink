@@ -2,7 +2,9 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/smartcontractkit/sqlx"
@@ -68,17 +70,13 @@ type (
 func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 	switch config.P2PNetworkingStack() {
 	case ocrnetworking.NetworkingStackV1:
-		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1 selected but no P2P.V1.ListenPort specified")
-		}
+		// Note: If P2PListenPort isn't set, the peer wrapper will generate a random one itself.
+		return nil
 	case ocrnetworking.NetworkingStackV2:
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	case ocrnetworking.NetworkingStackV1V2:
-		if config.P2PListenPort() == 0 {
-			return errors.New("networking stack v1v2 selected but no P2P.V1.ListenPort specified")
-		}
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v1v2 selected but no P2P.V2.ListenAddresses specified")
 		}
@@ -117,6 +115,22 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		}
 		p.PeerID = key.PeerID()
 
+		// Use a random port if the port hasn't been set explicitly.
+		p2pPort := p.config.P2PListenPort()
+		if p2pPort == 0 {
+			port, perr := p.randomPort()
+			if perr != nil {
+				return perr
+			}
+			p2pPort = port
+
+			p.lggr.Warnw(
+				fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", p2pPort),
+				"p2pPort",
+				p2pPort,
+			)
+		}
+
 		// We need to start the peer store wrapper if v1 is required.
 		// Also fallback to listen params if announce params not specified.
 		ns := p.config.P2PNetworkingStack()
@@ -141,7 +155,7 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 			// using that for the announce IP will cause other peers to not be
 			// able to connect.
 			if v1AnnounceIP != nil && v1AnnouncePort == 0 {
-				v1AnnouncePort = p.config.P2PListenPort()
+				v1AnnouncePort = p2pPort
 			}
 		}
 
@@ -158,7 +172,7 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 
 			// V1 config
 			V1ListenIP:                         p.config.P2PListenIP(),
-			V1ListenPort:                       p.config.P2PListenPort(),
+			V1ListenPort:                       p2pPort,
 			V1AnnounceIP:                       v1AnnounceIP,
 			V1AnnouncePort:                     v1AnnouncePort,
 			V1Peerstore:                        peerStore,
@@ -202,6 +216,20 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		p.peerCloser = peer
 		return nil
 	})
+}
+
+func (p *SingletonPeerWrapper) randomPort() (uint16, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err)
+	}
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err)
+	}
+	defer l.Close()
+
+	return uint16(l.Addr().(*net.TCPAddr).Port), nil
 }
 
 // Close closes the peer and peerstore

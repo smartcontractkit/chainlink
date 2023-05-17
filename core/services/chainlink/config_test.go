@@ -1195,7 +1195,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 			opts := GeneralConfigOpts{SkipEnv: true}
 			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
-			c, err := opts.New(lggr)
+			c, err := opts.New()
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Infof)
 
@@ -1248,7 +1248,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Check for two overrides
 	var opts GeneralConfigOpts
 	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
-	c, err := opts.New(logger.TestLogger(t))
+	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
