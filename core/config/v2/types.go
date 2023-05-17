@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -108,6 +109,15 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+}
+
+func (c *Core) ValidateConfig() (err error) {
+	_, verr := parse.HomeDir(*c.RootDir)
+	if err != nil {
+		err = multierr.Append(err, ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
+	}
+
+	return err
 }
 
 type Secrets struct {
