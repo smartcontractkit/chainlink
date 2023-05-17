@@ -39,9 +39,8 @@ var (
 
 // Constraints specifies the global storage constraints.
 type Constraints struct {
-	MaxPayloadSizeBytes    int
-	MaxSlotsPerUser        int
-	ExpirationLoopInterval time.Duration
+	MaxPayloadSizeBytes int
+	MaxSlotsPerUser     int
 }
 
 // Record represents a user record persisted by S4
