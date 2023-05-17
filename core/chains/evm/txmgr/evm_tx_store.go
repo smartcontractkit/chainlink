@@ -158,7 +158,6 @@ type DbEthTx struct {
 func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 	tx := DbEthTx{
 		ID:                 ethTx.ID,
-		Nonce:              ethTx.Sequence,
 		FromAddress:        ethTx.FromAddress,
 		ToAddress:          ethTx.ToAddress,
 		EncodedPayload:     ethTx.EncodedPayload,
@@ -180,12 +179,20 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 	if ethTx.ChainID != nil {
 		tx.EVMChainID = *utils.NewBig(ethTx.ChainID)
 	}
+	if ethTx.Sequence != nil {
+		n := ethTx.Sequence.Int64()
+		tx.Nonce = &n
+	}
+
 	return tx
 }
 
 func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmTx) {
 	evmEthTx.ID = dbEthTx.ID
-	evmEthTx.Sequence = dbEthTx.Nonce
+	if dbEthTx.Nonce != nil {
+		n := evmtypes.Nonce(*dbEthTx.Nonce)
+		evmEthTx.Sequence = &n
+	}
 	evmEthTx.FromAddress = dbEthTx.FromAddress
 	evmEthTx.ToAddress = dbEthTx.ToAddress
 	evmEthTx.EncodedPayload = dbEthTx.EncodedPayload

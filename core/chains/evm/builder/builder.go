@@ -41,7 +41,7 @@ func NewTxm(
 
 	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
 	txmClient := txmgr.NewEvmTxmClient(client) // wrap Evm specific client
-	ethBroadcaster := txmgr.NewEthBroadcaster(txStore, client, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmClient, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
 	ethConfirmer := txmgr.NewEthConfirmer(txStore, client, txmCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender
 	if cfg.EthTxResendAfterThreshold() > 0 {

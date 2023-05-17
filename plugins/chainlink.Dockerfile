@@ -36,7 +36,7 @@ COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
-ENV CL_MEDIAN_CMD chainlink-median
+#ENV CL_MEDIAN_CMD chainlink-median #TODO BCF-2112 re-enable median plugin
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
