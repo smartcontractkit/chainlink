@@ -2,7 +2,6 @@ package s4_test
 
 import (
 	"crypto/ecdsa"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -44,25 +43,6 @@ func generateCryptoEntity(t *testing.T) (*ecdsa.PrivateKey, *ecdsa.PublicKey, co
 	return privateKey, publicKeyECDSA, address
 }
 
-func calcEnvelopeHash(t *testing.T, address common.Address, slot int, record *s4.Record) common.Hash {
-	type envelope struct {
-		Address    common.Address `json:"address"`
-		SlotID     int            `json:"slotid"`
-		Payload    string         `json:"payload"`
-		Version    int64          `json:"version"`
-		Expiration int64          `json:"expiration"`
-	}
-	js, err := json.Marshal(envelope{
-		Address:    address,
-		SlotID:     slot,
-		Payload:    common.Bytes2Hex(record.Payload),
-		Version:    record.Version,
-		Expiration: record.Expiration,
-	})
-	assert.NoError(t, err)
-	return crypto.Keccak256Hash(js)
-}
-
 func TestStorage_StartStop(t *testing.T) {
 	t.Parallel()
 
@@ -75,25 +55,25 @@ func TestStorage_PutAndGet(t *testing.T) {
 	storage := setupTestStorage(t)
 
 	t.Run("ErrRecordNotFound", func(t *testing.T) {
-		record, metadata, err := storage.Get(testutils.Context(t), common.HexToAddress("0x0"), 2)
+		record, metadata, err := storage.Get(testutils.Context(t), testutils.NewAddress(), 2)
 		assert.Nil(t, record)
 		assert.Nil(t, metadata)
 		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
 	})
 
 	t.Run("Happy Put then Get", func(t *testing.T) {
+		privateKey, _, address := generateCryptoEntity(t)
 		slotid := 2
-		private, _, address := generateCryptoEntity(t)
-		record := s4.Record{
+		record := &s4.Record{
 			Payload:    []byte("foobar"),
 			Version:    0,
 			Expiration: time.Now().Add(time.Hour).UnixMilli(),
 		}
-		hash := calcEnvelopeHash(t, address, slotid, &record)
-		signature, err := crypto.Sign(hash[:], private)
+		env := s4.NewEnvelopeFromRecord(address, slotid, record)
+		signature, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		err = storage.Put(testutils.Context(t), address, slotid, &record, signature)
+		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
 		assert.NoError(t, err)
 
 		rec, metadata, err := storage.Get(testutils.Context(t), address, slotid)

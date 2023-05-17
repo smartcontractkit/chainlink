@@ -2,7 +2,6 @@ package s4
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type RecordState int
@@ -178,30 +176,9 @@ func (s *inMemoryStorage) Put(ctx context.Context, address common.Address, slotI
 		return ErrPastExpiration
 	}
 
-	type envelope struct {
-		Address    common.Address `json:"address"`
-		SlotID     int            `json:"slotid"`
-		Payload    string         `json:"payload"`
-		Version    int64          `json:"version"`
-		Expiration int64          `json:"expiration"`
-	}
-	signableJson, err := json.Marshal(envelope{
-		Address:    address,
-		SlotID:     slotId,
-		Payload:    common.Bytes2Hex(record.Payload),
-		Version:    record.Version,
-		Expiration: record.Expiration,
-	})
-	if err != nil {
-		return err
-	}
-
-	hash := crypto.Keccak256Hash(signableJson)
-	sigPublicKey, err := crypto.SigToPub(hash[:], signature)
-	if err != nil {
-		return err
-	}
-	if crypto.PubkeyToAddress(*sigPublicKey) != address {
+	envelope := NewEnvelopeFromRecord(address, slotId, record)
+	signer, err := envelope.GetSignerAddress(signature)
+	if err != nil || signer != address {
 		return ErrWrongSignature
 	}
 
