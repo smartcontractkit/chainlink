@@ -1089,7 +1089,8 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	return clients, nil
 }
 
-// ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say though a Helm upgrade
+// ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say through a Helm upgrade
+// Note: Experimental as of now, will likely not work predictably.
 func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*Chainlink) (err error) {
 	for _, node := range nodes {
 		for _, details := range testEnvironment.ChainlinkNodeDetails {
