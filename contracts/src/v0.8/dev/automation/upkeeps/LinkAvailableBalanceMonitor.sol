@@ -19,8 +19,9 @@ interface ILinkAvailable {
 }
 
 /**
- * @title The ProxyBalanceMonitor contract.
+ * @title The LinkAvailableBalanceMonitor contract.
  * @notice A keeper-compatible contract that monitors proxy-gated aggregators and funds them with LINK
+ * based on balance returned from a custom function linkAvailableForPayment()
  * @dev with 30 addresses as the MAX_PERFORM, the measured max gas usage of performUpkeep is around 2M
  * therefore, we recommend an upkeep gas limit of 3M (this has a 33% margin of safety). Although, nothing
  * prevents us from using 5M gas and increasing MAX_PERFORM, 30 seems like a reasonable batch size that
@@ -35,7 +36,7 @@ interface ILinkAvailable {
      we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
      which has significantly different trust assumptions
  */
-contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
+contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
