@@ -103,7 +103,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		}
 
 		f.wg.Add(1)
-		go f.runLoop(ctx)
+		go f.runLoop()
 		return nil
 	})
 }
@@ -233,7 +233,7 @@ func (f *FwdMgr) getCachedSenders(addr common.Address) ([]common.Address, bool) 
 	return addrs, ok
 }
 
-func (f *FwdMgr) runLoop(ctx context.Context) {
+func (f *FwdMgr) runLoop() {
 	defer f.wg.Done()
 	tick := time.After(0)
 
@@ -256,7 +256,7 @@ func (f *FwdMgr) runLoop(ctx context.Context) {
 				[]common.Hash{authChangedTopic},
 				addrs,
 				int(f.cfg.EvmFinalityDepth()),
-				pg.WithParentCtx(ctx),
+				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)
