@@ -383,7 +383,8 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		source := jsonMap["data"].(map[string]any)["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		require.NoError(t, err)
 	}))
 }
 

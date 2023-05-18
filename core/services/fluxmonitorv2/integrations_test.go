@@ -664,8 +664,10 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod, mockServer.URL)
 
 	// raise flags to disable polling
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{

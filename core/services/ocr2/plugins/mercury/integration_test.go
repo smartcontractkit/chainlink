@@ -176,11 +176,13 @@ func TestIntegration_Mercury(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := fmt.Sprintf(`{"error": "pError test error"}`)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)

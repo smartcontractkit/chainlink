@@ -720,7 +720,8 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
 		// use exported method
-		txStore.UpdateEthTxForRebroadcast(etx, attempt)
+		err = txStore.UpdateEthTxForRebroadcast(etx, attempt)
+		require.NoError(t, err)
 
 		resultTx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -924,10 +925,11 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 
 	t.Run("gets txs requiring gas bump", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		txStore.SetBroadcastBeforeBlockNum(currentBlockNum, ethClient.ConfiguredChainID())
+		err := txStore.SetBroadcastBeforeBlockNum(currentBlockNum, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
 
 		// this tx will require gas bump
-		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
+		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		attempts := etx.TxAttempts
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
@@ -936,7 +938,8 @@ func TestORM_FindEthTxsRequiringGasBump(t *testing.T) {
 
 		// this tx will not require gas bump
 		cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 2, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		txStore.SetBroadcastBeforeBlockNum(currentBlockNum+1, ethClient.ConfiguredChainID())
+		err = txStore.SetBroadcastBeforeBlockNum(currentBlockNum+1, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
 
 		// any tx broadcast <= 10 will require gas bump
 		newBlock := int64(12)
@@ -1036,13 +1039,15 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-		q.Transaction(func(q pg.Queryer) error {
+		err := q.Transaction(func(q pg.Queryer) error {
 			err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ConfiguredChainID(), pg.WithQueryer(q))
 			require.NoError(t, err)
 			return nil
 		})
+		require.NoError(t, err)
+
 		// must run other query outside of postgres transaction so changes are committed
-		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
+		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
@@ -1074,7 +1079,7 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&newAttempt)
-		q.Transaction(func(tx pg.Queryer) error {
+		err := q.Transaction(func(tx pg.Queryer) error {
 			const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 				) RETURNING *`
@@ -1087,9 +1092,10 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 			return nil
 		})
+		require.NoError(t, err)
 		// also check after postgres transaction is committed
 		etx.TxAttempts = []txmgr.EvmTxAttempt{}
-		err := txStore.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
+		err = txStore.LoadEthTxesAttempts([]*txmgr.EvmTx{&etx})
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 2)
 	})
@@ -1264,7 +1270,8 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewTxm(db, ec, evmTxmCfg, nil, nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil, q)
-		txMgr.Abandon(fromAddress) // mark transaction as abandoned
+		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
+		require.NoError(t, err)
 
 		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
