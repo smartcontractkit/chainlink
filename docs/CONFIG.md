@@ -4964,9 +4964,8 @@ Enabled = true # Default
 OCR2CachePollPeriod = '5s' # Default
 OCR2CacheTTL = '1m' # Default
 RequestTimeout = '10s' # Default
-TxTimeout = '1m' # Default
-TxSendFrequency = '5s' # Default
-TxMaxBatchSize = 100 # Default
+TxTimeout = '10s' # Default
+ConfirmationPoll = '5s' # Default
 ```
 
 
@@ -5002,21 +5001,15 @@ RequestTimeout is the RPC client timeout.
 
 ### TxTimeout
 ```toml
-TxTimeout = '1m' # Default
+TxTimeout = '10s' # Default
 ```
 TxTimeout is the timeout for sending txes to an RPC endpoint.
 
-### TxSendFrequency
+### ConfirmationPoll
 ```toml
-TxSendFrequency = '5s' # Default
+ConfirmationPoll = '5s' # Default
 ```
-TxSendFrequency is how often to broadcast batches of txes.
-
-### TxMaxBatchSize
-```toml
-TxMaxBatchSize = 100 # Default
-```
-TxMaxBatchSize limits the size of tx batches.
+ConfirmationPoll is how often to confirmer checks for tx inclusion on chain.
 
 ## Starknet.Nodes
 ```toml
