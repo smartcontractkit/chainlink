@@ -22,6 +22,33 @@ export function bigNumEquals(
 }
 
 /**
+ * Check that two big number arrays are equivalent.
+ *
+ * @param expected The expected value to match against
+ * @param actual The actual value to match against the expected value
+ * @param failureMessage Failure message to display if the actual value does not match the expected value.
+ */
+export function bigNumArrayEquals(
+  expected: BigNumberish[],
+  actual: BigNumberish[],
+  failureMessage?: string,
+): void {
+  const msg = failureMessage ? ': ' + failureMessage : ''
+
+  // Assert lengths are equal.
+  assert.equal(
+    actual.length,
+    expected.length,
+    `BigNum array (expected)${expected} is not the same length as (actual)${actual} ${msg}`,
+  )
+
+  // Assert all inner items are equal.
+  for (let x = 0; x < expected.length; x++) {
+    bigNumEquals(expected[x], actual[x], failureMessage)
+  }
+}
+
+/**
  * Check that an evm operation reverts
  *
  * @param action The asynchronous action to execute, which should cause an evm revert.

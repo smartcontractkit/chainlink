@@ -222,6 +222,24 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
   }
 
   /**
+   * @notice Gets the list of addresses being watched, their minimum top-ups, and top-up amounts
+   */
+  function getWatchListDetails() external view returns (address[] memory, uint96[] memory, uint96[] memory) {
+    address[] memory watchlist = s_watchList;
+
+    // Instantiate min-balance & top-up amount arrays, and fill them with target details.
+    uint96[] memory minBalancesWei = new uint96[](s_watchList.length);
+    uint96[] memory topUpAmountsWei = new uint96[](s_watchList.length);
+    for (uint256 x = 0; x < s_watchList.length; x++) {
+      Target memory target = s_targets[s_watchList[x]];
+      minBalancesWei[x] = target.minBalanceWei;
+      topUpAmountsWei[x] = target.topUpAmountWei;
+    }
+
+    return (watchlist, minBalancesWei, topUpAmountsWei);
+  }
+
+  /**
    * @notice Gets configuration information for an address on the watchlist
    */
   function getAccountInfo(

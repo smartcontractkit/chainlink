@@ -7,6 +7,7 @@ import { ReceiveEmitter } from '../../../typechain/ReceiveEmitter'
 import { ReceiveFallbackEmitter } from '../../../typechain/ReceiveFallbackEmitter'
 import { BigNumber } from 'ethers'
 import * as h from '../../test-helpers/helpers'
+import * as m from '../../test-helpers/matchers'
 
 const OWNABLE_ERR = 'Only callable by owner'
 const INVALID_WATCHLIST_ERR = `InvalidWatchList()`
@@ -189,6 +190,11 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       let watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress1])
+      let watchListDetails = await bm.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [watchAddress1])
+      m.bigNumArrayEquals([oneEth], watchListDetails[1])
+      m.bigNumArrayEquals([twoEth], watchListDetails[2])
       const accountInfo = await bm.getAccountInfo(watchAddress1)
       assert.isTrue(accountInfo.isActive)
       expect(accountInfo.minBalanceWei).to.equal(oneEth)
@@ -204,6 +210,15 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress1, watchAddress2, watchAddress3])
+      watchListDetails = await bm.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [
+        watchAddress1,
+        watchAddress2,
+        watchAddress3,
+      ])
+      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[1])
+      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[2])
       let accountInfo1 = await bm.getAccountInfo(watchAddress1)
       let accountInfo2 = await bm.getAccountInfo(watchAddress2)
       let accountInfo3 = await bm.getAccountInfo(watchAddress3)
@@ -227,6 +242,11 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress3, watchAddress1])
+      watchListDetails = await bm.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [watchAddress3, watchAddress1])
+      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[1])
+      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[2])
       accountInfo1 = await bm.getAccountInfo(watchAddress1)
       accountInfo2 = await bm.getAccountInfo(watchAddress2)
       accountInfo3 = await bm.getAccountInfo(watchAddress3)
