@@ -139,6 +139,31 @@ type DatabaseSecrets struct {
 	AllowSimplePasswords bool
 }
 
+func validateDBURL(dbURI url.URL) error {
+	if strings.Contains(dbURI.Redacted(), "_test") {
+		return nil
+	}
+
+	// url params take priority if present, multiple params are ignored by postgres (it picks the first)
+	q := dbURI.Query()
+	// careful, this is a raw database password
+	pw := q.Get("password")
+	if pw == "" {
+		// fallback to user info
+		userInfo := dbURI.User
+		if userInfo == nil {
+			return fmt.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+		}
+		var pwSet bool
+		pw, pwSet = userInfo.Password()
+		if !pwSet {
+			return fmt.Errorf("DB URL must be authenticated; password is required")
+		}
+	}
+
+	return utils.VerifyPasswordComplexity(pw)
+}
+
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
 	if d.AllowSimplePasswords && build.IsProd() {
 		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
@@ -146,12 +171,12 @@ func (d *DatabaseSecrets) ValidateConfig() (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {
-		if verr := config.ValidateDBURL((url.URL)(*d.URL)); verr != nil {
+		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = multierr.Append(err, ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !d.AllowSimplePasswords {
-		if verr := config.ValidateDBURL((url.URL)(*d.BackupURL)); verr != nil {
+		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
 			err = multierr.Append(err, ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
