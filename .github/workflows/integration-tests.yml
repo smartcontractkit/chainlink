@@ -295,6 +295,9 @@ jobs:
         id: get_latest_version
         run: |
           echo "latest_version=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .name)"  >> "$GITHUB_OUTPUT"
+      - name: Name Versions
+        run: |
+          echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
       - name: Run Migration Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
