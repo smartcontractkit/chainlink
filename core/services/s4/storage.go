@@ -2,124 +2,117 @@ package s4
 
 import (
 	"context"
-	"fmt"
-	"sync"
+	"errors"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const (
-	serviceName = "S4-Storage"
+type RecordState int
+
+var (
+	ErrRecordExpired  = errors.New("record expired")
+	ErrWrongSignature = errors.New("wrong signature")
+	ErrTooBigSlotId   = errors.New("too big slot id")
+	ErrTooBigPayload  = errors.New("too big payload")
+	ErrPastExpiration = errors.New("past expiration")
+	ErrOlderVersion   = errors.New("older version")
 )
 
-// Storage represents S4 interface
-type Storage interface {
-	job.ServiceCtx
+// Constraints specifies the global storage constraints.
+type Constraints struct {
+	MaxPayloadSizeBytes int
+	MaxSlotsPerUser     int
+}
 
+// Record represents a user record persisted by S4
+type Record struct {
+	// Arbitrary user data
+	Payload []byte
+	// Version attribute assigned by user
+	Version int64
+	// Expiration timestamp assigned by user (milliseconds)
+	Expiration int64
+}
+
+// Metadata is the internal S4 data associated with a Record
+type Metadata struct {
+	Confirmed         bool
+	HighestExpiration int64
+	Signature         []byte
+}
+
+//go:generate mockery --quiet --name Storage --output ./mocks/ --case=underscore
+
+// Storage represents S4 storage access interface.
+// All functions are thread-safe.
+type Storage interface {
 	// Constraints returns a copy of Constraints struct specified during service creation.
 	// The implementation is thread-safe.
 	Constraints() Constraints
 
 	// Get returns a copy of record (with metadata) associated with the specified address and slotId.
-	// The implementation is thread-safe. The returned Record & Metadata are always a copy.
-	// If no record is found for the given parameters, ErrRecordNotFound is returned.
+	// The returned Record & Metadata are always a copy.
 	Get(ctx context.Context, address common.Address, slotId int) (*Record, *Metadata, error)
 
 	// Put creates (or updates) a record identified by the specified address and slotId.
-	// The implementation is thread-safe.
 	// For signature calculation see envelope.go
 	Put(ctx context.Context, address common.Address, slotId int, record *Record, signature []byte) error
 }
 
-type inMemoryStorage struct {
-	utils.StartStopOnce
-
-	lggr           logger.Logger
-	contraints     Constraints
-	expiryInterval time.Duration
-
-	records  map[string]Record
-	metadata map[string]Metadata
-	doneCh   chan struct{}
-	mu       sync.RWMutex
+type storage struct {
+	lggr       logger.Logger
+	contraints Constraints
+	orm        ORM
 }
 
-func NewInMemoryStorage(lggr logger.Logger, contraints Constraints, expiryInterval time.Duration) Storage {
-	return &inMemoryStorage{
-		lggr:           lggr.Named(serviceName),
-		contraints:     contraints,
-		expiryInterval: expiryInterval,
-		records:        map[string]Record{},
-		metadata:       map[string]Metadata{},
-		doneCh:         make(chan struct{}),
+func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM) Storage {
+	return &storage{
+		lggr:       lggr.Named("s4_storage"),
+		contraints: contraints,
+		orm:        orm,
 	}
 }
 
-func (s *inMemoryStorage) Start(ctx context.Context) error {
-	return s.StartOnce(serviceName, func() error {
-		go func() {
-			ticker := time.NewTicker(s.expiryInterval)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-s.doneCh:
-					return
-				case <-ticker.C:
-					s.expirationLoop()
-				}
-			}
-		}()
-		return nil
-	})
-}
-
-func (s *inMemoryStorage) Close() error {
-	return s.StopOnce(serviceName, func() (err error) {
-		// Acquring mu allows any pending operations to complete
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		close(s.doneCh)
-		return
-	})
-}
-
-func (s *inMemoryStorage) Constraints() Constraints {
+func (s *storage) Constraints() Constraints {
 	return s.contraints
 }
 
-func (s *inMemoryStorage) Get(ctx context.Context, address common.Address, slotId int) (*Record, *Metadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.StartStopOnce.State() != utils.StartStopOnce_Started {
-		return nil, nil, ErrServiceNotStarted
+func (s *storage) Get(ctx context.Context, address common.Address, slotId int) (*Record, *Metadata, error) {
+	if slotId >= s.contraints.MaxSlotsPerUser {
+		return nil, nil, ErrTooBigSlotId
 	}
 
-	key := fmt.Sprintf("%s_%d", address, slotId)
-	record, ok := s.records[key]
-	if !ok {
-		return nil, nil, ErrRecordNotFound
+	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, nil, err
 	}
-	metadata, ok := s.metadata[key]
-	if !ok {
-		return nil, nil, ErrRecordNotFound
-	}
-	if metadata.State == ExpiredRecordState {
+
+	if entry.Expiration <= time.Now().UnixMilli() {
 		return nil, nil, ErrRecordExpired
 	}
 
-	recordClone := record.Clone()
-	metadataClone := metadata.Clone()
-	return &recordClone, &metadataClone, nil
+	record := &Record{
+		Payload:    make([]byte, len(entry.Payload)),
+		Version:    entry.Version,
+		Expiration: entry.Expiration,
+	}
+	copy(record.Payload, entry.Payload)
+
+	metadata := &Metadata{
+		Confirmed:         entry.Confirmed,
+		HighestExpiration: entry.HighestExpiration,
+		Signature:         make([]byte, len(entry.Signature)),
+	}
+	copy(metadata.Signature, entry.Signature)
+
+	return record, metadata, nil
 }
 
-func (s *inMemoryStorage) Put(ctx context.Context, address common.Address, slotId int, record *Record, signature []byte) error {
+func (s *storage) Put(ctx context.Context, address common.Address, slotId int, record *Record, signature []byte) error {
 	if slotId >= s.contraints.MaxSlotsPerUser {
 		return ErrTooBigSlotId
 	}
@@ -136,44 +129,32 @@ func (s *inMemoryStorage) Put(ctx context.Context, address common.Address, slotI
 		return ErrWrongSignature
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.StartStopOnce.State() != utils.StartStopOnce_Started {
-		return ErrServiceNotStarted
+	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	if err != nil && err != ErrEntryNotFound {
+		return err
 	}
 
-	key := fmt.Sprintf("%s_%d", address, slotId)
-
-	existing, ok := s.records[key]
-	if ok && existing.Version <= record.Version {
-		return ErrOlderVersion
-	}
-
-	metadata := s.metadata[key]
-	metadata.State = NewRecordState
-	metadata.Signature = make([]byte, len(signature))
-	copy(metadata.Signature, signature)
-	if metadata.HighestExpiration < record.Expiration {
-		metadata.HighestExpiration = record.Expiration
-	}
-	s.metadata[key] = metadata
-	s.records[key] = record.Clone()
-
-	return nil
-}
-
-func (s *inMemoryStorage) expirationLoop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	now := time.Now().UnixMilli()
-
-	for k, v := range s.records {
-		if v.Expiration < now {
-			m := s.metadata[k]
-			m.State = ExpiredRecordState
-			s.metadata[k] = m
+	highestExpiration := record.Expiration
+	if entry != nil {
+		highestExpiration = entry.HighestExpiration
+		if highestExpiration < record.Expiration {
+			highestExpiration = record.Expiration
+		}
+		if record.Version <= entry.Version {
+			return ErrOlderVersion
 		}
 	}
+
+	entry = &Entry{
+		Payload:           make([]byte, len(record.Payload)),
+		Version:           record.Version,
+		Expiration:        record.Expiration,
+		Confirmed:         false,
+		HighestExpiration: highestExpiration,
+		Signature:         make([]byte, len(signature)),
+	}
+	copy(entry.Payload, record.Payload)
+	copy(entry.Signature, signature)
+
+	return s.orm.Upsert(address, slotId, entry, pg.WithParentCtx(ctx))
 }
