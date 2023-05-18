@@ -167,7 +167,8 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{}`)
+			_, err = io.WriteString(w, `{}`)
+			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
@@ -961,7 +962,8 @@ isBootstrapPeer    = true
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 					time.Sleep(5 * time.Second)
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err := res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -975,7 +977,8 @@ isBootstrapPeer    = true
 						metaLock.Unlock()
 					}
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err = res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
@@ -1188,7 +1191,8 @@ isBootstrapPeer    = true
 			slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 				time.Sleep(5 * time.Second)
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err := res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -1202,7 +1206,8 @@ isBootstrapPeer    = true
 					metaLock.Unlock()
 				}
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err = res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)

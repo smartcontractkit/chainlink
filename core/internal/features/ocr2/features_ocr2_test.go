@@ -305,7 +305,8 @@ fromBlock = %d
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(5 * time.Second)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err := res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -319,7 +320,8 @@ fromBlock = %d
 				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err = res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
@@ -567,7 +569,8 @@ chainID 			= 1337
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(5 * time.Second)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err := res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -581,7 +584,8 @@ chainID 			= 1337
 				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err = res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
