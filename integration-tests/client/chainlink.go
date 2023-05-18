@@ -3,7 +3,6 @@ package client
 
 import (
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
 	"regexp"
@@ -18,8 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-
-	"github.com/prometheus/prometheus/discovery/targetgroup"
 )
 
 const (
@@ -1210,40 +1207,4 @@ func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
 		return nil, nil, err
 	}
 	return response, resp.RawResponse, err
-}
-
-func (c *Chainlink) GetPluginDiscovery() (*targetgroup.Group, *http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Getting plugin discovery endpoint")
-	response := &targetgroup.Group{}
-	resp, err := c.APIClient.R().
-		SetResult(response).
-		Get("/discovery")
-	if err != nil {
-		return nil, nil, err
-	}
-	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	if err != nil {
-		return nil, nil, err
-	}
-	return response, resp.RawResponse, err
-}
-
-// returns the Prometheus metrics of a plugin as raw bytes.
-// prom metrics are content-type text/plain, so a byte slice is the best option.
-func (c *Chainlink) GetPluginMetrics(name string) ([]byte, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Getting plugin discovery endpoint")
-
-	resp, err := c.APIClient.R().
-		SetDoNotParseResponse(true).
-		Get(fmt.Sprint("/plugins/%s/metrics", name))
-	if err != nil {
-		return nil, err
-	}
-	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.RawBody().Close()
-	return io.ReadAll(resp.RawResponse.Body)
-
 }

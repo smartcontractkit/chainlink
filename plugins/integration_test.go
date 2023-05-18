@@ -24,12 +24,15 @@ import (
 )
 
 var (
-	db               *sql.DB
-	dbName           = "loop_integration_new_test"
-	pgUser           = "admin"
-	pgPassword       = "sixteenCharacter"
-	chainlinkBaseUrl string
-	autoCleanupOpts  = func(config *docker.HostConfig) {
+	db                      *sql.DB
+	dbName                  = "loop_integration_new_test"
+	pgUser                  = "admin"
+	pgPassword              = "sixteenCharacter"
+	pgDockerHostName        = "pg_host"
+	pgDockerPort            = 5432
+	chainlinkDockerHostName = "chainlink_host"
+	chainlinkBaseUrl        string
+	autoCleanupOpts         = func(config *docker.HostConfig) {
 		// set AutoRemove to true so that stopped container goes away by itself
 		config.AutoRemove = true
 		config.RestartPolicy = docker.RestartPolicy{Name: "no"}
@@ -83,14 +86,17 @@ func TestMain(m *testing.M) {
 	}()
 
 	var (
-		network     *docker.Network
-		databaseUrl string
-		//		runningInCI bool
+		network *docker.Network
 	)
-	network, err = pool.Client.CreateNetwork(docker.CreateNetworkOptions{Name: "zookeeper_kafka_network"})
+	network, err = pool.Client.CreateNetwork(docker.CreateNetworkOptions{Name: "pg_chainlink_network"})
 	if err != nil {
-		log.Fatalf("could not create a network to zookeeper and kafka: %s", err)
+		log.Fatalf("could not create a network to pg and chainlink %s", err)
 	}
+	n2, err := pool.CreateNetwork("dt-net")
+	if err != nil {
+		log.Fatalf("error creating test network: %s", err)
+	}
+	log.Printf("setup docker network %+v %s %s", *network, network.ID, network.Name)
 	defer func() {
 		pruned, err := pool.Client.PruneImages(docker.PruneImagesOptions{})
 		if err != nil {
@@ -99,18 +105,12 @@ func TestMain(m *testing.M) {
 		log.Printf("pruned %+v", *pruned)
 		pool.Client.RemoveNetwork(network.ID)
 	}()
-	//	runningInCI = (os.Getenv("CI") == "true")
-	//	if runningInCI {
-	//		databaseUrl = os.Getenv("CL_DATABASE_URL")
-	//	} else {
-	pgResource, dburllocal, err := runPostgresContainer(pool, network)
+
+	pgResource, err := runPostgresContainer(pool, n2.Network)
 	if err != nil {
 		log.Fatal(err)
 	}
 	resourcePurger.register(pgResource)
-
-	databaseUrl = dburllocal
-	//	}
 
 	log.Println("waiting for chainlink build...")
 	buildWg.Wait()
@@ -118,11 +118,9 @@ func TestMain(m *testing.M) {
 		log.Fatalf(buildErr.Error())
 	}
 
-	dbUrlForNode := databaseUrl
-	//	if !runningInCI {
-	dbUrlForNode = dburl("pg_host:5432")
-	//	}
-	log.Printf("starting for chainlink container with db %s (orig %s)...", dbUrlForNode, databaseUrl)
+	dbUrlForNode := dburl(fmt.Sprintf("%s:%d", pgDockerHostName, pgDockerPort))
+
+	log.Printf("starting for chainlink container with db %s ...", dbUrlForNode)
 
 	nodeContainerStdout := newStreamHack("node.container.stdout")
 	defer nodeContainerStdout.Close()
@@ -150,14 +148,9 @@ func TestMain(m *testing.M) {
 			//"CL_DATABASE_URL=" + strings.Replace(databaseUrl, "localhost", "host.docker.internal", 1),
 			"CL_DATABASE_URL=" + dbUrlForNode,
 		},
-		NetworkID: network.ID,
+		NetworkID: n2.Network.ID,
 		Hostname:  "chainlink_host",
-		/*
-			PortBindings: map[docker.Port][]docker.PortBinding{
-				"9093/tcp": {{HostIP: "localhost", HostPort: "9093/tcp"}},
-			},
-			ExposedPorts: []string{"6688/tcp"}
-		*/
+
 		// hackery to get the container to run the solana loop
 		Entrypoint: []string{
 			"chainlink",
@@ -289,7 +282,7 @@ func TestContainerEndpoints(t *testing.T) {
 
 }
 
-func runPostgresContainer(pool *dockertest.Pool, network *docker.Network) (*dockertest.Resource, string, error) {
+func runPostgresContainer(pool *dockertest.Pool, network *docker.Network) (*dockertest.Resource, error) {
 	// postgres has to be running before chainlink bc of DB dependence
 	// pulls an image, creates a container based on it and runs it
 	pgResource, err := pool.RunWithOptions(&dockertest.RunOptions{
@@ -304,10 +297,13 @@ func runPostgresContainer(pool *dockertest.Pool, network *docker.Network) (*dock
 		},
 		NetworkID:    network.ID,
 		Hostname:     "pg_host",
-		ExposedPorts: []string{"5432"},
+		ExposedPorts: []string{"5432/tcp"},
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			"5423/tcp": {{HostIP: "localhost", HostPort: "5432/tcp"}},
+		},
 	}, autoCleanupOpts)
 	if err != nil {
-		return nil, "", fmt.Errorf("Could not start pg resource: %w", err)
+		return nil, fmt.Errorf("Could not start pg resource: %w", err)
 	}
 	// register to purge postgres container
 	//resourcePurger.register(pgResource)
@@ -317,7 +313,7 @@ func runPostgresContainer(pool *dockertest.Pool, network *docker.Network) (*dock
 	log.Println("Connecting to database on url: ", databaseUrl)
 	err = pgResource.Expire(300) // Tell docker to hard kill the container in 300 seconds. Acts as a hard cut off for the test suite, too
 	if err != nil {
-		return pgResource, databaseUrl, fmt.Errorf("failed to set pg expiry: %w", err)
+		return pgResource, fmt.Errorf("failed to set pg expiry: %w", err)
 	}
 
 	pgMaxWait := 120 * time.Second
@@ -330,11 +326,11 @@ func runPostgresContainer(pool *dockertest.Pool, network *docker.Network) (*dock
 		}
 		return db.Ping()
 	}); err != nil {
-		return pgResource, databaseUrl, fmt.Errorf("Could not connect to pg container: %w", err)
+		return pgResource, fmt.Errorf("Could not connect to pg container: %w", err)
 	}
 
 	log.Println("connected to postgres container at ", databaseUrl)
-	return pgResource, databaseUrl, nil
+	return pgResource, nil
 }
 
 func buildChainlinkImage(ctxDir string, pool *dockertest.Pool, id string) error {
