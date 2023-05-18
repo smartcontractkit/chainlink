@@ -48,7 +48,7 @@ type broadcasterHelper struct {
 	lb           log.BroadcasterInTest
 	db           *sqlx.DB
 	mockEth      *evmtest.MockEth
-	globalConfig config.ApplicationConfig
+	globalConfig config.AppConfig
 	config       evmconfig.ChainScopedConfig
 
 	// each received channel corresponds to one eth subscription
