@@ -571,24 +571,21 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 		return
 	}
 
-	r.lggr.Debugf("[MercuryLookup] before mercury lookup, len(upkeepResults)=%d", len(upkeepResults))
 	if mercuryEnabled {
-		r.lggr.Debugf("[MercuryLookup] is ENABLED")
 		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
 			chResult <- checkResult{
 				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
 			}
 		}
 		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
-		r.lggr.Debugf("[MercuryLookup] after mercury lookup, err == nil is %v, len(upkeepResults)=%d", err == nil, len(upkeepResults))
+		r.lggr.Debugf("MercuryLookup after mercury lookup %v", upkeepResults)
+		r.lggr.Debugf("MercuryLookup after mercury lookup %v", err)
 		if err != nil {
 			chResult <- checkResult{
 				err: err,
 			}
 			return
 		}
-	} else {
-		r.lggr.Debugf("[MercuryLookup] is NOT enabled")
 	}
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
