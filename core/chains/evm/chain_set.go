@@ -241,7 +241,7 @@ func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amoun
 }
 
 type GeneralConfig interface {
-	config.GeneralConfig
+	config.ApplicationConfig
 	v2.HasEVMConfigs
 }
 

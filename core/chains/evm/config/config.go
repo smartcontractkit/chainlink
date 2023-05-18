@@ -83,7 +83,7 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.BasicConfig
+	config.ApplicationConfig
 	ChainScopedOnlyConfig
 	Validate() error
 }

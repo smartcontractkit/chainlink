@@ -15,7 +15,7 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.BasicConfig
+	Config   coreconfig.ApplicationConfig
 	Logger   logger.Logger
 	KeyStore keystore.StarkNet
 	Configs  types.Configs
