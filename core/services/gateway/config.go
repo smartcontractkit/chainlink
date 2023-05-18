@@ -8,12 +8,8 @@ import (
 
 type GatewayConfig struct {
 	UserServerConfig gw_net.HTTPServerConfig
-	NodeServerConfig NodeServerConfig
+	NodeServerConfig gw_net.WebSocketServerConfig
 	Dons             []DONConfig
-}
-
-type NodeServerConfig struct {
-	Port uint16
 }
 
 type DONConfig struct {

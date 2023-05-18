@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -1125,24 +1124,12 @@ func setupKeeperTest(
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		})
-		// For if we end up using env vars
-		keeperEnvVars["ETH_URL"] = network.URLs[0]
-		keeperEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-		keeperEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 	}
 
 	chainlinkChart := chainlink.New(0, map[string]interface{}{
 		"replicas": "5",
 		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
 	})
-
-	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-	if useEnvVars == "true" {
-		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": "5",
-			"env":      keeperEnvVars,
-		})
-	}
 
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(

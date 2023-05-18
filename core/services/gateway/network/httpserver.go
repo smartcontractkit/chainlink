@@ -54,7 +54,7 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		config:            config,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              lggr,
+		lggr:              lggr.Named("WebSocketServer"),
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
