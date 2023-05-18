@@ -7,6 +7,7 @@ import (
 	"time"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -25,7 +26,6 @@ import (
 const queryTimeout = 10 * time.Second
 
 //go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -78,13 +78,6 @@ type Client interface {
 	IsL2() bool
 }
 
-// This interface only exists so that we can generate a mock for it.  It is
-// identical to `ethereum.Subscription`.
-type Subscription interface {
-	Err() <-chan error
-	Unsubscribe()
-}
-
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
 	return context.WithTimeout(context.Background(), queryTimeout)
 }
@@ -97,6 +90,7 @@ type client struct {
 }
 
 var _ Client = (*client)(nil)
+var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
