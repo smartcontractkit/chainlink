@@ -17,7 +17,7 @@ var (
 
 type LogfFn func(string, ...any)
 
-type ApplicationConfig interface {
+type AppConfig interface {
 	AppID() uuid.UUID
 	RootDir() string
 	ShutdownGracePeriod() time.Duration

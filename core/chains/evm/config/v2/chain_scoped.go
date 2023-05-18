@@ -15,13 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.ApplicationConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
-	return &ChainScoped{ApplicationConfig: genCfg, cfg: chain, lggr: lggr}
+func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
+	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	gencfg.ApplicationConfig
+	gencfg.AppConfig
 	lggr logger.Logger
 
 	cfg *EVMConfig
