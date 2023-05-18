@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -218,7 +220,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) erro
 	return nil
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string) (string, func(bool), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string, force bool) (string, func(bool), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -262,8 +264,16 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		}
 	}
 
-	// Create DB container
 	postgresContainerName := fmt.Sprintf("%s-postgres", containerName)
+
+	// If force flag is on, we check and remove containers with the same name before creating new ones
+	if force {
+		if err = checkAndRemoveContainer(ctx, dockerClient, postgresContainerName); err != nil {
+			return "", nil, fmt.Errorf("failed to remove container: %s", err)
+		}
+	}
+
+	// Create DB container
 	dbContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.PostgresDockerImage,
 		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
@@ -278,7 +288,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		},
 	}, nil, postgresContainerName)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create Postgres container: %s", err)
+		return "", nil, fmt.Errorf("failed to create Postgres container, use --force=true to force removing existing containers: %s", err)
 	}
 
 	// Start container
@@ -288,6 +298,13 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	log.Println("Postgres docker container successfully created and started: ", dbContainerResp.ID)
 
 	time.Sleep(time.Second * 10)
+
+	// If force flag is on, we check and remove containers with the same name before creating new ones
+	if force {
+		if err = checkAndRemoveContainer(ctx, dockerClient, containerName); err != nil {
+			return "", nil, fmt.Errorf("failed to remove container: %s", err)
+		}
+	}
 
 	// Pull node image if needed
 	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, h.cfg.ChainlinkDockerImage); err != nil {
@@ -365,7 +382,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		},
 	}, nil, containerName)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create node container: %s", err)
+		return "", nil, fmt.Errorf("failed to create node container, use --force=true to force removing existing containers: %s", err)
 	}
 
 	// Start container
@@ -428,6 +445,30 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			log.Fatal("Failed to remove DB container: ", err)
 		}
 	}, nil
+}
+
+func checkAndRemoveContainer(ctx context.Context, dockerClient *client.Client, containerName string) error {
+	opts := types.ContainerListOptions{
+		Filters: filters.NewArgs(filters.Arg("name", "^/"+regexp.QuoteMeta(containerName)+"$")),
+	}
+
+	containers, err := dockerClient.ContainerList(ctx, opts)
+	if err != nil {
+		return fmt.Errorf("failed to list containers: %s", err)
+	}
+
+	if len(containers) > 1 {
+		log.Fatal("more than two containers with the same name should not happen")
+	} else if len(containers) > 0 {
+		if err := dockerClient.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
+			Force: true,
+		}); err != nil {
+			return fmt.Errorf("failed to remove existing container: %s", err)
+		}
+		log.Println("successfully removed an existing container with name: ", containerName)
+	}
+
+	return nil
 }
 
 func waitForNodeReady(addr string) error {
