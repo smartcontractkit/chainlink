@@ -228,7 +228,10 @@ func NewApp(client *Client) *cli.App {
 				}
 
 				// Swap out the logger, replacing the old one.
-				client.CloseLogger()
+				err = client.CloseLogger()
+				if err != nil {
+					return err
+				}
 
 				lggrCfg := logger.Config{
 					LogLevel:       client.Config.LogLevel(),

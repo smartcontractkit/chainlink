@@ -25,13 +25,19 @@ func parseTOMLConfig(t *testing.T, tomlConfig string) *gateway.GatewayConfig {
 	return &cfg
 }
 
+func buildConfig(toAppend string) string {
+	return `
+	[userServerConfig]
+	Path = "/user"
+	[nodeServerConfig]
+	Path = "/node"
+	` + toAppend
+}
+
 func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
 	t.Parallel()
 
-	tomlConfig := `
-[userServerConfig]
-Path = "/user"
-
+	tomlConfig := buildConfig(`
 [[dons]]
 DonId = "my_don_1"
 HandlerName = "dummy"
@@ -39,7 +45,7 @@ HandlerName = "dummy"
 [[dons]]
 DonId = "my_don_2"
 HandlerName = "dummy"
-`
+`)
 
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
 	require.NoError(t, err)
@@ -48,10 +54,7 @@ HandlerName = "dummy"
 func TestGateway_NewGatewayFromConfig_DuplicateID(t *testing.T) {
 	t.Parallel()
 
-	tomlConfig := `
-[userServerConfig]
-Path = "/user"
-
+	tomlConfig := buildConfig(`
 [[dons]]
 DonId = "my_don"
 HandlerName = "dummy"
@@ -59,7 +62,7 @@ HandlerName = "dummy"
 [[dons]]
 DonId = "my_don"
 HandlerName = "dummy"
-`
+`)
 
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
 	require.Error(t, err)
@@ -68,14 +71,11 @@ HandlerName = "dummy"
 func TestGateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
 	t.Parallel()
 
-	tomlConfig := `
-[userServerConfig]
-Path = "/user"
-
+	tomlConfig := buildConfig(`
 [[dons]]
 DonId = "my_don"
 HandlerName = "no_such_handler"
-`
+`)
 
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
 	require.Error(t, err)
@@ -84,14 +84,11 @@ HandlerName = "no_such_handler"
 func TestGateway_NewGatewayFromConfig_MissingID(t *testing.T) {
 	t.Parallel()
 
-	tomlConfig := `
-[userServerConfig]
-Path = "/user"
-
+	tomlConfig := buildConfig(`
 [[dons]]
 HandlerName = "dummy"
 SomeOtherField = "abcd"
-`
+`)
 
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
 	require.Error(t, err)
