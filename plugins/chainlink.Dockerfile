@@ -38,6 +38,10 @@ ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-median
 
+# Kill each plugin execution after 10-60 seconds.
+RUN echo 'alias chainlink-solana="timeout -s KILL $[$RANDOM % 50 + 10] chainlink-solana"' >> ~/.bashrc
+RUN echo 'alias chainlink-median="timeout -s KILL $[$RANDOM % 50 + 10] chainlink-median"' >> ~/.bashrc
+
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
 RUN chmod 755 /usr/lib/libwasmvm.*.so
