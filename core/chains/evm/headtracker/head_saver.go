@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,6 +17,8 @@ type headSaver struct {
 	logger logger.Logger
 	heads  Heads
 }
+
+var _ htrktypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
 
 func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
 	return &headSaver{
@@ -37,7 +40,7 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
-func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *evmtypes.Head, err error) {
+func (hs *headSaver) LoadFromMemory(ctx context.Context) (chain *evmtypes.Head, err error) {
 	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
@@ -48,7 +51,7 @@ func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *evmtypes.Head, err 
 	return hs.heads.LatestHead(), nil
 }
 
-func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {
+func (hs *headSaver) LatestHeadFromMemory(ctx context.Context) (head *evmtypes.Head, err error) {
 	return hs.orm.LatestHead(ctx)
 }
 
@@ -71,8 +74,8 @@ var NullSaver httypes.HeadSaver = &nullSaver{}
 
 type nullSaver struct{}
 
-func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error          { return nil }
-func (*nullSaver) LoadFromDB(ctx context.Context) (*evmtypes.Head, error)       { return nil, nil }
-func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
-func (*nullSaver) LatestChain() *evmtypes.Head                                  { return nil }
-func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        { return nil }
+func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error              { return nil }
+func (*nullSaver) LoadFromMemory(ctx context.Context) (*evmtypes.Head, error)       { return nil, nil }
+func (*nullSaver) LatestHeadFromMemory(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
+func (*nullSaver) LatestChain() *evmtypes.Head                                      { return nil }
+func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                            { return nil }
