@@ -267,7 +267,6 @@ jobs:
   ### Migration tests
   node-migration-tests:
     name: Version Migration Tests
-    if: false ## TODO: Blocked on TT-341
     environment: integration
     permissions:
       checks: write

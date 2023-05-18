@@ -940,7 +940,7 @@ contractAddress                        = "{{.ContractAddress}}"
 {{if .P2PBootstrapPeers}}
 p2pBootstrapPeers                      = [
   {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.RemoteIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
+  "/dns4/{{$peer.InternalIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
   {{end}}
 ]
 {{else}}
