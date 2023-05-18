@@ -314,7 +314,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
-	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.GeneralConfig {
+	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.ApplicationConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := utils.NewBigI(id)
 			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.Defaults(chainID, chains...),
