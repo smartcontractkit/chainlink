@@ -87,9 +87,15 @@ jobs:
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
           allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
+      - name: Install bat
+        uses: awalsh128/cache-apt-pkgs-action@1850ee53f6e706525805321a3f2f863dcf73c962 # v1.3.0
+        with:
+          packages: bat
+        if: always()
       - name: Print lint report artifact
         if: always()
-        run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
+        shell: bash
+        run: test -f golangci-lint-report.xml && bat -pP golangci-lint-report.xml || true
       - name: Store lint report artifact
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
