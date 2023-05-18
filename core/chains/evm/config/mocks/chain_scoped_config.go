@@ -3617,6 +3617,20 @@ func (_m *ChainScopedConfig) Validate() error {
 	return r0
 }
 
+// ValidateDB provides a mock function with given fields:
+func (_m *ChainScopedConfig) ValidateDB() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 type mockConstructorTestingTNewChainScopedConfig interface {
 	mock.TestingT
 	Cleanup(func())
