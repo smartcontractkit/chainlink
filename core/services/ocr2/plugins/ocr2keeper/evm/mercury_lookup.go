@@ -58,7 +58,6 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 	for i := range upkeepResults {
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
-			r.lggr.Debugf("MercuryLookup %s failure reason is NOT UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED. Won't do mercury lookup", upkeepId.String())
 			continue
 		}
 
