@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -20,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseLock {
+func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLock {
 	return pg.NewLeaseLock(db, uuid.New(), logger.TestLogger(t), cfg)
 }
 
