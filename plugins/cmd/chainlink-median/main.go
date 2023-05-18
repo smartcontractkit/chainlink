@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/hashicorp/go-plugin"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -33,10 +33,9 @@ func main() {
 	}()
 
 	mp := median.NewPlugin(lggr)
-	err = mp.Start(context.Background())
-	if err != nil {
-		lggr.Fatalf("Failed to start median plugin: %s", err)
-	}
+	defer func() {
+		logger.Sugared(lggr).ErrorIfFn(mp.Close, "pluginMedian")
+	}()
 
 	stop := make(chan struct{})
 	defer close(stop)
