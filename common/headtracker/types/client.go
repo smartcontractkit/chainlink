@@ -8,10 +8,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-type HeadTrackerClient[H commontypes.Head[BLOCK_HASH], S Subscription, ID txmgrtypes.ID, BLOCK_HASH commontypes.Hashable] interface {
+type Client[H commontypes.Head[BLOCK_HASH], S Subscription, ID txmgrtypes.ID, BLOCK_HASH commontypes.Hashable] interface {
 	HeadByNumber(ctx context.Context, number *big.Int) (head H, err error)
 	HeadByHash(ctx context.Context, hash BLOCK_HASH) (head H, err error)
-	ConfiguredChainID() (id ID)
+	ChainID() (id ID, err error)
 
 	// SubscribeNewHead is the method in which the client receives new Head.
 	// It can be implemented differently for each chain i.e websocket, polling, etc

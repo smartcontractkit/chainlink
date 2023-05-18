@@ -90,7 +90,7 @@ type client struct {
 }
 
 var _ Client = (*client)(nil)
-var _ htrktypes.HeadTrackerClient[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
+var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
