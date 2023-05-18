@@ -577,15 +577,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
 			}
 		}
-
-		for i := range upkeepResults {
-			r.lggr.Debugf("before MercuryLookup key %s, status: %d, failure reason: %d", upkeepResults[i].Key.String(), upkeepResults[i].State, upkeepResults[i].FailureReason)
-		}
 		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
-		for i := range upkeepResults {
-			r.lggr.Debugf("after MercuryLookup key %s, status: %d, failure reason: %d", upkeepResults[i].Key.String(), upkeepResults[i].State, upkeepResults[i].FailureReason)
-		}
-		r.lggr.Debugf("after MercuryLookup %v", err)
 		if err != nil {
 			chResult <- checkResult{
 				err: err,

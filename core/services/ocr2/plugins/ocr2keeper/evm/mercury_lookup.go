@@ -46,7 +46,7 @@ type MercuryBytes struct {
 }
 
 const (
-	RetryDelay   = 750 * time.Millisecond
+	RetryDelay   = 500 * time.Millisecond
 	TotalAttempt = 3
 )
 
@@ -63,7 +63,6 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 		}
 
 		// if its another reason continue/skip
-		r.lggr.Debugf("MercuryLookup upkeep ID %s block %s has failure reason %d status %d", upkeepId.String(), block.String(), upkeepResults[i].FailureReason, upkeepResults[i].State)
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			r.lggr.Debugf("MercuryLookup %s failure reason is NOT UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED. Won't do mercury lookup", upkeepId.String())
 			continue
@@ -82,7 +81,6 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			r.lggr.Errorf("MercuryLookup upkeep %s block %s decodeMercuryLookup: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s decodeMercuryLookup success", upkeepId.String(), block.String())
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -102,14 +100,12 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			r.lggr.Errorf("MercuryLookup upkeep %s block %s doMercuryRequest: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s doMercuryRequest success", upkeepId.String(), block.String())
 
 		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo, opts)
 		if err != nil {
 			r.lggr.Errorf("MercuryLookup upkeep %s block %s mercuryLookupCallback err: %v", upkeepId.String(), block.String(), err)
 			continue
 		}
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s mercuryLookupCallback success", upkeepId.String(), block.String())
 		if !needed {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 			r.lggr.Debugf("MercuryLookup upkeep %s block %s callback reports upkeep not needed", upkeepId.String(), block.String())
@@ -254,10 +250,6 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			if err1 != nil {
 				r.lggr.Errorf("MercuryLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", upkeepId.String(), ml.query.String(), ml.feeds[index], err1)
 				return err1
-			}
-			empty := MercuryResponse{}
-			if m == empty || m.ChainlinkBlob == "" {
-				r.lggr.Errorf("MercuryLookup upkeep %s block %s response is empty", upkeepId.String(), ml.query.String())
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
