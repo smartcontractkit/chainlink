@@ -19,7 +19,7 @@ func MakeLoopCmd(loopRegistry *LoopRegistry, lcfg LoopExecConfig) (func() *exec.
 		return nil, fmt.Errorf("failed to register %s LOOP plugin: %w", lcfg.Id, err)
 	}
 	return func() *exec.Cmd {
-		cmd := exec.Command(lcfg.Cmd)
+		cmd := exec.Command(lcfg.Cmd) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 		SetCmdEnvFromConfig(cmd, registeredLoop.EnvCfg)
 		return cmd
 	}, nil

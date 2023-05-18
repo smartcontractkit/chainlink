@@ -1,12 +1,17 @@
 package keystore
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"math/big"
 
+	"github.com/dontpanicdao/caigo"
 	"github.com/pkg/errors"
 
 	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
@@ -170,6 +175,44 @@ func (s *StarkNetSigner) Accounts(ctx context.Context) ([]string, error) {
 	return accounts, nil
 }
 
+const byteLen = 32
+
 func (s *StarkNetSigner) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
-	return nil, fmt.Errorf("unimplemented")
+	k, err := s.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	// big.Int requires big endian
+	buf := new(bytes.Buffer)
+	err = binary.Write(buf, binary.BigEndian, msg)
+	if err != nil {
+		return nil, fmt.Errorf("error transcoding input message to big endian: %w", err)
+	}
+
+	hsh, err := caigo.Curve.ComputeHashOnElements([]*big.Int{
+		new(big.Int).SetBytes(buf.Bytes()),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error computing hash: %w", err)
+	}
+	x, y, err := caigo.Curve.Sign(hsh, k.ToPrivKey())
+	if err != nil {
+		return nil, fmt.Errorf("error signing hash: %w", err)
+	}
+	result := new(bytes.Buffer)
+	n, err := result.Write(pkgstarknet.PadBytes(x.Bytes(), byteLen))
+	if err != nil {
+		return nil, fmt.Errorf("error encoding 'x' component of signature: %w", err)
+	}
+	if n != byteLen {
+		return nil, fmt.Errorf("truncated write of 'x' component of signature. wrote %d expected %d", n, byteLen)
+	}
+	n, err = result.Write(pkgstarknet.PadBytes(y.Bytes(), byteLen))
+	if err != nil {
+		return nil, fmt.Errorf("error encoding 'x' component of signature: %w", err)
+	}
+	if n != byteLen {
+		return nil, fmt.Errorf("truncated write of 'x' component of signature. wrote %d expected %d", n, byteLen)
+	}
+	return result.Bytes(), nil
 }
