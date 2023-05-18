@@ -17,7 +17,7 @@ var _ Relayer = (*RelayerService)(nil)
 
 // RelayerService is a [types.Service] that maintains an internal [Relayer].
 type RelayerService struct {
-	*pluginService[*GRPCPluginRelayer, Relayer]
+	pluginService[*GRPCPluginRelayer, Relayer]
 }
 
 // NewRelayerService returns a new [*RelayerService].
@@ -36,7 +36,9 @@ func NewRelayerService(lggr logger.Logger, cmd func() *exec.Cmd, config string, 
 	}
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "RelayerService")
-	return &RelayerService{newPluginService(PluginRelayerName, &GRPCPluginRelayer{StopCh: stopCh, Logger: lggr}, newService, lggr, cmd, stopCh)}
+	var rs RelayerService
+	rs.init(PluginRelayerName, &GRPCPluginRelayer{StopCh: stopCh, Logger: lggr}, newService, lggr, cmd, stopCh)
+	return &rs
 }
 
 func (r *RelayerService) NewConfigProvider(ctx context.Context, args types.RelayArgs) (types.ConfigProvider, error) {

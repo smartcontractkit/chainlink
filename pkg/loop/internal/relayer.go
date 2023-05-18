@@ -161,6 +161,7 @@ func (k *keystoreServer) Sign(ctx context.Context, request *pb.SignRequest) (*pb
 	return &pb.SignReply{SignedData: signed}, nil
 }
 
+// Relayer extends [types.Relayer] and includes [context.Context]s.
 type Relayer interface {
 	types.Service
 

@@ -17,7 +17,7 @@ var _ ocrtypes.ReportingPluginFactory = (*MedianService)(nil)
 
 // MedianService is a [types.Service] that maintains an internal [PluginMedian].
 type MedianService struct {
-	*pluginService[*GRPCPluginMedian, ReportingPluginFactory]
+	pluginService[*GRPCPluginMedian, ReportingPluginFactory]
 }
 
 // NewMedianService returns a new [*MedianService].
@@ -32,7 +32,9 @@ func NewMedianService(lggr logger.Logger, cmd func() *exec.Cmd, provider types.M
 	}
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "MedianService")
-	return &MedianService{newPluginService(PluginMedianName, &GRPCPluginMedian{StopCh: stopCh, Logger: lggr}, newService, lggr, cmd, stopCh)}
+	var ms MedianService
+	ms.init(PluginMedianName, &GRPCPluginMedian{StopCh: stopCh, Logger: lggr}, newService, lggr, cmd, stopCh)
+	return &ms
 }
 
 func (m *MedianService) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {

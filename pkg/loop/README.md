@@ -6,15 +6,27 @@ Local out of process (LOOP) plugins using [github.com/hashicorp/go-plugin](https
 
 ```mermaid
 flowchart
-    loop
-    internal[loop/internal]
-    pb[loop/internal/pb]
-    test[loop/internal/test]
+    subgraph chainlink-relay/pkg
+        loop
+        internal[loop/internal]
+        pb[loop/internal/pb]
+        test[loop/internal/test]
 
-    internal --> pb
-    test --> internal
-    loop --> internal
-    loop --> test
+        internal --> pb
+        test --> internal
+        loop --> internal
+        loop --> test
+    end
+    
+    grpc[google.golang.org/grpc]
+    hashicorp[hashicorp/go-plugin]
+
+    loop ---> hashicorp
+    loop ---> grpc
+    test ---> grpc
+    internal ---> grpc
+    pb ---> grpc
+    hashicorp --> grpc
 
 ```
 

@@ -8,9 +8,9 @@ const KeepAliveTickDuration = keepAliveTickDuration
 
 // TestHook returns a TestPluginService.
 // It must only be called once, and before Start.
-func (r *pluginService[P, S]) TestHook() TestPluginService[P, S] {
-	r.testInterrupt = make(chan func(*pluginService[P, S]))
-	return r.testInterrupt
+func (s *pluginService[P, S]) TestHook() TestPluginService[P, S] {
+	s.testInterrupt = make(chan func(*pluginService[P, S]))
+	return s.testInterrupt
 }
 
 // TestPluginService supports Killing & Resetting a running *pluginService.

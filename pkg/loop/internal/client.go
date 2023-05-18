@@ -87,7 +87,7 @@ func (c *clientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, metho
 	return nil, context.Cause(ctx)
 }
 
-// refresh replaces c.cc with a new (different than orig) *grpc.ClientConn, and returns it as well.
+// refresh replaces c.cc with a new (different from orig) *grpc.ClientConn, and returns it as well.
 // It will block until a new connection is successfully dialed, or return nil if the context expires.
 func (c *clientConn) refresh(ctx context.Context, orig *grpc.ClientConn) *grpc.ClientConn {
 	c.mu.Lock()
@@ -148,6 +148,8 @@ func (c *clientConn) refresh(ctx context.Context, orig *grpc.ClientConn) *grpc.C
 	return c.cc
 }
 
+// isErrTerminal returns true if the grpc [status] [codes.Code] indicates that the plugin connection has terminated and
+// must be refreshed.
 func isErrTerminal(err error) bool {
 	switch status.Code(err) {
 	case codes.Unavailable, codes.Canceled:

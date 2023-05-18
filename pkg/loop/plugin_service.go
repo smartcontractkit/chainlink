@@ -52,66 +52,64 @@ type pluginService[P grpcPlugin, S types.Service] struct {
 	testInterrupt chan func(*pluginService[P, S]) // tests only (via TestHook) to enable access to internals without racing
 }
 
-func newPluginService[P grpcPlugin, S types.Service](pluginName string, p P, newService func(context.Context, any) (S, error), lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) *pluginService[P, S] {
-	return &pluginService[P, S]{
-		pluginName: pluginName,
-		lggr:       lggr,
-		cmd:        cmd,
-		stopCh:     stopCh,
-		grpcPlug:   p,
-		newService: newService,
-		serviceCh:  make(chan struct{}),
-	}
+func (s *pluginService[P, S]) init(pluginName string, p P, newService func(context.Context, any) (S, error), lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) {
+	s.pluginName = pluginName
+	s.lggr = lggr
+	s.cmd = cmd
+	s.stopCh = stopCh
+	s.grpcPlug = p
+	s.newService = newService
+	s.serviceCh = make(chan struct{})
 }
 
-func (r *pluginService[P, S]) keepAlive() {
-	defer r.wg.Done()
+func (s *pluginService[P, S]) keepAlive() {
+	defer s.wg.Done()
 
-	r.lggr.Debugw("Staring keepAlive", "tick", keepAliveTickDuration)
+	s.lggr.Debugw("Staring keepAlive", "tick", keepAliveTickDuration)
 
 	t := time.NewTicker(keepAliveTickDuration)
 	defer t.Stop()
 	for {
 		select {
-		case <-r.stopCh:
+		case <-s.stopCh:
 			return
 		case <-t.C:
-			c := r.client
-			cp := r.clientProtocol
+			c := s.client
+			cp := s.clientProtocol
 			if c != nil && !c.Exited() && cp != nil {
 				// launched
 				err := cp.Ping()
 				if err == nil {
 					continue // healthy
 				}
-				r.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
+				s.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
 			}
-			if err := r.tryLaunch(cp); err != nil {
-				r.lggr.Errorw("Failed to launch plugin", "err", err)
+			if err := s.tryLaunch(cp); err != nil {
+				s.lggr.Errorw("Failed to launch plugin", "err", err)
 			}
-		case fn := <-r.testInterrupt:
-			fn(r)
+		case fn := <-s.testInterrupt:
+			fn(s)
 		}
 	}
 }
 
-func (r *pluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
-	if old != nil && r.clientProtocol != old {
+func (s *pluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
+	if old != nil && s.clientProtocol != old {
 		// already replaced by another routine
 		return nil
 	}
-	r.client, r.clientProtocol, err = r.launch()
+	s.client, s.clientProtocol, err = s.launch()
 	return
 }
 
-func (r *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, error) {
-	ctx, cancelFn := utils.ContextFromChan(r.stopCh)
+func (s *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, error) {
+	ctx, cancelFn := utils.ContextFromChan(s.stopCh)
 	defer cancelFn()
 
-	r.lggr.Debug("Launching")
+	s.lggr.Debug("Launching")
 
-	cc := r.grpcPlug.ClientConfig()
-	cc.Cmd = r.cmd()
+	cc := s.grpcPlug.ClientConfig()
+	cc.Cmd = s.cmd()
 	client := plugin.NewClient(cc)
 	cp, err := client.Client()
 	if err != nil {
@@ -120,89 +118,89 @@ func (r *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, e
 	}
 	abort := func() {
 		if cerr := cp.Close(); cerr != nil {
-			r.lggr.Errorw("Error closing ClientProtocol", "err", cerr)
+			s.lggr.Errorw("Error closing ClientProtocol", "err", cerr)
 		}
 		client.Kill()
 	}
-	i, err := cp.Dispense(r.pluginName)
+	i, err := cp.Dispense(s.pluginName)
 	if err != nil {
 		abort()
-		return nil, nil, fmt.Errorf("failed to Dispense %q plugin: %w", r.pluginName, err)
+		return nil, nil, fmt.Errorf("failed to Dispense %q plugin: %w", s.pluginName, err)
 	}
 
 	select {
-	case <-r.serviceCh:
-		// r.service already set
+	case <-s.serviceCh:
+		// s.service already set
 	default:
-		r.service, err = r.newService(ctx, i)
+		s.service, err = s.newService(ctx, i)
 		if err != nil {
 			abort()
 			return nil, nil, fmt.Errorf("failed to create service: %w", err)
 		}
-		defer close(r.serviceCh)
+		defer close(s.serviceCh)
 	}
 	return client, cp, nil
 }
 
-func (r *pluginService[P, S]) Start(context.Context) error {
-	return r.StartOnce("PluginService", func() error {
-		r.wg.Add(1)
-		go r.keepAlive()
+func (s *pluginService[P, S]) Start(context.Context) error {
+	return s.StartOnce("PluginService", func() error {
+		s.wg.Add(1)
+		go s.keepAlive()
 		return nil
 	})
 }
 
-func (r *pluginService[P, S]) Ready() error {
+func (s *pluginService[P, S]) Ready() error {
 	select {
-	case <-r.serviceCh:
-		return r.service.Ready()
+	case <-s.serviceCh:
+		return s.service.Ready()
 	default:
 		return ErrPluginUnavailable
 	}
 }
 
-func (r *pluginService[P, S]) Name() string { return r.lggr.Name() }
+func (s *pluginService[P, S]) Name() string { return s.lggr.Name() }
 
-func (r *pluginService[P, S]) HealthReport() map[string]error {
+func (s *pluginService[P, S]) HealthReport() map[string]error {
 	select {
-	case <-r.serviceCh:
-		hr := map[string]error{r.Name(): r.Healthy()}
-		maps.Copy(hr, r.service.HealthReport())
+	case <-s.serviceCh:
+		hr := map[string]error{s.Name(): s.Healthy()}
+		maps.Copy(hr, s.service.HealthReport())
 		return hr
 	default:
-		return map[string]error{r.Name(): ErrPluginUnavailable}
+		return map[string]error{s.Name(): ErrPluginUnavailable}
 	}
 }
 
-func (r *pluginService[P, S]) Close() error {
-	return r.StopOnce("PluginService", func() (err error) {
-		close(r.stopCh)
-		r.wg.Wait()
+func (s *pluginService[P, S]) Close() error {
+	return s.StopOnce("PluginService", func() (err error) {
+		close(s.stopCh)
+		s.wg.Wait()
 
 		select {
-		case <-r.serviceCh:
-			if cerr := r.service.Close(); !errors.Is(cerr, context.Canceled) && status.Code(cerr) != codes.Canceled {
+		case <-s.serviceCh:
+			if cerr := s.service.Close(); !errors.Is(cerr, context.Canceled) && status.Code(cerr) != codes.Canceled {
 				err = errors.Join(err, cerr)
 			}
 		default:
 		}
-		if r.clientProtocol != nil {
-			if cerr := r.clientProtocol.Close(); !errors.Is(cerr, context.Canceled) {
+		if s.clientProtocol != nil {
+			if cerr := s.clientProtocol.Close(); !errors.Is(cerr, context.Canceled) {
 				err = errors.Join(err, cerr)
 			}
 		}
-		if r.client != nil {
-			r.client.Kill()
+		if s.client != nil {
+			s.client.Kill()
 		}
 		return
 	})
 }
 
-func (r *pluginService[P, S]) wait(ctx context.Context) error {
+func (s *pluginService[P, S]) wait(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)
-	case <-r.serviceCh:
+	case <-s.serviceCh:
 		return nil
 	}
 }
