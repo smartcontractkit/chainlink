@@ -60,6 +60,9 @@ type generalConfig struct {
 //
 // See ParseTOML to initilialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
+	ConfigStrings []string
+	SecretsString string
+
 	Config
 	Secrets
 
@@ -69,13 +72,8 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
-// ParseTOML sets Config and Secrets from the given TOML strings.
-func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
-	return multierr.Combine(o.ParseConfig(config), o.ParseSecrets(secrets))
-}
-
-// ParseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
-func (o *GeneralConfigOpts) ParseConfig(config string) error {
+// parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
 	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
@@ -84,9 +82,9 @@ func (o *GeneralConfigOpts) ParseConfig(config string) error {
 	return nil
 }
 
-// ParseSecrets sets Secrets from the given TOML string.
-func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
-	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
+// parseSecrets sets Secrets from the given TOML string.
+func (o *GeneralConfigOpts) parseSecrets() (err error) {
+	if err2 := v2.DecodeTOML(strings.NewReader(o.SecretsString), &o.Secrets); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
 	return nil
@@ -94,16 +92,20 @@ func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
 
 // New returns a coreconfig.GeneralConfig for the given options.
 func (o GeneralConfigOpts) New() (GeneralConfig, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, err
+	for _, c := range o.ConfigStrings {
+		err := o.parseConfig(c)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return cfg, nil
-}
+	if o.SecretsString != "" {
+		err := o.parseSecrets()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-// new returns a new generalConfig, but with a nil lggr.
-func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
@@ -111,7 +113,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-
 		err = o.Secrets.setEnv()
 		if err != nil {
 			return nil, err
