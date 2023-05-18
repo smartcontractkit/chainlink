@@ -69,6 +69,8 @@ type storage struct {
 	orm        ORM
 }
 
+var _ Storage = (*storage)(nil)
+
 func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM) Storage {
 	return &storage{
 		lggr:       lggr.Named("s4_storage"),
@@ -130,7 +132,7 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId int, r
 	}
 
 	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
-	if err != nil && err != ErrEntryNotFound {
+	if err != nil && !errors.Is(err, ErrEntryNotFound) {
 		return err
 	}
 

@@ -15,6 +15,8 @@ type inMemoryOrm struct {
 	mu      sync.RWMutex
 }
 
+var _ ORM = (*inMemoryOrm)(nil)
+
 func NewInMemoryORM() ORM {
 	return &inMemoryOrm{
 		entires: make(map[string]*Entry),
