@@ -6,9 +6,9 @@ import "./VerifiableLoadBase.sol";
 contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
   error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
 
-  string[] public feeds;
-  string public feedLabel;
-  string public queryLabel;
+  string[] public feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
+  string public feedLabel = "feedIDStr";
+  string public queryLabel = "blockNumber";
 
   event MercuryPerformEvent(
     address indexed origin,
@@ -19,6 +19,18 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
   );
 
   constructor(address registrarAddress, bool useArb) VerifiableLoadBase(registrarAddress, useArb) {}
+
+  function setFeedLabel(string calldata newFeedLabel) external {
+    feedLabel = newFeedLabel;
+  }
+
+  function setQueryLabel(string calldata newQueryLabel) external {
+    queryLabel = newQueryLabel;
+  }
+
+  function setFeeds(string[] memory newFeeds) external {
+    feeds = newFeeds;
+  }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
