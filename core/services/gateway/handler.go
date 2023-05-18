@@ -23,13 +23,15 @@ type UserCallbackPayload struct {
 //   - a series of HandleUserMessage/HandleNodeMessage calls, executed in parallel
 //     (Handler needs to guarantee thread safety)
 //   - Close() call
+//go:generate mockery --quiet --name Handler --output ./mocks/ --case=underscore
+
 type Handler interface {
 	job.ServiceCtx
 
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
-	//   2. waits on callbackChan with a timeout
-	HandleUserMessage(ctx context.Context, msg *Message, callbackChan chan UserCallbackPayload) error
+	//   2. waits on callbackCh with a timeout
+	HandleUserMessage(ctx context.Context, msg *Message, callbackCh chan<- UserCallbackPayload) error
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage
 	HandleNodeMessage(ctx context.Context, msg *Message, nodeAddr string) error
