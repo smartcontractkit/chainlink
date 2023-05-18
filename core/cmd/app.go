@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -30,9 +31,6 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	devMode := v2.EnvDev.IsTrue() || build.Dev
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -70,23 +68,24 @@ func NewApp(client *Client) *cli.App {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
+		client.configFiles = c.StringSlice("config")
+		client.configFilesIsSet = c.IsSet("config")
+		client.secretsFile = c.String("secrets")
+		client.secretsFileIsSet = c.IsSet("secrets")
 
-		// setup a default config and logger
-		// these will be overwritten later if a TOML config is specified
-		if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
+		// Default to using a stdout logger only.
+		// This is overidden for server commands which may start a rotating
+		// logger instead.
+		lggr, closeFn := logger.NewLogger()
+
+		cfg, err := opts.New()
+		if err != nil {
 			return err
-		} else {
-			client.Config = cfg
-			client.Logger = lggr
-			client.CloseLogger = closeLggr
 		}
 
-		if c.IsSet("config") || c.IsSet("secrets") {
-			if err := client.setConfig(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
-				return err
-			}
-			client.configInitialized = true
-		}
+		client.Logger = lggr
+		client.CloseLogger = closeFn
+		client.Config = cfg
 
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
@@ -185,7 +184,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, devMode),
+			Subcommands: initLocalSubCmds(client, build.IsProd()),
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "config, c",
@@ -197,16 +196,58 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				if client.configInitialized {
-					if c.IsSet("config") || c.IsSet("secrets") {
-						// invalid mix of flags here and root
-						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				if c.IsSet("config") {
+					if client.configFilesIsSet || client.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						client.configFiles = c.StringSlice("config")
 					}
-					// flags at root
-					return nil
 				}
+
+				if c.IsSet("secrets") {
+					if client.configFilesIsSet || client.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						client.secretsFile = c.String("secrets")
+					}
+				}
+
 				// flags here, or ENV VAR only
-				return client.setConfig(&opts, c.StringSlice("config"), c.String("secrets"))
+				err := client.initServerConfig(&opts, client.configFiles, client.secretsFile)
+				if err != nil {
+					return err
+				}
+
+				logFileMaxSizeMB := client.Config.LogFileMaxSize() / utils.MB
+				if logFileMaxSizeMB > 0 {
+					err = utils.EnsureDirAndMaxPerms(client.Config.LogFileDir(), os.FileMode(0700))
+					if err != nil {
+						return err
+					}
+				}
+
+				// Swap out the logger, replacing the old one.
+				err = client.CloseLogger()
+				if err != nil {
+					return err
+				}
+
+				lggrCfg := logger.Config{
+					LogLevel:       client.Config.LogLevel(),
+					Dir:            client.Config.LogFileDir(),
+					JsonConsole:    client.Config.JSONConsole(),
+					UnixTS:         client.Config.LogUnixTimestamps(),
+					FileMaxSizeMB:  int(logFileMaxSizeMB),
+					FileMaxAgeDays: int(client.Config.LogFileMaxAge()),
+					FileMaxBackups: int(client.Config.LogFileMaxBackups()),
+				}
+				l, closeFn := lggrCfg.New()
+
+				client.Logger = l
+				client.CloseLogger = closeFn
+
+				return nil
 			},
 		},
 		{

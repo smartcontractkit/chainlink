@@ -23,6 +23,7 @@ import (
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -56,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -77,6 +79,8 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
+
+	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -136,6 +140,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	loopRegistry             *plugins.LoopRegistry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -156,14 +161,15 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
+	LoopRegistry             *plugins.LoopRegistry
 }
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet      // nil if disabled
-	Solana   relay.RelayerService // nil if disabled
-	StarkNet starkchain.ChainSet  // nil if disabled
+	Cosmos   cosmos.ChainSet     // nil if disabled
+	Solana   loop.Relayer        // nil if disabled
+	StarkNet starkchain.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -200,6 +206,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// as OCR2 job implementations, in the case of Median today.
+	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
+	// we need to initialize in case we serve OCR2 LOOPs
+	loopRegistry := opts.LoopRegistry
+	if loopRegistry == nil {
+		loopRegistry = plugins.NewLoopRegistry()
+	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
@@ -381,28 +396,27 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]func() (loop.Relayer, error))
+		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
-			relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: chains.EVM}
-			relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
 			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
-			relayer := relay.RelayerAdapter{Relayer: cosmosRelayer, RelayerExt: chains.Cosmos}
-			relayers[relay.Cosmos] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.Cosmos] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
 		}
 		if cfg.SolanaEnabled() {
-			relayers[relay.Solana] = chains.Solana.Relayer
+			relayers[relay.Solana] = chains.Solana
 		}
 		if cfg.StarkNetEnabled() {
 			lggr := globalLogger.Named("StarkNet.Relayer")
 			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
-			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
-			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.StarkNet] = relay.NewRelayerAdapter(starknetRelayer, chains.StarkNet)
 		}
+		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -411,7 +425,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
@@ -488,6 +502,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
+		loopRegistry:             loopRegistry,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -572,6 +587,10 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 		return app.stop()
 	}
 	return nil
+}
+
+func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+	return app.loopRegistry
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -717,8 +736,8 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if !app.GetConfig().Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CL_DEV=true to use")
+	if build.IsProd() {
+		return 0, errors.New("manual job runs not supported on secure builds")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {

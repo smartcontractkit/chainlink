@@ -408,7 +408,7 @@ func (lp *logPoller) run() {
 	logPollTick := time.After(0)
 	// stagger these somewhat, so they don't all run back-to-back
 	backupLogPollTick := time.After(100 * time.Millisecond)
-	blockPruneTick := time.After(500 * time.Millisecond)
+	blockPruneTick := time.After(3 * time.Second)
 	logPruneTick := time.After(5 * time.Second)
 	filtersLoaded := false
 
