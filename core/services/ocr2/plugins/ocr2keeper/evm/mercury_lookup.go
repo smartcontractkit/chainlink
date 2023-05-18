@@ -56,16 +56,16 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
 	// TODO (AUTO-2862): parallelize the mercury lookup work for all upkeeps
 	for i := range upkeepResults {
-		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
-		if err != nil {
-			r.lggr.Error("MercuryLookup error getting block and upkeep id:", err)
-			return nil, err
-		}
-
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			r.lggr.Debugf("MercuryLookup %s failure reason is NOT UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED. Won't do mercury lookup", upkeepId.String())
 			continue
+		}
+
+		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
+		if err != nil {
+			r.lggr.Error("MercuryLookup error getting block and upkeep id:", err)
+			return nil, err
 		}
 
 		// checking if this upkeep is in cooldown from api errors
