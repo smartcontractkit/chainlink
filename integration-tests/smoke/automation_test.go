@@ -760,12 +760,18 @@ func TestUpdateCheckData(t *testing.T) {
 func TestMercuryLookup(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, mockServer := setupAutomationTest(
 		t, "automation-mercury-lookup", true, ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig,
 	)
 	if onlyStartRunner {
 		return
 	}
+
+	ethBlob, err := os.ReadFile("./testdata/eth-usd.json")
+	require.NoError(t, err)
+
+	err = mockServer.PutExpectations(ethBlob)
+	require.NoError(t, err)
 
 	_, ids := actions.DeployMercuryUpkeeps(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit)
 
