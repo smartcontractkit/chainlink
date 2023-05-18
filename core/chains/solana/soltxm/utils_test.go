@@ -1,6 +1,7 @@
 package soltxm
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
@@ -37,4 +38,38 @@ func TestSortSignaturesAndResults(t *testing.T) {
 	assert.Equal(t, solana.Signature{3}, sig[1])
 	assert.Equal(t, solana.Signature{0}, sig[2])
 	assert.Equal(t, solana.Signature{2}, sig[3])
+}
+
+func TestSignatureList_AllocateWaitSet(t *testing.T) {
+	sigs := signatureList{}
+	assert.Equal(t, 0, sigs.Length())
+
+	// can't set without pre-allocating
+	assert.ErrorContains(t, sigs.Set(0, solana.Signature{}), "invalid index")
+
+	// can't set on index that has already been set
+	assert.Equal(t, 0, sigs.Allocate())
+	assert.Equal(t, 1, sigs.Length())
+	assert.NoError(t, sigs.Set(0, solana.Signature{1}))
+	assert.ErrorContains(t, sigs.Set(0, solana.Signature{1}), "trying to set signature when already set")
+
+	// waitgroup does not block on invalid index
+	sigs.Wait(100000)
+
+	// waitgroup blocks between allocate and set
+	ind1 := sigs.Allocate()
+	assert.Equal(t, 1, ind1)
+	ind2 := sigs.Allocate()
+	assert.Equal(t, 2, ind2)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		sigs.Wait(ind1)
+		sigs.Wait(ind2)
+		wg.Done()
+	}()
+	assert.NoError(t, sigs.Set(ind2, solana.Signature{1}))
+	assert.NoError(t, sigs.Set(ind1, solana.Signature{1}))
+	wg.Wait()
 }
