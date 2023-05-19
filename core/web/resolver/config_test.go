@@ -40,7 +40,6 @@ func TestResolver_ConfigV2(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				opts := chainlink.GeneralConfigOpts{}
-				require.NoError(f.t, opts.ParseTOML("", ""))
 				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
@@ -52,8 +51,10 @@ func TestResolver_ConfigV2(t *testing.T) {
 			name:          "full",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				opts := chainlink.GeneralConfigOpts{}
-				require.NoError(f.t, opts.ParseTOML(configFull, ""))
+				opts := chainlink.GeneralConfigOpts{
+					ConfigStrings: []string{configFull},
+					SecretsString: "",
+				}
 				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
@@ -65,8 +66,10 @@ func TestResolver_ConfigV2(t *testing.T) {
 			name:          "partial",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				opts := chainlink.GeneralConfigOpts{}
-				require.NoError(f.t, opts.ParseTOML(configMulti, ""))
+				opts := chainlink.GeneralConfigOpts{
+					ConfigStrings: []string{configMulti},
+					SecretsString: "",
+				}
 				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
