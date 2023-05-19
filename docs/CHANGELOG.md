@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+- Fixed a bug that would cause telemetry to be sent with the wrong type.
 
 ### Changed
 
