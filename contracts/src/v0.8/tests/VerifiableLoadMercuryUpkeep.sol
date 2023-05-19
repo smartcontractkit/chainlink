@@ -6,8 +6,9 @@ import "./VerifiableLoadBase.sol";
 contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
   error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
 
-  string[] public feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
-  string public feedLabel = "feedIDStr";
+  string[] public feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET", "USDC-USD-ARBITRUM-TESTNET"];
+  string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000", "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"];
+  string public feedLabel = "feedIDStr"; // feedIDHex
   string public queryLabel = "blockNumber";
 
   event MercuryPerformEvent(

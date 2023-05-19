@@ -42,9 +42,13 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
   KeeperRegistry2_0 public registry;
+  // check if an upkeep is eligible for adding funds at this interval
   uint256 public upkeepTopUpCheckInterval = 5;
+  // an upkeep will get this amount of LINK for every top up
   uint96 public addLinkAmount = 200000000000000000; // 0.2 LINK
+  // if an upkeep's balance is less than this threshold * min balance, this upkeep is eligible for adding funds
   uint8 public minBalanceThresholdMultiplier = 20;
+  // if this contract is using arbitrum block number
   bool public immutable useArbitrumBlockNum;
 
   // the following fields are immutable bc if they are adjusted, the existing upkeeps' delays will be stored in
@@ -52,6 +56,10 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   uint16 public immutable BUCKET_SIZE = 100;
   uint16 public immutable TIMESTAMP_INTERVAL = 3600;
 
+  /**
+   * @param registrarAddress a registrar address
+   * @param useArb if this contract will use arbitrum block number
+   */
   constructor(address registrarAddress, bool useArb) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
     (, , , address registryAddress, ) = registrar.getRegistrationConfig();
@@ -184,6 +192,17 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     checkDatas[upkeepId] = checkData;
   }
 
+  function withdrawLinks(uint256 upkeepId) external {
+    registry.withdrawFunds(upkeepId, address(this));
+  }
+
+  function batchWithdrawLinks(uint256[] calldata upkeepIds) external {
+    uint256 len = upkeepIds.length;
+    for (uint32 i = 0; i < len; i++) {
+      this.withdrawLinks(upkeepIds[i]);
+    }
+  }
+
   /**
    * @notice cancel an upkeep.
    * @param upkeepId the upkeep ID
@@ -191,10 +210,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   function cancelUpkeep(uint256 upkeepId) external {
     registry.cancelUpkeep(upkeepId);
     s_upkeepIDs.remove(upkeepId);
-  }
-
-  function withdrawLinks(uint256 upkeepId) external {
-    registry.withdrawFunds(upkeepId, address(this));
   }
 
   /**
