@@ -214,10 +214,11 @@ func NewApp(client *Client) *cli.App {
 				}
 
 				// flags here, or ENV VAR only
-				err := client.initServerConfig(&opts, client.configFiles, client.secretsFile)
+				cfg, err := initServerConfig(&opts, client.configFiles, client.secretsFile)
 				if err != nil {
 					return err
 				}
+				client.Config = cfg
 
 				logFileMaxSizeMB := client.Config.LogFileMaxSize() / utils.MB
 				if logFileMaxSizeMB > 0 {
@@ -301,21 +302,33 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-// loadOpts applies file configs and then overlays env config
-func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
-	for _, fileName := range fileNames {
+func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) (chainlink.GeneralConfig, error) {
+	configs := []string{}
+	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			return nil, errors.Wrapf(err, "failed to read config file: %s", fileName)
 		}
-		if err := opts.ParseConfig(string(b)); err != nil {
-			return errors.Wrapf(err, "failed to parse file: %s", fileName)
-		}
+		configs = append(configs, string(b))
 	}
+
 	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
-		if err := opts.ParseConfig(configTOML); err != nil {
-			return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
-		}
+		configs = append(configs, configTOML)
 	}
-	return nil
+
+	opts.ConfigStrings = configs
+
+	secrets := ""
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
+		}
+
+		secrets = string(b)
+	}
+
+	opts.SecretsString = secrets
+
+	return opts.New()
 }
