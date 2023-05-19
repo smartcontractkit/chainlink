@@ -11,6 +11,8 @@ import (
 // Envelope represents a JSON object that is signed for address verification.
 // All []byte values are encoded as base64 (default JSON behavior).
 // Hex is not used to avoid confusion due to case-sensivity and 0x prefix.
+// A signer is responsible for generating a JSON that has no whitespace and
+// the keys appear in this exact order.
 type Envelope struct {
 	Address    []byte `json:"address"`
 	SlotID     uint   `json:"slotid"`
