@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"go.uber.org/multierr"
@@ -30,21 +29,23 @@ type gateway struct {
 
 func NewGatewayFromConfig(config *GatewayConfig, lggr logger.Logger) (Gateway, error) {
 	codec := &JsonRPCCodec{}
-	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr.Named("http_server"))
+	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
+	connMgr, err := NewConnectionManager(config, codec, lggr)
+	if err != nil {
+		return nil, err
+	}
 
 	handlers := make(map[string]Handler)
-	donConnMgrs := make(map[string]DONConnectionManager)
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
-		if donConfig.DonId == "" {
-			return nil, errors.New("empty DON ID")
-		}
-		_, ok := donConnMgrs[donConfig.DonId]
+		_, ok := handlers[donConfig.DonId]
 		if ok {
 			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
 		}
-		donConnMgr := NewDONConnectionManager(&donConfig, codec)
-		donConnMgrs[donConfig.DonId] = donConnMgr
+		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
+		if donConnMgr == nil {
+			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
+		}
 		handler, err := NewHandler(donConfig.HandlerName, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
@@ -52,7 +53,6 @@ func NewGatewayFromConfig(config *GatewayConfig, lggr logger.Logger) (Gateway, e
 		handlers[donConfig.DonId] = handler
 		donConnMgr.SetHandler(handler)
 	}
-	connMgr := NewConnectionManager(donConnMgrs, lggr)
 	return NewGateway(codec, httpServer, handlers, connMgr, lggr), nil
 }
 
@@ -64,7 +64,6 @@ func NewGateway(codec Codec, httpServer gw_net.HttpServer, handlers map[string]H
 		connMgr:    connMgr,
 		lggr:       lggr.Named("gateway"),
 	}
-	// Connect servers to the Gateway
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
 }
@@ -77,6 +76,9 @@ func (g *gateway) Start(ctx context.Context) error {
 				return err
 			}
 		}
+		if err := g.connMgr.Start(ctx); err != nil {
+			return err
+		}
 		return g.httpServer.Start(ctx)
 	})
 }
@@ -85,6 +87,7 @@ func (g *gateway) Close() error {
 	return g.StopOnce("Gateway", func() (err error) {
 		g.lggr.Info("closing gateway")
 		err = multierr.Combine(err, g.httpServer.Close())
+		err = multierr.Combine(err, g.connMgr.Close())
 		for _, handler := range g.handlers {
 			err = multierr.Combine(err, handler.Close())
 		}
