@@ -33,61 +33,39 @@ var (
 )
 
 type headListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S commontypes.Subscription,
+	H commontypes.Head[BLOCK_HASH],
+	S htrktypes.Subscription,
 	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
+	CLIENT htrktypes.Client[H, S, ID, BLOCK_HASH],
 ] struct {
 	config           htrktypes.Config
-	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	client           CLIENT
 	logger           logger.Logger
 	chStop           utils.StopChan
-	chHeaders        chan HTH
-	headSubscription commontypes.Subscription
+	chHeaders        chan H
+	headSubscription S
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
 }
 
-type evmHeadListener = headListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
+type evmHeadListener = headListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
 
-var _ commontypes.HeadListener[*evmtypes.Head, common.Hash] = &evmHeadListener{}
-
-func NewHeadListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S commontypes.Subscription,
-	ID txmgrtypes.ID,
-	BLOCK_HASH commontypes.Hashable,
-	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH],
-](
-	lggr logger.Logger,
-	client CLIENT,
-	config htrktypes.Config, chStop chan struct{},
-) *headListener[HTH, S, ID, BLOCK_HASH] {
-	return &headListener[HTH, S, ID, BLOCK_HASH]{
-		config: config,
-		client: client,
+// NewHeadListener creates a new HeadListener for EVM chains
+func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Config, chStop chan struct{}) *evmHeadListener {
+	return &evmHeadListener{
+		config: NewWrappedConfig(config),
+		client: ethClient,
 		logger: lggr.Named("HeadListener"),
 		chStop: chStop,
 	}
 }
 
-func NewEvmHeadListener(
-	lggr logger.Logger,
-	ethClient evmclient.Client,
-	config Config, chStop chan struct{},
-) *evmHeadListener {
-	wrappedConfig := NewWrappedConfig(config)
-	return NewHeadListener[
-		*evmtypes.Head,
-		ethereum.Subscription, *big.Int, common.Hash,
-	](lggr, ethClient, wrappedConfig, chStop)
-}
-
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Name() string {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) Name() string {
 	return hl.logger.Name()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(handleNewHead commontypes.NewHeadHandler[HTH, BLOCK_HASH], done func()) {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, done func()) {
 	defer done()
 	defer hl.unsubscribe()
 
@@ -110,15 +88,15 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(handleNewHead 
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ReceivingHeads() bool {
+func (hl *headListener[H, S, ID, BLOCK_HAS, CLIENT]) ReceivingHeads() bool {
 	return hl.receivingHeads.Load()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Connected() bool {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) Connected() bool {
 	return hl.connected.Load()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) HealthReport() map[string]error {
 	var err error
 	if !hl.ReceivingHeads() {
 		err = errors.New("Listener is not receiving heads")
@@ -129,7 +107,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error 
 	return map[string]error{hl.Name(): err}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead commontypes.NewHeadHandler[HTH, BLOCK_HASH]) error {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
@@ -188,7 +166,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) bool {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) subscribe(ctx context.Context) bool {
 	subscribeRetryBackoff := utils.NewRedialBackoff()
 
 	chainId := hl.client.ConfiguredChainID()
@@ -215,8 +193,8 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) b
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Context) error {
-	hl.chHeaders = make(chan HTH)
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) subscribeToHead(ctx context.Context) error {
+	hl.chHeaders = make(chan H)
 
 	var err error
 	hl.headSubscription, err = hl.client.SubscribeNewHead(ctx, hl.chHeaders)
@@ -230,7 +208,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Cont
 	return nil
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) unsubscribe() {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) unsubscribe() {
 	if hl.headSubscription != nil {
 		hl.connected.Store(false)
 		hl.headSubscription.Unsubscribe()
