@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 2.1.1 - UNRELEASED
 
-...
+### Fixed
+
+- Fixed a bug that would cause telemetry to be sent with the wrong type.
 
 <!-- unreleasedstop -->
 
