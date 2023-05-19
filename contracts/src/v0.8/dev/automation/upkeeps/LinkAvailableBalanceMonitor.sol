@@ -6,7 +6,7 @@ import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/IERC20.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableMap.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
@@ -26,7 +26,7 @@ interface ILinkAvailable {
  * therefore, we recommend an upkeep gas limit of 3M (this has a 33% margin of safety). Although, nothing
  * prevents us from using 5M gas and increasing MAX_PERFORM, 30 seems like a reasonable batch size that
  * is probably plenty for most needs.
- * @dev with 140 addresses as the MAX_CHECK, the measured max gas usage of checkUpkeep is around 3.5M,
+ * @dev with 130 addresses as the MAX_CHECK, the measured max gas usage of checkUpkeep is around 3.5M,
  * which is 30% below the 5M limit.
  * Note that testing conditions DO NOT match live chain gas usage, hence the margins. Change
  * at your own risk!!!
@@ -37,7 +37,7 @@ interface ILinkAvailable {
      which has significantly different trust assumptions
  */
 contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableMap for EnumerableMap.AddressToUintMap;
 
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event TopUpSucceeded(address indexed topUpAddress);
@@ -48,35 +48,36 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   error DuplicateAddress(address duplicate);
 
   uint256 public constant MAX_PERFORM = 30; // max number to addresses to top up in a single batch
-  uint256 public constant MAX_CHECK = 140; // max number of upkeeps to check (need to fit in 5M gas limit)
+  uint256 public constant MAX_CHECK = 130; // max number of upkeeps to check (need to fit in 5M gas limit)
   IERC20 public immutable LINK_TOKEN;
 
-  EnumerableSet.AddressSet private s_watchList;
-  uint256 private s_minBalance;
+  EnumerableMap.AddressToUintMap private s_watchList;
   uint256 private s_topUpAmount;
 
   /**
    * @param linkTokenAddress the LINK token address
-   * @param minBalance the minimum balance an aggregator can have before initiating a top up
    * @param topUpAmount the amount of LINK to top up an aggregator with at once
    */
-  constructor(address linkTokenAddress, uint256 minBalance, uint256 topUpAmount) ConfirmedOwner(msg.sender) {
+  constructor(address linkTokenAddress, uint256 topUpAmount) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
-    require(minBalance > 0);
     require(topUpAmount > 0);
     LINK_TOKEN = IERC20(linkTokenAddress);
-    s_minBalance = minBalance;
     s_topUpAmount = topUpAmount;
   }
 
   /**
    * @notice Sets the list of subscriptions to watch and their funding parameters
    * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
+   * @param minBalances the list of corresponding minBalance for the target address
    */
-  function setWatchList(address[] calldata addresses) external onlyOwner {
+  function setWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
+    if (addresses.length != minBalances.length) {
+      revert InvalidWatchList();
+    }
     // first, remove all existing addresses from list
     for (uint256 idx = s_watchList.length(); idx > 0; idx--) {
-      require(s_watchList.remove(s_watchList.at(idx - 1)));
+      (address target, ) = s_watchList.at(idx - 1);
+      require(s_watchList.remove(target));
     }
     // then set new addresses
     for (uint256 idx = 0; idx < addresses.length; idx++) {
@@ -86,7 +87,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      s_watchList.add(addresses[idx]);
+      s_watchList.set(addresses[idx], minBalances[idx]);
     }
     emit WatchlistUpdated();
   }
@@ -94,8 +95,9 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   /**
    * @notice Adds addresses to the watchlist without overwriting existing members
    * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
+   * @param minBalances the list of corresponding minBalance for the target address
    */
-  function addToWatchList(address[] calldata addresses) external onlyOwner {
+  function addToWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       if (s_watchList.contains(addresses[idx])) {
         revert DuplicateAddress(addresses[idx]);
@@ -103,7 +105,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      s_watchList.add(addresses[idx]);
+      s_watchList.set(addresses[idx], minBalances[idx]);
     }
     emit WatchlistUpdated();
   }
@@ -125,8 +127,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
     uint256 numFound = 0;
     address[] memory targetsToFund = new address[](MAX_PERFORM);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
-      address target = s_watchList.at(idx);
-      (bool needsFunding, ) = _needsFunding(target);
+      (address target, uint256 minBalance) = s_watchList.at(idx);
+      (bool needsFunding, ) = _needsFunding(target, minBalance);
       if (needsFunding) {
         targetsToFund[numFound] = target;
         numFound++;
@@ -153,8 +155,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
     uint256 numCanFund = LINK_TOKEN.balanceOf(address(this)) / topUpAmount;
     stopIdx = numCanFund < stopIdx ? numCanFund : stopIdx;
     for (uint256 idx = 0; idx < stopIdx; idx++) {
-      (bool needsFunding, address target) = _needsFunding(targetAddresses[idx]);
-      if (!s_watchList.contains(targetAddresses[idx]) || !needsFunding) {
+      (bool exists, uint256 minBalance) = s_watchList.tryGet(targetAddresses[idx]);
+      if (!exists) {
+        emit TopUpBlocked(targetAddresses[idx]);
+        continue;
+      }
+      (bool needsFunding, address target) = _needsFunding(targetAddresses[idx], minBalance);
+      if (!needsFunding) {
         emit TopUpBlocked(targetAddresses[idx]);
         continue;
       }
@@ -212,11 +219,16 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice Sets the minimum balance
+   * @notice Sets the minimum balance for the given target address
    */
-  function setMinBalance(uint256 minBalance) external onlyOwner returns (uint256) {
+  function setMinBalance(address target, uint256 minBalance) external onlyOwner returns (uint256) {
     require(minBalance > 0);
-    return s_minBalance = minBalance;
+    (bool exists, uint256 prevMinBalance) = s_watchList.tryGet(target);
+    if (!exists) {
+      revert InvalidWatchList();
+    }
+    s_watchList.set(target, minBalance);
+    return prevMinBalance;
   }
 
   /**
@@ -236,8 +248,16 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   /**
    * @notice Gets the list of subscription ids being watched
    */
-  function getWatchList() external view returns (address[] memory) {
-    return s_watchList.values();
+  function getWatchList() external view returns (address[] memory, uint256[] memory) {
+    uint256 len = s_watchList.length();
+    address[] memory targets = new address[](len);
+    uint256[] memory minBalances = new uint256[](len);
+
+    for (uint256 idx = 0; idx < len; idx++) {
+      (targets[idx], minBalances[idx]) = s_watchList.at(idx);
+    }
+
+    return (targets, minBalances);
   }
 
   /**
@@ -248,20 +268,25 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice Gets the configured minimum balance
+   * @notice Gets the configured minimum balance for the given target
    */
-  function getMinBalance() external view returns (uint256) {
-    return s_minBalance;
+  function getMinBalance(address target) external view returns (uint256) {
+    (bool exists, uint256 minBalance) = s_watchList.tryGet(target);
+    if (!exists) {
+      revert InvalidWatchList();
+    }
+    return minBalance;
   }
 
   /**
    * @notice checks the target (could be direct target or IAggregatorProxy), and determines
    * if it is elligible for funding
    * @param targetAddress the target to check
+   * @param minBalance minimum balance required for the target
    * @return bool whether the target needs funding or not
    * @return address the address of the contract needing funding
    */
-  function _needsFunding(address targetAddress) private view returns (bool, address) {
+  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
@@ -270,7 +295,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < 0 || uint256(balance) > s_minBalance) {
+      if (balance < 0 || uint256(balance) >= minBalance) {
         return (false, address(0));
       }
     } catch {
