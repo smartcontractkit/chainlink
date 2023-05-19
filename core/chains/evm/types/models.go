@@ -185,6 +185,16 @@ func (h *Head) ToInt() *big.Int {
 	return big.NewInt(h.Number)
 }
 
+func (h *Head) Equals(r commontypes.Head[common.Hash]) bool {
+	if h == nil && r == nil {
+		return true
+	}
+	if h == nil || r == nil {
+		return false
+	}
+	return h.Hash == r.BlockHash() && h.Number == r.BlockNumber()
+}
+
 // GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than
 // the supplied BlockNumber
 func (h *Head) GreaterThan(r *Head) bool {
