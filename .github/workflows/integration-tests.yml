@@ -294,7 +294,9 @@ jobs:
       - name: Get Latest Version
         id: get_latest_version
         run: |
-          echo "latest_version=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .name)"  >> "$GITHUB_OUTPUT"
+          untrimmed_ver=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .name)"
+          latest_version="${untrimmed_ver:1}"
+          echo "latest_version=${latest_version}"" >> "$GITHUB_OUTPUT"
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
