@@ -154,7 +154,7 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 		log.Fatal("SuggestGasPrice failed: ", err)
 	}
 
-	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, 5)) // add 20%
+	gasPrice = bigmath.Add(gasPrice, bigmath.Div(gasPrice, big.NewInt(5))) // add 20%
 
 	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
 	if err != nil {
@@ -202,15 +202,17 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 	}
 }
 
-func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
+func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) bool {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
 		log.Fatal("WaitDeployed failed: ", err)
 	}
 
 	if receipt.Status == ethtypes.ReceiptStatusFailed {
-		log.Fatal("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
+		fmt.Println("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 	}
+
+	return receipt.Status == ethtypes.ReceiptStatusSuccessful
 }
 
 func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string) (string, func(bool), error) {
