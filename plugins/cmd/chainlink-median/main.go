@@ -20,22 +20,17 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
+	slggr := logger.Sugared(lggr)
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
 		lggr.Fatalf("Failed to start prometheus server: %s", err)
 	}
-	defer func() {
-		if err := promServer.Close(); err != nil {
-			lggr.Warnf("Error during prometheus server shut down", err)
-		}
-	}()
+	defer slggr.ErrorIfFn(promServer.Close, "error closing prometheus server")
 
 	mp := median.NewPlugin(lggr)
-	defer func() {
-		logger.Sugared(lggr).ErrorIfFn(mp.Close, "pluginMedian")
-	}()
+	defer slggr.ErrorIfFn(mp.Close, "error closing pluginMedian")
 
 	stop := make(chan struct{})
 	defer close(stop)
