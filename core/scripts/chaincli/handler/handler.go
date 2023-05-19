@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -202,17 +203,19 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 	}
 }
 
-func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) bool {
+func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) error {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
-		log.Fatal("WaitDeployed failed: ", err)
+		fmt.Println("WaitDeployed failed: ", err)
+		return err
 	}
 
 	if receipt.Status == ethtypes.ReceiptStatusFailed {
 		fmt.Println("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
+		return errors.New("Transaction failed")
 	}
 
-	return receipt.Status == ethtypes.ReceiptStatusSuccessful
+	return nil
 }
 
 func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string) (string, func(bool), error) {

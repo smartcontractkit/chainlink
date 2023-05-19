@@ -414,12 +414,13 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		if err != nil {
 			log.Fatal(upkeepId, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
-		addFundsTxStatus := k.waitTx(ctx, addFundsTx)
-		if addFundsTxStatus {
-			log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
-		} else {
+
+		// Onchain transaction
+		if err := k.waitTx(ctx, addFundsTx); err != nil {
 			log.Fatal("AddFunds failed for upkeepId: ", upkeepId, ", and upkeepAddr: ", upkeepAddr.Hex())
 		}
+
+		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
 	fmt.Println()
 }
