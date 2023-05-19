@@ -62,7 +62,7 @@ type Delegate struct {
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
-	relayers              map[relay.Network]func() (loop.Relayer, error)
+	relayers              map[relay.Network]loop.Relayer
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
 }
@@ -100,7 +100,7 @@ func NewDelegate(
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
-	relayers map[relay.Network]func() (loop.Relayer, error),
+	relayers map[relay.Network]loop.Relayer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
@@ -213,14 +213,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
 	transmitterID := spec.TransmitterID.String
-	relayerFn, exists := d.relayers[spec.Relay]
+	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
-	}
-	relayer, err := relayerFn()
-	if err != nil {
-		// TODO defer in order to retry https://smartcontract-it.atlassian.net/browse/BCF-2112
-		return nil, fmt.Errorf("failed to get relayer: %w", err)
 	}
 	effectiveTransmitterID := transmitterID
 

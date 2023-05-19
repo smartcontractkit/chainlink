@@ -13,7 +13,7 @@ FOLDER="ocr2vrf-origin"
 # OCR2VRF
 $SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/DKG.sol $FOLDER 1000
 $SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/VRFBeacon.sol $FOLDER 1000
-$SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/VRFCoordinator.sol $FOLDER 100
+$SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/VRFCoordinator.sol $FOLDER 1
 $SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/VRFRouter.sol $FOLDER 1000
 $SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/test/TestBeaconVRFConsumer.sol $FOLDER 1000
 $SCRIPTPATH/native_solc8_19_compile_ocr2vrf ../../../../$FOLDER/contracts/test/LoadTestBeaconVRFConsumer.sol $FOLDER 1000

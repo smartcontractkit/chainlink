@@ -64,7 +64,7 @@ import (
 var prometheus *ginprom.Prometheus
 var initOnce sync.Once
 
-func initPrometheus(cfg config.GeneralConfig) {
+func initPrometheus(cfg config.Prometheus) {
 	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
@@ -91,7 +91,10 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	flagsProcessed bool
+	configFiles      []string
+	configFilesIsSet bool
+	secretsFile      string
+	secretsFileIsSet bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {
@@ -113,7 +116,7 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
+func (cli *Client) initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
 	if err := loadOpts(opts, configFiles...); err != nil {
 		return err
 	}
@@ -131,23 +134,9 @@ func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, config
 		}
 	}
 
-	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
-		return err
-	} else {
-		// If the logger has already been set due to prior initialization, close it out here.
-		if cli.CloseLogger != nil {
-			err := cli.CloseLogger()
-			if err != nil {
-				return errors.Wrap(err, "failed to close initialized logger")
-			}
-		}
-
-		cli.Config = cfg
-		cli.Logger = lggr
-		cli.CloseLogger = closeLggr
-	}
-
-	return nil
+	cfg, err := opts.New()
+	cli.Config = cfg
+	return err
 }
 
 // AppFactory implements the NewApplication method.
@@ -248,12 +237,11 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
 			}
-			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
+			chains.Solana = loop.NewRelayerService(solLggr, func() *exec.Cmd {
 				cmd := exec.Command(cmdName)
 				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
 				return cmd
 			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
-			chains.Solana = chainPluginService
 		} else {
 			opts := solana.ChainSetOpts{
 				Logger:   solLggr,
@@ -264,7 +252,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load Solana chainset")
 			}
-			chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
+			chains.Solana = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 		}
 	}
 
@@ -425,14 +413,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
+	timeoutDuration := config.DefaultHTTPTimeout().Duration()
 	if config.Port() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -456,7 +445,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
-func sentryInit(cfg config.BasicConfig) error {
+func sentryInit(cfg config.Sentry) error {
 	sentrydsn := cfg.SentryDSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
@@ -489,7 +478,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -501,7 +490,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+		case <-time.After(timeout):
 			// pause between attempts, default 15s
 		}
 	}
