@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
@@ -11,13 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ChainSetOpts struct {
 	Config   coreconfig.BasicConfig
 	Logger   logger.Logger
-	KeyStore keystore.StarkNet
+	KeyStore loop.Keystore
 	Configs  types.Configs
 }
 

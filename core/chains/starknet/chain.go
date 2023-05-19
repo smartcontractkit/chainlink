@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -33,7 +33,7 @@ type chain struct {
 	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
 		id:   id,
