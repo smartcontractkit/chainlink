@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-// Entry represents a data row persisted by ORM.
-type Entry struct {
+// Row represents a data row persisted by ORM.
+type Row struct {
 	Payload           []byte
 	Version           uint64
 	Expiration        int64
@@ -21,15 +21,15 @@ type Entry struct {
 // ORM represents S4 persistence layer.
 // All functions are thread-safe.
 type ORM interface {
-	// Get reads an entry for the given address/slotId combination.
-	// If an entry is missing, ErrEntryNotFound is returned.
-	// Returned entry is a clone, safe to modify.
-	Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Entry, error)
+	// Get reads a row for the given address/slotId combination.
+	// If a row is missing, ErrNotFound is returned.
+	// Returned row is a clone, safe to modify.
+	Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Row, error)
 
-	// Put inserts (or updates) an entry identified by the specified address and slotId.
+	// Put inserts (or updates) a row identified by the specified address and slotId.
 	// No validation is applied for signature, version, etc.
-	// Implementation clones the given Entry when persisting.
-	Upsert(address common.Address, slotId uint, entry *Entry, qopts ...pg.QOpt) error
+	// Implementation clones the given Row when persisting.
+	Upsert(address common.Address, slotId uint, row *Row, qopts ...pg.QOpt) error
 
 	// DeleteExpired deletes any entries having HighestExpiration < now().
 	// The function can be called by OCR plugin on every round.
@@ -37,16 +37,16 @@ type ORM interface {
 	DeleteExpired(qopts ...pg.QOpt) error
 }
 
-func (e Entry) Clone() *Entry {
-	clone := Entry{
-		Payload:           make([]byte, len(e.Payload)),
-		Version:           e.Version,
-		Expiration:        e.Expiration,
-		Confirmed:         e.Confirmed,
-		HighestExpiration: e.HighestExpiration,
-		Signature:         make([]byte, len(e.Signature)),
+func (r Row) Clone() *Row {
+	clone := Row{
+		Payload:           make([]byte, len(r.Payload)),
+		Version:           r.Version,
+		Expiration:        r.Expiration,
+		Confirmed:         r.Confirmed,
+		HighestExpiration: r.HighestExpiration,
+		Signature:         make([]byte, len(r.Signature)),
 	}
-	copy(clone.Payload, e.Payload)
-	copy(clone.Signature, e.Signature)
+	copy(clone.Payload, r.Payload)
+	copy(clone.Signature, r.Signature)
 	return &clone
 }

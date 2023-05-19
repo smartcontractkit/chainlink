@@ -11,36 +11,36 @@ import (
 )
 
 type inMemoryOrm struct {
-	entries map[string]*Entry
-	mu      sync.RWMutex
+	rows map[string]*Row
+	mu   sync.RWMutex
 }
 
 var _ ORM = (*inMemoryOrm)(nil)
 
 func NewInMemoryORM() ORM {
 	return &inMemoryOrm{
-		entries: make(map[string]*Entry),
+		rows: make(map[string]*Row),
 	}
 }
 
-func (o *inMemoryOrm) Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Entry, error) {
+func (o *inMemoryOrm) Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	key := fmt.Sprintf("%s_%d", address, slotId)
-	entry, ok := o.entries[key]
+	row, ok := o.rows[key]
 	if !ok {
-		return nil, ErrRecordNotFound
+		return nil, ErrNotFound
 	}
-	return entry.Clone(), nil
+	return row.Clone(), nil
 }
 
-func (o *inMemoryOrm) Upsert(address common.Address, slotId uint, entry *Entry, qopts ...pg.QOpt) error {
+func (o *inMemoryOrm) Upsert(address common.Address, slotId uint, row *Row, qopts ...pg.QOpt) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	key := fmt.Sprintf("%s_%d", address, slotId)
-	o.entries[key] = entry.Clone()
+	o.rows[key] = row.Clone()
 	return nil
 }
 
@@ -50,13 +50,13 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 
 	queue := make([]string, 0)
 	now := time.Now().UnixMilli()
-	for k, v := range o.entries {
+	for k, v := range o.rows {
 		if v.HighestExpiration < now {
 			queue = append(queue, k)
 		}
 	}
 	for _, k := range queue {
-		delete(o.entries, k)
+		delete(o.rows, k)
 	}
 
 	return nil

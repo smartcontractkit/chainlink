@@ -53,9 +53,9 @@ func TestStorage_Errors(t *testing.T) {
 
 	storage := setupTestStorage(t)
 
-	t.Run("ErrRecordNotFound", func(t *testing.T) {
+	t.Run("ErrNotFound", func(t *testing.T) {
 		_, _, err := storage.Get(testutils.Context(t), testutils.NewAddress(), 1)
-		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
+		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("ErrSlotIdTooBig", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestStorage_Errors(t *testing.T) {
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
-	t.Run("ErrRecordNotFound if expired", func(t *testing.T) {
+	t.Run("ErrNotFound if expired", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
 		var slotid uint = 2
 		record := &s4.Record{
@@ -125,7 +125,7 @@ func TestStorage_Errors(t *testing.T) {
 
 		time.Sleep(testutils.TestInterval)
 		_, _, err = storage.Get(testutils.Context(t), address, slotid)
-		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
+		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("ErrVersionTooLow", func(t *testing.T) {

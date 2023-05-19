@@ -3,7 +3,7 @@ package s4
 import "errors"
 
 var (
-	ErrRecordNotFound = errors.New("record not found")
+	ErrNotFound       = errors.New("not found")
 	ErrWrongSignature = errors.New("wrong signature")
 	ErrSlotIdTooBig   = errors.New("slot id is too big")
 	ErrPayloadTooBig  = errors.New("payload is too big")

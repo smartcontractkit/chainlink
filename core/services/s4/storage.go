@@ -77,28 +77,28 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) 
 		return nil, nil, ErrSlotIdTooBig
 	}
 
-	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	row, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if entry.Expiration <= time.Now().UnixMilli() {
-		return nil, nil, ErrRecordNotFound
+	if row.Expiration <= time.Now().UnixMilli() {
+		return nil, nil, ErrNotFound
 	}
 
 	record := &Record{
-		Payload:    make([]byte, len(entry.Payload)),
-		Version:    entry.Version,
-		Expiration: entry.Expiration,
+		Payload:    make([]byte, len(row.Payload)),
+		Version:    row.Version,
+		Expiration: row.Expiration,
 	}
-	copy(record.Payload, entry.Payload)
+	copy(record.Payload, row.Payload)
 
 	metadata := &Metadata{
-		Confirmed:         entry.Confirmed,
-		HighestExpiration: entry.HighestExpiration,
-		Signature:         make([]byte, len(entry.Signature)),
+		Confirmed:         row.Confirmed,
+		HighestExpiration: row.HighestExpiration,
+		Signature:         make([]byte, len(row.Signature)),
 	}
-	copy(metadata.Signature, entry.Signature)
+	copy(metadata.Signature, row.Signature)
 
 	return record, metadata, nil
 }
@@ -120,23 +120,23 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, 
 		return ErrWrongSignature
 	}
 
-	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
-	if err != nil && !errors.Is(err, ErrRecordNotFound) {
+	row, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
 
 	highestExpiration := record.Expiration
-	if entry != nil {
-		highestExpiration = entry.HighestExpiration
+	if row != nil {
+		highestExpiration = row.HighestExpiration
 		if highestExpiration < record.Expiration {
 			highestExpiration = record.Expiration
 		}
-		if record.Version <= entry.Version {
+		if record.Version <= row.Version {
 			return ErrVersionTooLow
 		}
 	}
 
-	entry = &Entry{
+	row = &Row{
 		Payload:           make([]byte, len(record.Payload)),
 		Version:           record.Version,
 		Expiration:        record.Expiration,
@@ -144,8 +144,8 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, 
 		HighestExpiration: highestExpiration,
 		Signature:         make([]byte, len(signature)),
 	}
-	copy(entry.Payload, record.Payload)
-	copy(entry.Signature, signature)
+	copy(row.Payload, record.Payload)
+	copy(row.Signature, signature)
 
-	return s.orm.Upsert(address, slotId, entry, pg.WithParentCtx(ctx))
+	return s.orm.Upsert(address, slotId, row, pg.WithParentCtx(ctx))
 }

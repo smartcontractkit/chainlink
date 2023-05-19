@@ -18,7 +18,7 @@ func TestInMemoryORM(t *testing.T) {
 	payload := testutils.Random32Byte()
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
-	entry := &s4.Entry{
+	row := &s4.Row{
 		Payload:           payload[:],
 		Version:           3,
 		Expiration:        expiration,
@@ -29,40 +29,40 @@ func TestInMemoryORM(t *testing.T) {
 
 	orm := s4.NewInMemoryORM()
 
-	t.Run("entry not found", func(t *testing.T) {
+	t.Run("row not found", func(t *testing.T) {
 		_, err := orm.Get(address, slotId)
-		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
+		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("insert and get", func(t *testing.T) {
-		err := orm.Upsert(address, slotId, entry)
+		err := orm.Upsert(address, slotId, row)
 		assert.NoError(t, err)
 
 		e, err := orm.Get(address, slotId)
 		assert.NoError(t, err)
-		assert.Equal(t, entry, e)
+		assert.Equal(t, row, e)
 	})
 
 	t.Run("update and get", func(t *testing.T) {
-		err := orm.Upsert(address, slotId, entry)
+		err := orm.Upsert(address, slotId, row)
 		assert.NoError(t, err)
 
-		entry.Version = 4
-		err = orm.Upsert(address, slotId, entry)
+		row.Version = 4
+		err = orm.Upsert(address, slotId, row)
 		assert.NoError(t, err)
 
 		e, err := orm.Get(address, slotId)
 		assert.NoError(t, err)
-		assert.Equal(t, entry, e)
+		assert.Equal(t, row, e)
 	})
 
 	t.Run("delete expired", func(t *testing.T) {
-		ms := entry.Expiration - time.Now().UnixMilli() + 100
+		ms := row.Expiration - time.Now().UnixMilli() + 100
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 		err := orm.DeleteExpired()
 		assert.NoError(t, err)
 
 		_, err = orm.Get(address, slotId)
-		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
+		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 }
