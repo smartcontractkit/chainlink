@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -43,7 +44,7 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          Config
+	config          commontypes.Config
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
@@ -68,7 +69,7 @@ func NewHeadTracker(
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
 		chainID:         *ethClient.ConfiguredChainID(),
-		config:          config,
+		config:          NewWrappedConfig(config),
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
@@ -211,7 +212,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.FinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
@@ -223,7 +224,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 func (ht *headTracker) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	samplingInterval := ht.config.HeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
@@ -276,7 +277,7 @@ func (ht *headTracker) backfillLoop() {
 					break
 				}
 				{
-					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
+					err := ht.Backfill(ctx, head, uint(ht.config.FinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {

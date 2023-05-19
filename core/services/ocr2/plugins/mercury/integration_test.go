@@ -24,18 +24,16 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
@@ -53,7 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -178,11 +176,13 @@ func TestIntegration_Mercury(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := fmt.Sprintf(`{"error": "pError test error"}`)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)
@@ -336,6 +336,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
 		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
 		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 
 		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
@@ -393,6 +394,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
 		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
 		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 
 		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
@@ -630,14 +632,6 @@ observationSource = """
 	ask_multiply [type=multiply times=100000000 index=2];
 
 	ask -> ask_parse -> ask_multiply;
-
-	// Block Num + Hash
-	b1                 [type=ethgetblock];
-	bnum_lookup        [type=lookup key="number" index=3];
-	bhash_lookup       [type=lookup key="hash" index=4];
-
-	b1 -> bnum_lookup;
-	b1 -> bhash_lookup;
 """
 
 [pluginConfig]

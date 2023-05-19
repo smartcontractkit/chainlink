@@ -1,0 +1,19 @@
+[UserServerConfig]
+Port = 8088
+TLSEnabled = true
+TLSCertPath = "certificate.pem"
+TLSKeyPath = "key.pem"
+Path = "/user"
+ContentTypeHeader = "application/jsonrpc"
+
+[NodeServerConfig]
+Port = 8089
+TLSEnabled = true
+TLSCertPath = "certificate.pem"
+TLSKeyPath = "key.pem"
+Path = "/node"
+HandshakeTimeoutMillis = 1000
+
+[[Dons]]
+DonId = "example"
+HandlerName = "dummy"

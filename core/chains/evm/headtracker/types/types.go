@@ -39,7 +39,7 @@ type HeadTracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
-type HeadTrackable = types.HeadTrackable[*evmtypes.Head]
+type HeadTrackable = types.HeadTrackable[*evmtypes.Head, common.Hash]
 
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func())
