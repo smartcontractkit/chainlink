@@ -40,7 +40,7 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
-func (hs *headSaver) LoadFromMemory(ctx context.Context) (chain *evmtypes.Head, err error) {
+func (hs *headSaver) Load(ctx context.Context) (chain *evmtypes.Head, err error) {
 	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
@@ -51,7 +51,7 @@ func (hs *headSaver) LoadFromMemory(ctx context.Context) (chain *evmtypes.Head, 
 	return hs.heads.LatestHead(), nil
 }
 
-func (hs *headSaver) LatestHeadFromMemory(ctx context.Context) (head *evmtypes.Head, err error) {
+func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {
 	return hs.orm.LatestHead(ctx)
 }
 
@@ -74,8 +74,8 @@ var NullSaver httypes.HeadSaver = &nullSaver{}
 
 type nullSaver struct{}
 
-func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error              { return nil }
-func (*nullSaver) LoadFromMemory(ctx context.Context) (*evmtypes.Head, error)       { return nil, nil }
-func (*nullSaver) LatestHeadFromMemory(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
-func (*nullSaver) LatestChain() *evmtypes.Head                                      { return nil }
-func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                            { return nil }
+func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error          { return nil }
+func (*nullSaver) Load(ctx context.Context) (*evmtypes.Head, error)             { return nil, nil }
+func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
+func (*nullSaver) LatestChain() *evmtypes.Head                                  { return nil }
+func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        { return nil }

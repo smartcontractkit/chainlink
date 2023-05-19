@@ -988,7 +988,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg)
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), hb, hs, mailMon)
-	_, err := hs.LoadFromMemory(testutils.Context(t))
+	_, err := hs.Load(testutils.Context(t))
 	require.NoError(t, err)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),

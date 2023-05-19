@@ -133,7 +133,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromMemory(ctx)
+	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
 	if err != nil {
 		return nil, err
 	}

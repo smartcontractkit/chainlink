@@ -12,8 +12,8 @@ type HeadSaver[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] 
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
-	// LoadFromMemory loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	LoadFromMemory(ctx context.Context) (H, error)
+	// Load loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
+	Load(ctx context.Context) (H, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
 	LatestChain() H
 	// Chain returns a head for the specified hash, or nil.
