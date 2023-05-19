@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
@@ -442,10 +442,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    // We need to manually set the verifier in the proxy
-    // the first time.
-    if (feedVerifierState.configCount > 1)
-      IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
 
     emit ConfigSet(
       feedId,
