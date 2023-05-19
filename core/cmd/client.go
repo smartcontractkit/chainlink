@@ -116,29 +116,6 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
-	if err := loadOpts(opts, configFiles...); err != nil {
-		return err
-	}
-
-	if secretsFile != "" {
-		b, err := os.ReadFile(secretsFile)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
-		}
-
-		secretsTOML := string(b)
-		err = opts.ParseSecrets(secretsTOML)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg, err := opts.New()
-	cli.Config = cfg
-	return err
-}
-
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
 	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
