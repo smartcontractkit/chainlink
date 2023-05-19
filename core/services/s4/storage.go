@@ -11,30 +11,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type RecordState int
-
-var (
-	ErrRecordExpired  = errors.New("record expired")
-	ErrWrongSignature = errors.New("wrong signature")
-	ErrTooBigSlotId   = errors.New("too big slot id")
-	ErrTooBigPayload  = errors.New("too big payload")
-	ErrPastExpiration = errors.New("past expiration")
-	ErrOlderVersion   = errors.New("older version")
-)
-
 // Constraints specifies the global storage constraints.
 type Constraints struct {
-	MaxPayloadSizeBytes int
-	MaxSlotsPerUser     int
+	MaxPayloadSizeBytes uint
+	MaxSlotsPerUser     uint
 }
 
 // Record represents a user record persisted by S4
 type Record struct {
 	// Arbitrary user data
 	Payload []byte
-	// Version attribute assigned by user
-	Version int64
-	// Expiration timestamp assigned by user (milliseconds)
+	// Version attribute assigned by user (unix timestamp is recommended)
+	Version uint64
+	// Expiration timestamp assigned by user (unix time in milliseconds)
 	Expiration int64
 }
 
@@ -56,11 +45,11 @@ type Storage interface {
 
 	// Get returns a copy of record (with metadata) associated with the specified address and slotId.
 	// The returned Record & Metadata are always a copy.
-	Get(ctx context.Context, address common.Address, slotId int) (*Record, *Metadata, error)
+	Get(ctx context.Context, address common.Address, slotId uint) (*Record, *Metadata, error)
 
 	// Put creates (or updates) a record identified by the specified address and slotId.
 	// For signature calculation see envelope.go
-	Put(ctx context.Context, address common.Address, slotId int, record *Record, signature []byte) error
+	Put(ctx context.Context, address common.Address, slotId uint, record *Record, signature []byte) error
 }
 
 type storage struct {
@@ -83,9 +72,9 @@ func (s *storage) Constraints() Constraints {
 	return s.contraints
 }
 
-func (s *storage) Get(ctx context.Context, address common.Address, slotId int) (*Record, *Metadata, error) {
+func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) (*Record, *Metadata, error) {
 	if slotId >= s.contraints.MaxSlotsPerUser {
-		return nil, nil, ErrTooBigSlotId
+		return nil, nil, ErrSlotIdTooBig
 	}
 
 	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
@@ -94,7 +83,7 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId int) (
 	}
 
 	if entry.Expiration <= time.Now().UnixMilli() {
-		return nil, nil, ErrRecordExpired
+		return nil, nil, ErrRecordNotFound
 	}
 
 	record := &Record{
@@ -114,12 +103,12 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId int) (
 	return record, metadata, nil
 }
 
-func (s *storage) Put(ctx context.Context, address common.Address, slotId int, record *Record, signature []byte) error {
+func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, record *Record, signature []byte) error {
 	if slotId >= s.contraints.MaxSlotsPerUser {
-		return ErrTooBigSlotId
+		return ErrSlotIdTooBig
 	}
-	if len(record.Payload) > s.contraints.MaxPayloadSizeBytes {
-		return ErrTooBigPayload
+	if len(record.Payload) > int(s.contraints.MaxPayloadSizeBytes) {
+		return ErrPayloadTooBig
 	}
 	if time.Now().UnixMilli() > record.Expiration {
 		return ErrPastExpiration
@@ -132,7 +121,7 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId int, r
 	}
 
 	entry, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
-	if err != nil && !errors.Is(err, ErrEntryNotFound) {
+	if err != nil && !errors.Is(err, ErrRecordNotFound) {
 		return err
 	}
 
@@ -143,7 +132,7 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId int, r
 			highestExpiration = record.Expiration
 		}
 		if record.Version <= entry.Version {
-			return ErrOlderVersion
+			return ErrVersionTooLow
 		}
 	}
 

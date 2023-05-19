@@ -14,7 +14,7 @@ func TestInMemoryORM(t *testing.T) {
 	t.Parallel()
 
 	address := testutils.NewAddress()
-	slotId := 3
+	var slotId uint = 3
 	payload := testutils.Random32Byte()
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
@@ -31,7 +31,7 @@ func TestInMemoryORM(t *testing.T) {
 
 	t.Run("entry not found", func(t *testing.T) {
 		_, err := orm.Get(address, slotId)
-		assert.ErrorIs(t, err, s4.ErrEntryNotFound)
+		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
 	})
 
 	t.Run("insert and get", func(t *testing.T) {
@@ -63,6 +63,6 @@ func TestInMemoryORM(t *testing.T) {
 		assert.NoError(t, err)
 
 		_, err = orm.Get(address, slotId)
-		assert.ErrorIs(t, err, s4.ErrEntryNotFound)
+		assert.ErrorIs(t, err, s4.ErrRecordNotFound)
 	})
 }

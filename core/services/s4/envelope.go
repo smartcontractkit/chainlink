@@ -13,13 +13,13 @@ import (
 // Hex is not used to avoid confusion due to case-sensivity and 0x prefix.
 type Envelope struct {
 	Address    []byte `json:"address"`
-	SlotID     int    `json:"slotid"`
+	SlotID     uint   `json:"slotid"`
 	Payload    []byte `json:"payload"`
-	Version    int64  `json:"version"`
+	Version    uint64 `json:"version"`
 	Expiration int64  `json:"expiration"`
 }
 
-func NewEnvelopeFromRecord(address common.Address, slotId int, record *Record) *Envelope {
+func NewEnvelopeFromRecord(address common.Address, slotId uint, record *Record) *Envelope {
 	return &Envelope{
 		Address:    address.Bytes(),
 		SlotID:     slotId,
