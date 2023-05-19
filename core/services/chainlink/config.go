@@ -143,8 +143,8 @@ func (s *Secrets) ValidateDB() error {
 	return nil
 }
 
-// setEnv overrides fields from ENV vars, if present.
-func (s *Secrets) setEnv() error {
+// SetEnv overrides fields from ENV vars, if present.
+func (s *Secrets) SetEnv() error {
 	if dbURL := config.EnvDatabaseURL.Get(); dbURL != "" {
 		s.Database.URL = new(models.SecretURL)
 		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {

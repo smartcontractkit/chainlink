@@ -196,59 +196,7 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
-				if c.IsSet("config") {
-					if client.configFilesIsSet || client.secretsFileIsSet {
-						return errNoDuplicateFlags
-					} else {
-						client.configFiles = c.StringSlice("config")
-					}
-				}
-
-				if c.IsSet("secrets") {
-					if client.configFilesIsSet || client.secretsFileIsSet {
-						return errNoDuplicateFlags
-					} else {
-						client.secretsFile = c.String("secrets")
-					}
-				}
-
-				// flags here, or ENV VAR only
-				cfg, err := initServerConfig(&opts, client.configFiles, client.secretsFile)
-				if err != nil {
-					return err
-				}
-				client.Config = cfg
-
-				logFileMaxSizeMB := client.Config.LogFileMaxSize() / utils.MB
-				if logFileMaxSizeMB > 0 {
-					err = utils.EnsureDirAndMaxPerms(client.Config.LogFileDir(), os.FileMode(0700))
-					if err != nil {
-						return err
-					}
-				}
-
-				// Swap out the logger, replacing the old one.
-				err = client.CloseLogger()
-				if err != nil {
-					return err
-				}
-
-				lggrCfg := logger.Config{
-					LogLevel:       client.Config.LogLevel(),
-					Dir:            client.Config.LogFileDir(),
-					JsonConsole:    client.Config.JSONConsole(),
-					UnixTS:         client.Config.LogUnixTimestamps(),
-					FileMaxSizeMB:  int(logFileMaxSizeMB),
-					FileMaxAgeDays: int(client.Config.LogFileMaxAge()),
-					FileMaxBackups: int(client.Config.LogFileMaxBackups()),
-				}
-				l, closeFn := lggrCfg.New()
-
-				client.Logger = l
-				client.CloseLogger = closeFn
-
-				return nil
+				return BeforeServerCmd(c, &opts, client)
 			},
 		},
 		{
@@ -330,5 +278,65 @@ func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, s
 
 	opts.SecretsString = secrets
 
+	s := chainlink.Secrets{}
+	s.SetEnv()
+	opts.Secrets = s
+
 	return opts.New()
+}
+
+func BeforeServerCmd(c *cli.Context, opts *chainlink.GeneralConfigOpts, client *Client) error {
+	errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+	if c.IsSet("config") {
+		if client.configFilesIsSet || client.secretsFileIsSet {
+			return errNoDuplicateFlags
+		} else {
+			client.configFiles = c.StringSlice("config")
+		}
+	}
+
+	if c.IsSet("secrets") {
+		if client.configFilesIsSet || client.secretsFileIsSet {
+			return errNoDuplicateFlags
+		} else {
+			client.secretsFile = c.String("secrets")
+		}
+	}
+
+	// flags here, or ENV VAR only
+	cfg, err := initServerConfig(opts, client.configFiles, client.secretsFile)
+	if err != nil {
+		return err
+	}
+	client.Config = cfg
+
+	logFileMaxSizeMB := client.Config.LogFileMaxSize() / utils.MB
+	if logFileMaxSizeMB > 0 {
+		err = utils.EnsureDirAndMaxPerms(client.Config.LogFileDir(), os.FileMode(0700))
+		if err != nil {
+			return err
+		}
+	}
+
+	// Swap out the logger, replacing the old one.
+	err = client.CloseLogger()
+	if err != nil {
+		return err
+	}
+
+	lggrCfg := logger.Config{
+		LogLevel:       client.Config.LogLevel(),
+		Dir:            client.Config.LogFileDir(),
+		JsonConsole:    client.Config.JSONConsole(),
+		UnixTS:         client.Config.LogUnixTimestamps(),
+		FileMaxSizeMB:  int(logFileMaxSizeMB),
+		FileMaxAgeDays: int(client.Config.LogFileMaxAge()),
+		FileMaxBackups: int(client.Config.LogFileMaxBackups()),
+	}
+	l, closeFn := lggrCfg.New()
+
+	client.Logger = l
+	client.CloseLogger = closeFn
+
+	return nil
 }

@@ -23,7 +23,10 @@ func NewTestGeneralConfig(t testing.TB) chainlink.GeneralConfig { return NewGene
 // The default test overrides are applied before overrideFn, and include one chain with evmclient.NullClientChainID.
 func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	tempDir := t.TempDir()
+	s := &chainlink.Secrets{}
+	s.SetEnv()
 	g, err := chainlink.GeneralConfigOpts{
+		Secrets: *s,
 		OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.RootDir = &tempDir

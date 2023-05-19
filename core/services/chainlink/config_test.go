@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
@@ -1194,7 +1195,6 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 			opts := GeneralConfigOpts{
-				SkipEnv:       true,
 				ConfigStrings: []string{tt.inputConfig},
 				SecretsString: tt.inputSecrets,
 			}
@@ -1252,10 +1252,17 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
 
-	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
+	s := Secrets{
+		Secrets: v2.Secrets{
+			Database: v2.DatabaseSecrets{
+				URL: models.MustSecretURL(DBURL_OVERRIDE),
+			},
+		},
+	}
 
 	// Check for two overrides
 	opts := GeneralConfigOpts{
+		Secrets:       s,
 		ConfigStrings: []string{fullTOML},
 		SecretsString: secretsFullTOML,
 	}

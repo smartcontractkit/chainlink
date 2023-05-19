@@ -95,6 +95,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				if err := cli.Before(c); err != nil {
 					return err
 				}
+				// TODO: Check if this is correct
+				if err := cmd.BeforeServerCmd(c, &chainlink.GeneralConfigOpts{}, &client); err != nil {
+					return err
+				}
 				if err := client.RunNode(c); err != nil {
 					return err
 				}

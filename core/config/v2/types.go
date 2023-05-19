@@ -129,6 +129,10 @@ type Secrets struct {
 	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
+func (s *Secrets) SetFrom(other *Secrets) {
+	s.Database.setFrom(other.Database)
+}
+
 func dbURLPasswordComplexity(err error) string {
 	return fmt.Sprintf("missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements: "+utils.PasswordComplexityRequirements, err)
 }
@@ -137,6 +141,19 @@ type DatabaseSecrets struct {
 	URL                  *models.SecretURL
 	BackupURL            *models.SecretURL
 	AllowSimplePasswords bool
+}
+
+func (d *DatabaseSecrets) setFrom(other DatabaseSecrets) {
+	if other.URL != nil {
+		d.URL = other.URL
+	}
+	if other.BackupURL != nil {
+		d.BackupURL = other.BackupURL
+	}
+	if other.AllowSimplePasswords != false {
+		d.AllowSimplePasswords = other.AllowSimplePasswords
+	}
+
 }
 
 func validateDBURL(dbURI url.URL) error {

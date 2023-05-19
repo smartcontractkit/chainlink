@@ -68,8 +68,6 @@ type GeneralConfigOpts struct {
 
 	// OverrideFn is a *test-only* hook to override effective values.
 	OverrideFn func(*Config, *Secrets)
-
-	SkipEnv bool
 }
 
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
@@ -84,9 +82,14 @@ func (o *GeneralConfigOpts) parseConfig(config string) error {
 
 // parseSecrets sets Secrets from the given TOML string.
 func (o *GeneralConfigOpts) parseSecrets() (err error) {
-	if err2 := v2.DecodeTOML(strings.NewReader(o.SecretsString), &o.Secrets); err2 != nil {
+	s := &Secrets{}
+	if err2 := v2.DecodeTOML(strings.NewReader(o.SecretsString), s); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
+
+	s.SetFrom(&o.Secrets.Secrets)
+	o.Secrets = *s
+
 	return nil
 }
 
@@ -112,12 +115,6 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	}
 
 	o.Config.setDefaults()
-	if !o.SkipEnv {
-		err = o.Secrets.setEnv()
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	if fn := o.OverrideFn; fn != nil {
 		fn(&o.Config, &o.Secrets)

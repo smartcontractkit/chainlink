@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
@@ -81,8 +82,6 @@ func TestValidateDB(t *testing.T) {
 	t.Setenv(string(v2.EnvConfig), "")
 
 	t.Run("unset db url", func(t *testing.T) {
-		t.Setenv(string(v2.EnvDatabaseURL), "")
-
 		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
@@ -91,9 +90,15 @@ func TestValidateDB(t *testing.T) {
 	})
 
 	t.Run("garbage db url", func(t *testing.T) {
-		t.Setenv(string(v2.EnvDatabaseURL), "garbage")
-
-		config, err := GeneralConfigOpts{}.New()
+		config, err := GeneralConfigOpts{
+			Secrets: Secrets{
+				Secrets: v2.Secrets{
+					Database: v2.DatabaseSecrets{
+						URL: models.MustSecretURL("garbage"),
+					},
+				},
+			},
+		}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
@@ -101,18 +106,32 @@ func TestValidateDB(t *testing.T) {
 	})
 
 	t.Run("dev url", func(t *testing.T) {
-		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable")
-
-		config, err := GeneralConfigOpts{}.New()
+		devURL := "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable"
+		config, err := GeneralConfigOpts{
+			Secrets: Secrets{
+				Secrets: v2.Secrets{
+					Database: v2.DatabaseSecrets{
+						URL: models.MustSecretURL(devURL),
+					},
+				},
+			},
+		}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.NoError(t, err)
 	})
 
 	t.Run("bad password url", func(t *testing.T) {
-		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:pwdToShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
-
-		config, err := GeneralConfigOpts{}.New()
+		devURL := "postgres://postgres:pwdToShort@localhost:5432/chainlink_dev_prod?sslmode=disable"
+		config, err := GeneralConfigOpts{
+			Secrets: Secrets{
+				Secrets: v2.Secrets{
+					Database: v2.DatabaseSecrets{
+						URL: models.MustSecretURL(devURL),
+					},
+				},
+			},
+		}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
