@@ -7,7 +7,7 @@ import (
 )
 
 // HeadSaver is an chain agnostic interface for saving and loading heads
-// Each chain that are not EVM will have its own custom implementation of HeadSaver interface.
+// Each chain will have its own custom implementation of HeadSaver interface.
 type HeadSaver[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
