@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -29,7 +28,6 @@ type VRFV2SoakTest struct {
 	Inputs *VRFV2SoakTestInputs
 
 	TestReporter testreporters.VRFV2SoakTestReporter
-	mockServer   *ctfClient.MockserverClient
 
 	testEnvironment *environment.Environment
 	ChainlinkNodes  []*client.Chainlink
@@ -58,12 +56,13 @@ type VRFV2SoakTestInputs struct {
 }
 
 // NewVRFV2SoakTest creates a new vrfv2 soak test to setup and run
-func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs) *VRFV2SoakTest {
+func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.Chainlink) *VRFV2SoakTest {
 	return &VRFV2SoakTest{
 		Inputs: inputs,
 		TestReporter: testreporters.VRFV2SoakTestReporter{
 			Reports: make(map[string]*testreporters.VRFV2SoakTestReport),
 		},
+		ChainlinkNodes: chainlinkNodes,
 	}
 }
 
@@ -71,14 +70,6 @@ func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs) *VRFV2SoakTest {
 func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment) {
 	v.ensureInputValues(t)
 	v.testEnvironment = env
-	var err error
-
-	// Make connections to soak test resources
-	v.ChainlinkNodes, err = client.ConnectChainlinkNodes(env)
-	require.NoError(t, err, "Error connecting to Chainlink nodes")
-	v.mockServer, err = ctfClient.ConnectMockServer(env)
-	require.NoError(t, err, "Error connecting to mockserver")
-
 	v.chainClient.ParallelTransactions(true)
 }
 
@@ -158,8 +149,8 @@ func (v *VRFV2SoakTest) ensureInputValues(t *testing.T) {
 	require.GreaterOrEqual(t, inputs.RequestsPerMinute, 1, "Expecting at least 1 request per minute")
 	chainlinkNodeFunding, _ := inputs.ChainlinkNodeFunding.Float64()
 	subscriptionFunding := inputs.SubscriptionFunding.Int64()
-	require.Greater(t, chainlinkNodeFunding, 0, "Need some amount of funding for Chainlink nodes")
-	require.Greater(t, subscriptionFunding, 0, "Need some amount of funding for VRF V2 Coordinator Subscription nodes")
+	require.Greater(t, chainlinkNodeFunding, float64(0), "Need some amount of funding for Chainlink nodes")
+	require.Greater(t, subscriptionFunding, int64(0), "Need some amount of funding for VRF V2 Coordinator Subscription nodes")
 	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute, "Test duration should be longer than 1 minute")
 	require.NotNil(t, inputs.TestFunc, "Expected there to be test to run")
 }

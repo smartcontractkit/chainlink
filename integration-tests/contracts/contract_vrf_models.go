@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
@@ -73,6 +74,7 @@ type VRFv2Consumer interface {
 	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	ChangeEVMClient(newClient blockchain.EVMClient)
 }
 
 type DKG interface {

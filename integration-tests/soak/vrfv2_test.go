@@ -2,7 +2,6 @@ package soak
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 
@@ -37,10 +35,10 @@ func TestVRFV2Soak(t *testing.T) {
 	linkEthFeedResponse := big.NewInt(1e18)
 	minimumConfirmations := 3
 	subID := uint64(1)
-	//linkFundingAmount := big.NewInt(100)
 	numberOfWords := uint32(3)
 	maxGasPriceGWei := 1000
 	callbackGasLimit := uint32(1000000)
+	waitForRandRequestStatusToBeFulfilledTimeout := time.Second * 20
 	l := utils.GetTestLogger(t)
 
 	var testInputs testsetups.VRFV2SoakTestInputs
@@ -190,27 +188,54 @@ PriceMax = '%d gwei'
 		RequestsPerMinute:    testInputs.RequestsPerMinute,
 		TestFunc: func(t *testsetups.VRFV2SoakTest, requestNumber int) error {
 
-			// request randomness
-			err := consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), callbackGasLimit, numberOfWords)
+			concurrentEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, newTestEnvironment, chainClient)
+			consumer.ChangeEVMClient(concurrentEVMClient)
 			if err != nil {
-				return errors.New("error occurred Requesting Randomness")
+				return fmt.Errorf("error occurred creating ConcurrentEVMClient, error: %w", err)
 			}
 
+			// request randomness
+			err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), callbackGasLimit, numberOfWords)
+			if err != nil {
+				return fmt.Errorf("error occurred Requesting Randomness, error: %w", err)
+			}
+
+			err = concurrentEVMClient.WaitForEvents()
+			if err != nil {
+				return fmt.Errorf("ERROR occurred waiting on chain events, error: %w", err)
+			}
+
+			//todo - need to wait until
+			fmt.Println("CALLING GetLastRequestId")
 			lastRequestID, err := consumer.GetLastRequestId(context.Background())
 			if err != nil {
-				return errors.New("error occurred getting Last Request ID")
+				return fmt.Errorf("error occurred getting Last Request ID, error: %w", err)
 			}
 
 			l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
-			_, err = WaitForRandRequestToBeFulfilled(consumer, lastRequestID, time.Second*20, l)
+			fmt.Println("CALLING WaitForRandRequestToBeFulfilled()")
+			fulfilledStatus, err := WaitForRandRequestToBeFulfilled(
+				consumer,
+				lastRequestID,
+				waitForRandRequestStatusToBeFulfilledTimeout,
+				l,
+			)
 
 			if err != nil {
 				return fmt.Errorf("error occurred waiting for Randomness Request Status, error: %w", err)
 			}
+
+			for _, randomWord := range fulfilledStatus.RandomWords {
+				l.Info().
+					Uint64("Random Word", randomWord.Uint64()).
+					Uint64("For RequestID", lastRequestID.Uint64()).
+					Msg("Randomness fulfilled")
+			}
 			return nil
 		},
-	})
+	},
+		chainlinkNodes)
 
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(vrfV2SoakTest.TearDownVals(t)); err != nil {
@@ -272,33 +297,52 @@ func WaitForRandRequestToBeFulfilled(
 	timeout time.Duration,
 	l zerolog.Logger,
 ) (contracts.RequestStatus, error) {
-	g := new(errgroup.Group)
 	requestStatusChannel := make(chan contracts.RequestStatus)
+	requestStatusErrorsChannel := make(chan error)
 
-	g.Go(func() error {
-		requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
-		if err != nil {
-			return err
-		}
-		requestStatusChannel <- requestStatus
-		return nil
-	})
+	// set the requests to only run for a certain amount of time
+	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
+	defer testCancel()
 
-	if err := g.Wait(); err != nil {
-		return contracts.RequestStatus{}, err
-	} else {
-		status := <-requestStatusChannel
-		for _, w := range status.RandomWords {
-			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-		}
-	}
+	ticker := time.NewTicker(time.Second)
 
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-testContext.Done():
+			fmt.Println("WaitForRandRequestToBeFulfilled: TIMEOUT FOR lastRequestID: ", lastRequestID)
 			return contracts.RequestStatus{}, fmt.Errorf("timeout waiting for new transmission event")
+
+		case <-ticker.C:
+			fmt.Println("WaitForRandRequestToBeFulfilled: TRIGGERING getRandomnessRequestStatus GOROUTINE WITH lastRequestID: ", lastRequestID)
+			go getRandomnessRequestStatus(consumer, lastRequestID, requestStatusChannel, requestStatusErrorsChannel, l)
+
 		case requestStatus := <-requestStatusChannel:
-			return requestStatus, nil
+			fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED REQUEST STATUS WITH lastRequestID: ", lastRequestID)
+			if requestStatus.Fulfilled == true {
+				fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED FULFILMENT REQUEST STATUS WITH lastRequestID: ", lastRequestID)
+				return requestStatus, nil
+			}
+
+		case err := <-requestStatusErrorsChannel:
+			fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED AN ERROR: ", err)
+			return contracts.RequestStatus{}, err
 		}
 	}
+}
+
+func getRandomnessRequestStatus(
+	consumer contracts.VRFv2Consumer,
+	lastRequestID *big.Int,
+	requestStatusChannel chan contracts.RequestStatus,
+	requestStatusErrorsChannel chan error,
+	l zerolog.Logger,
+) {
+
+	requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
+
+	if err != nil {
+		l.Error().Interface("error: ", err).Msg("Error occurred while getting Rand Request Status")
+		requestStatusErrorsChannel <- fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
+	}
+	requestStatusChannel <- requestStatus
 }
