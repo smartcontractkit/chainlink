@@ -5,7 +5,7 @@ interface KeeperCompatibleInterface {
 
   /**
    * @notice method that is simulated by the keepers to see if any work actually
-   * needs to be performed. This method does does not actually need to be
+   * needs to be performed. This method does not actually need to be
    * executable, and since it is only ever simulated it can consume lots of gas.
    * @dev To ensure that it is never called, you may want to add the
    * cannotExecute modifier from KeeperBase to your implementation of this
