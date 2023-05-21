@@ -10,29 +10,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 
 ### Added
+
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 
 ### Fixed
- - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
+- Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
- - Bumping batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
-  - `LogBackfillBatchSize = 1000`
-  - `RPCDefaultBatchSize: 250`
-  - `GasEstimator.BatchSize = 25`
 
-## 2.1.0 - UNRELEASED
+- Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+	- `LogBackfillBatchSize = 1000`
+	- `RPCDefaultBatchSize: 250`
+	- `GasEstimator.BatchSize = 25`
+- Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
+
+<!-- unreleasedstop -->
+
+## 2.1.0 - 2023-05-16
 
 ### Changed
 
 - Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
   if any Database-specific configuration is invalid.
 
-<!-- unreleasedstop -->
-
 ## 2.0.0 - 2023-04-20
-
 
 ### Added
 

@@ -1,19 +1,15 @@
 package gateway
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+)
 
 type GatewayConfig struct {
-	UserServerConfig UserServerConfig
-	NodeServerConfig NodeServerConfig
+	UserServerConfig gw_net.HTTPServerConfig
+	NodeServerConfig gw_net.WebSocketServerConfig
 	Dons             []DONConfig
-}
-
-type UserServerConfig struct {
-	Port uint16
-}
-
-type NodeServerConfig struct {
-	Port uint16
 }
 
 type DONConfig struct {

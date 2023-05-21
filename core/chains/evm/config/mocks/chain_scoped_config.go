@@ -1051,14 +1051,14 @@ func (_m *ChainScopedConfig) EvmGasBumpThreshold() uint64 {
 }
 
 // EvmGasBumpTxDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasBumpTxDepth() uint16 {
+func (_m *ChainScopedConfig) EvmGasBumpTxDepth() uint32 {
 	ret := _m.Called()
 
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint16)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
@@ -3605,6 +3605,20 @@ func (_m *ChainScopedConfig) VRFPassword() string {
 
 // Validate provides a mock function with given fields:
 func (_m *ChainScopedConfig) Validate() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ValidateDB provides a mock function with given fields:
+func (_m *ChainScopedConfig) ValidateDB() error {
 	ret := _m.Called()
 
 	var r0 error

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 )
 
 const (
@@ -992,9 +992,9 @@ func (c *Chainlink) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetN
 	return &response, resp.RawResponse, err
 }
 
-// RemoteIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
-func (c *Chainlink) RemoteIP() string {
-	return c.Config.RemoteIP
+// InternalIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
+func (c *Chainlink) InternalIP() string {
+	return c.Config.InternalIP
 }
 
 // Profile starts a profile session on the Chainlink node for a pre-determined length, then runs the provided function
@@ -1067,22 +1067,56 @@ func (c *Chainlink) SetPageSize(size int) {
 // ConnectChainlinkNodes creates new Chainlink clients
 func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	var clients []*Chainlink
-	localURLs := e.URLs[chainlinkChart.NodesLocalURLsKey]
-	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
-	for i, localURL := range localURLs {
-		internalHost := parseHostname(internalURLs[i])
+	for _, nodeDetails := range e.ChainlinkNodeDetails {
 		c, err := NewChainlink(&ChainlinkConfig{
-			URL:      localURL,
-			Email:    "notreal@fakeemail.ch",
-			Password: "fj293fbBnlQ!f9vNs",
-			RemoteIP: internalHost,
+			URL:        nodeDetails.LocalIP,
+			Email:      "notreal@fakeemail.ch",
+			Password:   "fj293fbBnlQ!f9vNs",
+			InternalIP: parseHostname(nodeDetails.InternalIP),
+			ChartName:  nodeDetails.ChartName,
+			PodName:    nodeDetails.PodName,
 		})
 		if err != nil {
 			return nil, err
 		}
+		log.Debug().
+			Str("URL", c.Config.URL).
+			Str("Internal IP", c.Config.InternalIP).
+			Str("Chart Name", c.Config.ChartName).
+			Str("Pod Name", c.Config.PodName).
+			Msg("Connected to Chainlink node")
 		clients = append(clients, c)
 	}
 	return clients, nil
+}
+
+// ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say through a Helm upgrade
+// Note: Experimental as of now, will likely not work predictably.
+func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*Chainlink) (err error) {
+	for _, node := range nodes {
+		for _, details := range testEnvironment.ChainlinkNodeDetails {
+			if details.ChartName == node.Config.ChartName { // Make the link from client to pod consistent
+				node, err = NewChainlink(&ChainlinkConfig{
+					URL:        details.LocalIP,
+					Email:      "notreal@fakeemail.ch",
+					Password:   "fj293fbBnlQ!f9vNs",
+					InternalIP: parseHostname(details.InternalIP),
+					ChartName:  details.ChartName,
+					PodName:    details.PodName,
+				})
+				if err != nil {
+					return err
+				}
+				log.Debug().
+					Str("URL", node.Config.URL).
+					Str("Internal IP", node.Config.InternalIP).
+					Str("Chart Name", node.Config.ChartName).
+					Str("Pod Name", node.Config.PodName).
+					Msg("Reconnected to Chainlink node")
+			}
+		}
+	}
+	return nil
 }
 
 func parseHostname(s string) string {
@@ -1208,4 +1242,33 @@ func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
 		return nil, nil, err
 	}
 	return response, resp.RawResponse, err
+}
+
+// UpgradeVersion upgrades the chainlink node to the new version
+// Note: You need to call Run() on the test environment for changes to take effect
+// Note: This function is not thread safe, call from a single thread
+func (c *Chainlink) UpgradeVersion(testEnvironment *environment.Environment, newImage, newVersion string) error {
+	if newVersion == "" {
+		return fmt.Errorf("new version is empty")
+	}
+	if newImage == "" {
+		newImage = os.Getenv("CHAINLINK_IMAGE")
+	}
+	log.Info().
+		Str("Chart Name", c.Config.ChartName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
+	upgradeVals := map[string]any{
+		"chainlink": map[string]any{
+			"image": map[string]any{
+				"image":   newImage,
+				"version": newVersion,
+			},
+		},
+	}
+	testEnvironment, err := testEnvironment.UpdateHelm(c.Config.ChartName, upgradeVals)
+	return err
 }

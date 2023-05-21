@@ -272,10 +272,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-		relayers := make(map[relay.Network]func() (loop.Relayer, error))
+		relayers := make(map[relay.Network]loop.Relayer)
 		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
-		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
-		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
+		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
 
 		processConfig := plugins.NewRegistrarConfig(config, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
