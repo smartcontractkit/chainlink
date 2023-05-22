@@ -2,7 +2,7 @@ package types
 
 import "context"
 
-// HeadListener manages evmclient.Client connection that receives heads from the eth node
+// HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
 type HeadListener[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// ListenForNewHeads kicks off the listen loop (not thread safe)
 	// done() must be executed upon leaving ListenForNewHeads()
