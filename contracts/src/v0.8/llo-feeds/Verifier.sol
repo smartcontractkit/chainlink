@@ -185,7 +185,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 0.0.2";
+    return "Verifier 1.0.0";
   }
 
   /// @inheritdoc IVerifier
@@ -241,9 +241,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   ) private view {
     uint8 expectedNumSignatures = config.f + 1;
 
-    if (config.f == 0)
-      // Is digest configured?
-      revert DigestNotSet(feedId, configDigest);
     if (!config.isActive) revert DigestInactive(feedId, configDigest);
     if (rs.length != expectedNumSignatures) revert IncorrectSignatureCount(rs.length, expectedNumSignatures);
     if (rs.length != ss.length) revert MismatchedSignatures(rs.length, ss.length);
