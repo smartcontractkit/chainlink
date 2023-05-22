@@ -204,15 +204,21 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 		return solanaGo.Transaction{}, uuid.Nil, solanaGo.Signature{}, errors.Wrap(initSendErr, "tx failed initial transmit")
 	}
 
-	var sigs signatureList
-	sigs.Append(sig) // add initial signature
-
 	// store tx signature + cancel function
 	id, initStoreErr := txm.txs.New(sig, cancel)
 	if initStoreErr != nil {
 		cancel() // cancel context when exiting early
 		return solanaGo.Transaction{}, uuid.Nil, solanaGo.Signature{}, errors.Wrapf(initStoreErr, "failed to save tx signature (%s) to inflight txs", sig)
 	}
+
+	// used for tracking rebroadcasting only in SendWithRetry
+	var sigs signatureList
+	sigs.Allocate()
+	if initSetErr := sigs.Set(0, sig); initSetErr != nil {
+		return solanaGo.Transaction{}, uuid.Nil, solanaGo.Signature{}, fmt.Errorf("failed to save initial signature in signature list: %w", initSetErr)
+	}
+
+	txm.lggr.Debugw("tx initial broadcast", "id", id, "signature", sig)
 
 	// retry with exponential backoff
 	// until context cancelled by timeout or called externally
@@ -222,10 +228,13 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 		tick := time.After(0)
 		bumpCount := uint(0)
 		bumpTime := time.Now()
+		var wg sync.WaitGroup
+
 		for {
 			select {
 			case <-ctx.Done():
-				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
+				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)]
+				wg.Wait()
 				txm.lggr.Debugw("stopped tx retry", "id", id, "signatures", sigs.List())
 				return
 			case <-tick:
@@ -244,13 +253,17 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 						txm.lggr.Errorw("failed to build bumped retry tx", "error", retryBuildErr, "id", id)
 						return // exit func if cannot build tx for retrying
 					}
-
+					ind := sigs.Allocate()
+					if uint(ind) != bumpCount {
+						txm.lggr.Errorw("INVARIANT VIOLATION: index (%d) != bumpCount (%d)", ind, bumpCount)
+						return
+					}
 				}
 
 				// take currentTx and broadcast, if bumped fee -> save signature to list
+				wg.Add(1)
 				go func(bump bool, count uint, retryTx solanaGo.Transaction) {
-					// calculate index to compare before broadcasting
-					index := sigs.Length() - 1
+					defer wg.Done()
 
 					retrySig, retrySendErr := client.SendTx(ctx, &retryTx)
 					// this could occur if endpoint goes down or if ctx cancelled
@@ -269,13 +282,27 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, baseTx solanaGo.Transacti
 							txm.lggr.Warnw("error in adding retry transaction", "error", retryStoreErr, "id", id)
 							return
 						}
-						sigsList, sigsLength := sigs.Append(retrySig)
-						index = sigsLength - 1
-						txm.lggr.Debugw("tx rebroadcast with bumped fee", "id", id, "fee", getFee(count), "signatures", sigsList)
+						if setErr := sigs.Set(int(count), retrySig); setErr != nil {
+							// this should never happen
+							txm.lggr.Errorw("INVARIANT VIOLATION", "error", setErr)
+						}
+						txm.lggr.Debugw("tx rebroadcast with bumped fee", "id", id, "fee", getFee(count), "signatures", sigs.List())
+					}
+
+					// prevent locking on waitgroup when ctx is closed
+					wait := make(chan struct{})
+					go func() {
+						defer close(wait)
+						sigs.Wait(int(count)) // wait until bump tx has set the tx signature to compare rebroadcast signatures
+					}()
+					select {
+					case <-ctx.Done():
+						return
+					case <-wait:
 					}
 
 					// this should never happen (should match the last signature saved to sigs)
-					if fetchedSig, fetchErr := sigs.Get(index); fetchErr != nil || retrySig != fetchedSig {
+					if fetchedSig, fetchErr := sigs.Get(int(count)); fetchErr != nil || retrySig != fetchedSig {
 						txm.lggr.Errorw("original signature does not match retry signature", "expectedSignatures", sigs.List(), "receivedSignature", retrySig, "error", fetchErr)
 					}
 				}(shouldBump, bumpCount, currentTx)

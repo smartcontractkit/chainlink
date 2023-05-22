@@ -75,15 +75,21 @@ func convertStatus(res *rpc.SignatureStatusesResult) uint {
 type signatureList struct {
 	sigs []solana.Signature
 	lock sync.RWMutex
+	wg   []*sync.WaitGroup
+}
+
+// internal function that should be called using the proper lock
+func (s *signatureList) get(index int) (sig solana.Signature, err error) {
+	if index >= len(s.sigs) {
+		return sig, errors.New("invalid index")
+	}
+	return s.sigs[index], nil
 }
 
 func (s *signatureList) Get(index int) (sig solana.Signature, err error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if index >= len(s.sigs) {
-		return sig, errors.New("invalid index")
-	}
-	return s.sigs[index], nil
+	return s.get(index)
 }
 
 func (s *signatureList) List() []solana.Signature {
@@ -98,10 +104,44 @@ func (s *signatureList) Length() int {
 	return len(s.sigs)
 }
 
-func (s *signatureList) Append(sig solana.Signature) (sigs []solana.Signature, count int) {
+func (s *signatureList) Allocate() (index int) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.sigs = append(s.sigs, sig)
-	return s.sigs, len(s.sigs)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	s.sigs = append(s.sigs, solana.Signature{})
+	s.wg = append(s.wg, &wg)
+
+	return len(s.sigs) - 1
+}
+
+func (s *signatureList) Set(index int, sig solana.Signature) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	v, err := s.get(index)
+	if err != nil {
+		return err
+	}
+
+	if !v.IsZero() {
+		return fmt.Errorf("trying to set signature when already set - index: %d, existing: %s, new: %s", index, v, sig)
+	}
+
+	s.sigs[index] = sig
+	s.wg[index].Done()
+	return nil
+}
+
+func (s *signatureList) Wait(index int) {
+	wg := &sync.WaitGroup{}
+	s.lock.RLock()
+	if index < len(s.wg) {
+		wg = s.wg[index]
+	}
+	s.lock.RUnlock()
+
+	wg.Wait()
 }
