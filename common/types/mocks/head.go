@@ -70,6 +70,20 @@ func (_m *Head[BLOCK_HASH]) EarliestHeadInChain() types.Head[BLOCK_HASH] {
 	return r0
 }
 
+// Equals provides a mock function with given fields: _a0
+func (_m *Head[BLOCK_HASH]) Equals(_a0 types.Head[BLOCK_HASH]) bool {
+	ret := _m.Called(_a0)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.Head[BLOCK_HASH]) bool); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // GetParent provides a mock function with given fields:
 func (_m *Head[BLOCK_HASH]) GetParent() types.Head[BLOCK_HASH] {
 	ret := _m.Called()

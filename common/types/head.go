@@ -31,5 +31,6 @@ type Head[BLOCK_HASH Hashable] interface {
 type HeadTrackerHead[BLOCK_HASH Hashable, CHAIN_ID ID] interface {
 	Head[BLOCK_HASH]
 
-	ChainID()
+	// ChainID returns the chain id of the head
+	ChainID() CHAIN_ID
 }
