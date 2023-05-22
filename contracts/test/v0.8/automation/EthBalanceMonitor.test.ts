@@ -2,6 +2,7 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { EthBalanceMonitorExposed } from '../../../typechain/EthBalanceMonitorExposed'
+import { EthBalanceMonitorExtendedExposed } from '../../../typechain/EthBalanceMonitorExtendedExposed'
 import { ReceiveReverter } from '../../../typechain/ReceiveReverter'
 import { ReceiveEmitter } from '../../../typechain/ReceiveEmitter'
 import { ReceiveFallbackEmitter } from '../../../typechain/ReceiveFallbackEmitter'
@@ -47,6 +48,7 @@ async function assertWatchlistBalances(
 }
 
 let bm: EthBalanceMonitorExposed
+let bmDev: EthBalanceMonitorExtendedExposed
 let receiveReverter: ReceiveReverter
 let receiveEmitter: ReceiveEmitter
 let receiveFallbackEmitter: ReceiveFallbackEmitter
@@ -67,6 +69,10 @@ describe('EthBalanceMonitor', () => {
       'EthBalanceMonitorExposed',
       owner,
     )
+    const bmDevFactory = await ethers.getContractFactory(
+      'EthBalanceMonitorExtendedExposed',
+      owner,
+    )
     const rrFactory = await ethers.getContractFactory('ReceiveReverter', owner)
     const reFactory = await ethers.getContractFactory('ReceiveEmitter', owner)
     const rfeFactory = await ethers.getContractFactory(
@@ -75,11 +81,13 @@ describe('EthBalanceMonitor', () => {
     )
 
     bm = await bmFactory.deploy(keeperRegistry.address, 0)
+    bmDev = await bmDevFactory.deploy(keeperRegistry.address, 0)
     receiveReverter = await rrFactory.deploy()
     receiveEmitter = await reFactory.deploy()
     receiveFallbackEmitter = await rfeFactory.deploy()
     await Promise.all([
       bm.deployed(),
+      bmDev.deployed(),
       receiveReverter.deployed(),
       receiveEmitter.deployed(),
       receiveFallbackEmitter.deployed(),
@@ -190,11 +198,6 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       let watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress1])
-      let watchListDetails = await bm.getWatchListDetails()
-      assert.equal(watchListDetails.length, 3)
-      assert.deepEqual(watchListDetails[0], [watchAddress1])
-      m.bigNumArrayEquals([oneEth], watchListDetails[1])
-      m.bigNumArrayEquals([twoEth], watchListDetails[2])
       const accountInfo = await bm.getAccountInfo(watchAddress1)
       assert.isTrue(accountInfo.isActive)
       expect(accountInfo.minBalanceWei).to.equal(oneEth)
@@ -210,15 +213,6 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress1, watchAddress2, watchAddress3])
-      watchListDetails = await bm.getWatchListDetails()
-      assert.equal(watchListDetails.length, 3)
-      assert.deepEqual(watchListDetails[0], [
-        watchAddress1,
-        watchAddress2,
-        watchAddress3,
-      ])
-      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[1])
-      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[2])
       let accountInfo1 = await bm.getAccountInfo(watchAddress1)
       let accountInfo2 = await bm.getAccountInfo(watchAddress2)
       let accountInfo3 = await bm.getAccountInfo(watchAddress3)
@@ -242,11 +236,6 @@ describe('EthBalanceMonitor', () => {
       await setTx.wait()
       watchList = await bm.getWatchList()
       assert.deepEqual(watchList, [watchAddress3, watchAddress1])
-      watchListDetails = await bm.getWatchListDetails()
-      assert.equal(watchListDetails.length, 3)
-      assert.deepEqual(watchListDetails[0], [watchAddress3, watchAddress1])
-      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[1])
-      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[2])
       accountInfo1 = await bm.getAccountInfo(watchAddress1)
       accountInfo2 = await bm.getAccountInfo(watchAddress2)
       accountInfo3 = await bm.getAccountInfo(watchAddress3)
@@ -296,6 +285,133 @@ describe('EthBalanceMonitor', () => {
 
     it('Should revert if any of the top up amounts are 0', async () => {
       const tx = bm
+        .connect(owner)
+        .setWatchList(
+          [watchAddress1, watchAddress2],
+          [oneEth, oneEth],
+          [twoEth, zeroEth],
+        )
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+    })
+  })
+
+  describe('EthBalanceMonitorExtended: setWatchList() / getWatchList() / getAccountInfo()', () => {
+    it('Should allow owner to set the watchlist', async () => {
+      // should start unactive
+      assert.isFalse((await bmDev.getAccountInfo(watchAddress1)).isActive)
+      // add first watchlist
+      let setTx = await bmDev
+        .connect(owner)
+        .setWatchList([watchAddress1], [oneEth], [twoEth])
+      await setTx.wait()
+      let watchList = await bmDev.getWatchList()
+      assert.deepEqual(watchList, [watchAddress1])
+      let watchListDetails = await bmDev.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [watchAddress1])
+      m.bigNumArrayEquals([oneEth], watchListDetails[1])
+      m.bigNumArrayEquals([twoEth], watchListDetails[2])
+      const accountInfo = await bmDev.getAccountInfo(watchAddress1)
+      assert.isTrue(accountInfo.isActive)
+      expect(accountInfo.minBalanceWei).to.equal(oneEth)
+      expect(accountInfo.topUpAmountWei).to.equal(twoEth)
+      // add more to watchlist
+      setTx = await bmDev
+        .connect(owner)
+        .setWatchList(
+          [watchAddress1, watchAddress2, watchAddress3],
+          [oneEth, twoEth, threeEth],
+          [oneEth, twoEth, threeEth],
+        )
+      await setTx.wait()
+      watchList = await bmDev.getWatchList()
+      assert.deepEqual(watchList, [watchAddress1, watchAddress2, watchAddress3])
+      watchListDetails = await bmDev.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [
+        watchAddress1,
+        watchAddress2,
+        watchAddress3,
+      ])
+      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[1])
+      m.bigNumArrayEquals([oneEth, twoEth, threeEth], watchListDetails[2])
+      let accountInfo1 = await bmDev.getAccountInfo(watchAddress1)
+      let accountInfo2 = await bmDev.getAccountInfo(watchAddress2)
+      let accountInfo3 = await bmDev.getAccountInfo(watchAddress3)
+      expect(accountInfo1.isActive).to.be.true
+      expect(accountInfo1.minBalanceWei).to.equal(oneEth)
+      expect(accountInfo1.topUpAmountWei).to.equal(oneEth)
+      expect(accountInfo2.isActive).to.be.true
+      expect(accountInfo2.minBalanceWei).to.equal(twoEth)
+      expect(accountInfo2.topUpAmountWei).to.equal(twoEth)
+      expect(accountInfo3.isActive).to.be.true
+      expect(accountInfo3.minBalanceWei).to.equal(threeEth)
+      expect(accountInfo3.topUpAmountWei).to.equal(threeEth)
+      // remove some from watchlist
+      setTx = await bmDev
+        .connect(owner)
+        .setWatchList(
+          [watchAddress3, watchAddress1],
+          [threeEth, oneEth],
+          [threeEth, oneEth],
+        )
+      await setTx.wait()
+      watchList = await bmDev.getWatchList()
+      assert.deepEqual(watchList, [watchAddress3, watchAddress1])
+      watchListDetails = await bmDev.getWatchListDetails()
+      assert.equal(watchListDetails.length, 3)
+      assert.deepEqual(watchListDetails[0], [watchAddress3, watchAddress1])
+      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[1])
+      m.bigNumArrayEquals([threeEth, oneEth], watchListDetails[2])
+      accountInfo1 = await bmDev.getAccountInfo(watchAddress1)
+      accountInfo2 = await bmDev.getAccountInfo(watchAddress2)
+      accountInfo3 = await bmDev.getAccountInfo(watchAddress3)
+      expect(accountInfo1.isActive).to.be.true
+      expect(accountInfo2.isActive).to.be.false
+      expect(accountInfo3.isActive).to.be.true
+    })
+
+    it('Should not allow duplicates in the watchlist', async () => {
+      const errMsg = `DuplicateAddress("${watchAddress1}")`
+      const setTx = bmDev
+        .connect(owner)
+        .setWatchList(
+          [watchAddress1, watchAddress2, watchAddress1],
+          [oneEth, twoEth, threeEth],
+          [oneEth, twoEth, threeEth],
+        )
+      await expect(setTx).to.be.revertedWith(errMsg)
+    })
+
+    it('Should not allow strangers to set the watchlist', async () => {
+      const setTxStranger = bmDev
+        .connect(stranger)
+        .setWatchList([watchAddress1], [oneEth], [twoEth])
+      await expect(setTxStranger).to.be.revertedWith(OWNABLE_ERR)
+    })
+
+    it('Should revert if the list lengths differ', async () => {
+      let tx = bmDev.connect(owner).setWatchList([watchAddress1], [], [twoEth])
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      tx = bmDev.connect(owner).setWatchList([watchAddress1], [oneEth], [])
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      tx = bmDev.connect(owner).setWatchList([], [oneEth], [twoEth])
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+    })
+
+    it('Should revert if any of the addresses are empty', async () => {
+      let tx = bmDev
+        .connect(owner)
+        .setWatchList(
+          [watchAddress1, ethers.constants.AddressZero],
+          [oneEth, oneEth],
+          [twoEth, twoEth],
+        )
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+    })
+
+    it('Should revert if any of the top up amounts are 0', async () => {
+      const tx = bmDev
         .connect(owner)
         .setWatchList(
           [watchAddress1, watchAddress2],

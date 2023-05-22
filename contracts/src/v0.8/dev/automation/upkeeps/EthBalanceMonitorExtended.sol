@@ -2,15 +2,19 @@
 
 pragma solidity 0.8.6;
 
-import "../../ConfirmedOwner.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
+import "../../../ConfirmedOwner.sol";
+import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
- * @title The EthBalanceMonitor contract
+ * @title The EthBalanceMonitorExtended contract
  * @notice A keeper-compatible contract that monitors and funds eth addresses
+ *
+ * @notice This contract is equivalent to the standard EthBalanceMonitor contract, with
+ * the following added expiremental functions:
+ * - getWatchListDetails()
  */
-contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
+contract EthBalanceMonitorExtended is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
   // observed limit of 45K + 10k buffer
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
 
@@ -219,6 +223,24 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
    */
   function getWatchList() external view returns (address[] memory) {
     return s_watchList;
+  }
+
+  /**
+   * @notice Gets the list of addresses being watched, their minimum top-ups, and top-up amounts
+   */
+  function getWatchListDetails() external view returns (address[] memory, uint96[] memory, uint96[] memory) {
+    address[] memory watchlist = s_watchList;
+
+    // Instantiate min-balance & top-up amount arrays, and fill them with target details.
+    uint96[] memory minBalancesWei = new uint96[](s_watchList.length);
+    uint96[] memory topUpAmountsWei = new uint96[](s_watchList.length);
+    for (uint256 x = 0; x < s_watchList.length; x++) {
+      Target memory target = s_targets[s_watchList[x]];
+      minBalancesWei[x] = target.minBalanceWei;
+      topUpAmountsWei[x] = target.topUpAmountWei;
+    }
+
+    return (watchlist, minBalancesWei, topUpAmountsWei);
   }
 
   /**
