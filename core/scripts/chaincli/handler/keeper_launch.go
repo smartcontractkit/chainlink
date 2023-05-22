@@ -144,6 +144,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
+	log.Println("All nodes successfully launched, now running. Use Ctrl+C to terminate")
+
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-termChan // Blocks here until either SIGINT or SIGTERM is received.
