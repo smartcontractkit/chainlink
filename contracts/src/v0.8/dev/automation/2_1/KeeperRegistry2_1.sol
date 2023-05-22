@@ -208,7 +208,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
-  ) external returns (uint256 id, address forwarderAddress) {
+  ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
     AutomationForwarder forwarder = new AutomationForwarder(id, target);
@@ -217,7 +217,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
-    return (id, address(forwarder));
+    return (id);
   }
 
   function addFunds(uint256 id, uint96 amount) external {
