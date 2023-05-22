@@ -345,6 +345,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	ScrollTestnet = blockchain.EVMNetwork{
+		Name:                      "Scroll Testnet",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   534353,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	CeloMainnet = blockchain.EVMNetwork{
 		Name:                      "Celo",
 		ClientImplementation:      blockchain.CeloClientImplementation,
@@ -395,6 +406,7 @@ var (
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
 		"BASE_MAINNET":      BaseMainnet,
+		"SCROLL_TESTNET":    ScrollTestnet,
 	}
 )
 
