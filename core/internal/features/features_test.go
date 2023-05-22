@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -93,7 +93,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -167,7 +167,8 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{}`)
+			_, err = io.WriteString(w, `{}`)
+			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
@@ -391,7 +392,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
 			var jobID [32]byte
-			copy(jobID[:], j.ExternalJobID.Bytes())
+			copy(jobID[:], j.ExternalJobID[:])
 			tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
 			require.NoError(t, err)
 			b.Commit()
@@ -430,7 +431,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
 			var jobIDSingleWord [32]byte
-			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
+			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID[:])
 			tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
 			require.NoError(t, err)
 			b.Commit()
@@ -670,7 +671,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
@@ -752,7 +753,7 @@ func setupForwarderEnabledNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, portV1), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.OCR.Enabled = ptr(true)
 		c.OCR2.Enabled = ptr(true)
@@ -961,7 +962,8 @@ isBootstrapPeer    = true
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 					time.Sleep(5 * time.Second)
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err := res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -975,7 +977,8 @@ isBootstrapPeer    = true
 						metaLock.Unlock()
 					}
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err = res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
@@ -1188,7 +1191,8 @@ isBootstrapPeer    = true
 			slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 				time.Sleep(5 * time.Second)
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err := res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -1202,7 +1206,8 @@ isBootstrapPeer    = true
 					metaLock.Unlock()
 				}
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err = res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)

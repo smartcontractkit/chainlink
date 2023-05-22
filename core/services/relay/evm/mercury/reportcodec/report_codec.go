@@ -37,6 +37,7 @@ func getReportTypes() abi.Arguments {
 		{Name: "currentBlockNum", Type: mustNewType("uint64")},
 		{Name: "currentBlockHash", Type: mustNewType("bytes32")},
 		{Name: "validFromBlockNum", Type: mustNewType("uint64")},
+		{Name: "currentBlockTimestamp", Type: mustNewType("uint64")},
 	})
 }
 
@@ -64,7 +65,7 @@ func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObserva
 	bid := relaymercury.GetConsensusBid(paos)
 	ask := relaymercury.GetConsensusAsk(paos)
 
-	currentBlockHash, currentBlockNum, err := relaymercury.GetConsensusCurrentBlock(paos, f)
+	currentBlockHash, currentBlockNum, currentBlockTimestamp, err := relaymercury.GetConsensusCurrentBlock(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusCurrentBlock failed")
 	}
@@ -84,7 +85,7 @@ func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObserva
 	currentBlockHashArray := [32]byte{}
 	copy(currentBlockHashArray[:], currentBlockHash)
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, uint64(currentBlockNum), currentBlockHashArray, uint64(validFromBlockNum))
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, uint64(currentBlockNum), currentBlockHashArray, uint64(validFromBlockNum), currentBlockTimestamp)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
@@ -96,7 +97,8 @@ func (r *EVMReportCodec) MaxReportLength(n int) int {
 		192 + // ask
 		64 + //currentBlockNum
 		8*32 + // currentBlockHash
-		64 // validFromBlockNum
+		64 + // validFromBlockNum
+		64 // currentBlockTimestamp
 }
 
 func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {

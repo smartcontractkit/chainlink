@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -59,7 +59,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.New())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})
@@ -73,7 +73,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.New())
 		require.NoError(t, err)
 		assert.True(t, can)
 	})
@@ -93,7 +93,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, uuid.New())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})

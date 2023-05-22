@@ -1,9 +1,9 @@
 package cron
 
 import (
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -11,7 +11,7 @@ import (
 
 func ValidatedCronSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 
 	tree, err := toml.Load(tomlString)

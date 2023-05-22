@@ -162,6 +162,7 @@ func TestOCRChaos(t *testing.T) {
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+			bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 			t.Cleanup(func() {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
@@ -182,13 +183,11 @@ func TestOCRChaos(t *testing.T) {
 			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, chainlinkNodes, chainClient)
+			ocrInstances, err := actions.DeployOCRContracts(1, lt, cd, bootstrapNode, workerNodes, chainClient)
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
-			err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms)
-			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms)
+			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, "ocr_chaos", 5, ms)
 			require.NoError(t, err)
 
 			chaosApplied := false

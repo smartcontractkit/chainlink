@@ -11,22 +11,23 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/group/edwards25519"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 // CreateOCR2VRFJobs bootstraps the first node and to the other nodes sends ocr jobs
@@ -112,13 +113,13 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 }
 
 func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
-) contracts.OCRConfig {
+) contracts.OCRv2Config {
 	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
@@ -192,7 +193,7 @@ func BuildOCR2DKGConfigVars(
 	require.NoError(t, err, "Shouldn't fail building OCR config")
 
 	l.Info().Msg("Done building DKG OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
 		F:                     f,
@@ -202,7 +203,13 @@ func BuildOCR2DKGConfigVars(
 	}
 }
 
-func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, configPubKeys, peerIDs, transmitters []string) ([]confighelper.OracleIdentityExtra, error) {
+func toOraclesIdentityList(
+	onchainPubKeys []common.Address,
+	offchainPubKeys,
+	configPubKeys,
+	peerIDs,
+	transmitters []string,
+) ([]confighelper.OracleIdentityExtra, error) {
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, pkHex := range offchainPubKeys {
 		pkBytes, err := hex.DecodeString(pkHex)
@@ -264,7 +271,7 @@ func DecodeHexTo32ByteArray(val string) ([32]byte, error) {
 func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
-) contracts.OCRConfig {
+) contracts.OCRv2Config {
 	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
@@ -317,7 +324,7 @@ func BuildOCR2VRFConfigVars(
 	require.NoError(t, err)
 
 	l.Info().Msg("Done building VRF OCR config")
-	return contracts.OCRConfig{
+	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
 		F:                     f,
