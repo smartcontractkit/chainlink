@@ -6,7 +6,6 @@ import (
 )
 
 func NewSolanaChainsController(app chainlink.Application) ChainsController {
-	chainSet := app.GetChains().Solana
-	return newChainsController("solana", chainSet, ErrSolanaNotEnabled,
+	return newChainsController("solana", app.GetChains().Solana, ErrSolanaNotEnabled,
 		presenters.NewSolanaChainResource, app.GetLogger(), app.GetAuditLogger())
 }

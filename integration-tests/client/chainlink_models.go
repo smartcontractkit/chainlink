@@ -6,9 +6,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -19,10 +19,12 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL      string
-	Email    string
-	Password string
-	RemoteIP string
+	URL        string
+	Email      string
+	Password   string
+	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName  string
+	PodName    string
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -374,9 +376,7 @@ type TxKeyData struct {
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
 
-	// starknet specific (uses contract model instead of EOA)
-	AccountAddr string `json:"accountAddr,omitempty"`
-	StarkKey    string `json:"starkPubKey,omitempty"`
+	StarkKey string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {
@@ -869,16 +869,16 @@ type OCRTaskJobSpec struct {
 
 // P2PData holds the remote ip and the peer id and port
 type P2PData struct {
-	RemoteIP   string
-	RemotePort string
-	PeerID     string
+	InternalIP   string
+	InternalPort string
+	PeerID       string
 }
 
 func (p *P2PData) P2PV2Bootstrapper() string {
-	if p.RemotePort == "" {
-		p.RemotePort = "6690"
+	if p.InternalPort == "" {
+		p.InternalPort = "6690"
 	}
-	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemoteIP, p.RemotePort)
+	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.InternalIP, p.InternalPort)
 }
 
 // Type returns the type of the job
@@ -894,8 +894,8 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 			return "", err
 		}
 		peers = append(peers, P2PData{
-			RemoteIP: peer.RemoteIP(),
-			PeerID:   p2pKeys.Data[0].Attributes.PeerID,
+			InternalIP: peer.InternalIP(),
+			PeerID:     p2pKeys.Data[0].Attributes.PeerID,
 		})
 	}
 	specWrap := struct {
@@ -940,7 +940,7 @@ contractAddress                        = "{{.ContractAddress}}"
 {{if .P2PBootstrapPeers}}
 p2pBootstrapPeers                      = [
   {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.RemoteIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
+  "/dns4/{{$peer.InternalIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
   {{end}}
 ]
 {{else}}
@@ -1202,7 +1202,7 @@ func ObservationSourceSpecHTTP(url string) string {
 }
 
 // ObservationSourceSpecBridge creates a bridge task spec for json data
-func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
+func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`
 		fetch [type=bridge name="%s" requestData="%s"];
 		parse [type=jsonparse path="data,result"];

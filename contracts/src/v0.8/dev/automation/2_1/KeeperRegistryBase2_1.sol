@@ -2,11 +2,13 @@
 pragma solidity 0.8.6;
 
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../../interfaces/automation/2_1/AutomationRegistryInterface2_1.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
+import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
@@ -27,12 +29,14 @@ struct Upkeep {
   uint32 executeGas;
   uint32 maxValidBlocknumber;
   bool paused;
-  address target;
+  AutomationForwarder forwarder;
   // 3 bytes left in 1st EVM word - not written to in transmit
   uint96 amountSpent;
   uint96 balance;
   uint32 lastPerformBlockNumber;
   // 4 bytes left in 2nd EVM word - written in transmit path
+  address target;
+  // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
 }
 
 /**
@@ -40,6 +44,9 @@ struct Upkeep {
  * KeeperRegistry and KeeperRegistryLogic
  */
 abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
+  using Address for address;
+  using EnumerableSet for EnumerableSet.UintSet;
+
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
@@ -63,7 +70,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 70_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 75_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
@@ -265,21 +272,19 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
-  constructor(
-    Mode mode,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed
-  ) ConfirmedOwner(msg.sender) {
+  constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
+    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
   }
 
-  ////////
-  // GETTERS
-  ////////
+  /////////////
+  // GETTERS //
+  /////////////
+
+  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -297,9 +302,53 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     return address(i_fastGasFeed);
   }
 
-  ////////
-  // INTERNAL
-  ////////
+  //////////////
+  // INTERNAL //
+  //////////////
+
+  /**
+   * @notice creates a new upkeep with the given fields
+   * @param target address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when
+   * performing upkeep
+   * @param admin address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   * @param paused if this upkeep is paused
+   */
+  function _createUpkeep(
+    uint256 id,
+    address target,
+    uint32 gasLimit,
+    address admin,
+    uint96 balance,
+    bytes memory checkData,
+    bool paused,
+    bytes memory offchainConfig,
+    AutomationForwarder forwarder
+  ) internal {
+    if (s_hotVars.paused) revert RegistryPaused();
+    if (!target.isContract()) revert NotAContract();
+    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
+    s_upkeep[id] = Upkeep({
+      target: target,
+      executeGas: gasLimit,
+      balance: balance,
+      maxValidBlocknumber: UINT32_MAX,
+      lastPerformBlockNumber: 0,
+      amountSpent: 0,
+      paused: paused,
+      forwarder: forwarder
+    });
+    s_upkeepAdmin[id] = admin;
+    s_expectedLinkBalance = s_expectedLinkBalance + balance;
+    s_checkData[id] = checkData;
+    s_upkeepOffchainConfig[id] = offchainConfig;
+    s_upkeepIDs.add(id);
+  }
+
+  // TODO - check which of these need to be on BASE vs which can be assigned to a specific contract
 
   /**
    * @dev retrieves feed data for fast gas/native and link/native prices. if the feed

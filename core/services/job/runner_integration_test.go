@@ -41,9 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -190,7 +190,7 @@ func TestRunner(t *testing.T) {
 
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
-		cfg.On("Dev").Return(true)
+		cfg.On("OCRDevelopmentMode").Return(true)
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
@@ -230,7 +230,7 @@ func TestRunner(t *testing.T) {
 		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
@@ -267,7 +267,7 @@ answer1      [type=median index=0];
 		// Duplicate bridge names that exist is ok
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
@@ -779,7 +779,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -959,7 +959,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),

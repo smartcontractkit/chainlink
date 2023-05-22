@@ -445,7 +445,7 @@ func TestConfig_Marshal(t *testing.T) {
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
-					BumpTxDepth:        ptr[uint16](6),
+					BumpTxDepth:        ptr[uint32](6),
 					BumpMin:            assets.NewWeiI(100),
 					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
 					LimitDefault:       ptr[uint32](12),
@@ -1071,7 +1071,7 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
-			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or reater than FinalityDepth
+			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1193,9 +1193,12 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			opts := GeneralConfigOpts{SkipEnv: true}
-			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
-			c, err := opts.New(lggr)
+			opts := GeneralConfigOpts{
+				SkipEnv:       true,
+				ConfigStrings: []string{tt.inputConfig},
+				SecretsString: tt.inputSecrets,
+			}
+			c, err := opts.New()
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Infof)
 
@@ -1225,16 +1228,22 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
 }
 
@@ -1246,9 +1255,11 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	var opts GeneralConfigOpts
-	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
-	c, err := opts.New(logger.TestLogger(t))
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{fullTOML},
+		SecretsString: secretsFullTOML,
+	}
+	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())

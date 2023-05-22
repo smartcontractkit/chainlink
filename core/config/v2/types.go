@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -33,7 +34,6 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
-	DevMode             bool      `toml:"-"` // from environment
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
@@ -111,12 +111,22 @@ func (c *Core) SetFrom(f *Core) {
 	c.Insecure.setFrom(&f.Insecure)
 }
 
+func (c *Core) ValidateConfig() (err error) {
+	_, verr := parse.HomeDir(*c.RootDir)
+	if err != nil {
+		err = multierr.Append(err, ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
+	}
+
+	return err
+}
+
 type Secrets struct {
 	Database   DatabaseSecrets   `toml:",omitempty"`
 	Explorer   ExplorerSecrets   `toml:",omitempty"`
 	Password   Passwords         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
 	Prometheus PrometheusSecrets `toml:",omitempty"`
+	Mercury    MercurySecrets    `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -129,16 +139,44 @@ type DatabaseSecrets struct {
 	AllowSimplePasswords bool
 }
 
+func validateDBURL(dbURI url.URL) error {
+	if strings.Contains(dbURI.Redacted(), "_test") {
+		return nil
+	}
+
+	// url params take priority if present, multiple params are ignored by postgres (it picks the first)
+	q := dbURI.Query()
+	// careful, this is a raw database password
+	pw := q.Get("password")
+	if pw == "" {
+		// fallback to user info
+		userInfo := dbURI.User
+		if userInfo == nil {
+			return fmt.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+		}
+		var pwSet bool
+		pw, pwSet = userInfo.Password()
+		if !pwSet {
+			return fmt.Errorf("DB URL must be authenticated; password is required")
+		}
+	}
+
+	return utils.VerifyPasswordComplexity(pw)
+}
+
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	if d.AllowSimplePasswords && build.IsProd() {
+		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
+	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {
-		if verr := config.ValidateDBURL((url.URL)(*d.URL)); verr != nil {
+		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = multierr.Append(err, ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !d.AllowSimplePasswords {
-		if verr := config.ValidateDBURL((url.URL)(*d.BackupURL)); verr != nil {
+		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
 			err = multierr.Append(err, ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
@@ -970,13 +1008,14 @@ type Insecure struct {
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
-	if build.Dev {
+	if build.IsDev() {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = multierr.Append(err, ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
-	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode {
+	// OCRDevelopmentMode is allowed on test builds.
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.IsTest() {
 		err = multierr.Append(err, ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
@@ -1001,4 +1040,33 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	if v := f.OCRDevelopmentMode; v != nil {
 		ins.OCRDevelopmentMode = f.OCRDevelopmentMode
 	}
+}
+
+type MercuryCredentials struct {
+	URL      *models.SecretURL
+	Username *models.Secret
+	Password *models.Secret
+}
+
+type MercurySecrets struct {
+	Credentials map[string]MercuryCredentials
+}
+
+func (m *MercurySecrets) ValidateConfig() (err error) {
+	urls := make(map[string]struct{}, len(m.Credentials))
+	for name, creds := range m.Credentials {
+		if name == "" {
+			err = multierr.Append(err, ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
+		}
+		if creds.URL == nil || creds.URL.URL() == nil {
+			err = multierr.Append(err, ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			continue
+		}
+		s := creds.URL.URL().String()
+		if _, exists := urls[s]; exists {
+			err = multierr.Append(err, NewErrDuplicate("URL", s))
+		}
+		urls[s] = struct{}{}
+	}
+	return err
 }
