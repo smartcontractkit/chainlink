@@ -237,7 +237,10 @@ func TeardownSuite(
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	// Delete all jobs to stop depleting the funds
-	DeleteAllJobs(chainlinkNodes)
+	err := DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		return err
+	}
 
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
@@ -279,7 +282,10 @@ func TeardownRemoteSuite(
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
-	DeleteAllJobs(chainlinkNodes)
+	err = DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		return err
+	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
 		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
