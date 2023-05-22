@@ -6,14 +6,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
-func (g *generalConfig) DatabaseURL() url.URL {
+func (g *generalConfig) URL() url.URL {
 	if g.secrets.Database.URL == nil {
 		return url.URL{}
 	}
 	return *g.secrets.Database.URL.URL()
 }
 
-func (g *generalConfig) DatabaseBackupURL() *url.URL {
+func (g *generalConfig) BackupURL() *url.URL {
 	return g.secrets.Database.BackupURL.URL()
 }
 

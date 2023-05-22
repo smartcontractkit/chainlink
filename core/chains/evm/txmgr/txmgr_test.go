@@ -366,7 +366,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmMinGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmUseForwarders").Return(true).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
-	cfg.On("DatabaseDefaultQueryTimeout").Return(pg.DefaultQueryTimeout).Maybe()
+	cfg.On("DefaultQueryTimeout").Return(pg.DefaultQueryTimeout).Maybe()
 
 	return cfg
 }

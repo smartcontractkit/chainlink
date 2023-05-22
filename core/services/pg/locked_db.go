@@ -25,12 +25,12 @@ type LockedDB interface {
 type LockedDBConfig interface {
 	ConnectionConfig
 	AppID() uuid.UUID
-	DatabaseLockingMode() string
-	DatabaseURL() url.URL
-	DatabaseDefaultQueryTimeout() time.Duration
+	LockingMode() string
+	URL() url.URL
+	DefaultQueryTimeout() time.Duration
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	GetDialectConfiguredOrDefault() dialects.DialectName
 	MigrateDatabase() bool
 }
 
@@ -85,7 +85,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	l.statsReporter.Start(ctx)
 
 	// Step 3: acquire DB locks
-	lockingMode := l.cfg.DatabaseLockingMode()
+	lockingMode := l.cfg.LockingMode()
 	l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
 	// Take the lease before any other DB operations
@@ -135,10 +135,10 @@ func (l lockedDb) DB() *sqlx.DB {
 }
 
 func openDB(cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	uri := cfg.DatabaseURL()
+	uri := cfg.URL()
 	appid := cfg.AppID()
 	static.SetConsumerName(&uri, "App", &appid)
-	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	dialect := cfg.GetDialectConfiguredOrDefault()
 	db, err = NewConnection(uri.String(), dialect, cfg)
 	return
 }

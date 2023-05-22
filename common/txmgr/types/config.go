@@ -40,7 +40,7 @@ type ConfirmerConfig[FEE_UNIT Unit] interface {
 	FeeBumpPercent() uint16
 
 	// from pg.QConfig
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 }
 
 type ResenderConfig interface {

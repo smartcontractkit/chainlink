@@ -453,27 +453,27 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
+func (g *generalConfig) BackupDir() string {
 	return *g.c.Database.Backup.Dir
 }
 
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
+func (g *generalConfig) BackupFrequency() time.Duration {
 	return g.c.Database.Backup.Frequency.Duration()
 }
 
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
+func (g *generalConfig) BackupMode() coreconfig.DatabaseBackupMode {
 	return *g.c.Database.Backup.Mode
 }
 
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
+func (g *generalConfig) BackupOnVersionUpgrade() bool {
 	return *g.c.Database.Backup.OnVersionUpgrade
 }
 
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
+func (g *generalConfig) ListenerMaxReconnectDuration() time.Duration {
 	return g.c.Database.Listener.MaxReconnectDuration.Duration()
 }
 
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
+func (g *generalConfig) ListenerMinReconnectInterval() time.Duration {
 	return g.c.Database.Listener.MinReconnectInterval.Duration()
 }
 
@@ -481,7 +481,7 @@ func (g *generalConfig) MigrateDatabase() bool {
 	return *g.c.Database.MigrateOnStartup
 }
 
-func (g *generalConfig) ORMMaxIdleConns() int {
+func (g *generalConfig) MaxIdleConns() int {
 	return int(*g.c.Database.MaxIdleConns)
 }
 
@@ -489,15 +489,15 @@ func (g *generalConfig) ORMMaxOpenConns() int {
 	return int(*g.c.Database.MaxOpenConns)
 }
 
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
+func (g *generalConfig) DefaultLockTimeout() time.Duration {
 	return g.c.Database.DefaultLockTimeout.Duration()
 }
 
-func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
+func (g *generalConfig) DefaultQueryTimeout() time.Duration {
 	return g.c.Database.DefaultQueryTimeout.Duration()
 }
 
-func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+func (g *generalConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
 }
 
@@ -529,7 +529,7 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 	return *g.c.FluxMonitor.SimulateTransactions
 }
 
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
+func (g *generalConfig) GetDialectConfiguredOrDefault() dialects.DialectName {
 	return g.c.Database.Dialect
 }
 
@@ -616,7 +616,7 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
+func (g *generalConfig) LockingMode() string { return g.c.Database.LockingMode() }
 
 func (g *generalConfig) LeaseLockDuration() time.Duration {
 	return g.c.Database.Lock.LeaseDuration.Duration()

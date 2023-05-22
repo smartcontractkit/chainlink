@@ -8,23 +8,23 @@ import (
 )
 
 type Database interface {
-	DatabaseBackupDir() string
-	DatabaseBackupFrequency() time.Duration
-	DatabaseBackupMode() DatabaseBackupMode
-	DatabaseBackupOnVersionUpgrade() bool
-	DatabaseBackupURL() *url.URL
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
-	DatabaseDefaultLockTimeout() time.Duration
-	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseListenerMaxReconnectDuration() time.Duration
-	DatabaseListenerMinReconnectInterval() time.Duration
-	DatabaseLockingMode() string
-	DatabaseURL() url.URL
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	BackupDir() string
+	BackupFrequency() time.Duration
+	BackupMode() DatabaseBackupMode
+	BackupOnVersionUpgrade() bool
+	BackupURL() *url.URL
+	DefaultIdleInTxSessionTimeout() time.Duration
+	DefaultLockTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
+	ListenerMaxReconnectDuration() time.Duration
+	ListenerMinReconnectInterval() time.Duration
+	LockingMode() string
+	URL() url.URL
+	GetDialectConfiguredOrDefault() dialects.DialectName
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	MigrateDatabase() bool
-	ORMMaxIdleConns() int
+	MaxIdleConns() int
 	ORMMaxOpenConns() int
 	TriggerFallbackDBPollInterval() time.Duration
 }

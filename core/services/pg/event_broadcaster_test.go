@@ -18,7 +18,7 @@ import (
 func TestEventBroadcaster(t *testing.T) {
 	config, _ := heavyweight.FullTestDBNoFixturesV2(t, "event_broadcaster", nil)
 
-	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, config.URL())
 	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 

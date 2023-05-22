@@ -75,7 +75,7 @@ type ORM interface {
 }
 
 type ORMConfig interface {
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 }
 
 type orm struct {
@@ -745,7 +745,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DatabaseDefaultQueryTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }

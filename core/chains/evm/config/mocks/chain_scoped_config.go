@@ -622,8 +622,8 @@ func (_m *ChainScopedConfig) CosmosEnabled() bool {
 	return r0
 }
 
-// DatabaseBackupDir provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupDir() string {
+// BackupDir provides a mock function with given fields:
+func (_m *ChainScopedConfig) BackupDir() string {
 	ret := _m.Called()
 
 	var r0 string
@@ -636,8 +636,8 @@ func (_m *ChainScopedConfig) DatabaseBackupDir() string {
 	return r0
 }
 
-// DatabaseBackupFrequency provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupFrequency() time.Duration {
+// BackupFrequency provides a mock function with given fields:
+func (_m *ChainScopedConfig) BackupFrequency() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -650,8 +650,8 @@ func (_m *ChainScopedConfig) DatabaseBackupFrequency() time.Duration {
 	return r0
 }
 
-// DatabaseBackupMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
+// BackupMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) BackupMode() coreconfig.DatabaseBackupMode {
 	ret := _m.Called()
 
 	var r0 coreconfig.DatabaseBackupMode
@@ -664,8 +664,8 @@ func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode 
 	return r0
 }
 
-// DatabaseBackupOnVersionUpgrade provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupOnVersionUpgrade() bool {
+// BackupOnVersionUpgrade provides a mock function with given fields:
+func (_m *ChainScopedConfig) BackupOnVersionUpgrade() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -678,8 +678,8 @@ func (_m *ChainScopedConfig) DatabaseBackupOnVersionUpgrade() bool {
 	return r0
 }
 
-// DatabaseBackupURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
+// BackupURL provides a mock function with given fields:
+func (_m *ChainScopedConfig) BackupURL() *url.URL {
 	ret := _m.Called()
 
 	var r0 *url.URL
@@ -694,8 +694,8 @@ func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
 	return r0
 }
 
-// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+// DefaultIdleInTxSessionTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -708,8 +708,8 @@ func (_m *ChainScopedConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Durati
 	return r0
 }
 
-// DatabaseDefaultLockTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultLockTimeout() time.Duration {
+// DefaultLockTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DefaultLockTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -722,8 +722,8 @@ func (_m *ChainScopedConfig) DatabaseDefaultLockTimeout() time.Duration {
 	return r0
 }
 
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
+// DefaultQueryTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) DefaultQueryTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -736,8 +736,8 @@ func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return r0
 }
 
-// DatabaseListenerMaxReconnectDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
+// ListenerMaxReconnectDuration provides a mock function with given fields:
+func (_m *ChainScopedConfig) ListenerMaxReconnectDuration() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -750,8 +750,8 @@ func (_m *ChainScopedConfig) DatabaseListenerMaxReconnectDuration() time.Duratio
 	return r0
 }
 
-// DatabaseListenerMinReconnectInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duration {
+// ListenerMinReconnectInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) ListenerMinReconnectInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -764,8 +764,8 @@ func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duratio
 	return r0
 }
 
-// DatabaseLockingMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseLockingMode() string {
+// LockingMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) LockingMode() string {
 	ret := _m.Called()
 
 	var r0 string
@@ -778,8 +778,8 @@ func (_m *ChainScopedConfig) DatabaseLockingMode() string {
 	return r0
 }
 
-// DatabaseURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseURL() url.URL {
+// URL provides a mock function with given fields:
+func (_m *ChainScopedConfig) URL() url.URL {
 	ret := _m.Called()
 
 	var r0 url.URL
@@ -1650,8 +1650,8 @@ func (_m *ChainScopedConfig) GasEstimatorMode() string {
 	return r0
 }
 
-// GetDatabaseDialectConfiguredOrDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
+// GetDialectConfiguredOrDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) GetDialectConfiguredOrDefault() dialects.DialectName {
 	ret := _m.Called()
 
 	var r0 dialects.DialectName
@@ -2643,8 +2643,8 @@ func (_m *ChainScopedConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error
 	return r0, r1
 }
 
-// ORMMaxIdleConns provides a mock function with given fields:
-func (_m *ChainScopedConfig) ORMMaxIdleConns() int {
+// MaxIdleConns provides a mock function with given fields:
+func (_m *ChainScopedConfig) MaxIdleConns() int {
 	ret := _m.Called()
 
 	var r0 int

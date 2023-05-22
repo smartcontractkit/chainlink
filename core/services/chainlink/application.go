@@ -276,8 +276,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+	if cfg.BackupMode() != config.DatabaseBackupModeNone && cfg.BackupFrequency() > 0 {
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.BackupFrequency())
 
 		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
 		if err != nil {

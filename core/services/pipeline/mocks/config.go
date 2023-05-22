@@ -46,8 +46,8 @@ func (_m *Config) BridgeResponseURL() *url.URL {
 	return r0
 }
 
-// DatabaseURL provides a mock function with given fields:
-func (_m *Config) DatabaseURL() url.URL {
+// URL provides a mock function with given fields:
+func (_m *Config) URL() url.URL {
 	ret := _m.Called()
 
 	var r0 url.URL

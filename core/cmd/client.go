@@ -153,7 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.URL(), cfg.ListenerMinReconnectInterval(), cfg.ListenerMaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -289,7 +289,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.GeneralConfig) error {
 	var err error
 	// Set up the versioning Configs
-	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
+	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
@@ -301,7 +301,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.Gene
 
 		// Take backup if app version is newer than DB version
 		// Need to do this BEFORE migration
-		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
+		if cfg.BackupMode() != config.DatabaseBackupModeNone && cfg.BackupOnVersionUpgrade() {
 			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %w", err)

@@ -11,7 +11,7 @@ import (
 )
 
 type httpClientConfig interface {
-	DatabaseURL() url.URL
+	URL() url.URL
 }
 
 // NewRestrictedHTTPClient returns a secure HTTP Client (queries to certain

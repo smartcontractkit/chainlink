@@ -356,8 +356,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
-	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
+	url := cfg.URL()
+	db, err := pg.NewConnection(url.String(), cfg.GetDialectConfiguredOrDefault(), cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 

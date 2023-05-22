@@ -56,7 +56,7 @@ type LeaseLock interface {
 }
 
 type LeaseLockConfig interface {
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 }
@@ -96,7 +96,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		var err error
 
 		err = func() error {
-			qctx, cancel := context.WithTimeout(ctx, l.cfg.DatabaseDefaultQueryTimeout())
+			qctx, cancel := context.WithTimeout(ctx, l.cfg.DefaultQueryTimeout())
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
@@ -200,7 +200,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DatabaseDefaultQueryTimeout())
+			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DefaultQueryTimeout())
 			err := multierr.Combine(
 				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
 				l.conn.Close(),

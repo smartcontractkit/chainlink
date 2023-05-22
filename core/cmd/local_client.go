@@ -693,7 +693,7 @@ func (cli *Client) validateDB(ctx *clipkg.Context) error {
 // in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
 	}
@@ -737,7 +737,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 
 	// Creating pristine DB copy to speed up FullTestDB
-	dbUrl := cfg.DatabaseURL()
+	dbUrl := cfg.URL()
 	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
 	if err != nil {
 		return cli.errorOut(err)
@@ -804,7 +804,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg.DatabaseURL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
+	if err := insertFixtures(cfg.URL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -813,7 +813,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
 	}
@@ -901,16 +901,16 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 
 type dbConfig interface {
 	pg.ConnectionConfig
-	DatabaseURL() url.URL
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	URL() url.URL
+	GetDialectConfiguredOrDefault() dialects.DialectName
 }
 
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return nil, errDBURLMissing
 	}
-	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
+	return pg.NewConnection(parsed.String(), cfg.GetDialectConfiguredOrDefault(), cfg)
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {

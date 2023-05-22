@@ -321,7 +321,7 @@ func (l *DatabaseLock) setFrom(f *DatabaseLock) {
 
 // DatabaseBackup
 //
-// Note: url is stored in Secrets.DatabaseBackupURL
+// Note: url is stored in Secrets.BackupURL
 type DatabaseBackup struct {
 	Dir              *string
 	Frequency        *models.Duration

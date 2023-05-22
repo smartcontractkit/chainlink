@@ -130,8 +130,8 @@ func (_m *Config) ChainType() config.ChainType {
 	return r0
 }
 
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
+// DefaultQueryTimeout provides a mock function with given fields:
+func (_m *Config) DefaultQueryTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration

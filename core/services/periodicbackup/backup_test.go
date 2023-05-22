@@ -131,19 +131,19 @@ type testConfig struct {
 	rootDir                 string
 }
 
-func (config testConfig) DatabaseBackupFrequency() time.Duration {
+func (config testConfig) BackupFrequency() time.Duration {
 	return config.databaseBackupFrequency
 }
-func (config testConfig) DatabaseBackupMode() config.DatabaseBackupMode {
+func (config testConfig) BackupMode() config.DatabaseBackupMode {
 	return config.databaseBackupMode
 }
-func (config testConfig) DatabaseBackupURL() *url.URL {
+func (config testConfig) BackupURL() *url.URL {
 	return config.databaseBackupURL
 }
-func (config testConfig) DatabaseBackupDir() string {
+func (config testConfig) BackupDir() string {
 	return config.databaseBackupDir
 }
-func (config testConfig) DatabaseURL() url.URL {
+func (config testConfig) URL() url.URL {
 	return config.databaseURL
 }
 func (config testConfig) RootDir() string {

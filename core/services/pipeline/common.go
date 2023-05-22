@@ -63,7 +63,7 @@ type (
 	Config interface {
 		BridgeResponseURL() *url.URL
 		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
+		URL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		TriggerFallbackDBPollInterval() time.Duration

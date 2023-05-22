@@ -40,7 +40,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.New())
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
 	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
 
@@ -65,7 +65,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.New())
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
 	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
 

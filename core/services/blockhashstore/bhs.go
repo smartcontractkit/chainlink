@@ -25,7 +25,7 @@ var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
 	EvmGasLimitDefault() uint32
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 }
 
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof
@@ -87,7 +87,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256, c.config.DatabaseDefaultQueryTimeout()),
+		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256, c.config.DefaultQueryTimeout()),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

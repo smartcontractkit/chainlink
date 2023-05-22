@@ -52,11 +52,11 @@ type (
 	}
 
 	Config interface {
-		DatabaseBackupMode() config.DatabaseBackupMode
-		DatabaseBackupFrequency() time.Duration
-		DatabaseBackupURL() *url.URL
-		DatabaseBackupDir() string
-		DatabaseURL() url.URL
+		BackupMode() config.DatabaseBackupMode
+		BackupFrequency() time.Duration
+		BackupURL() *url.URL
+		BackupDir() string
+		URL() url.URL
 		RootDir() string
 	}
 )
@@ -64,17 +64,17 @@ type (
 // NewDatabaseBackup instantiates a *databaseBackup
 func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error) {
 	lggr = lggr.Named("DatabaseBackup")
-	dbUrl := config.DatabaseURL()
-	dbBackupUrl := config.DatabaseBackupURL()
+	dbUrl := config.URL()
+	dbBackupUrl := config.BackupURL()
 	if dbBackupUrl != nil {
 		dbUrl = *dbBackupUrl
 	}
 
 	outputParentDir := filepath.Join(config.RootDir(), "backup")
-	if config.DatabaseBackupDir() != "" {
-		dir, err := filepath.Abs(config.DatabaseBackupDir())
+	if config.BackupDir() != "" {
+		dir, err := filepath.Abs(config.BackupDir())
 		if err != nil {
-			return nil, errors.Errorf("failed to get path for Database.Backup.Dir (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			return nil, errors.Errorf("failed to get path for Database.Backup.Dir (%s) - please set it to a valid directory path", config.BackupDir())
 		}
 		outputParentDir = dir
 	}
@@ -82,8 +82,8 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 	return &databaseBackup{
 		lggr,
 		dbUrl,
-		config.DatabaseBackupMode(),
-		config.DatabaseBackupFrequency(),
+		config.BackupMode(),
+		config.BackupFrequency(),
 		outputParentDir,
 		make(chan bool),
 		utils.StartStopOnce{},

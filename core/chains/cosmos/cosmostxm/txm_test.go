@@ -51,7 +51,7 @@ func TestTxm_Integration(t *testing.T) {
 		}),
 	}, lggr)
 	orm := cosmostxm.NewORM(chainID, db, lggr, logCfg)
-	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.New())
+	eb := pg.NewEventBroadcaster(cfg.URL(), 0, 0, lggr, uuid.New())
 	require.NoError(t, eb.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))

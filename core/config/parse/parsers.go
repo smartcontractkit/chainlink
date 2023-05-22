@@ -109,7 +109,7 @@ func HomeDir(str string) (string, error) {
 	return filepath.ToSlash(exp), nil
 }
 
-func DatabaseURL(s string) (url.URL, error) {
+func URL(s string) (url.URL, error) {
 	uri, err := url.Parse(s)
 	if err != nil {
 		return url.URL{}, errors.Wrapf(err, "invalid database url %s", s)
