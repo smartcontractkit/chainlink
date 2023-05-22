@@ -7,13 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -44,11 +46,11 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          commontypes.Config
+	config          htrktypes.Config
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
-	headListener httypes.HeadListener
+	headListener commontypes.HeadListener[*evmtypes.Head, common.Hash]
 	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
