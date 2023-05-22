@@ -1191,8 +1191,11 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			opts := GeneralConfigOpts{SkipEnv: true}
-			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
+			opts := GeneralConfigOpts{
+				SkipEnv:       true,
+				ConfigStrings: []string{tt.inputConfig},
+				SecretsString: tt.inputSecrets,
+			}
 			c, err := opts.New()
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Infof)
@@ -1223,16 +1226,22 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
 }
 
@@ -1244,8 +1253,10 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	var opts GeneralConfigOpts
-	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{fullTOML},
+		SecretsString: secretsFullTOML,
+	}
 	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
