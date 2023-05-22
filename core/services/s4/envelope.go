@@ -3,6 +3,7 @@ package s4
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -12,7 +13,8 @@ import (
 // All []byte values are encoded as base64 (default JSON behavior).
 // Hex is not used to avoid confusion due to case-sensivity and 0x prefix.
 // A signer is responsible for generating a JSON that has no whitespace and
-// the keys appear in this exact order.
+// the keys appear in this exact order:
+// {"address":base64,"slotid":int,"payload":base64,"version":int,"expiration":int}
 type Envelope struct {
 	Address    []byte `json:"address"`
 	SlotID     uint   `json:"slotid"`
@@ -21,19 +23,19 @@ type Envelope struct {
 	Expiration int64  `json:"expiration"`
 }
 
-func NewEnvelopeFromRecord(address common.Address, slotId uint, record *Record) *Envelope {
+func NewEnvelopeFromRecord(key *Key, record *Record) *Envelope {
 	return &Envelope{
-		Address:    address.Bytes(),
-		SlotID:     slotId,
+		Address:    key.Address.Bytes(),
+		SlotID:     key.SlotId,
 		Payload:    record.Payload,
-		Version:    record.Version,
+		Version:    key.Version,
 		Expiration: record.Expiration,
 	}
 }
 
 // Sign calculates signature for the serialized envelope data.
 func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err error) {
-	js, err := json.Marshal(e)
+	js, err := e.ToJson()
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +45,7 @@ func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err erro
 
 // GetSignerAddress verifies the signature and returns the signing address.
 func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, err error) {
-	js, err := json.Marshal(e)
+	js, err := e.ToJson()
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -53,4 +55,17 @@ func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, er
 		return common.Address{}, err
 	}
 	return crypto.PubkeyToAddress(*sigPublicKey), nil
+}
+
+func (e Envelope) ToJson() ([]byte, error) {
+	address, err := json.Marshal(e.Address)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(e.Payload)
+	if err != nil {
+		return nil, err
+	}
+	js := fmt.Sprintf(`{"address":%s,"slotid":%d,"payload":%s,"version":%d,"expiration":%d}`, address, e.SlotID, payload, e.Version, e.Expiration)
+	return []byte(js), nil
 }

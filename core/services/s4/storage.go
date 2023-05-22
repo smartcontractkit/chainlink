@@ -17,19 +17,29 @@ type Constraints struct {
 	MaxSlotsPerUser     uint
 }
 
-// Record represents a user record persisted by S4
+// Key identifies a versioned user record.
+type Key struct {
+	// Address is a user address
+	Address common.Address
+	// SlotId is a slot number
+	SlotId uint
+	// Version is a data version
+	Version uint64
+}
+
+// Record represents a user record persisted by S4.
 type Record struct {
 	// Arbitrary user data
 	Payload []byte
-	// Version attribute assigned by user (unix timestamp is recommended)
-	Version uint64
 	// Expiration timestamp assigned by user (unix time in milliseconds)
 	Expiration int64
 }
 
 // Metadata is the internal S4 data associated with a Record
 type Metadata struct {
+	// Confirmed turns true once consensus is reached.
 	Confirmed bool
+	// Signature contains the original user signature.
 	Signature []byte
 }
 
@@ -42,13 +52,13 @@ type Storage interface {
 	// The implementation is thread-safe.
 	Constraints() Constraints
 
-	// Get returns a copy of record (with metadata) associated with the specified address and slotId.
+	// Get returns a copy of record (with metadata) associated with the specified key.
 	// The returned Record & Metadata are always a copy.
-	Get(ctx context.Context, address common.Address, slotId uint) (*Record, *Metadata, error)
+	Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 
-	// Put creates (or updates) a record identified by the specified address and slotId.
+	// Put creates (or updates) a record identified by the specified key.
 	// For signature calculation see envelope.go
-	Put(ctx context.Context, address common.Address, slotId uint, record *Record, signature []byte) error
+	Put(ctx context.Context, key *Key, record *Record, signature []byte) error
 }
 
 type storage struct {
@@ -71,12 +81,12 @@ func (s *storage) Constraints() Constraints {
 	return s.contraints
 }
 
-func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) (*Record, *Metadata, error) {
-	if slotId >= s.contraints.MaxSlotsPerUser {
+func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error) {
+	if key.SlotId >= s.contraints.MaxSlotsPerUser {
 		return nil, nil, ErrSlotIdTooBig
 	}
 
-	row, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	row, err := s.orm.Get(key.Address, key.SlotId, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,7 +97,6 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) 
 
 	record := &Record{
 		Payload:    make([]byte, len(row.Payload)),
-		Version:    row.Version,
 		Expiration: row.Expiration,
 	}
 	copy(record.Payload, row.Payload)
@@ -101,8 +110,8 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) 
 	return record, metadata, nil
 }
 
-func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, record *Record, signature []byte) error {
-	if slotId >= s.contraints.MaxSlotsPerUser {
+func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature []byte) error {
+	if key.SlotId >= s.contraints.MaxSlotsPerUser {
 		return ErrSlotIdTooBig
 	}
 	if len(record.Payload) > int(s.contraints.MaxPayloadSizeBytes) {
@@ -112,24 +121,24 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, 
 		return ErrPastExpiration
 	}
 
-	envelope := NewEnvelopeFromRecord(address, slotId, record)
+	envelope := NewEnvelopeFromRecord(key, record)
 	signer, err := envelope.GetSignerAddress(signature)
-	if err != nil || signer != address {
+	if err != nil || signer != key.Address {
 		return ErrWrongSignature
 	}
 
-	row, err := s.orm.Get(address, slotId, pg.WithParentCtx(ctx))
+	row, err := s.orm.Get(key.Address, key.SlotId, pg.WithParentCtx(ctx))
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
 
-	if row != nil && record.Version <= row.Version {
+	if row != nil && key.Version <= row.Version {
 		return ErrVersionTooLow
 	}
 
 	row = &Row{
 		Payload:    make([]byte, len(record.Payload)),
-		Version:    record.Version,
+		Version:    key.Version,
 		Expiration: record.Expiration,
 		Confirmed:  false,
 		Signature:  make([]byte, len(signature)),
@@ -137,5 +146,5 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, 
 	copy(row.Payload, record.Payload)
 	copy(row.Signature, signature)
 
-	return s.orm.Upsert(address, slotId, row, pg.WithParentCtx(ctx))
+	return s.orm.Upsert(key.Address, key.SlotId, row, pg.WithParentCtx(ctx))
 }

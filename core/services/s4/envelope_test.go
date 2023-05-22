@@ -2,6 +2,7 @@ package s4_test
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -17,22 +18,44 @@ func TestEnvelope(t *testing.T) {
 
 	payload := testutils.Random32Byte()
 	expiration := time.Now().Add(time.Hour).UnixMilli()
-	env := s4.NewEnvelopeFromRecord(testutils.NewAddress(), 3, &s4.Record{
+	key := &s4.Key{
+		Address: testutils.NewAddress(),
+		SlotId:  3,
+		Version: 5,
+	}
+	env := s4.NewEnvelopeFromRecord(key, &s4.Record{
 		Payload:    payload[:],
-		Version:    5,
 		Expiration: expiration,
 	})
-	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
 
-	sig, err := env.Sign(privateKey)
-	assert.NoError(t, err)
+	t.Run("signing", func(t *testing.T) {
+		privateKey, err := crypto.GenerateKey()
+		assert.NoError(t, err)
 
-	addr, err := env.GetSignerAddress(sig)
-	assert.NoError(t, err)
+		sig, err := env.Sign(privateKey)
+		assert.NoError(t, err)
 
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	assert.True(t, ok)
-	assert.Equal(t, crypto.PubkeyToAddress(*publicKeyECDSA), addr)
+		addr, err := env.GetSignerAddress(sig)
+		assert.NoError(t, err)
+
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		assert.True(t, ok)
+		assert.Equal(t, crypto.PubkeyToAddress(*publicKeyECDSA), addr)
+	})
+
+	t.Run("json", func(t *testing.T) {
+		js, err := env.ToJson()
+		assert.NoError(t, err)
+
+		var decoded s4.Envelope
+		err = json.Unmarshal(js, &decoded)
+		assert.NoError(t, err)
+
+		js2, err := decoded.ToJson()
+		assert.NoError(t, err)
+		assert.Equal(t, js, js2)
+
+		assert.Equal(t, *env, decoded)
+	})
 }

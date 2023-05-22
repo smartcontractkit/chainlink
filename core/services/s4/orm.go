@@ -20,7 +20,7 @@ type Row struct {
 // ORM represents S4 persistence layer.
 // All functions are thread-safe.
 type ORM interface {
-	// Get reads a row for the given address/slotId combination.
+	// Get reads a row for the given address and slotId.
 	// If a row is missing, ErrNotFound is returned.
 	// Returned row is a clone, safe to modify.
 	Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Row, error)

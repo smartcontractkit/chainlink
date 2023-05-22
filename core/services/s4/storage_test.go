@@ -54,101 +54,127 @@ func TestStorage_Errors(t *testing.T) {
 	storage := setupTestStorage(t)
 
 	t.Run("ErrNotFound", func(t *testing.T) {
-		_, _, err := storage.Get(testutils.Context(t), testutils.NewAddress(), 1)
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  1,
+			Version: 0,
+		}
+		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("ErrSlotIdTooBig", func(t *testing.T) {
-		_, _, err := storage.Get(testutils.Context(t), testutils.NewAddress(), constraints.MaxSlotsPerUser+1)
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  constraints.MaxSlotsPerUser + 1,
+			Version: 0,
+		}
+		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrSlotIdTooBig)
 
 		record := &s4.Record{
 			Payload:    make([]byte, 10),
-			Version:    0,
 			Expiration: time.Now().UnixMilli() + 1,
 		}
-		err = storage.Put(testutils.Context(t), testutils.NewAddress(), constraints.MaxSlotsPerUser+1, record, []byte{})
+		err = storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrSlotIdTooBig)
 	})
 
 	t.Run("ErrPayloadTooBig", func(t *testing.T) {
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  1,
+			Version: 0,
+		}
 		record := &s4.Record{
 			Payload:    make([]byte, constraints.MaxPayloadSizeBytes+1),
-			Version:    0,
 			Expiration: time.Now().UnixMilli() + 1,
 		}
-		err := storage.Put(testutils.Context(t), testutils.NewAddress(), 1, record, []byte{})
+		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPayloadTooBig)
 	})
 
 	t.Run("ErrPastExpiration", func(t *testing.T) {
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  1,
+			Version: 0,
+		}
 		record := &s4.Record{
 			Payload:    make([]byte, 10),
-			Version:    0,
 			Expiration: time.Now().UnixMilli() - 1,
 		}
-		err := storage.Put(testutils.Context(t), testutils.NewAddress(), 1, record, []byte{})
+		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPastExpiration)
 	})
 
 	t.Run("ErrWrongSignature", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
-		var slotid uint = 2
+		key := &s4.Key{
+			Address: address,
+			SlotId:  2,
+			Version: 0,
+		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Version:    0,
 			Expiration: time.Now().UnixMilli() + 1,
 		}
-		env := s4.NewEnvelopeFromRecord(address, slotid, record)
+		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
 		signature[0]++
-		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
+		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
 	t.Run("ErrNotFound if expired", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
-		var slotid uint = 2
+		key := &s4.Key{
+			Address: address,
+			SlotId:  2,
+			Version: 0,
+		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Version:    0,
 			Expiration: time.Now().UnixMilli() + 1,
 		}
-		env := s4.NewEnvelopeFromRecord(address, slotid, record)
+		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
+		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.NoError(t, err)
 
 		time.Sleep(testutils.TestInterval)
-		_, _, err = storage.Get(testutils.Context(t), address, slotid)
+		_, _, err = storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("ErrVersionTooLow", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
-		var slotid uint = 2
+		key := &s4.Key{
+			Address: address,
+			SlotId:  2,
+			Version: 5,
+		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Version:    5,
 			Expiration: time.Now().Add(time.Hour).UnixMilli(),
 		}
-		env := s4.NewEnvelopeFromRecord(address, slotid, record)
+		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
+		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.NoError(t, err)
 
-		record.Version--
-		env = s4.NewEnvelopeFromRecord(address, slotid, record)
+		key.Version--
+		env = s4.NewEnvelopeFromRecord(key, record)
 		signature, err = env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
+		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
 	})
 }
@@ -160,24 +186,26 @@ func TestStorage_PutAndGet(t *testing.T) {
 
 	t.Run("Happy Put then Get", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
-		var slotid uint = 2
+		key := &s4.Key{
+			Address: address,
+			SlotId:  2,
+			Version: 0,
+		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Version:    0,
 			Expiration: time.Now().Add(time.Hour).UnixMilli(),
 		}
-		env := s4.NewEnvelopeFromRecord(address, slotid, record)
+		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		err = storage.Put(testutils.Context(t), address, slotid, record, signature)
+		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.NoError(t, err)
 
-		rec, metadata, err := storage.Get(testutils.Context(t), address, slotid)
+		rec, metadata, err := storage.Get(testutils.Context(t), key)
 		assert.NoError(t, err)
 		assert.Equal(t, false, metadata.Confirmed)
 		assert.Equal(t, signature, metadata.Signature)
-		assert.Equal(t, record.Version, rec.Version)
 		assert.Equal(t, record.Expiration, rec.Expiration)
 		assert.Equal(t, record.Payload, rec.Payload)
 	})
