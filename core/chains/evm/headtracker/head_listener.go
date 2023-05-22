@@ -16,7 +16,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -70,7 +69,7 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) Name() string {
 	return hl.logger.Name()
 }
 
-func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) ListenForNewHeads(handleNewHead httypes.NewHeadHandler[H, BLOCK_HASH], done func()) {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) ListenForNewHeads(handleNewHead commontypes.NewHeadHandler[H, BLOCK_HASH], done func()) {
 	defer done()
 	defer hl.unsubscribe()
 
@@ -112,7 +111,7 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) HealthReport() map[string]
 	return map[string]error{hl.Name(): err}
 }
 
-func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler[H, BLOCK_HASH]) error {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context.Context, handleNewHead commontypes.NewHeadHandler[H, BLOCK_HASH]) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
