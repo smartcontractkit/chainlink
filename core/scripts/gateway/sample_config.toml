@@ -1,0 +1,13 @@
+[UserServerConfig]
+Port = 8080
+Path = "/user"
+ContentTypeHeader = "application/jsonrpc"
+
+[NodeServerConfig]
+Port = 8081
+Path = "/node"
+HandshakeTimeoutMillis = 1000
+
+[[Dons]]
+DonId = "example"
+HandlerName = "dummy"

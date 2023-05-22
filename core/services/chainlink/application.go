@@ -167,9 +167,9 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet      // nil if disabled
-	Solana   relay.RelayerService // nil if disabled
-	StarkNet starkchain.ChainSet  // nil if disabled
+	Cosmos   cosmos.ChainSet     // nil if disabled
+	Solana   loop.Relayer        // nil if disabled
+	StarkNet starkchain.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -396,27 +396,24 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]func() (loop.Relayer, error))
+		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
-			relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: chains.EVM}
-			relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
 			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
-			relayer := relay.RelayerAdapter{Relayer: cosmosRelayer, RelayerExt: chains.Cosmos}
-			relayers[relay.Cosmos] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.Cosmos] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
 		}
 		if cfg.SolanaEnabled() {
-			relayers[relay.Solana] = chains.Solana.Relayer
+			relayers[relay.Solana] = chains.Solana
 		}
 		if cfg.StarkNetEnabled() {
 			lggr := globalLogger.Named("StarkNet.Relayer")
 			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
-			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
-			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.StarkNet] = relay.NewRelayerAdapter(starknetRelayer, chains.StarkNet)
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)

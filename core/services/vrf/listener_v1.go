@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var (
@@ -380,12 +380,11 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	// so we don't process the request.
 	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
 	// found" errors.
-	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
-	m := bigmath.Max(req.confirmedAtBlock, currBlock)
+	m := mathutil.Max(req.confirmedAtBlock, lsn.getLatestHead()-5)
 	ctx, cancel := context.WithTimeout(ctx, callbacksTimeout)
 	defer cancel()
 	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
-		BlockNumber: m,
+		BlockNumber: big.NewInt(int64(m)),
 		Context:     ctx,
 	}, req.req.RequestID)
 	if err != nil {
