@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -46,6 +45,10 @@ import (
 )
 
 const oracleCount uint8 = 17
+
+var (
+	defaultMinimumContractPayment = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
+)
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
@@ -402,7 +405,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			// Set up funds
 			var availableFunds *big.Int
 			var paymentAmount *big.Int
-			minPayment := config.DefaultMinimumContractPayment.ToInt()
+			minPayment := defaultMinimumContractPayment.ToInt()
 			if tc.funded {
 				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
 				paymentAmount = minPayment
@@ -539,8 +542,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100),
-				AvailableFunds:   config.DefaultMinimumContractPayment.ToInt(),
-				PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+				AvailableFunds:   defaultMinimumContractPayment.ToInt(),
+				PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			}
 		}
 	)
@@ -1461,7 +1464,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1575,7 +1578,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1669,7 +1672,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1841,8 +1844,8 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			RoundId:          roundID,
 			EligibleToSubmit: true,
 			LatestSubmission: answerBigInt,
-			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), config.DefaultMinimumContractPayment.ToInt()),
-			PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), defaultMinimumContractPayment.ToInt()),
+			PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			StartedAt:        now(),
 		}
 
