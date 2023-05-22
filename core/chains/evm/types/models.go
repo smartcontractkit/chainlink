@@ -199,7 +199,7 @@ func (h *Head) ToInt() *big.Int {
 	return big.NewInt(h.Number)
 }
 
-func (h *Head) Equals(r commontypes.Head[common.Hash]) bool {
+func (h *Head) Equals(r htrktypes.Head[common.Hash, *big.Int]) bool {
 	if h == nil && r == nil {
 		return true
 	}
