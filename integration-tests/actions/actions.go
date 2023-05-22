@@ -239,7 +239,7 @@ func TeardownSuite(
 	// Delete all jobs to stop depleting the funds
 	err := DeleteAllJobs(chainlinkNodes)
 	if err != nil {
-		return err
+		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
 	for _, c := range clients {
@@ -284,7 +284,7 @@ func TeardownRemoteSuite(
 	// Delete all jobs to stop depleting the funds
 	err = DeleteAllJobs(chainlinkNodes)
 	if err != nil {
-		return err
+		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
