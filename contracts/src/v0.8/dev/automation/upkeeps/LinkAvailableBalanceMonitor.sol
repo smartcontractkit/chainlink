@@ -6,26 +6,27 @@ import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/IERC20.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableMap.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
 }
 
-interface IAggregator {
+interface ILinkAvailable {
   function linkAvailableForPayment() external view returns (int256 availableBalance);
-
-  function transmitters() external view returns (address[] memory);
 }
 
 /**
- * @title The ProxyBalanceMonitor contract.
- * @notice A keeper-compatible contract that monitors proxy-gated aggregators and funds them with LINK
+ * @title The LinkAvailableBalanceMonitor contract.
+ * @notice A keeper-compatible contract that monitors target contracts for balance from a custom
+ * function linkAvailableForPayment() and funds them with LINK if it falls below a defined
+ * threshold. Also supports aggregator proxy contracts monitoring which require fetching the actual
+ * target contract through a predefined interface.
  * @dev with 30 addresses as the MAX_PERFORM, the measured max gas usage of performUpkeep is around 2M
  * therefore, we recommend an upkeep gas limit of 3M (this has a 33% margin of safety). Although, nothing
  * prevents us from using 5M gas and increasing MAX_PERFORM, 30 seems like a reasonable batch size that
  * is probably plenty for most needs.
- * @dev with 140 addresses as the MAX_CHECK, the measured max gas usage of checkUpkeep is around 3.5M,
+ * @dev with 130 addresses as the MAX_CHECK, the measured max gas usage of checkUpkeep is around 3.5M,
  * which is 30% below the 5M limit.
  * Note that testing conditions DO NOT match live chain gas usage, hence the margins. Change
  * at your own risk!!!
@@ -35,8 +36,8 @@ interface IAggregator {
      we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
      which has significantly different trust assumptions
  */
-contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
-  using EnumerableSet for EnumerableSet.AddressSet;
+contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
+  using EnumerableMap for EnumerableMap.AddressToUintMap;
 
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event TopUpSucceeded(address indexed topUpAddress);
@@ -47,35 +48,36 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   error DuplicateAddress(address duplicate);
 
   uint256 public constant MAX_PERFORM = 30; // max number to addresses to top up in a single batch
-  uint256 public constant MAX_CHECK = 140; // max number of upkeeps to check (need to fit in 5M gas limit)
+  uint256 public constant MAX_CHECK = 130; // max number of upkeeps to check (need to fit in 5M gas limit)
   IERC20 public immutable LINK_TOKEN;
 
-  EnumerableSet.AddressSet private s_watchList;
-  uint256 private s_minBalance;
+  EnumerableMap.AddressToUintMap private s_watchList;
   uint256 private s_topUpAmount;
 
   /**
    * @param linkTokenAddress the LINK token address
-   * @param minBalance the minimum balance an aggregator can have before initiating a top up
    * @param topUpAmount the amount of LINK to top up an aggregator with at once
    */
-  constructor(address linkTokenAddress, uint256 minBalance, uint256 topUpAmount) ConfirmedOwner(msg.sender) {
+  constructor(address linkTokenAddress, uint256 topUpAmount) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
-    require(minBalance > 0);
     require(topUpAmount > 0);
     LINK_TOKEN = IERC20(linkTokenAddress);
-    s_minBalance = minBalance;
     s_topUpAmount = topUpAmount;
   }
 
   /**
    * @notice Sets the list of subscriptions to watch and their funding parameters
-   * @param addresses the list of proxy addresses to watch
+   * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
+   * @param minBalances the list of corresponding minBalance for the target address
    */
-  function setWatchList(address[] calldata addresses) external onlyOwner {
+  function setWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
+    if (addresses.length != minBalances.length) {
+      revert InvalidWatchList();
+    }
     // first, remove all existing addresses from list
     for (uint256 idx = s_watchList.length(); idx > 0; idx--) {
-      require(s_watchList.remove(s_watchList.at(idx - 1)));
+      (address target, ) = s_watchList.at(idx - 1);
+      require(s_watchList.remove(target));
     }
     // then set new addresses
     for (uint256 idx = 0; idx < addresses.length; idx++) {
@@ -85,16 +87,17 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      s_watchList.add(addresses[idx]);
+      s_watchList.set(addresses[idx], minBalances[idx]);
     }
     emit WatchlistUpdated();
   }
 
   /**
    * @notice Adds addresses to the watchlist without overwriting existing members
-   * @param addresses the list of proxy addresses to watch
+   * @param addresses the list of target addresses to watch (could be direct target or IAggregatorProxy)
+   * @param minBalances the list of corresponding minBalance for the target address
    */
-  function addToWatchList(address[] calldata addresses) external onlyOwner {
+  function addToWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       if (s_watchList.contains(addresses[idx])) {
         revert DuplicateAddress(addresses[idx]);
@@ -102,7 +105,7 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
       if (addresses[idx] == address(0)) {
         revert InvalidWatchList();
       }
-      s_watchList.add(addresses[idx]);
+      s_watchList.set(addresses[idx], minBalances[idx]);
     }
     emit WatchlistUpdated();
   }
@@ -113,21 +116,21 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
    * addresses in the list over latter ones.
    * @dev the function will check at most MAX_CHECK proxies in a single call
    * @dev the function returns a list with a max length of MAX_PERFORM
-   * @return list of proxy addresses whose aggregators are underfunded
+   * @return list of target addresses which are underfunded
    */
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint256 numTargets = s_watchList.length();
     uint256 numChecked = 0;
     uint256 numToCheck = MAX_CHECK;
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
-    numToCheck = numTargets < MAX_CHECK ? numTargets : numTargets;
+    numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
     uint256 numFound = 0;
-    address[] memory proxiesToFund = new address[](MAX_PERFORM);
+    address[] memory targetsToFund = new address[](MAX_PERFORM);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
-      address proxy = s_watchList.at(idx);
-      (bool needsFunding, ) = _needsFunding(proxy);
+      (address target, uint256 minBalance) = s_watchList.at(idx);
+      (bool needsFunding, ) = _needsFunding(target, minBalance);
       if (needsFunding) {
-        proxiesToFund[numFound] = proxy;
+        targetsToFund[numFound] = target;
         numFound++;
         if (numFound == MAX_PERFORM) {
           break; // max number of addresses in batch reached
@@ -136,29 +139,34 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
     }
     if (numFound != MAX_PERFORM) {
       assembly {
-        mstore(proxiesToFund, numFound) // resize array to number of valid targets
+        mstore(targetsToFund, numFound) // resize array to number of valid targets
       }
     }
-    return proxiesToFund;
+    return targetsToFund;
   }
 
   /**
-   * @notice Send funds to the proxies provided.
-   * @param proxyAddresses the list of proxies to fund
+   * @notice Send funds to the targets provided.
+   * @param targetAddresses the list of targets to fund
    */
-  function topUp(address[] memory proxyAddresses) public whenNotPaused {
+  function topUp(address[] memory targetAddresses) public whenNotPaused {
     uint256 topUpAmount = s_topUpAmount;
-    uint256 stopIdx = proxyAddresses.length;
+    uint256 stopIdx = targetAddresses.length;
     uint256 numCanFund = LINK_TOKEN.balanceOf(address(this)) / topUpAmount;
     stopIdx = numCanFund < stopIdx ? numCanFund : stopIdx;
     for (uint256 idx = 0; idx < stopIdx; idx++) {
-      (bool needsFunding, address aggregator) = _needsFunding(proxyAddresses[idx]);
-      if (!s_watchList.contains(proxyAddresses[idx]) || !needsFunding) {
-        emit TopUpBlocked(proxyAddresses[idx]);
+      (bool exists, uint256 minBalance) = s_watchList.tryGet(targetAddresses[idx]);
+      if (!exists) {
+        emit TopUpBlocked(targetAddresses[idx]);
         continue;
       }
-      LINK_TOKEN.transfer(aggregator, topUpAmount);
-      emit TopUpSucceeded(proxyAddresses[idx]);
+      (bool needsFunding, address target) = _needsFunding(targetAddresses[idx], minBalance);
+      if (!needsFunding) {
+        emit TopUpBlocked(targetAddresses[idx]);
+        continue;
+      }
+      LINK_TOKEN.transfer(target, topUpAmount);
+      emit TopUpSucceeded(targetAddresses[idx]);
     }
   }
 
@@ -211,11 +219,16 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   }
 
   /**
-   * @notice Sets the minimum balance
+   * @notice Sets the minimum balance for the given target address
    */
-  function setMinBalance(uint256 minBalance) external onlyOwner returns (uint256) {
+  function setMinBalance(address target, uint256 minBalance) external onlyOwner returns (uint256) {
     require(minBalance > 0);
-    return s_minBalance = minBalance;
+    (bool exists, uint256 prevMinBalance) = s_watchList.tryGet(target);
+    if (!exists) {
+      revert InvalidWatchList();
+    }
+    s_watchList.set(target, minBalance);
+    return prevMinBalance;
   }
 
   /**
@@ -235,8 +248,16 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   /**
    * @notice Gets the list of subscription ids being watched
    */
-  function getWatchList() external view returns (address[] memory) {
-    return s_watchList.values();
+  function getWatchList() external view returns (address[] memory, uint256[] memory) {
+    uint256 len = s_watchList.length();
+    address[] memory targets = new address[](len);
+    uint256[] memory minBalances = new uint256[](len);
+
+    for (uint256 idx = 0; idx < len; idx++) {
+      (targets[idx], minBalances[idx]) = s_watchList.at(idx);
+    }
+
+    return (targets, minBalances);
   }
 
   /**
@@ -247,41 +268,39 @@ contract ProxyBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   }
 
   /**
-   * @notice Gets the configured minimum balance
+   * @notice Gets the configured minimum balance for the given target
    */
-  function getMinBalance() external view returns (uint256) {
-    return s_minBalance;
+  function getMinBalance(address target) external view returns (uint256) {
+    (bool exists, uint256 minBalance) = s_watchList.tryGet(target);
+    if (!exists) {
+      revert InvalidWatchList();
+    }
+    return minBalance;
   }
 
   /**
-   * @notice checks the aggregator that the provided proxy points to, and determines
+   * @notice checks the target (could be direct target or IAggregatorProxy), and determines
    * if it is elligible for funding
-   * @param proxyAddress the proxy to check
-   * @return bool whether the aggregator needs funding or not
-   * @return address the address of the aggregator
+   * @param targetAddress the target to check
+   * @param minBalance minimum balance required for the target
+   * @return bool whether the target needs funding or not
+   * @return address the address of the contract needing funding
    */
-  function _needsFunding(address proxyAddress) private view returns (bool, address) {
-    IAggregator aggregator;
-    IAggregatorProxy proxy = IAggregatorProxy(proxyAddress);
+  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
+    ILinkAvailable target;
+    IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
-      aggregator = IAggregator(aggregatorAddress);
+      target = ILinkAvailable(aggregatorAddress);
     } catch {
-      return (false, address(0));
+      target = ILinkAvailable(targetAddress);
     }
-    try aggregator.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < 0 || uint256(balance) > s_minBalance) {
+    try target.linkAvailableForPayment() returns (int256 balance) {
+      if (balance < 0 || uint256(balance) >= minBalance) {
         return (false, address(0));
       }
     } catch {
       return (false, address(0));
     }
-    try aggregator.transmitters() returns (address[] memory transmitters) {
-      if (transmitters.length == 0) {
-        return (false, address(0));
-      }
-    } catch {
-      return (false, address(0));
-    }
-    return (true, address(aggregator));
+    return (true, address(target));
   }
 }
