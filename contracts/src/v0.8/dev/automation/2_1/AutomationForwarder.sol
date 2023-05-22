@@ -3,7 +3,7 @@ pragma solidity 0.8.6;
 
 import {AutomationRegistryBaseInterface as IRegistry} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
-import {IKeeperRegistryConsumer} from "./interfaces/IKeeperRegistryConsumer.sol";
+import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;
 
@@ -14,7 +14,7 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationForwarder is TypeAndVersionInterface {
-  IKeeperRegistryConsumer private s_registry;
+  IAutomationRegistryConsumer private s_registry;
   address private immutable i_target;
   uint256 private immutable i_upkeepID;
   string public constant override typeAndVersion = "AutomationForwarder 1.0.0";
@@ -22,7 +22,7 @@ contract AutomationForwarder is TypeAndVersionInterface {
   error NotAuthorized();
 
   constructor(uint256 upkeepID, address target) {
-    s_registry = IKeeperRegistryConsumer(msg.sender);
+    s_registry = IAutomationRegistryConsumer(msg.sender);
     i_target = target;
     i_upkeepID = upkeepID;
   }
@@ -63,13 +63,13 @@ contract AutomationForwarder is TypeAndVersionInterface {
    */
   function updateRegistry(address newRegistry) external {
     if (msg.sender != address(s_registry)) revert NotAuthorized();
-    s_registry = IKeeperRegistryConsumer(newRegistry);
+    s_registry = IAutomationRegistryConsumer(newRegistry);
   }
 
   /**
    * @notice gets the registry address
    */
-  function getRegistry() external view returns (IKeeperRegistryConsumer) {
+  function getRegistry() external view returns (IAutomationRegistryConsumer) {
     return s_registry;
   }
 
