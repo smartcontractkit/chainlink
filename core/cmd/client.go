@@ -64,7 +64,7 @@ import (
 var prometheus *ginprom.Prometheus
 var initOnce sync.Once
 
-func initPrometheus(cfg config.GeneralConfig) {
+func initPrometheus(cfg config.Prometheus) {
 	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
@@ -114,29 +114,6 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 		return cli.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
-}
-
-func (cli *Client) initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
-	if err := loadOpts(opts, configFiles...); err != nil {
-		return err
-	}
-
-	if secretsFile != "" {
-		b, err := os.ReadFile(secretsFile)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
-		}
-
-		secretsTOML := string(b)
-		err = opts.ParseSecrets(secretsTOML)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg, err := opts.New()
-	cli.Config = cfg
-	return err
 }
 
 // AppFactory implements the NewApplication method.
@@ -413,14 +390,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
+	timeoutDuration := config.DefaultHTTPTimeout().Duration()
 	if config.Port() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -444,7 +422,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
-func sentryInit(cfg config.BasicConfig) error {
+func sentryInit(cfg config.Sentry) error {
 	sentrydsn := cfg.SentryDSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
@@ -477,7 +455,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -489,7 +467,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+		case <-time.After(timeout):
 			// pause between attempts, default 15s
 		}
 	}

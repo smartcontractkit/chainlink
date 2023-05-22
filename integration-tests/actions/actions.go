@@ -229,7 +229,7 @@ func TeardownSuite(
 	logsFolderPath string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
-	failingLogLevel zapcore.Level,                   // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
 	l := utils.GetTestLogger(t)
@@ -361,4 +361,26 @@ func EncodeOnChainExternalJobID(jobID uuid.UUID) [32]byte {
 	var ji [32]byte
 	copy(ji[:], strings.Replace(jobID.String(), "-", "", 4))
 	return ji
+}
+
+// UpgradeChainlinkNodeVersions upgrades all Chainlink nodes to a new version, and then runs the test environment
+// to apply the upgrades
+func UpgradeChainlinkNodeVersions(
+	testEnvironment *environment.Environment,
+	newImage, newVersion string,
+	nodes ...*client.Chainlink,
+) error {
+	if newImage == "" && newVersion == "" {
+		return errors.New("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
+	}
+	for _, node := range nodes {
+		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {
+			return err
+		}
+	}
+	err := testEnvironment.RunUpdated(len(nodes))
+	if err != nil { // Run the new environment and wait for changes to show
+		return err
+	}
+	return client.ReconnectChainlinkNodes(testEnvironment, nodes)
 }

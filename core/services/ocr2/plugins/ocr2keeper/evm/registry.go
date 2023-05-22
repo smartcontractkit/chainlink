@@ -396,7 +396,7 @@ func (r *EvmRegistry) pollLogs() error {
 	var end int64
 	var err error
 
-	if end, err = r.poller.LatestBlock(); err != nil {
+	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
