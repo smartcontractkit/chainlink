@@ -206,12 +206,12 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) error {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
-		fmt.Println("WaitDeployed failed: ", err)
+		log.Println("WaitDeployed failed: ", err)
 		return err
 	}
 
 	if receipt.Status == ethtypes.ReceiptStatusFailed {
-		fmt.Println("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
+		log.Println("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
 		return errors.New("Transaction failed")
 	}
 
