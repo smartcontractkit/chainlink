@@ -57,7 +57,7 @@ type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddr
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
@@ -71,7 +71,7 @@ type TransmitCheckerFactory[
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
 type TransmitChecker[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
@@ -101,7 +101,7 @@ type TransmitChecker[
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type Broadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
@@ -166,7 +166,7 @@ func NewEvmBroadcaster(
 }
 
 func NewBroadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
@@ -784,7 +784,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	return eb.ks.IncrementNextSequence(address, eb.chainID, currentNonce, qopts...)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID txmgrtypes.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast[CHAIN_ID types.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }

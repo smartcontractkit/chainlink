@@ -31,7 +31,7 @@ const unconfirmedTxAlertLogFrequency = 2 * time.Minute
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type Resender[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
@@ -67,7 +67,7 @@ func NewEvmResender(
 }
 
 func NewResender[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
@@ -205,7 +205,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) logSt
 }
 
 func findOldestUnconfirmedAttempt[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],

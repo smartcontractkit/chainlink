@@ -16,7 +16,7 @@ type TxStore[
 	// Represents an account address, in native chain format.
 	ADDR types.Hashable,
 	// Represents a chain id to be used for the chain.
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	// Represents a unique Tx Hash for a chain
 	TX_HASH types.Hashable,
 	// Represents a unique Block Hash for a chain
@@ -84,7 +84,7 @@ type TxStore[
 	Abandon(id CHAIN_ID, addr ADDR) error
 }
 
-type TxHistoryReaper[CHAIN_ID ID] interface {
+type TxHistoryReaper[CHAIN_ID types.ID] interface {
 	ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 

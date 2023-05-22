@@ -35,7 +35,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
@@ -65,7 +65,7 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
@@ -506,7 +506,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 }
 
 type NullTxManager[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,

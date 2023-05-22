@@ -27,3 +27,9 @@ type Head[BLOCK_HASH Hashable] interface {
 	// Equals returns true if the two heads are equal
 	Equals(Head[BLOCK_HASH]) bool
 }
+
+type HeadTrackerHead[BLOCK_HASH Hashable, CHAIN_ID ID] interface {
+	Head[BLOCK_HASH]
+
+	ChainID()
+}

@@ -14,7 +14,7 @@ import (
 //
 //go:generate mockery --quiet --name TxAttemptBuilder --output ./mocks/ --case=underscore
 type TxAttemptBuilder[
-	CHAIN_ID ID, // CHAIN_ID - chain id type
+	CHAIN_ID types.ID, // CHAIN_ID - chain id type
 	HEAD types.Head[BLOCK_HASH], // HEAD - chain head type
 	ADDR types.Hashable, // ADDR - chain address type
 	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types

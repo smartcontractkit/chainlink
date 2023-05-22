@@ -13,7 +13,7 @@ import (
 // A generic client interface for communication with the RPC node
 // Every native chain must implement independently
 type Client[
-	CHAINID ID,
+	CHAINID types.ID,
 	SEQ Sequence, // nonce
 	ADDR types.Hashable,
 	BLOCK any,
@@ -61,7 +61,7 @@ type Events[EVENT any, EVENTOPS any] interface {
 }
 
 type TxmClient[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,

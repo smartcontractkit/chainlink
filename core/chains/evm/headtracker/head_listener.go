@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -35,7 +34,7 @@ var (
 type headListener[
 	H commontypes.Head[BLOCK_HASH],
 	S commontypes.Subscription,
-	ID txmgrtypes.ID,
+	ID commontypes.ID,
 	BLOCK_HASH commontypes.Hashable,
 	CLIENT htrktypes.Client[H, S, ID, BLOCK_HASH],
 ] struct {

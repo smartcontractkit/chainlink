@@ -109,7 +109,7 @@ var (
 // Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 type EthConfirmer[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
@@ -951,7 +951,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 }
 
 func hasReceiptInLongestChain[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
@@ -1101,7 +1101,7 @@ func (ec *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
 // transaction.
 func observeUntilTxConfirmed[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],

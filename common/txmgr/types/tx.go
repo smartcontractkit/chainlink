@@ -114,7 +114,7 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 type TxAttempt[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
@@ -162,7 +162,7 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetTx
 }
 
 type Tx[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
