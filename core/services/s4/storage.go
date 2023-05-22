@@ -29,9 +29,8 @@ type Record struct {
 
 // Metadata is the internal S4 data associated with a Record
 type Metadata struct {
-	Confirmed         bool
-	HighestExpiration int64
-	Signature         []byte
+	Confirmed bool
+	Signature []byte
 }
 
 //go:generate mockery --quiet --name Storage --output ./mocks/ --case=underscore
@@ -94,9 +93,8 @@ func (s *storage) Get(ctx context.Context, address common.Address, slotId uint) 
 	copy(record.Payload, row.Payload)
 
 	metadata := &Metadata{
-		Confirmed:         row.Confirmed,
-		HighestExpiration: row.HighestExpiration,
-		Signature:         make([]byte, len(row.Signature)),
+		Confirmed: row.Confirmed,
+		Signature: make([]byte, len(row.Signature)),
 	}
 	copy(metadata.Signature, row.Signature)
 
@@ -125,24 +123,16 @@ func (s *storage) Put(ctx context.Context, address common.Address, slotId uint, 
 		return err
 	}
 
-	highestExpiration := record.Expiration
-	if row != nil {
-		highestExpiration = row.HighestExpiration
-		if highestExpiration < record.Expiration {
-			highestExpiration = record.Expiration
-		}
-		if record.Version <= row.Version {
-			return ErrVersionTooLow
-		}
+	if row != nil && record.Version <= row.Version {
+		return ErrVersionTooLow
 	}
 
 	row = &Row{
-		Payload:           make([]byte, len(record.Payload)),
-		Version:           record.Version,
-		Expiration:        record.Expiration,
-		Confirmed:         false,
-		HighestExpiration: highestExpiration,
-		Signature:         make([]byte, len(signature)),
+		Payload:    make([]byte, len(record.Payload)),
+		Version:    record.Version,
+		Expiration: record.Expiration,
+		Confirmed:  false,
+		Signature:  make([]byte, len(signature)),
 	}
 	copy(row.Payload, record.Payload)
 	copy(row.Signature, signature)

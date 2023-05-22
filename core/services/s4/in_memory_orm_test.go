@@ -19,12 +19,11 @@ func TestInMemoryORM(t *testing.T) {
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
 	row := &s4.Row{
-		Payload:           payload[:],
-		Version:           3,
-		Expiration:        expiration,
-		Confirmed:         true,
-		HighestExpiration: expiration,
-		Signature:         signature[:],
+		Payload:    payload[:],
+		Version:    3,
+		Expiration: expiration,
+		Confirmed:  true,
+		Signature:  signature[:],
 	}
 
 	orm := s4.NewInMemoryORM()

@@ -8,12 +8,11 @@ import (
 
 // Row represents a data row persisted by ORM.
 type Row struct {
-	Payload           []byte
-	Version           uint64
-	Expiration        int64
-	Confirmed         bool
-	HighestExpiration int64
-	Signature         []byte
+	Payload    []byte
+	Version    uint64
+	Expiration int64
+	Confirmed  bool
+	Signature  []byte
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -39,12 +38,11 @@ type ORM interface {
 
 func (r Row) Clone() *Row {
 	clone := Row{
-		Payload:           make([]byte, len(r.Payload)),
-		Version:           r.Version,
-		Expiration:        r.Expiration,
-		Confirmed:         r.Confirmed,
-		HighestExpiration: r.HighestExpiration,
-		Signature:         make([]byte, len(r.Signature)),
+		Payload:    make([]byte, len(r.Payload)),
+		Version:    r.Version,
+		Expiration: r.Expiration,
+		Confirmed:  r.Confirmed,
+		Signature:  make([]byte, len(r.Signature)),
 	}
 	copy(clone.Payload, r.Payload)
 	copy(clone.Signature, r.Signature)

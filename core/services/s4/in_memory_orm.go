@@ -51,7 +51,7 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 	queue := make([]string, 0)
 	now := time.Now().UnixMilli()
 	for k, v := range o.rows {
-		if v.HighestExpiration < now {
+		if v.Expiration < now {
 			queue = append(queue, k)
 		}
 	}
