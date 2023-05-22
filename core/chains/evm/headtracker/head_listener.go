@@ -34,7 +34,7 @@ var (
 
 type headListener[
 	H commontypes.Head[BLOCK_HASH],
-	S htrktypes.Subscription,
+	S commontypes.Subscription,
 	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
 	CLIENT htrktypes.Client[H, S, ID, BLOCK_HASH],
@@ -44,9 +44,10 @@ type headListener[
 	logger           logger.Logger
 	chStop           utils.StopChan
 	chHeaders        chan H
-	headSubscription S
+	headSubscription commontypes.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
+	getNilHead       func() H
 }
 
 type evmHeadListener = headListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
@@ -58,6 +59,9 @@ func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Conf
 		client: ethClient,
 		logger: lggr.Named("HeadListener"),
 		chStop: chStop,
+		getNilHead: func() *evmtypes.Head {
+			return nil
+		},
 	}
 }
 
@@ -65,7 +69,7 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) Name() string {
 	return hl.logger.Name()
 }
 
-func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, done func()) {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) ListenForNewHeads(handleNewHead httypes.NewHeadHandler[H, BLOCK_HASH], done func()) {
 	defer done()
 	defer hl.unsubscribe()
 
@@ -107,7 +111,7 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) HealthReport() map[string]
 	return map[string]error{hl.Name(): err}
 }
 
-func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {
+func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler[H, BLOCK_HASH]) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
@@ -133,7 +137,7 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context
 			if !open {
 				return errors.New("head listener: chHeaders prematurely closed")
 			}
-			if !blockHeader.IsValid() {
+			if blockHeader.Equals(hl.getNilHead()) {
 				hl.logger.Error("got nil block header")
 				continue
 			}
