@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,7 +18,7 @@ type headSaver struct {
 	heads  Heads
 }
 
-var _ htrktypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
+var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
 
 func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
 	return &headSaver{
