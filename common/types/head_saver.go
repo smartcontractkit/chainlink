@@ -2,13 +2,11 @@ package types
 
 import (
 	"context"
-
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 // HeadSaver is an chain agnostic interface for saving and loading heads
-// Each chain will have its own custom implementation of HeadSaver interface.
-type HeadSaver[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] interface {
+// Different chains will instantiate generic HeadSaver type with their native Head and BlockHash types.
+type HeadSaver[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
