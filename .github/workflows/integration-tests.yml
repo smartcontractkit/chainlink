@@ -285,6 +285,7 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       TEST_UPGRADE_VERSION: ${{ github.sha }}
+      TEST_UPGRADE_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
       TEST_LOG_LEVEL: debug
       TEST_SUITE: migration
     steps:
