@@ -16,6 +16,10 @@ interface ILinkAvailable {
   function linkAvailableForPayment() external view returns (int256 availableBalance);
 }
 
+interface ITransmitters {
+  function transmitters() external view returns (address[] memory);
+}
+
 /**
  * @title The LinkAvailableBalanceMonitor contract.
  * @notice A keeper-compatible contract that monitors target contracts for balance from a custom
@@ -301,6 +305,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
     } catch {
       return (false, address(0));
     }
+    try ITransmitters(address(target)).transmitters() returns (address[] memory transmitters) {
+      // we only need to check for transmitters on data feeds, for all other contracts we only need
+      // to check balance
+      if (transmitters.length == 0) {
+        return (false, address(0));
+      }
+    } catch {}
     return (true, address(target));
   }
 }
