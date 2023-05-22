@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -38,7 +38,7 @@ func TestVRFV2Soak(t *testing.T) {
 	numberOfWords := uint32(3)
 	maxGasPriceGWei := 1000
 	callbackGasLimit := uint32(1000000)
-	waitForRandRequestStatusToBeFulfilledTimeout := time.Second * 20
+	waitForRandRequestStatusToBeFulfilledTimeout := time.Second * 40
 	l := utils.GetTestLogger(t)
 
 	var testInputs testsetups.VRFV2SoakTestInputs
@@ -186,7 +186,7 @@ PriceMax = '%d gwei'
 		SubscriptionFunding:  testInputs.SubscriptionFunding,
 		StopTestOnError:      testInputs.StopTestOnError,
 		RequestsPerMinute:    testInputs.RequestsPerMinute,
-		TestFunc: func(t *testsetups.VRFV2SoakTest, requestNumber int) error {
+		TestFunc: func(t *testsetups.VRFV2SoakTest, requestNumber int, wg *sync.WaitGroup) error {
 
 			concurrentEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, newTestEnvironment, chainClient)
 			consumer.ChangeEVMClient(concurrentEVMClient)
@@ -194,6 +194,7 @@ PriceMax = '%d gwei'
 				return fmt.Errorf("error occurred creating ConcurrentEVMClient, error: %w", err)
 			}
 
+			wg.Add(1)
 			// request randomness
 			err = consumer.RequestRandomness(keyHash, subID, uint16(minimumConfirmations), callbackGasLimit, numberOfWords)
 			if err != nil {
@@ -202,36 +203,32 @@ PriceMax = '%d gwei'
 
 			err = concurrentEVMClient.WaitForEvents()
 			if err != nil {
-				return fmt.Errorf("ERROR occurred waiting on chain events, error: %w", err)
+				return fmt.Errorf("error occurred waiting on chain events, error: %w", err)
 			}
 
-			//todo - need to wait until
-			fmt.Println("CALLING GetLastRequestId")
 			lastRequestID, err := consumer.GetLastRequestId(context.Background())
 			if err != nil {
 				return fmt.Errorf("error occurred getting Last Request ID, error: %w", err)
 			}
 
-			l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
+			l.Info().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
-			fmt.Println("CALLING WaitForRandRequestToBeFulfilled()")
-			fulfilledStatus, err := WaitForRandRequestToBeFulfilled(
+			_, err = WaitForRandRequestToBeFulfilled(
 				consumer,
 				lastRequestID,
 				waitForRandRequestStatusToBeFulfilledTimeout,
-				l,
+				wg,
+				t,
 			)
 
 			if err != nil {
-				return fmt.Errorf("error occurred waiting for Randomness Request Status, error: %w", err)
+				return fmt.Errorf("error occurred waiting for Randomness Request Status with request ID: %v, error: %w", lastRequestID.String(), err)
 			}
 
-			for _, randomWord := range fulfilledStatus.RandomWords {
-				l.Info().
-					Uint64("Random Word", randomWord.Uint64()).
-					Uint64("For RequestID", lastRequestID.Uint64()).
-					Msg("Randomness fulfilled")
-			}
+			l.Info().
+				Int("Request Number", requestNumber).
+				Str("RequestID", lastRequestID.String()).
+				Msg("Randomness fulfilled")
 			return nil
 		},
 	},
@@ -254,13 +251,13 @@ func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, netw
 		testEnvironment = environment.New(&environment.Config{
 			Namespace: existingNamespace,
 			Test:      t,
-			TTL:       time.Hour * 720, // 30 days,
+			TTL:       time.Hour * 1, // 30 days,
 		})
 	} else {
 		testEnvironment = environment.New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("soak-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 			Test:            t,
-			TTL:             time.Hour * 720, // 30 days,
+			TTL:             time.Hour * 1, // 30 days,
 		})
 	}
 
@@ -295,7 +292,8 @@ func WaitForRandRequestToBeFulfilled(
 	consumer contracts.VRFv2Consumer,
 	lastRequestID *big.Int,
 	timeout time.Duration,
-	l zerolog.Logger,
+	wg *sync.WaitGroup,
+	t *testsetups.VRFV2SoakTest,
 ) (contracts.RequestStatus, error) {
 	requestStatusChannel := make(chan contracts.RequestStatus)
 	requestStatusErrorsChannel := make(chan error)
@@ -304,27 +302,32 @@ func WaitForRandRequestToBeFulfilled(
 	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
 	defer testCancel()
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second * 1)
 
 	for {
 		select {
 		case <-testContext.Done():
-			fmt.Println("WaitForRandRequestToBeFulfilled: TIMEOUT FOR lastRequestID: ", lastRequestID)
+			ticker.Stop()
+			wg.Done()
 			return contracts.RequestStatus{}, fmt.Errorf("timeout waiting for new transmission event")
 
 		case <-ticker.C:
-			fmt.Println("WaitForRandRequestToBeFulfilled: TRIGGERING getRandomnessRequestStatus GOROUTINE WITH lastRequestID: ", lastRequestID)
-			go getRandomnessRequestStatus(consumer, lastRequestID, requestStatusChannel, requestStatusErrorsChannel, l)
+			go getRandomnessRequestStatus(
+				consumer,
+				lastRequestID,
+				requestStatusChannel,
+				requestStatusErrorsChannel,
+			)
 
 		case requestStatus := <-requestStatusChannel:
-			fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED REQUEST STATUS WITH lastRequestID: ", lastRequestID)
 			if requestStatus.Fulfilled == true {
-				fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED FULFILMENT REQUEST STATUS WITH lastRequestID: ", lastRequestID)
+				t.NumberOfFulfillments++
+				wg.Done()
 				return requestStatus, nil
 			}
 
 		case err := <-requestStatusErrorsChannel:
-			fmt.Println("WaitForRandRequestToBeFulfilled: RECEIVED AN ERROR: ", err)
+			wg.Done()
 			return contracts.RequestStatus{}, err
 		}
 	}
@@ -335,13 +338,10 @@ func getRandomnessRequestStatus(
 	lastRequestID *big.Int,
 	requestStatusChannel chan contracts.RequestStatus,
 	requestStatusErrorsChannel chan error,
-	l zerolog.Logger,
 ) {
-
 	requestStatus, err := consumer.GetRequestStatus(context.Background(), lastRequestID)
 
 	if err != nil {
-		l.Error().Interface("error: ", err).Msg("Error occurred while getting Rand Request Status")
 		requestStatusErrorsChannel <- fmt.Errorf("error occurred getting Request Status for requestID: %g", lastRequestID)
 	}
 	requestStatusChannel <- requestStatus

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,14 +35,15 @@ type VRFV2SoakTest struct {
 	chainClient     blockchain.EVMClient
 	DefaultNetwork  blockchain.EVMClient
 
-	NumberOfRequests int
+	NumberOfRandRequests int
+	NumberOfFulfillments int
 
 	ErrorOccurred error
 	ErrorCount    int
 }
 
 // VRFV2SoakTestTestFunc function type for the request and validation you want done on each iteration
-type VRFV2SoakTestTestFunc func(t *VRFV2SoakTest, requestNumber int) error
+type VRFV2SoakTestTestFunc func(t *VRFV2SoakTest, requestNumber int, wg *sync.WaitGroup) error
 
 // VRFV2SoakTestInputs define required inputs to run a vrfv2 soak test
 type VRFV2SoakTestInputs struct {
@@ -85,13 +87,14 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 	testContext, testCancel := context.WithTimeout(context.Background(), v.Inputs.TestDuration)
 	defer testCancel()
 
-	v.NumberOfRequests = 0
+	v.NumberOfRandRequests = 0
+	v.NumberOfFulfillments = 0
 
 	// variables dealing with how often to tick and how to stop the ticker
 	stop := false
 	startTime := time.Now()
 	ticker := time.NewTicker(time.Minute / time.Duration(v.Inputs.RequestsPerMinute))
-
+	var wg sync.WaitGroup
 	for {
 		// start the loop by checking to see if any of the TestFunc responses have returned an error
 		if v.Inputs.StopTestOnError {
@@ -106,22 +109,27 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 			break // breaks the select block
 		case <-ticker.C:
 			// make the next request
-			v.NumberOfRequests++
-			go requestAndValidate(v, v.NumberOfRequests)
+			v.NumberOfRandRequests++
+			go requestAndValidate(v, v.NumberOfRandRequests, &wg)
 		}
 
 		if stop {
 			break // breaks the for loop and stops the test
 		}
 	}
-	l.Info().Int("Requests", v.NumberOfRequests).Msg("Total Completed Requests")
+	wg.Wait()
+	l.Info().Int("Requests", v.NumberOfRandRequests).Msg("Total Completed Requests")
+	l.Info().Int("Fulfillments", v.NumberOfFulfillments).Msg("Total Fulfillments")
 	l.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
 	require.Equal(t, 0, v.ErrorCount, "Expected 0 errors")
+	require.Equal(t, v.NumberOfRandRequests, v.NumberOfFulfillments, "Number of Rand Requests should be equal to Number of Fulfillments")
 }
 
-func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
+func requestAndValidate(t *VRFV2SoakTest, requestNumber int, wg *sync.WaitGroup) {
+
 	log.Info().Int("Request Number", requestNumber).Msg("Making a Request")
-	err := t.Inputs.TestFunc(t, requestNumber)
+	err := t.Inputs.TestFunc(t, requestNumber, wg)
+
 	// only set the error to be checked if err is not nil so we avoid race conditions with passing requests
 	if err != nil {
 		t.ErrorOccurred = err
