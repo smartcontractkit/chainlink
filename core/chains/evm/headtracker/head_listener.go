@@ -33,7 +33,7 @@ var (
 )
 
 type headListener[
-	H commontypes.Head[BLOCK_HASH],
+	H htrktypes.Head[BLOCK_HASH, ID],
 	S commontypes.Subscription,
 	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
@@ -143,8 +143,8 @@ func (hl *headListener[H, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx context
 			}
 
 			// Compare the chain ID of the block header to the chain ID of the client
-			if !blockHeader.HasChainID() || blockHeader.ChainID().String() != chainId.String() {
-				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainID())
+			if blockHeader.IsChainIdNil() || !blockHeader.IsSameChain(chainId) {
+				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainId())
 			}
 			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()
 
