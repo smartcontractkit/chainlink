@@ -27,6 +27,9 @@ chainID = %d`
 	bootstrapTOML = `[P2P]
 [P2P.V2]
 ListenAddresses = ["0.0.0.0:%s"]`
+
+	// If a container with the same name already exists, force=true means remove the existing one and create a new one
+	force = false
 )
 
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address
@@ -41,6 +44,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		uiPort,
 		containerName,
 		fmt.Sprintf(bootstrapTOML, strconv.Itoa(p2pv2Port)),
+		force,
 	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)
