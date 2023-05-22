@@ -321,6 +321,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	ScrollTestnet = blockchain.EVMNetwork{
+		Name:                      "Scroll Testnet",
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   534353,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -342,10 +353,10 @@ var (
 		"CELO_ALFAJORES":    CeloAlfajores,
 		"RSK":               RSKTestnet,
 		"MUMBAI":            PolygonMumbai,
-		"POLYGON_MAINNET":   PolygonMainnet,
 		"AVALANCHE_FUJI":    AvalancheFuji,
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
+		"SCROLL_TESTNET":    ScrollTestnet,
 	}
 )
 
