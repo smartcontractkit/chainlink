@@ -87,7 +87,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
-	require.EqualError(t, err, "cannot send ether to zero address")
+	require.EqualError(t, err, "cannot send native token to zero address")
 }
 
 func TestTxm_CreateTransaction(t *testing.T) {
