@@ -284,7 +284,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230508053235-41120ca1f9f3 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230517200758-40dada2543a1 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230517203655-d33351088d27 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230522061116-665c91c3d1fa // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
