@@ -99,7 +99,7 @@ type Txm[
 	reaper           *Reaper[CHAIN_ID]
 	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
 	ethBroadcaster   *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
-	ethConfirmer     *EthConfirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	ethConfirmer     *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	nonceSyncer      NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
