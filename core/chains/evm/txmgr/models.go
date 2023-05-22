@@ -19,7 +19,7 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmConfirmer              = Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
 	EvmBroadcaster            = Broadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
 	EvmResender               = Resender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt, EvmAccessList]
 	EvmReaper                 = Reaper[*big.Int]
