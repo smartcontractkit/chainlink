@@ -1,0 +1,796 @@
+! exec chainlink node -c config.toml validate
+cmp stdout out.txt
+cmp stderr err.txt
+
+-- config.toml --
+RootDir = '/home/chainlink'
+
+[Feature]
+LogPoller = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 250
+
+[OCR2]
+Enabled = true
+
+[P2P]
+TraceLogging = true
+
+[P2P.V1]
+Enabled = false
+
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:5001']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+
+
+# Ethereum
+[[EVM]]
+ChainID = '1'
+
+[EVM.GasEstimator]
+PriceMax = '500 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '500 gwei'
+
+# Optimism
+[[EVM]]
+ChainID = '10'
+
+[EVM.GasEstimator]
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMax = '150 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '150 gwei'
+
+# Avalanche
+[[EVM]]
+ChainID = '43114'
+
+[EVM.GasEstimator]
+BumpThreshold = 60
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+
+# Arbitrum
+[[EVM]]
+ChainID = '42161'
+
+[EVM.GasEstimator]
+PriceMax = '200 gwei'
+FeeCapDefault = '200 gwei'
+BumpMin = '20 gwei'
+BumpThreshold = 4
+LimitDefault = 100_000_000
+
+# Matic
+[[EVM]]
+ChainID = '137'
+
+[EVM.GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 8000000
+FeeCapDefault = '200 gwei'
+
+-- out.txt --
+# Secrets:
+
+# Input Configuration:
+RootDir = '/home/chainlink'
+
+[Feature]
+LogPoller = true
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR2]
+Enabled = true
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 250
+
+[P2P]
+TraceLogging = true
+
+[P2P.V1]
+Enabled = false
+
+[P2P.V2]
+Enabled = true
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+ListenAddresses = ['0.0.0.0:5001']
+
+[[EVM]]
+ChainID = '1'
+Nodes = []
+
+[EVM.GasEstimator]
+PriceMax = '500 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '500 gwei'
+
+[[EVM]]
+ChainID = '10'
+Nodes = []
+
+[EVM.GasEstimator]
+PriceMax = '150 gwei'
+LimitDefault = 6000000
+BumpMin = '100 wei'
+BumpPercent = 20
+BumpThreshold = 60
+FeeCapDefault = '150 gwei'
+
+[[EVM]]
+ChainID = '43114'
+Nodes = []
+
+[EVM.GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+BumpThreshold = 60
+FeeCapDefault = '200 gwei'
+
+[[EVM]]
+ChainID = '42161'
+Nodes = []
+
+[EVM.GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 100000000
+BumpMin = '20 gwei'
+BumpThreshold = 4
+FeeCapDefault = '200 gwei'
+
+[[EVM]]
+ChainID = '137'
+Nodes = []
+
+[EVM.GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 8000000
+FeeCapDefault = '200 gwei'
+
+# Effective Configuration, with defaults applied:
+ExplorerURL = ''
+InsecureFastScrypt = false
+RootDir = '/home/chainlink'
+ShutdownGracePeriod = '5s'
+
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = false
+
+[Database]
+DefaultIdleInTxSessionTimeout = '1h0m0s'
+DefaultLockTimeout = '15s'
+DefaultQueryTimeout = '10s'
+LogQueries = false
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Database.Backup]
+Dir = ''
+Frequency = '1h0m0s'
+Mode = 'none'
+OnVersionUpgrade = true
+
+[Database.Listener]
+MaxReconnectDuration = '10m0s'
+MinReconnectInterval = '1m0s'
+FallbackPollInterval = '30s'
+
+[Database.Lock]
+Enabled = true
+LeaseDuration = '10s'
+LeaseRefreshInterval = '1s'
+
+[TelemetryIngress]
+UniConn = true
+Logging = false
+ServerPubKey = ''
+URL = ''
+BufferSize = 100
+MaxBatchSize = 50
+SendInterval = '500ms'
+SendTimeout = '10s'
+UseBatchSend = true
+
+[AuditLogger]
+Enabled = false
+ForwardToUrl = ''
+JsonWrapperKey = ''
+Headers = []
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+UnixTS = false
+
+[Log.File]
+Dir = ''
+MaxSize = '0b'
+MaxAgeDays = 0
+MaxBackups = 1
+
+[WebServer]
+AllowOrigins = '*'
+BridgeResponseURL = ''
+BridgeCacheTTL = '0s'
+HTTPWriteTimeout = '10s'
+HTTPPort = 6688
+SecureCookies = false
+SessionTimeout = '15m0s'
+SessionReaperExpiration = '240h0m0s'
+
+[WebServer.MFA]
+RPID = ''
+RPOrigin = ''
+
+[WebServer.RateLimit]
+Authenticated = 2000
+AuthenticatedPeriod = '1m0s'
+Unauthenticated = 100
+UnauthenticatedPeriod = '20s'
+
+[WebServer.TLS]
+CertPath = ''
+ForceRedirect = false
+Host = ''
+HTTPSPort = 0
+KeyPath = ''
+
+[JobPipeline]
+ExternalInitiatorsEnabled = false
+MaxRunDuration = '10m0s'
+MaxSuccessfulRuns = 10000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '24h0m0s'
+ResultWriteQueueDepth = 100
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '15s'
+MaxSize = '32.77kb'
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+
+[OCR2]
+Enabled = true
+ContractConfirmations = 3
+BlockchainTimeout = '20s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
+
+[OCR]
+Enabled = false
+ObservationTimeout = '5s'
+BlockchainTimeout = '20s'
+ContractPollInterval = '1m0s'
+ContractSubscribeInterval = '2m0s'
+DefaultTransactionQueueDepth = 250
+KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+SimulateTransactions = false
+TransmitterAddress = ''
+CaptureEATelemetry = false
+
+[P2P]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = true
+
+[P2P.V1]
+Enabled = false
+AnnounceIP = ''
+AnnouncePort = 0
+BootstrapCheckInterval = '20s'
+DefaultBootstrapPeers = []
+DHTAnnouncementCounterUserPrefix = 0
+DHTLookupInterval = 10
+ListenIP = '0.0.0.0'
+ListenPort = 0
+NewStreamTimeout = '10s'
+PeerstoreWriteInterval = '5m0s'
+
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+ListenAddresses = ['0.0.0.0:5001']
+
+[Keeper]
+DefaultTransactionQueueDepth = 1
+GasPriceBufferPercent = 20
+GasTipCapBufferPercent = 20
+BaseFeeBufferPercent = 20
+MaxGracePeriod = 100
+TurnLookBack = 1000
+
+[Keeper.Registry]
+CheckGasOverhead = 200000
+PerformGasOverhead = 300000
+MaxPerformDataSize = 5000
+SyncInterval = '30m0s'
+SyncUpkeepQueueSize = 10
+
+[AutoPprof]
+Enabled = false
+ProfileRoot = ''
+PollInterval = '10s'
+GatherDuration = '10s'
+GatherTraceDuration = '5s'
+MaxProfileSize = '100.00mb'
+CPUProfileRate = 1
+MemProfileRate = 1
+BlockProfileRate = 1
+MutexProfileFraction = 1
+MemThreshold = '4.00gb'
+GoroutineThreshold = 5000
+
+[Pyroscope]
+ServerAddress = ''
+Environment = 'mainnet'
+
+[Sentry]
+Debug = false
+DSN = ''
+Environment = ''
+Release = ''
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
+[[EVM]]
+ChainID = '1'
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.1 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+Nodes = []
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '500 gwei'
+PriceMin = '1 gwei'
+LimitDefault = 6000000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '500 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 4
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 50
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+
+[EVM.OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
+
+[[EVM]]
+ChainID = '10'
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'optimism'
+FinalityDepth = 1
+LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+Nodes = []
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '15s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMax = '150 gwei'
+PriceMin = '0'
+LimitDefault = 6000000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '100 wei'
+BumpPercent = 20
+BumpThreshold = 60
+EIP1559DynamicFees = false
+FeeCapDefault = '150 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[EVM.HeadTracker]
+HistoryDepth = 10
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+
+[EVM.OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 6500000
+
+[[EVM]]
+ChainID = '43114'
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
+LogBackfillBatchSize = 1000
+LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+Nodes = []
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMax = '200 gwei'
+PriceMin = '25 gwei'
+LimitDefault = 6000000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 60
+EIP1559DynamicFees = false
+FeeCapDefault = '200 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+
+[EVM.OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
+
+[[EVM]]
+ChainID = '42161'
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'arbitrum'
+FinalityDepth = 50
+LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+Nodes = []
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
+PriceMax = '200 gwei'
+PriceMin = '0'
+LimitDefault = 100000000
+LimitMax = 1000000000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '20 gwei'
+BumpPercent = 20
+BumpThreshold = 4
+EIP1559DynamicFees = false
+FeeCapDefault = '200 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 0
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+
+[EVM.OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
+
+[[EVM]]
+ChainID = '137'
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 500
+LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 5
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 10
+Nodes = []
+
+[EVM.Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 5000
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '30 gwei'
+PriceMax = '200 gwei'
+PriceMin = '30 gwei'
+LimitDefault = 8000000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '20 gwei'
+BumpPercent = 20
+BumpThreshold = 5
+EIP1559DynamicFees = false
+FeeCapDefault = '200 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 24
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[EVM.HeadTracker]
+HistoryDepth = 2000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+
+[EVM.OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 5300000
+
+Invalid configuration: 2 errors:
+	- invalid configuration: EVM: 5 errors:
+		- 0.Nodes: missing: must have at least one node
+		- 1.Nodes: missing: must have at least one node
+		- 2.Nodes: missing: must have at least one node
+		- 3.Nodes: missing: must have at least one node
+		- 4.Nodes: missing: must have at least one node
+	- invalid secrets: 2 errors:
+	- Database.URL: empty: must be provided and non-empty
+	- Password.Keystore: empty: must be provided and non-empty
+
+-- err.txt --
+invalid configuration
