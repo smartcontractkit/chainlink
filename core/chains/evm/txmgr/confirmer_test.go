@@ -127,7 +127,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ethKeyStore, feeEstimator)
-	ec := txmgr.NewEthConfirmer(txStore, ethClient, txmgr.NewEvmTxmConfig(config), ethKeyStore, txBuilder, lggr)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance
@@ -1652,7 +1652,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
-		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -1695,7 +1695,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		ec := txmgr.NewEthConfirmer(txStore, ethClient, evmcfg, kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)

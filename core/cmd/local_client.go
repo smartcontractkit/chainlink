@@ -621,7 +621,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
