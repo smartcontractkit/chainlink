@@ -9,7 +9,7 @@ OCR.ContractConfirmations = 1
 Mode = 'L2Suggested'
 # Scroll uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 PriceMin = '0'
-# Never bump gas on optimism
+# Never bump gas on Scroll
 BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
