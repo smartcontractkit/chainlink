@@ -30,7 +30,7 @@ log_emitter: ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.
 mercury_exposed_verifier: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6dcef4089d423fd0031f979bf984e6ef15f263a4daa7be5398e52d1f45aca6a2
 mercury_lookup_compatible_interface: ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.abi ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.bin 0af449d077047786c0dfc1fa30fa2a24604986bbec47f938597eef6ba5969ca3
 mercury_upkeep_wrapper: ../../contracts/solc/v0.8.15/MercuryUpkeep.abi ../../contracts/solc/v0.8.15/MercuryUpkeep.bin 912cf6189c4f3adf6480006ccafdcd1168a2653f88cacc54961675891d133693
-mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin cf99b46050ce8d31bfae347d8a8f8d33a6228434e8369f5594f2ad1c1e5638c2
+mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin c6260066c7127ca9e779e53e27d662faccfd44b9ec697eb25667df66238ffeba
 mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin 22ea93fc25a620183fc2a03664c1fbb631566d4667d1e6237846979f938bf29b
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
