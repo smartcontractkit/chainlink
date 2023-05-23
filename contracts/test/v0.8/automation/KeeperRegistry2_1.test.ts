@@ -33,6 +33,7 @@ enum UpkeepFailureReason {
   UPKEEP_NOT_NEEDED,
   PERFORM_DATA_EXCEEDS_LIMIT,
   INSUFFICIENT_BALANCE,
+  MERCURY_CALLBACK_REVERTED,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -1635,7 +1636,7 @@ describe('KeeperRegistry2_1', () => {
                     return reg
                   }),
                 )
-                const registrationFailingBefore = await await Promise.all(
+                const registrationFailingBefore = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
                     assert.equal(reg.lastPerformBlockNumber.toString(), '0')
@@ -1673,7 +1674,7 @@ describe('KeeperRegistry2_1', () => {
                     return await registry.getUpkeep(BigNumber.from(id))
                   }),
                 )
-                const registrationFailingAfter = await await Promise.all(
+                const registrationFailingAfter = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     return await registry.getUpkeep(BigNumber.from(id))
                   }),
@@ -4663,6 +4664,62 @@ describe('KeeperRegistry2_1', () => {
           await nonkeeper.getAddress(),
           await payee1.getAddress(),
         )
+    })
+  })
+
+  // describe('#mercuryCallback', () => {
+  //   it('succeeds with upkeep needed', async () => {
+  //     const values: any[] = ['0x1234', '0xabcd']
+  //     const extraData = '0x1a1b1c'
+  //
+  //     const res = await registry.mercuryCallback(upkeepId, values, extraData)
+  //     assert.isTrue(res.upkeepNeeded)
+  //   })
+  // })
+
+  describe('#setUpkeepManager() / #getUpkeepManager()', () => {
+    it('reverts when non owner tries to set upkeep manager', async () => {
+      await evmRevert(
+        registry.connect(payee1).setUpkeepManager(await payee2.getAddress()),
+        'Only callable by owner',
+      )
+    })
+
+    it('returns contract owner as the initial upkeep manager', async () => {
+      assert.equal(await registry.getUpkeepManager(), await registry.owner())
+    })
+
+    it('allows owner to set a new upkeep manager', async () => {
+      await registry.connect(owner).setUpkeepManager(await payee2.getAddress())
+      assert.equal(await registry.getUpkeepManager(), await payee2.getAddress())
+    })
+  })
+
+  describe('#setUpkeepAdminOffchainConfig() / #getUpkeepAdminOffchainConfig()', () => {
+    beforeEach(async () => {
+      await registry.connect(owner).setUpkeepManager(await payee1.getAddress())
+    })
+
+    it('reverts when non manager tries to set admin offchain config', async () => {
+      await evmRevert(
+        registry
+          .connect(payee2)
+          .setUpkeepAdminOffchainConfig(upkeepId, '0x1234'),
+        'OnlyCallableByUpkeepManager()',
+      )
+    })
+
+    it('returns empty bytes for upkeep admin offchain config before setting', async () => {
+      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+      assert.equal(cfg, '0x')
+    })
+
+    it('allows upkeep manager to set admin offchain config', async () => {
+      await registry
+        .connect(payee1)
+        .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
+      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+      assert.equal(cfg, '0x1234')
     })
   })
 })

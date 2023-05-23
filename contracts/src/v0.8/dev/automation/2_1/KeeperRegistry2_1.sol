@@ -415,37 +415,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
   }
 
-  function mercuryCallback(
-    uint256 id,
-    bytes[] memory values,
-    bytes memory extraData
-  )
-    external
-    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
-  {
-    Upkeep memory upkeep = s_upkeep[id];
-
-    // we dont need these bc in check upkeep we already checked
-    //    if (upkeep.maxValidBlocknumber != UINT32_MAX) {
-    //      revert UpkeepCancelled();
-    //    }
-    //    if (upkeep.paused) {
-    //      revert OnlyUnpausedUpkeep();
-    //   }
-
-    gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
-    gasUsed = gasUsed - gasleft();
-
-    if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.MERCURY_CALLBACK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
-    }
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
-  }
-
   ////////////////////////
   // INTERNAL FUNCTIONS //
   ////////////////////////

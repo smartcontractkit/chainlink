@@ -113,6 +113,32 @@ contract KeeperRegistryLogicA2_1 is
   /**
    * @dev Called through KeeperRegistry main contract
    */
+  function mercuryCallback(
+    uint256 id,
+    bytes[] memory values,
+    bytes memory extraData
+  )
+  external
+  returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    Upkeep memory upkeep = s_upkeep[id];
+
+    gasUsed = gasleft();
+    bytes memory callData = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    gasUsed = gasUsed - gasleft();
+
+    if (!success) {
+      upkeepFailureReason = UpkeepFailureReason.MERCURY_CALLBACK_REVERTED;
+    } else {
+      (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    }
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
     bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
