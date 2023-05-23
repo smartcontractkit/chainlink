@@ -179,7 +179,7 @@ var (
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
-					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
+					ConfirmationPoll: relayutils.MustNewDuration(time.Hour),
 				},
 				Nodes: []*stkcfg.Node{
 					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
@@ -585,8 +585,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
 				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
 				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
-				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
-				TxMaxBatchSize:      ptr[int64](17),
+				ConfirmationPoll:    relayutils.MustNewDuration(42 * time.Second),
 			},
 			Nodes: []*stkcfg.Node{
 				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
@@ -995,8 +994,7 @@ OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
-TxSendFrequency = '42s'
-TxMaxBatchSize = 17
+ConfirmationPoll = '42s'
 
 [[Starknet.Nodes]]
 Name = 'primary'
