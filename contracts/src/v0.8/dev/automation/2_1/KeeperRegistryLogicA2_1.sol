@@ -24,16 +24,18 @@ contract KeeperRegistryLogicA2_1 is
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @dev see KeeperRegistry master contract for constructor description
+   * @param logicB the address of the second logic contract
    */
   constructor(
-    Mode mode,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed
+    KeeperRegistryLogicB2_1 logicB
   )
-    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
-    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
+    KeeperRegistryBase2_1(
+      logicB.getMode(),
+      logicB.getLinkAddress(),
+      logicB.getLinkNativeFeedAddress(),
+      logicB.getFastGasFeedAddress()
+    )
+    Chainable(address(logicB))
   {}
 
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
