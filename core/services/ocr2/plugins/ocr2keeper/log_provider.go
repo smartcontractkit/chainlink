@@ -41,7 +41,6 @@ type LogProvider struct {
 	client            evmclient.Client
 	packer            TransmitUnpacker
 	txCheckBlockCache *pluginutils.Cache[string]
-	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
 var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
@@ -93,8 +92,7 @@ func NewLogProvider(
 		registry:          contract,
 		client:            client,
 		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
-		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
-		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
+		txCheckBlockCache: pluginutils.NewCache[string](time.Hour, time.Minute),
 	}, nil
 }
 
@@ -107,7 +105,6 @@ func (c *LogProvider) Start(ctx context.Context) error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
-		go c.cacheCleaner.Run(c.txCheckBlockCache)
 		c.runState = 1
 		return nil
 	})
@@ -118,7 +115,7 @@ func (c *LogProvider) Close() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
-		c.cacheCleaner.Stop()
+		c.txCheckBlockCache.Stop()
 		c.runState = 0
 		c.runError = nil
 		return nil
