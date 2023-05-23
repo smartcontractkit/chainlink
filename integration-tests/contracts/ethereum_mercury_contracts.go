@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/exchanger"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum/mercury/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
 )
 
 type MercuryOCRConfig struct {
@@ -96,7 +96,7 @@ type VerifierProxy interface {
 type EthereumVerifierProxy struct {
 	address       *common.Address
 	client        blockchain.EVMClient
-	verifierProxy *verifier_proxy.VerifierProxy
+	verifierProxy *mercury_verifier_proxy.MercuryVerifierProxy
 }
 
 func (v *EthereumVerifierProxy) Address() string {
@@ -108,7 +108,7 @@ func (v *EthereumVerifierProxy) InitializeVerifier(configDigest [32]byte, verifi
 	if err != nil {
 		return err
 	}
-	tx, err := v.verifierProxy.InitializeVerifier(txOpts, configDigest, common.HexToAddress(verifierAddr))
+	tx, err := v.verifierProxy.InitializeVerifier(txOpts, common.HexToAddress(verifierAddr))
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ type Verifier interface {
 type EthereumVerifier struct {
 	address  *common.Address
 	client   blockchain.EVMClient
-	verifier *verifier.Verifier
+	verifier *mercury_verifier.MercuryVerifier
 }
 
 func (v *EthereumVerifier) Address() string {
@@ -196,7 +196,7 @@ func (e *EthereumContractDeployer) LoadVerifier(address common.Address) (Verifie
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return verifier.NewVerifier(address, backend)
+		return mercury_verifier.NewMercuryVerifier(address, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func (e *EthereumContractDeployer) LoadVerifier(address common.Address) (Verifie
 	return &EthereumVerifier{
 		client:   e.client,
 		address:  &address,
-		verifier: instance.(*verifier.Verifier),
+		verifier: instance.(*mercury_verifier.MercuryVerifier),
 	}, err
 }
 
@@ -213,7 +213,7 @@ func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Ver
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return verifier.DeployVerifier(auth, backend, common.HexToAddress(verifierProxyAddr))
+		return mercury_verifier.DeployMercuryVerifier(auth, backend, common.HexToAddress(verifierProxyAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -221,7 +221,7 @@ func (e *EthereumContractDeployer) DeployVerifier(verifierProxyAddr string) (Ver
 	return &EthereumVerifier{
 		client:   e.client,
 		address:  address,
-		verifier: instance.(*verifier.Verifier),
+		verifier: instance.(*mercury_verifier.MercuryVerifier),
 	}, err
 }
 
@@ -230,7 +230,7 @@ func (e *EthereumContractDeployer) LoadVerifierProxy(address common.Address) (Ve
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return verifier_proxy.NewVerifierProxy(address, backend)
+		return mercury_verifier_proxy.NewMercuryVerifierProxy(address, backend)
 	})
 	if err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (e *EthereumContractDeployer) LoadVerifierProxy(address common.Address) (Ve
 	return &EthereumVerifierProxy{
 		client:        e.client,
 		address:       &address,
-		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
+		verifierProxy: instance.(*mercury_verifier_proxy.MercuryVerifierProxy),
 	}, err
 }
 
@@ -247,7 +247,7 @@ func (e *EthereumContractDeployer) DeployVerifierProxy(accessControllerAddr stri
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return verifier_proxy.DeployVerifierProxy(auth, backend, common.HexToAddress(accessControllerAddr))
+		return mercury_verifier_proxy.DeployMercuryVerifierProxy(auth, backend, common.HexToAddress(accessControllerAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -255,7 +255,7 @@ func (e *EthereumContractDeployer) DeployVerifierProxy(accessControllerAddr stri
 	return &EthereumVerifierProxy{
 		client:        e.client,
 		address:       address,
-		verifierProxy: instance.(*verifier_proxy.VerifierProxy),
+		verifierProxy: instance.(*mercury_verifier_proxy.MercuryVerifierProxy),
 	}, err
 }
 
