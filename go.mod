@@ -7,7 +7,6 @@ require (
 	github.com/Depado/ginprom v1.7.11
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/ava-labs/coreth v0.11.0-rc.4
 	github.com/avast/retry-go/v4 v4.3.4
 	github.com/btcsuite/btcd v0.23.4
 	github.com/cosmos/cosmos-sdk v0.45.11
@@ -54,11 +53,11 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.7
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.42.0
 	github.com/prometheus/prometheus v0.43.1
-	github.com/pyroscope-io/client v0.7.0
+	github.com/pyroscope-io/client v0.7.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.10.0
 	github.com/scylladb/go-reflectx v1.0.1
