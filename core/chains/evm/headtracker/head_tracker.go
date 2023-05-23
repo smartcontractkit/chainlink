@@ -76,7 +76,7 @@ func NewHeadTracker(
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
+		headListener:    NewEvmHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 	}
