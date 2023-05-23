@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -47,7 +48,7 @@ func TestVRFV2Soak(t *testing.T) {
 	testInputs.SetForRemoteRunner()
 	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
-	testEnvironment := setupVRFV2Environment(t, testNetwork, config.BaseVRFV2NetworkDetailTomlConfig, "")
+	testEnvironment := setupVRFV2Environment(t, testNetwork, config.BaseVRFV2NetworkDetailTomlConfig, "", "")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -167,12 +168,19 @@ PriceMax = '%d gwei'
 	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, nativeTokenKeyAddress, maxGasPriceGWei)
 	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
 
-	newTestEnvironment := setupVRFV2Environment(t, testNetwork, tomlConfigWithUpdates, testEnvironment.Cfg.Namespace)
+	newEnvLabel := "updatedWithRollout=true"
+	newTestEnvironment := setupVRFV2Environment(t, testNetwork, tomlConfigWithUpdates, testEnvironment.Cfg.Namespace, newEnvLabel)
 
 	err = newTestEnvironment.RolloutStatefulSets()
 	require.NoError(t, err, "Error performing rollout restart for test environment")
 
-	err = newTestEnvironment.Run()
+	conds := &env_client.ReadyCheckData{
+		ReadinessProbeCheckSelector: newEnvLabel,
+		Timeout:                     5 * time.Minute,
+	}
+
+	err = newTestEnvironment.RunCustomReadyConditions(conds, 0)
+
 	require.NoError(t, err, "Error running test environment")
 
 	//need to get node's urls again since port changed after redeployment
@@ -244,20 +252,27 @@ PriceMax = '%d gwei'
 	vrfV2SoakTest.Run(t)
 }
 
-func setupVRFV2Environment(t *testing.T, testNetwork blockchain.EVMNetwork, networkDetailTomlConfig string, existingNamespace string) (testEnvironment *environment.Environment) {
+func setupVRFV2Environment(
+	t *testing.T,
+	testNetwork blockchain.EVMNetwork,
+	networkDetailTomlConfig string,
+	existingNamespace string,
+	newEnvLabel string,
+) (testEnvironment *environment.Environment) {
 	gethChartConfig := getGethChartConfig(testNetwork)
 
 	if existingNamespace != "" {
 		testEnvironment = environment.New(&environment.Config{
 			Namespace: existingNamespace,
 			Test:      t,
-			TTL:       time.Hour * 1, // 30 days,
+			TTL:       time.Hour * 1,
+			Labels:    []string{newEnvLabel},
 		})
 	} else {
 		testEnvironment = environment.New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("soak-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 			Test:            t,
-			TTL:             time.Hour * 1, // 30 days,
+			TTL:             time.Hour * 1,
 		})
 	}
 
