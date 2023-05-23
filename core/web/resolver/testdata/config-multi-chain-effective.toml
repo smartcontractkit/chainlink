@@ -520,9 +520,8 @@ ChainID = 'foobar'
 OCR2CachePollPeriod = '5s'
 OCR2CacheTTL = '1m0s'
 RequestTimeout = '10s'
-TxTimeout = '1m0s'
-TxSendFrequency = '1h0m0s'
-TxMaxBatchSize = 100
+TxTimeout = '10s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'
