@@ -1273,24 +1273,29 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
+		etx2 := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		etx2.Sequence = &nonce
+		attempt2 := cltest.NewLegacyEthTxAttempt(t, etx2.ID)
+		attempt2.Hash = etx.TxAttempts[0].Hash
+
 		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
-		etx = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
-		require.NotNil(t, etx.Sequence)
-		assert.Equal(t, nonce, *etx.Sequence)
+		err = txStore.UpdateEthTxUnstartedToInProgress(&etx2, &attempt2)
+		require.NoError(t, err)
 	})
 
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
+	// Same flow as previous test, but without calling txMgr.Abandon()
 	t.Run("duplicate tx hash disallowed in tx_eth_attempts", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
+		require.Len(t, etx.TxAttempts, 1)
 
-		etx2 := cltest.NewEthTx(t, fromAddress)
-		etx2.State = txmgr.EthTxUnstarted
-		require.NoError(t, txStore.InsertEthTx(&etx2))
+		etx.State = txmgr.EthTxUnstarted
 
-		// Should fail due to  idx_eth_tx_attempt_hash constraint
-		assert.ErrorContains(t, txStore.InsertEthTxAttempt(&etx.TxAttempts[0]), "idx_eth_tx_attempts_hash")
+		// Should fail due to idx_eth_tx_attempt_hash constraint
+		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
+		assert.ErrorContains(t, err, "idx_eth_tx_attempts_hash")
 		txStore = cltest.NewTxStore(t, db, cfg) // current txStore is poisened now, next test will need fresh one
 	})
 }
