@@ -772,8 +772,11 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "1000ms", mockServer.URL)
 
 	// raise flags
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
@@ -788,7 +791,8 @@ ds1 -> ds1_parse
 	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetSqlxDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
-	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	require.NoError(t, err)
 	fa.backend.Commit()
 	awaitSubmission(t, fa.backend, submissionReceived)
 
@@ -796,7 +800,8 @@ ds1 -> ds1_parse
 	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// lower contract's flag - should have no effect
-	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
+	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
+	require.NoError(t, err)
 	fa.backend.Commit()
 	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run because FM is already hibernating")
 
@@ -805,8 +810,10 @@ ds1 -> ds1_parse
 	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// raise both flags
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
@@ -875,8 +882,10 @@ ds1 -> ds1_parse
 	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, "100ms", mockServer.URL)
 
 	// raise flags
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
