@@ -36,6 +36,6 @@ var launchAndTestCmd = &cobra.Command{
 }
 
 func init() {
-	launchAndTestCmd.Flags().BoolP("withdraw", "w", false, "Specify if funds should be withdrawn and upkeeps should be canceled")
+	launchAndTestCmd.Flags().BoolP("withdraw", "w", true, "Specify if funds should be withdrawn and upkeeps should be canceled")
 	launchAndTestCmd.Flags().BoolP("export-logs", "l", false, "Specify if container logs should be exported to ./")
 }
