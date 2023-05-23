@@ -44,7 +44,7 @@ type Head struct {
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
-var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
+var _ htrktypes.Head[*Head, common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
 func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
@@ -199,13 +199,15 @@ func (h *Head) ToInt() *big.Int {
 	return big.NewInt(h.Number)
 }
 
-func (h *Head) Equals(r htrktypes.Head[common.Hash, *big.Int]) bool {
+func (h *Head) Equals(r *Head) bool {
 	if h == nil && r == nil {
 		return true
 	}
+
 	if h == nil || r == nil {
 		return false
 	}
+
 	return h.Hash == r.BlockHash() && h.Number == r.BlockNumber()
 }
 
