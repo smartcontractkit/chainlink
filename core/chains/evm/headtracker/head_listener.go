@@ -53,14 +53,14 @@ type headListener[
 
 type evmHeadListener = headListener[*evmtypes.Head, *evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
 
-// NewHeadListener creates a new HeadListener for EVM chains
 func NewHeadListener[
 	H commontypes.Head[BLOCK_HASH],
 	HTH htrktypes.Head[H, BLOCK_HASH, ID],
 	S commontypes.Subscription,
 	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
-	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH]](
+	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH],
+](
 	lggr logger.Logger,
 	client CLIENT,
 	config Config, chStop chan struct{},
