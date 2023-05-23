@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {IERC165} from "../../shared/vendor/IERC165.sol";
@@ -45,14 +45,9 @@ interface IVerifier is IERC165 {
    * @return configDigest
    * @return epoch
    */
-  function latestConfigDigestAndEpoch(bytes32 feedId)
-    external
-    view
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    );
+  function latestConfigDigestAndEpoch(
+    bytes32 feedId
+  ) external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
   /**
    * @notice information about current offchain reporting protocol configuration
@@ -61,12 +56,7 @@ interface IVerifier is IERC165 {
    * @return blockNumber block at which this config was set
    * @return configDigest domain-separation tag for current config
    */
-  function latestConfigDetails(bytes32 feedId)
-    external
-    view
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    );
+  function latestConfigDetails(
+    bytes32 feedId
+  ) external view returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 }

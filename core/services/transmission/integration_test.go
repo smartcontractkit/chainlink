@@ -195,7 +195,8 @@ func Test4337Basic(t *testing.T) {
 	tx, err := universe.entryPoint.DepositTo(holder1, toDeployAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, toDeployAddress)
 	require.NoError(t, err)
@@ -205,7 +206,8 @@ func Test4337Basic(t *testing.T) {
 	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 
 	// Ensure "bye" was successfully set as the greeting.
 	greetingResult, err := universe.greeter.GetGreeting(nil)
@@ -283,7 +285,8 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 
 	// Construct and execute user operation.
 	userOp := entry_point.UserOperation{
@@ -316,7 +319,8 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)
@@ -326,7 +330,8 @@ func Test4337WithLinkTokenPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.HandleOps(holder2, []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 
 	// Ensure "bye" was successfully set as the greeting.
 	greetingResult, err := universe.greeter.GetGreeting(nil)
@@ -393,7 +398,8 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(context.Background(), backend, tx)
+	_, err = bind.WaitMined(context.Background(), backend, tx)
+	require.NoError(t, err)
 
 	// Generate encoded paymaster data to fund the VRF consumer.
 	encodedPaymasterData, err := universe.helper.GetAbiEncodedDirectRequestData(nil, universe.vrfConsumerAddress, fee, fee)
@@ -430,7 +436,8 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	bind.WaitMined(testutils.Context(t), backend, tx)
+	_, err = bind.WaitMined(testutils.Context(t), backend, tx)
+	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
 	require.NoError(t, err)

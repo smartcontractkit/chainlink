@@ -34,7 +34,7 @@ type ChainScopedOnlyConfig interface {
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
+	EvmGasBumpTxDepth() uint32
 	EvmGasBumpWei() *assets.Wei
 	EvmGasFeeCapDefault() *assets.Wei
 	EvmGasLimitDefault() uint32
@@ -83,7 +83,7 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.BasicConfig
+	config.AppConfig
 	ChainScopedOnlyConfig
 	Validate() error
 }
