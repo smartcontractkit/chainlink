@@ -9,7 +9,7 @@ on:
       test:
         description: 'Test to run'
         required: true
-        default: 'all'
+        default: 'OCRBasic'
       test-inputs:
         description: 'Custom test inputs'
         required: false
@@ -40,6 +40,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: build-test-image
+    name: Run Test
     environment: integration
     steps:
       - name: Checkout the repo
