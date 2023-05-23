@@ -54,16 +54,39 @@ type headListener[
 type evmHeadListener = headListener[*evmtypes.Head, *evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
 
 // NewHeadListener creates a new HeadListener for EVM chains
-func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Config, chStop chan struct{}) *evmHeadListener {
-	return &evmHeadListener{
-		config: NewWrappedConfig(config),
-		client: ethClient,
-		logger: lggr.Named("HeadListener"),
-		chStop: chStop,
-		getNilHead: func() *evmtypes.Head {
+func NewHeadListener[
+	H commontypes.Head[BLOCK_HASH],
+	HTH htrktypes.Head[H, BLOCK_HASH, ID],
+	S commontypes.Subscription,
+	ID txmgrtypes.ID,
+	BLOCK_HASH commontypes.Hashable,
+	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH]](
+	lggr logger.Logger,
+	client CLIENT,
+	config Config, chStop chan struct{},
+	getNilHead func() H,
+) *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT] {
+	return &headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]{
+		config:     NewWrappedConfig(config),
+		client:     client,
+		logger:     lggr.Named("HeadListener"),
+		chStop:     chStop,
+		getNilHead: getNilHead,
+	}
+}
+
+func NewEvmHeadListener(
+	lggr logger.Logger,
+	ethClient evmclient.Client,
+	config Config, chStop chan struct{},
+) *evmHeadListener {
+	return NewHeadListener[*evmtypes.Head, *evmtypes.Head,
+		ethereum.Subscription, *big.Int, common.Hash,
+	](lggr, ethClient, config, chStop,
+		func() *evmtypes.Head {
 			return nil
 		},
-	}
+	)
 }
 
 func (hl *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]) Name() string {
