@@ -453,20 +453,8 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
+func (g *generalConfig) Database() coreconfig.Database {
+    return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, mu: &g.logMu}
 }
 
 func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {

@@ -622,72 +622,16 @@ func (_m *ChainScopedConfig) CosmosEnabled() bool {
 	return r0
 }
 
-// DatabaseBackupDir provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupDir() string {
+// Database provides a mock function with given fields:
+func (_m *ChainScopedConfig) Database() coreconfig.Database {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// DatabaseBackupFrequency provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupFrequency() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseBackupMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	ret := _m.Called()
-
-	var r0 coreconfig.DatabaseBackupMode
-	if rf, ok := ret.Get(0).(func() coreconfig.DatabaseBackupMode); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(coreconfig.DatabaseBackupMode)
-	}
-
-	return r0
-}
-
-// DatabaseBackupOnVersionUpgrade provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupOnVersionUpgrade() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// DatabaseBackupURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 coreconfig.Database
+	if rf, ok := ret.Get(0).(func() coreconfig.Database); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(coreconfig.Database)
 		}
 	}
 

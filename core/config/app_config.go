@@ -31,7 +31,7 @@ type AppConfig interface {
 	SetPasswords(keystore, vrf *string)
 
 	AutoPprof
-	Database
+	DatabaseV1
 	Ethereum
 	Explorer
 	FeatureFlags
@@ -53,6 +53,8 @@ type AppConfig interface {
 	TelemetryIngress
 	Web
 	audit.Config
+
+	Database() Database
 }
 type DatabaseBackupMode string
 

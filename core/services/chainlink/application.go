@@ -276,10 +276,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+	if cfg.Database().Backup().Mode() != config.DatabaseBackupModeNone && cfg.Database().Backup().Frequency() > 0 {
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.Database().Backup().Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.DatabaseURL(), cfg.RootDir(), cfg.Database().Backup(), globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
