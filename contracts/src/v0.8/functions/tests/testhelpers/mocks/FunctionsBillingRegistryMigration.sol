@@ -67,9 +67,12 @@ contract FunctionsBillingRegistryMigration is
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */ private s_consumers;
-  mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */ private s_subscriptionConfigs;
-  mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */ private s_subscriptions;
+  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */
+    private s_consumers;
+  mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */
+    private s_subscriptionConfigs;
+  mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */
+    private s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
   uint64 private s_currentsubscriptionId;
@@ -92,7 +95,8 @@ contract FunctionsBillingRegistryMigration is
   error PaymentTooLarge();
   error Reentrant();
 
-  mapping(address => uint96) /* oracle node */ /* LINK balance */ private s_withdrawableTokens;
+  mapping(address => uint96) /* oracle node */ /* LINK balance */
+    private s_withdrawableTokens;
   struct Commitment {
     uint64 subscriptionId;
     address client;
@@ -104,7 +108,8 @@ contract FunctionsBillingRegistryMigration is
     uint96 estimatedCost;
     uint256 timestamp;
   }
-  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
+  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
+    private s_requestCommitments;
   event BillingStart(bytes32 indexed requestId, Commitment commitment);
   struct ItemizedBill {
     uint96 signerPayment;
@@ -150,7 +155,11 @@ contract FunctionsBillingRegistryMigration is
   /**
    * @dev Initializes the contract.
    */
-  function initialize(address link, address linkEthFeed, address oracle) public initializer {
+  function initialize(
+    address link,
+    address linkEthFeed,
+    address oracle
+  ) public initializer {
     __Pausable_init();
     __ConfirmedOwner_initialize(msg.sender, address(0));
     LINK = LinkTokenInterface(link);
@@ -272,7 +281,7 @@ contract FunctionsBillingRegistryMigration is
    * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequiredFee(
-    bytes calldata /* data */,
+    bytes calldata, /* data */
     FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     return 1;
@@ -305,10 +314,14 @@ contract FunctionsBillingRegistryMigration is
   /**
    * @inheritdoc FunctionsBillingRegistryInterface
    */
-  function startBilling(
-    bytes calldata data,
-    RequestBilling calldata billing
-  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bytes32) {
+  function startBilling(bytes calldata data, RequestBilling calldata billing)
+    external
+    override
+    validateAuthorizedSender
+    nonReentrant
+    whenNotPaused
+    returns (bytes32)
+  {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[billing.subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
@@ -371,7 +384,11 @@ contract FunctionsBillingRegistryMigration is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function callWithExactGas(
+    uint256 gasAmount,
+    address target,
+    bytes memory data
+  ) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -537,7 +554,7 @@ contract FunctionsBillingRegistryMigration is
   }
 
   function onTokenTransfer(
-    address /* sender */,
+    address, /* sender */
     uint256 amount,
     bytes calldata data
   ) external override nonReentrant whenNotPaused {
@@ -570,9 +587,15 @@ contract FunctionsBillingRegistryMigration is
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
-  function getSubscription(
-    uint64 subscriptionId
-  ) external view returns (uint96 balance, address owner, address[] memory consumers) {
+  function getSubscription(uint64 subscriptionId)
+    external
+    view
+    returns (
+      uint96 balance,
+      address owner,
+      address[] memory consumers
+    )
+  {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -625,10 +648,12 @@ contract FunctionsBillingRegistryMigration is
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(
-    uint64 subscriptionId,
-    address newOwner
-  ) external onlySubOwner(subscriptionId) nonReentrant whenNotPaused {
+  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner)
+    external
+    onlySubOwner(subscriptionId)
+    nonReentrant
+    whenNotPaused
+  {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subscriptionId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subscriptionId].requestedOwner = newOwner;
@@ -642,9 +667,12 @@ contract FunctionsBillingRegistryMigration is
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.
    */
-  function acceptSubscriptionOwnerTransfer(
-    uint64 subscriptionId
-  ) external nonReentrant whenNotPaused onlyAuthorizedUsers {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId)
+    external
+    nonReentrant
+    whenNotPaused
+    onlyAuthorizedUsers
+  {
     if (s_subscriptionConfigs[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -662,10 +690,12 @@ contract FunctionsBillingRegistryMigration is
    * @param subscriptionId - ID of the subscription
    * @param consumer - Consumer to remove from the subscription
    */
-  function removeConsumer(
-    uint64 subscriptionId,
-    address consumer
-  ) external onlySubOwner(subscriptionId) nonReentrant whenNotPaused {
+  function removeConsumer(uint64 subscriptionId, address consumer)
+    external
+    onlySubOwner(subscriptionId)
+    nonReentrant
+    whenNotPaused
+  {
     if (s_consumers[consumer][subscriptionId] == 0) {
       revert InvalidConsumer(subscriptionId, consumer);
     }
@@ -691,10 +721,12 @@ contract FunctionsBillingRegistryMigration is
    * @param subscriptionId - ID of the subscription
    * @param consumer - New consumer which can use the subscription
    */
-  function addConsumer(
-    uint64 subscriptionId,
-    address consumer
-  ) external onlySubOwner(subscriptionId) nonReentrant whenNotPaused {
+  function addConsumer(uint64 subscriptionId, address consumer)
+    external
+    onlySubOwner(subscriptionId)
+    nonReentrant
+    whenNotPaused
+  {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -716,10 +748,12 @@ contract FunctionsBillingRegistryMigration is
    * @param subscriptionId - ID of the subscription
    * @param to - Where to send the remaining LINK to
    */
-  function cancelSubscription(
-    uint64 subscriptionId,
-    address to
-  ) external onlySubOwner(subscriptionId) nonReentrant whenNotPaused {
+  function cancelSubscription(uint64 subscriptionId, address to)
+    external
+    onlySubOwner(subscriptionId)
+    nonReentrant
+    whenNotPaused
+  {
     if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
