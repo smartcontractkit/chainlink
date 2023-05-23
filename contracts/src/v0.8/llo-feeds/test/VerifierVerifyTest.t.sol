@@ -154,7 +154,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     bytes32[3] memory reportContext = s_reportContext;
     reportContext[0] = bytes32("wrong-context-digest");
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestNotSet.selector, FEED_ID, reportContext[0]));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID, reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
@@ -171,7 +171,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       BLOCKNUMBER_LOWER_BOUND
     );
     bytes memory signedReport = _generateEncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestNotSet.selector, FEED_ID_2, s_reportContext[0]));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID_2, s_reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }

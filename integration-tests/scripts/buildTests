@@ -10,6 +10,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 cd "$SCRIPT_DIR"/../ || exit 1
 
+helm repo update
+
 # parse out quotes if they exist in the string
 temp="${1%\"}"
 tosplit="${temp#\"}"
