@@ -477,10 +477,6 @@ func (g *generalConfig) ORMMaxOpenConns() int {
 	return int(*g.c.Database.MaxOpenConns)
 }
 
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
-}
-
 func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return g.c.Database.DefaultQueryTimeout.Duration()
 }

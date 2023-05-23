@@ -54,7 +54,7 @@ func (d *databaseConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	return d.c.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseDefaultLockTimeout() time.Duration {
+func (d *databaseConfig) DefaultLockTimeout() time.Duration {
 	return d.c.DefaultLockTimeout.Duration()
 }
 
