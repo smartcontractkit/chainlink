@@ -359,14 +359,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			// FIXME: It looks like telemetry is uniquely keyed by contractID
-			// but mercury runs multiple feeds per contract.
-			// How can we scope this to a more granular level?
-			// https://smartcontract-it.atlassian.net/browse/MERC-227
-			MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(contractFeedID, synchronization.OCR2Mercury),
-			OffchainConfigDigester: mercuryProvider.OffchainConfigDigester(),
-			OffchainKeyring:        kb,
-			OnchainKeyring:         kb,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(contractFeedID, synchronization.OCR2Mercury),
+			OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
