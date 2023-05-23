@@ -163,8 +163,8 @@ func (h *Head) IsChainIdNil() bool {
 	return h.EVMChainID == nil
 }
 
-func (h *Head) IsSameChain(*big.Int) bool {
-	return h.EVMChainID.ToInt().Cmp(h.EVMChainID.ToInt()) == 0
+func (h *Head) IsSameChain(id *big.Int) bool {
+	return h.EVMChainID.ToInt().Cmp(id) == 0
 }
 
 func (h *Head) ChainString() string {
