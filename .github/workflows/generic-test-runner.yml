@@ -86,6 +86,9 @@ jobs:
     needs: [build-chainlink, build-test-image]
     name: Run Test
     environment: integration
+    permissions:
+      id-token: write
+      contents: read
     env:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
