@@ -1390,8 +1390,14 @@ github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230516203704-babbd747746c
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230516203704-babbd747746c/go.mod h1:f7/HKcJWWFzINrkDDlpKsFaU6D+8D4B4OrQxkkCX4oc=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230516001004-0216997a2508 h1:hsCcqkK7ZgABURMRYbNgRdVbNJv7JJPGlgKJbukjMsk=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230516001004-0216997a2508/go.mod h1:CUmP50gxZsjwEYA7balCV3mhvX0CrR/a01X6jGBZR8I=
+github.com/smartcontractkit/chainlink-starknet v0.0.0-20230522225853-52ebeb4e53ea h1:ux2qvakywAWS9HBjuV68gWKaT1Tv3I42gQdSmN47Fic=
+github.com/smartcontractkit/chainlink-starknet v0.0.0-20230522225853-52ebeb4e53ea/go.mod h1:goZ4dJhaGZAg8ENtbuICTklYk+r4pdpPFuPa/HvZNR0=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239 h1:YmYkbdM5YXVV+IWgp+5ctfplMEoXamT0LR0qsnM4eps=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230424184429-bfdf6bddb239/go.mod h1:RZzvRfGjMe4lBOT1H/MRfjnNoyUWOiHlOcHx/BZYg+M=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230522225853-52ebeb4e53ea h1:sPEOKCZIkJm4XPJ0dXTCPPxKbXP+dipCvGvcQakMnZU=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230522225853-52ebeb4e53ea/go.mod h1:ZrRYBmlszSizw/Z4s1JExut38cZ+E6cTTMbJsVg/3dA=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230523145424-8d2bf89779d5 h1:E0aFDK+giG8wuGnLgju19D9MQJZ1kq6dpcW80KVXquY=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230523145424-8d2bf89779d5/go.mod h1:aRGGKvureUnCCy6ZguuuxEi9osMEf4/w8yaYevFbABU=
 github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc h1:aSCDAai0Dmbhp/KHTtJnC/EJcaEz4CAO80SKRzRZiQA=
 github.com/smartcontractkit/libocr v0.0.0-20230413082317-9561d14087cc/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2keepers v0.6.15 h1:dFhg+qT+tc6b3G8N4qnAHuHe8N0m8CSA8g4YGSeTGPo=

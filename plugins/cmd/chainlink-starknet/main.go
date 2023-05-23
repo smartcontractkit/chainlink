@@ -70,6 +70,7 @@ type pluginRelayer struct {
 	closers []io.Closer
 }
 
+// NewRelayer implements the Loopp factory method used by the Loopp server to instantiate a starknet relayer
 func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore loop.Keystore) (loop.Relayer, error) {
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
