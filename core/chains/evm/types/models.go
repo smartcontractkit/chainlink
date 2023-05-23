@@ -159,8 +159,8 @@ func (h *Head) ChainId() *big.Int {
 	return h.EVMChainID.ToInt()
 }
 
-func (h *Head) IsChainIdNil() bool {
-	return h.EVMChainID == nil
+func (h *Head) HasChainId() bool {
+	return h.EVMChainID != nil
 }
 
 func (h *Head) IsSameChain(id *big.Int) bool {
