@@ -2,7 +2,7 @@ name: Generic Test Runner
 on:
   workflow_dispatch:
     inputs:
-      directtory:
+      directory:
         description: 'Directory to run tests from'
         required: true
         default: 'smoke'
@@ -17,7 +17,6 @@ on:
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  TEST_SUITE: ${{ github.event.inputs.directory }}
 
 jobs:
   build-test-image:
@@ -27,6 +26,8 @@ jobs:
       contents: read
     name: Build Test Image
     runs-on: ubuntu20.04-16cores-64GB
+    env:
+      TEST_SUITE: ${{ github.event.inputs.directory }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -42,10 +43,12 @@ jobs:
     needs: build-test-image
     name: Run Test
     environment: integration
+    env:
+      TEST_SUITE: ${{ github.event.inputs.directory }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Run Tests
+      - name: Run Test
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 ./${{ github.event.inputs.directory }} -run ${{ github.event.inputs.test }} -v -args ${{ github.event.inputs.test-inputs }}
