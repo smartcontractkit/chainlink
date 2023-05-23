@@ -160,8 +160,8 @@ BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 # BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 BumpThreshold = 3 # Default
-# BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
-BumpTxDepth = 10 # Default
+# BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all). Can not be greater than EVM.Transactions.MaxInFlight. If not set, defaults to EVM.Transactions.MaxInFlight.
+BumpTxDepth = 16 # Example
 # EIP1559DynamicFees torces EIP-1559 transaction mode. Enabling EIP-1559 mode can help reduce gas costs on chains that support it. This is supported only on official Ethereum mainnet and testnets. It is not recommended to enable this setting on Polygon because the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are less likely to be included than legacy transactions.
 #
 # #### Technical details

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
@@ -185,7 +185,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 0.0.2";
+    return "Verifier 1.0.0";
   }
 
   /// @inheritdoc IVerifier
@@ -241,9 +241,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   ) private view {
     uint8 expectedNumSignatures = config.f + 1;
 
-    if (config.f == 0)
-      // Is digest configured?
-      revert DigestNotSet(feedId, configDigest);
     if (!config.isActive) revert DigestInactive(feedId, configDigest);
     if (rs.length != expectedNumSignatures) revert IncorrectSignatureCount(rs.length, expectedNumSignatures);
     if (rs.length != ss.length) revert MismatchedSignatures(rs.length, ss.length);
@@ -442,10 +439,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    // We need to manually set the verifier in the proxy
-    // the first time.
-    if (feedVerifierState.configCount > 1)
-      IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
 
     emit ConfigSet(
       feedId,

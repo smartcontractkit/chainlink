@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -90,7 +91,7 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 
 func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
 	th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
-	latest, _ := th.LogPoller.LatestBlock()
+	latest, _ := th.LogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	return latest + 1
 }
 

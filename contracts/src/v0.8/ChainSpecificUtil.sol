@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbGasInfo} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 
 //@dev A library that abstracts out opcodes that behave differently across chains.
 //@dev The methods below return values that are pertinent to the given chain.
@@ -9,6 +10,8 @@ import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.
 library ChainSpecificUtil {
   address private constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
   ArbSys private constant ARBSYS = ArbSys(ARBSYS_ADDR);
+  address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
+  ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
   uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
   uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
 
@@ -29,5 +32,13 @@ library ChainSpecificUtil {
       return ARBSYS.arbBlockNumber();
     }
     return block.number;
+  }
+
+  function getCurrentTxL1GasFees() internal view returns (uint256) {
+    uint256 chainid = block.chainid;
+    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+      return ARBGAS.getCurrentTxL1GasFees();
+    }
+    return 0;
   }
 }
