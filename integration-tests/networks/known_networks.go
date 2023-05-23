@@ -1,3 +1,4 @@
+// Package networks holds all known network information for the tests
 package networks
 
 import (
