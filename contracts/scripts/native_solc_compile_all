@@ -50,7 +50,10 @@ $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile dev/automation/2_1/KeeperRegistry2_1.sol
+$SCRIPTPATH/native_solc8_6_compile dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
+$SCRIPTPATH/native_solc8_15_compile tests/MercuryUpkeep.sol
 $SCRIPTPATH/native_solc8_15_compile dev/interfaces/automation/MercuryLookupCompatibleInterface.sol
 
 # Aggregators
@@ -110,9 +113,9 @@ $SCRIPTPATH/native_solc_compile_all_functions
 ## llo-feeds
 $SCRIPTPATH/native_solc_compile_all_llo
 
-# Mocks	
-$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol	
-$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol	
+# Mocks
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
+$SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
 
 # Transmission
 $SCRIPTPATH/transmission/native_solc_compile_all_transmission

@@ -12,12 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -345,6 +347,14 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 			)
+		} else if k.cfg.UpkeepMercury {
+			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+				k.buildTxOpts(ctx),
+				k.client,
+				big.NewInt(k.cfg.UpkeepTestRange),
+				big.NewInt(k.cfg.UpkeepInterval),
+				false,
+			)
 		} else {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
@@ -404,7 +414,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		if err != nil {
 			log.Fatal(upkeepId, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
-		k.waitTx(ctx, addFundsTx)
+
+		// Onchain transaction
+		if err := k.waitTx(ctx, addFundsTx); err != nil {
+			log.Fatal("AddFunds failed for upkeepId: ", upkeepId, ", and upkeepAddr: ", upkeepAddr.Hex())
+		}
+
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
 	fmt.Println()

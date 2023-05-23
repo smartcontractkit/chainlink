@@ -38,19 +38,18 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   string public constant override typeAndVersion = "KeeperRegistry 2.1.0";
 
   /**
-   * @param mode one of Default, Arbitrum, Optimism
-   * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
-   * @param fastGasFeed address of the Fast Gas price feed
+   * @param logicA the address of the first logic contract
    */
   constructor(
-    Mode mode,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed
+    KeeperRegistryLogicA2_1 logicA
   )
-    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
-    Chainable(address(new KeeperRegistryLogicA2_1(mode, link, linkNativeFeed, fastGasFeed)))
+    KeeperRegistryBase2_1(
+      logicA.getMode(),
+      logicA.getLinkAddress(),
+      logicA.getLinkNativeFeedAddress(),
+      logicA.getFastGasFeedAddress()
+    )
+    Chainable(address(logicA))
   {}
 
   ////////
@@ -209,16 +208,16 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
-  ) external returns (uint256 id, address forwarderAddress) {
+  ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
     id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = new AutomationForwarder(target);
+    AutomationForwarder forwarder = new AutomationForwarder(id, target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
     s_storage.nonce++;
     s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
-    return (id, address(forwarder));
+    return (id);
   }
 
   function addFunds(uint256 id, uint96 amount) external {

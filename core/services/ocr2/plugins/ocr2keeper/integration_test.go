@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -53,6 +54,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
+
+const (
+	MercuryCredName = "cred1"
 )
 
 var (
@@ -124,6 +129,13 @@ func setupNode(
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		s.Mercury.Credentials = map[string]v2.MercuryCredentials{
+			MercuryCredName: {
+				URL:      models.MustSecretURL("https://mercury.chain.link"),
+				Username: models.NewSecret("username1"),
+				Password: models.NewSecret("password1"),
+			},
+		}
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey, p2pKey)
@@ -281,7 +293,8 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 		[pluginConfig]
 		maxServiceWorkers = 100
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
+		mercuryCredentialName = "%s"
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
 
 	// Setup config on contract
@@ -535,7 +548,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		chainID = 1337
 
 		[pluginConfig]
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)))
+		mercuryCredentialName = "%s"
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
 
 	// Setup config on contract
