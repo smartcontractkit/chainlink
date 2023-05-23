@@ -118,8 +118,9 @@ contract KeeperRegistryLogicA2_1 is
     bytes[] memory values,
     bytes memory extraData
   )
-  external
-  returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+    external
+    cannotExecute
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     Upkeep memory upkeep = s_upkeep[id];
 
