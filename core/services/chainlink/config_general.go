@@ -485,10 +485,6 @@ func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return g.c.Database.DefaultQueryTimeout.Duration()
 }
 
-func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
-}
-
 func (g *generalConfig) DefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }

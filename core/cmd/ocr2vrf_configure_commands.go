@@ -152,7 +152,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
 	}
 
-	ldb := pg.NewLockedDB(cli.Config, lggr)
+	ldb := pg.NewLockedDB(cli.Config.AppID(), cli.Config.Database(), lggr)
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

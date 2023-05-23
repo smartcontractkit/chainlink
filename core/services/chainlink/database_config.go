@@ -50,7 +50,7 @@ func (d *databaseConfig) Backup() config.Backup {
 	}
 }
 
-func (d *databaseConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+func (d *databaseConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	return d.c.DefaultIdleInTxSessionTimeout.Duration()
 }
 

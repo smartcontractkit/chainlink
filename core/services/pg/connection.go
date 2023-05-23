@@ -14,7 +14,7 @@ import (
 )
 
 type ConnectionConfig interface {
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	ORMMaxOpenConns() int
 	ORMMaxIdleConns() int
@@ -41,7 +41,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 
 	// Set default connection options
 	lockTimeout := config.DatabaseDefaultLockTimeout().Milliseconds()
-	idleInTxSessionTimeout := config.DatabaseDefaultIdleInTxSessionTimeout().Milliseconds()
+	idleInTxSessionTimeout := config.DefaultIdleInTxSessionTimeout().Milliseconds()
 	stmt := fmt.Sprintf(`SET TIME ZONE 'UTC'; SET lock_timeout = %d; SET idle_in_transaction_session_timeout = %d; SET default_transaction_isolation = %q`,
 		lockTimeout, idleInTxSessionTimeout, DefaultIsolation.String())
 	if _, err = db.Exec(stmt); err != nil {

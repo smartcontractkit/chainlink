@@ -8,7 +8,6 @@ import (
 )
 
 type DatabaseV1 interface {
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
@@ -36,7 +35,7 @@ type Backup interface {
 
 type Database interface {
 	Backup() Backup
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
