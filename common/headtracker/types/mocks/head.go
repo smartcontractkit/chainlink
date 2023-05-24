@@ -143,13 +143,13 @@ func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HashAtHeight(blockNum int64) BLOCK_HASH
 	return r0
 }
 
-// IsSameChain provides a mock function with given fields: _a0
-func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) IsSameChain(_a0 CHAIN_ID) bool {
-	ret := _m.Called(_a0)
+// IsValid provides a mock function with given fields:
+func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) IsValid() bool {
+	ret := _m.Called()
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(CHAIN_ID) bool); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
