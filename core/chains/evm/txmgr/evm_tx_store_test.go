@@ -1268,8 +1268,8 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
-		txMgr := txmgr.NewTxm(db, ec, evmTxmCfg, nil, nil, logger.TestLogger(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil, q)
+		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
+			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
