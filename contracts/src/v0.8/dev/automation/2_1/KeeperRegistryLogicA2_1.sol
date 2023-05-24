@@ -354,7 +354,7 @@ contract KeeperRegistryLogicA2_1 is
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
     // TODO - we should be creating the forwarder in the transcoder, not here
     for (uint256 idx = 0; idx < ids.length; idx++) {
-      if (address(upkeeps[idx].forwarder) == address(0)) {
+      if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
         upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target);
       }
       _createUpkeep(
