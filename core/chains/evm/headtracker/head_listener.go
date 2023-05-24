@@ -48,7 +48,6 @@ type headListener[
 	headSubscription commontypes.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
-	getNilHead       func() H
 }
 
 type evmHeadListener = headListener[*evmtypes.Head, *evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
@@ -64,14 +63,12 @@ func NewHeadListener[
 	lggr logger.Logger,
 	client CLIENT,
 	config Config, chStop chan struct{},
-	getNilHead func() H,
 ) *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT] {
 	return &headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]{
-		config:     NewWrappedConfig(config),
-		client:     client,
-		logger:     lggr.Named("HeadListener"),
-		chStop:     chStop,
-		getNilHead: getNilHead,
+		config: NewWrappedConfig(config),
+		client: client,
+		logger: lggr.Named("HeadListener"),
+		chStop: chStop,
 	}
 }
 
@@ -83,11 +80,7 @@ func NewEvmHeadListener(
 	return NewHeadListener[
 		*evmtypes.Head, *evmtypes.Head,
 		ethereum.Subscription, *big.Int, common.Hash,
-	](lggr, ethClient, config, chStop,
-		func() *evmtypes.Head {
-			return nil
-		},
-	)
+	](lggr, ethClient, config, chStop)
 }
 
 func (hl *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]) Name() string {
@@ -162,7 +155,7 @@ func (hl *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx co
 			if !open {
 				return errors.New("head listener: chHeaders prematurely closed")
 			}
-			if blockHeader.Equals(hl.getNilHead()) {
+			if !blockHeader.IsValid() {
 				hl.logger.Error("got nil block header")
 				continue
 			}

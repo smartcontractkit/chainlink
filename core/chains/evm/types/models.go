@@ -163,6 +163,10 @@ func (h *Head) HasChainID() bool {
 	return h.EVMChainID != nil
 }
 
+func (h *Head) IsValid() bool {
+	return h != nil
+}
+
 func (h *Head) ChainString() string {
 	var sb strings.Builder
 
