@@ -41,54 +41,32 @@ var (
 func main() {
 	fmt.Print(art)
 
-	stdOut, stdErr, err := gh.Exec(
-		"api", "user", "-q", ".login",
-	)
+	ghUser, err := getUser()
 	if err != nil {
-		fmt.Printf("Error running gh api user: %v\n", err)
-		fmt.Println(stdErr.String())
+		fmt.Printf("error getting GitHub user, make sure you're signed in to the GitHub CLI: %v\n", err)
 		return
 	}
-	ghUser := stdOut.String()
 	fmt.Printf("Running as %s\n", ghUser)
 
-	testBranchPrompt := promptui.Prompt{
-		Label:     "Test Branch or Tag",
-		AllowEdit: false,
-		Default:   "develop",
-	}
-	branch, err := testBranchPrompt.Run()
+	branch, err := getTestBranch()
 	if err != nil {
-		fmt.Printf("Prompt failed: %v\n", err)
+		fmt.Printf("error getting test branch: %v\n", err)
 		return
 	}
 
-	testDirectoryPrompt := promptui.Select{
-		Label: "Test Type",
-		Items: testDirectories,
-		Size:  10,
-	}
-	_, dir, err := testDirectoryPrompt.Run()
+	dir, err := getTestDirectory()
 	if err != nil {
-		fmt.Printf("Prompt failed: %v\n", err)
-	}
-	if dir == helpText { // TODO: Write help text
-		fmt.Println("Smoke tests are designed to be quick ")
+		fmt.Printf("error getting test directory: %v\n", err)
 		return
 	}
 
-	testPrompt := promptui.Select{
-		Label: "Test Name",
-		Items: testNames(dir),
-		Size:  15,
-	}
-	_, test, err := testPrompt.Run()
+	test, err := getTest(dir)
 	if err != nil {
-		fmt.Printf("Prompt failed: %v\n", err)
+		fmt.Printf("error getting test: %v\n", err)
 		return
 	}
 
-	stdOut, stdErr, err = gh.Exec( // Triggers the workflow with specified test
+	stdOut, stdErr, err := gh.Exec( // Triggers the workflow with specified test
 		"workflow", "run", workflowFile,
 		"--repo", chainlinkRepo,
 		"--ref", branch,
@@ -106,49 +84,6 @@ func main() {
 		fmt.Printf("Error waiting for workflow to start: %v\n", err)
 		return
 	}
-}
-
-// testNames returns a list of test names in the given directory
-func testNames(directory string) []string {
-	// Regular expression pattern to search for
-	pattern := "func Test(\\w+?)\\(t \\*testing.T\\)"
-
-	names := []string{}
-
-	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip directories
-		if info.IsDir() {
-			return nil
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		regex := regexp.MustCompile(pattern)
-		// Iterate over each line in the file
-		for scanner.Scan() {
-			line := scanner.Text()
-			submatches := regex.FindStringSubmatch(line)
-			if len(submatches) > 0 {
-				names = append(names, submatches[1])
-			}
-		}
-
-		return scanner.Err()
-	})
-
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error looking for tests")
-	}
-	return names
 }
 
 func waitForWorkflowRun(branch, ghUser string) error {
@@ -207,4 +142,105 @@ func checkWorkflowRun(startTime time.Time, branch, ghUser string) (string, error
 		return "", nil
 	}
 	return fmt.Sprint(workflowRun.DatabaseId), nil
+}
+
+// getUser retrieves the current GitHub user's username
+func getUser() (string, error) {
+	stdOut, stdErr, err := gh.Exec(
+		"api", "user", "-q", ".login",
+	)
+	if err != nil {
+		fmt.Println(stdErr.String())
+		return "", err
+	}
+	return stdOut.String(), nil
+}
+
+// getTestBranch prompts the user to select a test branch
+func getTestBranch() (string, error) {
+	testBranchPrompt := promptui.Prompt{
+		Label:     "Test Branch or Tag",
+		AllowEdit: false,
+		Default:   "develop",
+	}
+	branch, err := testBranchPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	return branch, nil
+}
+
+// getTestDirectory prompts the user to select a test directory
+func getTestDirectory() (string, error) {
+	testDirectoryPrompt := promptui.Select{
+		Label: "Test Type",
+		Items: testDirectories,
+		Size:  10,
+	}
+	_, dir, err := testDirectoryPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	if dir == helpText { // TODO: Write help text
+		fmt.Println("Smoke tests are designed to be quick ")
+		return getTestDirectory()
+	}
+	return dir, nil
+}
+
+// getTest searches the chosen test directory for valid tests to run
+func getTest(dir string) (string, error) {
+	testPrompt := promptui.Select{
+		Label: "Test Name",
+		Items: testNames(dir),
+		Size:  15,
+	}
+	_, test, err := testPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	return test, nil
+}
+
+// testNames returns a list of test names in the given directory
+func testNames(directory string) []string {
+	// Regular expression pattern to search for
+	pattern := "func Test(\\w+?)\\(t \\*testing.T\\)"
+
+	names := []string{}
+
+	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		regex := regexp.MustCompile(pattern)
+		// Iterate over each line in the file
+		for scanner.Scan() {
+			line := scanner.Text()
+			submatches := regex.FindStringSubmatch(line)
+			if len(submatches) > 0 {
+				names = append(names, submatches[1])
+			}
+		}
+
+		return scanner.Err()
+	})
+
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error looking for tests")
+	}
+	return names
 }
