@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/s4";
+
+package types;
+
+message Row {
+    string address   = 1;
+    uint32 slotid    = 2;
+    bytes payload    = 3;
+	uint64 version   = 4;
+	int64 expiration = 5;
+    bytes signature  = 6;
+}
+
+message Rows {
+    repeated Row rows  = 1;
+    string minAddress = 2;
+    string maxAddress = 3;
+}

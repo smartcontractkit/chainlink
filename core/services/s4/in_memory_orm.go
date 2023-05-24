@@ -1,7 +1,8 @@
 package s4
 
 import (
-	"fmt"
+	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -10,8 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+type key struct {
+	address string
+	slot    uint
+}
+
 type inMemoryOrm struct {
-	rows map[string]*Row
+	rows map[key]*Row
 	mu   sync.RWMutex
 }
 
@@ -19,7 +25,7 @@ var _ ORM = (*inMemoryOrm)(nil)
 
 func NewInMemoryORM() ORM {
 	return &inMemoryOrm{
-		rows: make(map[string]*Row),
+		rows: make(map[key]*Row),
 	}
 }
 
@@ -27,20 +33,33 @@ func (o *inMemoryOrm) Get(address common.Address, slotId uint, qopts ...pg.QOpt)
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	key := fmt.Sprintf("%s_%d", address, slotId)
-	row, ok := o.rows[key]
+	mkey := key{
+		address: address.String(),
+		slot:    slotId,
+	}
+	row, ok := o.rows[mkey]
 	if !ok {
 		return nil, ErrNotFound
 	}
 	return row.Clone(), nil
 }
 
-func (o *inMemoryOrm) Upsert(address common.Address, slotId uint, row *Row, qopts ...pg.QOpt) error {
+func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	key := fmt.Sprintf("%s_%d", address, slotId)
-	o.rows[key] = row.Clone()
+	mkey := key{
+		address: row.Address,
+		slot:    row.SlotId,
+	}
+	existing, ok := o.rows[mkey]
+	if ok && existing.Version >= row.Version {
+		return ErrVersionTooLow
+	}
+
+	clone := row.Clone()
+	clone.UpdatedAt = time.Now().UnixMilli()
+	o.rows[mkey] = clone
 	return nil
 }
 
@@ -48,7 +67,7 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	queue := make([]string, 0)
+	queue := make([]key, 0)
 	now := time.Now().UnixMilli()
 	for k, v := range o.rows {
 		if v.Expiration < now {
@@ -60,4 +79,31 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 	}
 
 	return nil
+}
+
+func (o *inMemoryOrm) GetSnapshot(minAddress, maxAddress *big.Int, qopts ...pg.QOpt) ([]*Row, error) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	now := time.Now().UnixMilli()
+	var selection []key
+	for k, v := range o.rows {
+		bigAddress := common.HexToAddress(v.Address).Big()
+		if v.Expiration > now && bigAddress.Cmp(minAddress) >= 0 && bigAddress.Cmp(maxAddress) <= 0 {
+			selection = append(selection, k)
+		}
+	}
+
+	sort.Slice(selection, func(i, j int) bool {
+		si := selection[i]
+		sj := selection[j]
+		return o.rows[si].UpdatedAt < o.rows[sj].UpdatedAt
+	})
+
+	rows := make([]*Row, len(selection))
+	for i, s := range selection {
+		rows[i] = o.rows[s].Clone()
+	}
+
+	return rows, nil
 }
