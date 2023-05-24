@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
-	kchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
-	ktypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
+	"github.com/smartcontractkit/ocr2keepers/pkg/executer"
+	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -19,6 +21,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
+
+type Encoder interface {
+	ocr2keepers.Encoder
+	coordinator.Encoder
+	polling.Encoder
+	executer.Encoder
+	coordinator.Encoder
+}
 
 var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
@@ -47,12 +57,11 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, ktypes.ReportEncoder, *LogProvider, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, Encoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm.EvmRegistry
-	var encoder ktypes.ReportEncoder
 
 	oSpec := spec.OCR2OracleSpec
 
@@ -76,7 +85,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 		return nil, nil, nil, nil, err
 	}
 
-	encoder = kchain.NewEVMReportEncoder()
+	encoder := kevm.EVMAutomationEncoder20{}
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
