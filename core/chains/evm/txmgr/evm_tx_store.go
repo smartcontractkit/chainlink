@@ -1294,45 +1294,6 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	})
 }
 
-// recoverFromTxAttemptsHashConflict recovers from an idx_eth_tx_attempts_hash constraint violation.
-// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
-// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
-// case, we uphold the constraint, leaving the original tx attempt as-is and returning the constraint violation error.
-//
-// Note:  the record of the original abandoned transaction will remain in eth_txes, only the attempt is replaced.  (Any receipt
-// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
-// can be abandoned.)
-func recoverFromTxAttemptsHashConflict(attempt *EvmTxAttempt, tx pg.Queryer, dupErr error, query string, args ...interface{}) (err error) {
-	var duplicateTx DbEthTx
-	defer func() {
-		if err != nil {
-			err = errors.Join(dupErr, err)
-		}
-	}()
-	err = tx.Get(&duplicateTx, `SELECT * FROM eth_txes t JOIN eth_tx_attempts a ON t.id = a.eth_tx_id WHERE a.hash = $1`, attempt.Hash)
-	if err == nil {
-		if duplicateTx.State != EthTxFatalError || !duplicateTx.Error.Valid || duplicateTx.Error.String != "abandoned" {
-			return err
-		}
-		var nrows int64
-		var res sql.Result // Remove previous attempt.
-		res, err = tx.Exec(`DELETE FROM eth_tx_attempts WHERE a.hash=$1`, attempt.Hash)
-		if err != nil {
-			return err
-		}
-		nrows, err = res.RowsAffected()
-		if err == nil {
-			if nrows == 0 {
-				err = pkgerrors.Wrap(err, "Failed to remove conflicting hash from eth_tx_attempts")
-			} else { // Try again to insert new attempt.
-				var dbAttempt DbEthTxAttempt
-				err = tx.Get(&dbAttempt, query, args...)
-			}
-		}
-	}
-	return err
-}
-
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
 func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
@@ -1347,20 +1308,35 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 	}
 	etx.State = EthTxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
+		// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
+		// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
+		// case, we uphold the constraint, leaving the original tx attempt as-is and returning the constraint violation error.
+		//
+		// Note:  the record of the original abandoned transaction will remain in eth_txes, only the attempt is replaced.  (Any receipt
+		// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
+		// can be abandoned.)
+		_, err := tx.Exec(`DELETE FROM eth_tx_attempts a USING eth_txes t
+			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
+			attempt.Hash, EthTxFatalError,
+		)
+		if err == nil {
+			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
+		} else if err != sql.ErrNoRows {
+			return err
+		}
+
 		dbAttempt := DbEthTxAttemptFromEthTxAttempt(attempt)
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, &dbAttempt)
 		if e != nil {
 			return pkgerrors.Wrap(e, "failed to BindNamed")
 		}
-		err := tx.Get(&dbAttempt, query, args...)
+		err = tx.Get(&dbAttempt, query, args...)
 		if err != nil {
 			var pqErr *pgconn.PgError
 			if isPqErr := errors.As(err, &pqErr); isPqErr {
 				switch pqErr.ConstraintName {
 				case "eth_tx_attempts_eth_tx_id_fkey":
 					return errEthTxRemoved
-				case "idx_eth_tx_attempts_hash":
-					err = recoverFromTxAttemptsHashConflict(attempt, tx, err, query, args...)
 				default:
 				}
 			}
