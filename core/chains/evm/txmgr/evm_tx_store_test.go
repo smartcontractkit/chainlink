@@ -1024,7 +1024,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 	// tx state should be confirmed missing receipt
 	// attempt should be broadcast before cutoff time
-	t.Run("succesfully mark errored transactions", func(t *testing.T) {
+	t.Run("successfully mark errored transactions", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 
 		err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ConfiguredChainID())
@@ -1035,7 +1035,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 
-	t.Run("succesfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
+	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)

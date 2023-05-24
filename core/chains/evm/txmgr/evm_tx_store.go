@@ -1321,7 +1321,7 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 		)
 		if err == nil {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
-		} else if err != sql.ErrNoRows {
+		} else if errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 
