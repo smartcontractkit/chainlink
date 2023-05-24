@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,6 +20,8 @@ func TestInMemoryORM(t *testing.T) {
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
 	row := &s4.Row{
+		Address:    address.String(),
+		SlotId:     slotId,
 		Payload:    payload[:],
 		Version:    3,
 		Expiration: expiration,
@@ -34,24 +37,26 @@ func TestInMemoryORM(t *testing.T) {
 	})
 
 	t.Run("insert and get", func(t *testing.T) {
-		err := orm.Upsert(address, slotId, row)
+		err := orm.Update(row)
 		assert.NoError(t, err)
 
 		e, err := orm.Get(address, slotId)
 		assert.NoError(t, err)
+		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 
 	t.Run("update and get", func(t *testing.T) {
-		err := orm.Upsert(address, slotId, row)
-		assert.NoError(t, err)
+		err := orm.Update(row)
+		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
 
-		row.Version = 4
-		err = orm.Upsert(address, slotId, row)
+		row.Version = 5
+		err = orm.Update(row)
 		assert.NoError(t, err)
 
 		e, err := orm.Get(address, slotId)
 		assert.NoError(t, err)
+		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 
@@ -63,5 +68,38 @@ func TestInMemoryORM(t *testing.T) {
 
 		_, err = orm.Get(address, slotId)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
+	})
+
+	t.Run("snapshots", func(t *testing.T) {
+		expiration := time.Now().Add(100 * time.Second).UnixMilli()
+
+		for i := 0; i < 256; i++ {
+			var thisAddress common.Address
+			thisAddress[0] = byte(i)
+
+			row := &s4.Row{
+				Address:    thisAddress.String(),
+				SlotId:     1,
+				Payload:    []byte{},
+				Version:    1,
+				Expiration: expiration,
+				Confirmed:  false,
+				Signature:  []byte{},
+			}
+			err := orm.Update(row)
+			assert.NoError(t, err)
+		}
+
+		rows, err := orm.GetSnapshot(s4.MinAddress, s4.MaxAddress)
+		assert.NoError(t, err)
+		assert.Len(t, rows, 256)
+
+		var minAddress common.Address
+		var maxAddress common.Address
+		minAddress[0] = byte(100)
+		maxAddress[0] = byte(199)
+		rows, err = orm.GetSnapshot(minAddress.Big(), maxAddress.Big())
+		assert.NoError(t, err)
+		assert.Len(t, rows, 100)
 	})
 }

@@ -2,7 +2,6 @@ package s4
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -127,16 +126,9 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 		return ErrWrongSignature
 	}
 
-	row, err := s.orm.Get(key.Address, key.SlotId, pg.WithParentCtx(ctx))
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		return err
-	}
-
-	if row != nil && key.Version <= row.Version {
-		return ErrVersionTooLow
-	}
-
-	row = &Row{
+	row := &Row{
+		Address:    key.Address.String(),
+		SlotId:     key.SlotId,
 		Payload:    make([]byte, len(record.Payload)),
 		Version:    key.Version,
 		Expiration: record.Expiration,
@@ -146,5 +138,5 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	copy(row.Payload, record.Payload)
 	copy(row.Signature, signature)
 
-	return s.orm.Upsert(key.Address, key.SlotId, row, pg.WithParentCtx(ctx))
+	return s.orm.Update(row, pg.WithParentCtx(ctx))
 }
