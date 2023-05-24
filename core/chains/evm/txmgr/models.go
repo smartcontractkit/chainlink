@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Type aliases for EVM
@@ -28,6 +29,7 @@ type (
 	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmNonceSyncer            = NonceSyncer[common.Address, common.Hash, common.Hash]
 	EvmTransmitCheckerFactory = TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmTxm                    = Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
 	EvmTxManager              = TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	NullEvmTxManager          = NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
@@ -41,7 +43,22 @@ type (
 	EvmTxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 )
 
-var NewEvmTxm = NewTxm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
+func NewEvmTxm(
+	chainId *big.Int,
+	cfg txmgrtypes.TxmConfig[*assets.Wei], // explicit type to allow inference
+	keyStore EvmKeyStore,
+	lggr logger.Logger,
+	checkerFactory EvmTransmitCheckerFactory,
+	fwdMgr EvmFwdMgr,
+	txAttemptBuilder EvmTxAttemptBuilder,
+	txStore EvmTxStore,
+	nonceSyncer EvmNonceSyncer,
+	broadcaster *EvmBroadcaster,
+	confirmer *EvmConfirmer,
+	resender *EvmResender,
+) *EvmTxm {
+	return NewTxm(chainId, cfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender)
+}
 
 const (
 	// TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
