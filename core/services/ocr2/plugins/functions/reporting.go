@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
-	config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/functions_config"
+	config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
