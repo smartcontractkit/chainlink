@@ -26,7 +26,6 @@ keeper_registry_wrapper1_1: ../../contracts/solc/v0.7/KeeperRegistry1_1.abi ../.
 keeper_registry_wrapper1_2: ../../contracts/solc/v0.8.6/KeeperRegistry1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistry1_2.bin 41faf687ad6a5171cc91e627244d0b3d6f62d393c418ca22d4ba7fc921fd32c6
 keeper_registry_wrapper1_3: ../../contracts/solc/v0.8.6/KeeperRegistry1_3.abi ../../contracts/solc/v0.8.6/KeeperRegistry1_3.bin 5e1414eacbc1880b7349a4f253b7eca176f7f6300ef3cd834c493ce795a17e25
 keeper_registry_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_0.bin c32dea7d5ef66b7c58ddc84ddf69aa44df1b3ae8601fbc271c95be4ff5853056
-keeper_registry_wrapper2_1: ../../contracts/src/v0.8/dev/automation/2_1/interfaces/masterABI.json ../../contracts/solc/v0.8.6/KeeperRegistry2_1.bin d6f09714c2b776502e1d5d0786a8c30966c8ce6608156c0e157354f24d259ccf
 keeper_registry_wrapper_2_1: ../../contracts/solc/v0.8.6/KeeperRegistry2_1.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_1.bin 05ed63664b0c07de45fbe4e4f5e13261c006e152429ea6bf408a26feb6e1887b
 keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin fa75572e689c9e84705c63e8dbe1b7b8aa1a8fe82d66356c4873d024bb9166e8
 llo_feeds: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
