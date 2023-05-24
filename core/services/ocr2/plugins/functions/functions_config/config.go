@@ -1,4 +1,4 @@
-package config
+package functions_config
 
 import "google.golang.org/protobuf/proto"
 

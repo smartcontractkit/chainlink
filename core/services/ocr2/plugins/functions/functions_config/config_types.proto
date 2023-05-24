@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-option go_package = "core/services/ocr2/plugins/functions/config";
+option go_package = "core/services/ocr2/plugins/functions/functions_config";
 
-package config_types;
+package functions_config_types;
 
 enum AggregationMethod {
     AGGREGATION_MODE = 0;

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/functions_config"
 )
 
 func req(id int, result []byte, err []byte) *functions.ProcessedRequest {

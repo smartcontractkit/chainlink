@@ -15,7 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/functions_config"
+	threshold "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -32,6 +33,7 @@ type FunctionsServicesConfig struct {
 	Lggr            logger.Logger
 	MailMon         *utils.MailboxMonitor
 	URLsMonEndpoint commontypes.MonitoringEndpoint
+	Decryptor       threshold.Decryptor
 }
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.

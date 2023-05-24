@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option go_package = "core/services/ocr2/plugins/functions";
 
-package types;
+package functions_types;
 
 message Query {
     repeated bytes requestIDs = 1;
