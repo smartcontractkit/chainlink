@@ -80,7 +80,8 @@ func NewEvmHeadListener(
 	ethClient evmclient.Client,
 	config Config, chStop chan struct{},
 ) *evmHeadListener {
-	return NewHeadListener[*evmtypes.Head, *evmtypes.Head,
+	return NewHeadListener[
+		*evmtypes.Head, *evmtypes.Head,
 		ethereum.Subscription, *big.Int, common.Hash,
 	](lggr, ethClient, config, chStop,
 		func() *evmtypes.Head {
@@ -167,7 +168,7 @@ func (hl *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx co
 			}
 
 			// Compare the chain ID of the block header to the chain ID of the client
-			if !blockHeader.HasChainId() || blockHeader.ChainId().String() != chainId.String() {
+			if !blockHeader.HasChainID() || blockHeader.ChainId().String() != chainId.String() {
 				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainId())
 			}
 			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()

@@ -159,7 +159,7 @@ func (h *Head) ChainId() *big.Int {
 	return h.EVMChainID.ToInt()
 }
 
-func (h *Head) HasChainId() bool {
+func (h *Head) HasChainID() bool {
 	return h.EVMChainID != nil
 }
 
@@ -204,7 +204,7 @@ func (h *Head) Equals(r *Head) bool {
 		return false
 	}
 
-	return h.Hash == r.BlockHash() && h.Number == r.BlockNumber()
+	return h.Hash == r.Hash && h.Number == r.Number
 }
 
 // GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than

@@ -115,8 +115,8 @@ func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) GetParent() types.Head[BLOCK_HASH] {
 	return r0
 }
 
-// HasChainId provides a mock function with given fields:
-func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HasChainId() bool {
+// HasChainID provides a mock function with given fields:
+func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HasChainID() bool {
 	ret := _m.Called()
 
 	var r0 bool
