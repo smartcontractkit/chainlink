@@ -112,6 +112,82 @@ contract KeeperRegistryLogicA2_1 is
     return (success, result, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit,
+    address admin,
+    bytes calldata checkData,
+    bytes calldata offchainConfig
+  ) external returns (uint256 id) {
+    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
+    Trigger triggerType = Trigger(uint8(bytes1(bytes32(offchainConfig[0:32])))); // directly grab first evm word
+    validateTrigger(triggerType, offchainConfig[32:]);
+    id = _createID(triggerType);
+    AutomationForwarder forwarder = new AutomationForwarder(id, target);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
+    s_storage.nonce++;
+    s_upkeepOffchainConfig[id] = offchainConfig;
+    emit UpkeepRegistered(id, gasLimit, admin);
+    emit UpkeepOffchainConfigSet(id, offchainConfig);
+    return (id);
+  }
+
+  function addFunds(uint256 id, uint96 amount) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    i_link.transferFrom(msg.sender, address(this), amount);
+    emit FundsAdded(id, msg.sender, amount);
+  }
+
+  /**
+   * @notice creates an ID for the upkeep based on the upkeep's type
+   * @dev the format of the ID looks like this:
+   * ****00000000000X****************
+   * 4 bytes of entropy
+   * 11 bytes of zeros
+   * 1 identifying byte for the trigger type
+   * 16 bytes of entropy
+   * @dev this maintains the same level of entropy as eth addresses, so IDs will still be unique
+   * @dev we add the "identifying" part in the middle so that it is mostly hidden from users who usually only
+   * see the first 4 and last 4 hex values ex 0x1234...ABCD
+   */
+  function _createID(Trigger triggerType) private view returns (uint256) {
+    bytes memory entropyBytes = abi.encodePacked(
+      keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce))
+    );
+    bytes12 typeBytes = bytes12(bytes1(uint8(triggerType)));
+    for (uint256 idx = 0; idx < typeBytes.length; idx++) {
+      entropyBytes[idx + 4] = typeBytes[idx];
+    }
+    return uint256(bytes32(entropyBytes));
+  }
+
+  function validateTrigger(Trigger triggerType, bytes calldata offchainConfig) public {
+    if (msg.sender == address(this)) {
+      // separate call stack, we can revert with any reason here
+      if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
+        require(offchainConfig.length == 0);
+      } else if (triggerType == Trigger.LOG) {
+        // will revert if data isn't the valid type
+        LogTrigger memory trigger = abi.decode(offchainConfig, (LogTrigger));
+      } else if (triggerType == Trigger.CRON) {
+        // TODO
+      } else {
+        revert();
+      }
+    } else {
+      // called directly, only revert with proper message
+      try KeeperRegistryLogicA2_1(address(this)).validateTrigger(triggerType, offchainConfig) {
+        return;
+      } catch {
+        revert InvalidOffchainConfig();
+      }
+    }
+  }
+
   /**
    * @dev Called through KeeperRegistry main contract
    */
@@ -177,10 +253,10 @@ contract KeeperRegistryLogicA2_1 is
    * @dev Called through KeeperRegistry main contract
    */
   function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
+    Trigger triggerType = getTriggerType(id);
     _requireAdminAndNotCancelled(id);
-
+    validateTrigger(triggerType, config);
     s_upkeepOffchainConfig[id] = config;
-
     emit UpkeepOffchainConfigSet(id, config);
   }
 
@@ -198,93 +274,6 @@ contract KeeperRegistryLogicA2_1 is
     i_link.transfer(to, balance);
 
     emit PaymentWithdrawn(from, balance, to, msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
-    if (proposed == msg.sender) revert ValueNotChanged();
-
-    if (s_proposedPayee[transmitter] != proposed) {
-      s_proposedPayee[transmitter] = proposed;
-      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function acceptPayeeship(address transmitter) external {
-    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_transmitterPayees[transmitter];
-    s_transmitterPayees[transmitter] = msg.sender;
-    s_proposedPayee[transmitter] = ZERO_ADDRESS;
-
-    emit PayeeshipTransferred(transmitter, past, msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external {
-    _requireAdminAndNotCancelled(id);
-    if (proposed == msg.sender) revert ValueNotChanged();
-    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
-
-    if (s_proposedAdmin[id] != proposed) {
-      s_proposedAdmin[id] = proposed;
-      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function acceptUpkeepAdmin(uint256 id) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = s_upkeepAdmin[id];
-    s_upkeepAdmin[id] = msg.sender;
-    s_proposedAdmin[id] = ZERO_ADDRESS;
-
-    emit UpkeepAdminTransferred(id, past, msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function pauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function unpauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
-    _requireAdminAndNotCancelled(id);
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataUpdated(id, newCheckData);
   }
 
   /**
@@ -370,13 +359,5 @@ contract KeeperRegistryLogicA2_1 is
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
-  }
-
-  /**
-   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
-   */
-  function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
-    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
-    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 }
