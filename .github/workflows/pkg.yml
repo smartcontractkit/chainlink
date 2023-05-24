@@ -6,21 +6,30 @@ jobs:
   golangci-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
+      
+        ##
+        # XXX: change this to the official action once multiple --out-format args are supported.
+        # See: https://github.com/golangci/golangci-lint-action/issues/612
+        ##
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: v1.51.1
+          version: v1.52.1
 
           # Optional: working directory, useful for monorepos
           # working-directory: 
 
           # Optional: golangci-lint command line arguments.
-          args: --enable=gofmt --tests=false --exclude-use-default --timeout=5m0s
+          allow-extra-out-format-args: true
+          args: --enable=gofmt --tests=false --exclude-use-default --timeout=5m0s --out-format checkstyle:golangci-lint-report.xml
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           only-new-issues: true
@@ -33,15 +42,72 @@ jobs:
 
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
           # skip-build-cache: true
+
+      - name: Verify lint report artifact
+        if: always()
+        run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
+
+      - name: Upload lint report artifact
+        if: always()
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        with:
+          name: golangci-lint-report
+          path: golangci-lint-report.xml
+
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
-      - name: build
+
+      - name: Build
         run: go build -v ./...
-      - name: test
-        run: go test -count=1 -race ./...
-        
+
+      - name: Unit Tests
+        run: go test -race ./... -coverpkg=./... -coverprofile=coverage.txt $1 | tee $OUTPUT_FILE
+      
+      - name: Upload Go test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: go-test-results
+          path: |
+            ./output.txt
+            ./coverage.txt
+
+  sonar-scan:
+    name: SonarQube
+    needs: [golangci-lint, build-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
+      
+      - name: Set SonarQube Report Paths
+        id: sonarqube_report_paths
+        shell: bash
+        run: |
+          echo "sonarqube_tests_report_paths=$(find -type f -name 'output.txt' -printf "%p,")" >> $GITHUB_OUTPUT
+          echo "sonarqube_coverage_report_paths=$(find -type f -name 'coverage.txt' -printf "%p,")" >> $GITHUB_OUTPUT
+          echo "sonarqube_golangci_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")" >> $GITHUB_OUTPUT
+      
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@a6ba0aafc293e03de5437af7edbc97f7d3ebc91a # v1.2.0
+        with:
+          args: >
+            -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
+            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
+            -Dsonar.go.golangci-lint.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_golangci_report_paths }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
