@@ -299,7 +299,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
-		vuni.txm.On("CreateTransaction",
+		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&

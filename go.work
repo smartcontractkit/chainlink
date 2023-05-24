@@ -1,0 +1,6 @@
+go 1.20
+
+use (
+	.
+	/Users/kuphjr/tdh2/go/ocr2/decryptionplugin
+)

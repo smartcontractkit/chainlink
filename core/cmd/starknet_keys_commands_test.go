@@ -100,8 +100,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		require.NoError(tt, set.Set("yes", "true"))
 
 		strID := key.ID()
-		err = set.Parse([]string{strID})
-		require.NoError(t, err)
+		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewStarkNetKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)

@@ -183,7 +183,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint32(21000)
 	)
 
-	txm.On("CreateTransaction", txmgr.EvmNewTx{
+	txm.On("CreateEthTransaction", txmgr.EvmNewTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,

@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
-
-# 2.2.0 - UNRELEASED
-
 ### Added
 
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
@@ -23,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
-- Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
+
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
 - Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
 	- `LogBackfillBatchSize = 1000`

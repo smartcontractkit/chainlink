@@ -11,9 +11,9 @@ rm ${dest}/temp.json;
 pnpm prettier --write src/v0.8/dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 `
 
-import { KeeperRegistry2_1__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry2_1__factory'
-import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA2_1__factory'
-import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB2_1__factory'
+import { KeeperRegistry21__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry21__factory'
+import { KeeperRegistryLogicA21__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA21__factory'
+import { KeeperRegistryLogicB21__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB21__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'

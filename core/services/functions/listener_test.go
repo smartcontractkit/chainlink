@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	job_mocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -95,7 +96,9 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
+	decryptor := threshold.NewDecryptionQueue(100, 10000, time.Duration(300)*time.Second, lggr)
+
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint, decryptor)
 
 	return &FunctionsListenerUniverse{
 		runner:         runner,

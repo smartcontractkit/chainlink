@@ -2,6 +2,7 @@ package functions
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	threshold "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -32,10 +34,12 @@ type FunctionsServicesConfig struct {
 	Lggr            logger.Logger
 	MailMon         *utils.MailboxMonitor
 	URLsMonEndpoint commontypes.MonitoringEndpoint
+	Decryptor       threshold.Decryptor
 }
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+	fmt.Println("Called this")
 	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
 
 	var pluginConfig config.PluginConfig
@@ -60,7 +64,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 			"jobID", conf.Job.PipelineSpec.JobID,
 			"externalJobID", conf.Job.ExternalJobID,
 		)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint)
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint, conf.Decryptor)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
 		Logger:    sharedOracleArgs.Logger,

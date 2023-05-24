@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	threshold "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -134,13 +135,25 @@ type FunctionsListener struct {
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
+	decryptor         threshold.Decryptor
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(
+	oracle *ocr2dr_oracle.OCR2DROracle,
+	job job.Job, runner pipeline.Runner,
+	jobORM job.ORM,
+	pluginORM ORM,
+	pluginConfig config.PluginConfig,
+	logBroadcaster log.Broadcaster,
+	lggr logger.Logger,
+	mailMon *utils.MailboxMonitor,
+	urlsMonEndpoint commontypes.MonitoringEndpoint,
+	decryptor threshold.Decryptor,
+) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
@@ -155,6 +168,7 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runne
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
+		decryptor:       decryptor,
 	}
 }
 

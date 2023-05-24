@@ -37,6 +37,7 @@ func NewTxm(
 	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), cfg, keyStore, estimator)
 	txStore := txmgr.NewTxStore(db, lggr, cfg)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, client, keyStore)
+	q := pg.NewQ(db, lggr, cfg)
 
 	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
 	txmClient := txmgr.NewEvmTxmClient(client) // wrap Evm specific client
@@ -46,6 +47,6 @@ func NewTxm(
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		ethResender = txmgr.NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, txmCfg)
 	}
-	txm = txmgr.NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender)
+	txm = txmgr.NewTxm(db, client, txmCfg, keyStore, eventBroadcaster, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender, q)
 	return txm, nil
 }

@@ -7,12 +7,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	"golang.org/x/exp/maps"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -44,16 +48,16 @@ type TxManager[
 	txmgrtypes.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
+	CreateEthTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
-	SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
+	SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
 	Reset(f func(), addr ADDR, abandon bool) error
 }
 
 type reset struct {
 	// f is the function to execute between stopping/starting the
-	// Broadcaster and Confirmer
+	// EthBroadcaster and EthConfirmer
 	f func()
 	// done is either closed after running f, or returns error if f could not
 	// be run for some reason
@@ -73,12 +77,15 @@ type Txm[
 	FEE_UNIT txmgrtypes.Unit,
 ] struct {
 	utils.StartStopOnce
-	logger         logger.Logger
-	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-	config         txmgrtypes.TxmConfig[FEE_UNIT]
-	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	chainID        CHAIN_ID
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	logger           logger.Logger
+	txStore          txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	db               *sqlx.DB
+	q                pg.Q
+	config           EvmTxmConfig
+	keyStore         txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	eventBroadcaster pg.EventBroadcaster
+	chainID          CHAIN_ID
+	checkerFactory   TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 
 	chHeads        chan HEAD
 	trigger        chan ADDR
@@ -91,8 +98,8 @@ type Txm[
 
 	reaper           *Reaper[CHAIN_ID]
 	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]
-	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
-	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
+	ethBroadcaster   *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
+	ethConfirmer     *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	nonceSyncer      NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
@@ -100,63 +107,59 @@ type Txm[
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
-	b.broadcaster.SetResumeCallback(fn)
-	b.confirmer.SetResumeCallback(fn)
+	b.ethBroadcaster.SetResumeCallback(fn)
+	b.ethConfirmer.SetResumeCallback(fn)
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
-	ADD any,
-	FEE_UNIT txmgrtypes.Unit,
-](
-	chainId CHAIN_ID,
-	cfg txmgrtypes.TxmConfig[FEE_UNIT],
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+func NewTxm(
+	db *sqlx.DB,
+	ethClient evmclient.Client,
+	cfg EvmTxmConfig,
+	keyStore EvmKeyStore,
+	eventBroadcaster pg.EventBroadcaster,
 	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-	fwdMgr txmgrtypes.ForwarderManager[ADDR],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-	nonceSyncer NonceSyncer[ADDR, TX_HASH, BLOCK_HASH],
-	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT],
-	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT],
-	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD],
-) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT] {
-	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]{
+	checkerFactory EvmTransmitCheckerFactory,
+	fwdMgr EvmFwdMgr,
+	txAttemptBuilder EvmTxAttemptBuilder,
+	txStore EvmTxStore,
+	nonceSyncer EvmNonceSyncer,
+	ethBroadcaster *EvmBroadcaster,
+	ethConfirmer *EvmConfirmer,
+	ethResender *EvmResender,
+	q pg.Q,
+) *EvmTxm {
+	b := EvmTxm{
+		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		txStore:          txStore,
+		db:               db,
+		q:                q,
 		config:           cfg,
 		keyStore:         keyStore,
-		chainID:          chainId,
+		eventBroadcaster: eventBroadcaster,
+		chainID:          ethClient.ConfiguredChainID(),
 		checkerFactory:   checkerFactory,
-		chHeads:          make(chan HEAD),
-		trigger:          make(chan ADDR),
+		chHeads:          make(chan *evmtypes.Head),
+		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
 		nonceSyncer:      nonceSyncer,
-		broadcaster:      broadcaster,
-		confirmer:        confirmer,
-		resender:         resender,
+		ethBroadcaster:   ethBroadcaster,
+		ethConfirmer:     ethConfirmer,
+		resender:         ethResender,
 	}
 
 	if cfg.TxResendAfterThreshold() <= 0 {
-		b.logger.Info("Resender: Disabled")
+		b.logger.Info("EthResender: Disabled")
 	}
 	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, chainId)
+		b.reaper = NewEvmReaper(lggr, b.txStore, cfg, ethClient.ConfiguredChainID())
 	} else {
-		b.logger.Info("TxReaper: Disabled")
+		b.logger.Info("EthTxReaper: Disabled")
 	}
 
 	return &b
@@ -167,11 +170,11 @@ func NewTxm[
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("Txm", func() error {
 		var ms services.MultiStart
-		if err := ms.Start(ctx, b.broadcaster); err != nil {
-			return errors.Wrap(err, "Txm: Broadcaster failed to start")
+		if err := ms.Start(ctx, b.ethBroadcaster); err != nil {
+			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return errors.Wrap(err, "Txm: Confirmer failed to start")
+		if err := ms.Start(ctx, b.ethConfirmer); err != nil {
+			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
@@ -192,7 +195,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 
 		if b.fwdMgr != nil {
 			if err := ms.Start(ctx, b.fwdMgr); err != nil {
-				return errors.Wrap(err, "Txm: ForwarderManager failed to start")
+				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
 
@@ -200,7 +203,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	})
 }
 
-// Reset stops Broadcaster/Confirmer, executes callback, then starts them
+// Reset stops EthBroadcaster/EthConfirmer, executes callback, then starts them
 // again
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) Reset(callback func(), addr ADDR, abandon bool) (err error) {
 	ok := b.IfStarted(func() {
@@ -223,7 +226,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 
 // abandon, scoped to the key of this txm:
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
-// this must not be run while Broadcaster or Confirmer are running
+// this must not be run while EthBroadcaster or EthConfirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) abandon(addr ADDR) (err error) {
 	err = b.txStore.Abandon(b.chainID, addr)
 	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
@@ -243,7 +246,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		}
 		if b.fwdMgr != nil {
 			if err := b.fwdMgr.Close(); err != nil {
-				return errors.Wrap(err, "Txm: failed to stop ForwarderManager")
+				return errors.Wrap(err, "Txm: failed to stop EVMForwarderManager")
 			}
 		}
 
@@ -264,8 +267,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 
 	// only query if txm started properly
 	b.IfStarted(func() {
-		maps.Copy(report, b.broadcaster.HealthReport())
-		maps.Copy(report, b.confirmer.HealthReport())
+		maps.Copy(report, b.ethBroadcaster.HealthReport())
+		maps.Copy(report, b.ethConfirmer.HealthReport())
 		maps.Copy(report, b.txAttemptBuilder.HealthReport())
 	})
 
@@ -293,11 +296,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
-		if err := b.broadcaster.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+		if err := b.ethBroadcaster.closeInternal(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 		}
-		if err := b.confirmer.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+		if err := b.ethConfirmer.closeInternal(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 		}
 		if r != nil {
 			r.f()
@@ -305,13 +308,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		}
 		var wg sync.WaitGroup
 		// two goroutines to handle independent backoff retries starting:
-		// - Broadcaster
-		// - Confirmer
+		// - EthBroadcaster
+		// - EthConfirmer
 		// If chStop is closed, we mark stopped=true so that the main runloop
 		// can check and exit early if necessary
 		//
 		// execReset will not return until either:
-		// 1. Both Broadcaster and Confirmer started successfully
+		// 1. Both EthBroadcaster and EthConfirmer started successfully
 		// 2. chStop was closed (txmgr exit)
 		wg.Add(2)
 		go func() {
@@ -321,8 +324,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+					if err := b.ethBroadcaster.startInternal(); err != nil {
+						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -340,8 +343,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Confirmer", "err", err)
+					if err := b.ethConfirmer.startInternal(); err != nil {
+						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -359,9 +362,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	for {
 		select {
 		case address := <-b.trigger:
-			b.broadcaster.Trigger(address)
+			b.ethBroadcaster.Trigger(address)
 		case head := <-b.chHeads:
-			b.confirmer.mb.Deliver(head)
+			b.ethConfirmer.mb.Deliver(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -376,16 +379,16 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		case <-b.chStop:
 			// close and exit
 			//
-			// Note that in some cases Broadcaster and/or Confirmer may
+			// Note that in some cases EthBroadcaster and/or EthConfirmer may
 			// be in an Unstarted state here, if execReset exited early.
 			//
 			// In this case, we don't care about stopping them since they are
 			// already "stopped", hence the usage of utils.EnsureClosed.
-			if err := utils.EnsureClosed(b.broadcaster); err != nil {
-				b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+			if err := utils.EnsureClosed(b.ethBroadcaster); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 			}
-			if err := utils.EnsureClosed(b.confirmer); err != nil {
-				b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+			if err := utils.EnsureClosed(b.ethConfirmer); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
 			}
 			return
 		case <-keysChanged:
@@ -428,7 +431,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	}
 }
 
-// Trigger forces the Broadcaster to check early for the given address
+// Trigger forces the EthBroadcaster to check early for the given address
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) Trigger(addr ADDR) {
 	select {
 	case b.trigger <- addr:
@@ -436,8 +439,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	}
 }
 
-// CreateTransaction inserts a new transaction
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) CreateTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+// CreateEthTransaction inserts a new transaction
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) CreateEthTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
 	if err = b.checkEnabled(newTx.FromAddress); err != nil {
 		return tx, err
 	}
@@ -462,7 +465,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 
 	err = b.txStore.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
-		return tx, errors.Wrap(err, "Txm#CreateTransaction")
+		return tx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
 	tx, err = b.txStore.CreateEthTransaction(newTx, b.chainID, qs...)
@@ -483,22 +486,23 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
 }
 
-// SendNativeToken creates a transaction that transfers the given value of ether
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+// SendEther creates a transaction that transfers the given value of ether
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) SendEther(chainID CHAIN_ID, from, to ADDR, value assets.Eth, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+	// TODO: Remove this hard-coding on evm package
 	if utils.IsZero(to) {
-		return etx, errors.New("cannot send native token to zero address")
+		return etx, errors.New("cannot send ether to zero address")
 	}
 	etx = txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
-		Value:          value,
+		Value:          *value.ToInt(),
 		FeeLimit:       gasLimit,
 		State:          EthTxUnstarted,
 		ChainID:        chainID,
 	}
 	err = b.txStore.InsertEthTx(&etx)
-	return etx, errors.Wrap(err, "SendNativeToken failed to insert eth_tx")
+	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
 type NullTxManager[
@@ -531,7 +535,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Trigger(ADDR) {
 	panic(n.ErrMsg)
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateTransaction(txmgrtypes.NewTx[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateEthTransaction(txmgrtypes.NewTx[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
@@ -541,8 +545,8 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, A
 	return nil
 }
 
-// SendNativeToken does nothing, null functionality
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+// SendEther does nothing, null functionality
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendEther(chainID *big.Int, from, to ADDR, value assets.Eth, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 

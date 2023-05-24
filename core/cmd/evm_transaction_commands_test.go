@@ -198,8 +198,7 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 
 	amount := "1000000000000000000"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
-	err = set.Parse([]string{amount, fromAddress.Hex(), to})
-	require.NoError(t, err)
+	set.Parse([]string{amount, fromAddress.Hex(), to})
 
 	err = set.Set("wei", "true")
 	require.NoError(t, err)

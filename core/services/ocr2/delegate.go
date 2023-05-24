@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
+	threshold "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -715,6 +716,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
+		thresholdProvider, err2 := evmrelay.NewThresholdProvider(
+			d.chainSet,
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+				New:           d.isNewlyCreatedJob,
+			},
+			types.PluginArgs{
+				TransmitterID: transmitterID,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			},
+			lggr.Named("ThresholdRelayer"),
+			d.ethKs,
+		)
+		if err2 != nil {
+			return nil, err2
+		}
+
 		var relayConfig evmrelaytypes.RelayConfig
 		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 		if err2 != nil {
@@ -725,7 +746,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
-		sharedOracleArgs := libocr2.OracleArgs{
+		sharedFunctionsOracleArgs := libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),
@@ -740,6 +761,58 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 		}
 
+		sharedThresholdOracleArgs := libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          thresholdProvider.ContractTransmitter(),
+			ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
+			OffchainConfigDigester:       thresholdProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		}
+
+		maxDecryptionQueueLength, ok := jb.OCR2OracleSpec.PluginConfig["maxDecryptionQueueLength"].(float64)
+		if !ok {
+			return nil, errors.New("maxDecryptionQueueLength in jobspec pluginConfig is invalid")
+		}
+
+		maxCiphertextSizeBytes, ok := jb.OCR2OracleSpec.PluginConfig["maxCiphertextSizeBytes"].(float64)
+		if !ok {
+			return nil, errors.New("maxCiphertextBytes in jobspec pluginConfig is invalid")
+		}
+
+		completedDecryptionCacheTimeoutMs, ok := jb.OCR2OracleSpec.PluginConfig["completedDecryptionCacheTimeoutMs"].(float64)
+		if !ok {
+			return nil, errors.New("completedDecryptionCacheTimeoutMs in jobspec pluginConfig is invalid")
+		}
+		completedDecryptionCacheTimeout := time.Duration(completedDecryptionCacheTimeoutMs) * time.Millisecond
+
+		decryptionQueue := threshold.NewDecryptionQueue(int(maxDecryptionQueueLength), int(maxCiphertextSizeBytes), completedDecryptionCacheTimeout, lggr)
+
+		thresholdServicesConfig := threshold.ThresholdServicesConfig{
+			Job:             jb,
+			PipelineRunner:  d.pipelineRunner,
+			JobORM:          d.jobORM,
+			OCR2JobConfig:   d.cfg,
+			DB:              d.db,
+			Chain:           chain,
+			ContractID:      spec.ContractID,
+			Lggr:            lggr,
+			MailMon:         d.mailMon,
+			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
+			DecryptionQueue: decryptionQueue,
+		}
+
+		thresholdService, err := threshold.NewThresholdService(&sharedThresholdOracleArgs, &thresholdServicesConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewThresholdService")
+		}
+
 		functionsServicesConfig := functions.FunctionsServicesConfig{
 			Job:             jb,
 			PipelineRunner:  d.pipelineRunner,
@@ -751,9 +824,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Lggr:            lggr,
 			MailMon:         d.mailMon,
 			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
+			Decryptor:       decryptionQueue,
 		}
 
-		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
+		functionsServices, err := functions.NewFunctionsServices(&sharedFunctionsOracleArgs, &functionsServicesConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 		}
@@ -769,7 +843,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.cfg.JobPipelineMaxSuccessfulRuns(),
 		)
 
-		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
+		fmt.Println("Success!")
+
+		return append([]job.ServiceCtx{runResultSaver, functionsProvider, thresholdProvider, thresholdService}, functionsServices...), nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

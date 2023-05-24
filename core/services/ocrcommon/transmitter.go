@@ -17,7 +17,7 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
 }
 
 type Transmitter interface {
@@ -72,7 +72,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateTransaction(txmgr.EvmNewTx{
+	_, err = t.txm.CreateEthTransaction(txmgr.EvmNewTx{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,

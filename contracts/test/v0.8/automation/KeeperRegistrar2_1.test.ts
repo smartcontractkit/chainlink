@@ -7,12 +7,11 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/facto
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
-import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
-import { KeeperRegistrar20 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar20'
-import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry20__factory'
-import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
-import { KeeperRegistrar20__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar20__factory'
+import { KeeperRegistrar21 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar21'
+import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
+import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
+import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
+import { KeeperRegistrar21__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar21__factory'
 
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -22,7 +21,6 @@ import { toWei } from '../../test-helpers/helpers'
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let keeperRegistrar: KeeperRegistrarFactory
 let upkeepMockFactory: UpkeepMockFactory
 
@@ -35,14 +33,12 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  // @ts-ignore bug in autogen file
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
-  // @ts-ignore bug in autogen file
-  keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryLogic2_0',
-  )
-  // @ts-ignore bug in autogen file
-  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar2_0')
+  keeperRegistryFactory = (await ethers.getContractFactory(
+    'KeeperRegistry2_1',
+  )) as unknown as KeeperRegistryFactory
+  keeperRegistrar = (await ethers.getContractFactory(
+    'KeeperRegistrar2_1',
+  )) as unknown as KeeperRegistrarFactory
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
@@ -53,7 +49,7 @@ const errorMsgs = {
   requestNotFound: 'RequestNotFound()',
 }
 
-describe('KeeperRegistrar2_0', () => {
+describe('KeeperRegistrar2_1', () => {
   const upkeepName = 'SampleUpkeep'
 
   const linkEth = BigNumber.from(300000000)
@@ -93,8 +89,7 @@ describe('KeeperRegistrar2_0', () => {
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
-  let registry: KeeperRegistry
-  let registryLogic: KeeperRegistryLogic
+  let registry: IKeeperRegistry
   let mock: UpkeepMock
   let registrar: KeeperRegistrar
 
@@ -113,13 +108,20 @@ describe('KeeperRegistrar2_0', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    registryLogic = await keeperRegistryLogicFactory
-      .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
-    registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(registryLogic.address)
+    registry = IKeeperRegistryMasterFactory.connect(
+      (
+        await keeperRegistryFactory
+          .connect(owner)
+          .deploy(
+            0,
+            linkToken.address,
+            linkEthFeed.address,
+            gasPriceFeed.address,
+          )
+      ).address,
+      owner,
+    )
 
     mock = await upkeepMockFactory.deploy()
 
@@ -175,7 +177,7 @@ describe('KeeperRegistrar2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistrar 2.0.0')
+      assert.equal(typeAndVersion, 'KeeperRegistrar 2.1.0')
     })
   })
 
@@ -623,7 +625,7 @@ describe('KeeperRegistrar2_0', () => {
 
       await linkToken.connect(requestSender).approve(registrar.address, amount)
 
-      const tx = await registrar.connect(requestSender).registerUpkeep({
+      const params = {
         name: upkeepName,
         upkeepContract: mock.address,
         gasLimit: executeGas,
@@ -632,7 +634,16 @@ describe('KeeperRegistrar2_0', () => {
         offchainConfig,
         amount,
         encryptedEmail: emptyBytes,
-      })
+      }
+
+      // simulate tx to check return values
+      const [upkeepID, forwarder] = await registrar
+        .connect(requestSender)
+        .callStatic.registerUpkeep(params)
+      expect(upkeepID).to.not.equal(0)
+      expect(forwarder).to.not.equal(ethers.constants.AddressZero)
+
+      const tx = await registrar.connect(requestSender).registerUpkeep(params)
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
 
       //confirm if a new upkeep has been registered and the details are the same as the one just registered

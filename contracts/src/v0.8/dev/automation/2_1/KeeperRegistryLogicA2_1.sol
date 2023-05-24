@@ -24,18 +24,16 @@ contract KeeperRegistryLogicA2_1 is
   using EnumerableSet for EnumerableSet.UintSet;
 
   /**
-   * @param logicB the address of the second logic contract
+   * @dev see KeeperRegistry master contract for constructor description
    */
   constructor(
-    KeeperRegistryLogicB2_1 logicB
+    Mode mode,
+    address link,
+    address linkNativeFeed,
+    address fastGasFeed
   )
-    KeeperRegistryBase2_1(
-      logicB.getMode(),
-      logicB.getLinkAddress(),
-      logicB.getLinkNativeFeedAddress(),
-      logicB.getFastGasFeedAddress()
-    )
-    Chainable(address(logicB))
+    KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed)
+    Chainable(address(new KeeperRegistryLogicB2_1(mode, link, linkNativeFeed, fastGasFeed)))
   {}
 
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
@@ -340,10 +338,9 @@ contract KeeperRegistryLogicA2_1 is
       address[] memory upkeepAdmins,
       bytes[] memory offchainConfigs
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
-    // TODO - we should be creating the forwarder in the transcoder, not here
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == address(0)) {
-        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target);
+        upkeeps[idx].forwarder = new AutomationForwarder(upkeeps[idx].target);
       }
       _createUpkeep(
         ids[idx],

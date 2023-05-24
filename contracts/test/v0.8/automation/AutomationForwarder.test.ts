@@ -2,7 +2,6 @@ import { expect } from 'chai'
 import { ethers, network } from 'hardhat'
 import { getUsers, Roles } from '../../test-helpers/setup'
 import { AutomationForwarder } from '../../../typechain/AutomationForwarder'
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import {
   deployMockContract,
   MockContract,
@@ -37,31 +36,28 @@ const HANDLER_REVERT = '0xc07d0f94'
 
 const newRegistry = ethers.Wallet.createRandom().address
 
-const setup = async () => {
+before(async () => {
   roles = (await getUsers()).roles
   defaultAddress = await roles.defaultAccount.getAddress()
-  target = await deployMockContract(roles.defaultAccount, targetABI)
-  await target.deployed()
-  await target.mock.handler.returns()
-  await target.mock.handlerUint.returns(100)
-  await target.mock.iRevert.revertsWithReason(CUSTOM_REVERT)
-  const factory = await ethers.getContractFactory('AutomationForwarder')
-  forwarder = await factory
-    .connect(roles.defaultAccount)
-    .deploy(100, target.address)
-  await forwarder.deployed()
-}
+})
 
 describe('AutomationForwarder', () => {
   beforeEach(async () => {
-    await loadFixture(setup)
+    await network.provider.send('hardhat_reset')
+    target = await deployMockContract(roles.defaultAccount, targetABI)
+    await target.mock.handler.returns()
+    await target.mock.handlerUint.returns(100)
+    await target.mock.iRevert.revertsWithReason(CUSTOM_REVERT)
+    const factory = await ethers.getContractFactory('AutomationForwarder')
+    forwarder = await factory
+      .connect(roles.defaultAccount)
+      .deploy(target.address)
   })
 
   describe('constructor()', () => {
     it('sets the initial values', async () => {
       expect(await forwarder.getRegistry()).to.equal(defaultAddress)
       expect(await forwarder.getTarget()).to.equal(target.address)
-      expect(await forwarder.getUpkeepID()).to.equal(100)
     })
   })
 

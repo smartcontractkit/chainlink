@@ -7,8 +7,8 @@ import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factorie
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry1_2 as KeeperRegistry } from '../../typechain/KeeperRegistry1_2'
-import { KeeperRegistry1_2__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry1_2__factory'
+import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
+import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
 import { KeeperRegistrar } from '../../typechain/KeeperRegistrar'
 import { KeeperRegistrar__factory as KeeperRegistrarFactory } from '../../typechain/factories/KeeperRegistrar__factory'
 

@@ -3,10 +3,13 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -36,8 +39,8 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	return r0
 }
 
-// CreateTransaction provides a mock function with given fields: newTx, qopts
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateTransaction(newTx types.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
+// CreateEthTransaction provides a mock function with given fields: newTx, qopts
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateEthTransaction(newTx types.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -159,22 +162,22 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	return r0
 }
 
-// SendNativeToken provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendNativeToken(chainID CHAIN_ID, from ADDR, to ADDR, value big.Int, gasLimit uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
+// SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SendEther(chainID *big.Int, from ADDR, to ADDR, value assets.Eth, gasLimit uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
 
 	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error)); ok {
 		return rf(chainID, from, to, value, gasLimit)
 	}
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]); ok {
 		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD])
 	}
 
-	if rf, ok := ret.Get(1).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, ADDR, ADDR, assets.Eth, uint32) error); ok {
 		r1 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r1 = ret.Error(1)

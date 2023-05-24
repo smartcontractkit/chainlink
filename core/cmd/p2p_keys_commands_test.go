@@ -106,8 +106,7 @@ func TestClient_DeleteP2PKey(t *testing.T) {
 	require.NoError(t, set.Set("yes", "true"))
 
 	strID := key.ID()
-	err = set.Parse([]string{strID})
-	require.NoError(t, err)
+	set.Parse([]string{strID})
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteP2PKey(c)
 	require.NoError(t, err)

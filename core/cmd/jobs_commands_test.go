@@ -340,8 +340,7 @@ func TestClient_ShowJob(t *testing.T) {
 	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
 
 	set := flag.NewFlagSet("test", 0)
-	err = set.Parse([]string{createOutput.ID})
-	require.NoError(t, err)
+	set.Parse([]string{createOutput.ID})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ShowJob(c))

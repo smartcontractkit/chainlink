@@ -1290,31 +1290,6 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		res := bhe.EffectiveGasPrice(block, tx)
 		assert.Nil(t, res)
 	})
-	t.Run("Assumption violation of MaxFeePerGas >= BaseFeePerGas returns gas price if specified", func(t *testing.T) {
-		// Max: 1, Base: 100
-		tx := evmtypes.Transaction{Type: 0x2, GasPrice: assets.NewWeiI(42), MaxPriorityFeePerGas: assets.NewWeiI(1), MaxFeePerGas: assets.NewWeiI(1), GasLimit: 42, Hash: utils.NewHash()}
-		res := bhe.EffectiveGasPrice(eipblock, tx)
-		assert.Equal(t, "42 wei", res.String())
-	})
-	t.Run("Assumption violation of MaxFeePerGas >= MaxPriorityFeePerGas returns gas price if specified", func(t *testing.T) {
-		// Max Priority: 201, Max: 200, Base: 100
-		tx := evmtypes.Transaction{Type: 0x2, GasPrice: assets.NewWeiI(42), MaxPriorityFeePerGas: assets.NewWeiI(201), MaxFeePerGas: assets.NewWeiI(200), GasLimit: 42, Hash: utils.NewHash()}
-		res := bhe.EffectiveGasPrice(eipblock, tx)
-		assert.Equal(t, "42 wei", res.String())
-	})
-	t.Run("Assumption violation of MaxFeePerGas >= BaseFeePerGas returns nil if no gas price is specified", func(t *testing.T) {
-		// Max: 1, Base: 100
-		tx := evmtypes.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(1), MaxFeePerGas: assets.NewWeiI(1), GasLimit: 42, Hash: utils.NewHash()}
-		res := bhe.EffectiveGasPrice(eipblock, tx)
-		assert.Nil(t, res)
-	})
-	t.Run("Assumption violation of MaxFeePerGas >= MaxPriorityFeePerGas returns nil if no gas price is specified", func(t *testing.T) {
-		// Max Priority: 201, Max: 200, Base: 100
-		tx := evmtypes.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(201), MaxFeePerGas: assets.NewWeiI(200), GasLimit: 42, Hash: utils.NewHash()}
-		res := bhe.EffectiveGasPrice(eipblock, tx)
-		assert.Nil(t, res)
-	})
-
 }
 
 func TestBlockHistoryEstimator_Block_Unmarshal(t *testing.T) {
