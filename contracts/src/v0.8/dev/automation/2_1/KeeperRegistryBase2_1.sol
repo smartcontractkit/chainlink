@@ -257,6 +257,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   // Report transmitted by OCR to transmit function
+  // TODO - do we use this struct anywhere?
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
@@ -363,7 +364,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (!target.isContract()) revert NotAContract();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    if (s_upkeep[id].target != address(0)) revert UpkeepAlreadyExists();
+    if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
