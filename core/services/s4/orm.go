@@ -45,7 +45,7 @@ type ORM interface {
 	// DeleteExpired deletes any entries having Expiration < now().
 	DeleteExpired(qopts ...pg.QOpt) error
 
-	// GetSnapshot selects all non-expired rows ordered by UpdatedAt.
+	// GetSnapshot selects all rows ordered by UpdatedAt.
 	// Min/Max addresses are specifying the scope.
 	// To get a full snapshot, use MinAddress and MaxAddress variables.
 	GetSnapshot(minAddress, maxAddress *big.Int, qopts ...pg.QOpt) ([]*Row, error)
