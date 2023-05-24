@@ -17,4 +17,5 @@ type Config interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
 	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
+	ThresholdKeyShare() string
 }
