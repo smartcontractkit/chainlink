@@ -3297,7 +3297,7 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it.only('creates a record of the registration', async () => {
+    it('creates a record of the registration', async () => {
       const executeGases = [100000, 500000]
       const checkDatas = [emptyBytes, '0x12']
       const offchainConfig = '0x1234567890'
@@ -3594,7 +3594,7 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it.only('updates the config successfully', async () => {
+    it('updates the config successfully', async () => {
       const initialConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
       assert.equal(initialConfig, '0x')
       await registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig)
