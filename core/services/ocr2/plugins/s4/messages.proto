@@ -8,8 +8,8 @@ message Row {
     string address   = 1;
     uint32 slotid    = 2;
     bytes payload    = 3;
-	uint64 version   = 4;
-	int64 expiration = 5;
+    uint64 version   = 4;
+    int64 expiration = 5;
     bytes signature  = 6;
 }
 
