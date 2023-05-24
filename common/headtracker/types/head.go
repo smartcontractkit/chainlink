@@ -13,5 +13,5 @@ type Head[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtyp
 	// ChainID returns the chain ID that the head is for
 	ChainId() CHAIN_ID
 	// Returns true if the head has a chain Id
-	HasChainId() bool
+	HasChainID() bool
 }
