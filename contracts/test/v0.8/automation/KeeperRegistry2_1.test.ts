@@ -4713,8 +4713,15 @@ describe('KeeperRegistry2_1', () => {
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic['mercuryCallback(uint256,bytes[],bytes)'](upkeepId, values, extraData)
-      const expectedPerformData = ethers.utils.defaultAbiCoder.encode(['bytes[]', 'bytes'], [values, extraData])
+        .callStatic['mercuryCallback(uint256,bytes[],bytes)'](
+          upkeepId,
+          values,
+          extraData,
+        )
+      const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
+        ['bytes[]', 'bytes'],
+        [values, extraData],
+      )
 
       assert.isTrue(res.upkeepNeeded)
       assert.equal(res.performData, expectedPerformData)
