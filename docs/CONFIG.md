@@ -4615,7 +4615,7 @@ SelectionMode controls node selection strategy:
 SyncThreshold = 5 # Default
 ```
 SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
-Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`,`PriorityLevel`), or total difficulty (`TotalDifficulty`).
 
 Set to 0 to disable this check.
 
@@ -4660,6 +4660,7 @@ Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 SendOnly = false # Default
+Priority = 0 # Default
 ```
 
 
@@ -4686,6 +4687,12 @@ HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+### Priority
+```toml
+Priority = 0 # Default
+```
+Priority of the node in the pool, only takes effect if `SelectionMode` is `PriorityLevel`
 
 ## EVM.OCR2.Automation
 ```toml
