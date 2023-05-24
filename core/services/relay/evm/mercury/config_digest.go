@@ -61,7 +61,7 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	if types.ConfigDigestPrefixEVM != 1 {
+	if types.ConfigDigestPrefixMercury != 6 {
 		// assertion
 		panic("wrong ConfigDigestPrefix")
 	}

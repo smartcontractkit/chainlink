@@ -64,5 +64,5 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 }
 
 func (d OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
-	return types.ConfigDigestPrefixEVM
+	return types.ConfigDigestPrefixMercury
 }
