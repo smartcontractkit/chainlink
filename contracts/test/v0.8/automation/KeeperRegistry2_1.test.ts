@@ -6,6 +6,7 @@ import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import { toWei } from '../../test-helpers/helpers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
+import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typechain/factories/MercuryUpkeep__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
@@ -16,6 +17,7 @@ import { KeeperRegistryLogicB21__factory as KeeperRegistryLogicBFactory } from '
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
+import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -98,6 +100,8 @@ let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
+let mercuryUpkeepFactory: MercuryUpkeepFactory
+let mercuryUpkeep: MercuryUpkeep
 let personas: Personas
 
 const encodeConfig = (config: any) => {
@@ -346,6 +350,7 @@ describe('KeeperRegistry2_1', () => {
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
       'MockOVMGasPriceOracle',
     )
+    mercuryUpkeepFactory = await ethers.getContractFactory('MercuryUpkeep')
 
     owner = personas.Default
     keeper1 = personas.Carol
@@ -616,6 +621,13 @@ describe('KeeperRegistry2_1', () => {
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)
       .deploy()
+    mercuryUpkeep = await mercuryUpkeepFactory
+      .connect(owner)
+      .deploy(
+        BigNumber.from('10000'),
+        BigNumber.from('100'),
+        true /* set to true so it uses block.number */,
+      )
 
     const arbOracleCode = await ethers.provider.send('eth_getCode', [
       mockArbGasInfo.address,
@@ -4683,15 +4695,31 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  // describe('#mercuryCallback', () => {
-  //   it('succeeds with upkeep needed', async () => {
-  //     const values: any[] = ['0x1234', '0xabcd']
-  //     const extraData = '0x1a1b1c'
-  //
-  //     const res = await registry.mercuryCallback(upkeepId, values, extraData)
-  //     assert.isTrue(res.upkeepNeeded)
-  //   })
-  // })
+  describe('#mercuryCallback', () => {
+    it('succeeds with upkeep needed', async () => {
+      const tx = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mercuryUpkeep.address,
+          executeGas,
+          await admin.getAddress(),
+          randomBytes,
+          emptyBytes,
+        )
+      upkeepId = await getUpkeepID(tx)
+
+      const values: any[] = ['0x1234', '0xabcd']
+      const extraData = '0x1a1b1c'
+
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic['mercuryCallback(uint256,bytes[],bytes)'](upkeepId, values, extraData)
+      const expectedPerformData = ethers.utils.defaultAbiCoder.encode(['bytes[]', 'bytes'], [values, extraData])
+
+      assert.isTrue(res.upkeepNeeded)
+      assert.equal(res.performData, expectedPerformData)
+    })
+  })
 
   describe('#setUpkeepManager() / #getUpkeepManager()', () => {
     it('reverts when non owner tries to set upkeep manager', async () => {
