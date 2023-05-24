@@ -555,20 +555,6 @@ func (_m *GeneralConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	return r0
 }
 
-// DatabaseLockingMode provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseLockingMode() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // DatabaseURL provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseURL() url.URL {
 	ret := _m.Called()
@@ -1232,34 +1218,6 @@ func (_m *GeneralConfig) KeystorePassword() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// LeaseLockDuration provides a mock function with given fields:
-func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// LeaseLockRefreshInterval provides a mock function with given fields:
-func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

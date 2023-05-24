@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -25,17 +26,15 @@ type LockedDB interface {
 type LockedDBConfig interface {
 	ConnectionConfig
 	AppID() uuid.UUID
-	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	DatabaseDefaultQueryTimeout() time.Duration
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	MigrateDatabase() bool
 }
 
 type lockedDb struct {
 	cfg           LockedDBConfig
+	lockCfg       config.Lock
 	lggr          logger.Logger
 	db            *sqlx.DB
 	leaseLock     LeaseLock
@@ -43,10 +42,11 @@ type lockedDb struct {
 }
 
 // NewLockedDB creates a new instance of LockedDB.
-func NewLockedDB(cfg LockedDBConfig, lggr logger.Logger) LockedDB {
+func NewLockedDB(cfg LockedDBConfig, lockCfg config.Lock, lggr logger.Logger) LockedDB {
 	return &lockedDb{
-		cfg:  cfg,
-		lggr: lggr.Named("LockedDB"),
+		cfg:     cfg,
+		lockCfg: lockCfg,
+		lggr:    lggr.Named("LockedDB"),
 	}
 }
 
@@ -85,13 +85,18 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	l.statsReporter.Start(ctx)
 
 	// Step 3: acquire DB locks
-	lockingMode := l.cfg.DatabaseLockingMode()
+	lockingMode := l.lockCfg.LockingMode()
 	l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
 	// Take the lease before any other DB operations
 	switch lockingMode {
 	case "lease":
-		l.leaseLock = NewLeaseLock(l.db, l.cfg.AppID(), l.lggr, l.cfg)
+		cfg := LeaseLockConfig{
+			DefaultQueryTimeout:  l.cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        l.lockCfg.LeaseDuration(),
+			LeaseRefreshInterval: l.lockCfg.LeaseRefreshInterval(),
+		}
+		l.leaseLock = NewLeaseLock(l.db, l.cfg.AppID(), l.lggr, cfg)
 		if err = l.leaseLock.TakeAndHold(ctx); err != nil {
 			defer revert()
 			return errors.Wrap(err, "failed to take initial lease on database")
