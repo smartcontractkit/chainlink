@@ -181,7 +181,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
-    uint8 f; // maximum  number of faulty oracles
+    uint8 f; // maximum number of faulty oracles
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
