@@ -163,10 +163,6 @@ func (h *Head) HasChainId() bool {
 	return h.EVMChainID != nil
 }
 
-func (h *Head) IsSameChain(id *big.Int) bool {
-	return h.EVMChainID.ToInt().Cmp(id) == 0
-}
-
 func (h *Head) ChainString() string {
 	var sb strings.Builder
 

@@ -115,6 +115,20 @@ func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) GetParent() types.Head[BLOCK_HASH] {
 	return r0
 }
 
+// HasChainId provides a mock function with given fields:
+func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HasChainId() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // HashAtHeight provides a mock function with given fields: blockNum
 func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HashAtHeight(blockNum int64) BLOCK_HASH {
 	ret := _m.Called(blockNum)
@@ -124,20 +138,6 @@ func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) HashAtHeight(blockNum int64) BLOCK_HASH
 		r0 = rf(blockNum)
 	} else {
 		r0 = ret.Get(0).(BLOCK_HASH)
-	}
-
-	return r0
-}
-
-// IsChainIdNil provides a mock function with given fields:
-func (_m *Head[H, BLOCK_HASH, CHAIN_ID]) IsChainIdNil() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
