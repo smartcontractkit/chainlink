@@ -462,6 +462,20 @@ func (_m *Node) PendingNonceAt(ctx context.Context, account common.Address) (uin
 	return r0, r1
 }
 
+// PriorityLevel provides a mock function with given fields:
+func (_m *Node) PriorityLevel() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	return r0
+}
+
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *Node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)

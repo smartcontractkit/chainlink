@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
+- Added new node selection mode `PriorityLevel` for EVM, it is a tiered round-robin where the highest priority is favored. If priority is not defined it will default to `0`. Example:
+```
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+
+[[EVM.Nodes]]
+Name = '...'
+WSURL = '...'
+HTTPURL = '...'
+Priority = 5 
+```
 
 ### Fixed
 

@@ -308,7 +308,7 @@ PollInterval = '10s' # Default
 # - TotalDifficulty: use the node with the greatest total difficulty
 SelectionMode = 'HighestHead' # Default
 # SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
-# Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+# Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`,`PriorityLevel`), or total difficulty (`TotalDifficulty`).
 #
 # Set to 0 to disable this check.
 SyncThreshold = 5 # Default
@@ -332,6 +332,8 @@ WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default
+# Priority of the node in the pool, only takes effect if `SelectionMode` is `PriorityLevel`
+Priority = 0 #Default
 
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.

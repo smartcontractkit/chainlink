@@ -33,7 +33,7 @@ func newTestNode(t *testing.T, cfg NodeConfig) *node {
 
 func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JSONRPCHandler) *node {
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, callback)
-	iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+	iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 	n := iN.(*node)
 	return n
 }
@@ -221,7 +221,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -267,7 +267,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -305,7 +305,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(pollDisabledCfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(pollDisabledCfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (int, int64, *utils.Big) { return 1, 0, nil }
 		dial(t, n)
@@ -350,7 +350,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
 			return 2, highestHead.Load(), nil
@@ -412,7 +412,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
 			return 2, highestHead.Load(), nil
@@ -471,7 +471,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
 			return 1, highestHead.Load(), nil
@@ -556,7 +556,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 
 		dial(t, n)
@@ -603,7 +603,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
+		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 
 		start(t, n)
@@ -658,7 +658,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
+		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *utils.Big) {
 			return 2, stall + int64(cfg.SyncThreshold), nil
@@ -714,7 +714,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 0)
 		n := iN.(*node)
 		n.nLiveNodes = func() (int, int64, *utils.Big) { return 0, 0, nil }
 
@@ -771,7 +771,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
+		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 0)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
@@ -790,7 +790,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	t.Run("on failed redial, keeps trying to redial", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
-		iN := NewNode(cfg, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42))
+		iN := NewNode(cfg, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42), 0)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
@@ -842,7 +842,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		cfg := TestNodeConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
+		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 0)
 		n := iN.(*node)
 		defer func() { assert.NoError(t, n.Close()) }()
 		dial(t, n)

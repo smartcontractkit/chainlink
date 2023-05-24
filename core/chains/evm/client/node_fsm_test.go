@@ -42,7 +42,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, nil)
-	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil)
+	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil, 0)
 	n := iN.(*node)
 
 	assert.Equal(t, NodeStateUndialed, n.State())

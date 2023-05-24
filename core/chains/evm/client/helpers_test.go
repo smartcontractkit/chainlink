@@ -38,7 +38,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 	}
 
 	lggr := logger.TestLogger(t)
-	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)
+	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 0)
 	n.(*node).setLatestReceived(0, utils.NewBigI(0))
 	primaries := []Node{n}
 

@@ -301,7 +301,7 @@ func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n *v2.Node, id int
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
 
-	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID), nil
+	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Priority), nil
 }
 
 func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
