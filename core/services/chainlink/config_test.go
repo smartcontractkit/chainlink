@@ -1030,6 +1030,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
 			}
+			if got.EVM[c].Nodes[n].Priority == nil {
+				got.EVM[c].Nodes[n].Priority = ptr(int32(0))
+			}
 		}
 	}
 
