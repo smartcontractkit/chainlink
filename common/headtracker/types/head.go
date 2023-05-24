@@ -14,6 +14,4 @@ type Head[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtyp
 	ChainId() CHAIN_ID
 	// Returns true if the head has a chain Id
 	HasChainId() bool
-	// Check if the two heads are of the same chain
-	IsSameChain(CHAIN_ID) bool
 }
