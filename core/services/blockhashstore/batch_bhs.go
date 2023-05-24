@@ -65,7 +65,7 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateEthTransaction(txmgr.EvmNewTx{
+	_, err = b.txm.CreateTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
