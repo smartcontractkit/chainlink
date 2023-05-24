@@ -604,16 +604,6 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
-}
-
 func (g *generalConfig) LogFileDir() string {
 	s := *g.c.Log.File.Dir
 	if s == "" {
