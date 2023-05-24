@@ -9,7 +9,7 @@ import {AccessControllerInterface} from "../../interfaces/AccessControllerInterf
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
   bytes32[3] internal s_reportContext;
 
-  event ReportVerified(bytes32 indexed feedId, bytes32 reportHash, address requester);
+  event ReportVerified(bytes32 indexed feedId, address requester);
 
   Report internal s_testReportOne;
 
@@ -154,7 +154,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     bytes32[3] memory reportContext = s_reportContext;
     reportContext[0] = bytes32("wrong-context-digest");
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestNotSet.selector, FEED_ID, reportContext[0]));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID, reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
@@ -171,7 +171,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       BLOCKNUMBER_LOWER_BOUND
     );
     bytes memory signedReport = _generateEncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestNotSet.selector, FEED_ID_2, s_reportContext[0]));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID_2, s_reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
@@ -226,7 +226,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     vm.expectEmit(true, true, true, true, address(s_verifier));
-    emit ReportVerified(s_testReportOne.feedId, keccak256(abi.encode(s_testReportOne)), msg.sender);
+    emit ReportVerified(s_testReportOne.feedId, msg.sender);
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }

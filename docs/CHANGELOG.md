@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+# 2.2.0 - UNRELEASED
+
 ### Added
 
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
@@ -39,6 +43,16 @@ Priority = 5
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 
 <!-- unreleasedstop -->
+
+## 2.1.1 - 2023-05-22
+
+### Updated
+
+- Upgraded WSRPC to v0.7.2
+
+### Fixed
+
+- Fixed a bug that would cause telemetry to be sent with the wrong type.
 
 ## 2.1.0 - 2023-05-16
 

@@ -84,7 +84,7 @@ func NewHeadTracker(
 func (ht *headTracker) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
-		latestChain, err := ht.headSaver.LoadFromDB(ctx)
+		latestChain, err := ht.headSaver.Load(ctx)
 		if err != nil {
 			return err
 		}

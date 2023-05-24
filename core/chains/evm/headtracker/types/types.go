@@ -15,8 +15,8 @@ type HeadSaver interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head *evmtypes.Head) error
-	// LoadFromDB loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	LoadFromDB(ctx context.Context) (*evmtypes.Head, error)
+	// Load loads latest EvmHeadTrackerHistoryDepth heads from the DB, returns the latest chain.
+	Load(ctx context.Context) (*evmtypes.Head, error)
 	// LatestHeadFromDB returns the highest seen head from DB.
 	LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
