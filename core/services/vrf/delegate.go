@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -113,6 +114,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
+	var vrfOwner *vrf_owner.VRFOwner
+	if jb.VRFSpec.VRFOwnerAddress != nil {
+		vrfOwner, err = vrf_owner.NewVRFOwner(
+			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "create vrf owner wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -120,6 +131,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
+
+	if vrfOwner == nil {
+		lV2.Infow("Running without VRFOwnerAddress set on the spec")
+	}
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
@@ -153,6 +168,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.q,
 				coordinatorV2,
 				batchCoordinatorV2,
+				vrfOwner,
 				aggregator,
 				chain.TxManager(),
 				d.pr,

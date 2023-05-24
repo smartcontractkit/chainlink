@@ -467,6 +467,11 @@ type VRFSpec struct {
 	// fulfillment.
 	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
 
+	// VRFOwnerAddress is the address of the VRFOwner address to use.
+	//
+	// V2 only.
+	VRFOwnerAddress *ethkey.EIP55Address `toml:"vrfOwnerAddress"`
+
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`

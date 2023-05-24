@@ -722,6 +722,15 @@ func (r *VRFSpecResolver) GasLanePrice() *string {
 	return &gasLanePriceGWei
 }
 
+// VRFOwnerAddress resolves the spec's vrf owner address.
+func (r *VRFSpecResolver) VRFOwnerAddress() *string {
+	if r.spec.VRFOwnerAddress == nil {
+		return nil
+	}
+	vrfOwnerAddress := r.spec.VRFOwnerAddress.String()
+	return &vrfOwnerAddress
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }

@@ -11,6 +11,8 @@ solc-select install 0.8.6
 solc-select install 0.8.15
 solc-select install 0.8.16
 
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFOwner.sol
+
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
 $SCRIPTPATH/native_solc6_compile FluxAggregator.sol
@@ -81,6 +83,7 @@ $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol 10000
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFOwner.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol

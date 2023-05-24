@@ -58,6 +58,7 @@ package gethwrappers
 //go:generate go run ./generation/generate_link/wrap_link.go
 
 // VRF V2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFOwner.abi ../../contracts/solc/v0.8.6/VRFOwner.bin VRFOwner vrf_owner
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2.bin VRFCoordinatorV2 vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumerV2.abi ../../contracts/solc/v0.8.6/VRFConsumerV2.bin VRFConsumerV2 vrf_consumer_v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.abi ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.bin VRFMaliciousConsumerV2 vrf_malicious_consumer_v2

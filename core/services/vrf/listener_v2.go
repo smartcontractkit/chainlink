@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -43,6 +45,7 @@ var (
 	_                     job.ServiceCtx = &listenerV2{}
 	coordinatorV2ABI                     = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 	batchCoordinatorV2ABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
+	vrfOwnerABI                          = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
 )
 
 const (
@@ -82,6 +85,7 @@ func newListenerV2(
 	q pg.Q,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
+	vrfOwner vrf_owner.VRFOwnerInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
 	txm txmgr.EvmTxManager,
 	pipelineRunner pipeline.Runner,
@@ -104,6 +108,7 @@ func newListenerV2(
 		mailMon:            mailMon,
 		coordinator:        coordinator,
 		batchCoordinator:   batchCoordinator,
+		vrfOwner:           vrfOwner,
 		pipelineRunner:     pipelineRunner,
 		job:                job,
 		q:                  q,
@@ -156,6 +161,7 @@ type listenerV2 struct {
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
+	vrfOwner         vrf_owner.VRFOwnerInterface
 
 	pipelineRunner pipeline.Runner
 	job            job.Job
@@ -401,28 +407,45 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		lsn.reqsMu.Unlock() // unlock here since len(lsn.reqs) is a read, to avoid a data race.
 	}()
 
-	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
-	// are no pending requests
 	if len(confirmed) == 0 {
 		lsn.l.Infow("No pending requests ready for processing")
 		return
 	}
 	for subID, reqs := range confirmed {
+		l := lsn.l.With("subID", subID, "startTime", time.Now(), "numReqsForSub", len(reqs))
+		// Get the balance of the subscription and also it's active status.
+		// The reason we need both is that we cannot determine if a subscription
+		// is active solely by it's balance, since an active subscription could legitimately
+		// have a zero balance.
+		var (
+			startBalance *big.Int
+			subIsActive  bool
+		)
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
 			Context: ctx,
 		}, subID)
 
 		if err != nil {
 			if strings.Contains(err.Error(), "execution reverted") {
-				lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
-				for _, req := range reqs {
-					lsn.l.Infow("Skipping requests without valid subscription", "subID", subID, "reqID", req.req.RequestId)
-					processed[req.req.RequestId.String()] = struct{}{}
-				}
+				// "execution reverted" indicates that the subscription no longer exists.
+				// We can no longer just mark these as processed and continue,
+				// since it could be that the subscription was canceled while there
+				// were still unfulfilled requests.
+				// The simplest approach to handle this is to enter the processRequestsPerSub
+				// loop rather than create a bunch of largely duplicated code
+				// to handle this specific situation, since we need to run the pipeline to get
+				// the VRF proof, abi-encode it, etc.
+				l.Warnw("Subscription not found - setting start balance to zero", "subID", subID, "err", err)
+				startBalance = big.NewInt(0)
 			} else {
-				lsn.l.Errorw("Unable to read subscription balance", "subID", subID, "err", err)
+				// Most likely this is an RPC error, so we re-try later.
+				l.Errorw("Unable to read subscription balance", "err", err)
+				continue
 			}
-			continue
+		} else {
+			// Happy path - sub is active.
+			startBalance = sub.Balance
+			subIsActive = true
 		}
 
 		// Sort requests in ascending order by CallbackGasLimit
@@ -434,8 +457,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
 		})
 
-		startBalance := sub.Balance
-		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
+		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs, subIsActive)
 		for reqID := range p {
 			processed[reqID] = struct{}{}
 		}
@@ -494,6 +516,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	subID uint64,
 	startBalance *big.Int,
 	reqs []pendingRequest,
+	subIsActive bool,
 ) map[string]struct{} {
 	start := time.Now()
 	var processed = make(map[string]struct{})
@@ -526,6 +549,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 		"batchMaxGas", batchMaxGas,
+		"subIsActive", subIsActive,
 	)
 
 	defer func() {
@@ -594,23 +618,50 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
 				"remainingBalance", startBalanceNoReserveLink.String(),
+				"consumerAddress", p.req.req.Sender,
+				"blockNumber", p.req.req.Raw.BlockNumber,
+				"blockHash", p.req.req.Raw.BlockHash,
 			)
+			fromAddresses := lsn.fromAddresses()
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			if err != nil {
+				l.Errorw("Couldn't get next from address", "err", err)
+				continue
+			}
+			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
-					outOfBalance = true
-
-					// break out of this inner loop to process the currently constructed batch
-					break
-				}
-
 				if errors.Is(p.err, errBlockhashNotInStore{}) {
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
+					if !subIsActive {
+						ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
+						etx, err := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
+						if err != nil {
+							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err)
+							continue
+						}
+						ll.Infow("Successfully enqueued force-fulfillment", "ethTxID", etx.ID)
+						processed[p.req.req.RequestId.String()] = struct{}{}
+
+						// Need to put a continue here, otherwise the next if statement will be hit
+						// and we'd break out of the loop prematurely.
+						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
+						// before saying we're done with it.
+						continue
+					}
+
+					if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+						ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+						outOfBalance = true
+
+						// break out of this inner loop to process the currently constructed batch
+						break
+					}
+
 					// Ensure consumer is valid, otherwise drop the request.
 					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
 						lsn.l.Infow(
@@ -634,7 +685,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				break
 			}
 
-			batches.addRun(p)
+			batches.addRun(p, fromAddress)
 
 			startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, p.maxLink)
 		}
@@ -642,7 +693,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		var processedRequestIDs []string
 		for _, batch := range batches.fulfillments {
 			l.Debugw("Processing batch", "batchSize", len(batch.proofs))
-			p := lsn.processBatch(l, subID, startBalanceNoReserveLink, batchMaxGas, batch)
+			p := lsn.processBatch(l, subID, startBalanceNoReserveLink, batchMaxGas, batch, batch.fromAddress)
 			processedRequestIDs = append(processedRequestIDs, p...)
 		}
 
@@ -660,6 +711,79 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	return processed
+}
+
+// enqueueForceFulfillment enqueues a forced fulfillment through the
+// VRFOwner contract. It estimates gas again on the transaction due
+// to the extra steps taken within VRFOwner.fulfillRandomWords.
+func (lsn *listenerV2) enqueueForceFulfillment(
+	ctx context.Context,
+	p vrfPipelineResult,
+	fromAddress common.Address,
+) (etx txmgr.EvmTx, err error) {
+	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
+		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
+		return
+	}
+
+	if p.payload == "" {
+		// should probably never happen
+		// a critical log will be logged if this is the case in simulateFulfillment
+		err = errors.New("empty payload in vrfPipelineResult")
+		return
+	}
+
+	// fulfill the request through the VRF owner
+	err = lsn.q.Transaction(func(tx pg.Queryer) error {
+		if err = lsn.logBroadcaster.MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+
+		lsn.l.Infow("VRFOwner.fulfillRandomWords vs. VRFCoordinatorV2.fulfillRandomWords",
+			"vrf_owner.fulfillRandomWords", hexutil.Encode(vrfOwnerABI.Methods["fulfillRandomWords"].ID),
+			"vrf_coordinator_v2.fulfillRandomWords", hexutil.Encode(coordinatorV2ABI.Methods["fulfillRandomWords"].ID),
+		)
+
+		vrfOwnerAddress1 := lsn.vrfOwner.Address()
+		vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
+		lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
+
+		txData, err := vrfOwnerABI.Pack("fulfillRandomWords", p.proof, p.reqCommitment)
+		if err != nil {
+			return errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
+		}
+		estimateGasLimit, err := lsn.ethClient.EstimateGas(ctx, ethereum.CallMsg{
+			From: fromAddress,
+			To:   &vrfOwnerAddressSpec,
+			Data: txData,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to estimate gas on VRFOwner.fulfillRandomWords")
+		}
+
+		lsn.l.Infow("Estimated gas limit on force fulfillment",
+			"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
+		if estimateGasLimit < uint64(p.gasLimit) {
+			estimateGasLimit = uint64(p.gasLimit)
+		}
+
+		requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
+		etx, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      lsn.vrfOwner.Address(),
+			EncodedPayload: txData,
+			FeeLimit:       uint32(estimateGasLimit),
+			Strategy:       txmgr.NewSendEveryStrategy(),
+			Meta: &txmgr.EthTxMeta{
+				RequestID:     &requestID,
+				SubID:         &p.req.req.SubId,
+				RequestTxHash: &p.req.req.Raw.TxHash,
+				// No max link since simulation failed
+			},
+		}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+		return err
+	})
+	return
 }
 
 // For an errored pipeline run, wait until the finality depth of the chain to have elapsed,
@@ -686,9 +810,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 	subID uint64,
 	startBalance *big.Int,
 	reqs []pendingRequest,
+	subIsActive bool,
 ) map[string]struct{} {
 	if lsn.job.VRFSpec.BatchFulfillmentEnabled && lsn.batchCoordinator != nil {
-		return lsn.processRequestsPerSubBatch(ctx, subID, startBalance, reqs)
+		return lsn.processRequestsPerSubBatch(ctx, subID, startBalance, reqs, subIsActive)
 	}
 
 	start := time.Now()
@@ -706,6 +831,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
+		"subIsActive", subIsActive,
 	)
 
 	defer func() {
@@ -762,20 +888,46 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
 				"remainingBalance", startBalanceNoReserveLink.String(),
+				"consumerAddress", p.req.req.Sender,
+				"blockNumber", p.req.req.Raw.BlockNumber,
+				"blockHash", p.req.req.Raw.BlockHash,
 			)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			if err != nil {
+				l.Errorw("Couldn't get next from address", "err", err)
+				continue
+			}
+			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
-					return processed
-				}
-
 				if errors.Is(p.err, errBlockhashNotInStore{}) {
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
+
+					if !subIsActive {
+						lsn.l.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
+						etx, err2 := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
+						if err2 != nil {
+							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err2)
+							continue
+						}
+						ll.Infow("Enqueued force-fulfillment", "ethTxID", etx.ID)
+						processed[p.req.req.RequestId.String()] = struct{}{}
+
+						// Need to put a continue here, otherwise the next if statement will be hit
+						// and we'd break out of the loop prematurely.
+						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
+						// before saying we're done with it.
+						continue
+					}
+
+					if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
+						ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
+						return processed
+					}
 
 					// Ensure consumer is valid, otherwise drop the request.
 					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
@@ -797,13 +949,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Infow("Insufficient link balance to fulfill a request, returning")
 				return processed
 			}
-
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-			if err != nil {
-				l.Errorw("Couldn't get next from address", "err", err)
-				continue
-			}
-			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
 			var transaction txmgr.EvmTx
@@ -1037,6 +1182,29 @@ func (lsn *listenerV2) simulateFulfillment(
 		if strings.Contains(res.err.Error(), "blockhash not found in store") {
 			res.err = multierr.Combine(res.err, errBlockhashNotInStore{})
 		} else if strings.Contains(res.err.Error(), "execution reverted") {
+			// Even if the simulation fails, we want to get the
+			// txData for the fulfillRandomWords call, in case
+			// we need to force fulfill.
+			for _, trr := range trrs {
+				if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
+					if trr.Result.Error != nil {
+						// error in VRF proof generation
+						// this means that we won't be able to force-fulfill in the event of a
+						// canceled sub and active requests.
+						// since this would be an extraordinary situation,
+						// we can log loudly here.
+						lg.Criticalw("failed to generate VRF proof", "err", trr.Result.Error)
+						break
+					}
+
+					// extract the abi-encoded tx data to fulfillRandomWords from the VRF task.
+					// that's all we need in the event of a force-fulfillment.
+					m := trr.Result.Value.(map[string]any)
+					res.payload = m["output"].(string)
+					res.proof = m["proof"].(vrf_coordinator_v2.VRFProof)
+					res.reqCommitment = m["requestCommitment"].(vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)
+				}
+			}
 			res.err = multierr.Combine(res.err, errPossiblyInsufficientFunds{})
 		}
 

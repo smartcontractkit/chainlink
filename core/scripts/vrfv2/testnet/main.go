@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1001,7 +1002,54 @@ func main() {
 		result := binarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
 
 		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
+	case "coordinator-transfer-ownership":
+		cmd := flag.NewFlagSet("coordinator-transfer-ownership", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "v2 coordinator address")
+		newOwner := cmd.String("new-owner", "", "new owner address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "new-owner")
 
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		tx, err := coordinator.TransferOwnership(e.Owner, common.HexToAddress(*newOwner))
+		helpers.PanicErr(err)
+
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", *newOwner)
+	case "vrf-owner-deploy":
+		cmd := flag.NewFlagSet("vrf-owner-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "v2 coordinator address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+
+		_, tx, _, err := vrf_owner.DeployVRFOwner(e.Owner, e.Ec, common.HexToAddress(*coordinatorAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	case "vrf-owner-set-authorized-senders":
+		cmd := flag.NewFlagSet("vrf-owner-set-authorized-senders", flag.ExitOnError)
+		vrfOwnerAddress := cmd.String("vrf-owner-address", "", "vrf owner address")
+		authorizedSenders := cmd.String("authorized-senders", "", "comma separated list of authorized senders")
+		helpers.ParseArgs(cmd, os.Args[2:], "vrf-owner-address", "authorized-senders")
+
+		vrfOwner, err := vrf_owner.NewVRFOwner(common.HexToAddress(*vrfOwnerAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		authorizedSendersSlice := helpers.ParseAddressSlice(*authorizedSenders)
+
+		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
+		helpers.PanicErr(err)
+
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner set authorized senders")
+	case "vrf-owner-accept-vrf-ownership":
+		cmd := flag.NewFlagSet("vrf-owner-accept-vrf-ownership", flag.ExitOnError)
+		vrfOwnerAddress := cmd.String("vrf-owner-address", "", "vrf owner address")
+		helpers.ParseArgs(cmd, os.Args[2:], "vrf-owner-address")
+
+		vrfOwner, err := vrf_owner.NewVRFOwner(common.HexToAddress(*vrfOwnerAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		tx, err := vrfOwner.AcceptVRFOwnership(e.Owner)
+		helpers.PanicErr(err)
+
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner accepting vrf ownership")
 	case "coordinator-reregister-proving-key":
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
