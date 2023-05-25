@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -84,8 +85,8 @@ func main() {
 		"-f", fmt.Sprintf("directory=%s", dir),
 		"-f", fmt.Sprintf("test=Test%s", test),
 		"-f", fmt.Sprintf("network=%s", network),
-		"-f", fmt.Sprintf("wsUrl=%s", wsURL),
-		"-f", fmt.Sprintf("httpUrl=%s", httpURL),
+		"-f", fmt.Sprintf("wsURL=%s", wsURL),
+		"-f", fmt.Sprintf("httpURL=%s", httpURL),
 		"-f", fmt.Sprintf("fundingKey=%s", fundingKey),
 	)
 	if err != nil {
@@ -259,6 +260,7 @@ func testNames(directory string) []string {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error looking for tests")
 	}
+	sort.Strings(names)
 	return names
 }
 
@@ -268,6 +270,7 @@ func getNetwork() (networkName, networkWs, networkHTTP, fundingKey string, err e
 		validNetworks[i] = network
 		i++
 	}
+	sort.Strings(validNetworks) // Get in alphabetical order
 
 	networkPrompt := promptui.Select{
 		Label: "Network",

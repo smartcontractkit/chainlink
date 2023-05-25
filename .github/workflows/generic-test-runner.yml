@@ -105,6 +105,7 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       TEST_SUITE: ${{ github.event.inputs.directory }}
+      SELECTED_NETWORKS: ${{ github.event.inputs.network }}
       TEST_LOG_LEVEL: debug
     steps:
       - name: Mask Inputs
