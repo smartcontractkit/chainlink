@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_orm "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -61,8 +62,10 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	ormRows := generateTestOrmRows(t, n, ttl)
 	rows := make([]*s4.Row, n)
 	for i := 0; i < n; i++ {
+		addressStr, err := s4.MarshalAddress(ormRows[i].Address)
+		assert.NoError(t, err)
 		rows[i] = &s4.Row{
-			Address:    ormRows[i].Address,
+			Address:    addressStr,
 			Slotid:     uint32(ormRows[i].SlotId),
 			Version:    ormRows[i].Version,
 			Expiration: ormRows[i].Expiration,
@@ -78,7 +81,7 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_orm.Row {
 	for i := 0; i < n; i++ {
 		priv, _, addr := generateCryptoEntity(t)
 		rows[i] = &s4_orm.Row{
-			Address:    addr.String(),
+			Address:    utils.NewBig(addr.Big()),
 			SlotId:     0,
 			Version:    0,
 			Confirmed:  false,
@@ -103,7 +106,7 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_orm.Row {
 func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_orm.Row) {
 	assert.Equal(t, len(ormRows), len(protoRows))
 	for i, row := range protoRows {
-		assert.Equal(t, row.Address, ormRows[i].Address)
+		assert.Equal(t, row.Address, ormRows[i].Address.String())
 		assert.Equal(t, row.Version, ormRows[i].Version)
 		assert.Equal(t, row.Expiration, ormRows[i].Expiration)
 		assert.Equal(t, row.Payload, ormRows[i].Payload)
@@ -222,7 +225,7 @@ func TestPlugin_Query(t *testing.T) {
 		for i := 0; i < 256; i++ {
 			var thisAddress common.Address
 			thisAddress[0] = byte(i)
-			ormRows[i].Address = thisAddress.String()
+			ormRows[i].Address = utils.NewBig(thisAddress.Big())
 		}
 
 		for i := 0; i <= int(config.NSnapshotShards); i++ {

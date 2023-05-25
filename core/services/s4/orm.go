@@ -4,11 +4,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Row represents a data row persisted by ORM.
 type Row struct {
-	Address    string
+	Address    *utils.Big
 	SlotId     uint
 	Payload    []byte
 	Version    uint64
@@ -44,7 +45,7 @@ type ORM interface {
 
 func (r Row) Clone() *Row {
 	clone := Row{
-		Address:    r.Address,
+		Address:    utils.NewBig(r.Address.ToInt()),
 		SlotId:     r.SlotId,
 		Payload:    make([]byte, len(r.Payload)),
 		Version:    r.Version,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -125,7 +126,7 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	}
 
 	row := &Row{
-		Address:    key.Address.String(),
+		Address:    utils.NewBig(key.Address.Big()),
 		SlotId:     key.SlotId,
 		Payload:    make([]byte, len(record.Payload)),
 		Version:    key.Version,
