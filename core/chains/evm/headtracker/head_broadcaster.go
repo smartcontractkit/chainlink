@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,6 +17,7 @@ import (
 const TrackableCallbackTimeout = 2 * time.Second
 
 type callbackSet map[int]httypes.HeadTrackable
+type genericCallbackSet[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] map[int]commontypes.HeadTrackable[H, BLOCK_HASH]
 
 func (set callbackSet) values() []httypes.HeadTrackable {
 	var values []httypes.HeadTrackable
