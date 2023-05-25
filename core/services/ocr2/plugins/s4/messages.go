@@ -10,17 +10,17 @@ import (
 func MarshalRows(rows []*Row, addressRange *s4.AddressRange) ([]byte, error) {
 	var protoAddressRange *AddressRange
 	if addressRange != nil {
-		minAddressStr, err := addressRange.MinAddress.MarshalText()
+		minAddressStr, err := MarshalAddress(addressRange.MinAddress)
 		if err != nil {
 			return nil, err
 		}
-		maxAddressStr, err := addressRange.MaxAddress.MarshalText()
+		maxAddressStr, err := MarshalAddress(addressRange.MaxAddress)
 		if err != nil {
 			return nil, err
 		}
 		protoAddressRange = &AddressRange{
-			MinAddress: string(minAddressStr),
-			MaxAddress: string(maxAddressStr),
+			MinAddress: minAddressStr,
+			MaxAddress: maxAddressStr,
 		}
 	}
 	rr := &Rows{
@@ -37,17 +37,13 @@ func UnmarshalRows(data []byte) ([]*Row, *s4.AddressRange, error) {
 	}
 	var addressRange *s4.AddressRange
 	if rows.AddressRange != nil {
-		minAddress := new(utils.Big)
-		maxAddress := new(utils.Big)
-		if rows.AddressRange.MinAddress != "" {
-			if err := minAddress.UnmarshalText([]byte(rows.AddressRange.MinAddress)); err != nil {
-				return nil, nil, err
-			}
+		minAddress, err := UnmarshalAddress(rows.AddressRange.MinAddress)
+		if err != nil {
+			return nil, nil, err
 		}
-		if rows.AddressRange.MaxAddress != "" {
-			if err := maxAddress.UnmarshalText([]byte(rows.AddressRange.MaxAddress)); err != nil {
-				return nil, nil, err
-			}
+		maxAddress, err := UnmarshalAddress(rows.AddressRange.MaxAddress)
+		if err != nil {
+			return nil, nil, err
 		}
 		addressRange = &s4.AddressRange{
 			MinAddress: minAddress,
@@ -55,4 +51,20 @@ func UnmarshalRows(data []byte) ([]*Row, *s4.AddressRange, error) {
 		}
 	}
 	return rows.Rows, addressRange, nil
+}
+
+func MarshalAddress(address *utils.Big) (string, error) {
+	addressStr, err := address.MarshalText()
+	if err != nil {
+		return "", err
+	}
+	return string(addressStr), nil
+}
+
+func UnmarshalAddress(address string) (*utils.Big, error) {
+	bigAddress := new(utils.Big)
+	if err := bigAddress.UnmarshalText([]byte(address)); err != nil {
+		return nil, err
+	}
+	return bigAddress, nil
 }

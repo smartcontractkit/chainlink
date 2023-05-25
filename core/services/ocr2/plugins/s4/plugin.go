@@ -162,8 +162,12 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 	}
 
 	for _, row := range reportRows {
+		address, err := UnmarshalAddress(row.Address)
+		if err != nil {
+			return false, err
+		}
 		ormRow := &s4.Row{
-			Address:    row.Address,
+			Address:    address,
 			SlotId:     uint(row.Slotid),
 			Payload:    row.Payload,
 			Version:    row.Version,
@@ -171,7 +175,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 			Confirmed:  true,
 			Signature:  row.Signature,
 		}
-		err := c.orm.Update(ormRow, pg.WithParentCtx(ctx))
+		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
 			c.logger.Errorw("ORM error while updating row", "err", err)
 			continue
@@ -191,7 +195,7 @@ func (c *plugin) Close() error {
 
 func convertRow(from *s4.Row) *Row {
 	return &Row{
-		Address:    from.Address,
+		Address:    from.Address.String(),
 		Slotid:     uint32(from.SlotId),
 		Version:    from.Version,
 		Expiration: from.Expiration,
@@ -201,7 +205,11 @@ func convertRow(from *s4.Row) *Row {
 }
 
 func verifySignature(row *Row) error {
-	rowAddress := common.HexToAddress(row.Address)
+	bigAddress, err := UnmarshalAddress(row.Address)
+	if err != nil {
+		return err
+	}
+	rowAddress := common.BigToAddress(bigAddress.ToInt())
 	e := &s4.Envelope{
 		Address:    rowAddress.Bytes(),
 		SlotID:     uint(row.Slotid),

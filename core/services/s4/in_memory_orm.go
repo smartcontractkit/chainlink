@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type key struct {
@@ -48,7 +47,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	defer o.mu.Unlock()
 
 	mkey := key{
-		address: row.Address,
+		address: common.BigToAddress(row.Address.ToInt()).String(),
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]
@@ -87,8 +86,7 @@ func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) 
 	now := time.Now().UnixMilli()
 	var selection []key
 	for k, v := range o.rows {
-		bigAddress := utils.NewBig(common.HexToAddress(v.Address).Big())
-		if v.Expiration > now && addressRange.Contains(bigAddress) {
+		if v.Expiration > now && addressRange.Contains(v.Address) {
 			selection = append(selection, k)
 		}
 	}

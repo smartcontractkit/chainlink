@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func TestInMemoryORM(t *testing.T) {
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
 	row := &s4.Row{
-		Address:    address.String(),
+		Address:    utils.NewBig(address.Big()),
 		SlotId:     slotId,
 		Payload:    payload[:],
 		Version:    3,
@@ -78,7 +79,7 @@ func TestInMemoryORM(t *testing.T) {
 			thisAddress[0] = byte(i)
 
 			row := &s4.Row{
-				Address:    thisAddress.String(),
+				Address:    utils.NewBig(thisAddress.Big()),
 				SlotId:     1,
 				Payload:    []byte{},
 				Version:    1,
