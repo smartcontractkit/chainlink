@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_orm "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
@@ -21,10 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func createPluginConfig(max uint) *s4.PluginConfig {
+func createPluginConfig(maxObservationEntries uint) *s4.PluginConfig {
 	return &s4.PluginConfig{
-		MaxObservationEntries: max,
-		MaxReportEntries:      max,
+		MaxObservationEntries: maxObservationEntries,
 		NSnapshotShards:       1,
 	}
 }
@@ -114,9 +114,10 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_orm.Row) {
 func TestPlugin_Close(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	err = plugin.Close()
@@ -126,9 +127,10 @@ func TestPlugin_Close(t *testing.T) {
 func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, nil)
@@ -139,9 +141,10 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	t.Run("happy", func(t *testing.T) {
@@ -159,7 +162,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
-		assert.True(t, should)
+		assert.False(t, should)
 		assert.Equal(t, 10, len(ormRows))
 		compareRows(t, rows, ormRows)
 
@@ -176,7 +179,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		assert.NoError(t, err)
 
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
-		assert.ErrorIs(t, err, testErr)
+		assert.NoError(t, err) // errors just logged
 		assert.False(t, should)
 	})
 }
@@ -184,9 +187,10 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 func TestPlugin_Query(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	t.Run("happy", func(t *testing.T) {
@@ -208,7 +212,7 @@ func TestPlugin_Query(t *testing.T) {
 
 		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
-		assert.Nil(t, query)
+		assert.NotNil(t, query)
 	})
 
 	t.Run("query with shards", func(t *testing.T) {
@@ -252,9 +256,10 @@ func TestPlugin_Query(t *testing.T) {
 func TestPlugin_Observation(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	ormRows := generateTestOrmRows(t, 10, time.Minute)
@@ -281,9 +286,10 @@ func TestPlugin_Observation(t *testing.T) {
 func TestPlugin_Report(t *testing.T) {
 	t.Parallel()
 
+	logger := logger.TestLogger(t)
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewConsensusPlugin(config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	rows := generateTestRows(t, 10, time.Minute)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
@@ -14,6 +15,7 @@ import (
 )
 
 type plugin struct {
+	logger          logger.Logger
 	config          *PluginConfig
 	orm             s4.ORM
 	minQueryAddress *big.Int
@@ -28,15 +30,12 @@ type key struct {
 
 var _ types.ReportingPlugin = (*plugin)(nil)
 
-func NewConsensusPlugin(config *PluginConfig, orm s4.ORM) (*plugin, error) {
+func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (*plugin, error) {
 	if config.NSnapshotShards == 0 {
 		return nil, errors.New("number of snapshots shards cannot be zero")
 	}
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
-	}
-	if config.MaxReportEntries == 0 {
-		return nil, errors.New("max number of report entries cannot be zero")
 	}
 
 	addressRange := new(big.Int).Sub(s4.MaxAddress, s4.MinAddress)
@@ -44,6 +43,7 @@ func NewConsensusPlugin(config *PluginConfig, orm s4.ORM) (*plugin, error) {
 	addressInteval := new(big.Int).Div(addressRange, divisor)
 
 	return &plugin{
+		logger:          logger.Named("OCR2-S4-plugin"),
 		config:          config,
 		orm:             orm,
 		minQueryAddress: s4.MinAddress,
@@ -70,10 +70,6 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 	snapshot, err := c.orm.GetSnapshot(c.minQueryAddress, c.maxQueryAddress, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
-	}
-
-	if len(snapshot) == 0 {
-		return nil, nil
 	}
 
 	rows := make([]*Row, len(snapshot))
@@ -157,11 +153,12 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 				slot:    uint(row.Slotid),
 			}
 			report, ok := reportMap[mkey]
-			if ok && report.Version > row.Version {
+			if ok && report.Version >= row.Version {
 				continue
 			}
 			if err := verifySignature(row); err != nil {
-				return false, nil, err
+				c.logger.Errorw("Report round detected invalid signature", "err", err, "oracleID", ao.Observer)
+				continue
 			}
 			reportMap[mkey] = row
 		}
@@ -170,9 +167,6 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	reportRows := make([]*Row, 0)
 	for _, row := range reportMap {
 		reportRows = append(reportRows, row)
-	}
-	if len(reportRows) > int(c.config.MaxReportEntries) {
-		reportRows = reportRows[:c.config.MaxReportEntries]
 	}
 
 	report, err := marshalRows(reportRows, nil, nil)
@@ -201,11 +195,12 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 		}
 		err := c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
-			return false, err
+			c.logger.Errorw("ORM error while updating row", "err", err)
+			continue
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
 func (c *plugin) ShouldTransmitAcceptedReport(context.Context, types.ReportTimestamp, types.Report) (bool, error) {
