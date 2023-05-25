@@ -204,6 +204,7 @@ jobs:
   # while still allowing for adjustable splitting
   core-complete:
     needs: [core]
+    if: always()
     name: Core Tests (${{ matrix.cmd }})
     runs-on: ubuntu-latest
     strategy:
@@ -212,6 +213,14 @@ jobs:
         cmd: ["go_core_tests", "go_core_race_tests"]
     steps:
       - run: echo "${{ matrix.cmd }} have finished"
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.core.result }}" != "success" ]]; then
+            echo "One or more core jobs failed"
+            exit 1
+          else
+            echo "All test jobs passed successfully"
+          fi
 
   scan:
     name: SonarQube Scan
