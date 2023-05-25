@@ -155,3 +155,17 @@ Password is used for basic auth of the Mercury endpoint
 URL = "https://mercury.stage.link" # Example
 ```
 URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
+
+## Threshold
+```toml
+[Threshold]
+ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+
+
+### ThresholdDecryptionKeyShare
+```toml
+ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+ThresholdDecryptionKeyShare used by the threshold decryption OCR plugin
+
