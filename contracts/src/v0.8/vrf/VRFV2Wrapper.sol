@@ -234,8 +234,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 costWei = (_requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) + l1CostWei);
     // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
     // baseFee is the base fee denominated in juels (link)
-    uint256 baseFee = (1e18 * costWei) /
-      uint256(_weiPerUnitLink);
+    uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
     // feeWithPremium is the fee after the percentage premium is applied
     uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
     // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
