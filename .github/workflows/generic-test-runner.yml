@@ -2,6 +2,19 @@ name: Generic Test Runner
 on:
   workflow_dispatch:
     inputs:
+      network:
+        description: 'Network to run tests against'
+        required: true
+        default: 'SIMULATED'
+      wsURL:
+        description: 'Chain WS URL (Skip with SIMULATED)'
+        required: false
+      httpURL:
+        description: 'Chain HTTP URL (Skip with SIMULATED)'
+        required: false
+      fundingKey:
+        description: 'Private key to fund test (Skip with SIMULATED)'
+        required: false
       directory:
         description: 'Directory to run tests from'
         required: true
@@ -19,7 +32,6 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
-
   build-chainlink:
     environment: integration
     permissions:
@@ -95,6 +107,19 @@ jobs:
       TEST_SUITE: ${{ github.event.inputs.directory }}
       TEST_LOG_LEVEL: debug
     steps:
+      - name: Mask Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run Test

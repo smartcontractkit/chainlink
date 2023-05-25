@@ -161,7 +161,7 @@ func TestFluxBasic(t *testing.T) {
 }
 
 func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.DetermineSelectedNetwork()
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConf = ethereum.New(&ethereum.Props{

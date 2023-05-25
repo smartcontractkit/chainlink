@@ -7,19 +7,16 @@ import (
 	"os"
 	"testing"
 
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
+	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -28,12 +25,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -56,6 +54,7 @@ var (
 
 func TestMain(m *testing.M) {
 	logging.Init()
+	defaultOCRSettings["toml"] = client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.DetermineSelectedNetwork())
 	os.Exit(m.Run())
 }
 

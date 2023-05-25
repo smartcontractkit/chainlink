@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	env_client "github.com/smartcontractkit/chainlink-env/client"
@@ -18,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -469,7 +468,7 @@ func getEnv(key, fallback string) string {
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, string) {
 	l := utils.GetTestLogger(t)
 	registryToTest := getEnv("AUTOMATION_REGISTRY_TO_TEST", "Registry_2_0")
-	activeEVMNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
+	testNetwork := networks.DetermineSelectedNetwork() // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
@@ -483,7 +482,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
 			testType,
-			strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(registryToTest), "_", "-"),
 		),
 		Test: t,
@@ -506,11 +505,11 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	}
 
 	// Test can run on simulated, simulated-non-dev, testnets
-	if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
+	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
 		keeperBenchmarkBaseTOML = keeperBenchmarkBaseTOML + simulatedEVMNonDevTOML
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
-				NetworkName: activeEVMNetwork.Name,
+				NetworkName: testNetwork.Name,
 				Values: map[string]interface{}{
 					"geth": map[string]interface{}{
 						"tx": map[string]interface{}{
@@ -525,9 +524,9 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	} else {
 		testEnvironment.
 			AddHelm(ethereum.New(&ethereum.Props{
-				NetworkName: activeEVMNetwork.Name,
-				Simulated:   activeEVMNetwork.Simulated,
-				WsURLs:      activeEVMNetwork.URLs,
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
 				Values: map[string]interface{}{
 					"resources": map[string]interface{}{
 						"requests": map[string]interface{}{
@@ -547,18 +546,18 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	}
 
 	// deploy blockscout if running on simulated
-	if activeEVMNetwork.Simulated {
+	if testNetwork.Simulated {
 		testEnvironment.
 			AddChart(blockscout.New(&blockscout.Props{
 				Name:    "geth-blockscout",
-				WsURL:   activeEVMNetwork.URLs[0],
-				HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+				WsURL:   testNetwork.URLs[0],
+				HttpURL: testNetwork.HTTPURLs[0]}))
 	}
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
-		return testEnvironment, activeEVMNetwork, registryToTest
+		return testEnvironment, testNetwork, registryToTest
 	}
 
 	// separate RPC urls per CL node
@@ -566,8 +565,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	internalHttpURLs := make([]string, 0)
 	for i := 0; i < NumberOfNodes; i++ {
 		// for simulated-nod-dev each CL node gets its own RPC node
-		if activeEVMNetwork.Name == networks.SimulatedEVMNonDev.Name {
-			podName := fmt.Sprintf("%s-ethereum-geth:%d", activeEVMNetwork.Name, i)
+		if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
+			podName := fmt.Sprintf("%s-ethereum-geth:%d", testNetwork.Name, i)
 			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
 			require.NoError(t, err, "Error finding WS ports")
 			internalWsURLs = append(internalWsURLs, txNodeInternalWs)
@@ -575,27 +574,27 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			require.NoError(t, err, "Error finding HTTP ports")
 			internalHttpURLs = append(internalHttpURLs, txNodeInternalHttp)
 			// for testnets with more than 1 RPC nodes
-		} else if len(activeEVMNetwork.URLs) > 1 {
-			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[i%len(activeEVMNetwork.URLs)])
-			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[i%len(activeEVMNetwork.URLs)])
+		} else if len(testNetwork.URLs) > 1 {
+			internalWsURLs = append(internalWsURLs, testNetwork.URLs[i%len(testNetwork.URLs)])
+			internalHttpURLs = append(internalHttpURLs, testNetwork.HTTPURLs[i%len(testNetwork.URLs)])
 			// for simulated and testnets with 1 RPC node
 		} else {
-			internalWsURLs = append(internalWsURLs, activeEVMNetwork.URLs[0])
-			internalHttpURLs = append(internalHttpURLs, activeEVMNetwork.HTTPURLs[0])
+			internalWsURLs = append(internalWsURLs, testNetwork.URLs[0])
+			internalHttpURLs = append(internalHttpURLs, testNetwork.HTTPURLs[0])
 		}
 	}
 	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < NumberOfNodes; i++ {
-		activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
-		activeEVMNetwork.URLs = []string{internalWsURLs[i]}
+		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+		testNetwork.URLs = []string{internalWsURLs[i]}
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, activeEVMNetwork),
+			"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
 		}))
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
-	return testEnvironment, activeEVMNetwork, registryToTest
+	return testEnvironment, testNetwork, registryToTest
 }

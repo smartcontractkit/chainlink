@@ -20,9 +20,9 @@ var (
 	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
 	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
 	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
-	SelectedNetworks []blockchain.EVMNetwork = determineSelectedNetworks()
-	// SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
-	SelectedNetwork blockchain.EVMNetwork = SelectedNetworks[0]
+	// SelectedNetworks []blockchain.EVMNetwork = determineSelectedNetworks()
+	// // SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
+	// SelectedNetwork blockchain.EVMNetwork = SelectedNetworks[0]
 
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
@@ -308,7 +308,7 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	mappedNetworks = map[string]blockchain.EVMNetwork{
+	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
 		"SIMULATED_2":      SimulatedEVMNonDev2,
@@ -334,15 +334,20 @@ var (
 	}
 )
 
-// determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which network(s) to run the tests on
-func determineSelectedNetworks() []blockchain.EVMNetwork {
+func DetermineSelectedNetwork() blockchain.EVMNetwork {
+	return DetermineSelectedNetworks()[0]
+}
+
+// DetermineSelectedNetworks uses `SELECTED_NETWORKS` to determine which networks to run the tests on.
+// Use DetermineSelectedNetwork for tests that only use one network
+func DetermineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
 	selectedNetworks := make([]blockchain.EVMNetwork, 0)
 	rawSelectedNetworks := strings.ToUpper(os.Getenv("SELECTED_NETWORKS"))
 	setNetworkNames := strings.Split(rawSelectedNetworks, ",")
 
 	for _, setNetworkName := range setNetworkNames {
-		if chosenNetwork, valid := mappedNetworks[setNetworkName]; valid {
+		if chosenNetwork, valid := MappedNetworks[setNetworkName]; valid {
 			log.Info().
 				Interface("SELECTED_NETWORKS", setNetworkNames).
 				Str("Network Name", chosenNetwork.Name).
@@ -352,7 +357,7 @@ func determineSelectedNetworks() []blockchain.EVMNetwork {
 			selectedNetworks = append(selectedNetworks, chosenNetwork)
 		} else {
 			validNetworks := make([]string, 0)
-			for validNetwork := range mappedNetworks {
+			for validNetwork := range MappedNetworks {
 				validNetworks = append(validNetworks, validNetwork)
 			}
 			log.Fatal().

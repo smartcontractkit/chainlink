@@ -177,7 +177,7 @@ func TestVRFv2Basic(t *testing.T) {
 }
 
 func setupVRFv2Test(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.DetermineSelectedNetwork()
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{

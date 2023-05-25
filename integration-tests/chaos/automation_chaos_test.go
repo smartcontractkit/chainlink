@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -16,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -38,45 +39,6 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
-		"replicas": "6",
-		"db": map[string]interface{}{
-			"stateful": true,
-			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-			},
-		},
-	}
-
-	defaultEthereumSettings = &ethereum.Props{
-		NetworkName: networks.SelectedNetwork.Name,
-		Simulated:   networks.SelectedNetwork.Simulated,
-		WsURLs:      networks.SelectedNetwork.URLs,
-		Values: map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
-				},
-			},
-			"geth": map[string]interface{}{
-				"blocktime": "1",
-			},
-		},
-	}
 
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
@@ -107,6 +69,48 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+	loadedNetwork := networks.DetermineSelectedNetwork()
+
+	defaultAutomationSettings := map[string]interface{}{
+		"toml":     client.AddNetworksConfig(baseTOML, loadedNetwork),
+		"replicas": "6",
+		"db": map[string]interface{}{
+			"stateful": true,
+			"capacity": "1Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+			},
+		},
+	}
+
+	defaultEthereumSettings := &ethereum.Props{
+		NetworkName: loadedNetwork.Name,
+		Simulated:   loadedNetwork.Simulated,
+		WsURLs:      loadedNetwork.URLs,
+		Values: map[string]interface{}{
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
+				},
+			},
+			"geth": map[string]interface{}{
+				"blocktime": "1",
+			},
+		},
+	}
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -169,7 +173,7 @@ func TestAutomationChaos(t *testing.T) {
 		testCase := tst
 		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
-			network := networks.SelectedNetwork
+			network := networks.DetermineSelectedNetwork() // Need a new copy of the network for each test
 
 			testEnvironment := environment.
 				New(&environment.Config{

@@ -62,7 +62,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	err := envconfig.Process("OCR", &testInputs)
 	require.NoError(t, err, "Error reading OCR soak test inputs")
 	testInputs.setForRemoteRunner()
-	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	network := networks.DetermineSelectedNetwork() // Environment currently being used to soak test on
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL: time.Hour * 720, // 30 days,

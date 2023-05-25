@@ -3,15 +3,20 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	gh "github.com/cli/go-gh/v2"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/manifoldco/promptui"
 	"github.com/rs/zerolog/log"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 const (
@@ -48,6 +53,12 @@ func main() {
 	}
 	fmt.Printf("Running as %s\n", ghUser)
 
+	network, wsURL, httpURL, fundingKey, err := getNetwork()
+	if err != nil {
+		fmt.Printf("error getting network: %v\n", err)
+		return
+	}
+
 	branch, err := getTestBranch()
 	if err != nil {
 		fmt.Printf("error getting test branch: %v\n", err)
@@ -72,6 +83,10 @@ func main() {
 		"--ref", branch,
 		"-f", fmt.Sprintf("directory=%s", dir),
 		"-f", fmt.Sprintf("test=Test%s", test),
+		"-f", fmt.Sprintf("network=%s", network),
+		"-f", fmt.Sprintf("wsUrl=%s", wsURL),
+		"-f", fmt.Sprintf("httpUrl=%s", httpURL),
+		"-f", fmt.Sprintf("fundingKey=%s", fundingKey),
 	)
 	if err != nil {
 		fmt.Printf("Error running gh workflow run: %v\n", err)
@@ -79,6 +94,7 @@ func main() {
 		return
 	}
 	fmt.Println(stdOut.String())
+
 	err = waitForWorkflowRun(branch, ghUser)
 	if err != nil {
 		fmt.Printf("Error waiting for workflow to start: %v\n", err)
@@ -158,6 +174,7 @@ func getUser() (string, error) {
 
 // getTestBranch prompts the user to select a test branch
 func getTestBranch() (string, error) {
+	fmt.Println("Ensure your branch has had its latest work pushed to GitHub before running a test.")
 	testBranchPrompt := promptui.Prompt{
 		Label:     "Test Branch or Tag",
 		AllowEdit: false,
@@ -243,4 +260,79 @@ func testNames(directory string) []string {
 		log.Fatal().Err(err).Msg("Error looking for tests")
 	}
 	return names
+}
+
+func getNetwork() (networkName, networkWs, networkHTTP, fundingKey string, err error) {
+	validNetworks, i := make([]string, len(networks.MappedNetworks)), 0
+	for network := range networks.MappedNetworks {
+		validNetworks[i] = network
+		i++
+	}
+
+	networkPrompt := promptui.Select{
+		Label: "Network",
+		Items: validNetworks,
+		Size:  10,
+	}
+	_, network, err := networkPrompt.Run()
+	if err != nil {
+		return "", "", "", "", err
+	}
+	if strings.Contains(network, "SIMULATED") { // We take care of simulated network URLs
+		return network, "", "", "", nil
+	}
+
+	networkWsPrompt := promptui.Prompt{
+		Label: "Network WS URL",
+		Validate: func(s string) error {
+			if s == "" {
+				return errors.New("URL cannot be empty")
+			}
+			if !strings.HasPrefix(s, "ws") {
+				return errors.New("URL must start with ws")
+			}
+			return nil
+		},
+	}
+	networkWs, err = networkWsPrompt.Run()
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	networkHTTPPrompt := promptui.Prompt{
+		Label: "Network HTTP URL",
+		Validate: func(s string) error {
+			if s == "" {
+				return errors.New("URL cannot be empty")
+			}
+			if !strings.HasPrefix(s, "http") {
+				return errors.New("URL must start with http")
+			}
+			return nil
+		},
+	}
+	networkHTTP, err = networkHTTPPrompt.Run()
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	networkFundingKeyPrompt := promptui.Prompt{
+		Label: "Network Funding Key",
+		Validate: func(s string) error {
+			if s == "" {
+				return errors.New("funding key cannot be empty for a non-simulated network")
+			}
+			_, err := crypto.HexToECDSA(s)
+			if err != nil {
+				return fmt.Errorf("funding key must be a valid hex string: %w", err)
+			}
+			return nil
+		},
+	}
+	fundingKey, err = networkFundingKeyPrompt.Run()
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	return network, networkWs, networkHTTP, fundingKey, nil
 }

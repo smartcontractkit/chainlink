@@ -77,7 +77,7 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 		ocrForwarderNetworkDetailTOML = `[EVM.Transactions]
 	ForwardersEnabled = true`
 	)
-	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	network := networks.DetermineSelectedNetwork() // Environment currently being used to soak test on
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL: time.Hour * 720, // 30 days,

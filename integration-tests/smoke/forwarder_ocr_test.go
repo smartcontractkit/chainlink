@@ -99,7 +99,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 }
 
 func setupForwarderOCRTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.DetermineSelectedNetwork()
 	evmConfig := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
