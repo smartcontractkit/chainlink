@@ -71,7 +71,7 @@ func (r *relayerAdapter) Start(ctx context.Context) error {
 }
 
 func (r *relayerAdapter) Close() error {
-	return services.MultiClose{r.Relayer, r.RelayerExt}.Close()
+	return services.CloseAll(r.Relayer, r.RelayerExt)
 }
 
 func (r *relayerAdapter) Name() string {
