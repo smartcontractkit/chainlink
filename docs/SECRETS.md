@@ -158,6 +158,6 @@ URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercu
 
 ### Threshold
 ```toml
-ThresholdKeyShare = 'A-Threshold-Decryption-Key-Share'
+ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share"
 ```
-ThresholdKeyShare is an encrypted key used for multiparty threshold decryption of secrets
+ThresholdDecryptionKeyShare is an encrypted key used for multiparty threshold decryption of secrets
