@@ -159,7 +159,7 @@ type ReportCodec interface {
 
 	// Returns the maximum length of a report based on n, the number of oracles.
 	// The output of BuildReport must respect this maximum length.
-	MaxReportLength(n int) int
+	MaxReportLength(n int) (int, error)
 
 	// CurrentBlockNumFromReport returns the median current block number from a report
 	CurrentBlockNumFromReport(types.Report) (int64, error)
@@ -212,7 +212,10 @@ func (fac Factory) NewReportingPlugin(configuration ocrtypes.ReportingPluginConf
 		return nil, ocrtypes.ReportingPluginInfo{}, err
 	}
 
-	maxReportLength := fac.reportCodec.MaxReportLength(configuration.N)
+	maxReportLength, err := fac.reportCodec.MaxReportLength(configuration.N)
+	if err != nil {
+		return nil, ocrtypes.ReportingPluginInfo{}, err
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
