@@ -1,14 +1,13 @@
 package s4
 
 import (
-	"math/big"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type key struct {
@@ -81,24 +80,18 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *inMemoryOrm) GetSnapshot(minAddress, maxAddress *big.Int, qopts ...pg.QOpt) ([]*Row, error) {
+func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	now := time.Now().UnixMilli()
 	var selection []key
 	for k, v := range o.rows {
-		bigAddress := common.HexToAddress(v.Address).Big()
-		if v.Expiration > now && bigAddress.Cmp(minAddress) >= 0 && bigAddress.Cmp(maxAddress) <= 0 {
+		bigAddress := utils.NewBig(common.HexToAddress(v.Address).Big())
+		if v.Expiration > now && addressRange.Contains(bigAddress) {
 			selection = append(selection, k)
 		}
 	}
-
-	sort.Slice(selection, func(i, j int) bool {
-		si := selection[i]
-		sj := selection[j]
-		return o.rows[si].UpdatedAt < o.rows[sj].UpdatedAt
-	})
 
 	rows := make([]*Row, len(selection))
 	for i, s := range selection {

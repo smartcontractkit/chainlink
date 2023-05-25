@@ -1,9 +1,6 @@
 package s4
 
 import (
-	"math/big"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -20,11 +17,6 @@ type Row struct {
 	Signature  []byte
 	UpdatedAt  int64
 }
-
-var (
-	MinAddress *big.Int = common.HexToAddress("0x0").Big()
-	MaxAddress *big.Int = common.HexToAddress("0x" + strings.Repeat("ff", common.AddressLength)).Big()
-)
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
@@ -45,10 +37,9 @@ type ORM interface {
 	// DeleteExpired deletes any entries having Expiration < now().
 	DeleteExpired(qopts ...pg.QOpt) error
 
-	// GetSnapshot selects all rows ordered by UpdatedAt.
-	// Min/Max addresses are specifying the scope.
-	// To get a full snapshot, use MinAddress and MaxAddress variables.
-	GetSnapshot(minAddress, maxAddress *big.Int, qopts ...pg.QOpt) ([]*Row, error)
+	// GetSnapshot selects all rows for the given addresses range.
+	// To get a full snapshot, use NewFullAddressRange().
+	GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Row, error)
 }
 
 func (r Row) Clone() *Row {

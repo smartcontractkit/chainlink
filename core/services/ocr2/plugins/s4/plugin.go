@@ -3,7 +3,6 @@ package s4
 import (
 	"context"
 	"errors"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -11,16 +10,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"google.golang.org/protobuf/proto"
 )
 
 type plugin struct {
-	logger          logger.Logger
-	config          *PluginConfig
-	orm             s4.ORM
-	minQueryAddress *big.Int
-	maxQueryAddress *big.Int
-	addressInteval  *big.Int
+	logger       logger.Logger
+	config       *PluginConfig
+	orm          s4.ORM
+	addressRange *s4.AddressRange
 }
 
 type key struct {
@@ -31,43 +27,25 @@ type key struct {
 var _ types.ReportingPlugin = (*plugin)(nil)
 
 func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (*plugin, error) {
-	if config.NSnapshotShards == 0 {
-		return nil, errors.New("number of snapshots shards cannot be zero")
-	}
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
 	}
 
-	addressRange := new(big.Int).Sub(s4.MaxAddress, s4.MinAddress)
-	divisor := big.NewInt(int64(config.NSnapshotShards))
-	addressInteval := new(big.Int).Div(addressRange, divisor)
+	addressRange, err := s4.NewInitialAddressRangeForIntervals(config.NSnapshotShards)
+	if err != nil {
+		return nil, err
+	}
 
 	return &plugin{
-		logger:          logger.Named("OCR2-S4-plugin"),
-		config:          config,
-		orm:             orm,
-		minQueryAddress: s4.MinAddress,
-		maxQueryAddress: new(big.Int).Add(s4.MinAddress, addressInteval),
-		addressInteval:  addressInteval,
+		logger:       logger.Named("OCR2-S4-plugin"),
+		config:       config,
+		orm:          orm,
+		addressRange: addressRange,
 	}, nil
 }
 
-func (c *plugin) advanceAddressRange() {
-	if c.config.NSnapshotShards > 1 {
-		c.minQueryAddress = new(big.Int).Add(c.minQueryAddress, c.addressInteval)
-		c.maxQueryAddress = new(big.Int).Add(c.maxQueryAddress, c.addressInteval)
-		if c.maxQueryAddress.Cmp(s4.MaxAddress) > 0 {
-			c.maxQueryAddress = s4.MaxAddress
-		}
-		if c.minQueryAddress.Cmp(s4.MaxAddress) >= 0 {
-			c.minQueryAddress = s4.MinAddress
-			c.maxQueryAddress = new(big.Int).Add(c.minQueryAddress, c.addressInteval)
-		}
-	}
-}
-
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
-	snapshot, err := c.orm.GetSnapshot(c.minQueryAddress, c.maxQueryAddress, pg.WithParentCtx(ctx))
+	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -76,12 +54,12 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 	for i, row := range snapshot {
 		rows[i] = convertRow(row)
 	}
-	query, err := marshalRows(rows, c.minQueryAddress, c.maxQueryAddress)
+	query, err := MarshalRows(rows, c.addressRange)
 	if err != nil {
 		return nil, err
 	}
 
-	c.advanceAddressRange()
+	c.addressRange.Advance()
 
 	return query, err
 }
@@ -91,12 +69,12 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		return nil, err
 	}
 
-	queryRows, minAddress, maxAddress, err := unmarshalRows(query)
+	queryRows, addressRange, err := UnmarshalRows(query)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot, err := c.orm.GetSnapshot(minAddress, maxAddress, pg.WithParentCtx(ctx))
+	snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -135,14 +113,14 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		observation = observation[:c.config.MaxObservationEntries]
 	}
 
-	return marshalRows(observation, minAddress, maxAddress)
+	return MarshalRows(observation, addressRange)
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	reportMap := make(map[key]*Row)
 
 	for _, ao := range aos {
-		observationRows, _, _, err := unmarshalRows(ao.Observation)
+		observationRows, _, err := UnmarshalRows(ao.Observation)
 		if err != nil {
 			return false, nil, err
 		}
@@ -169,7 +147,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		reportRows = append(reportRows, row)
 	}
 
-	report, err := marshalRows(reportRows, nil, nil)
+	report, err := MarshalRows(reportRows, nil)
 	if err != nil {
 		return false, nil, err
 	}
@@ -178,7 +156,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 }
 
 func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
-	reportRows, _, _, err := unmarshalRows(report)
+	reportRows, _, err := UnmarshalRows(report)
 	if err != nil {
 		return false, err
 	}
@@ -220,47 +198,6 @@ func convertRow(from *s4.Row) *Row {
 		Payload:    from.Payload,
 		Signature:  from.Signature,
 	}
-}
-
-func marshalRows(rows []*Row, minAddress, maxAddress *big.Int) ([]byte, error) {
-	rr := &Rows{
-		Rows: rows,
-	}
-	if minAddress != nil {
-		minAddressStr, err := minAddress.MarshalText()
-		if err != nil {
-			return nil, err
-		}
-		rr.MinAddress = string(minAddressStr)
-	}
-	if maxAddress != nil {
-		maxAddressStr, err := maxAddress.MarshalText()
-		if err != nil {
-			return nil, err
-		}
-		rr.MaxAddress = string(maxAddressStr)
-	}
-	return proto.Marshal(rr)
-}
-
-func unmarshalRows(data []byte) ([]*Row, *big.Int, *big.Int, error) {
-	rows := &Rows{}
-	if err := proto.Unmarshal(data, rows); err != nil {
-		return nil, nil, nil, err
-	}
-	minAddress := new(big.Int)
-	maxAddress := new(big.Int)
-	if rows.MinAddress != "" {
-		if err := minAddress.UnmarshalText([]byte(rows.MinAddress)); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-	if rows.MaxAddress != "" {
-		if err := maxAddress.UnmarshalText([]byte(rows.MaxAddress)); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-	return rows.Rows, minAddress, maxAddress, nil
 }
 
 func verifySignature(row *Row) error {

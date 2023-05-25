@@ -90,16 +90,15 @@ func TestInMemoryORM(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		rows, err := orm.GetSnapshot(s4.MinAddress, s4.MaxAddress)
+		rows, err := orm.GetSnapshot(s4.NewFullAddressRange())
 		assert.NoError(t, err)
 		assert.Len(t, rows, 256)
 
-		var minAddress common.Address
-		var maxAddress common.Address
-		minAddress[0] = byte(100)
-		maxAddress[0] = byte(199)
-		rows, err = orm.GetSnapshot(minAddress.Big(), maxAddress.Big())
+		ar, err := s4.NewInitialAddressRangeForIntervals(2)
 		assert.NoError(t, err)
-		assert.Len(t, rows, 100)
+
+		rows, err = orm.GetSnapshot(ar)
+		assert.NoError(t, err)
+		assert.Len(t, rows, 128)
 	})
 }
