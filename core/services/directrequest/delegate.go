@@ -180,7 +180,7 @@ func (l *listener) Close() error {
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
-		return services.MultiClose{l.mbOracleRequests, l.mbOracleCancelRequests}.Close()
+		return services.CloseAll(l.mbOracleRequests, l.mbOracleCancelRequests)
 	})
 }
 

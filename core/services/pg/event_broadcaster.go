@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -116,8 +114,7 @@ func (b *eventBroadcaster) Close() error {
 		defer b.subscriptionsMu.RUnlock()
 		b.subscriptions = nil
 
-		err = multierr.Append(err, b.db.Close())
-		err = multierr.Append(err, b.listener.Close())
+		err = services.CloseAll(b.db, b.listener)
 		close(b.chStop)
 		<-b.chDone
 		return err
