@@ -61,15 +61,15 @@ func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig
 	return
 }
 
-func (o *offchainConfigDigesterClient) ConfigDigestPrefix() libocr.ConfigDigestPrefix {
+func (o *offchainConfigDigesterClient) ConfigDigestPrefix() (libocr.ConfigDigestPrefix, error) {
 	ctx, cancel := o.ctx()
 	defer cancel()
 
 	reply, err := o.grpc.ConfigDigestPrefix(ctx, &pb.ConfigDigestPrefixRequest{})
 	if err != nil {
-		panic(err) //TODO only during shutdown https://smartcontract-it.atlassian.net/browse/BCF-2234
+		return 0, err
 	}
-	return libocr.ConfigDigestPrefix(reply.ConfigDigestPrefix)
+	return libocr.ConfigDigestPrefix(reply.ConfigDigestPrefix), nil
 }
 
 var _ pb.OffchainConfigDigesterServer = (*offchainConfigDigesterServer)(nil)
@@ -105,7 +105,10 @@ func (o *offchainConfigDigesterServer) ConfigDigest(ctx context.Context, request
 }
 
 func (o *offchainConfigDigesterServer) ConfigDigestPrefix(ctx context.Context, request *pb.ConfigDigestPrefixRequest) (*pb.ConfigDigestPrefixReply, error) {
-	p := o.impl.ConfigDigestPrefix()
+	p, err := o.impl.ConfigDigestPrefix()
+	if err != nil {
+		return nil, err
+	}
 	return &pb.ConfigDigestPrefixReply{ConfigDigestPrefix: uint32(p)}, nil
 }
 

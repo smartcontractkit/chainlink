@@ -236,15 +236,15 @@ func (r *reportCodecClient) MedianFromReport(report libocr.Report) (*big.Int, er
 	return reply.Median.Int(), nil
 }
 
-func (r *reportCodecClient) MaxReportLength(n int) int {
+func (r *reportCodecClient) MaxReportLength(n int) (int, error) {
 	ctx, cancel := r.ctx()
 	defer cancel()
 
 	reply, err := r.grpc.MaxReportLength(ctx, &pb.MaxReportLengthRequest{N: int64(n)})
 	if err != nil {
-		panic(err) //TODO only during shutdown https://smartcontract-it.atlassian.net/browse/BCF-2234
+		return -1, err
 	}
-	return int(reply.Max)
+	return int(reply.Max), nil
 }
 
 var _ pb.ReportCodecServer = (*reportCodecServer)(nil)
@@ -285,7 +285,11 @@ func (r *reportCodecServer) MedianFromReport(ctx context.Context, request *pb.Me
 }
 
 func (r *reportCodecServer) MaxReportLength(ctx context.Context, request *pb.MaxReportLengthRequest) (*pb.MaxReportLengthReply, error) {
-	return &pb.MaxReportLengthReply{Max: int64(r.impl.MaxReportLength(int(request.N)))}, nil
+	l, err := r.impl.MaxReportLength(int(request.N))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MaxReportLengthReply{Max: int64(l)}, nil
 }
 
 var _ median.MedianContract = (*medianContractClient)(nil)

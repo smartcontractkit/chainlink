@@ -40,8 +40,8 @@ func (s staticOffchainConfigDigester) ConfigDigest(config libocr.ContractConfig)
 	return configDigest, nil
 }
 
-func (s staticOffchainConfigDigester) ConfigDigestPrefix() libocr.ConfigDigestPrefix {
-	return configDigestPrefix
+func (s staticOffchainConfigDigester) ConfigDigestPrefix() (libocr.ConfigDigestPrefix, error) {
+	return configDigestPrefix, nil
 }
 
 type staticContractConfigTracker struct{}
@@ -82,6 +82,6 @@ func (s staticContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Contex
 	return configDigest, epoch, nil
 }
 
-func (s staticContractTransmitter) FromAccount() libocr.Account {
-	return account
+func (s staticContractTransmitter) FromAccount() (libocr.Account, error) {
+	return account, nil
 }

@@ -172,7 +172,8 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 		t.Run("OffchainConfigDigester", func(t *testing.T) {
 			t.Parallel()
 			ocd := configProvider.OffchainConfigDigester()
-			gotConfigDigestPrefix := ocd.ConfigDigestPrefix()
+			gotConfigDigestPrefix, err := ocd.ConfigDigestPrefix()
+			require.NoError(t, err)
 			assert.Equal(t, configDigestPrefix, gotConfigDigestPrefix)
 			gotConfigDigest, err := ocd.ConfigDigest(contractConfig)
 			require.NoError(t, err)
@@ -207,7 +208,8 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 			t.Run("OffchainConfigDigester", func(t *testing.T) {
 				t.Parallel()
 				ocd := provider.OffchainConfigDigester()
-				gotConfigDigestPrefix := ocd.ConfigDigestPrefix()
+				gotConfigDigestPrefix, err := ocd.ConfigDigestPrefix()
+				require.NoError(t, err)
 				assert.Equal(t, configDigestPrefix, gotConfigDigestPrefix)
 				gotConfigDigest, err := ocd.ConfigDigest(contractConfig)
 				require.NoError(t, err)
@@ -230,7 +232,8 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 			t.Run("ContractTransmitter", func(t *testing.T) {
 				t.Parallel()
 				ct := provider.ContractTransmitter()
-				gotAccount := ct.FromAccount()
+				gotAccount, err := ct.FromAccount()
+				require.NoError(t, err)
 				assert.Equal(t, account, gotAccount)
 				gotConfigDigest, gotEpoch, err := ct.LatestConfigDigestAndEpoch(ctx)
 				require.NoError(t, err)
@@ -248,7 +251,8 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 				gotMedianValue, err := rc.MedianFromReport(report)
 				require.NoError(t, err)
 				assert.Equal(t, medianValue, gotMedianValue)
-				gotMax := rc.MaxReportLength(n)
+				gotMax, err := rc.MaxReportLength(n)
+				require.NoError(t, err)
 				assert.Equal(t, max, gotMax)
 			})
 			t.Run("MedianContract", func(t *testing.T) {

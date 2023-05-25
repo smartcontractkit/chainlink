@@ -64,7 +64,10 @@ type StaticPluginMedian struct{}
 
 func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog internal.ErrorLog) (internal.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
-	gotDigestPrefix := ocd.ConfigDigestPrefix()
+	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ConfigDigestPrefix: %w", err)
+	}
 	if gotDigestPrefix != configDigestPrefix {
 		return nil, fmt.Errorf("expected ConfigDigestPrefix %x but got %x", configDigestPrefix, gotDigestPrefix)
 	}
@@ -101,7 +104,10 @@ func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types
 		return nil, fmt.Errorf("expected ContractConfig %v but got %v", contractConfig, gotContractConfig)
 	}
 	ct := provider.ContractTransmitter()
-	gotAccount := ct.FromAccount()
+	gotAccount, err := ct.FromAccount()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get FromAccount: %w", err)
+	}
 	if gotAccount != account {
 		return nil, fmt.Errorf("expectd FromAccount %s but got %s", account, gotAccount)
 	}
@@ -134,7 +140,10 @@ func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types
 	if medianValue.Cmp(gotMedianValue) != 0 {
 		return nil, fmt.Errorf("expected MedianValue %s but got %s", medianValue, gotMedianValue)
 	}
-	gotMax := rc.MaxReportLength(n)
+	gotMax, err := rc.MaxReportLength(n)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MaxReportLength: %w", err)
+	}
 	if gotMax != max {
 		return nil, fmt.Errorf("expected MaxReportLength %d but got %d", max, gotMax)
 	}
@@ -306,11 +315,11 @@ func (s staticReportCodec) MedianFromReport(r libocr.Report) (*big.Int, error) {
 	return medianValue, nil
 }
 
-func (s staticReportCodec) MaxReportLength(n2 int) int {
+func (s staticReportCodec) MaxReportLength(n2 int) (int, error) {
 	if n != n2 {
-		panic(fmt.Errorf("expected n %d but got %d", n, n2))
+		return -1, fmt.Errorf("expected n %d but got %d", n, n2)
 	}
-	return max
+	return max, nil
 }
 
 type staticMedianContract struct{}

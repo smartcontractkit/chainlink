@@ -59,15 +59,15 @@ func (c *contractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Conte
 	return
 }
 
-func (c *contractTransmitterClient) FromAccount() libocr.Account {
+func (c *contractTransmitterClient) FromAccount() (libocr.Account, error) {
 	ctx, cancel := c.ctx()
 	defer cancel()
 
 	reply, err := c.grpc.FromAccount(ctx, &pb.FromAccountRequest{})
 	if err != nil {
-		panic(err) //TODO only during shutdown https://smartcontract-it.atlassian.net/browse/BCF-2234
+		return "", err
 	}
-	return libocr.Account(reply.Account)
+	return libocr.Account(reply.Account), nil
 }
 
 var _ pb.ContractTransmitterServer = (*contractTransmitterServer)(nil)
@@ -114,5 +114,9 @@ func (c *contractTransmitterServer) LatestConfigDigestAndEpoch(ctx context.Conte
 }
 
 func (c *contractTransmitterServer) FromAccount(ctx context.Context, request *pb.FromAccountRequest) (*pb.FromAccountReply, error) {
-	return &pb.FromAccountReply{Account: string(c.impl.FromAccount())}, nil
+	a, err := c.impl.FromAccount()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.FromAccountReply{Account: string(a)}, nil
 }
