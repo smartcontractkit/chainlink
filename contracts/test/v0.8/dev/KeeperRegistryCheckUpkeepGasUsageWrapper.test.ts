@@ -2,13 +2,13 @@ import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import { assert } from 'chai'
 import { KeeperRegistryCheckUpkeepGasUsageWrapper12 as GasWrapper } from '../../../typechain/KeeperRegistryCheckUpkeepGasUsageWrapper12'
-import { KeeperRegistryCheckUpkeepGasUsageWrapper12__factory as GasWrapperFactory } from '../../../typechain/factories/KeeperRegistryCheckUpkeepGasUsageWrapper12__factory'
+import { KeeperRegistryCheckUpkeepGasUsageWrapper1_2__factory as GasWrapperFactory } from '../../../typechain/factories/KeeperRegistryCheckUpkeepGasUsageWrapper1_2__factory'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry12__factory'
+import { KeeperRegistry1_2__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry1_2__factory'
 
 let personas: Personas
 let owner: Signer
