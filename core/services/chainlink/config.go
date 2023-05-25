@@ -5,10 +5,13 @@ import (
 
 	"errors"
 
+	"go.uber.org/multierr"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -90,12 +93,28 @@ func (c *Config) setDefaults() {
 	}
 }
 
-func (c *Config) SetFrom(f *Config) {
+func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
-	c.EVM.SetFrom(&f.EVM)
-	c.Cosmos.SetFrom(&f.Cosmos)
-	c.Solana.SetFrom(&f.Solana)
-	c.Starknet.SetFrom(&f.Starknet)
+
+	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err1, "EVM"))
+	}
+
+	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Cosmos"))
+	}
+
+	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Solana"))
+	}
+
+	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Starknet"))
+	}
+
+	_, err = utils.MultiErrorList(err)
+
+	return err
 }
 
 type Secrets struct {

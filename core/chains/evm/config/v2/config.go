@@ -30,6 +30,10 @@ type HasEVMConfigs interface {
 type EVMConfigs []*EVMConfig
 
 func (cs EVMConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -72,7 +76,10 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
+func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -84,6 +91,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {

@@ -231,14 +231,7 @@ func (p *Pool) Close() error {
 		close(p.chStop)
 		p.wg.Wait()
 
-		var mc services.MultiClose
-		for _, n := range p.nodes {
-			mc = append(mc, n)
-		}
-		for _, s := range p.sendonlys {
-			mc = append(mc, s)
-		}
-		return mc.Close()
+		return services.CloseAll(services.MultiCloser(p.nodes), services.MultiCloser(p.sendonlys))
 	})
 }
 

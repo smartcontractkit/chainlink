@@ -119,8 +119,8 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("foo"),
+						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
 				}},
 			{
@@ -132,8 +132,8 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("bar"),
+						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
 		},
@@ -152,7 +152,7 @@ var (
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
+					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
 		Solana: []*solana.SolanaConfig{
@@ -171,7 +171,7 @@ var (
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -534,12 +534,12 @@ func TestConfig_Marshal(t *testing.T) {
 				{
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/foo"),
 				},
 				{
 					Name:    ptr("bar"),
 					HTTPURL: mustURL("https://bar.com"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/bar"),
 				},
 				{
 					Name:     ptr("broadcast"),
@@ -917,12 +917,12 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
