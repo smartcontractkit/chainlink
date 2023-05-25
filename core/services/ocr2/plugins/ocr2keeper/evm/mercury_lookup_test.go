@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -54,7 +54,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		HeadProvider: HeadProvider{
 			ht:     headTracker,
 			hb:     headBroadcaster,
-			chHead: make(chan types.BlockKey, 1),
+			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
 		lggr:     lggr,
 		poller:   logPoller,
@@ -113,15 +113,17 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	ethBlob, e := os.ReadFile("./testdata/eth-usd.json")
 	assert.Nil(t, e)
 
-	upkeepKey := chain.UpkeepKey("8586948|520376062160720574742736856650455852347405918082346589375578334001045521721")
-	_, upkeepId, err := blockAndIdFromKey(upkeepKey)
-	assert.Nil(t, err, t.Name())
+	var block uint32 = 8586948
+	upkeepId, ok := new(big.Int).SetString("520376062160720574742736856650455852347405918082346589375578334001045521721", 10)
+	assert.True(t, ok, t.Name())
+
 	// builds revert data with mock server query
 	revertPerformData := setupRegistry.buildRevertBytesHelper()
 	// prepare input upkeepResult
-	upkeepResult := types.UpkeepResult{
-		Key:              upkeepKey,
-		State:            types.NotEligible,
+	upkeepResult := EVMAutomationUpkeepResult20{
+		Block:            block,
+		ID:               upkeepId,
+		Eligible:         false,
 		FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 		GasUsed:          big.NewInt(27071),
 		PerformData:      revertPerformData,
@@ -131,9 +133,10 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
 		ExecuteGas:       5000000,
 	}
-	upkeepResultReasonMercury := types.UpkeepResult{
-		Key:              upkeepKey,
-		State:            types.NotEligible,
+	upkeepResultReasonMercury := EVMAutomationUpkeepResult20{
+		Block:            block,
+		ID:               upkeepId,
+		Eligible:         false,
 		FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 		GasUsed:          big.NewInt(27071),
 		PerformData:      revertPerformData,
@@ -150,9 +153,10 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 
 	// desired outcomes
 	wantPerformData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	wantUpkeepResult := types.UpkeepResult{
-		Key:              upkeepKey,
-		State:            types.Eligible,
+	wantUpkeepResult := EVMAutomationUpkeepResult20{
+		Block:            8586948,
+		ID:               upkeepId,
+		Eligible:         true,
 		FailureReason:    UPKEEP_FAILURE_REASON_NONE,
 		GasUsed:          big.NewInt(27071),
 		PerformData:      wantPerformData,
@@ -164,7 +168,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		input []types.UpkeepResult
+		input []EVMAutomationUpkeepResult20
 
 		inCooldown bool
 
@@ -176,28 +180,28 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
 		upkeepInfoErr error
 
-		want           []types.UpkeepResult
+		want           []EVMAutomationUpkeepResult20
 		wantErr        error
 		hasHttpCalls   bool
 		callbackNeeded bool
 	}{
 		{
 			name:         "success - cached upkeep",
-			input:        []types.UpkeepResult{upkeepResult},
+			input:        []EVMAutomationUpkeepResult20{upkeepResult},
 			callbackResp: callbackResp,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
 
-			want:           []types.UpkeepResult{wantUpkeepResult},
+			want:           []EVMAutomationUpkeepResult20{wantUpkeepResult},
 			hasHttpCalls:   true,
 			callbackNeeded: true,
 			upkeepCache:    true,
 		},
 		{
 			name:          "success - no cached upkeep",
-			input:         []types.UpkeepResult{upkeepResult},
+			input:         []EVMAutomationUpkeepResult20{upkeepResult},
 			callbackResp:  callbackResp,
 			mockGetUpkeep: true,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
@@ -205,25 +209,27 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 				ExecuteGas: 5000000,
 			},
 
-			want:           []types.UpkeepResult{wantUpkeepResult},
+			want:           []EVMAutomationUpkeepResult20{wantUpkeepResult},
 			hasHttpCalls:   true,
 			callbackNeeded: true,
 		},
 		{
 			name: "skip - failure reason",
-			input: []types.UpkeepResult{
+			input: []EVMAutomationUpkeepResult20{
 				{
-					Key:           upkeepKey,
-					State:         types.NotEligible,
+					Block:         block,
+					ID:            upkeepId,
+					Eligible:      false,
 					FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
 					PerformData:   []byte{},
 				},
 			},
 
-			want: []types.UpkeepResult{
+			want: []EVMAutomationUpkeepResult20{
 				{
-					Key:           upkeepKey,
-					State:         types.NotEligible,
+					Block:         block,
+					ID:            upkeepId,
+					Eligible:      false,
 					FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
 					PerformData:   []byte{},
 				},
@@ -231,19 +237,21 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		},
 		{
 			name: "skip - revert data does not decode to mercury lookup, not surfacing errors",
-			input: []types.UpkeepResult{
+			input: []EVMAutomationUpkeepResult20{
 				{
-					Key:           upkeepKey,
-					State:         types.NotEligible,
+					Block:         block,
+					ID:            upkeepId,
+					Eligible:      false,
 					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					PerformData:   []byte{},
 				},
 			},
 
-			want: []types.UpkeepResult{
+			want: []EVMAutomationUpkeepResult20{
 				{
-					Key:           upkeepKey,
-					State:         types.NotEligible,
+					Block:         block,
+					ID:            upkeepId,
+					Eligible:      false,
 					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					PerformData:   []byte{},
 				},
@@ -251,17 +259,17 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		},
 		{
 			name:          "skip - error - no upkeep",
-			input:         []types.UpkeepResult{upkeepResult},
+			input:         []EVMAutomationUpkeepResult20{upkeepResult},
 			callbackResp:  callbackResp,
 			upkeepInfoErr: errors.New("ouch"),
 
-			want:          []types.UpkeepResult{upkeepResultReasonMercury},
+			want:          []EVMAutomationUpkeepResult20{upkeepResultReasonMercury},
 			mockGetUpkeep: true,
 			wantErr:       errors.New("ouch"),
 		},
 		{
 			name:          "skip - upkeep not needed",
-			input:         []types.UpkeepResult{upkeepResult},
+			input:         []EVMAutomationUpkeepResult20{upkeepResult},
 			mockGetUpkeep: true,
 			callbackResp:  upkeepNeededFalseResp,
 			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
@@ -269,9 +277,10 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 				ExecuteGas: 5000000,
 			},
 
-			want: []types.UpkeepResult{{
-				Key:              upkeepKey,
-				State:            types.NotEligible,
+			want: []EVMAutomationUpkeepResult20{{
+				Block:            block,
+				ID:               upkeepId,
+				Eligible:         false,
 				FailureReason:    UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
 				GasUsed:          big.NewInt(27071),
 				PerformData:      revertPerformData,
@@ -286,9 +295,9 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		},
 		{
 			name:       "skip - cooldown cache",
-			input:      []types.UpkeepResult{upkeepResult},
+			input:      []EVMAutomationUpkeepResult20{upkeepResult},
 			inCooldown: true,
-			want:       []types.UpkeepResult{upkeepResult},
+			want:       []EVMAutomationUpkeepResult20{upkeepResult},
 		},
 	}
 
