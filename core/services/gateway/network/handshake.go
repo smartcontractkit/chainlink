@@ -4,6 +4,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 )
 
 // The handshake works as follows:
@@ -18,12 +20,42 @@ import (
 //	             ---------response--------->
 //	                                     FinalizeHandshake()
 type ConnectionInitiator interface {
-	NewAuthHeader(url *url.URL) []byte
+	// Generate authentication header value specific to node and gateway
+	NewAuthHeader(url *url.URL) ([]byte, error)
+
+	// Sign challenge to prove identity.
 	ChallengeResponse(challenge []byte) ([]byte, error)
 }
 
 type ConnectionAcceptor interface {
+	// Verify auth header, save state of the attempt and generate a challenge for the node.
 	StartHandshake(authHeader []byte) (attemptId string, challenge []byte, err error)
+
+	// Verify signed challenge and update connection, if successful.
 	FinalizeHandshake(attemptId string, response []byte, conn *websocket.Conn) error
+
+	// Clear attempt's state.
 	AbortHandshake(attemptId string)
+}
+
+// Components going into the auth header, excluding the signature.
+type AuthHeaderElems struct {
+	Timestamp  uint32
+	DonId      string
+	GatewayURL string
+}
+
+func Pack(elems *AuthHeaderElems) []byte {
+	packed := common.Uint32ToBytes(elems.Timestamp)
+	packed = append(packed, common.StringToAlignedBytes(elems.DonId, HandshakeDonIdLen)...)
+	packed = append(packed, []byte(elems.GatewayURL)...)
+	return packed
+}
+
+func Unpack(data []byte) (*AuthHeaderElems, error) {
+	unpacked := &AuthHeaderElems{}
+	unpacked.Timestamp = common.BytesToUint32(data[0:HandshakeTimestampLen])
+	unpacked.DonId = common.AlignedBytesToString(data[HandshakeTimestampLen : HandshakeTimestampLen+HandshakeDonIdLen])
+	unpacked.GatewayURL = string(data[HandshakeTimestampLen+HandshakeDonIdLen:])
+	return unpacked, nil
 }
