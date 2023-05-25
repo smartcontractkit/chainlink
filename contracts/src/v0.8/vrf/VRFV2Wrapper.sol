@@ -9,6 +9,7 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/VRFV2WrapperInterface.sol";
 import "./VRFV2WrapperConsumerBase.sol";
+import "../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -226,11 +227,18 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
-    uint256 baseFee = (1e18 * _requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead)) /
+    // Will return non-zero on chains that have this enabled
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    // costWei is the base fee denominated in wei (native)
+    // costWei takes into account any l1 costs if we're on an L2 (like arbitrum or optimism)
+    uint256 costWei = (_requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) + l1CostWei);
+    // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
+    // baseFee is the base fee denominated in juels (link)
+    uint256 baseFee = (1e18 * costWei) /
       uint256(_weiPerUnitLink);
-
+    // feeWithPremium is the fee after the percentage premium is applied
     uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
-
+    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
     uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeLinkPPM));
 
     return feeWithFlatFee;

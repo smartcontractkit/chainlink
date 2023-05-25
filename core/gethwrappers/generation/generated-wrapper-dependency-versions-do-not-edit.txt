@@ -72,6 +72,6 @@ vrf_single_consumer_example: ../../contracts/solc/v0.8.6/VRFSingleConsumerExampl
 vrfv2_proxy_admin: ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.abi ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.bin 30b6d1af9c4ae05daddda2afdab1877d857ab5321afe3540a01e94d5ded9bcef
 vrfv2_reverting_example: ../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin 1ae46f80351d428bd85ba58b9041b2a608a1845300d79a8fed83edf96606de87
 vrfv2_transparent_upgradeable_proxy: ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.abi ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.bin 84be44ffac513ef5b009d53846b76d3247ceb9fa0545dec2a0dd11606a915850
-vrfv2_wrapper: ../../contracts/solc/v0.8.6/VRFV2Wrapper.abi ../../contracts/solc/v0.8.6/VRFV2Wrapper.bin 222fd44179525a758a0d29c191271d83882e39cd0492a316fdf0d488e21dcce9
+vrfv2_wrapper: ../../contracts/solc/v0.8.6/VRFV2Wrapper.abi ../../contracts/solc/v0.8.6/VRFV2Wrapper.bin 8a3438ab8547ccf487587eecae2c9f22e6b73adb7ff089ef90371498fa6493ea
 vrfv2_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample.bin 8c62ac8da7086c185162e66ec0c382c620cfa79319b621bcede828faac1d7954
 vrfv2_wrapper_interface: ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.abi ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.bin ff8560169de171a68b360b7438d13863682d07040d984fd0fb096b2379421003
