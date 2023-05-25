@@ -10,7 +10,7 @@ See also [CONFIG.md](CONFIG.md)
 
 ```toml
 [Database]
-URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable' # Required
+URL = '***localhost:5432/dbname?sslmode=disable' # Required
 
 [Password]
 Keystore = 'keystore_pass' # Required
@@ -19,15 +19,15 @@ Keystore = 'keystore_pass' # Required
 ## Database
 ```toml
 [Database]
-URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
-BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
+URL = \"***localhost:5432/dbname?sslmode=disable\" # Example
+BackupURL = \"***read-replica.example.com:5432/dbname?sslmode=disable\" # Example
 AllowSimplePasswords = false # Default
 ```
 
 
 ### URL
 ```toml
-URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
+URL = \"***localhost:5432/dbname?sslmode=disable\" # Example
 ```
 URL is the PostgreSQL URI to connect to your database. Chainlink nodes require Postgres versions >= 11. See
 [Running a Chainlink Node](https://docs.chain.link/docs/running-a-chainlink-node/#set-the-remote-database_url-config) for an example.
@@ -36,7 +36,7 @@ Environment variable: `CL_DATABASE_URL`
 
 ### BackupURL
 ```toml
-BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
+BackupURL = \"***read-replica.example.com:5432/dbname?sslmode=disable\" # Example
 ```
 BackupURL is where the automatic database backup will pull from, rather than the main CL_DATABASE_URL. It is recommended
 to set this value to a read replica if you have one to avoid excessive load on the main database.
@@ -54,14 +54,14 @@ Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 ## Explorer
 ```toml
 [Explorer]
-AccessKey = "access_key" # Example
-Secret = "secret" # Example
+AccessKey = \"access_key\" # Example
+Secret = \"secret\" # Example
 ```
 
 
 ### AccessKey
 ```toml
-AccessKey = "access_key" # Example
+AccessKey = \"access_key\" # Example
 ```
 AccessKey is the access key for authenticating with the Explorer.
 
@@ -69,7 +69,7 @@ Environment variable: `CL_EXPLORER_ACCESS_KEY`
 
 ### Secret
 ```toml
-Secret = "secret" # Example
+Secret = \"secret\" # Example
 ```
 Secret is the secret for authenticating with the Explorer.
 
@@ -78,14 +78,14 @@ Environment variable: `CL_EXPLORER_SECRET`
 ## Password
 ```toml
 [Password]
-Keystore = "keystore_pass" # Example
-VRF = "VRF_pass" # Example
+Keystore = \"keystore_pass\" # Example
+VRF = \"VRF_pass\" # Example
 ```
 
 
 ### Keystore
 ```toml
-Keystore = "keystore_pass" # Example
+Keystore = \"keystore_pass\" # Example
 ```
 Keystore is the password for the node's account.
 
@@ -93,7 +93,7 @@ Environment variable: `CL_PASSWORD_KEYSTORE`
 
 ### VRF
 ```toml
-VRF = "VRF_pass" # Example
+VRF = \"VRF_pass\" # Example
 ```
 VRF is the password for the vrf keys.
 
@@ -102,13 +102,13 @@ Environment variable: `CL_PASSWORD_VRF`
 ## Pyroscope
 ```toml
 [Pyroscope]
-AuthToken = "pyroscope-token" # Example
+AuthToken = \"pyroscope-token\" # Example
 ```
 
 
 ### AuthToken
 ```toml
-AuthToken = "pyroscope-token" # Example
+AuthToken = \"pyroscope-token\" # Example
 ```
 AuthToken is the API key for the Pyroscope server.
 
@@ -117,13 +117,13 @@ Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 ## Prometheus
 ```toml
 [Prometheus]
-AuthToken = "prometheus-token" # Example
+AuthToken = \"prometheus-token\" # Example
 ```
 
 
 ### AuthToken
 ```toml
-AuthToken = "prometheus-token" # Example
+AuthToken = \"prometheus-token\" # Example
 ```
 AuthToken is the authorization key for the Prometheus metrics endpoint.
 
@@ -132,32 +132,32 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 ## Mercury.Credentials.Name
 ```toml
 [Mercury.Credentials.Name]
-Username = "A-Mercury-Username" # Example
-Password = "A-Mercury-Password" # Example
-URL = "https://mercury.stage.link" # Example
+Username = \"A-Mercury-Username\" # Example
+Password = \"A-Mercury-Password\" # Example
+URL = \"https://mercury.stage.link\" # Example
 ```
 
 
 ### Username
 ```toml
-Username = "A-Mercury-Username" # Example
+Username = \"A-Mercury-Username\" # Example
 ```
 Username is used for basic auth of the Mercury endpoint
 
 ### Password
 ```toml
-Password = "A-Mercury-Password" # Example
+Password = \"A-Mercury-Password\" # Example
 ```
 Password is used for basic auth of the Mercury endpoint
 
 ### URL
 ```toml
-URL = "https://mercury.stage.link" # Example
+URL = \"https://mercury.stage.link\" # Example
 ```
 URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
 
 ### Threshold
 ```toml
-ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share"
+ThresholdDecryptionKeyShare = \"A-Threshold-Decryption-Key-Share\"
 ```
 ThresholdDecryptionKeyShare is an encrypted key used for multiparty threshold decryption of secrets
