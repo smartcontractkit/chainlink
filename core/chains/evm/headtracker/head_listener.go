@@ -161,8 +161,8 @@ func (hl *headListener[H, HTH, S, ID, BLOCK_HASH, CLIENT]) receiveHeaders(ctx co
 			}
 
 			// Compare the chain ID of the block header to the chain ID of the client
-			if !blockHeader.HasChainID() || blockHeader.ChainId().String() != chainId.String() {
-				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainId())
+			if !blockHeader.HasChainID() || blockHeader.ChainID().String() != chainId.String() {
+				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainID())
 			}
 			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()
 

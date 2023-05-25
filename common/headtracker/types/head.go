@@ -11,7 +11,7 @@ type Head[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtyp
 	// Equals returns true if the two heads are equal
 	Equals(H) bool
 	// ChainID returns the chain ID that the head is for
-	ChainId() CHAIN_ID
+	ChainID() CHAIN_ID
 	// Returns true if the head has a chain Id
 	HasChainID() bool
 	// IsValid returns true if the head is valid.
