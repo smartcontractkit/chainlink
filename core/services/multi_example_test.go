@@ -62,18 +62,19 @@ func ExampleMultiStart() {
 	// failed to start: c; failed to close: b
 }
 
-func ExampleMultiClose() {
+func ExampleMultiCloser() {
 	ctx := context.Background()
 
 	f1 := CloseFailure("f")
 	f2 := CloseFailure("f")
+	cs := []CloseFailure{f1, f2}
 
 	var ms MultiStart
 	if err := ms.Start(ctx, f1, f2); err != nil {
 		fmt.Println(err)
 		return
 	}
-	mc := MultiClose{f1, f2}
+	mc := MultiCloser(cs)
 	if err := mc.Close(); err != nil {
 		fmt.Println(err)
 	}
