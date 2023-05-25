@@ -9,7 +9,8 @@ union JobSpec =
     WebhookSpec |
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
-    BootstrapSpec
+    BootstrapSpec |
+    GatewaySpec
 
 type CronSpec {
     schedule: String!
@@ -155,5 +156,11 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type GatewaySpec {
+    id: ID!
+    gatewayConfig: Map!
     createdAt: Time!
 }
