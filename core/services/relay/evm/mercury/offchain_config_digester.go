@@ -67,8 +67,8 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 	), nil
 }
 
-func (d OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
+func (d OffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
 	// TODO: Replace this value with the proper value in
 	// libocr/offchainreporting2/types later!
-	return ConfigDigestPrefixMercuryV02
+	return ConfigDigestPrefixMercuryV02, nil
 }
