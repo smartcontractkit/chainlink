@@ -61,6 +61,7 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
+        // TODO return this check once types.ConfigDigestPrefixMercury is exported from libocr
 	// if types.ConfigDigestPrefixMercury != 6 {
 	// 	// assertion
 	// 	panic("wrong ConfigDigestPrefix")
