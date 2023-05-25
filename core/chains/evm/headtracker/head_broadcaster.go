@@ -87,6 +87,7 @@ func (hb *headBroadcaster[H, BLOCK_HASH]) Close() error {
 func (hb *headBroadcaster[H, BLOCK_HASH]) Name() string {
 	return hb.logger.Name()
 }
+
 func (hb *headBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
 	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
 }
