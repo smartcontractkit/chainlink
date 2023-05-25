@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -16,23 +16,40 @@ import (
 
 const TrackableCallbackTimeout = 2 * time.Second
 
-type callbackSet map[int]httypes.HeadTrackable
-type genericCallbackSet[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] map[int]commontypes.HeadTrackable[H, BLOCK_HASH]
+type callbackSet[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] map[int]commontypes.HeadTrackable[H, BLOCK_HASH]
 
-func (set callbackSet) values() []httypes.HeadTrackable {
-	var values []httypes.HeadTrackable
+func (set callbackSet[H, BLOCK_HASH]) values() []commontypes.HeadTrackable[H, BLOCK_HASH] {
+	var values []commontypes.HeadTrackable[H, BLOCK_HASH]
 	for _, callback := range set {
 		values = append(values, callback)
 	}
 	return values
 }
 
+type headBroadcaster[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
+	logger    logger.Logger
+	callbacks callbackSet[H, BLOCK_HASH]
+	mailbox   *utils.Mailbox[H]
+	mutex     *sync.Mutex
+	chClose   utils.StopChan
+	wgDone    sync.WaitGroup
+	utils.StartStopOnce
+	latest         H
+	lastCallbackID int
+}
+type evmHeadBroadcaster = headBroadcaster[*evmtypes.Head, common.Hash]
+
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
-	return &headBroadcaster{
+func NewHeadBroadcaster[
+	H commontypes.Head[BLOCK_HASH],
+	BLOCK_HASH commontypes.Hashable,
+](
+	lggr logger.Logger,
+) *headBroadcaster[H, BLOCK_HASH] {
+	return &headBroadcaster[H, BLOCK_HASH]{
 		logger:        lggr.Named("HeadBroadcaster"),
-		callbacks:     make(callbackSet),
-		mailbox:       utils.NewSingleMailbox[*evmtypes.Head](),
+		callbacks:     make(callbackSet[H, BLOCK_HASH]),
+		mailbox:       utils.NewSingleMailbox[H](),
 		mutex:         &sync.Mutex{},
 		chClose:       make(chan struct{}),
 		wgDone:        sync.WaitGroup{},
@@ -40,19 +57,13 @@ func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	}
 }
 
-type headBroadcaster struct {
-	logger    logger.Logger
-	callbacks callbackSet
-	mailbox   *utils.Mailbox[*evmtypes.Head]
-	mutex     *sync.Mutex
-	chClose   utils.StopChan
-	wgDone    sync.WaitGroup
-	utils.StartStopOnce
-	latest         *evmtypes.Head
-	lastCallbackID int
+func NewEvmHeadBroadcaster(
+	lggr logger.Logger,
+) *evmHeadBroadcaster {
+	return NewHeadBroadcaster[*evmtypes.Head, common.Hash](lggr)
 }
 
-func (hb *headBroadcaster) Start(context.Context) error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
 		hb.wgDone.Add(1)
 		go hb.run()
@@ -60,11 +71,11 @@ func (hb *headBroadcaster) Start(context.Context) error {
 	})
 }
 
-func (hb *headBroadcaster) Close() error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Close() error {
 	return hb.StopOnce("HeadBroadcaster", func() error {
 		hb.mutex.Lock()
 		// clear all callbacks
-		hb.callbacks = make(callbackSet)
+		hb.callbacks = make(callbackSet[H, BLOCK_HASH])
 		hb.mutex.Unlock()
 
 		close(hb.chClose)
@@ -73,20 +84,20 @@ func (hb *headBroadcaster) Close() error {
 	})
 }
 
-func (hb *headBroadcaster) Name() string {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Name() string {
 	return hb.logger.Name()
 }
-func (hb *headBroadcaster) HealthReport() map[string]error {
+func (hb *headBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
 	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
 }
 
-func (hb *headBroadcaster) BroadcastNewLongestChain(head *evmtypes.Head) {
+func (hb *headBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
 	hb.mailbox.Deliver(head)
 }
 
 // Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func()) {
+func (hb *headBroadcaster[H, BLOCK_HASH]) Subscribe(callback commontypes.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
 	hb.mutex.Lock()
 	defer hb.mutex.Unlock()
 
@@ -104,7 +115,7 @@ func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLon
 	return
 }
 
-func (hb *headBroadcaster) run() {
+func (hb *headBroadcaster[H, BLOCK_HASH]) run() {
 	defer hb.wgDone.Done()
 
 	for {
@@ -120,7 +131,7 @@ func (hb *headBroadcaster) run() {
 // DEV: the head relayer makes no promises about head delivery! Subscribing
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
-func (hb *headBroadcaster) executeCallbacks() {
+func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	head, exists := hb.mailbox.Retrieve()
 	if !exists {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
@@ -133,7 +144,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	hb.mutex.Unlock()
 
 	hb.logger.Debugw("Initiating callbacks",
-		"headNum", head.Number,
+		"headNum", head.BlockNumber(),
 		"numCallbacks", len(callbacks),
 	)
 
@@ -144,7 +155,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	defer cancel()
 
 	for _, callback := range callbacks {
-		go func(trackable httypes.HeadTrackable) {
+		go func(trackable commontypes.HeadTrackable[H, BLOCK_HASH]) {
 			defer wg.Done()
 			start := time.Now()
 			cctx, cancel := context.WithTimeout(ctx, TrackableCallbackTimeout)
@@ -152,7 +163,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 			trackable.OnNewLongestChain(cctx, head)
 			elapsed := time.Since(start)
 			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
-				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.Number, "time", elapsed)
+				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.BlockNumber(), "time", elapsed)
 		}(callback)
 	}
 
