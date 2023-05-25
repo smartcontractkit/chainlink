@@ -469,72 +469,16 @@ func (_m *GeneralConfig) CosmosEnabled() bool {
 	return r0
 }
 
-// DatabaseBackupDir provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseBackupDir() string {
+// Database provides a mock function with given fields:
+func (_m *GeneralConfig) Database() config.Database {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// DatabaseBackupFrequency provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseBackupFrequency() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseBackupMode provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseBackupMode() config.DatabaseBackupMode {
-	ret := _m.Called()
-
-	var r0 config.DatabaseBackupMode
-	if rf, ok := ret.Get(0).(func() config.DatabaseBackupMode); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(config.DatabaseBackupMode)
-	}
-
-	return r0
-}
-
-// DatabaseBackupOnVersionUpgrade provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseBackupOnVersionUpgrade() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// DatabaseBackupURL provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseBackupURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 config.Database
+	if rf, ok := ret.Get(0).(func() config.Database); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(config.Database)
 		}
 	}
 
