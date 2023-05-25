@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -1059,6 +1060,29 @@ func main() {
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
+	case "wrapper-get-subscription-id":
+		cmd := flag.NewFlagSet("wrapper-get-subscription-id", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		subID, err := wrapper.SUBSCRIPTIONID(nil)
+		helpers.PanicErr(err)
+		fmt.Println("subscription id of wrapper", *wrapperAddress, "is:", subID)
+	case "fund-sub":
+		cmd := flag.NewFlagSet("fund-sub", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of vrf coordinator v2 contract")
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		subID := cmd.Uint64("sub-id", 0, "subscription id")
+		amountJuels := cmd.String("amount-juels", "0", "amount in juels to fund")
+		helpers.ParseArgs(cmd, os.Args[2:], "sub-id", "amount-juels", "coordinator-address", "link-address")
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+		calldata, err := utils.ABIEncode(`[{"type": "uint64"}]`, *subID)
+		helpers.PanicErr(err)
+		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*coordinatorAddress), decimal.RequireFromString(*amountJuels).BigInt(), calldata)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "fund sub", *amountJuels, "juels")
 	case "wrapper-configure":
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
@@ -1100,6 +1124,38 @@ func main() {
 		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "wrapper-consumer-request-status":
+		cmd := flag.NewFlagSet("wrapper-consumer-request-status", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "address of wrapper consumer")
+		requestID := cmd.String("request-id", "", "request id of vrf request")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
+
+		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
+			common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		status, err := consumer.GetRequestStatus(nil, decimal.RequireFromString(*requestID).BigInt())
+		helpers.PanicErr(err)
+
+		statusStringer := func(status vrfv2_wrapper_consumer_example.GetRequestStatus) string {
+			return fmt.Sprint("paid (juels):", status.Paid.String(),
+				", fulfilled?:", status.Fulfilled,
+				", random words:", status.RandomWords)
+		}
+
+		fmt.Println("status for request", *requestID, "is:")
+		fmt.Println(statusStringer(status))
+	case "transfer-link":
+		cmd := flag.NewFlagSet("transfer-link", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		amountJuels := cmd.String("amount-juels", "0", "amount in juels to fund")
+		receiverAddress := cmd.String("receiver-address", "", "address of receiver (contract or eoa)")
+		helpers.ParseArgs(cmd, os.Args[2:], "amount-juels", "link-address", "receiver-address")
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+		tx, err := link.Transfer(e.Owner, common.HexToAddress(*receiverAddress), decimal.RequireFromString(*amountJuels).BigInt())
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer", *amountJuels, "juels to", *receiverAddress)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
 	default:

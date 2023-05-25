@@ -172,7 +172,9 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli-optimism.etherscan.io"
 
 	case ArbitrumGoerliChainID: // Arbitrum Goerli
-		prefix = "https://goerli-rollup-explorer.arbitrum.io"
+		prefix = "https://goerli.arbiscan.io"
+	case ArbitrumOneChainID: // Arbitrum mainnet
+		prefix = "https://arbiscan.io"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
