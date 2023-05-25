@@ -61,10 +61,10 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	if types.ConfigDigestPrefixMercury != 6 {
-		// assertion
-		panic("wrong ConfigDigestPrefix")
-	}
+	// if types.ConfigDigestPrefixMercury != 6 {
+	// 	// assertion
+	// 	panic("wrong ConfigDigestPrefix")
+	// }
 	configDigest[0] = 0
 	configDigest[1] = 1
 	return configDigest

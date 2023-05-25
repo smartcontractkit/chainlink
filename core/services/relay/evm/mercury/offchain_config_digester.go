@@ -64,5 +64,5 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 }
 
 func (d OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
-	return types.ConfigDigestPrefixMercury
+	return 6 // Temporary until ConfigDigestPrefixMercury is available in libocr
 }
