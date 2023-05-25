@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	big "math/big"
-
 	common "github.com/ethereum/go-ethereum/common"
 	mock "github.com/stretchr/testify/mock"
 
@@ -71,32 +69,32 @@ func (_m *ORM) Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*s4.R
 	return r0, r1
 }
 
-// GetSnapshot provides a mock function with given fields: minAddress, maxAddress, qopts
-func (_m *ORM) GetSnapshot(minAddress *big.Int, maxAddress *big.Int, qopts ...pg.QOpt) ([]*s4.Row, error) {
+// GetSnapshot provides a mock function with given fields: addressRange, qopts
+func (_m *ORM) GetSnapshot(addressRange *s4.AddressRange, qopts ...pg.QOpt) ([]*s4.Row, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, minAddress, maxAddress)
+	_ca = append(_ca, addressRange)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []*s4.Row
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ...pg.QOpt) ([]*s4.Row, error)); ok {
-		return rf(minAddress, maxAddress, qopts...)
+	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) ([]*s4.Row, error)); ok {
+		return rf(addressRange, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ...pg.QOpt) []*s4.Row); ok {
-		r0 = rf(minAddress, maxAddress, qopts...)
+	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) []*s4.Row); ok {
+		r0 = rf(addressRange, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*s4.Row)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int, ...pg.QOpt) error); ok {
-		r1 = rf(minAddress, maxAddress, qopts...)
+	if rf, ok := ret.Get(1).(func(*s4.AddressRange, ...pg.QOpt) error); ok {
+		r1 = rf(addressRange, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

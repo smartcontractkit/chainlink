@@ -13,8 +13,13 @@ message Row {
     bytes signature  = 6;
 }
 
+message AddressRange {
+    string minAddress = 1;
+    string maxAddress = 2;
+}
+
 message Rows {
     repeated Row rows  = 1;
-    string minAddress = 2;
-    string maxAddress = 3;
+    AddressRange addressRange = 2;
 }
+

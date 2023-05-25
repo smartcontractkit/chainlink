@@ -195,7 +195,7 @@ func TestPlugin_Query(t *testing.T) {
 
 	t.Run("happy", func(t *testing.T) {
 		ormRows := generateTestOrmRows(t, 10, time.Minute)
-		orm.On("GetSnapshot", s4_orm.MinAddress, s4_orm.MaxAddress, mock.Anything).Return(ormRows, nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(ormRows, nil).Once()
 
 		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
@@ -208,7 +208,7 @@ func TestPlugin_Query(t *testing.T) {
 	})
 
 	t.Run("empty", func(t *testing.T) {
-		orm.On("GetSnapshot", s4_orm.MinAddress, s4_orm.MaxAddress, mock.Anything).Return(make([]*s4_orm.Row, 0), nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(make([]*s4_orm.Row, 0), nil).Once()
 
 		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
@@ -232,7 +232,7 @@ func TestPlugin_Query(t *testing.T) {
 				from = 0
 				to = 16
 			}
-			orm.On("GetSnapshot", mock.Anything, mock.Anything, mock.Anything).Return(ormRows[from:to], nil).Once()
+			orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(ormRows[from:to], nil).Once()
 
 			query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 			assert.NoError(t, err)
@@ -243,8 +243,8 @@ func TestPlugin_Query(t *testing.T) {
 
 			assert.Len(t, rr.Rows, 16)
 			for _, r := range rr.Rows {
-				minAddress := mustStringToBig(t, rr.MinAddress)
-				maxAddress := mustStringToBig(t, rr.MaxAddress)
+				minAddress := mustStringToBig(t, rr.AddressRange.MinAddress)
+				maxAddress := mustStringToBig(t, rr.AddressRange.MaxAddress)
 				thisAddress := common.HexToAddress(r.Address).Big()
 				assert.True(t, thisAddress.Cmp(minAddress) >= 0)
 				assert.True(t, thisAddress.Cmp(maxAddress) <= 0)
@@ -266,13 +266,13 @@ func TestPlugin_Observation(t *testing.T) {
 	for i, or := range ormRows {
 		or.Confirmed = i%2 == 0
 	}
-	orm.On("GetSnapshot", s4_orm.MinAddress, s4_orm.MaxAddress, mock.Anything).Return(ormRows, nil).Once()
+	orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(ormRows, nil).Once()
 
 	query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	assert.NoError(t, err)
 
 	orm.On("DeleteExpired", mock.Anything).Return(nil).Once()
-	orm.On("GetSnapshot", mock.Anything, mock.Anything, mock.Anything).Return(ormRows, nil).Once()
+	orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(ormRows, nil).Once()
 
 	observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
 	assert.NoError(t, err)
