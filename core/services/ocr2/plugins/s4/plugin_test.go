@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"errors"
-	"math/big"
 	"testing"
 	"time"
 
@@ -38,14 +37,6 @@ func mustRandomBytes(t *testing.T, n int) []byte {
 	return b
 }
 
-func mustStringToBig(t *testing.T, bn string) *big.Int {
-	assert.NotEmpty(t, bn)
-	bigAddress := new(big.Int)
-	_, ok := bigAddress.SetString(bn, 10)
-	assert.True(t, ok)
-	return bigAddress
-}
-
 func generateCryptoEntity(t *testing.T) (*ecdsa.PrivateKey, *ecdsa.PublicKey, common.Address) {
 	privateKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)
@@ -62,8 +53,7 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	ormRows := generateTestOrmRows(t, n, ttl)
 	rows := make([]*s4.Row, n)
 	for i := 0; i < n; i++ {
-		addressStr, err := s4.MarshalAddress(ormRows[i].Address)
-		assert.NoError(t, err)
+		addressStr := s4.MarshalAddress(ormRows[i].Address)
 		rows[i] = &s4.Row{
 			Address:    addressStr,
 			Slotid:     uint32(ormRows[i].SlotId),
@@ -106,7 +96,7 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_orm.Row {
 func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_orm.Row) {
 	assert.Equal(t, len(ormRows), len(protoRows))
 	for i, row := range protoRows {
-		assert.Equal(t, row.Address, ormRows[i].Address.String())
+		assert.Equal(t, row.Address, ormRows[i].Address.Hex())
 		assert.Equal(t, row.Version, ormRows[i].Version)
 		assert.Equal(t, row.Expiration, ormRows[i].Expiration)
 		assert.Equal(t, row.Payload, ormRows[i].Payload)
@@ -246,8 +236,8 @@ func TestPlugin_Query(t *testing.T) {
 
 			assert.Len(t, rr.Rows, 16)
 			for _, r := range rr.Rows {
-				minAddress := mustStringToBig(t, rr.AddressRange.MinAddress)
-				maxAddress := mustStringToBig(t, rr.AddressRange.MaxAddress)
+				minAddress := common.HexToAddress(rr.AddressRange.MinAddress).Big()
+				maxAddress := common.HexToAddress(rr.AddressRange.MaxAddress).Big()
 				thisAddress := common.HexToAddress(r.Address).Big()
 				assert.True(t, thisAddress.Cmp(minAddress) >= 0)
 				assert.True(t, thisAddress.Cmp(maxAddress) <= 0)

@@ -4,20 +4,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"google.golang.org/protobuf/proto"
 )
 
 func MarshalRows(rows []*Row, addressRange *s4.AddressRange) ([]byte, error) {
 	var protoAddressRange *AddressRange
 	if addressRange != nil {
-		minAddressStr, err := MarshalAddress(addressRange.MinAddress)
-		if err != nil {
-			return nil, err
-		}
-		maxAddressStr, err := MarshalAddress(addressRange.MaxAddress)
-		if err != nil {
-			return nil, err
-		}
+		minAddressStr := MarshalAddress(addressRange.MinAddress)
+		maxAddressStr := MarshalAddress(addressRange.MaxAddress)
 		protoAddressRange = &AddressRange{
 			MinAddress: minAddressStr,
 			MaxAddress: maxAddressStr,
@@ -53,18 +48,14 @@ func UnmarshalRows(data []byte) ([]*Row, *s4.AddressRange, error) {
 	return rows.Rows, addressRange, nil
 }
 
-func MarshalAddress(address *utils.Big) (string, error) {
-	addressStr, err := address.MarshalText()
-	if err != nil {
-		return "", err
-	}
-	return string(addressStr), nil
+func MarshalAddress(address *utils.Big) string {
+	return address.Hex()
 }
 
 func UnmarshalAddress(address string) (*utils.Big, error) {
-	bigAddress := new(utils.Big)
-	if err := bigAddress.UnmarshalText([]byte(address)); err != nil {
+	decoded, err := hexutil.DecodeBig(address)
+	if err != nil {
 		return nil, err
 	}
-	return bigAddress, nil
+	return utils.NewBig(decoded), nil
 }

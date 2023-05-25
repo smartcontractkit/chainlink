@@ -195,7 +195,7 @@ func (c *plugin) Close() error {
 
 func convertRow(from *s4.Row) *Row {
 	return &Row{
-		Address:    from.Address.String(),
+		Address:    from.Address.Hex(),
 		Slotid:     uint32(from.SlotId),
 		Version:    from.Version,
 		Expiration: from.Expiration,
@@ -205,13 +205,9 @@ func convertRow(from *s4.Row) *Row {
 }
 
 func verifySignature(row *Row) error {
-	bigAddress, err := UnmarshalAddress(row.Address)
-	if err != nil {
-		return err
-	}
-	rowAddress := common.BigToAddress(bigAddress.ToInt())
+	address := common.HexToAddress(row.Address)
 	e := &s4.Envelope{
-		Address:    rowAddress.Bytes(),
+		Address:    address.Bytes(),
 		SlotID:     uint(row.Slotid),
 		Payload:    row.Payload,
 		Version:    row.Version,
@@ -221,7 +217,7 @@ func verifySignature(row *Row) error {
 	if err != nil {
 		return err
 	}
-	if signer != rowAddress {
+	if signer != address {
 		return s4.ErrWrongSignature
 	}
 	return nil
