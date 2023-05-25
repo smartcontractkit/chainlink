@@ -1,6 +1,7 @@
 name: Bash CICD Scripts
 
 on:
+  merge_group:
   pull_request:
 
 jobs:
