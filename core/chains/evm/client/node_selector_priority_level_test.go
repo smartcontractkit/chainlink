@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestName(t *testing.T) {
+func TestPriorityLevelNodeSelectorName(t *testing.T) {
 	selector := evmclient.NewPriorityLevelNodeSelector(nil)
 	assert.Equal(t, selector.Name(), evmclient.NodeSelectionMode_PriorityLevel)
 }

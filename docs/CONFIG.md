@@ -4692,7 +4692,7 @@ SendOnly limits usage to sending transaction broadcasts only. With this enabled,
 ```toml
 Priority = 0 # Default
 ```
-Priority of the node in the pool, only takes effect if `SelectionMode` is `PriorityLevel`
+Priority of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
 
 ## EVM.OCR2.Automation
 ```toml

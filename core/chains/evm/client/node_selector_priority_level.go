@@ -87,3 +87,16 @@ func nrOfPriorityTiers(nodes []Node) int32 {
 	}
 	return highestPriority + 1
 }
+
+// firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority
+func firstOrHighestPriority(nodes []Node) Node {
+	hp := int32(-1)
+	var node Node
+	for _, n := range nodes {
+		if n.PriorityLevel() > hp {
+			hp = n.PriorityLevel()
+			node = n
+		}
+	}
+	return node
+}

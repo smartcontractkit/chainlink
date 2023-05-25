@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestTotalDifficultyNodeSelectorName(t *testing.T) {
+	selector := evmclient.NewTotalDifficultyNodeSelector(nil)
+	assert.Equal(t, selector.Name(), evmclient.NodeSelectionMode_TotalDifficulty)
+}
+
 func TestTotalDifficultyNodeSelector(t *testing.T) {
 	t.Parallel()
 
@@ -27,6 +32,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 			// third node is alive and best
 			node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(2), utils.NewBigI(8))
 		}
+		node.On("PriorityLevel").Maybe().Return(int32(0))
 		nodes = append(nodes, node)
 	}
 
@@ -37,6 +43,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		// fourth node is alive (same as 3rd)
 		node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(2), utils.NewBigI(8))
+		node.On("PriorityLevel").Maybe().Return(int32(0))
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
@@ -47,6 +54,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		// fifth node is alive (better than 3rd and 4th)
 		node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(11))
+		node.On("PriorityLevel").Maybe().Return(int32(0))
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
@@ -56,8 +64,10 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 	t.Run("nodes never update latest block number", func(t *testing.T) {
 		node1 := evmmocks.NewNode(t)
 		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(-1), nil)
+		node1.On("PriorityLevel").Maybe().Return(int32(0))
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(-1), nil)
+		node2.On("PriorityLevel").Maybe().Return(int32(0))
 		nodes := []evmclient.Node{node1, node2}
 
 		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
@@ -84,4 +94,83 @@ func TestTotalDifficultyNodeSelector_None(t *testing.T) {
 
 	selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
 	assert.Nil(t, selector.Select())
+}
+
+func TestTotalDifficultyNodeSelectorWithPriority(t *testing.T) {
+	t.Parallel()
+
+	var nodes []evmclient.Node
+
+	t.Run("same td and priority", func(t *testing.T) {
+		for i := 0; i < 3; i++ {
+			node := evmmocks.NewNode(t)
+			node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(10))
+			node.On("PriorityLevel").Return(int32(2))
+			nodes = append(nodes, node)
+		}
+		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the first node because all things are equal
+		assert.Same(t, nodes[0], selector.Select())
+	})
+
+	t.Run("same td but different priority", func(t *testing.T) {
+		node1 := evmmocks.NewNode(t)
+		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node1.On("PriorityLevel").Return(int32(1))
+
+		node2 := evmmocks.NewNode(t)
+		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node2.On("PriorityLevel").Return(int32(3))
+
+		node3 := evmmocks.NewNode(t)
+		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node3.On("PriorityLevel").Return(int32(2))
+
+		nodes := []evmclient.Node{node1, node2, node3}
+		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the second node as it has the highest priority
+		assert.Same(t, nodes[1], selector.Select())
+	})
+
+	t.Run("different td but same priority", func(t *testing.T) {
+		node1 := evmmocks.NewNode(t)
+		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(10))
+		node1.On("PriorityLevel").Maybe().Return(int32(3))
+
+		node2 := evmmocks.NewNode(t)
+		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(11))
+		node2.On("PriorityLevel").Maybe().Return(int32(3))
+
+		node3 := evmmocks.NewNode(t)
+		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(12))
+		node3.On("PriorityLevel").Return(int32(3))
+
+		nodes := []evmclient.Node{node1, node2, node3}
+		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td
+		assert.Same(t, nodes[2], selector.Select())
+	})
+
+	t.Run("different head and different priority", func(t *testing.T) {
+		node1 := evmmocks.NewNode(t)
+		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(100))
+		node1.On("PriorityLevel").Maybe().Return(int32(3))
+
+		node2 := evmmocks.NewNode(t)
+		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(110))
+		node2.On("PriorityLevel").Maybe().Return(int32(1))
+
+		node3 := evmmocks.NewNode(t)
+		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(110))
+		node3.On("PriorityLevel").Maybe().Return(int32(2))
+
+		node4 := evmmocks.NewNode(t)
+		node4.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(105))
+		node4.On("PriorityLevel").Maybe().Return(int32(1))
+
+		nodes := []evmclient.Node{node1, node2, node3, node4}
+		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td and will win the priority tie-breaker
+		assert.Same(t, nodes[2], selector.Select())
+	})
 }
