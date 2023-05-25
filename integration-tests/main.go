@@ -96,14 +96,14 @@ func main() {
 	}
 	fmt.Println(stdOut.String())
 
-	err = waitForWorkflowRun(branch, ghUser)
+	_, err = waitForWorkflowRun(branch, ghUser)
 	if err != nil {
 		fmt.Printf("Error waiting for workflow to start: %v\n", err)
 		return
 	}
 }
 
-func waitForWorkflowRun(branch, ghUser string) error {
+func waitForWorkflowRun(branch, ghUser string) (string, error) {
 	fmt.Println("Waiting for workflow to start")
 	startTime := time.Now()
 	checkWorkflow, timeout := time.NewTicker(time.Second), time.After(time.Second*15)
@@ -113,7 +113,7 @@ func waitForWorkflowRun(branch, ghUser string) error {
 		case <-checkWorkflow.C:
 			workflowId, err := checkWorkflowRun(startTime, branch, ghUser)
 			if err != nil {
-				return err
+				return "", err
 			}
 			if workflowId == "" {
 				fmt.Println("Checking...")
@@ -126,11 +126,11 @@ func waitForWorkflowRun(branch, ghUser string) error {
 			)
 			if err != nil {
 				fmt.Println(stdErr.String())
-				return err
+				return "", err
 			}
-			return nil
+			return workflowId, nil
 		case <-timeout:
-			return fmt.Errorf("timed out waiting for workflow run to start")
+			return "", fmt.Errorf("timed out waiting for workflow run to start")
 		}
 	}
 }
@@ -264,6 +264,7 @@ func testNames(directory string) []string {
 	return names
 }
 
+// getNetwork prompts the user for a network to run the test on, including urls and keys if necessary
 func getNetwork() (networkName, networkWs, networkHTTP, fundingKey string, err error) {
 	validNetworks, i := make([]string, len(networks.MappedNetworks)), 0
 	for network := range networks.MappedNetworks {
