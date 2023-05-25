@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
@@ -51,7 +50,7 @@ const (
 )
 
 // mercuryLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
+func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
 	// return error only if there are errors which stops the process
 	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
 	// TODO (AUTO-2862): parallelize the mercury lookup work for all upkeeps
@@ -61,69 +60,71 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
-		block, upkeepId, err := blockAndIdFromKey(upkeepResults[i].Key)
-		if err != nil {
-			r.lggr.Error("MercuryLookup error getting block and upkeep id:", err)
-			return nil, err
-		}
+		block := upkeepResults[i].Block
+		upkeepId := upkeepResults[i].ID
 
 		// checking if this upkeep is in cooldown from api errors
 		_, onIce := r.mercury.cooldownCache.Get(upkeepId.String())
 		if onIce {
-			r.lggr.Debugf("MercuryLookup upkeep %s block %s skipped bc of cool down", upkeepId.String(), block.String())
+			r.lggr.Infof("[MercuryLookup] upkeep %s block %d skipped bc of cool down", upkeepId, block)
 			continue
 		}
 
 		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
 		if err != nil {
-			r.lggr.Errorf("MercuryLookup upkeep %s block %s decodeMercuryLookup: %v", upkeepId.String(), block.String(), err)
+			r.lggr.Debugf("[MercuryLookup] upkeep %s block %d decodeMercuryLookup: %v", upkeepId, block, err)
 			continue
 		}
 
-		opts, err := r.buildCallOpts(ctx, block)
+		opts, err := r.buildCallOpts(ctx, big.NewInt(int64(block)))
 		if err != nil {
-			r.lggr.Errorf("MercuryLookup upkeep %s block %s buildCallOpts: %v", upkeepId.String(), block.String(), err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
 			return nil, err
 		}
+
 		// need upkeep info for offchainConfig and to hit callback
 		upkeepInfo, err := r.getUpkeepInfo(upkeepId, opts)
 		if err != nil {
-			r.lggr.Errorf("MercuryLookup upkeep %s block %s GetUpkeep: %v", upkeepId.String(), block.String(), err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d GetUpkeep: %v", upkeepId, block, err)
 			return nil, err
 		}
 
 		// do the mercury lookup request
 		values, err := r.doMercuryRequest(ctx, mercuryLookup, upkeepId)
 		if err != nil {
-			r.lggr.Errorf("MercuryLookup upkeep %s block %s doMercuryRequest: %v", upkeepId.String(), block.String(), err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d doMercuryRequest: %v", upkeepId, block, err)
 			continue
 		}
 
 		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo, opts)
 		if err != nil {
-			r.lggr.Errorf("MercuryLookup upkeep %s block %s mercuryLookupCallback err: %v", upkeepId.String(), block.String(), err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryLookupCallback err: %v", upkeepId, block, err)
 			continue
 		}
+
 		if !needed {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-			r.lggr.Debugf("MercuryLookup upkeep %s block %s callback reports upkeep not needed", upkeepId.String(), block.String())
+			r.lggr.Debugf("[MercuryLookup] upkeep %s block %d callback reports upkeep not needed", upkeepId, block)
 			continue
 		}
 
 		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
-		upkeepResults[i].State = types.Eligible
+		upkeepResults[i].Eligible = true
 		upkeepResults[i].PerformData = performData
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s successful with perform data: %+v", upkeepId.String(), block.String(), performData)
+		r.lggr.Infof("[MercuryLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, performData)
 	}
 	// don't surface error to plugin bc MercuryLookup process should be self-contained.
 	return upkeepResults, nil
 }
 
 func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
-	zero := common.Address{}
-	var err error
-	var upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo
+	var (
+		zero       = common.Address{}
+		err        error
+		upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo
+	)
+
 	u, found := r.mercury.upkeepCache.Get(upkeepId.String())
 	if found {
 		upkeepInfo = u.(keeper_registry_wrapper2_0.UpkeepInfo)
@@ -139,6 +140,7 @@ func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (kee
 		r.lggr.Debugf("MercuryLookup upkeep %s block %s cache miss UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
 		r.mercury.upkeepCache.Set(upkeepId.String(), upkeepInfo, cache.DefaultExpiration)
 	}
+
 	return upkeepInfo, nil
 }
 

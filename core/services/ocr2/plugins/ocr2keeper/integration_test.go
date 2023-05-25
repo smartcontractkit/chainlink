@@ -266,7 +266,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 
 		[relayConfig]
 		chainID = 1337
@@ -281,7 +281,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -293,6 +293,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 		[pluginConfig]
 		maxServiceWorkers = 100
+		cacheEvictionInterval = "1s"
 		mercuryCredentialName = "%s"
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
@@ -521,7 +522,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 
 		[relayConfig]
 		chainID = 1337
@@ -536,7 +537,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -548,6 +549,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		chainID = 1337
 
 		[pluginConfig]
+		cacheEvictionInterval = "1s"
+		maxServiceWorkers = 100
 		mercuryCredentialName = "%s"
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}

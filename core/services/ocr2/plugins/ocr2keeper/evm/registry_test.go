@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -24,14 +24,14 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 		LatestHead   int64
 		ActiveIDs    []string
 		ExpectedErr  error
-		ExpectedKeys []types.UpkeepIdentifier
+		ExpectedKeys []ocr2keepers.UpkeepIdentifier
 	}{
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []types.UpkeepIdentifier{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []types.UpkeepIdentifier{
-			types.UpkeepIdentifier("8"),
-			types.UpkeepIdentifier("9"),
-			types.UpkeepIdentifier("3"),
-			types.UpkeepIdentifier("1"),
+		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
+		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
+			ocr2keepers.UpkeepIdentifier("8"),
+			ocr2keepers.UpkeepIdentifier("9"),
+			ocr2keepers.UpkeepIdentifier("3"),
+			ocr2keepers.UpkeepIdentifier("1"),
 		}},
 	}
 
