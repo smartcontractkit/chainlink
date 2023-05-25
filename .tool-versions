@@ -1,5 +1,5 @@
-golang 1.20.3
-mockery 2.22.1
+golang 1.20.4
+mockery 2.28.1
 nodejs 16.13.2
 postgres 13.3
 helm 3.10.3
