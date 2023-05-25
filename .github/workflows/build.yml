@@ -1,6 +1,7 @@
 name: 'Build Chainlink'
 
 on:
+  merge_group:
   pull_request:
   push:
     branches:
