@@ -38,7 +38,10 @@ func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitia
 }
 
 func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket.Conn, error) {
-	authHeader := c.initiator.NewAuthHeader(url)
+	authHeader, err := c.initiator.NewAuthHeader(url)
+	if err != nil {
+		return nil, err
+	}
 	authHeaderStr := base64.StdEncoding.EncodeToString(authHeader)
 
 	hdr := make(http.Header)
