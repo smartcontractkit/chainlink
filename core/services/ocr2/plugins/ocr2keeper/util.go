@@ -6,8 +6,8 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
-	"github.com/smartcontractkit/ocr2keepers/pkg/executer"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -26,7 +26,7 @@ type Encoder interface {
 	ocr2keepers.Encoder
 	coordinator.Encoder
 	polling.Encoder
-	executer.Encoder
+	runner.Encoder
 	coordinator.Encoder
 }
 

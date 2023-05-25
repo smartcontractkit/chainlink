@@ -16,8 +16,8 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
-	"github.com/smartcontractkit/ocr2keepers/pkg/executer"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -683,8 +683,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			conf.ServiceQueueLength = cfg.ServiceQueueLength
 		}
 
-		exec, _ := executer.NewExecuter(
-			log.New(w, "[automation-plugin-executer] ", log.Lshortfile),
+		runr, _ := runner.NewRunner(
+			log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
 			rgstry,
 			encoder,
 			conf.MaxServiceWorkers,
@@ -693,15 +693,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			conf.CacheEvictionInterval,
 		)
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to create automation pipeline executer")
+			return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
 		}
 
 		condObs := &polling.PollingObserverFactory{
-			Logger:   log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
-			Source:   rgstry,
-			Heads:    rgstry,
-			Executer: exec,
-			Encoder:  encoder,
+			Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
+			Source:  rgstry,
+			Heads:   rgstry,
+			Runner:  runr,
+			Encoder: encoder,
 		}
 
 		coord := &coordinator.CoordinatorFactory{
@@ -726,7 +726,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ConditionalObserverFactory:   condObs,
 			CoordinatorFactory:           coord,
 			Encoder:                      encoder,
-			Executer:                     exec,
+			Runner:                       runr,
 			// the following values are not needed in the delegate config anymore
 			CacheExpiration:       cfg.CacheExpiration.Value(),
 			CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
@@ -736,7 +736,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		pluginService, err2 := ocr2keepers.NewDelegate(dConf)
 		if err2 != nil {
-			return []job.ServiceCtx{}, errors.Wrap(err, "could not create new keepers ocr2 delegate")
+			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -751,7 +751,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 
 		return []job.ServiceCtx{
-			job.NewServiceAdapter(exec),
+			job.NewServiceAdapter(runr),
 			runResultSaver,
 			keeperProvider,
 			rgstry,

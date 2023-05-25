@@ -44,8 +44,6 @@ type LogProvider struct {
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
-// var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
-
 func logProviderFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
 }
@@ -258,7 +256,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.KeyBuilder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
@@ -273,7 +271,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.KeyBuilder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
@@ -288,7 +286,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.KeyBuilder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,

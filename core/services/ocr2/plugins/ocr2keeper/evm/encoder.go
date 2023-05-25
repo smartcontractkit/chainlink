@@ -11,7 +11,7 @@ import (
 )
 
 type EVMAutomationEncoder20 struct {
-	encoding.KeyBuilder
+	encoding.BasicEncoder
 }
 
 var (
