@@ -121,12 +121,13 @@ func (c *Core) ValidateConfig() (err error) {
 }
 
 type Secrets struct {
-	Database   DatabaseSecrets   `toml:",omitempty"`
-	Explorer   ExplorerSecrets   `toml:",omitempty"`
-	Password   Passwords         `toml:",omitempty"`
-	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
-	Prometheus PrometheusSecrets `toml:",omitempty"`
-	Mercury    MercurySecrets    `toml:",omitempty"`
+	Database   DatabaseSecrets          `toml:",omitempty"`
+	Explorer   ExplorerSecrets          `toml:",omitempty"`
+	Password   Passwords                `toml:",omitempty"`
+	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
+	Prometheus PrometheusSecrets        `toml:",omitempty"`
+	Mercury    MercurySecrets           `toml:",omitempty"`
+	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -1069,4 +1070,8 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		urls[s] = struct{}{}
 	}
 	return err
+}
+
+type ThresholdKeyShareSecrets struct {
+	ThresholdKeyShare *models.Secret
 }
