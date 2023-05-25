@@ -8,8 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 type evmRegistryPackerV2_0 struct {
@@ -32,20 +31,30 @@ func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
 	return &evmRegistryPackerV2_0{abi: abi}
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
+func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
+	var (
+		result EVMAutomationUpkeepResult20
+	)
+
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return types.UpkeepResult{}, err
+		return result, err
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return types.UpkeepResult{}, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	result := types.UpkeepResult{
-		Key:   key,
-		State: types.Eligible,
+	block, id, err := splitKey(key)
+	if err != nil {
+		return result, err
+	}
+
+	result = EVMAutomationUpkeepResult20{
+		Block:    uint32(block.Uint64()),
+		ID:       id,
+		Eligible: true,
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
@@ -56,14 +65,14 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	result.LinkNative = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
 
 	if !upkeepNeeded {
-		result.State = types.NotEligible
+		result.Eligible = false
 	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
 	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		var ret0 = new(performDataWrapper)
 		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)
 		if err != nil {
-			return types.UpkeepResult{}, err
+			return result, err
 		}
 
 		result.CheckBlockNumber = ret0.Result.CheckBlockNumber
@@ -154,20 +163,33 @@ func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (ac
 	return au, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.UpkeepResult, error) {
-	out, err := rp.abi.Methods["transmit"].Inputs.UnpackValues(raw)
-	if err != nil {
+func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+	var (
+		enc     = EVMAutomationEncoder20{}
+		decoded []ocr2keepers.UpkeepResult
+		out     []interface{}
+		err     error
+		b       []byte
+		ok      bool
+	)
+
+	if out, err = rp.abi.Methods["transmit"].Inputs.UnpackValues(raw); err != nil {
 		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
 	}
 
 	if len(out) < 2 {
 		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
 	}
-	decodedReport, err := chain.NewEVMReportEncoder().DecodeReport(out[1].([]byte))
-	if err != nil {
+
+	if b, ok = out[1].([]byte); !ok {
+		return nil, fmt.Errorf("unexpected value type in transaction")
+	}
+
+	if decoded, err = enc.DecodeReport(b); err != nil {
 		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
 	}
-	return decodedReport, nil
+
+	return decoded, nil
 }
 
 var (
