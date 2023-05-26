@@ -33,13 +33,15 @@ func TestDatabaseConfig(t *testing.T) {
 	assert.Equal(t, db.ORMMaxIdleConns(), 7)
 	assert.Equal(t, db.ORMMaxOpenConns(), 13)
 	assert.Equal(t, db.MigrateDatabase(), true)
-	assert.Equal(t, db.DatabaseLockingMode(), "none")
-	assert.Equal(t, db.LeaseLockDuration(), 1*time.Minute)
-	assert.Equal(t, db.LeaseLockRefreshInterval(), 1*time.Second)
 	assert.Equal(t, db.DatabaseListenerMaxReconnectDuration(), 1*time.Minute)
 	assert.Equal(t, db.DatabaseListenerMinReconnectInterval(), 5*time.Minute)
 	assert.Equal(t, db.TriggerFallbackDBPollInterval(), 2*time.Minute)
 	assert.Equal(t, db.GetDatabaseDialectConfiguredOrDefault(), dialects.Postgres)
 	url := db.DatabaseURL()
 	assert.NotEqual(t, url.String(), "")
+
+	lock := db.Lock()
+	assert.Equal(t, lock.LockingMode(), "none")
+	assert.Equal(t, lock.LeaseDuration(), 1*time.Minute)
+	assert.Equal(t, lock.LeaseRefreshInterval(), 1*time.Second)
 }
