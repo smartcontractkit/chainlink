@@ -20,11 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 var (
@@ -63,7 +63,7 @@ HistoryDepth = 400`
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": false,
-			"capacity": "10Gi",
+			"capacity": "1Gi",
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "250m",
@@ -112,7 +112,7 @@ const (
 	defaultUpkeepGasLimit = uint32(2500000)
 	defaultLinkFunds      = int64(9e18)
 	numberOfUpkeeps       = 2
-	automationReorgBlocks = 100
+	automationReorgBlocks = 10 //TODO: Make this a flag
 )
 
 func TestAutomationReorg(t *testing.T) {
@@ -165,7 +165,8 @@ func TestAutomationReorg(t *testing.T) {
 
 	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 1*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+	require.NoError(t, err, "OCR2 config should be built successfully")
 	err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")
 	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
