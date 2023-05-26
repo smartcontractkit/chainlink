@@ -76,21 +76,30 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := `
 NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 6
 ChainType = 'optimismBedrock'
 LogPollInterval = '2s'
 FinalityDepth = 200
-MinIncomingConfirmations = 3
 
 [EVM.GasEstimator]
 Mode = 'BlockHistory'
-BumpThreshold = 10
+BumpThreshold = 3
 PriceMin = '1 wei'
+BumpMin = '100 wei'
+EIP1559DynamicFees = false
 
 [EVM.GasEstimator.BlockHistory]
 BlockHistorySize = 24
 
 [EVM.Transactions]
 ResendAfterThreshold = '30s'
+
+[EVM.HeadTracker]
+SamplingInterval = '1s'
+HistoryDepth = 300
+
+SyncThreshold = 10
+
 `
 	// Uncomment below for debugging TOML issues on the node
 	//fmt.Println("Using Chainlink TOML\n---------------------")
