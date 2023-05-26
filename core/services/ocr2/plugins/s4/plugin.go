@@ -26,7 +26,7 @@ type key struct {
 
 var _ types.ReportingPlugin = (*plugin)(nil)
 
-func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (*plugin, error) {
+func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
 	}

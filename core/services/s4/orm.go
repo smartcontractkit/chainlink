@@ -30,7 +30,7 @@ type ORM interface {
 	Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Row, error)
 
 	// Update inserts or updates the row identified by (Address, SlotId) pair.
-	// When updating, the new row must have version greater than the existing,
+	// When updating, the new row must have greater or equal version,
 	// otherwise ErrVersionTooLow is returned.
 	// UpdatedAt field value is ignored.
 	Update(row *Row, qopts ...pg.QOpt) error

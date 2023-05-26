@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -66,29 +67,34 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	return rows
 }
 
+func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_orm.Row {
+	priv, _, addr := generateCryptoEntity(t)
+	row := &s4_orm.Row{
+		Address:    utils.NewBig(addr.Big()),
+		SlotId:     0,
+		Version:    version,
+		Confirmed:  confimed,
+		Expiration: time.Now().Add(ttl).UnixMilli(),
+		Payload:    mustRandomBytes(t, 64),
+		UpdatedAt:  time.Now().Add(-time.Second).UnixMilli(),
+	}
+	env := &s4_orm.Envelope{
+		Address:    addr.Bytes(),
+		SlotID:     row.SlotId,
+		Version:    row.Version,
+		Expiration: row.Expiration,
+		Payload:    row.Payload,
+	}
+	sig, err := env.Sign(priv)
+	assert.NoError(t, err)
+	row.Signature = sig
+	return row
+}
+
 func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_orm.Row {
 	rows := make([]*s4_orm.Row, n)
 	for i := 0; i < n; i++ {
-		priv, _, addr := generateCryptoEntity(t)
-		rows[i] = &s4_orm.Row{
-			Address:    utils.NewBig(addr.Big()),
-			SlotId:     0,
-			Version:    0,
-			Confirmed:  false,
-			Expiration: time.Now().Add(ttl).UnixMilli(),
-			Payload:    mustRandomBytes(t, 64),
-			UpdatedAt:  time.Now().Add(-time.Second).UnixMilli(),
-		}
-		env := &s4_orm.Envelope{
-			Address:    addr.Bytes(),
-			SlotID:     rows[i].SlotId,
-			Version:    rows[i].Version,
-			Expiration: rows[i].Expiration,
-			Payload:    rows[i].Payload,
-		}
-		sig, err := env.Sign(priv)
-		assert.NoError(t, err)
-		rows[i].Signature = sig
+		rows[i] = generateTestOrmRow(t, ttl, 0, false)
 	}
 	return rows
 }
@@ -305,4 +311,63 @@ func TestPlugin_Report(t *testing.T) {
 	err = proto.Unmarshal(report, reportRows)
 	assert.NoError(t, err)
 	assert.Len(t, reportRows.Rows, 10)
+}
+
+func TestPlugin_FullCycle(t *testing.T) {
+	t.Parallel()
+
+	const nOracles = 4
+	orms := make([]s4_orm.ORM, nOracles)
+	plugins := make([]types.ReportingPlugin, nOracles)
+	rows := make([]*s4_orm.Row, nOracles)
+
+	logger := logger.TestLogger(t)
+	config := &s4.PluginConfig{
+		Product:               "test",
+		NSnapshotShards:       1,
+		MaxObservationEntries: 100,
+	}
+
+	for i := 0; i < nOracles; i++ {
+		orms[i] = s4_orm.NewInMemoryORM()
+		row := generateTestOrmRow(t, time.Minute, 1, false)
+		rows[i] = row
+		err := orms[i].Update(row)
+		assert.NoError(t, err)
+
+		plugin, err := s4.NewReportingPlugin(logger, config, orms[i])
+		assert.NoError(t, err)
+		plugins[i] = plugin
+	}
+
+	// execute a round
+	query, err := plugins[0].Query(testutils.Context(t), types.ReportTimestamp{})
+	assert.NoError(t, err)
+
+	aos := make([]types.AttributedObservation, nOracles)
+	for i := 0; i < nOracles; i++ {
+		observation, err2 := plugins[i].Observation(testutils.Context(t), types.ReportTimestamp{}, query)
+		assert.NoError(t, err2)
+		aos[i].Observation = observation
+		aos[i].Observer = commontypes.OracleID(i)
+	}
+
+	_, report, err := plugins[0].Report(testutils.Context(t), types.ReportTimestamp{}, query, aos)
+	assert.NoError(t, err)
+
+	for i := 0; i < nOracles; i++ {
+		_, err2 := plugins[i].ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		assert.NoError(t, err2)
+	}
+
+	// assertion: all oracles should have all rows
+	for i := 0; i < nOracles; i++ {
+		for _, row := range rows {
+			r, err := orms[i].Get(common.BigToAddress(row.Address.ToInt()), row.SlotId)
+			assert.NoError(t, err)
+
+			assert.Equal(t, row.Address, r.Address)
+			assert.True(t, r.Confirmed)
+		}
+	}
 }
