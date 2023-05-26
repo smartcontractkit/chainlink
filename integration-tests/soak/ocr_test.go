@@ -95,13 +95,9 @@ BlockHistorySize = 24
 ResendAfterThreshold = '30s'
 
 [EVM.HeadTracker]
-SamplingInterval = '1s'
 HistoryDepth = 300
-
-SyncThreshold = 10
-
 `
-	// Uncomment below for debugging TOML issues on the node
+	//Uncomment below for debugging TOML issues on the node
 	//fmt.Println("Using Chainlink TOML\n---------------------")
 	//fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	//fmt.Println("---------------------")
