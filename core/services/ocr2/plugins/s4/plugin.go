@@ -81,6 +81,12 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		return nil, errors.Wrap(err, "failed to UnmarshalRows in Observation()")
 	}
 
+	if c.addressRange.Interval().Cmp(addressRange.Interval()) != 0 {
+		// the leader and this oracle have different intervals, which indicates
+		// either the leader is malicious or it is a misconfiguration.
+		return nil, errors.Wrap(err, "address range intervals do not match")
+	}
+
 	snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetSnapshot in Observation()")
@@ -102,6 +108,12 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 
 	observation := make([]*Row, 0)
 	for _, queryRow := range queryRows {
+		if err := verifySignature(queryRow); err != nil {
+			promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
+			c.logger.Errorw("Observation detected invalid signature in a Query row", "err", err)
+			continue
+		}
+
 		mkey := key{
 			address: queryRow.Address,
 			slot:    uint(queryRow.Slotid),
@@ -137,17 +149,17 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		}
 
 		for _, row := range observationRows {
+			if err := verifySignature(row); err != nil {
+				promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
+				c.logger.Errorw("Report detected invalid signature", "err", err, "oracleID", ao.Observer)
+				continue
+			}
 			mkey := key{
 				address: row.Address,
 				slot:    uint(row.Slotid),
 			}
 			report, ok := reportMap[mkey]
 			if ok && report.Version >= row.Version {
-				continue
-			}
-			if err := verifySignature(row); err != nil {
-				promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
-				c.logger.Errorw("Report round detected invalid signature", "err", err, "oracleID", ao.Observer)
 				continue
 			}
 			reportMap[mkey] = row
