@@ -2,16 +2,18 @@
 pragma solidity ^0.8.6;
 
 import {Functions} from "./Functions.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
-import {IFunctionsOracle} from "./interfaces/IFunctionsOracle.sol";
+import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
+import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 /**
  * @title The Chainlink Functions client contract
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is IFunctionsClient {
-  IFunctionsOracle internal s_oracle;
-  mapping(bytes32 => address) internal s_pendingRequests;
+  IFunctionsRouter private s_router;
+  mapping(bytes32 => address) internal s_pendingRequests; /* requestId => fulfillment sender */
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
@@ -20,15 +22,16 @@ abstract contract FunctionsClient is IFunctionsClient {
   error RequestIsAlreadyPending();
   error RequestIsNotPending();
 
-  constructor(address oracle) {
-    setOracle(oracle);
+  constructor(address router) {
+    setRouter(router);
   }
 
   /**
    * @inheritdoc IFunctionsClient
    */
   function getDONPublicKey() external view override returns (bytes memory) {
-    return s_oracle.getDONPublicKey();
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(s_router.getRoute("FunctionsCoordinator"));
+    return coordinator.getDONPublicKey();
   }
 
   /**
@@ -44,7 +47,8 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint32 gasLimit,
     uint256 gasPrice
   ) public view returns (uint96) {
-    return s_oracle.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
+    IFunctionsBilling coordinator = IFunctionsBilling(s_router.getRoute("FunctionsCoordinator"));
+    return coordinator.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
   }
 
   /**
@@ -59,8 +63,10 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint64 subscriptionId,
     uint32 gasLimit
   ) internal returns (bytes32) {
-    bytes32 requestId = s_oracle.sendRequest(subscriptionId, Functions.encodeCBOR(req), gasLimit);
-    s_pendingRequests[requestId] = s_oracle.getRegistry();
+    bytes32 requestId = s_router.sendRequest(
+      Functions.encodeRequest(subscriptionId, gasLimit, Functions.encodeCBOR(req))
+    );
+    s_pendingRequests[requestId] = s_router.getRoute("FunctionsCoordinator");
     emit RequestSent(requestId);
     return requestId;
   }
@@ -90,19 +96,19 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
   /**
-   * @notice Sets the stored Oracle address
-   * @param oracle The address of Functions Oracle contract
+   * @notice Sets the stored router address
+   * @param router The address of Functions router contract
    */
-  function setOracle(address oracle) internal {
-    s_oracle = IFunctionsOracle(oracle);
+  function setRouter(address router) internal {
+    s_router = IFunctionsRouter(router);
   }
 
   /**
-   * @notice Gets the stored address of the oracle contract
-   * @return The address of the oracle contract
+   * @notice Gets the stored address of the router contract
+   * @return The address of the router contract
    */
-  function getChainlinkOracleAddress() internal view returns (address) {
-    return address(s_oracle);
+  function getChainlinkFunctionsRouterAddress() internal view returns (address) {
+    return address(s_router);
   }
 
   /**
