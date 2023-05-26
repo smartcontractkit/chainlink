@@ -2051,20 +2051,6 @@ func (_m *ChainScopedConfig) MercuryCredentials(credName string) *ocr2models.Mer
 	return r0
 }
 
-// MigrateDatabase provides a mock function with given fields:
-func (_m *ChainScopedConfig) MigrateDatabase() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // MinIncomingConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) MinIncomingConfirmations() uint32 {
 	ret := _m.Called()
@@ -2543,34 +2529,6 @@ func (_m *ChainScopedConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error
 	}
 
 	return r0, r1
-}
-
-// ORMMaxIdleConns provides a mock function with given fields:
-func (_m *ChainScopedConfig) ORMMaxIdleConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// ORMMaxOpenConns provides a mock function with given fields:
-func (_m *ChainScopedConfig) ORMMaxOpenConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
 }
 
 // OperatorFactoryAddress provides a mock function with given fields:
