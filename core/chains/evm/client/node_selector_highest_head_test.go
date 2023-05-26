@@ -115,11 +115,11 @@ func TestHighestHeadNodeSelectorWithPriority(t *testing.T) {
 	t.Run("same head but different priority", func(t *testing.T) {
 		node1 := evmmocks.NewNode(t)
 		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), nil)
-		node1.On("PriorityLevel").Return(int32(1))
+		node1.On("PriorityLevel").Return(int32(3))
 
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), nil)
-		node2.On("PriorityLevel").Return(int32(3))
+		node2.On("PriorityLevel").Return(int32(1))
 
 		node3 := evmmocks.NewNode(t)
 		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), nil)
@@ -157,11 +157,11 @@ func TestHighestHeadNodeSelectorWithPriority(t *testing.T) {
 
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(11), nil)
-		node2.On("PriorityLevel").Maybe().Return(int32(1))
+		node2.On("PriorityLevel").Maybe().Return(int32(4))
 
 		node3 := evmmocks.NewNode(t)
 		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(11), nil)
-		node3.On("PriorityLevel").Maybe().Return(int32(2))
+		node3.On("PriorityLevel").Maybe().Return(int32(3))
 
 		node4 := evmmocks.NewNode(t)
 		node4.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(10), nil)

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"math"
 	"sort"
 	"sync/atomic"
 )
@@ -61,7 +62,7 @@ func (s priorityLevelNodeSelector) getHighestPriorityAliveTier() []nodesWithPrio
 // removeLowerTiers take a slice of nodesWithPriority and keeps only the highest tier
 func removeLowerTiers(nodes []nodesWithPriority) []nodesWithPriority {
 	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].priority < nodes[j].priority
+		return nodes[i].priority > nodes[j].priority
 	})
 
 	var nodes2 []nodesWithPriority
@@ -90,10 +91,10 @@ func nrOfPriorityTiers(nodes []Node) int32 {
 
 // firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority
 func firstOrHighestPriority(nodes []Node) Node {
-	hp := int32(-1)
+	hp := int32(math.MaxInt32)
 	var node Node
 	for _, n := range nodes {
-		if n.PriorityLevel() > hp {
+		if n.PriorityLevel() < hp {
 			hp = n.PriorityLevel()
 			node = n
 		}

@@ -69,7 +69,7 @@ func TestPriorityLevelNodeSelector_DifferentPriority(t *testing.T) {
 	var nodes []evmclient.Node
 	n1 := evmmocks.NewNode(t)
 	n1.On("State").Return(evmclient.NodeStateAlive)
-	n1.On("PriorityLevel").Return(int32(5))
+	n1.On("PriorityLevel").Return(int32(1))
 
 	n2 := evmmocks.NewNode(t)
 	n2.On("State").Return(evmclient.NodeStateAlive)
@@ -77,7 +77,7 @@ func TestPriorityLevelNodeSelector_DifferentPriority(t *testing.T) {
 
 	n3 := evmmocks.NewNode(t)
 	n3.On("State").Return(evmclient.NodeStateAlive)
-	n3.On("PriorityLevel").Return(int32(2))
+	n3.On("PriorityLevel").Return(int32(3))
 
 	nodes = append(nodes, n1, n2, n3)
 	selector := evmclient.NewPriorityLevelNodeSelector(nodes)

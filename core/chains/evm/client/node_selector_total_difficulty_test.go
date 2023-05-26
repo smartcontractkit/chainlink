@@ -116,11 +116,11 @@ func TestTotalDifficultyNodeSelectorWithPriority(t *testing.T) {
 	t.Run("same td but different priority", func(t *testing.T) {
 		node1 := evmmocks.NewNode(t)
 		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
-		node1.On("PriorityLevel").Return(int32(1))
+		node1.On("PriorityLevel").Return(int32(3))
 
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
-		node2.On("PriorityLevel").Return(int32(3))
+		node2.On("PriorityLevel").Return(int32(1))
 
 		node3 := evmmocks.NewNode(t)
 		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), utils.NewBigI(10))
@@ -158,11 +158,11 @@ func TestTotalDifficultyNodeSelectorWithPriority(t *testing.T) {
 
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(110))
-		node2.On("PriorityLevel").Maybe().Return(int32(1))
+		node2.On("PriorityLevel").Maybe().Return(int32(4))
 
 		node3 := evmmocks.NewNode(t)
 		node3.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(110))
-		node3.On("PriorityLevel").Maybe().Return(int32(2))
+		node3.On("PriorityLevel").Maybe().Return(int32(0))
 
 		node4 := evmmocks.NewNode(t)
 		node4.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(1), utils.NewBigI(105))
