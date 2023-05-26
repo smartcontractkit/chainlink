@@ -4,7 +4,6 @@ import "time"
 
 // FEE_UNIT - fee unit
 type TxmConfig[FEE_UNIT Unit] interface {
-	BroadcasterConfig[FEE_UNIT]
 	ConfirmerConfig[FEE_UNIT]
 	ResenderConfig
 	ReaperConfig
@@ -15,14 +14,14 @@ type TxmConfig[FEE_UNIT Unit] interface {
 }
 
 // FEE_UNIT - fee unit
-type BroadcasterConfig[FEE_UNIT Unit] interface {
-	FallbackPollInterval() time.Duration
-	MaxInFlightTransactions() uint32
+type BroadcasterConfig[FEE_UNIT Unit] struct {
+	FallbackPollInterval    time.Duration
+	MaxInFlightTransactions uint32
 
 	// from gas.Config
-	IsL2() bool
-	MaxFeePrice() FEE_UNIT
-	FeePriceDefault() FEE_UNIT
+	IsL2            bool
+	MaxFeePrice     FEE_UNIT
+	FeePriceDefault FEE_UNIT
 }
 
 // FEE_UNIT - fee unit

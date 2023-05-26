@@ -3,6 +3,8 @@ package builder
 import (
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -40,7 +42,14 @@ func NewTxm(
 
 	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
 	txmClient := txmgr.NewEvmTxmClient(client) // wrap Evm specific client
-	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmClient, txmCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
+	broadcasterCfg := types.BroadcasterConfig[*assets.Wei]{
+		FallbackPollInterval:    txmCfg.FallbackPollInterval(),
+		MaxInFlightTransactions: txmCfg.MaxInFlightTransactions(),
+		IsL2:                    txmCfg.IsL2(),
+		MaxFeePrice:             txmCfg.MaxFeePrice(),
+		FeePriceDefault:         txmCfg.FeePriceDefault(),
+	}
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmClient, broadcasterCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
 	ethConfirmer := txmgr.NewEvmConfirmer(txStore, txmClient, txmCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender
 	if cfg.EthTxResendAfterThreshold() > 0 {

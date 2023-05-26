@@ -367,7 +367,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	bf := eb.newResendBackoff()
 
 	for {
-		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.FallbackPollInterval()))
+		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.FallbackPollInterval))
 
 		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
 		if err != nil {
@@ -376,7 +376,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		// On retryable errors we implement exponential backoff retries. This
 		// handles intermittent connectivity, remote RPC races, timing issues etc
 		if retryable {
-			pollDBTimer.Reset(utils.WithJitter(eb.config.FallbackPollInterval()))
+			pollDBTimer.Reset(utils.WithJitter(eb.config.FallbackPollInterval))
 			errorRetryCh = time.After(bf.Duration())
 		} else {
 			bf = eb.newResendBackoff()
@@ -459,7 +459,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		return retryable, errors.Wrap(err, "processUnstartedTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
-		maxInFlightTransactions := eb.config.MaxInFlightTransactions()
+		maxInFlightTransactions := eb.config.MaxInFlightTransactions
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.txStore.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {
@@ -706,12 +706,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	lgr.With(
 		"sendError", txError,
 		"attemptFee", attempt.Fee(),
-		"maxGasPriceConfig", eb.config.MaxFeePrice(),
+		"maxGasPriceConfig", eb.config.MaxFeePrice,
 	).Errorf("attempt fee %v was rejected by the node for being too low. "+
 		"Node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
-		attempt.Fee(), txError.Error(), eb.config.FeePriceDefault().String())
+		attempt.Fee(), txError.Error(), eb.config.FeePriceDefault.String())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
