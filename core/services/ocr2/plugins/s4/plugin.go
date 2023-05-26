@@ -2,13 +2,13 @@ package s4
 
 import (
 	"context"
-	"errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
@@ -49,7 +49,7 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 
 	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to GetSnapshot in Query()")
 	}
 
 	rows := make([]*Row, len(snapshot))
@@ -73,17 +73,17 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 	promReportingPluginObservation.WithLabelValues(c.config.Product).Inc()
 
 	if err := c.orm.DeleteExpired(pg.WithParentCtx(ctx)); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
 
 	queryRows, addressRange, err := UnmarshalRows(query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to UnmarshalRows in Observation()")
 	}
 
 	snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to GetSnapshot in Observation()")
 	}
 
 	snapshotMap := make(map[key]*Row)
@@ -133,7 +133,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	for _, ao := range aos {
 		observationRows, _, err := UnmarshalRows(ao.Observation)
 		if err != nil {
-			return false, nil, err
+			return false, nil, errors.Wrap(err, "failed to UnmarshalRows in Report()")
 		}
 
 		for _, row := range observationRows {
@@ -174,7 +174,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 
 	reportRows, _, err := UnmarshalRows(report)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "failed to UnmarshalRows in ShouldAcceptFinalizedReport()")
 	}
 
 	for _, row := range reportRows {
@@ -193,7 +193,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 		}
 		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
-			c.logger.Errorw("ORM error while updating row", "err", err)
+			c.logger.Errorw("Failed to Update a row in ShouldAcceptFinalizedReport()", "err", err)
 			continue
 		}
 	}

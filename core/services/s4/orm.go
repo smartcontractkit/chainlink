@@ -38,7 +38,7 @@ type ORM interface {
 	// DeleteExpired deletes any entries having Expiration < now().
 	DeleteExpired(qopts ...pg.QOpt) error
 
-	// GetSnapshot selects all rows for the given addresses range.
+	// GetSnapshot selects all non-expired rows for the given addresses range.
 	// To get a full snapshot, use NewFullAddressRange().
 	GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Row, error)
 }
