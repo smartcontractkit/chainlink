@@ -19,18 +19,15 @@ func TestOffchainKeyring(t *testing.T) {
 	assert.True(t, bytes.Equal(kr.signingKey.Public().(ed25519.PublicKey), pubKey[:]))
 }
 
-func TestOffchainKeyring_Decrypt(t *testing.T) {
+func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 
 	originalMessage := []byte("test")
 
-	encryptedMessage, err := Encrypt(kr.ConfigEncryptionPublicKey(), originalMessage)
-	if err != nil {
-		t.Fatal(err)
-	}
+	encryptedMessage := NaclBoxSealAnonymous(t, kr.ConfigEncryptionPublicKey(), originalMessage)
 
-	decryptedMessage, err := kr.Decrypt(encryptedMessage)
+	decryptedMessage, err := kr.NaclBoxOpenAnonymous(encryptedMessage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,11 +35,34 @@ func TestOffchainKeyring_Decrypt(t *testing.T) {
 	assert.Equal(t, originalMessage, decryptedMessage)
 }
 
-func Encrypt(peerPublicKey [curve25519.PointSize]byte, plaintext []byte) (ciphertext []byte, err error) {
-	ciphertext, err = box.SealAnonymous(nil, plaintext, &peerPublicKey, cryptorand.Reader)
+func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
+	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
+	require.NoError(t, err)
+
+	shortMessage := []byte("short")
+
+	_, err = kr.NaclBoxOpenAnonymous(shortMessage)
+	assert.Equal(t, err.Error(), "ciphertext too short")
+}
+
+func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
+	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
+	require.NoError(t, err)
+
+	invalid := []byte("invalidEncryptedMessage")
+
+	_, err = kr.NaclBoxOpenAnonymous(invalid)
+	assert.Equal(t, err.Error(), "decryption failed")
+}
+
+func NaclBoxSealAnonymous(t *testing.T, peerPublicKey [curve25519.PointSize]byte, plaintext []byte) []byte {
+	t.Helper()
+
+	ciphertext, err := box.SealAnonymous(nil, plaintext, &peerPublicKey, cryptorand.Reader)
 	if err != nil {
-		return nil, err
+		t.Fatalf("encryption failed")
+		return nil
 	}
 
-	return ciphertext, nil
+	return ciphertext
 }

@@ -50,14 +50,11 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 	return ok, nil
 }
 
-// Decrypt decrypts a message that was encrypted using the public key
-func (ok *OffchainKeyring) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
+// NaclBoxOpenAnonymous decrypts a message that was encrypted using the public key
+func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error) {
 	if len(ciphertext) < box.Overhead {
 		return nil, errors.New("ciphertext too short")
 	}
-
-	var nonce [24]byte
-	copy(nonce[:], ciphertext[:box.Overhead])
 
 	publicKey := [curve25519.PointSize]byte(ok.ConfigEncryptionPublicKey())
 
