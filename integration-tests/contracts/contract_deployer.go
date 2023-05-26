@@ -318,6 +318,10 @@ func (e *EthereumContractDeployer) LoadLinkToken(address common.Address) (LinkTo
 	}, err
 }
 
+func (e *EthereumContractDeployer) NewLinkTokenContract(address common.Address) (LinkToken, error) {
+	return e.LoadLinkToken(address)
+}
+
 // DefaultOffChainAggregatorOptions returns some base defaults for deploying an OCR contract
 func DefaultOffChainAggregatorOptions() OffchainOptions {
 	return OffchainOptions{
