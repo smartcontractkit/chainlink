@@ -37,7 +37,7 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 	}
 
 	return &plugin{
-		logger:       logger.Named("OCR2-S4-plugin"),
+		logger:       logger.Named("OCR2-S4").With("product", config.Product),
 		config:       config,
 		orm:          orm,
 		addressRange: addressRange,
@@ -45,6 +45,8 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 }
 
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
+	promReportingPluginQuery.WithLabelValues(c.config.Product).Inc()
+
 	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
@@ -59,12 +61,17 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		return nil, err
 	}
 
+	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
+	promReportingPluginsQueryByteSize.WithLabelValues(c.config.Product).Set(float64(len(query)))
+
 	c.addressRange.Advance()
 
 	return query, err
 }
 
 func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query types.Query) (types.Observation, error) {
+	promReportingPluginObservation.WithLabelValues(c.config.Product).Inc()
+
 	if err := c.orm.DeleteExpired(pg.WithParentCtx(ctx)); err != nil {
 		return nil, err
 	}
@@ -113,10 +120,14 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		observation = observation[:c.config.MaxObservationEntries]
 	}
 
+	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(observation)))
+
 	return MarshalRows(observation, addressRange)
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
+	promReportingPluginReport.WithLabelValues(c.config.Product).Inc()
+
 	reportMap := make(map[key]*Row)
 
 	for _, ao := range aos {
@@ -135,6 +146,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 				continue
 			}
 			if err := verifySignature(row); err != nil {
+				promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
 				c.logger.Errorw("Report round detected invalid signature", "err", err, "oracleID", ao.Observer)
 				continue
 			}
@@ -152,10 +164,14 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		return false, nil, err
 	}
 
+	promReportingPluginsReportRowsCount.WithLabelValues(c.config.Product).Set(float64(len(reportRows)))
+
 	return true, report, nil
 }
 
 func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
+	promReportingPluginShouldAccept.WithLabelValues(c.config.Product).Inc()
+
 	reportRows, _, err := UnmarshalRows(report)
 	if err != nil {
 		return false, err
@@ -182,6 +198,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 		}
 	}
 
+	// If ShouldAcceptFinalizedReport returns false, ShouldTransmitAcceptedReport will not be called.
 	return false, nil
 }
 
