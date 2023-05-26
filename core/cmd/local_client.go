@@ -285,7 +285,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
-	ldb := pg.NewLockedDB(cli.Config, lggr)
+	ldb := pg.NewLockedDB(cli.Config, cli.Config.Database().Lock(), lggr)
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
