@@ -120,8 +120,8 @@ describe('AuthorizedForwarder', () => {
             'must not have duplicate addresses',
           )
         })
-       })
-     
+      })
+
       describe('setting 3 authorized senders', () => {
         beforeEach(async () => {
           newSenders = [
