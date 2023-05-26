@@ -469,18 +469,6 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	return g.c.Database.Listener.MinReconnectInterval.Duration()
 }
 
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
-}
-
 func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
 	return g.c.Database.DefaultLockTimeout.Duration()
 }
