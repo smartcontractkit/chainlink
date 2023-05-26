@@ -51,7 +51,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]
-	if ok && existing.Version >= row.Version {
+	if ok && existing.Version > row.Version {
 		return ErrVersionTooLow
 	}
 
