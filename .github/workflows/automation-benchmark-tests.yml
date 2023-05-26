@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 1.10.0
+        default: 2.0.0
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
@@ -59,7 +59,7 @@ jobs:
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
-      SLACK_CHANNEL: C04N1QXN57G
+      SLACK_CHANNEL: C03KJ5S7KEK
       TEST_INPUTS: ${{ inputs.TestInputs }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
@@ -100,19 +100,19 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ env.REF_NAME }}
-#      - name: Build Test Image
-#        uses: ./.github/actions/build-test-image
-#        with:
-#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-#          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - name: Build Test Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
           TEST_ARGS: -test.timeout 720h
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:898bc4dc01ebdbfe1593483bd4a7702588bb4ee9
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
