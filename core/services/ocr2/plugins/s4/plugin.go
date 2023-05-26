@@ -126,7 +126,9 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 	}
 
 	for _, unconfirmed := range unconfirmedMap {
-		observation = append(observation, unconfirmed)
+		// Unconfirmed rows are given higher priority
+		// (the final slice can be trimmed due to MaxObservationEntries)
+		observation = append([]*Row{unconfirmed}, observation...)
 	}
 	if len(observation) > int(c.config.MaxObservationEntries) {
 		observation = observation[:c.config.MaxObservationEntries]
