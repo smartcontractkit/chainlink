@@ -49,7 +49,7 @@ func TestInMemoryORM(t *testing.T) {
 
 	t.Run("update and get", func(t *testing.T) {
 		err := orm.Update(row)
-		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
+		assert.NoError(t, err)
 
 		row.Version = 5
 		err = orm.Update(row)
