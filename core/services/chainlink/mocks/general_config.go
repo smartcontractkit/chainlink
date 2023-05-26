@@ -1342,20 +1342,6 @@ func (_m *GeneralConfig) MercuryCredentials(credName string) *ocr2models.Mercury
 	return r0
 }
 
-// MigrateDatabase provides a mock function with given fields:
-func (_m *GeneralConfig) MigrateDatabase() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // OCR2BlockchainTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2BlockchainTimeout() time.Duration {
 	ret := _m.Called()
@@ -1664,34 +1650,6 @@ func (_m *GeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	}
 
 	return r0, r1
-}
-
-// ORMMaxIdleConns provides a mock function with given fields:
-func (_m *GeneralConfig) ORMMaxIdleConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// ORMMaxOpenConns provides a mock function with given fields:
-func (_m *GeneralConfig) ORMMaxOpenConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
 }
 
 // P2PAnnounceIP provides a mock function with given fields:
