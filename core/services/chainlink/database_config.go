@@ -103,11 +103,11 @@ func (d *databaseConfig) MigrateDatabase() bool {
 	return *d.c.MigrateOnStartup
 }
 
-func (d *databaseConfig) ORMMaxIdleConns() int {
+func (d *databaseConfig) MaxIdleConns() int {
 	return int(*d.c.MaxIdleConns)
 }
 
-func (d *databaseConfig) ORMMaxOpenConns() int {
+func (d *databaseConfig) MaxOpenConns() int {
 	return int(*d.c.MaxOpenConns)
 }
 
