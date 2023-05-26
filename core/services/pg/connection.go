@@ -16,8 +16,8 @@ import (
 type ConnectionConfig interface {
 	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
-	MaxOpenConns() int
-	MaxIdleConns() int
+	ORMMaxOpenConns() int
+	ORMMaxIdleConns() int
 }
 
 func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (db *sqlx.DB, err error) {
@@ -47,8 +47,8 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	if _, err = db.Exec(stmt); err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(config.MaxOpenConns())
-	db.SetMaxIdleConns(config.MaxIdleConns())
+	db.SetMaxOpenConns(config.ORMMaxOpenConns())
+	db.SetMaxIdleConns(config.ORMMaxIdleConns())
 
 	return db, disallowReplica(db)
 }

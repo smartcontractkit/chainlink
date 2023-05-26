@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -25,15 +24,18 @@ type LockedDB interface {
 
 type LockedDBConfig interface {
 	ConnectionConfig
+	AppID() uuid.UUID
+	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	DatabaseDefaultQueryTimeout() time.Duration
+	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	MigrateDatabase() bool
 }
 
 type lockedDb struct {
-	appID         uuid.UUID
 	cfg           LockedDBConfig
-	lockCfg       config.Lock
 	lggr          logger.Logger
 	db            *sqlx.DB
 	leaseLock     LeaseLock
@@ -41,20 +43,18 @@ type lockedDb struct {
 }
 
 // NewLockedDB creates a new instance of LockedDB.
-func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr logger.Logger) LockedDB {
+func NewLockedDB(cfg LockedDBConfig, lggr logger.Logger) LockedDB {
 	return &lockedDb{
-		appID:   appID,
-		cfg:     cfg,
-		lockCfg: lockCfg,
-		lggr:    lggr.Named("LockedDB"),
+		cfg:  cfg,
+		lggr: lggr.Named("LockedDB"),
 	}
 }
 
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	return openDB(appID, cfg)
+func OpenUnlockedDB(cfg LockedDBConfig) (db *sqlx.DB, err error) {
+	return openDB(cfg)
 }
 
 // Open function connects to DB and acquires DB locks based on configuration.
@@ -68,7 +68,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	}
 
 	// Step 1: open DB connection
-	l.db, err = openDB(l.appID, l.cfg)
+	l.db, err = openDB(l.cfg)
 	if err != nil {
 		// l.db will be nil in case of error
 		return errors.Wrap(err, "failed to open db")
@@ -85,18 +85,13 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	l.statsReporter.Start(ctx)
 
 	// Step 3: acquire DB locks
-	lockingMode := l.lockCfg.LockingMode()
+	lockingMode := l.cfg.DatabaseLockingMode()
 	l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
 	// Take the lease before any other DB operations
 	switch lockingMode {
 	case "lease":
-		cfg := LeaseLockConfig{
-			DefaultQueryTimeout:  l.cfg.DatabaseDefaultQueryTimeout(),
-			LeaseDuration:        l.lockCfg.LeaseDuration(),
-			LeaseRefreshInterval: l.lockCfg.LeaseRefreshInterval(),
-		}
-		l.leaseLock = NewLeaseLock(l.db, l.appID, l.lggr, cfg)
+		l.leaseLock = NewLeaseLock(l.db, l.cfg.AppID(), l.lggr, l.cfg)
 		if err = l.leaseLock.TakeAndHold(ctx); err != nil {
 			defer revert()
 			return errors.Wrap(err, "failed to take initial lease on database")
@@ -139,9 +134,10 @@ func (l lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func openDB(cfg LockedDBConfig) (db *sqlx.DB, err error) {
 	uri := cfg.DatabaseURL()
-	static.SetConsumerName(&uri, "App", &appID)
+	appid := cfg.AppID()
+	static.SetConsumerName(&uri, "App", &appid)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, err = NewConnection(uri.String(), dialect, cfg)
 	return

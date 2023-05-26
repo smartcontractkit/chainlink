@@ -15,8 +15,14 @@ type DatabaseV1 interface {
 	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
+	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
+	MigrateDatabase() bool
+	ORMMaxIdleConns() int
+	ORMMaxOpenConns() int
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }
@@ -29,25 +35,21 @@ type Backup interface {
 	URL() *url.URL
 }
 
-type Lock interface {
-	LockingMode() string
-	LeaseDuration() time.Duration
-	LeaseRefreshInterval() time.Duration
-}
-
 type Database interface {
 	Backup() Backup
-	Lock() Lock
 	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
+	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
 	MigrateDatabase() bool
-	MaxIdleConns() int
-	MaxOpenConns() int
+	ORMMaxIdleConns() int
+	ORMMaxOpenConns() int
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }

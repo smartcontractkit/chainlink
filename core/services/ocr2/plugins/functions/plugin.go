@@ -2,12 +2,10 @@ package functions
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
@@ -16,11 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
-	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -38,7 +32,6 @@ type FunctionsServicesConfig struct {
 	Lggr            logger.Logger
 	MailMon         *utils.MailboxMonitor
 	URLsMonEndpoint commontypes.MonitoringEndpoint
-	EthKeystore     keystore.Eth
 }
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -55,7 +48,6 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 		return nil, err
 	}
 
-	allServices := []job.ServiceCtx{}
 	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
 	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
 	if err != nil {
@@ -69,7 +61,6 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 			"externalJobID", conf.Job.ExternalJobID,
 		)
 	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, conf.PipelineRunner, conf.JobORM, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint)
-	allServices = append(allServices, functionsListener)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
 		Logger:    sharedOracleArgs.Logger,
@@ -80,37 +71,6 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
 	}
-	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
-	if pluginConfig.GatewayConnectorConfig != nil {
-		connectorLogger := conf.Lggr.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), connectorLogger)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
-		}
-		allServices = append(allServices, connector)
-	}
-
-	return allServices, nil
-}
-
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, lggr logger.Logger) (connector.GatewayConnector, error) {
-	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
-	if err != nil {
-		return nil, err
-	}
-	configuredNodeAddress := common.HexToAddress(gwcCfg.NodeAddress)
-	idx := slices.IndexFunc(enabledKeys, func(key ethkey.KeyV2) bool { return key.Address == configuredNodeAddress })
-	if idx == -1 {
-		return nil, errors.New("key for configured node address not found")
-	}
-	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
-
-	handler := functions.NewFunctionsConnectorHandler(signerKey, lggr)
-	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, gw_common.NewRealClock(), lggr)
-	if err != nil {
-		return nil, err
-	}
-	handler.SetConnector(connector)
-	return connector, nil
+	return []job.ServiceCtx{job.NewServiceAdapter(functionsReportingPluginOracle), functionsListener}, nil
 }

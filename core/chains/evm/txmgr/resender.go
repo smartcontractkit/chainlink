@@ -196,7 +196,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) logSt
 			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
 			if time.Since(oldestAttempt.CreatedAt) > er.config.TxResendAfterThreshold()*2 {
 				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
-				er.logger.Errorw("TxAttempt has been unconfirmed for more than max duration", "maxDuration", er.config.TxResendAfterThreshold()*2,
+				er.logger.Errorw("TxAttempt has been unconfirmed for more than: ", er.config.TxResendAfterThreshold()*2,
 					"txID", oldestAttempt.TxID, "txFee", oldestAttempt.Fee(),
 					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
 			}

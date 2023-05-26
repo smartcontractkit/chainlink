@@ -62,7 +62,7 @@ var (
 	sampleSigs          = []ocrtypes.AttributedOnchainSignature{sig2, sig3}
 	sampleReportContext = ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: mustHexToConfigDigest("0x0006fc30092226b37f6924b464e16a54a7978a9a524519a73403af64d487dc45"),
+			ConfigDigest: mustHexToConfigDigest("0x0001fc30092226b37f6924b464e16a54a7978a9a524519a73403af64d487dc45"),
 			Epoch:        6,
 			Round:        28,
 		},

@@ -241,6 +241,13 @@ type Database struct {
 	Lock     DatabaseLock     `toml:",omitempty"`
 }
 
+func (d *Database) LockingMode() string {
+	if *d.Lock.Enabled {
+		return "lease"
+	}
+	return "none"
+}
+
 func (d *Database) setFrom(f *Database) {
 	if v := f.DefaultIdleInTxSessionTimeout; v != nil {
 		d.DefaultIdleInTxSessionTimeout = v
@@ -291,13 +298,6 @@ type DatabaseLock struct {
 	Enabled              *bool
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
-}
-
-func (l *DatabaseLock) Mode() string {
-	if *l.Enabled {
-		return "lease"
-	}
-	return "none"
 }
 
 func (l *DatabaseLock) ValidateConfig() (err error) {

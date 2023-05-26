@@ -61,7 +61,7 @@ func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures boo
 	name = fmt.Sprintf("%s_%x", name, rand.Intn(0xFFF)) // to avoid name collisions
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
-	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg.Database())
+	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())

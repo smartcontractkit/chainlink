@@ -469,6 +469,18 @@ func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	return g.c.Database.Listener.MinReconnectInterval.Duration()
 }
 
+func (g *generalConfig) MigrateDatabase() bool {
+	return *g.c.Database.MigrateOnStartup
+}
+
+func (g *generalConfig) ORMMaxIdleConns() int {
+	return int(*g.c.Database.MaxIdleConns)
+}
+
+func (g *generalConfig) ORMMaxOpenConns() int {
+	return int(*g.c.Database.MaxOpenConns)
+}
+
 func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
 	return g.c.Database.DefaultLockTimeout.Duration()
 }
@@ -594,6 +606,16 @@ func (g *generalConfig) KeyFile() string {
 		return filepath.Join(g.TLSDir(), "server.key")
 	}
 	return g.TLSKeyPath()
+}
+
+func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
+
+func (g *generalConfig) LeaseLockDuration() time.Duration {
+	return g.c.Database.Lock.LeaseDuration.Duration()
+}
+
+func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
+	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
 }
 
 func (g *generalConfig) LogFileDir() string {

@@ -1,7 +1,6 @@
 package mercury
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strings"
@@ -62,10 +61,11 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	binary.BigEndian.PutUint16(configDigest[:2], uint16(ConfigDigestPrefixMercuryV02))
-	// TODO: get rid of this check
-	if !(configDigest[0] == 0 || configDigest[1] == 6) {
-		panic("unexpected mismatch")
+	if types.ConfigDigestPrefixEVM != 1 {
+		// assertion
+		panic("wrong ConfigDigestPrefix")
 	}
+	configDigest[0] = 0
+	configDigest[1] = 1
 	return configDigest
 }

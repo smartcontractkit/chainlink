@@ -555,6 +555,20 @@ func (_m *GeneralConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	return r0
 }
 
+// DatabaseLockingMode provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseLockingMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // DatabaseURL provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseURL() url.URL {
 	ret := _m.Called()
@@ -1223,6 +1237,34 @@ func (_m *GeneralConfig) KeystorePassword() string {
 	return r0
 }
 
+// LeaseLockDuration provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// LeaseLockRefreshInterval provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // LogConfiguration provides a mock function with given fields: log
 func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
@@ -1337,6 +1379,20 @@ func (_m *GeneralConfig) MercuryCredentials(credName string) *ocr2models.Mercury
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
 		}
+	}
+
+	return r0
+}
+
+// MigrateDatabase provides a mock function with given fields:
+func (_m *GeneralConfig) MigrateDatabase() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -1650,6 +1706,34 @@ func (_m *GeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	}
 
 	return r0, r1
+}
+
+// ORMMaxIdleConns provides a mock function with given fields:
+func (_m *GeneralConfig) ORMMaxIdleConns() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// ORMMaxOpenConns provides a mock function with given fields:
+func (_m *GeneralConfig) ORMMaxOpenConns() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
 }
 
 // P2PAnnounceIP provides a mock function with given fields:

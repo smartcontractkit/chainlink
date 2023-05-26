@@ -136,7 +136,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 		err2 := er.ResendUnconfirmed()
 		require.NoError(t, err2)
-		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than max duration", 1)
+		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than: ", 1)
 	})
 }
 
