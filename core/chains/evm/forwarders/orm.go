@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -28,8 +29,8 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
-	return &orm{pg.NewQ(db, lggr, cfg)}
+func NewORM(db *sqlx.DB, lggr logger.Logger, logSQL func() bool, queryTimeout time.Duration) *orm {
+	return &orm{pg.NewQ(db, lggr, pg.ToConfig(logSQL, queryTimeout))}
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.

@@ -306,7 +306,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
+		dbc := cfg.Database()
+		form := forwarders.NewORM(db, logger.TestLogger(t), dbc.LogSQL, dbc.DatabaseDefaultQueryTimeout())
 		fwdrAddr := testutils.NewAddress()
 		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
 		require.NoError(t, err)

@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewQConfig(logSQL bool) pg.QConfig {
-	return pg.NewQConfig(logSQL)
+func NewQConfig(logSQL bool) *pg.QConf {
+	return pg.ToConfig(func() bool { return logSQL }, time.Duration(0))
 }
 
 func NewSqlDB(t *testing.T) *sql.DB {

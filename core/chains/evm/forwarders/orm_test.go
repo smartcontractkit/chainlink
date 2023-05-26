@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ func setupORM(t *testing.T) *TestORM {
 	var (
 		db   = pgtest.NewSqlxDB(t)
 		lggr = logger.TestLogger(t)
-		orm  = NewORM(db, lggr, pgtest.NewQConfig(true))
+		orm  = NewORM(db, lggr, func() bool { return true }, time.Duration(0))
 	)
 
 	return &TestORM{ORM: orm, db: db}

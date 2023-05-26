@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -26,9 +25,10 @@ import (
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
 var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()
 
-type Config interface {
-	gas.Config
-	pg.QConfig
+type Config struct {
+	EvmFinalityDepth    int
+	LogSQL              func() bool
+	DefaultQueryTimeout time.Duration
 }
 
 type FwdMgr struct {
@@ -60,7 +60,7 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
-		ORM:          NewORM(db, lggr, cfg),
+		ORM:          NewORM(db, lggr, cfg.LogSQL, cfg.DefaultQueryTimeout),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 		cacheMu:      sync.RWMutex{},
@@ -255,7 +255,7 @@ func (f *FwdMgr) runLoop() {
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				int(f.cfg.EvmFinalityDepth()),
+				f.cfg.EvmFinalityDepth,
 				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {

@@ -123,6 +123,20 @@ type Q struct {
 	QueryTimeout time.Duration
 }
 
+// A struct that also satisfies the QConfig interface
+// TODO: Rename to QConfig once the interface is no longer used.
+type QConf struct {
+	LogSQLFn            func() bool
+	DefaultQueryTimeout time.Duration
+}
+
+func (q *QConf) LogSQL() bool                               { return q.LogSQLFn() }
+func (q *QConf) DatabaseDefaultQueryTimeout() time.Duration { return q.DefaultQueryTimeout }
+
+func ToConfig(logSQLFn func() bool, t time.Duration) *QConf {
+	return &QConf{LogSQLFn: logSQLFn, DefaultQueryTimeout: t}
+}
+
 func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)

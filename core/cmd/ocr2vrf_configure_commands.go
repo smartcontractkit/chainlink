@@ -241,7 +241,8 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		}
 
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, cli.Config)
+		db := cli.Config.Database()
+		orm := forwarders.NewORM(ldb.DB(), lggr, db.LogSQL, db.DatabaseDefaultQueryTimeout())
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err

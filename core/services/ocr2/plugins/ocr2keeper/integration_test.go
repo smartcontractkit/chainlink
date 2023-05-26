@@ -431,7 +431,8 @@ func setupForwarderForNode(
 	backend.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), app.GetConfig())
+	dbc := app.GetConfig().Database()
+	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), dbc.LogSQL, dbc.DatabaseDefaultQueryTimeout())
 	chainID := utils.Big(*backend.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(faddr, chainID)
 	require.NoError(t, err)

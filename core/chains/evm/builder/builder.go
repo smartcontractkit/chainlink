@@ -30,7 +30,12 @@ func NewTxm(
 	var fwdMgr txmgr.EvmFwdMgr
 
 	if cfg.EvmUseForwarders() {
-		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, cfg)
+		fcfg := forwarders.Config{
+			EvmFinalityDepth:    int(cfg.EvmFinalityDepth()),
+			LogSQL:              cfg.Database().LogSQL,
+			DefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+		}
+		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, fcfg)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
