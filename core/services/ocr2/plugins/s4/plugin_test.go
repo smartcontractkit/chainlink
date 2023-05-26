@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
-	s4_orm "github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -67,9 +67,9 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	return rows
 }
 
-func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_orm.Row {
+func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_svc.Row {
 	priv, _, addr := generateCryptoEntity(t)
-	row := &s4_orm.Row{
+	row := &s4_svc.Row{
 		Address:    utils.NewBig(addr.Big()),
 		SlotId:     0,
 		Version:    version,
@@ -78,7 +78,7 @@ func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confime
 		Payload:    mustRandomBytes(t, 64),
 		UpdatedAt:  time.Now().Add(-time.Second).UnixMilli(),
 	}
-	env := &s4_orm.Envelope{
+	env := &s4_svc.Envelope{
 		Address:    addr.Bytes(),
 		SlotID:     row.SlotId,
 		Version:    row.Version,
@@ -91,15 +91,15 @@ func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confime
 	return row
 }
 
-func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_orm.Row {
-	rows := make([]*s4_orm.Row, n)
+func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
+	rows := make([]*s4_svc.Row, n)
 	for i := 0; i < n; i++ {
 		rows[i] = generateTestOrmRow(t, ttl, 0, false)
 	}
 	return rows
 }
 
-func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_orm.Row) {
+func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 	assert.Equal(t, len(ormRows), len(protoRows))
 	for i, row := range protoRows {
 		assert.Equal(t, row.Address, ormRows[i].Address.Hex())
@@ -108,6 +108,41 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_orm.Row) {
 		assert.Equal(t, row.Payload, ormRows[i].Payload)
 		assert.Equal(t, row.Signature, ormRows[i].Signature)
 	}
+}
+
+func TestPlugin_NewReportingPlugin(t *testing.T) {
+	t.Parallel()
+
+	logger := logger.TestLogger(t)
+	orm := s4_mocks.NewORM(t)
+
+	t.Run("ErrInvalidIntervals", func(t *testing.T) {
+		config := &s4.PluginConfig{
+			NSnapshotShards:       0,
+			MaxObservationEntries: 1,
+		}
+		_, err := s4.NewReportingPlugin(logger, config, orm)
+		assert.ErrorIs(t, err, s4_svc.ErrInvalidIntervals)
+	})
+
+	t.Run("MaxObservationEntries is zero", func(t *testing.T) {
+		config := &s4.PluginConfig{
+			NSnapshotShards:       1,
+			MaxObservationEntries: 0,
+		}
+		_, err := s4.NewReportingPlugin(logger, config, orm)
+		assert.ErrorContains(t, err, "max number of observation entries cannot be zero")
+	})
+
+	t.Run("happy", func(t *testing.T) {
+		config := &s4.PluginConfig{
+			NSnapshotShards:       1,
+			MaxObservationEntries: 1,
+		}
+		p, err := s4.NewReportingPlugin(logger, config, orm)
+		assert.NoError(t, err)
+		assert.NotNil(t, p)
+	})
 }
 
 func TestPlugin_Close(t *testing.T) {
@@ -147,10 +182,10 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("happy", func(t *testing.T) {
-		ormRows := make([]*s4_orm.Row, 0)
+		ormRows := make([]*s4_svc.Row, 0)
 		rows := generateTestRows(t, 10, time.Minute)
 		orm.On("Update", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			updateRow := args.Get(0).(*s4_orm.Row)
+			updateRow := args.Get(0).(*s4_svc.Row)
 			ormRows = append(ormRows, updateRow)
 		}).Return(nil).Times(10)
 
@@ -207,7 +242,7 @@ func TestPlugin_Query(t *testing.T) {
 	})
 
 	t.Run("empty", func(t *testing.T) {
-		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(make([]*s4_orm.Row, 0), nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(make([]*s4_svc.Row, 0), nil).Once()
 
 		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
@@ -317,9 +352,9 @@ func TestPlugin_FullCycle(t *testing.T) {
 	t.Parallel()
 
 	const nOracles = 4
-	orms := make([]s4_orm.ORM, nOracles)
+	orms := make([]s4_svc.ORM, nOracles)
 	plugins := make([]types.ReportingPlugin, nOracles)
-	rows := make([]*s4_orm.Row, nOracles)
+	rows := make([]*s4_svc.Row, nOracles)
 
 	logger := logger.TestLogger(t)
 	config := &s4.PluginConfig{
@@ -329,7 +364,7 @@ func TestPlugin_FullCycle(t *testing.T) {
 	}
 
 	for i := 0; i < nOracles; i++ {
-		orms[i] = s4_orm.NewInMemoryORM()
+		orms[i] = s4_svc.NewInMemoryORM()
 		row := generateTestOrmRow(t, time.Minute, 1, false)
 		rows[i] = row
 		err := orms[i].Update(row)
