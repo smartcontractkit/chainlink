@@ -27,8 +27,9 @@ type webSocketClient struct {
 }
 
 func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitiator, lggr logger.Logger) WebSocketClient {
-	dialer := websocket.DefaultDialer
-	dialer.HandshakeTimeout = time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond
+	dialer := &websocket.Dialer{
+		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
+	}
 	client := &webSocketClient{
 		initiator: initiator,
 		dialer:    dialer,
