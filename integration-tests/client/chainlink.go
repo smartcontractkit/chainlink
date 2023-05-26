@@ -66,6 +66,11 @@ func (c *Chainlink) URL() string {
 	return c.Config.URL
 }
 
+// Name Chainlink instance chart/service name
+func (c *Chainlink) Name() string {
+	return c.Config.ChartName
+}
+
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *Chainlink) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}

@@ -39,8 +39,8 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
+AnnounceAddresses = ["0.0.0.0:8090"]
+ListenAddresses = ["0.0.0.0:8090"]
 [Keeper]
 TurnLookBack = 0`
 
@@ -58,23 +58,6 @@ HistoryDepth = 100
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-
-	keeperBenchmarkEnvVars = map[string]any{
-		"FEATURE_LOG_POLLER":                   "true",
-		"FEATURE_OFFCHAIN_REPORTING2":          "true",
-		"FEATURE_OFFCHAIN_REPORTING":           "false",
-		"KEEPER_TURN_LOOK_BACK":                "0",
-		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5m",
-		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
-
-		"P2PV2_ANNOUNCE_ADDRESSES": "0.0.0.0:6690",
-		"P2PV2_LISTEN_ADDRESSES":   "0.0.0.0:6690",
-		"P2P_ANNOUNCE_IP":          "",
-		"P2P_ANNOUNCE_PORT":        "",
-		"P2P_BOOTSTRAP_PEERS":      "",
-		"P2P_LISTEN_IP":            "",
-		"P2P_LISTEN_PORT":          "",
-	}
 
 	performanceChainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
