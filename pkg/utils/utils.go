@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"math"
 	mrand "math/rand"
 	"time"
 )
@@ -12,8 +13,10 @@ func WithJitter(d time.Duration) time.Duration {
 	if d == 0 {
 		return 0
 	}
+	// ensure non-zero arg to Intn to avoid panic
+	max := math.Max(float64(d.Abs())/5.0, 1.)
 	// #nosec - non critical randomness
-	jitter := mrand.Intn(int(d) / 5)
+	jitter := mrand.Intn(int(max))
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
 }
