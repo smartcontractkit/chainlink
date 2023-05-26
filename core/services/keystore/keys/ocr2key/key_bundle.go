@@ -27,6 +27,7 @@ type KeyBundle interface {
 	Unmarshal(b []byte) (err error)
 	Raw() Raw
 	OnChainPublicKey() string
+	// Decrypts ciphertext using the encryptionKey from the OCR2 OffchainKeyring
 	NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error)
 }
 
