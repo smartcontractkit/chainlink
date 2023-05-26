@@ -983,7 +983,7 @@ func hasReceiptInLongestChain[
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
-				if receipt.BlockHash.String() == head.BlockHash().String() && receipt.BlockNumber == head.BlockNumber() {
+				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
 					return true
 				}
 			}
@@ -1002,7 +1002,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.TxAttempts[0]
-	var receipt txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]
+	var receipt R
 	if len(attempt.Receipts) > 0 {
 		receipt = attempt.Receipts[0]
 	}
@@ -1011,13 +1011,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		"txhash", attempt.Hash.String(),
 		"currentBlockNum", head.BlockNumber(),
 		"currentBlockHash", head.BlockHash().String(),
-		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.BlockNumber),
-		"confirmedInBlockNum", receipt.BlockNumber,
-		"confirmedInBlockHash", receipt.BlockHash,
-		"confirmedInTxIndex", receipt.TransactionIndex,
+		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.GetBlockNumber().Int64()),
+		"confirmedInBlockNum", receipt.GetBlockNumber(),
+		"confirmedInBlockHash", receipt.GetBlockHash(),
+		"confirmedInTxIndex", receipt.GetTransactionIndex(),
 		"ethTxID", etx.ID,
 		"attemptID", attempt.ID,
-		"receiptID", receipt.ID,
+		// "receiptID", receipt.ID, // TODO: is this necessary to log?
 		"nReceipts", len(attempt.Receipts),
 		"id", "eth_confirmer")
 

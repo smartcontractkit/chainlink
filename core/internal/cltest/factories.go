@@ -369,20 +369,24 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 		BlockHash:        blockHash,
 		TxHash:           txHash,
 		TransactionIndex: transactionIndex,
-		Receipt:          &receipt,
+		Receipt:          receipt,
 	}
 	return r
 }
 
 func MustInsertEthReceipt(t *testing.T, txStore txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
-	require.NoError(t, txStore.InsertEthReceipt(&r))
+	id, err := txStore.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
 	return r
 }
 
 func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
-	require.NoError(t, txStore.InsertEthReceipt(&r))
+	id, err := txStore.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
 	return r
 }
 

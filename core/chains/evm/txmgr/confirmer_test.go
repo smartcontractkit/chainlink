@@ -339,13 +339,13 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
 		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber.Int64())
 		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
 		receiptJSON, err := json.Marshal(txmReceipt)
 		require.NoError(t, err)
 
-		j, err := json.Marshal(ethReceipt.Receipt)
+		j, err := json.Marshal(ethReceipt)
 		require.NoError(t, err)
 		assert.JSONEq(t, string(receiptJSON), string(j))
 	})
@@ -482,12 +482,12 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		attempt3_1 = etx.TxAttempts[0]
 		require.Len(t, attempt3_1.Receipts, 1)
 
-		ethReceipt = attempt3_1.Receipts[0]
+		ethReceipt3_1 := attempt3_1.Receipts[0]
 
-		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
-		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
-		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+		assert.Equal(t, txmReceipt.TxHash, ethReceipt3_1.TxHash)
+		assert.Equal(t, txmReceipt.BlockHash, ethReceipt3_1.BlockHash)
+		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt3_1.BlockNumber.Int64())
+		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt3_1.TransactionIndex)
 	})
 
 	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)

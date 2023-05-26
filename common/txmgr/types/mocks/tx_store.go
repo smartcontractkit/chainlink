@@ -723,17 +723,27 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) HasInP
 }
 
 // InsertEthReceipt provides a mock function with given fields: receipt
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) InsertEthReceipt(receipt *txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]) error {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) InsertEthReceipt(receipt R) (int64, error) {
 	ret := _m.Called(receipt)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgrtypes.Receipt[R, TX_HASH, BLOCK_HASH]) error); ok {
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(R) (int64, error)); ok {
+		return rf(receipt)
+	}
+	if rf, ok := ret.Get(0).(func(R) int64); ok {
 		r0 = rf(receipt)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(int64)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(R) error); ok {
+		r1 = rf(receipt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // InsertEthTx provides a mock function with given fields: etx

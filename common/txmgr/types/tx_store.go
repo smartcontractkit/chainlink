@@ -58,7 +58,7 @@ type TxStore[
 	GetInProgressEthTxAttempts(ctx context.Context, address ADDR, chainID CHAIN_ID) (attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
 	HasInProgressTransaction(account ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (exists bool, err error)
 	// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-	InsertEthReceipt(receipt *Receipt[R, TX_HASH, BLOCK_HASH]) error
+	InsertEthReceipt(receipt R) (receiptID int64, err error)
 	InsertEthTx(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) error
 	InsertEthTxAttempt(attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) error
 	LoadEthTxAttempts(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], qopts ...pg.QOpt) error
@@ -97,17 +97,6 @@ type ReceiptPlus[R any] struct {
 	ID           uuid.UUID `db:"pipeline_run_id"`
 	Receipt      R         `db:"receipt"`
 	FailOnRevert bool      `db:"fail_on_revert"`
-}
-
-// R is the raw unparsed transaction receipt
-type Receipt[R ChainReceipt[TX_HASH, BLOCK_HASH], TX_HASH types.Hashable, BLOCK_HASH types.Hashable] struct {
-	ID               int64
-	TxHash           TX_HASH
-	BlockHash        BLOCK_HASH
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          R
-	CreatedAt        time.Time
 }
 
 type QueryerFunc = func(tx pg.Queryer) error
