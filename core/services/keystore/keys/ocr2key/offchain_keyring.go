@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"errors"
 	"io"
+
+	"golang.org/x/crypto/nacl/box"
 
 	"golang.org/x/crypto/curve25519"
 
@@ -45,6 +48,25 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 		return nil, err
 	}
 	return ok, nil
+}
+
+// Decrypt decrypts a message that was encrypted using the public key
+func (ok *OffchainKeyring) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
+	if len(ciphertext) < box.Overhead {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	var nonce [24]byte
+	copy(nonce[:], ciphertext[:box.Overhead])
+
+	publicKey := [curve25519.PointSize]byte(ok.ConfigEncryptionPublicKey())
+
+	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, &ok.encryptionKey)
+	if !success {
+		return nil, errors.New("decryption failed")
+	}
+
+	return decrypted, nil
 }
 
 // OffchainSign signs message using private key
