@@ -22,6 +22,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
     }
     // Set new to true
     for (uint256 i = 0; i < senders.length; i++) {
+      require(s_authorizedSenders[senders[i]] == false);
       s_authorizedSenders[senders[i]] = true;
     }
     // Replace list
