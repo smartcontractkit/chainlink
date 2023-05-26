@@ -78,7 +78,11 @@ func (o *GeneralConfigOpts) parseConfig(config string) error {
 	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
-	o.Config.SetFrom(&c)
+
+	// Overrides duplicate fields
+	if err4 := o.Config.SetFrom(&c); err4 != nil {
+		return fmt.Errorf("invalid configuration: %w", err4)
+	}
 	return nil
 }
 
@@ -453,20 +457,8 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
+func (g *generalConfig) Database() coreconfig.Database {
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
 func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
