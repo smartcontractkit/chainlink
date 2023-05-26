@@ -117,18 +117,18 @@ contract KeeperRegistryLogicA2_1 is
     uint32 gasLimit,
     address admin,
     bytes calldata checkData,
-    bytes calldata offchainConfig
+    bytes calldata extraData
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-    Trigger triggerType = Trigger(uint8(bytes1(bytes32(offchainConfig[0:32])))); // directly grab first evm word
-    validateTrigger(triggerType, offchainConfig[32:]);
+    Trigger triggerType = Trigger(uint8(bytes1(extraData[0:1]))); // directly grab first byte
+    validateTrigger(triggerType, extraData[1:]);
     id = _createID(triggerType);
     AutomationForwarder forwarder = new AutomationForwarder(id, target);
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, extraData, forwarder);
     s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = offchainConfig;
+    s_upkeepOffchainConfig[id] = extraData[1:];
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepOffchainConfigSet(id, offchainConfig);
+    emit UpkeepOffchainConfigSet(id, extraData);
     return (id);
   }
 
@@ -155,14 +155,15 @@ contract KeeperRegistryLogicA2_1 is
    * see the first 4 and last 4 hex values ex 0x1234...ABCD
    */
   function _createID(Trigger triggerType) private view returns (uint256) {
-    bytes memory entropyBytes = abi.encodePacked(
+    bytes1 empty;
+    bytes memory idBytes = abi.encodePacked(
       keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce))
     );
-    bytes12 typeBytes = bytes12(bytes1(uint8(triggerType)));
-    for (uint256 idx = 0; idx < typeBytes.length; idx++) {
-      entropyBytes[idx + 4] = typeBytes[idx];
+    for (uint256 idx = 4; idx < 15; idx++) {
+      idBytes[idx] = empty;
     }
-    return uint256(bytes32(entropyBytes));
+    idBytes[15] = bytes1(uint8(triggerType));
+    return uint256(bytes32(idBytes));
   }
 
   function validateTrigger(Trigger triggerType, bytes calldata offchainConfig) public {
@@ -172,7 +173,10 @@ contract KeeperRegistryLogicA2_1 is
         require(offchainConfig.length == 0);
       } else if (triggerType == Trigger.LOG) {
         // will revert if data isn't the valid type
-        LogTrigger memory trigger = abi.decode(offchainConfig, (LogTrigger));
+        LogTriggerConfig memory trigger = abi.decode(offchainConfig, (LogTriggerConfig));
+        require(trigger.contractAddress != ZERO_ADDRESS);
+        require(trigger.topic0 != bytes32(0));
+        require(uint8(trigger.filterSelector) < 8); // 8 corresponds to 1000 in binary, max is 111
       } else if (triggerType == Trigger.CRON) {
         // TODO
       } else {

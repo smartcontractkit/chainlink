@@ -321,8 +321,24 @@ describe('KeeperRegistry2_1', () => {
   const epochAndRound5_1 =
     '0x0000000000000000000000000000000000000000000000000000000000000501'
 
-  const conditionConfig =
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
+  const conditionalTriggerConfig = '0x00'
+
+  const logTriggerConfig = ethers.utils.hexConcat([
+    '0x01',
+    ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
+      [
+        [
+          randomAddress(),
+          0,
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+        ],
+      ],
+    ),
+  ])
 
   let owner: Signer
   let keeper1: Signer
@@ -345,6 +361,8 @@ describe('KeeperRegistry2_1', () => {
 
   let upkeepId: BigNumber // basic upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
+  let ltUpkeepId: BigNumber // log trigger upkeepID
+  const initialUpkeepCount = 3 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -747,7 +765,6 @@ describe('KeeperRegistry2_1', () => {
     await linkToken
       .connect(owner)
       .transfer(await admin.getAddress(), toWei('1000'))
-
     let tx = await registry
       .connect(owner)
       .registerUpkeep(
@@ -755,7 +772,7 @@ describe('KeeperRegistry2_1', () => {
         executeGas,
         await admin.getAddress(),
         randomBytes,
-        conditionConfig,
+        conditionalTriggerConfig,
       )
     upkeepId = await getUpkeepID(tx)
 
@@ -769,9 +786,24 @@ describe('KeeperRegistry2_1', () => {
         executeGas,
         autoFunderUpkeep.address,
         randomBytes,
-        conditionConfig,
+        conditionalTriggerConfig,
       )
     afUpkeepId = await getUpkeepID(tx)
+
+    const ltUpkeep = await upkeepMockFactory.deploy()
+    await linkToken
+      .connect(owner)
+      .transfer(await admin.getAddress(), toWei('1000'))
+    tx = await registry
+      .connect(owner)
+      .registerUpkeep(
+        ltUpkeep.address,
+        executeGas,
+        await admin.getAddress(),
+        randomBytes,
+        logTriggerConfig,
+      )
+    ltUpkeepId = await getUpkeepID(tx)
 
     await autoFunderUpkeep.setUpkeepId(afUpkeepId)
     // Give enough funds for upkeep as well as to the upkeep contract
@@ -1119,7 +1151,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             randomBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           )
         const upkeepId = await getUpkeepID(tx)
         await arbRegistry.connect(owner).addFunds(upkeepId, toWei('100'))
@@ -1298,7 +1330,7 @@ describe('KeeperRegistry2_1', () => {
           maxPerformGas, // max allowed gas
           await admin.getAddress(),
           randomBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
         const upkeepId = await getUpkeepID(tx)
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
@@ -1574,7 +1606,7 @@ describe('KeeperRegistry2_1', () => {
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
-                      conditionConfig,
+                      conditionalTriggerConfig,
                     )
                   const upkeepId = await getUpkeepID(tx)
                   passingUpkeepIds.push(upkeepId.toString())
@@ -1591,7 +1623,7 @@ describe('KeeperRegistry2_1', () => {
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
-                      conditionConfig,
+                      conditionalTriggerConfig,
                     )
                   const upkeepId = await getUpkeepID(tx)
                   failingUpkeepIds.push(upkeepId.toString())
@@ -1849,7 +1881,7 @@ describe('KeeperRegistry2_1', () => {
               executeGas,
               await admin.getAddress(),
               randomBytes,
-              conditionConfig,
+              conditionalTriggerConfig,
             )
           const upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId.toString())
@@ -1890,7 +1922,7 @@ describe('KeeperRegistry2_1', () => {
               executeGas,
               await admin.getAddress(),
               randomBytes,
-              conditionConfig,
+              conditionalTriggerConfig,
             )
           const upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId.toString())
@@ -1953,7 +1985,7 @@ describe('KeeperRegistry2_1', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
 
       const id1 = await getUpkeepID(tx)
@@ -1981,7 +2013,7 @@ describe('KeeperRegistry2_1', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
       const id2 = await getUpkeepID(tx2)
       await registry.connect(admin).addFunds(id2, toWei('5'))
@@ -2065,7 +2097,7 @@ describe('KeeperRegistry2_1', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
       const upkeepID1 = await getUpkeepID(tx1)
       const tx2 = await registry
@@ -2075,7 +2107,7 @@ describe('KeeperRegistry2_1', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
       const upkeepID2 = await getUpkeepID(tx2)
       await mock.setCanCheck(true)
@@ -2157,7 +2189,7 @@ describe('KeeperRegistry2_1', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionConfig,
+          conditionalTriggerConfig,
         )
       upkeepId2 = await getUpkeepID(tx)
 
@@ -3212,7 +3244,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'RegistryPaused()',
       )
@@ -3227,7 +3259,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'NotAContract()',
       )
@@ -3242,7 +3274,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'OnlyCallableByOwnerOrRegistrar()',
       )
@@ -3257,7 +3289,7 @@ describe('KeeperRegistry2_1', () => {
             2299,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'GasLimitOutsideRange()',
       )
@@ -3272,7 +3304,7 @@ describe('KeeperRegistry2_1', () => {
             5000001,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'GasLimitOutsideRange()',
       )
@@ -3291,7 +3323,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             longBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'CheckDataExceedsLimit()',
       )
@@ -3566,15 +3598,66 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  // TODO
-  describe.skip('#setUpkeepOffchainConfig', () => {
-    const newConfig = '0xc0ffeec0ffee'
+  describe('#setUpkeepOffchainConfig', () => {
+    const newConditionalConfig = '0x'
+    const newLogConfig = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
+      [
+        [
+          randomAddress(),
+          1,
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+        ],
+      ],
+    )
+    const invalidLogConfig1 = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
+      [
+        [
+          ethers.constants.AddressZero, // address can't be zero
+          7,
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+        ],
+      ],
+    )
+    const invalidLogConfig2 = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
+      [
+        [
+          randomAddress(),
+          8, // too high (would signify 1000 in binary, but must be <= 111)
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+        ],
+      ],
+    )
+    const invalidLogConfig3 = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
+      [
+        [
+          randomAddress(),
+          7,
+          emptyBytes32, // filter must be non-zero
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+          ethers.utils.randomBytes(32),
+        ],
+      ],
+    )
 
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry
           .connect(admin)
-          .setUpkeepOffchainConfig(upkeepId.add(1), newConfig),
+          .setUpkeepOffchainConfig(upkeepId.add(1), newConditionalConfig),
         'OnlyCallableByAdmin()',
       )
     })
@@ -3582,33 +3665,96 @@ describe('KeeperRegistry2_1', () => {
     it('reverts if the upkeep is canceled', async () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
       await evmRevert(
-        registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig),
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId, newConditionalConfig),
         'UpkeepCancelled()',
       )
     })
 
     it('reverts if called by anyone but the admin', async () => {
       await evmRevert(
-        registry.connect(owner).setUpkeepOffchainConfig(upkeepId, newConfig),
+        registry
+          .connect(owner)
+          .setUpkeepOffchainConfig(upkeepId, newConditionalConfig),
         'OnlyCallableByAdmin()',
       )
     })
 
-    it('updates the config successfully', async () => {
-      const initialConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
-      assert.equal(initialConfig, '0x')
-      await registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig)
+    it('validates the config for conditional upkeeps', async () => {
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId, conditionalTriggerConfig), // format for creation & updating are different
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry.connect(admin).setUpkeepOffchainConfig(upkeepId, randomBytes),
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newLogConfig),
+        'InvalidOffchainConfig()',
+      )
+      await registry
+        .connect(admin)
+        .setUpkeepOffchainConfig(upkeepId, newConditionalConfig)
       const updatedConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
-      assert.equal(newConfig, updatedConfig)
+      assert.equal(newConditionalConfig, updatedConfig)
+    })
+
+    it('validates the config for log triggered upkeeps', async () => {
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, logTriggerConfig), // format for creation & updating are different
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, randomBytes),
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, newConditionalConfig), // wrong type
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, invalidLogConfig1),
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, invalidLogConfig2),
+        'InvalidOffchainConfig()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(ltUpkeepId, invalidLogConfig3),
+        'InvalidOffchainConfig()',
+      )
+      await registry
+        .connect(admin)
+        .setUpkeepOffchainConfig(ltUpkeepId, newLogConfig)
+      const updatedConfig = (await registry.getUpkeep(ltUpkeepId))
+        .offchainConfig
+      assert.equal(newLogConfig, updatedConfig)
     })
 
     it('emits a log', async () => {
       const tx = await registry
         .connect(admin)
-        .setUpkeepOffchainConfig(upkeepId, newConfig)
+        .setUpkeepOffchainConfig(upkeepId, newConditionalConfig)
       await expect(tx)
         .to.emit(registry, 'UpkeepOffchainConfigSet')
-        .withArgs(upkeepId, newConfig)
+        .withArgs(upkeepId, newConditionalConfig)
     })
   })
 
@@ -3926,7 +4072,7 @@ describe('KeeperRegistry2_1', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionConfig,
+            conditionalTriggerConfig,
           ),
         'RegistryPaused()',
       )

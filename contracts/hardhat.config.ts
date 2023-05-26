@@ -46,7 +46,11 @@ export default {
     target: 'ethers-v5',
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      allowUnlimitedContractSize: Boolean(
+        process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
+      ),
+    },
   },
   solidity: {
     compilers: [
