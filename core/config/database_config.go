@@ -17,9 +17,6 @@ type DatabaseV1 interface {
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }
@@ -49,8 +46,8 @@ type Database interface {
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
+	MaxIdleConns() int
+	MaxOpenConns() int
 	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }
