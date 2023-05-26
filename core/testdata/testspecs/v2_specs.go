@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 )
 
 var (
@@ -126,6 +126,24 @@ ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 chainID = "Chainlink-99"`
+
+	OCR2CosmosSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
+isBootstrapPeer = false
+p2pv2Bootstrappers = []
+relay = "cosmos"
+transmitterID = "wasm1ysjdehnf3a3kpndx74yyg6ry90258y4z5vawjz"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+chainID = "Chainlink-99"`
+	OCR2CosmosNodeSpecMinimal = OCR2CosmosSpecMinimal + `
+nodeName = "some-test-node"`
 
 	OCR2EVMSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
@@ -264,6 +282,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
+
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
@@ -424,11 +443,11 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
-	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.New().String())
 	if params.DS1BridgeName != "" {
 		ds1BridgeName = params.DS1BridgeName
 	}
-	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.New().String())
 	if params.DS2BridgeName != "" {
 		ds2BridgeName = params.DS2BridgeName
 	}
@@ -536,7 +555,7 @@ type BlockhashStoreSpecParams struct {
 	PollPeriod            time.Duration
 	RunTimeout            time.Duration
 	EVMChainID            int64
-	FromAdress            string
+	FromAddresses         []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -588,8 +607,15 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		params.RunTimeout = 15 * time.Second
 	}
 
-	if params.FromAdress == "" {
-		params.FromAdress = "0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"
+	var formattedFromAddresses string
+	if params.FromAddresses == nil {
+		formattedFromAddresses = `["0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"]`
+	} else {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
 	}
 
 	template := `
@@ -604,12 +630,128 @@ blockhashStoreAddress = "%s"
 pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
-fromAddress = "%s"
+fromAddresses = %s
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
-		params.EVMChainID, params.FromAdress)
+		params.EVMChainID, formattedFromAddresses)
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
+}
+
+// BlockHeaderFeederSpecParams defines params for building a block header feeder job spec.
+type BlockHeaderFeederSpecParams struct {
+	JobID                      string
+	Name                       string
+	CoordinatorV1Address       string
+	CoordinatorV2Address       string
+	WaitBlocks                 int
+	LookbackBlocks             int
+	BlockhashStoreAddress      string
+	BatchBlockhashStoreAddress string
+	PollPeriod                 time.Duration
+	RunTimeout                 time.Duration
+	EVMChainID                 int64
+	FromAddresses              []string
+	GetBlockhashesBatchSize    uint16
+	StoreBlockhashesBatchSize  uint16
+}
+
+// BlockHeaderFeederSpec defines a block header feeder job spec.
+type BlockHeaderFeederSpec struct {
+	BlockHeaderFeederSpecParams
+	toml string
+}
+
+// Toml returns the BlockhashStoreSpec in TOML string form.
+func (b BlockHeaderFeederSpec) Toml() string {
+	return b.toml
+}
+
+// GenerateBlockHeaderFeederSpec creates a BlockHeaderFeederSpec from the given params.
+func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHeaderFeederSpec {
+	if params.JobID == "" {
+		params.JobID = "123e4567-e89b-12d3-a456-426655442211"
+	}
+
+	if params.Name == "" {
+		params.Name = "blockheaderfeeder"
+	}
+
+	if params.CoordinatorV1Address == "" {
+		params.CoordinatorV1Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
+	}
+
+	if params.CoordinatorV2Address == "" {
+		params.CoordinatorV2Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
+	}
+
+	if params.WaitBlocks == 0 {
+		params.WaitBlocks = 256
+	}
+
+	if params.LookbackBlocks == 0 {
+		params.LookbackBlocks = 500
+	}
+
+	if params.BlockhashStoreAddress == "" {
+		params.BlockhashStoreAddress = "0x016D54091ee83D42aF46e4F2d7177D0A232D2bDa"
+	}
+
+	if params.BatchBlockhashStoreAddress == "" {
+		params.BatchBlockhashStoreAddress = "0xde08B57586839BfF5DB58Bdd7FdeB7142Bff3795"
+	}
+
+	if params.PollPeriod == 0 {
+		params.PollPeriod = 60 * time.Second
+	}
+
+	if params.RunTimeout == 0 {
+		params.RunTimeout = 30 * time.Second
+	}
+
+	if params.GetBlockhashesBatchSize == 0 {
+		params.GetBlockhashesBatchSize = 10
+	}
+
+	if params.StoreBlockhashesBatchSize == 0 {
+		params.StoreBlockhashesBatchSize = 5
+	}
+
+	var formattedFromAddresses string
+	if params.FromAddresses == nil {
+		formattedFromAddresses = `["0xBe0b739f841bC113D4F4e4CdD16086ffAbB5f39f"]`
+	} else {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
+	}
+
+	template := `
+type = "blockheaderfeeder"
+schemaVersion = 1
+name = "%s"
+coordinatorV1Address = "%s"
+coordinatorV2Address = "%s"
+waitBlocks = %d
+lookbackBlocks = %d
+blockhashStoreAddress = "%s"
+batchBlockhashStoreAddress = "%s"
+pollPeriod = "%s"
+runTimeout = "%s"
+evmChainID = "%d"
+fromAddresses = %s
+getBlockhashesBatchSize = %d
+storeBlockhashesBatchSize = %d
+`
+	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
+		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
+		params.BlockhashStoreAddress, params.BatchBlockhashStoreAddress, params.PollPeriod.String(),
+		params.RunTimeout.String(), params.EVMChainID, formattedFromAddresses, params.GetBlockhashesBatchSize,
+		params.StoreBlockhashesBatchSize)
+
+	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
 }

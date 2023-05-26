@@ -3,9 +3,9 @@ package resolver
 import (
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/web/gqlscalar"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/gqlscalar"
 )
 
 type SpecResolver struct {
@@ -90,6 +90,16 @@ func (r *SpecResolver) ToBlockhashStoreSpec() (*BlockhashStoreSpecResolver, bool
 	return &BlockhashStoreSpecResolver{spec: *r.j.BlockhashStoreSpec}, true
 }
 
+// ToBlockHeaderFeederSpec returns the BlockHeaderFeederSpec from the SpecResolver if the job is a
+// BlockHeaderFeeder job.
+func (r *SpecResolver) ToBlockHeaderFeederSpec() (*BlockHeaderFeederSpecResolver, bool) {
+	if r.j.Type != job.BlockHeaderFeeder {
+		return nil, false
+	}
+
+	return &BlockHeaderFeederSpecResolver{spec: *r.j.BlockHeaderFeederSpec}, true
+}
+
 // ToBootstrapSpec resolves to the Booststrap Spec Resolver
 func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	if r.j.Type != job.Bootstrap {
@@ -97,6 +107,14 @@ func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	}
 
 	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec}, true
+}
+
+func (r *SpecResolver) ToGatewaySpec() (*GatewaySpecResolver, bool) {
+	if r.j.Type != job.Gateway {
+		return nil, false
+	}
+
+	return &GatewaySpecResolver{spec: *r.j.GatewaySpec}, true
 }
 
 type CronSpecResolver struct {
@@ -536,7 +554,7 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// KeyBundleID resolves the spec's key bundle id.
+// OcrKeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
 		return nil
@@ -593,6 +611,11 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 
 	addr := r.spec.TransmitterID.String
 	return &addr
+}
+
+// FeedID resolves the spec's feed ID
+func (r *OCR2SpecResolver) FeedID() string {
+	return r.spec.FeedID.String()
 }
 
 type VRFSpecResolver struct {
@@ -771,16 +794,105 @@ func (b *BlockhashStoreSpecResolver) EVMChainID() *string {
 }
 
 // FromAddress returns the job's FromAddress param, if any.
-func (b *BlockhashStoreSpecResolver) FromAddress() *string {
-	if b.spec.FromAddress == nil {
+func (b *BlockhashStoreSpecResolver) FromAddresses() *[]string {
+	if b.spec.FromAddresses == nil {
 		return nil
 	}
-	addr := b.spec.FromAddress.String()
-	return &addr
+	var addresses []string
+	for _, a := range b.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
 }
 
 // CreatedAt resolves the spec's created at timestamp.
 func (b *BlockhashStoreSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: b.spec.CreatedAt}
+}
+
+// BlockHeaderFeederSpecResolver exposes the job parameters for a BlockHeaderFeederSpec.
+type BlockHeaderFeederSpecResolver struct {
+	spec job.BlockHeaderFeederSpec
+}
+
+// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+func (b *BlockHeaderFeederSpecResolver) CoordinatorV1Address() *string {
+	if b.spec.CoordinatorV1Address == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV1Address.String()
+	return &addr
+}
+
+// CoordinatorV2Address returns the address of the V2 Coordinator, if any.
+func (b *BlockHeaderFeederSpecResolver) CoordinatorV2Address() *string {
+	if b.spec.CoordinatorV2Address == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// WaitBlocks returns the job's WaitBlocks param.
+func (b *BlockHeaderFeederSpecResolver) WaitBlocks() int32 {
+	return b.spec.WaitBlocks
+}
+
+// LookbackBlocks returns the job's LookbackBlocks param.
+func (b *BlockHeaderFeederSpecResolver) LookbackBlocks() int32 {
+	return b.spec.LookbackBlocks
+}
+
+// BlockhashStoreAddress returns the job's BlockhashStoreAddress param.
+func (b *BlockHeaderFeederSpecResolver) BlockhashStoreAddress() string {
+	return b.spec.BlockhashStoreAddress.String()
+}
+
+// BatchBlockhashStoreAddress returns the job's BatchBlockhashStoreAddress param.
+func (b *BlockHeaderFeederSpecResolver) BatchBlockhashStoreAddress() string {
+	return b.spec.BatchBlockhashStoreAddress.String()
+}
+
+// PollPeriod return's the job's PollPeriod param.
+func (b *BlockHeaderFeederSpecResolver) PollPeriod() string {
+	return b.spec.PollPeriod.String()
+}
+
+// RunTimeout return's the job's RunTimeout param.
+func (b *BlockHeaderFeederSpecResolver) RunTimeout() string {
+	return b.spec.RunTimeout.String()
+}
+
+// EVMChainID returns the job's EVMChainID param.
+func (b *BlockHeaderFeederSpecResolver) EVMChainID() *string {
+	chainID := b.spec.EVMChainID.String()
+	return &chainID
+}
+
+// FromAddress returns the job's FromAddress param, if any.
+func (b *BlockHeaderFeederSpecResolver) FromAddresses() *[]string {
+	if b.spec.FromAddresses == nil {
+		return nil
+	}
+	var addresses []string
+	for _, a := range b.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
+}
+
+// GetBlockhashesBatchSize returns the job's GetBlockhashesBatchSize param.
+func (b *BlockHeaderFeederSpecResolver) GetBlockhashesBatchSize() int32 {
+	return int32(b.spec.GetBlockhashesBatchSize)
+}
+
+// StoreBlockhashesBatchSize returns the job's StoreBlockhashesBatchSize param.
+func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() int32 {
+	return int32(b.spec.StoreBlockhashesBatchSize)
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (b *BlockHeaderFeederSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: b.spec.CreatedAt}
 }
 
@@ -854,5 +966,21 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+type GatewaySpecResolver struct {
+	spec job.GatewaySpec
+}
+
+func (r *GatewaySpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *GatewaySpecResolver) GatewayConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.GatewayConfig)
+}
+
+func (r *GatewaySpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }

@@ -6,19 +6,20 @@ import (
 	"testing"
 	"time"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newHead() evmtypes.Head {
@@ -45,7 +46,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			Return()
 
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)
@@ -56,7 +57,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		borm := cltest.NewTxmORM(t, db, cfg)
+		borm := cltest.NewTxStore(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -76,7 +77,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			Return()
 		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
@@ -113,7 +114,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			}).
 			Return()
 		require.NoError(t, reporter.Start(testutils.Context(t)))
-		defer reporter.Close()
+		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)

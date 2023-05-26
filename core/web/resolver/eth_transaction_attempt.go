@@ -3,19 +3,19 @@ package resolver
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
 type EthTransactionAttemptResolver struct {
-	attmpt txmgr.EthTxAttempt
+	attmpt txmgr.EvmTxAttempt
 }
 
-func NewEthTransactionAttempt(attmpt txmgr.EthTxAttempt) *EthTransactionAttemptResolver {
+func NewEthTransactionAttempt(attmpt txmgr.EvmTxAttempt) *EthTransactionAttemptResolver {
 	return &EthTransactionAttemptResolver{attmpt: attmpt}
 }
 
-func NewEthTransactionsAttempts(results []txmgr.EthTxAttempt) []*EthTransactionAttemptResolver {
+func NewEthTransactionsAttempts(results []txmgr.EvmTxAttempt) []*EthTransactionAttemptResolver {
 	var resolver []*EthTransactionAttemptResolver
 
 	for _, tx := range results {
@@ -26,11 +26,11 @@ func NewEthTransactionsAttempts(results []txmgr.EthTxAttempt) []*EthTransactionA
 }
 
 func (r *EthTransactionAttemptResolver) GasPrice() string {
-	return r.attmpt.GasPrice.ToInt().String()
+	return r.attmpt.TxFee.Legacy.ToInt().String()
 }
 
 func (r *EthTransactionAttemptResolver) Hash() string {
-	return r.attmpt.Hash.Hex()
+	return r.attmpt.Hash.String()
 }
 
 func (r *EthTransactionAttemptResolver) Hex() string {
@@ -50,11 +50,11 @@ func (r *EthTransactionAttemptResolver) SentAt() *string {
 // -- EthTransactionAttempts Query --
 
 type EthTransactionsAttemptsPayloadResolver struct {
-	results []txmgr.EthTxAttempt
+	results []txmgr.EvmTxAttempt
 	total   int32
 }
 
-func NewEthTransactionsAttemptsPayload(results []txmgr.EthTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
+func NewEthTransactionsAttemptsPayload(results []txmgr.EvmTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
 	return &EthTransactionsAttemptsPayloadResolver{results: results, total: total}
 }
 

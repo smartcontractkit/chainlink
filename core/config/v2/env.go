@@ -4,12 +4,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
-	EnvConfig = Env("CL_CONFIG")
-	EnvDev    = Env("CL_DEV")
+	EnvConfig          = Env("CL_CONFIG")
+	EnvSolanaPluginCmd = Env("CL_SOLANA_CMD")
+	EnvMedianPluginCmd = Env("CL_MEDIAN_CMD")
 
 	EnvDatabaseAllowSimplePasswords = Env("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	EnvDatabaseURL                  = EnvSecret("CL_DATABASE_URL")
@@ -19,6 +20,7 @@ var (
 	EnvPasswordKeystore             = EnvSecret("CL_PASSWORD_KEYSTORE")
 	EnvPasswordVRF                  = EnvSecret("CL_PASSWORD_VRF")
 	EnvPyroscopeAuthToken           = EnvSecret("CL_PYROSCOPE_AUTH_TOKEN")
+	EnvPrometheusAuthToken          = EnvSecret("CL_PROMETHEUS_AUTH_TOKEN")
 )
 
 type Env string

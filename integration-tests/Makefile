@@ -98,21 +98,21 @@ test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_
 # Chaos
 .PHONY: test_chaos_pods_raw
 test_chaos_pods_raw:
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/pod-chaos ./chaos
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*pod-chaos' ./chaos
 
 .PHONY: test_chaos_network_raw
 test_chaos_network_raw:
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run Test/network-chaos ./chaos
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*network-chaos' ./chaos
 
 .PHONY: test_chaos_pods
 test_chaos_pods: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run Test/pod-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
 
 .PHONY: test_chaos_network
 test_chaos_network: install_gotestfmt ## Run all smoke tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run Test/network-chaos ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestfmt
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging
@@ -124,6 +124,27 @@ test_perf: test_need_operator_assets ## Run core node performance tests.
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+# Migrations
+.PHONY: test_node_migrations
+test_node_migrations: install_gotestfmt ## Run all node migration tests
+	TEST_LOG_LEVEL="disabled" \
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_node_migrations_simulated
+test_node_migrations_simulated: install_gotestfmt
+	TEST_LOG_LEVEL="disabled" \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
+
+.PHONY: test_node_migrations_verbose
+test_node_migrations_verbose:
+	go test -timeout 1h -count=1 -v $(args) ./migration
+
+.PHONY: test_node_migrations_simulated_verbose
+test_node_migrations_simulated_verbose:
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
+	go test -timeout 1h -count=1 -v $(args) ./migration
 
 # Soak
 .PHONY: test_soak_ocr

@@ -8,21 +8,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var registryConfig1_1 = registry1_1.GetConfig{
@@ -46,7 +47,7 @@ var upkeepConfig1_1 = registry1_1.GetUpkeep{
 
 func mockRegistry1_1(
 	t *testing.T,
-	ethMock *evmmocks.Client,
+	ethMock *evmclimocks.Client,
 	contractAddress common.Address,
 	config registry1_1.GetConfig,
 	keeperList []common.Address,
@@ -71,7 +72,7 @@ func mockRegistry1_1(
 func Test_LogListenerOpts1_1(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	scopedConfig := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, nil))
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 
@@ -110,7 +111,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 
 	err := synchronizer.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
@@ -217,7 +218,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -266,7 +267,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -352,7 +353,7 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -396,7 +397,7 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 

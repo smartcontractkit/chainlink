@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,37 +20,40 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	corenull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	fmmocks "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	jobmocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	corenull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	fmmocks "github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 const oracleCount uint8 = 17
 
+var (
+	defaultMinimumContractPayment = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
+)
+
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.EvmTxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.EvmTransmitCheckerSpec{})
 }
 
 var (
@@ -402,7 +405,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			// Set up funds
 			var availableFunds *big.Int
 			var paymentAmount *big.Int
-			minPayment := config.DefaultMinimumContractPayment.ToInt()
+			minPayment := defaultMinimumContractPayment.ToInt()
 			if tc.funded {
 				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
 				paymentAmount = minPayment
@@ -539,8 +542,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100),
-				AvailableFunds:   config.DefaultMinimumContractPayment.ToInt(),
-				PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+				AvailableFunds:   defaultMinimumContractPayment.ToInt(),
+				PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			}
 		}
 	)
@@ -1461,7 +1464,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1575,7 +1578,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1669,7 +1672,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1841,8 +1844,8 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			RoundId:          roundID,
 			EligibleToSubmit: true,
 			LatestSubmission: answerBigInt,
-			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), config.DefaultMinimumContractPayment.ToInt()),
-			PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), defaultMinimumContractPayment.ToInt()),
+			PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			StartedAt:        now(),
 		}
 
@@ -1920,7 +1923,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Maybe()
 
 	require.NoError(t, fm.Start(testutils.Context(t)))
-	defer fm.Close()
+	defer func() { assert.NoError(t, fm.Close()) }()
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond

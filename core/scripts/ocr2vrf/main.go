@@ -14,9 +14,9 @@ import (
 	"github.com/shopspring/decimal"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 )
 
 type commonSetConfigArgs struct {
@@ -178,7 +178,7 @@ func main() {
 		coordinatorOverhead := cmd.Int64("coordinator-overhead", 50_000, "coordinator overhead")
 		callbackOverhead := cmd.Int64("callback-overhead", 50_000, "callback overhead")
 		blockGasOverhead := cmd.Int64("block-gas-overhead", 50_000, "block gas overhead")
-		lookbackBlocks := cmd.Int64("lookback-blocks", 1000, "lookback blocks")
+		lookbackBlocks := cmd.Uint64("lookback-blocks", 1000, "lookback blocks")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
@@ -349,10 +349,11 @@ func main() {
 		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
 		subID := cmd.String("sub-id", "", "subscription ID")
-		requestID := cmd.Int64("request-id", 0, "request ID")
+		requestID := cmd.String("request-id", "0", "request ID")
 		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), big.NewInt(*requestID), *numWords)
+		reqIdInt := decimal.RequireFromString(*requestID).BigInt()
+		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), reqIdInt, *numWords)
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")

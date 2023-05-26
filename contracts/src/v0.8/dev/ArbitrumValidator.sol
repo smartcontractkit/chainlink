@@ -12,7 +12,7 @@ import "./interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import "./interfaces/FlagsInterface.sol";
 import "./interfaces/IArbitrumDelayedInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
+import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
@@ -246,9 +246,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256, /* previousRoundId */
+    uint256 /* previousRoundId */,
     int256 previousAnswer,
-    uint256, /* currentRoundId */
+    uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
@@ -295,12 +295,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @notice internal method that stores the gas configuration
-  function _setGasConfig(
-    uint256 maxGas,
-    uint256 gasPriceBid,
-    uint256 baseFee,
-    address gasPriceL1FeedAddr
-  ) internal {
+  function _setGasConfig(uint256 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
     require(maxGas > 0, "Max gas is zero");
     require(gasPriceBid > 0, "Gas price bid is zero");
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");

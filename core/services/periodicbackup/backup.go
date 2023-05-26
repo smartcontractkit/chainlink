@@ -11,11 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -51,30 +51,27 @@ type (
 		utils.StartStopOnce
 	}
 
-	Config interface {
-		DatabaseBackupMode() config.DatabaseBackupMode
-		DatabaseBackupFrequency() time.Duration
-		DatabaseBackupURL() *url.URL
-		DatabaseBackupDir() string
-		DatabaseURL() url.URL
-		RootDir() string
+	BackupConfig interface {
+		URL() *url.URL
+		Dir() string
+		Mode() config.DatabaseBackupMode
+		Frequency() time.Duration
 	}
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error) {
+func NewDatabaseBackup(dbUrl url.URL, rootDir string, backupConfig BackupConfig, lggr logger.Logger) (DatabaseBackup, error) {
 	lggr = lggr.Named("DatabaseBackup")
-	dbUrl := config.DatabaseURL()
-	dbBackupUrl := config.DatabaseBackupURL()
+	dbBackupUrl := backupConfig.URL()
 	if dbBackupUrl != nil {
 		dbUrl = *dbBackupUrl
 	}
 
-	outputParentDir := filepath.Join(config.RootDir(), "backup")
-	if config.DatabaseBackupDir() != "" {
-		dir, err := filepath.Abs(config.DatabaseBackupDir())
+	outputParentDir := filepath.Join(rootDir, "backup")
+	if backupConfig.Dir() != "" {
+		dir, err := filepath.Abs(backupConfig.Dir())
 		if err != nil {
-			return nil, errors.Errorf("failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			return nil, errors.Errorf("failed to get path for Database.Backup.Dir (%s) - please set it to a valid directory path", backupConfig.Dir())
 		}
 		outputParentDir = dir
 	}
@@ -82,8 +79,8 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 	return &databaseBackup{
 		lggr,
 		dbUrl,
-		config.DatabaseBackupMode(),
-		config.DatabaseBackupFrequency(),
+		backupConfig.Mode(),
+		backupConfig.Frequency(),
 		outputParentDir,
 		make(chan bool),
 		utils.StartStopOnce{},
@@ -95,11 +92,11 @@ func (backup *databaseBackup) Start(context.Context) error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		ticker := time.NewTicker(backup.frequency)
 		if backup.frequency == 0 {
-			backup.logger.Info("Periodic database backups are disabled; DATABASE_BACKUP_FREQUENCY was set to 0")
+			backup.logger.Info("Periodic database backups are disabled; Database.Backup.Frequency was set to 0")
 			// Stopping the ticker means it will never fire, effectively disabling periodic backups
 			ticker.Stop()
 		} else if backup.frequencyIsTooSmall() {
-			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s (or set to 0 to disable periodic backups)", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
+			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s (or set to 0 to disable periodic backups)", "Database.Backup.Frequency", backup.frequency, minBackupFrequency)
 		}
 
 		go func() {
@@ -109,7 +106,7 @@ func (backup *databaseBackup) Start(context.Context) error {
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					backup.logger.Infow("Starting automatic database backup, this can take a while. To disable periodic backups, set DATABASE_BACKUP_FREQUENCY=0. To disable database backups entirely, set DATABASE_BACKUP_MODE=none.")
+					backup.logger.Infow("Starting automatic database backup, this can take a while. To disable periodic backups, set Database.Backup.Frequency=0. To disable database backups entirely, set Database.Backup.Mode=none.")
 					//nolint:errcheck
 					backup.RunBackup(static.Version)
 				}
@@ -127,6 +124,14 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
+func (backup *databaseBackup) Name() string {
+	return backup.logger.Name()
+}
+
+func (backup *databaseBackup) HealthReport() map[string]error {
+	return map[string]error{backup.Name(): backup.StartStopOnce.Healthy()}
+}
+
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }
@@ -137,7 +142,8 @@ func (backup *databaseBackup) RunBackup(version string) error {
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("Backup failed", "duration", duration, "err", err)
+		backup.logger.Criticalw("Backup failed", "duration", duration, "err", err)
+		backup.SvcErrBuffer.Append(err)
 		return err
 	}
 	backup.logger.Infow("Backup completed successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)

@@ -54,17 +54,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.consumer,
   )
 
@@ -761,6 +761,21 @@ describe('FunctionsRegistry', () => {
       ).to.emit(registry, 'BillingEnd')
     })
 
+    it('validates request ID', async () => {
+      const unknown =
+        '0x67c6a2e151d4352a55021b5d0028c18121cfc24c7d73b179d22b17eeeeeeeeee'
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(unknown, 32),
+        stringToHex('hello world'),
+        stringToHex(''),
+      )
+      await expect(
+        oracle
+          .connect(roles.oracleNode)
+          .callReport(report, { gasLimit: 500_000 }),
+      ).to.emit(oracle, 'InvalidRequestID')
+    })
+
     it('pays the transmitter the expected amount', async () => {
       const oracleBalanceBefore = await linkToken.balanceOf(
         await roles.oracleNode.getAddress(),
@@ -773,6 +788,8 @@ describe('FunctionsRegistry', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(
         oracle
           .connect(roles.oracleNode)
@@ -780,6 +797,8 @@ describe('FunctionsRegistry', () => {
       )
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
 

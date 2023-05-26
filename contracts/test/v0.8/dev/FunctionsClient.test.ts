@@ -34,16 +34,16 @@ before(async () => {
   roles = (await getUsers()).roles
 
   concreteFunctionsClientFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.defaultAccount,
   )
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
@@ -157,11 +157,18 @@ describe('FunctionsClientTestHelper', () => {
       const args = await parseOracleRequestEventArgs(tx)
       assert.equal(5, args.length)
       const decoded = await decodeDietCBOR(args[4])
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+        },
+      )
     })
   })
 
@@ -188,6 +195,8 @@ describe('FunctionsClientTestHelper', () => {
       await expect(oracle.callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, anyValue)
         .to.emit(registry, 'BillingEnd')
         .to.emit(client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)

@@ -47,7 +47,7 @@ race.*
 golangci-lint-output.txt
 
 # DB state
-db/
+./db/
 .s.PGSQL.5432.lock
 
 # can be left behind by tests
@@ -62,8 +62,15 @@ tests-*.xml
 *.test
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
+**/test-ledger/*
+__debug_bin
 
 # goreleaser builds
 cosign.*
 dist/
 MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out

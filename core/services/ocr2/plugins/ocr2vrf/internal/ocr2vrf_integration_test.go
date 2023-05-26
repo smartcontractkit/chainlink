@@ -28,34 +28,34 @@ import (
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_router"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ocr2vrfUniverse struct {
@@ -87,13 +87,17 @@ type ocr2vrfUniverse struct {
 	subID *big.Int
 }
 
+const (
+	fundingAmount int64 = 5e18
+)
+
 type ocr2Node struct {
 	app                  *cltest.TestApplication
 	peerID               string
 	transmitter          common.Address
 	effectiveTransmitter common.Address
 	keybundle            ocr2key.KeyBundle
-	config               config.GeneralConfig
+	sendingKeys          []string
 }
 
 func setupOCR2VRFContracts(
@@ -134,6 +138,12 @@ func setupOCR2VRFContracts(
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
 		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress, routerAddress)
 	require.NoError(t, err)
+	b.Commit()
+
+	require.NoError(t, utils.JustError(coordinator.SetConfig(owner, vrf_wrapper.VRFCoordinatorConfig{
+		MaxCallbackGasLimit:        2.5e6,
+		MaxCallbackArgumentsLength: 160, // 5 EVM words
+	})))
 	b.Commit()
 
 	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
@@ -231,7 +241,7 @@ func setupNodeOCR2(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
 
@@ -292,7 +302,9 @@ func setupNodeOCR2(
 	}
 
 	// Fund the sending keys with some ETH.
+	var sendingKeyStrings []string
 	for _, k := range sendingKeys {
+		sendingKeyStrings = append(sendingKeyStrings, k.Address.String())
 		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 		require.NoError(t, err)
 
@@ -318,7 +330,7 @@ func setupNodeOCR2(
 		transmitter:          transmitter,
 		effectiveTransmitter: effectiveTransmitter,
 		keybundle:            kb,
-		config:               config,
+		sendingKeys:          sendingKeyStrings,
 	}
 }
 
@@ -350,12 +362,15 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	var (
 		oracles               []confighelper2.OracleIdentityExtra
 		transmitters          []common.Address
+		payees                []common.Address
+		payeeTransactors      []*bind.TransactOpts
 		effectiveTransmitters []common.Address
 		onchainPubKeys        []common.Address
 		kbs                   []ocr2key.KeyBundle
 		apps                  []*cltest.TestApplication
 		dkgEncrypters         []dkgencryptkey.Key
 		dkgSigners            []dkgsignkey.Key
+		sendingKeys           [][]string
 	)
 	for i := 0; i < numNodes; i++ {
 		// Supply the bootstrap IP and port as a V2 peer address
@@ -365,6 +380,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 			}},
 		}
 		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
+		sendingKeys = append(sendingKeys, node.sendingKeys)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
 		require.NoError(t, err)
@@ -375,6 +391,9 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
 		transmitters = append(transmitters, node.transmitter)
+		payeeTransactor := testutils.MustNewSimTransactor(t)
+		payeeTransactors = append(payeeTransactors, payeeTransactor)
+		payees = append(payees, payeeTransactor.From)
 		effectiveTransmitters = append(effectiveTransmitters, node.effectiveTransmitter)
 		dkgEncrypters = append(dkgEncrypters, dkgEncryptKey)
 		dkgSigners = append(dkgSigners, dkgSignKey)
@@ -389,6 +408,9 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
 		})
 	}
+
+	_, err := uni.beacon.SetPayees(uni.owner, transmitters, payees)
+	require.NoError(t, err)
 
 	t.Log("starting ticker to commit blocks")
 	tick := time.NewTicker(1 * time.Second)
@@ -441,6 +463,10 @@ fromBlock           = %d
 
 	t.Log("Creating OCR2VRF jobs")
 	for i := 0; i < numNodes; i++ {
+		var sendingKeysString = fmt.Sprintf(`"%s"`, sendingKeys[i][0])
+		for x := 1; x < len(sendingKeys[i]); x++ {
+			sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, sendingKeys[i][x])
+		}
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -459,6 +485,7 @@ forwardingAllowed       = %t
 [relayConfig]
 chainID              	= 1337
 fromBlock               = %d
+sendingKeys             = [%s]
 
 [pluginConfig]
 dkgEncryptionPublicKey 	= "%s"
@@ -473,6 +500,7 @@ linkEthFeedAddress     	= "%s"
 			transmitters[i],
 			useForwarders,
 			blockBeforeConfig.Number().Int64(),
+			sendingKeysString,
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),
@@ -525,6 +553,9 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	uni.backend.Commit()
 
+	redemptionRequestID, err := uni.consumer.SMostRecentRequestID(nil)
+	require.NoError(t, err)
+
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead) * (gas price) / (LINK/ETH ratio)
 	// = (50_000 * 1 Gwei) / .01
@@ -537,6 +568,9 @@ linkEthFeedAddress     	= "%s"
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, uni.subID, 1, big.NewInt(2), 100_000, []byte{})
 	require.NoError(t, err)
 	uni.backend.Commit()
+
+	fulfillmentRequestID, err := uni.consumer.SMostRecentRequestID(nil)
+	require.NoError(t, err)
 
 	// There is no premium on this request, so the cost of the request should have been:
 	// = (request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)
@@ -551,6 +585,12 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	uni.backend.Commit()
 
+	batchFulfillmentRequestID1, err := uni.loadTestConsumer.SRequestIDs(nil, big.NewInt(0), big.NewInt(0))
+	require.NoError(t, err)
+
+	batchFulfillmentRequestID2, err := uni.loadTestConsumer.SRequestIDs(nil, big.NewInt(0), big.NewInt(1))
+	require.NoError(t, err)
+
 	// There is no premium on these requests, so the cost of the requests should have been:
 	// = ((request overhead + callback gas allowance) * (gas price) / (LINK/ETH ratio)) * batch size
 	// = (((50_000 + 200_000) * 1 Gwei) / .01) * 2
@@ -563,8 +603,15 @@ linkEthFeedAddress     	= "%s"
 
 	t.Log("waiting for fulfillment")
 
+	var balanceAfterRefund *big.Int
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
+	gomega.NewWithT(t).Eventually(func() bool {
+		_, err := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
+		t.Logf("TestRedeemRandomness err: %+v", err)
+		return err == nil
+	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
+
 	gomega.NewWithT(t).Eventually(func() bool {
 		// Ensure a refund is provided. Refund amount comes out to ~20_500_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
@@ -572,23 +619,106 @@ linkEthFeedAddress     	= "%s"
 		refundLowerBound := big.NewInt(0).Add(assets.GWei(19_500_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, uni.subID)
 		require.NoError(t, err)
-
-		_, err1 := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, big.NewInt(0))
-		t.Logf("TestRedeemRandomness err: %+v", err1)
-		if err1 != nil {
+		balanceAfterRefund = subAfterRefund.Balance
+		if ok := ((balanceAfterRefund.Cmp(refundUpperBound) == -1) && (balanceAfterRefund.Cmp(refundLowerBound) == 1)); !ok {
+			t.Logf("unexpected sub balance after refund: %d", balanceAfterRefund)
 			return false
 		}
-
-		if ok := ((subAfterRefund.Balance.Cmp(refundUpperBound) == -1) && (subAfterRefund.Balance.Cmp(refundLowerBound) == 1)); !ok {
-			t.Logf("unexpected sub balance after refund: %d", subAfterRefund.Balance)
-			return false
-		}
-
 		return true
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	// Mine block after redeeming randomness
 	uni.backend.Commit()
+
+	// ensure that total sub balance is updated correctly
+	totalSubBalance, err := uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(balanceAfterRefund) == 0)
+	// ensure total link balance is correct before any payout
+	totalLinkBalance, err := uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalance.Cmp(big.NewInt(fundingAmount)) == 0)
+
+	// get total owed amount to NOPs and ensure linkAvailableForPayment (CLL profit) calculation is correct
+	nopOwedAmount := new(big.Int)
+	for _, transmitter := range transmitters {
+		owedAmount, err := uni.beacon.OwedPayment(nil, transmitter)
+		require.NoError(t, err)
+		nopOwedAmount = new(big.Int).Add(nopOwedAmount, owedAmount)
+	}
+	linkAvailable, err := uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	debt := new(big.Int).Add(totalSubBalance, nopOwedAmount)
+	profit := new(big.Int).Sub(totalLinkBalance, debt)
+	require.True(t, linkAvailable.Cmp(profit) == 0)
+
+	// test cancel subscription
+	linkBalanceBeforeCancel, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	_, err = uni.coordinator.CancelSubscription(uni.owner, uni.subID, uni.owner.From)
+	require.NoError(t, err)
+	uni.backend.Commit()
+	linkBalanceAfterCancel, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	require.True(t, new(big.Int).Add(linkBalanceBeforeCancel, totalSubBalance).Cmp(linkBalanceAfterCancel) == 0)
+	totalSubBalance, err = uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(big.NewInt(0)) == 0)
+	totalLinkBalance, err = uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalance.Cmp(new(big.Int).Sub(big.NewInt(fundingAmount), balanceAfterRefund)) == 0)
+
+	// payout node operators
+	totalNopPayout := new(big.Int)
+	for idx, payeeTransactor := range payeeTransactors {
+		// Fund the payee with some ETH.
+		n, err := uni.backend.NonceAt(testutils.Context(t), uni.owner.From, nil)
+		require.NoError(t, err)
+		tx := types.NewTransaction(
+			n, payeeTransactor.From,
+			assets.Ether(1).ToInt(),
+			21000,
+			assets.GWei(1).ToInt(),
+			nil)
+		signedTx, err := uni.owner.Signer(uni.owner.From, tx)
+		require.NoError(t, err)
+		err = uni.backend.SendTransaction(testutils.Context(t), signedTx)
+		require.NoError(t, err)
+
+		_, err = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])
+		require.NoError(t, err)
+		uni.backend.Commit()
+		payoutAmount, err := uni.link.BalanceOf(nil, payeeTransactor.From)
+		require.NoError(t, err)
+		totalNopPayout = new(big.Int).Add(totalNopPayout, payoutAmount)
+		owedAmountAfter, err := uni.beacon.OwedPayment(nil, transmitters[idx])
+		require.NoError(t, err)
+		require.True(t, owedAmountAfter.Cmp(big.NewInt(0)) == 0)
+	}
+	require.True(t, nopOwedAmount.Cmp(totalNopPayout) == 0)
+
+	// check total link balance after NOP payout
+	totalLinkBalanceAfterNopPayout, err := uni.link.BalanceOf(nil, uni.coordinatorAddress)
+	require.NoError(t, err)
+	require.True(t, totalLinkBalanceAfterNopPayout.Cmp(new(big.Int).Sub(totalLinkBalance, totalNopPayout)) == 0)
+	totalSubBalance, err = uni.coordinator.GetSubscriptionLinkBalance(nil)
+	require.NoError(t, err)
+	require.True(t, totalSubBalance.Cmp(big.NewInt(0)) == 0)
+
+	// withdraw remaining profits after NOP payout
+	linkAvailable, err = uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	linkBalanceBeforeWithdraw, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	_, err = uni.beacon.WithdrawFunds(uni.owner, uni.owner.From, linkAvailable)
+	require.NoError(t, err)
+	uni.backend.Commit()
+	linkBalanceAfterWithdraw, err := uni.link.BalanceOf(nil, uni.owner.From)
+	require.NoError(t, err)
+	require.True(t, linkBalanceAfterWithdraw.Cmp(new(big.Int).Add(linkBalanceBeforeWithdraw, linkAvailable)) == 0)
+	linkAvailable, err = uni.beacon.LinkAvailableForPayment(nil)
+	require.NoError(t, err)
+	require.True(t, linkAvailable.Cmp(big.NewInt(0)) == 0)
 
 	// poll until we're able to verify that consumer contract has stored randomness as expected
 	// First arg is the request ID, which starts at zero, second is the index into
@@ -596,19 +726,19 @@ linkEthFeedAddress     	= "%s"
 	gomega.NewWithT(t).Eventually(func() bool {
 
 		var errs []error
-		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(0))
+		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
 		t.Logf("TestRedeemRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(0), big.NewInt(1))
+		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
-		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
+		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, fulfillmentRequestID, big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(2), big.NewInt(0))
+		rw4, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID1, big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
-		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, big.NewInt(3), big.NewInt(0))
+		rw5, err := uni.loadTestConsumer.SReceivedRandomnessByRequestID(nil, batchFulfillmentRequestID2, big.NewInt(0))
 		t.Logf("Batch FulfillRandomness 2nd word err: %+v", err)
 		errs = append(errs, err)
 		batchTotalRequests, err := uni.loadTestConsumer.STotalRequests(nil)
@@ -677,8 +807,8 @@ func setDKGConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,
@@ -733,8 +863,8 @@ func setVRFConfig(
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		30*time.Second,
 		10*time.Second,
-		10*time.Second,
 		20*time.Second,
+		2*time.Second,
 		20*time.Second,
 		3,
 		schedule,
@@ -768,7 +898,7 @@ func getFreePort(t *testing.T) uint16 {
 
 	l, err := net.ListenTCP("tcp", addr)
 	require.NoError(t, err)
-	defer l.Close()
+	defer func() { assert.NoError(t, l.Close()) }()
 
 	return uint16(l.Addr().(*net.TCPAddr).Port)
 }

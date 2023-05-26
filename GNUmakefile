@@ -1,9 +1,7 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := chainlink
 
-GOPATH ?= $(HOME)/go
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
-GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
@@ -33,16 +31,35 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
+	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 
+.PHONY: godoc
+godoc: ## Install and run godoc
+	go install golang.org/x/tools/cmd/godoc@latest
+	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
+	godoc -http=:6060
+
 .PHONY: install-chainlink
-install-chainlink: chainlink ## Install the chainlink binary.
-	mkdir -p $(GOBIN)
-	rm -f $(GOBIN)/chainlink
-	cp $< $(GOBIN)/chainlink
+install-chainlink: operator-ui ## Install the chainlink binary.
+	go install $(GOFLAGS) .
 
 chainlink: operator-ui ## Build the chainlink binary.
-	go build $(GOFLAGS) -o $@ ./core/
+	go build $(GOFLAGS) .
+
+chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+	go build -tags dev $(GOFLAGS) .
+
+chainlink-test: operator-ui ## Build a test build of chainlink binary.
+	go build -tags test $(GOFLAGS) .
+
+.PHONY: install-solana
+install-solana: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
+
+.PHONY: install-median
+install-median: ## Build & install the chainlink-median binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -50,11 +67,11 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
-.PHONY: chainlink-build
-chainlink-build: operator-ui ## Build & install the chainlink binary.
-	go build $(GOFLAGS) -o chainlink ./core/
-	rm -f $(GOBIN)/chainlink
-	cp chainlink $(GOBIN)/chainlink
+.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+docker-plugins:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -69,6 +86,11 @@ go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their 
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
 
+.PHONY: go-solidity-wrappers-transmission
+go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/transmission/native_solc_compile_all_transmission
+	go generate ./core/gethwrappers/transmission
+
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
@@ -79,28 +101,53 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 	# put the go:generate_disabled directive back
 	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
 
+
+.PHONY: go-solidity-wrappers-functions
+go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_functions
+	go generate ./core/gethwrappers/go_generate_functions.go
+
+.PHONY: go-solidity-wrappers-llo
+go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_llo
+	go generate ./core/gethwrappers/go_generate_llo.go
+
 .PHONY: generate
-generate: abigen ## Execute all go:generate commands.
+generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
+
+.PHONY: testscripts
+testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | xargs -I % \
+		sh -c 'PATH=$(CURDIR):$(PATH) testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run ./core/main.go local db preparetest
+	go run -tags test . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run ./core/main.go local db preparetest --user-only
+	go run -tags test . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
 presubmit: ## Format go files and imports.
-	goimports -w ./core
-	gofmt -w ./core
+	goimports -w .
+	gofmt -w .
 	go mod tidy
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.20.0
+	go install github.com/vektra/mockery/v2@v2.28.1
+
+.PHONY: codecgen
+codecgen: $(codecgen) ## Install codecgen
+	go install github.com/ugorji/go/codec/codecgen@v1.2.10
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -117,11 +164,11 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate/main.go -o ./docs/
+	go run ./core/config/v2/docs/cmd/generate -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.52.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:

@@ -4,12 +4,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 // Delegate represents a Flux Monitor delegate
@@ -51,9 +52,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
@@ -66,7 +68,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	}
 	cfg := chain.Config()
 	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FMDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
-	var checker txmgr.TransmitCheckerSpec
+	var checker txmgr.EvmTransmitCheckerSpec
 	if chain.Config().FMSimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}

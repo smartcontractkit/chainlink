@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -58,7 +58,7 @@ func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offse
 // Create builds and saves a new external initiator
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &bridges.ExternalInitiatorRequest{}
-	if !eic.App.GetConfig().Dev() && !eic.App.GetConfig().FeatureExternalInitiators() {
+	if !eic.App.GetConfig().FeatureExternalInitiators() {
 		err := errors.New("The External Initiator feature is disabled by configuration")
 		jsonAPIError(c, http.StatusMethodNotAllowed, err)
 		return

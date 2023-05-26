@@ -5,21 +5,26 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
-	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
-	starknetdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 )
 
 type StarknetConfigs []*StarknetConfig
 
 func (cs StarknetConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs StarknetConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -51,7 +56,10 @@ func (cs StarknetConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
+func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -63,9 +71,10 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
-func (cs StarknetConfigs) Chains(ids ...string) (chains []types.DBChain) {
+func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -82,7 +91,15 @@ func (cs StarknetConfigs) Chains(ids ...string) (chains []types.DBChain) {
 				continue
 			}
 		}
-		chains = append(chains, ch.AsV1())
+		ch2 := types.ChainStatus{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Config, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
 	}
 	return
 }
@@ -95,41 +112,87 @@ func (cs StarknetConfigs) Node(name string) (n db.Node, err error) {
 			}
 		}
 	}
+	err = chains.ErrNotFound
 	return
 }
 
-func (cs StarknetConfigs) Nodes() (ns []db.Node) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n == nil {
-				continue
-			}
-			ns = append(ns, legacyNode(n, *cs[i].ChainID))
+func (cs StarknetConfigs) nodes(chainID string) (ns StarknetNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
 		}
 	}
-	return
+	return nil
 }
 
-func (cs StarknetConfigs) NodesByID(chainIDs ...string) (ns []db.Node) {
-	for i := range cs {
-		var match bool
-		for _, id := range chainIDs {
-			if id == *cs[i].ChainID {
-				match = true
-				break
-			}
-		}
-		if !match {
+func (cs StarknetConfigs) Nodes(chainID string) (ns []db.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
 			continue
 		}
+		ns = append(ns, legacyNode(n, chainID))
+	}
+	return
+}
+
+func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error) {
+	for i := range cs {
 		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
 			}
-			ns = append(ns, legacyNode(n, *cs[i].ChainID))
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
 		}
 	}
 	return
+}
+
+func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
+	var s types.NodeStatus
+	s.ChainID = chainID
+	s.Name = *n.Name
+	b, err := toml.Marshal(n)
+	if err != nil {
+		return types.NodeStatus{}, err
+	}
+	s.Config = string(b)
+	return s, nil
 }
 
 type StarknetConfig struct {
@@ -167,30 +230,9 @@ func setFromChain(c, f *stkcfg.Chain) {
 	if f.TxTimeout != nil {
 		c.TxTimeout = f.TxTimeout
 	}
-	if f.TxSendFrequency != nil {
-		c.TxSendFrequency = f.TxSendFrequency
+	if f.ConfirmationPoll != nil {
+		c.ConfirmationPoll = f.ConfirmationPoll
 	}
-	if f.TxMaxBatchSize != nil {
-		c.TxMaxBatchSize = f.TxMaxBatchSize
-	}
-}
-
-func (c *StarknetConfig) SetFromDB(ch types.DBChain, nodes []db.Node) error {
-	c.ChainID = &ch.ID
-	c.Enabled = &ch.Enabled
-
-	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
-		return err
-	}
-	for _, db := range nodes {
-		var n stkcfg.Node
-		if err := n.SetFromDB(db); err != nil {
-			return err
-		}
-		c.Nodes = append(c.Nodes, &n)
-	}
-
-	return nil
 }
 
 func (c *StarknetConfig) ValidateConfig() (err error) {
@@ -207,19 +249,12 @@ func (c *StarknetConfig) ValidateConfig() (err error) {
 	return
 }
 
-func (c *StarknetConfig) AsV1() types.DBChain {
-	return types.DBChain{
-		ID:      *c.ChainID,
-		Enabled: c.IsEnabled(),
-		Cfg: &starknetdb.ChainCfg{
-			OCR2CachePollPeriod: c.Chain.OCR2CachePollPeriod,
-			OCR2CacheTTL:        c.Chain.OCR2CacheTTL,
-			RequestTimeout:      c.Chain.RequestTimeout,
-			TxTimeout:           c.Chain.TxTimeout,
-			TxSendFrequency:     c.Chain.TxSendFrequency,
-			TxMaxBatchSize:      null.IntFromPtr(c.Chain.TxMaxBatchSize),
-		},
+func (c *StarknetConfig) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
 	}
+	return string(b), nil
 }
 
 type StarknetNodes []*stkcfg.Node
@@ -261,12 +296,8 @@ func (c *StarknetConfig) TxTimeout() time.Duration {
 	return c.Chain.TxTimeout.Duration()
 }
 
-func (c *StarknetConfig) TxSendFrequency() time.Duration {
-	return c.Chain.TxSendFrequency.Duration()
-}
-
-func (c *StarknetConfig) TxMaxBatchSize() int {
-	return int(*c.Chain.TxMaxBatchSize)
+func (c *StarknetConfig) ConfirmationPoll() time.Duration {
+	return c.Chain.ConfirmationPoll.Duration()
 }
 
 func (c *StarknetConfig) OCR2CachePollPeriod() time.Duration {
@@ -279,8 +310,4 @@ func (c *StarknetConfig) OCR2CacheTTL() time.Duration {
 
 func (c *StarknetConfig) RequestTimeout() time.Duration {
 	return c.Chain.RequestTimeout.Duration()
-}
-
-func (c *StarknetConfig) Update(cfg db.ChainCfg) {
-	panic(fmt.Errorf("cannot update: %v", v2.ErrUnsupported))
 }

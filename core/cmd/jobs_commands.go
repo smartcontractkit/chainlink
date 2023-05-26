@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func initJobsSubCmds(client *Client) []cli.Command {
@@ -52,7 +53,7 @@ func initJobsSubCmds(client *Client) []cli.Command {
 	}
 }
 
-// JobRenderer wraps the JSONAPI Job Resource and adds rendering functionality
+// JobPresenter wraps the JSONAPI Job Resource and adds rendering functionality
 type JobPresenter struct {
 	JAID // This is needed to render the id for a JSONAPI Resource as normal JSON
 	presenters.JobResource
@@ -89,7 +90,10 @@ func (p JobPresenter) toRow(task string) []string {
 
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
-	types := []string{}
+	if strings.TrimSpace(p.PipelineSpec.DotDAGSource) == "" {
+		return nil, nil
+	}
+	var types []string
 	pipeline, err := pipeline.Parse(p.PipelineSpec.DotDAGSource)
 	if err != nil {
 		return nil, err
@@ -148,9 +152,17 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.BlockhashStoreSpec != nil {
 			return p.BlockhashStoreSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.BlockHeaderFeederJobSpec:
+		if p.BlockHeaderFeederSpec != nil {
+			return p.BlockHeaderFeederSpec.CreatedAt.Format(time.RFC3339)
+		}
 	case presenters.BootstrapJobSpec:
 		if p.BootstrapSpec != nil {
 			return p.BootstrapSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.GatewayJobSpec:
+		if p.GatewaySpec != nil {
+			return p.GatewaySpec.CreatedAt.Format(time.RFC3339)
 		}
 	default:
 		return "unknown"

@@ -13,18 +13,18 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var (
@@ -52,11 +52,11 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             txmgr.TxManager
+	txm             txmgr.EvmTxManager
 	gethks          GethKeyStore
 	mailMon         *utils.MailboxMonitor
 	reqLogs         *utils.Mailbox[log.Broadcast]
-	chStop          chan struct{}
+	chStop          utils.StopChan
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
 	latestHead      uint64
@@ -199,7 +199,7 @@ func (lsn *listenerV1) pruneConfirmedRequestCounts() {
 
 // Listen for new heads
 func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
-	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 
 	for {
@@ -380,12 +380,11 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	// so we don't process the request.
 	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
 	// found" errors.
-	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
-	m := bigmath.Max(req.confirmedAtBlock, currBlock)
+	m := mathutil.Max(req.confirmedAtBlock, lsn.getLatestHead()-5)
 	ctx, cancel := context.WithTimeout(ctx, callbacksTimeout)
 	defer cancel()
 	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
-		BlockNumber: m,
+		BlockNumber: big.NewInt(int64(m)),
 		Context:     ctx,
 	}, req.req.RequestID)
 	if err != nil {

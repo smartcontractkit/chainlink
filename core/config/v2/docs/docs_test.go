@@ -11,14 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestDoc(t *testing.T) {
@@ -54,6 +55,10 @@ func TestDoc(t *testing.T) {
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
+		// EVM.GasEstimator.BumpTxDepth doesn't have a constant default - it is derived from another field
+		require.Zero(t, *docDefaults.GasEstimator.BumpTxDepth)
+		docDefaults.GasEstimator.BumpTxDepth = nil
+
 		// per-job limits are nilable
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.DR)
@@ -75,6 +80,13 @@ func TestDoc(t *testing.T) {
 		docDefaults.OperatorFactoryAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
+	})
+
+	t.Run("Cosmos", func(t *testing.T) {
+		var fallbackDefaults cosmos.CosmosConfig
+		fallbackDefaults.SetDefaults()
+
+		assertTOML(t, fallbackDefaults.Chain, defaults.Cosmos[0].Chain)
 	})
 
 	t.Run("Solana", func(t *testing.T) {

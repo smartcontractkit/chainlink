@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // Version ORM manages the node_versions table
@@ -69,7 +69,7 @@ created_at = EXCLUDED.created_at
 }
 
 // CheckVersion returns an error if there is a valid semver version in the
-// node_versions table that is lower than the current app version
+// node_versions table that is higher than the current app version
 func CheckVersion(q pg.Queryer, lggr logger.Logger, appVersion string) (appv, dbv *semver.Version, err error) {
 	lggr = lggr.Named("Version")
 	var dbVersion string
@@ -97,7 +97,7 @@ func CheckVersion(q pg.Queryer, lggr logger.Logger, appVersion string) (appv, db
 		return nil, nil, errors.Errorf("Application version %q is not valid semver", appVersion)
 	}
 	if dbv.GreaterThan(appv) {
-		return nil, nil, errors.Errorf("Application version (%s) is older than database version (%s). Only Chainlink %s or later can be run on this database", appv, dbv, dbv)
+		return nil, nil, errors.Errorf("Application version (%s) is lower than database version (%s). Only Chainlink %s or higher can be run on this database", appv, dbv, dbv)
 	}
 	return appv, dbv, nil
 }

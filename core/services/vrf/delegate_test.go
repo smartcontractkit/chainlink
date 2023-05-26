@@ -8,34 +8,34 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	eth_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	corecfg "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	vrf_mocks "github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,29 +50,29 @@ type vrfUniverse struct {
 	pr        pipeline.Runner
 	prm       pipeline.ORM
 	lb        *log_mocks.Broadcaster
-	ec        *eth_mocks.Client
+	ec        *evmclimocks.Client
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *txmmocks.TxManager
+	txm       *txmmocks.MockEvmTxManager
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *sqlx.DB, cfg corecfg.GeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
-	ec := eth_mocks.NewClient(t)
-	ec.On("ChainID").Return(testutils.FixtureChainID)
+	ec := evmclimocks.NewClient(t)
+	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
 	btORM := bridges.NewORM(db, lggr, cfg)
-	txm := new(txmmocks.TxManager)
+	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
@@ -98,7 +98,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg corecfg.GeneralConfig) vrfUniver
 		txm:       txm,
 		hb:        hb,
 		cc:        cc,
-		cid:       *ec.ChainID(),
+		cid:       *ec.ConfiguredChainID(),
 	}
 }
 
@@ -299,16 +299,16 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
-		vuni.txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.NewTx) bool {
+		vuni.txm.On("CreateTransaction",
+			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.GasLimit == uint32(500000) &&
+					newTx.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EthTx{}, nil)
+		).Once().Return(txmgr.EvmTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -407,7 +407,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.EthTx
+	var ethTxes []txmgr.DbEthTx
 	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
@@ -494,7 +494,7 @@ decode_log->vrf->encode_tx->submit_tx
 		jb, err := vrf.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
 	})
 
@@ -504,7 +504,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		for _, a := range fromAddresses {
 			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
@@ -531,7 +531,7 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := &vrf_mocks.Config{}
+		cfg := vrf_mocks.NewConfig(t)
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
@@ -551,5 +551,122 @@ decode_log->vrf->encode_tx->submit_tx
 		require.NoError(t, err)
 
 		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+	})
+}
+
+func Test_CheckFromAddressesExist(t *testing.T) {
+	t.Run("from addresses exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.NoError(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+
+	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		lggr := logger.TestLogger(t)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		require.NoError(t, ks.Unlock(testutils.Password))
+
+		var fromAddresses []string
+		for i := 0; i < 3; i++ {
+			k, err := ks.Eth().Create(big.NewInt(1337))
+			assert.NoError(t, err)
+			fromAddresses = append(fromAddresses, k.Address.Hex())
+		}
+		// add an address that isn't in the keystore
+		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+			testspecs.VRFSpecParams{
+				RequestedConfsDelay: 10,
+				FromAddresses:       fromAddresses,
+				ChunkSize:           25,
+				BackoffInitialDelay: time.Minute,
+				BackoffMaxDelay:     time.Hour,
+				GasLanePrice:        assets.GWei(100),
+			}).
+			Toml())
+		assert.NoError(t, err)
+
+		assert.Error(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+	})
+}
+
+func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
+	t.Run("all max gas prices equal", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := vrf_mocks.NewConfig(t)
+		for _, a := range fromAddresses {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		defer cfg.AssertExpectations(tt)
+
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+	})
+
+	t.Run("one max gas price not equal to others", func(tt *testing.T) {
+		fromAddresses := []string{
+			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
+			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
+			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
+			"0x86E7c45Bf013Bf1Df3C22c14d5fd6fc3051AC569",
+		}
+
+		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).Toml())
+		require.NoError(tt, err)
+
+		cfg := vrf_mocks.NewConfig(t)
+		for _, a := range fromAddresses[:3] {
+			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+		}
+		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+			Return(assets.GWei(200)) // doesn't match the rest
+		defer cfg.AssertExpectations(tt)
+
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
 	})
 }

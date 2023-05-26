@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 )
 
@@ -15,8 +16,29 @@ type evmRegistryPackerV2_0 struct {
 	abi abi.ABI
 }
 
+// enum UpkeepFailureReason
+// https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
+const (
+	UPKEEP_FAILURE_REASON_NONE = iota
+	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
+	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
+	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
+	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
+	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
+)
+
+func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
+	return &evmRegistryPackerV2_0{abi: abi}
+}
+
 func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
-	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return types.UpkeepResult{}, err
+	}
+
+	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return types.UpkeepResult{}, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
@@ -35,8 +57,10 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 
 	if !upkeepNeeded {
 		result.State = types.NotEligible
-	} else {
-		var ret0 = new(res)
+	}
+	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
+	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+		var ret0 = new(performDataWrapper)
 		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)
 		if err != nil {
 			return types.UpkeepResult{}, err
@@ -55,9 +79,40 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	return result, nil
 }
 
+func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
+	typBytes, err := abi.NewType("bytes", "", nil)
+	if err != nil {
+		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
+	}
+	boolTyp, err := abi.NewType("bool", "", nil)
+	if err != nil {
+		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
+	}
+	callbackOutput := abi.Arguments{
+		{Name: "upkeepNeeded", Type: boolTyp},
+		{Name: "performData", Type: typBytes},
+	}
+	unpack, err := callbackOutput.Unpack(callbackResp)
+	if err != nil {
+		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
+	}
+
+	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
+	if !upkeepNeeded {
+		return false, nil, nil
+	}
+	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
+	return true, performData, nil
+}
+
 func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return false, err
+	}
+
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].
-		Outputs.UnpackValues(hexutil.MustDecode(raw))
+		Outputs.UnpackValues(b)
 	if err != nil {
 		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
 	}
@@ -66,7 +121,12 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 }
 
 func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
-	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(hexutil.MustDecode(raw))
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return activeUpkeep{}, err
+	}
+
+	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
@@ -94,6 +154,22 @@ func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (ac
 	return au, nil
 }
 
+func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.UpkeepResult, error) {
+	out, err := rp.abi.Methods["transmit"].Inputs.UnpackValues(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
+	}
+
+	if len(out) < 2 {
+		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
+	}
+	decodedReport, err := chain.NewEVMReportEncoder().DecodeReport(out[1].([]byte))
+	if err != nil {
+		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
+	}
+	return decodedReport, nil
+}
+
 var (
 	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
 	// function which returns this tuple in order to decode the bytes
@@ -113,7 +189,7 @@ var (
 	))
 )
 
-type res struct {
+type performDataWrapper struct {
 	Result performDataStruct
 }
 type performDataStruct struct {

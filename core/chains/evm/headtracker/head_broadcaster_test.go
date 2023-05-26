@@ -10,20 +10,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
@@ -49,7 +49,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 
-	sub := new(evmmocks.Subscription)
+	sub := evmclimocks.NewSubscription(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
@@ -67,13 +67,13 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hb := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
+	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(logger, ethClient, headtracker.NewWrappedConfig(evmCfg), hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
-	t.Cleanup(func() { require.NoError(t, services.MultiClose{mailMon, hb, ht}.Close()) })
+	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet

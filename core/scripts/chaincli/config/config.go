@@ -6,12 +6,13 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // Config represents configuration fields
 type Config struct {
 	NodeURL              string   `mapstructure:"NODE_URL"`
+	NodeHttpURL          string   `mapstructure:"NODE_HTTP_URL"`
 	ChainID              int64    `mapstructure:"CHAIN_ID"`
 	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
 	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
@@ -60,11 +61,22 @@ type Config struct {
 	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	UpkeepMercury                   bool                   `mapstructure:"UPKEEP_MERCURY"`
+
+	// Node config scraping and verification
+	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
+	VerifyNodes   bool   `mapstructure:"VERIFY_NODES"`
 
 	// Feeds config
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
 	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
+
+	// Mercury Config
+	MercuryURL      string `mapstructure:"MERCURY_URL"`
+	MercuryID       string `mapstructure:"MERCURY_ID"`
+	MercuryKey      string `mapstructure:"MERCURY_KEY"`
+	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
 }
 
 // New creates a new config
@@ -120,7 +132,7 @@ func init() {
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
-	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.8.0-root")
+	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.13.0-root")
 	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
 
 	// Represented in WEI, which is 100 Ether

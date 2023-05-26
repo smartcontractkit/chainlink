@@ -6,7 +6,8 @@ import (
 	"github.com/pkg/errors"
 
 	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
 //go:generate mockery --quiet --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
@@ -142,10 +143,6 @@ func (ks *starknet) EnsureKey() error {
 
 	return ks.safeAddKey(key)
 }
-
-var (
-	ErrNoStarkNetKey = errors.New("no starknet keys exist")
-)
 
 func (ks *starknet) getByID(id string) (stark.Key, error) {
 	key, found := ks.keyRing.StarkNet[id]

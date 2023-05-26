@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,23 +10,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEthTxResource(t *testing.T) {
 	t.Parallel()
 
-	from := common.HexToAddress("0x1")
-	to := common.HexToAddress("0x2")
-	tx := txmgr.EthTx{
+	tx := txmgr.EvmTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		FromAddress:    from,
-		ToAddress:      to,
-		GasLimit:       uint32(5000),
+		FromAddress:    common.HexToAddress("0x1"),
+		ToAddress:      common.HexToAddress("0x2"),
+		FeeLimit:       uint32(5000),
 		State:          txmgr.EthTxConfirmed,
-		Value:          assets.NewEthValue(1),
+		Value:          big.Int(assets.NewEthValue(1)),
 	}
 
 	r := NewEthTxResource(tx)
@@ -59,17 +60,17 @@ func TestEthTxResource(t *testing.T) {
 	assert.JSONEq(t, expected, string(b))
 
 	var (
-		nonce           = int64(100)
+		nonce           = evmtypes.Nonce(100)
 		hash            = common.BytesToHash([]byte{1, 2, 3})
 		gasPrice        = assets.NewWeiI(1000)
 		broadcastBefore = int64(300)
 	)
 
-	tx.Nonce = &nonce
-	txa := txmgr.EthTxAttempt{
-		EthTx:                   tx,
+	tx.Sequence = &nonce
+	txa := txmgr.EvmTxAttempt{
+		Tx:                      tx,
 		Hash:                    hash,
-		GasPrice:                gasPrice,
+		TxFee:                   gas.EvmFee{Legacy: gasPrice},
 		SignedRawTx:             hexutil.MustDecode("0xcafe"),
 		BroadcastBeforeBlockNum: &broadcastBefore,
 	}

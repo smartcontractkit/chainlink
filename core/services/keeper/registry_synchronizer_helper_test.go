@@ -9,19 +9,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -30,21 +29,21 @@ const syncUpkeepQueueSize = 10
 func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*evmmocks.Client,
+	*evmclimocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	scopedConfig := evmtest.NewChainScopedConfig(t, cfg)
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig, nil)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
@@ -70,7 +69,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config())
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		RegistryWrapper:          *registryWrapper,

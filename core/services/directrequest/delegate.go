@@ -9,18 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -62,9 +62,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -126,7 +127,7 @@ type listener struct {
 	pipelineORM              pipeline.ORM
 	mailMon                  *utils.MailboxMonitor
 	job                      job.Job
-	runs                     sync.Map
+	runs                     sync.Map // map[string]utils.StopChan
 	shutdownWaitGroup        sync.WaitGroup
 	mbOracleRequests         *utils.Mailbox[log.Broadcast]
 	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
@@ -170,7 +171,7 @@ func (l *listener) Start(context.Context) error {
 func (l *listener) Close() error {
 	return l.StopOnce("DirectRequestListener", func() error {
 		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
-			runCloserChannel, _ := runCloserChannelIf.(chan struct{})
+			runCloserChannel := runCloserChannelIf.(utils.StopChan)
 			close(runCloserChannel)
 			return true
 		})
@@ -179,7 +180,7 @@ func (l *listener) Close() error {
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
-		return services.MultiClose{l.mbOracleRequests, l.mbOracleCancelRequests}.Close()
+		return services.CloseAll(l.mbOracleRequests, l.mbOracleCancelRequests)
 	})
 }
 
@@ -330,12 +331,12 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	runCloserChannel := make(chan struct{})
+	runCloserChannel := make(utils.StopChan)
 	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
 	if loaded {
-		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
+		runCloserChannel = runCloserChannelIf.(utils.StopChan)
 	}
-	ctx, cancel := utils.ContextFromChan(runCloserChannel)
+	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -388,7 +389,7 @@ func (l *listener) allowRequester(requester common.Address) bool {
 func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
-		close(runCloserChannelIf.(chan struct{}))
+		close(runCloserChannelIf.(utils.StopChan))
 	}
 	l.markLogConsumed(lb)
 }

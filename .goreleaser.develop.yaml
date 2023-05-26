@@ -22,7 +22,6 @@ builds:
       - linux
     goarch:
       - arm64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
@@ -34,15 +33,14 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
   - binary: chainlink
     id: linux-amd64
     goos:
       - linux
     goarch:
       - amd64
-    main: ./core
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
@@ -54,8 +52,8 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/core/static.Sha={{ .FullCommit }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
 dockers:
@@ -64,8 +62,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -86,8 +85,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -108,8 +108,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_amd64/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -131,8 +132,9 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
+    # uncomment if using native libs / cgo enabled
+    # extra_files:
+    #   - tmp/linux_arm64/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -174,11 +176,13 @@ docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
-archives:
-  - files:
-      - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
-        dst: libs
-        strip_parent: true
+archives: []
+  # uncomment if using native libs / cgo enabled
+  # - rlcp: true
+  #   files:
+  #     - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
+  #       dst: libs
+  #       strip_parent: true
 
 checksum:
   name_template: "checksums.txt"

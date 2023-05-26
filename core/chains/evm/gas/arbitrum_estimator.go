@@ -13,10 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ArbConfig interface {
@@ -30,11 +31,9 @@ type ethClient interface {
 
 // arbitrumEstimator is an Estimator which extends l2SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
 type arbitrumEstimator struct {
-	utils.StartStopOnce
-
 	cfg ArbConfig
 
-	Estimator // *l2SuggestedPriceEstimator
+	EvmEstimator // *l2SuggestedPriceEstimator
 
 	client     ethClient
 	pollPeriod time.Duration
@@ -46,15 +45,17 @@ type arbitrumEstimator struct {
 
 	chForceRefetch chan (chan struct{})
 	chInitialised  chan struct{}
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	chDone         chan struct{}
+
+	utils.StartStopOnce
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) Estimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
+		EvmEstimator:   NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -65,9 +66,13 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 	}
 }
 
+func (a *arbitrumEstimator) Name() string {
+	return a.logger.Name()
+}
+
 func (a *arbitrumEstimator) Start(ctx context.Context) error {
 	return a.StartOnce("ArbitrumEstimator", func() error {
-		if err := a.Estimator.Start(ctx); err != nil {
+		if err := a.EvmEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start gas price estimator")
 		}
 		go a.run()
@@ -78,10 +83,16 @@ func (a *arbitrumEstimator) Start(ctx context.Context) error {
 func (a *arbitrumEstimator) Close() error {
 	return a.StopOnce("ArbitrumEstimator", func() (err error) {
 		close(a.chStop)
-		err = errors.Wrap(a.Estimator.Close(), "failed to stop gas price estimator")
+		err = errors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
 		<-a.chDone
 		return
 	})
+}
+
+func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
+
+func (a *arbitrumEstimator) HealthReport() map[string]error {
+	return map[string]error{a.Name(): a.StartStopOnce.Healthy()}
 }
 
 // GetLegacyGas estimates both the gas price and the gas limit.
@@ -89,13 +100,14 @@ func (a *arbitrumEstimator) Close() error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	gasPrice, _, err = a.Estimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	gasPrice, _, err = a.EvmEstimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
 	}
+	gasPrice = a.gasPriceWithBuffer(gasPrice, maxGasPriceWei)
 	ok := a.IfStarted(func() {
-		if slices.Contains(opts, OptForceRefetch) {
+		if slices.Contains(opts, txmgrtypes.OptForceRefetch) {
 			ch := make(chan struct{})
 			select {
 			case a.chForceRefetch <- ch:
@@ -131,6 +143,21 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 		return
 	}
 	return
+}
+
+// During network congestion Arbitrum's suggested gas price can be extremely volatile, making gas estimations less accurate. For any transaction, Arbitrum will only charge
+// the block's base fee. If the base fee increases rapidly there is a chance the suggested gas price will fall under that value, resulting in a fee too low error.
+// We use gasPriceWithBuffer to increase the estimated gas price by some percentage to avoid fee too low errors. Eventually, only the base fee will be paid, regardless of the price.
+func (a *arbitrumEstimator) gasPriceWithBuffer(gasPrice *assets.Wei, maxGasPriceWei *assets.Wei) *assets.Wei {
+	const gasPriceBufferPercentage = 50
+
+	gasPrice = gasPrice.AddPercentage(gasPriceBufferPercentage)
+	if gasPrice.Cmp(maxGasPriceWei) > 0 {
+		a.logger.Warnw("Updated gasPrice with buffer is higher than the max gas price limit. Falling back to max gas price", "gasPriceWithBuffer", gasPrice, "maxGasPriceWei", maxGasPriceWei)
+		gasPrice = maxGasPriceWei
+	}
+	a.logger.Debugw("gasPriceWithBuffer", "updatedGasPrice", gasPrice)
+	return gasPrice
 }
 
 func (a *arbitrumEstimator) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32) {
@@ -195,7 +222,7 @@ const (
 //
 // https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
 func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
-	ctx, cancel := evmclient.ContextWithDefaultTimeoutFromChan(a.chStop)
+	ctx, cancel := a.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	precompile := common.HexToAddress(ArbGasInfoAddress)

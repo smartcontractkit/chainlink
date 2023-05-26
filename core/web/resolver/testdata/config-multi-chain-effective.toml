@@ -4,7 +4,7 @@ RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
 [Feature]
-FeedsManager = false
+FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 
@@ -113,6 +113,7 @@ ContractSubscribeInterval = '2m0s'
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = true
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 1
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 999
@@ -191,13 +193,20 @@ DSN = ''
 Environment = ''
 Release = ''
 
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
 [[EVM]]
 ChainID = '1'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
@@ -205,7 +214,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
 [EVM.Transactions]
@@ -231,14 +240,13 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
@@ -276,11 +284,12 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 3
@@ -288,7 +297,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
 [EVM.Transactions]
@@ -314,14 +323,13 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
@@ -349,23 +357,24 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
+AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
-LogBackfillBatchSize = 100
+LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 100
+RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 10
 
 [EVM.Transactions]
@@ -391,14 +400,13 @@ LimitTransfer = 21000
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BatchSize = 4
+BatchSize = 25
 BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
@@ -426,8 +434,42 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
+
+[[Cosmos]]
+ChainID = 'Ibiza-808'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 30
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 13
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
+
+[[Cosmos.Nodes]]
 Name = 'primary'
-WSURL = 'wss://web.socket/test'
+TendermintURL = 'http://columbus.cosmos.com'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+BlockRate = '6s'
+BlocksUntilTxTimeout = 20
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.015'
+FCDURL = ''
+GasLimitMultiplier = '1.5'
+MaxMsgsPerBatch = 100
+OCR2CachePollPeriod = '4s'
+OCR2CacheTTL = '1m0s'
+TxMsgTimeout = '10m0s'
+
+[[Cosmos.Nodes]]
+Name = 'secondary'
+TendermintURL = 'http://bombay.cosmos.com'
 
 [[Solana]]
 ChainID = 'mainnet'
@@ -470,7 +512,7 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
 
 [[Starknet]]
@@ -478,9 +520,8 @@ ChainID = 'foobar'
 OCR2CachePollPeriod = '5s'
 OCR2CacheTTL = '1m0s'
 RequestTimeout = '10s'
-TxTimeout = '1m0s'
-TxSendFrequency = '1h0m0s'
-TxMaxBatchSize = 100
+TxTimeout = '10s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

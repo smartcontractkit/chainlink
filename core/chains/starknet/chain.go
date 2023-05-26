@@ -2,43 +2,43 @@ package starknet
 
 import (
 	"context"
-	"math"
+	"math/big"
 	"math/rand"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ starkChain.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id           string
-	cfg          config.Config
-	cfgImmutable bool // toml config is immutable
-	orm          types.ORM
-	lggr         logger.Logger
-	txm          txm.StarkTXM
+	id   string
+	cfg  config.Config
+	cfgs types.Configs
+	lggr logger.Logger
+	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch = &chain{
 		id:   id,
 		cfg:  cfg,
-		orm:  orm,
+		cfgs: cfgs,
 		lggr: lggr.Named("Chain"),
 	}
 
@@ -54,16 +54,12 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, orm types.ORM,
 	return ch, nil
 }
 
-func (c *chain) Config() config.Config {
-	return c.cfg
+func (c *chain) Name() string {
+	return c.lggr.Name()
 }
 
-func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
-	if c.cfgImmutable {
-		c.lggr.Criticalw("TOML configuration cannot be updated", "err", v2.ErrUnsupported)
-		return
-	}
-	c.cfg.Update(*cfg)
+func (c *chain) Config() config.Config {
+	return c.cfg
 }
 
 func (c *chain) TxManager() txm.TxManager {
@@ -78,11 +74,11 @@ func (c *chain) Reader() (starknet.Reader, error) {
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	nodes, err := c.cfgs.Nodes(c.id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
-	if cnt == 0 {
+	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
 	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
@@ -125,6 +121,12 @@ func (c *chain) Ready() error {
 	return c.StartStopOnce.Ready()
 }
 
-func (c *chain) Healthy() error {
-	return c.StartStopOnce.Healthy()
+func (c *chain) HealthReport() map[string]error {
+	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	maps.Copy(report, c.txm.HealthReport())
+	return report
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return chains.ErrLOOPPUnsupported
 }

@@ -13,26 +13,27 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -198,7 +199,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440002")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440002")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
@@ -301,7 +302,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.Must(uuid.FromString("123e4567-e89b-12d3-a456-426655440005")))
+				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(("123e4567-e89b-12d3-a456-426655440005")))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
@@ -496,6 +497,12 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
+
+	// BCF-2095
+	// disable fkey checks until the end of the test transaction
+	require.NoError(t, utils.JustError(
+		app.GetSqlxDB().Exec(`SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`)))
+
 	var ocrSpec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)

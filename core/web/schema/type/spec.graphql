@@ -8,7 +8,9 @@ union JobSpec =
     VRFSpec |
     WebhookSpec |
     BlockhashStoreSpec |
-    BootstrapSpec
+    BlockHeaderFeederSpec |
+    BootstrapSpec |
+    GatewaySpec
 
 type CronSpec {
     schedule: String!
@@ -89,6 +91,7 @@ type OCR2Spec {
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
+    feedID: String!
 }
 
 type VRFSpec {
@@ -124,7 +127,23 @@ type BlockhashStoreSpec {
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
-    fromAddress: String
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BlockHeaderFeederSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    batchBlockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    getBlockhashesBatchSize: Int!
+    storeBlockhashesBatchSize: Int!
+    fromAddresses: [String!]
     createdAt: Time!
 }
 
@@ -137,5 +156,11 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type GatewaySpec {
+    id: ID!
+    gatewayConfig: Map!
     createdAt: Time!
 }

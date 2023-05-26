@@ -2,12 +2,11 @@ package loader
 
 import (
 	"context"
-	"errors"
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type chainBatcher struct {
@@ -18,35 +17,32 @@ func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	var chainIDs []utils.Big
+	var chainIDs []string
 	for ix, key := range keys {
-		id := utils.Big{}
-		if err := id.UnmarshalText([]byte(key.String())); err == nil {
-			chainIDs = append(chainIDs, id)
-		}
+		chainIDs = append(chainIDs, key.String())
 		keyOrder[key.String()] = ix
 	}
 
 	// Fetch the chains
-	chains, err := b.app.EVMORM().GetChainsByIDs(chainIDs)
+	cs, _, err := b.app.EVMORM().Chains(0, -1, chainIDs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
 	// Construct the output array of dataloader results
 	results := make([]*dataloader.Result, len(keys))
-	for _, c := range chains {
-		ix, ok := keyOrder[c.ID.String()]
+	for _, c := range cs {
+		ix, ok := keyOrder[c.ID]
 		// if found, remove from index lookup map, so we know elements were found
 		if ok {
 			results[ix] = &dataloader.Result{Data: c, Error: nil}
-			delete(keyOrder, c.ID.String())
+			delete(keyOrder, c.ID)
 		}
 	}
 
 	// fill array positions without any nodes
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("chain not found")}
+		results[ix] = &dataloader.Result{Data: nil, Error: chains.ErrNotFound}
 	}
 
 	return results

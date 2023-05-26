@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Validated configurations impose constraints that must be checked.
@@ -72,7 +72,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 				if ft.Anonymous {
 					err = multierr.Append(err, fe)
 				} else {
-					err = multierr.Append(err, namedMultiErrorList(fe, ft.Name))
+					err = multierr.Append(err, NamedMultiErrorList(fe, ft.Name))
 				}
 			}
 		}
@@ -89,7 +89,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 				continue
 			}
 			if me := validate(mv, true); me != nil {
-				err = multierr.Append(err, namedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
+				err = multierr.Append(err, NamedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
 		}
 		return
@@ -103,7 +103,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 				continue
 			}
 			if me := validate(iv, true); me != nil {
-				err = multierr.Append(err, namedMultiErrorList(me, strconv.Itoa(i)))
+				err = multierr.Append(err, NamedMultiErrorList(me, strconv.Itoa(i)))
 			}
 		}
 		return
@@ -112,7 +112,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 	return fmt.Errorf("should be unreachable: switch missing case for kind: %s", t.Kind())
 }
 
-func namedMultiErrorList(err error, name string) error {
+func NamedMultiErrorList(err error, name string) error {
 	l, merr := utils.MultiErrorList(err)
 	if l == 0 {
 		return nil

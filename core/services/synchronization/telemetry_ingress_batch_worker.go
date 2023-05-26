@@ -1,24 +1,28 @@
 package synchronization
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // telemetryIngressBatchWorker pushes telemetry in batches to the ingress server via wsrpc.
 // A worker is created per ContractID.
 type telemetryIngressBatchWorker struct {
+	services.ServiceCtx
+
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
 	telemSendTimeout  time.Duration
 	telemClient       telemPb.TelemClient
 	wgDone            *sync.WaitGroup
-	chDone            chan struct{}
+	chDone            utils.StopChan
 	chTelemetry       chan TelemPayload
 	contractID        string
 	telemType         TelemetryType
@@ -74,7 +78,7 @@ func (tw *telemetryIngressBatchWorker) Start() {
 
 				// Send batched telemetry to the ingress server, log any errors
 				telemBatchReq := tw.BuildTelemBatchReq()
-				ctx, cancel := utils.ContextFromChanWithDeadline(tw.chDone, tw.telemSendTimeout)
+				ctx, cancel := tw.chDone.CtxCancel(context.WithTimeout(context.Background(), tw.telemSendTimeout))
 				_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
 				cancel()
 

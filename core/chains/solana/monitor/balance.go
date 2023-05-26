@@ -8,10 +8,9 @@ import (
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Config defines the monitor configuration.
@@ -21,10 +20,10 @@ type Config interface {
 
 // Keystore provides the keys to be monitored.
 type Keystore interface {
-	GetAll() ([]solkey.Key, error)
+	Accounts(ctx context.Context) ([]string, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
+// NewBalanceMonitor returns a balance monitoring services.Service which reports the SOL balance of all ks keys to prometheus.
 func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
@@ -57,6 +56,10 @@ type balanceMonitor struct {
 	stop, done chan struct{}
 }
 
+func (b *balanceMonitor) Name() string {
+	return b.lggr.Name()
+}
+
 func (b *balanceMonitor) Start(context.Context) error {
 	return b.StartOnce("SolanaBalanceMonitor", func() error {
 		go b.monitor()
@@ -72,8 +75,14 @@ func (b *balanceMonitor) Close() error {
 	})
 }
 
+func (b *balanceMonitor) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
+}
+
 func (b *balanceMonitor) monitor() {
 	defer close(b.done)
+	ctx, cancel := utils.ContextFromChan(b.stop)
+	defer cancel()
 
 	tick := time.After(utils.WithJitter(b.cfg.BalancePollPeriod()))
 	for {
@@ -81,7 +90,7 @@ func (b *balanceMonitor) monitor() {
 		case <-b.stop:
 			return
 		case <-tick:
-			b.updateBalances()
+			b.updateBalances(ctx)
 			tick = time.After(utils.WithJitter(b.cfg.BalancePollPeriod()))
 		}
 	}
@@ -99,8 +108,8 @@ func (b *balanceMonitor) getReader() (solanaClient.Reader, error) {
 	return b.reader, nil
 }
 
-func (b *balanceMonitor) updateBalances() {
-	keys, err := b.ks.GetAll()
+func (b *balanceMonitor) updateBalances(ctx context.Context) {
+	keys, err := b.ks.Accounts(ctx)
 	if err != nil {
 		b.lggr.Errorw("Failed to get keys", "err", err)
 		return
@@ -121,14 +130,18 @@ func (b *balanceMonitor) updateBalances() {
 			return
 		default:
 		}
-		acc := k.PublicKey()
-		lamports, err := reader.Balance(acc)
+		pubKey, err := solana.PublicKeyFromBase58(k)
 		if err != nil {
-			b.lggr.Errorw("Failed to get balance", "account", acc.String(), "err", err)
+			b.lggr.Errorw("Failed parse public key", "account", k, "err", err)
+			continue
+		}
+		lamports, err := reader.Balance(pubKey)
+		if err != nil {
+			b.lggr.Errorw("Failed to get balance", "account", k, "err", err)
 			continue
 		}
 		gotSomeBals = true
-		b.updateFn(acc, lamports)
+		b.updateFn(pubKey, lamports)
 	}
 	if !gotSomeBals {
 		// Try a new client next time.

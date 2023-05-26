@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 const (
@@ -22,6 +23,13 @@ relay = "evm"
 
 [relayConfig]
 chainID = %d`
+
+	bootstrapTOML = `[P2P]
+[P2P.V2]
+ListenAddresses = ["0.0.0.0:%s"]`
+
+	// If a container with the same name already exists, force=true means remove the existing one and create a new one
+	force = false
 )
 
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address
@@ -30,15 +38,13 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
 	const containerName = "bootstrap"
+
 	urlRaw, _, err := h.launchChainlinkNode(
 		ctx,
 		uiPort,
 		containerName,
-		"FEATURE_OFFCHAIN_REPORTING2=true",
-		"FEATURE_LOG_POLLER=true",
-		"P2P_NETWORKING_STACK=V2",
-		"CHAINLINK_TLS_PORT=0",
-		fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=0.0.0.0:%d", p2pv2Port),
+		fmt.Sprintf(bootstrapTOML, strconv.Itoa(p2pv2Port)),
+		force,
 	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)

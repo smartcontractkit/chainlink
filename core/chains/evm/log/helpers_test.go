@@ -12,35 +12,35 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/sqlx"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type broadcasterHelper struct {
@@ -48,7 +48,7 @@ type broadcasterHelper struct {
 	lb           log.BroadcasterInTest
 	db           *sqlx.DB
 	mockEth      *evmtest.MockEth
-	globalConfig config.BasicConfig
+	globalConfig config.AppConfig
 	config       evmconfig.ChainScopedConfig
 
 	// each received channel corresponds to one eth subscription
@@ -110,15 +110,17 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
+	kst := cltest.NewKeyStore(t, c.db, globalConfig)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  globalConfig,
 		DB:             c.db,
+		KeyStore:       kst.Eth(),
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
-	kst := cltest.NewKeyStore(t, c.db, globalConfig)
+
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{
@@ -271,7 +273,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	err := helper.pipelineHelper.Jrm.CreateJob(jb)
 	require.NoError(t, err)
@@ -381,9 +383,9 @@ type mockEthClientExpectedCalls struct {
 }
 
 func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
-	ethClient := evmmocks.NewClient(t)
+	ethClient := evmclimocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {

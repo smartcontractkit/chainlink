@@ -1,9 +1,6 @@
 package logger
 
 import (
-	"fmt"
-	"io"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
@@ -199,20 +196,6 @@ func (s *prometheusLogger) Panicw(msg string, keysAndValues ...interface{}) {
 func (s *prometheusLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	s.fatalCnt.Inc()
 	s.h.Fatalw(msg, keysAndValues...)
-}
-
-func (s *prometheusLogger) ErrorIf(err error, msg string) {
-	if err != nil {
-		s.errorCnt.Inc()
-		s.h.Errorw(msg, "err", err)
-	}
-}
-
-func (s *prometheusLogger) ErrorIfClosing(c io.Closer, name string) {
-	if err := c.Close(); err != nil {
-		s.errorCnt.Inc()
-		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
-	}
 }
 
 func (s *prometheusLogger) Sync() error {

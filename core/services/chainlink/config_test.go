@@ -15,24 +15,26 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	legacy "github.com/smartcontractkit/chainlink/core/config"
-	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -44,7 +46,6 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-
 			AuditLogger: audit.AuditLoggerConfig{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
@@ -60,7 +61,6 @@ var (
 				}),
 				JsonWrapperKey: ptr("event"),
 			},
-
 			Database: config.Database{
 				Listener: config.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
@@ -119,8 +119,8 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("foo"),
+						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
 				}},
 			{
@@ -132,9 +132,27 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("bar"),
+						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
+				}},
+		},
+		Cosmos: []*cosmos.CosmosConfig{
+			{
+				ChainID: ptr("Ibiza-808"),
+				Chain: coscfg.Chain{
+					MaxMsgsPerBatch: ptr[int64](13),
+				},
+				Nodes: []*coscfg.Node{
+					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://columbus.cosmos.com")},
+				}},
+			{
+				ChainID: ptr("Malaga-420"),
+				Chain: coscfg.Chain{
+					BlocksUntilTxTimeout: ptr[int64](20),
+				},
+				Nodes: []*coscfg.Node{
+					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
 		Solana: []*solana.SolanaConfig{
@@ -153,7 +171,7 @@ var (
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -161,7 +179,7 @@ var (
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
-					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
+					ConfirmationPoll: relayutils.MustNewDuration(time.Hour),
 				},
 				Nodes: []*stkcfg.Node{
 					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
@@ -198,6 +216,12 @@ func TestConfig_Marshal(t *testing.T) {
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
+			Insecure: config.Insecure{
+				DevWebServer:         ptr(false),
+				OCRDevelopmentMode:   ptr(false),
+				InfiniteDepthQueries: ptr(false),
+				DisableRateLimiting:  ptr(false),
+			},
 		},
 	}
 
@@ -318,6 +342,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractTransmitterTransmitTimeout: models.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		CaptureEATelemetry:                 ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -329,6 +354,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		CaptureEATelemetry:           ptr(false),
 	}
 	full.P2P = config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -404,6 +430,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
+				AutoCreateKey: ptr(false),
 				BalanceMonitor: evmcfg.BalanceMonitor{
 					Enabled: ptr(true),
 				},
@@ -418,7 +445,7 @@ func TestConfig_Marshal(t *testing.T) {
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
 					BumpThreshold:      ptr[uint32](6),
-					BumpTxDepth:        ptr[uint16](6),
+					BumpTxDepth:        ptr[uint32](6),
 					BumpMin:            assets.NewWeiI(100),
 					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
 					LimitDefault:       ptr[uint32](12),
@@ -507,12 +534,12 @@ func TestConfig_Marshal(t *testing.T) {
 				{
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/foo"),
 				},
 				{
 					Name:    ptr("bar"),
 					HTTPURL: mustURL("https://bar.com"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/bar"),
 				},
 				{
 					Name:     ptr("broadcast"),
@@ -558,11 +585,33 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
 				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
 				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
-				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
-				TxMaxBatchSize:      ptr[int64](17),
+				ConfirmationPoll:    relayutils.MustNewDuration(42 * time.Second),
 			},
 			Nodes: []*stkcfg.Node{
 				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+			},
+		},
+	}
+	full.Cosmos = []*cosmos.CosmosConfig{
+		{
+			ChainID: ptr("Malaga-420"),
+			Enabled: ptr(true),
+			Chain: coscfg.Chain{
+				BlockRate:             relayutils.MustNewDuration(time.Minute),
+				BlocksUntilTxTimeout:  ptr[int64](12),
+				ConfirmPollPeriod:     relayutils.MustNewDuration(time.Second),
+				FallbackGasPriceUAtom: mustDecimal("0.001"),
+				FCDURL:                relayutils.MustParseURL("http://cosmos.com"),
+				GasLimitMultiplier:    mustDecimal("1.2"),
+				MaxMsgsPerBatch:       ptr[int64](17),
+				OCR2CachePollPeriod:   relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:          relayutils.MustNewDuration(time.Hour),
+				TxMsgTimeout:          relayutils.MustNewDuration(time.Second),
+			},
+			Nodes: []*coscfg.Node{
+				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
+				{Name: ptr("foo"), TendermintURL: relayutils.MustParseURL("http://foo.url")},
+				{Name: ptr("bar"), TendermintURL: relayutils.MustParseURL("http://bar.web")},
 			},
 		},
 	}
@@ -577,6 +626,12 @@ func TestConfig_Marshal(t *testing.T) {
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
 `},
 		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -689,6 +744,7 @@ DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+CaptureEATelemetry = false
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
@@ -699,6 +755,7 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
+CaptureEATelemetry = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
@@ -769,6 +826,7 @@ Release = 'v1.2.3'
 		{"EVM", Config{EVM: full.EVM}, `[[EVM]]
 ChainID = '1'
 Enabled = false
+AutoCreateKey = false
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -859,18 +917,44 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
+`},
+		{"Cosmos", Config{Cosmos: full.Cosmos}, `[[Cosmos]]
+ChainID = 'Malaga-420'
+Enabled = true
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.001'
+FCDURL = 'http://cosmos.com'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Cosmos.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Cosmos.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
 `},
 		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
@@ -910,8 +994,7 @@ OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
-TxSendFrequency = '42s'
-TxMaxBatchSize = 17
+ConfirmationPoll = '42s'
 
 [[Starknet.Nodes]]
 Name = 'primary'
@@ -949,6 +1032,7 @@ func TestConfig_full(t *testing.T) {
 			}
 		}
 	}
+
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 
@@ -961,7 +1045,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 4 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
@@ -985,7 +1069,7 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
-			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or reater than FinalityDepth
+			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1012,6 +1096,16 @@ func TestConfig_Validate(t *testing.T) {
 				- 3.HTTPURL: missing: required for all nodes
 				- 4.HTTPURL: missing: required for all nodes
 		- 4: 2 errors:
+			- ChainID: missing: required for all chains
+			- Nodes: missing: must have at least one node
+	- Cosmos: 5 errors:
+		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
+		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
+		- 0.Nodes: 2 errors:
+				- 0.TendermintURL: missing: required for all nodes
+				- 1.TendermintURL: missing: required for all nodes
+		- 1.Nodes: missing: must have at least one node
+		- 2: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
 	- Solana: 5 errors:
@@ -1073,11 +1167,11 @@ var (
 	secretsMultiRedactedTOML string
 )
 
-func TestNewGeneralConfig_Logger(t *testing.T) {
+func Test_generalConfig_LogConfiguration(t *testing.T) {
 	const (
-		secrets   = "Secrets:\n"
-		input     = "Input Configuration:\n"
-		effective = "Effective Configuration, with defaults applied:\n"
+		secrets   = "# Secrets:\n"
+		input     = "# Input Configuration:\n"
+		effective = "# Effective Configuration, with defaults applied:\n"
 	)
 	tests := []struct {
 		name         string
@@ -1097,27 +1191,33 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			opts := GeneralConfigOpts{SkipEnv: true}
-			require.NoError(t, opts.ParseTOML(tt.inputConfig, tt.inputSecrets))
-			c, err := opts.New(lggr)
+			opts := GeneralConfigOpts{
+				SkipEnv:       true,
+				ConfigStrings: []string{tt.inputConfig},
+				SecretsString: tt.inputSecrets,
+			}
+			c, err := opts.New()
 			require.NoError(t, err)
-			c.LogConfiguration(lggr.Info)
+			c.LogConfiguration(lggr.Infof)
 
 			inputLogs := observed.FilterMessageSnippet(secrets).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(input).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
 			}
 
 			inputLogs = observed.FilterMessageSnippet(effective).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
 			}
 		})
@@ -1126,16 +1226,22 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
-	var opts GeneralConfigOpts
-	err := opts.ParseTOML(invalidTOML, secretsFullTOML)
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{invalidTOML},
+		SecretsString: secretsFullTOML,
+	}
+	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
 }
 
@@ -1147,9 +1253,11 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
 
 	// Check for two overrides
-	var opts GeneralConfigOpts
-	require.NoError(t, opts.ParseTOML(fullTOML, secretsFullTOML))
-	c, err := opts.New(logger.TestLogger(t))
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{fullTOML},
+		SecretsString: secretsFullTOML,
+	}
+	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
@@ -1203,17 +1311,6 @@ URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
 			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
-		{name: "duplicate-mercury-credentials-disallowed",
-			toml: `
-[Mercury]
-[[Mercury.Credentials]]
-URL = "http://example.com/foo"
-[[Mercury.Credentials]]
-URL = "http://example.COM/foo"`,
-			exp: `invalid secrets: 3 errors:
-	- Database.URL: empty: must be provided and non-empty
-	- Password.Keystore: empty: must be provided and non-empty
-	- Mercury.Credentials: may not contain duplicate URLs`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
@@ -1234,6 +1331,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
+	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
@@ -1246,16 +1344,15 @@ func TestConfig_setDefaults(t *testing.T) {
 func Test_validateEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set`)
+	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
+	- environment variable DATABASE_URL must not be set: unsupported with config v2
+	- environment variable LOG_LEVEL must not be set: unsupported with config v2`)
 
-	t.Setenv("CL_DATABASE_URL", "foo")
-	assert.NoError(t, validateEnv())
-
-	t.Setenv("CL_DATABASE_URL", "bar")
 	t.Setenv("GAS_UPDATER_ENABLED", "true")
 	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 3 errors:
-	- environment variables DATABASE_URL and CL_DATABASE_URL must be equal, or CL_DATABASE_URL must not be set
+	assert.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
+	- environment variable DATABASE_URL must not be set: unsupported with config v2
+	- environment variable LOG_LEVEL must not be set: unsupported with config v2
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
@@ -1286,3 +1383,5 @@ func TestConfig_SetFrom(t *testing.T) {
 		})
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

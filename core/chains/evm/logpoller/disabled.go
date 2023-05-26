@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -16,19 +16,25 @@ var (
 
 type disabled struct{}
 
+func (disabled) Name() string { return "disabledLogPoller" }
+
 func (disabled) Start(ctx context.Context) error { return ErrDisabled }
 
 func (disabled) Close() error { return ErrDisabled }
 
 func (disabled) Ready() error { return ErrDisabled }
 
-func (disabled) Healthy() error { return ErrDisabled }
+func (disabled) HealthReport() map[string]error {
+	return map[string]error{"disabledLogPoller": ErrDisabled}
+}
 
 func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrDisabled }
 
+func (disabled) ReplayAsync(fromBlock int64) {}
+
 func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
@@ -56,6 +62,10 @@ func (disabled) IndexedLogs(eventSig common.Hash, address common.Address, topicI
 	return nil, ErrDisabled
 }
 
+func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
 func (disabled) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
@@ -69,5 +79,9 @@ func (disabled) LogsDataWordRange(eventSig common.Hash, address common.Address, 
 }
 
 func (disabled) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
+func (d disabled) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }

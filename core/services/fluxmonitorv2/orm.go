@@ -8,13 +8,14 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type transmitter interface {
-	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
+	CreateTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -32,13 +33,13 @@ type ORM interface {
 type orm struct {
 	q        pg.Q
 	txm      transmitter
-	strategy txmgr.TxStrategy
-	checker  txmgr.TransmitCheckerSpec
+	strategy types.TxStrategy
+	checker  txmgr.EvmTransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.EvmTransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
@@ -119,11 +120,12 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint32,
 	qopts ...pg.QOpt,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(txmgr.NewTx{
+
+	_, err = o.txm.CreateTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
-		GasLimit:       gasLimit,
+		FeeLimit:       gasLimit,
 		Strategy:       o.strategy,
 		Checker:        o.checker,
 	}, qopts...)

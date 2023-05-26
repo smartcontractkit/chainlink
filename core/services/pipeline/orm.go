@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/sqlx"
 )
@@ -146,6 +146,14 @@ func (o *orm) Close() error {
 		o.wg.Wait()
 		return nil
 	})
+}
+
+func (o *orm) Name() string {
+	return o.lggr.Name()
+}
+
+func (o *orm) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 func (o *orm) CreateSpec(pipeline Pipeline, maxTaskDuration models.Interval, qopts ...pg.QOpt) (id int32, err error) {

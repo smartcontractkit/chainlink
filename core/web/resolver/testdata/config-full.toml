@@ -113,6 +113,7 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = true
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 13
@@ -191,9 +193,16 @@ DSN = 'sentry-dsn'
 Environment = 'dev'
 Release = 'v1.2.3'
 
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
+AutoCreateKey = false
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -284,18 +293,44 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+Enabled = true
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceUAtom = '0.001'
+FCDURL = 'http://cosmos.com'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Cosmos.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Cosmos.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
 
 [[Solana]]
 ChainID = 'mainnet'
@@ -335,8 +370,7 @@ OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
-TxSendFrequency = '42s'
-TxMaxBatchSize = 17
+ConfirmationPoll = '42s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

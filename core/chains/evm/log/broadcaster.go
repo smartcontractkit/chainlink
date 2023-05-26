@@ -12,15 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
@@ -109,7 +109,7 @@ type (
 		utils.StartStopOnce
 		utils.DependentAwaiter
 
-		chStop                chan struct{}
+		chStop                utils.StopChan
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest
@@ -167,14 +167,14 @@ var _ Broadcaster = (*broadcaster)(nil)
 func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("LogBroadcaster")
-	id := ethClient.ChainID()
+	chainId := ethClient.ConfiguredChainID()
 	return &broadcaster{
 		orm:                    orm,
 		config:                 config,
 		logger:                 lggr,
-		evmChainID:             *id,
+		evmChainID:             *chainId,
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
-		registrations:          newRegistrations(lggr, *id),
+		registrations:          newRegistrations(lggr, *chainId),
 		logPool:                newLogPool(lggr),
 		mailMon:                mailMon,
 		changeSubscriberStatus: utils.NewHighCapacityMailbox[changeSubscriberStatus](),
@@ -213,6 +213,14 @@ func (b *broadcaster) Close() error {
 		b.wgDone.Wait()
 		return b.changeSubscriberStatus.Close()
 	})
+}
+
+func (b *broadcaster) Name() string {
+	return b.logger.Name()
+}
+
+func (b *broadcaster) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -381,7 +389,7 @@ func (b *broadcaster) startResubscribeLoop() {
 }
 
 func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
-	ctx, cancel := utils.ContextFromChan(b.chStop)
+	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() bool {
@@ -481,9 +489,12 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	// manually by someone who knows what he is doing
 	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
 	if replayReq.forceBroadcast {
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+
+		// Use a longer timeout in the event that a very large amount of logs need to be marked
+		// as consumed.
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"error", err, "fromBlock", replayReq.fromBlock)
@@ -521,7 +532,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	}
 	if b.logPool.addLog(log) {
 		// First or new lowest block number
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
 		if err := b.orm.SetPendingMinBlock(&blockNumber, pg.WithParentCtx(ctx)); err != nil {
@@ -561,7 +572,7 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 
 		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
@@ -778,11 +789,13 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
+func (n *NullBroadcaster) Name() string { return "NullBroadcaster" }
+
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
-func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
+func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 func (n *NullBroadcaster) Pause()                                            {}
 func (n *NullBroadcaster) Resume()                                           {}

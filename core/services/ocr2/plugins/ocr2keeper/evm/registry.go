@@ -2,8 +2,10 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -11,18 +13,38 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/patrickmn/go-cache"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
+
+const (
+	// DefaultUpkeepExpiration decides how long an upkeep info will be valid for. after it expires, a getUpkeepInfo
+	// call will be made to the registry to obtain the most recent upkeep info and refresh this cache.
+	DefaultUpkeepExpiration = 10 * time.Minute
+	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
+	// 10 minutes, subsequent failures will result in double amount of cool down period.
+	DefaultCooldownExpiration = 5 * time.Second
+	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
+	// to decide how long the cool down period will be.
+	DefaultApiErrExpiration = 10 * time.Minute
+	// CleanupInterval decides when the expired items in cache will be deleted.
+	CleanupInterval = 15 * time.Minute
 )
 
 var (
@@ -35,18 +57,35 @@ var (
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
 	ActiveUpkeepIDBatchSize    int64 = 1000
-	FetchUpkeepConfigBatchSize int   = 10
+	FetchUpkeepConfigBatchSize       = 10
 	separator                        = "|"
 	reInitializationDelay            = 15 * time.Minute
 	logEventLookback           int64 = 250
 )
 
+//go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
+type Registry interface {
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)
+	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
+	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
+}
+
+//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
-	abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -55,6 +94,8 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
+
+	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
@@ -68,11 +109,19 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
 		registry: registry,
-		abi:      abi,
+		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: abi},
+		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
+		mercury: MercuryConfig{
+			cred:          mc,
+			abi:           mercuryLookupCompatibleABI,
+			upkeepCache:   upkeepInfoCache,
+			cooldownCache: cooldownCache,
+			apiErrCache:   apiErrCache,
+		},
+		hc: http.DefaultClient,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -80,6 +129,20 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logge
 	}
 
 	return r, nil
+}
+
+func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
+	// cache that stores UpkeepInfo for callback during MercuryLookup
+	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
+
+	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
+	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
+	// cache for Mercurylookup Upkeeps that are on ice due to errors
+	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
+
+	// cache for tracking errors for an Upkeep during MercuryLookup
+	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
+	return upkeepInfoCache, cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -91,6 +154,9 @@ var upkeepStateEvents = []common.Hash{
 
 var upkeepActiveEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
@@ -104,6 +170,14 @@ type activeUpkeep struct {
 	CheckData       []byte
 }
 
+type MercuryConfig struct {
+	cred          *models.MercuryCredentials
+	abi           abi.ABI
+	upkeepCache   *cache.Cache
+	cooldownCache *cache.Cache
+	apiErrCache   *cache.Cache
+}
+
 type EvmRegistry struct {
 	HeadProvider
 	sync          utils.StartStopOnce
@@ -111,14 +185,13 @@ type EvmRegistry struct {
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
-	registry      *keeper_registry_wrapper2_0.KeeperRegistry
+	registry      Registry
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
 	txHashes      map[string]bool
-	filterName    string
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -126,6 +199,8 @@ type EvmRegistry struct {
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
+	mercury       MercuryConfig
+	hc            HttpClient
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
@@ -144,9 +219,9 @@ func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentif
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
+func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx, keys, chResult)
+	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
 
 	select {
 	case rs := <-chResult:
@@ -168,6 +243,10 @@ func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdenti
 	}
 
 	return id.Bytes(), nil
+}
+
+func (r *EvmRegistry) Name() string {
+	return r.lggr.Name()
 }
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
@@ -263,14 +342,14 @@ func (r *EvmRegistry) Ready() error {
 	return r.sync.Ready()
 }
 
-func (r *EvmRegistry) Healthy() error {
+func (r *EvmRegistry) HealthReport() map[string]error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if r.runState > 1 {
-		return fmt.Errorf("failed run state: %w", r.runError)
+		r.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", r.runError))
 	}
-	return r.sync.Healthy()
+	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
 func (r *EvmRegistry) initialize() error {
@@ -317,7 +396,7 @@ func (r *EvmRegistry) pollLogs() error {
 	var end int64
 	var err error
 
-	if end, err = r.poller.LatestBlock(); err != nil {
+	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -352,18 +431,20 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
+func UpkeepFilterName(addr common.Address) string {
+	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+}
+
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	filterName := logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 	err := r.poller.RegisterFilter(logpoller.Filter{
-		Name:      filterName,
+		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 	if err != nil {
 		r.mu.Lock()
-		r.filterName = filterName
 		r.mu.Unlock()
 	}
 	return err
@@ -447,7 +528,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 		return nil, err
 	}
 
-	state, err := r.registry.KeeperRegistryCaller.GetState(opts)
+	state, err := r.registry.GetState(opts)
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
@@ -470,7 +551,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 			maxCount = ActiveUpkeepIDBatchSize
 		}
 
-		batchIDs, err := r.registry.KeeperRegistryCaller.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
+		batchIDs, err := r.registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to get active upkeep IDs from index %d to %d (both inclusive)", err, startIndex, startIndex+maxCount-1)
 		}
@@ -481,13 +562,28 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, keys []types.UpkeepKey, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []types.UpkeepKey, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
 			err: err,
 		}
 		return
+	}
+
+	if mercuryEnabled {
+		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
+			chResult <- checkResult{
+				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
+			}
+		}
+		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
+		if err != nil {
+			chResult <- checkResult{
+				err: err,
+			}
+			return
+		}
 	}
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
@@ -572,6 +668,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			var err error
+			r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", keys[i].String(), *checkResults[i])
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err

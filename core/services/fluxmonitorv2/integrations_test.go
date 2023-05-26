@@ -25,25 +25,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
-	faw "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
+	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -249,7 +249,7 @@ type answerParams struct {
 func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receiptBlock uint64) {
 	t.Helper()
 	if receiptBlock == 0 {
-		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
+		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number.Uint64()
 	}
 	blockRange := &bind.FilterOpts{Start: 0, End: &receiptBlock}
 
@@ -664,8 +664,10 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod, mockServer.URL)
 
 	// raise flags to disable polling
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
@@ -770,8 +772,11 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "1000ms", mockServer.URL)
 
 	// raise flags
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
@@ -786,7 +791,8 @@ ds1 -> ds1_parse
 	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetSqlxDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
-	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	require.NoError(t, err)
 	fa.backend.Commit()
 	awaitSubmission(t, fa.backend, submissionReceived)
 
@@ -794,7 +800,8 @@ ds1 -> ds1_parse
 	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// lower contract's flag - should have no effect
-	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
+	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
+	require.NoError(t, err)
 	fa.backend.Commit()
 	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run because FM is already hibernating")
 
@@ -803,8 +810,10 @@ ds1 -> ds1_parse
 	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// raise both flags
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
@@ -873,8 +882,10 @@ ds1 -> ds1_parse
 	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, "100ms", mockServer.URL)
 
 	// raise flags
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
-	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	require.NoError(t, err)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
+	require.NoError(t, err)
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{

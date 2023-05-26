@@ -14,14 +14,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -100,8 +100,10 @@ type Node interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	BlockNumber(ctx context.Context) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
@@ -511,6 +513,33 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 	return
 }
 
+func (n *node) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("txHash", txHash)
+
+	lggr.Debug("RPC call: evmclient.Client#TransactionByHash")
+
+	start := time.Now()
+	if http != nil {
+		tx, _, err = http.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapHTTP(err)
+	} else {
+		tx, _, err = ws.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "TransactionByHash",
+		"receipt", tx,
+	)
+
+	return
+}
+
 func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
 	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
@@ -822,6 +851,32 @@ func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Bloc
 	return
 }
 
+func (n *node) BlockNumber(ctx context.Context) (height uint64, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n))
+
+	lggr.Debug("RPC call: evmclient.Client#BlockNumber")
+	start := time.Now()
+	if http != nil {
+		height, err = http.geth.BlockNumber(ctx)
+		err = n.wrapHTTP(err)
+	} else {
+		height, err = ws.geth.BlockNumber(ctx)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "BlockNumber",
+		"height", height,
+	)
+
+	return
+}
+
 func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
 	ctx, cancel, ws, http, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
@@ -927,7 +982,7 @@ func (n *node) ChainID() (chainID *big.Int) { return n.chainID }
 // newRqLggr generates a new logger with a unique request ID
 func (n *node) newRqLggr(mode string) logger.Logger {
 	return n.rpcLog.With(
-		"requestID", uuid.NewV4(),
+		"requestID", uuid.New(),
 		"mode", mode,
 	)
 }
@@ -1021,9 +1076,9 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch chan struct{}) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch utils.StopChan) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = utils.WithCloseChan(ctx, ch)
+	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
 	cancel := func() {
 		chCancel()

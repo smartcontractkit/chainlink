@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -22,11 +23,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
-	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
@@ -36,6 +37,9 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
+
+	// defaultErrorBufferCap is the default cap on the errors an error buffer can store at any time
+	defaultErrorBufferCap = 50
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -107,7 +111,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
@@ -118,7 +122,7 @@ func NewSecret(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		panic(errors.Wrap(err, "generating secret failed"))
+		panic(pkgerrors.Wrap(err, "generating secret failed"))
 	}
 	return base64.StdEncoding.EncodeToString(b)
 }
@@ -296,7 +300,7 @@ func Sha256(in string) (string, error) {
 	hasher := sha3.New256()
 	_, err := hasher.Write([]byte(in))
 	if err != nil {
-		return "", errors.Wrap(err, "sha256 write error")
+		return "", pkgerrors.Wrap(err, "sha256 write error")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
@@ -374,7 +378,7 @@ func CheckUint256(n *big.Int) error {
 func HexToUint256(s string) (*big.Int, error) {
 	rawNum, err := hexutil.Decode(s)
 	if err != nil {
-		return nil, errors.Wrapf(err, "while parsing %s as hex: ", s)
+		return nil, pkgerrors.Wrapf(err, "while parsing %s as hex: ", s)
 	}
 	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
 	if err := CheckUint256(rv); err != nil {
@@ -410,50 +414,63 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
-// WithCloseChan wraps a context so that it is canceled if the passed in
-// channel is closed.
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
-	ctx, cancel = context.WithCancel(parentCtx)
-
-	go func() {
-		select {
-		case <-chStop:
-		case <-ctx.Done():
-		}
-		cancel()
-	}()
-
-	return ctx, cancel
+// WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
+// Deprecated: Call StopChan.Ctx directly
+func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).Ctx(parentCtx)
 }
 
-// ContextFromChan creates a context that finishes when the provided channel
-// receives or is closed.
-// When channel closes, the ctx.Err() will always be context.Canceled
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		select {
-		case <-chStop:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-	return ctx, cancel
+// ContextFromChan creates a context that finishes when the provided channel receives or is closed.
+// Deprecated: Call StopChan.NewCtx directly.
+func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).NewCtx()
 }
 
-// ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
-// receives or is closed.
-// NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+// ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
+// Deprecated: Call StopChan.CtxCancel directly
+func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+}
+
+// A StopChan signals when some work should stop.
+type StopChan chan struct{}
+
+// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
+func (s StopChan) NewCtx() (context.Context, context.CancelFunc) {
+	return StopRChan((<-chan struct{})(s)).NewCtx()
+}
+
+// Ctx cancels a [context.Context] when StopChan is closed.
+func (s StopChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return StopRChan((<-chan struct{})(s)).Ctx(ctx)
+}
+
+// CtxCancel cancels a [context.Context] when StopChan is closed.
+// Returns ctx and cancel unmodified, for convenience.
+func (s StopChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
+	return StopRChan((<-chan struct{})(s)).CtxCancel(ctx, cancel)
+}
+
+// A StopRChan signals when some work should stop.
+// This version is receive-only.
+type StopRChan <-chan struct{}
+
+// NewCtx returns a background [context.Context] that is cancelled when StopChan is closed.
+func (s StopRChan) NewCtx() (context.Context, context.CancelFunc) {
+	return s.Ctx(context.Background())
+}
+
+// Ctx cancels a [context.Context] when StopChan is closed.
+func (s StopRChan) Ctx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return s.CtxCancel(context.WithCancel(ctx))
+}
+
+// CtxCancel cancels a [context.Context] when StopChan is closed.
+// Returns ctx and cancel unmodified, for convenience.
+func (s StopRChan) CtxCancel(ctx context.Context, cancel context.CancelFunc) (context.Context, context.CancelFunc) {
 	go func() {
 		select {
-		case <-chStop:
+		case <-s:
 			cancel()
 		case <-ctx.Done():
 		}
@@ -625,7 +642,7 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 //	}
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
-		*err = errors.Wrap(*err, msg)
+		*err = pkgerrors.Wrap(*err, msg)
 	}
 }
 
@@ -744,7 +761,7 @@ func ValidateCronSchedule(schedule string) error {
 	}
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	_, err := parser.Parse(schedule)
-	return errors.Wrapf(err, "invalid cron schedule '%v'", schedule)
+	return pkgerrors.Wrapf(err, "invalid cron schedule '%v'", schedule)
 }
 
 // ResettableTimer stores a timer
@@ -818,6 +835,13 @@ var (
 type StartStopOnce struct {
 	state        atomic.Int32
 	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
+
+	// SvcErrBuffer is an ErrorBuffer that let service owners track critical errors happening in the service.
+	//
+	// SvcErrBuffer.SetCap(int) Overrides buffer limit from defaultErrorBufferCap
+	// SvcErrBuffer.Append(error) Appends an error to the buffer
+	// SvcErrBuffer.Flush() error returns all tracked errors as a single joined error
+	SvcErrBuffer ErrorBuffer
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -862,12 +886,14 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	success := once.state.CompareAndSwap(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
-		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
+		return pkgerrors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	once.Lock()
 	defer once.Unlock()
 
+	// Setting cap before calling startup fn in case of crits in startup
+	once.SvcErrBuffer.SetCap(defaultErrorBufferCap)
 	err := fn()
 
 	if err == nil {
@@ -899,11 +925,11 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 		state := once.state.Load()
 		switch state {
 		case int32(StartStopOnce_Stopped):
-			return errors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
+			return pkgerrors.Wrapf(ErrAlreadyStopped, "%s has already been stopped", name)
 		case int32(StartStopOnce_Unstarted):
-			return errors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
+			return pkgerrors.Wrapf(ErrCannotStopUnstarted, "%s has not been started", name)
 		default:
-			return errors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
+			return pkgerrors.Errorf("%v cannot be stopped from this state; state=%v", name, StartStopOnceState(state))
 		}
 	}
 
@@ -972,7 +998,7 @@ func (once *StartStopOnce) Ready() error {
 func (once *StartStopOnce) Healthy() error {
 	state := once.State()
 	if state == StartStopOnce_Started {
-		return nil
+		return once.SvcErrBuffer.Flush()
 	}
 	return &errNotStarted{state: state}
 }
@@ -1020,7 +1046,7 @@ func (m *KeyedMutex) LockInt64(key int64) func() {
 	mtx := value.(*sync.Mutex)
 	mtx.Lock()
 
-	return func() { mtx.Unlock() }
+	return mtx.Unlock
 }
 
 // BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of
@@ -1111,4 +1137,64 @@ func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
 	}
 
 	return min
+}
+
+// ErrorBuffer uses joinedErrors interface to join multiple errors into a single error.
+// This is useful to track the most recent N errors in a service and flush them as a single error.
+type ErrorBuffer struct {
+	// buffer is a slice of errors
+	buffer []error
+
+	// cap is the maximum number of errors that the buffer can hold.
+	// Exceeding the cap results in discarding the oldest error
+	cap int
+
+	mu sync.RWMutex
+}
+
+func (eb *ErrorBuffer) Flush() (err error) {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+	err = errors.Join(eb.buffer...)
+	eb.buffer = nil
+	return
+}
+
+func (eb *ErrorBuffer) Append(incoming error) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+
+	if len(eb.buffer) == eb.cap && eb.cap != 0 {
+		eb.buffer = append(eb.buffer[1:], incoming)
+		return
+	}
+	eb.buffer = append(eb.buffer, incoming)
+}
+
+func (eb *ErrorBuffer) SetCap(cap int) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	if len(eb.buffer) > cap {
+		eb.buffer = eb.buffer[len(eb.buffer)-cap:]
+	}
+	eb.cap = cap
+}
+
+// UnwrapError returns a list of underlying errors if passed error implements joinedError or return the err in a single-element list otherwise.
+//
+//nolint:errorlint // error type checks will fail on wrapped errors. Disabled since we are not doing checks on error types.
+func UnwrapError(err error) []error {
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return []error{err}
+	}
+	return joined.Unwrap()
+}
+
+// DeleteUnstable destructively removes slice element at index i
+// It does no bounds checking and may re-order the slice
+func DeleteUnstable[T any](s []T, i int) []T {
+	s[i] = s[len(s)-1]
+	s = s[:len(s)-1]
+	return s
 }

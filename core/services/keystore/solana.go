@@ -1,11 +1,12 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 )
 
 //go:generate mockery --quiet --name Solana --output ./mocks/ --case=underscore --filename solana.go
@@ -19,6 +20,23 @@ type Solana interface {
 	Import(keyJSON []byte, password string) (solkey.Key, error)
 	Export(id string, password string) ([]byte, error)
 	EnsureKey() error
+	Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error)
+}
+
+// SolanaSigner adapts Solana to [loop.Keystore].
+type SolanaSigner struct {
+	Solana
+}
+
+func (s *SolanaSigner) Accounts(ctx context.Context) (accounts []string, err error) {
+	ks, err := s.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range ks {
+		accounts = append(accounts, k.PublicKeyStr())
+	}
+	return
 }
 
 type solana struct {
@@ -142,9 +160,13 @@ func (ks *solana) EnsureKey() error {
 	return ks.safeAddKey(key)
 }
 
-var (
-	ErrNoSolanaKey = errors.New("no solana keys exist")
-)
+func (ks *solana) Sign(_ context.Context, id string, msg []byte) (signature []byte, err error) {
+	k, err := ks.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	return k.Sign(msg)
+}
 
 func (ks *solana) getByID(id string) (solkey.Key, error) {
 	key, found := ks.keyRing.Solana[id]

@@ -9,22 +9,30 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -60,6 +68,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	ethKeyStore := keyStore.Eth()
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
@@ -72,7 +81,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil).Maybe()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -100,6 +109,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := mocks.NewServiceCtx(t)
 		serviceA2 := mocks.NewServiceCtx(t)
@@ -108,14 +118,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
+
 		eventuallyB := cltest.NewAwaiter()
 		serviceB1 := mocks.NewServiceCtx(t)
 		serviceB2 := mocks.NewServiceCtx(t)
 		serviceB1.On("Start", mock.Anything).Return(nil).Once()
 		serviceB2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
-
 		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateB := &delegate{jobB.Type, []job.ServiceCtx{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
+
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 			jobB.Type: delegateB,
@@ -177,7 +188,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, spawner.Start(testutils.Context(t)))
 
 		eventually.AwaitOrFail(t)
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
@@ -211,7 +221,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA.jobID = jobSpecIDA
 
 		require.NoError(t, spawner.Start(testutils.Context(t)))
-		defer spawner.Close()
+		defer func() { assert.NoError(t, spawner.Close()) }()
 
 		eventuallyStart.AwaitOrFail(t)
 
@@ -237,5 +247,61 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			_, exists := jobs[jobSpecIDA]
 			return exists
 		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
+
+		clearDB(t, db)
+	})
+
+	t.Run("Unregisters filters on 'DeleteJob()'", func(t *testing.T) {
+		config = configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
+		})
+		lp := &mocklp.LogPoller{}
+		testopts := evmtest.TestChainOpts{
+			DB:            db,
+			Client:        ethClient,
+			GeneralConfig: config,
+			LogPoller:     lp,
+			KeyStore:      ethKeyStore,
+		}
+		cs := evmtest.NewChainSet(t, testopts)
+
+		chain := evmtest.MustGetDefaultChain(t, cs)
+
+		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, config, address, chain.ID(), 2)
+		lggr := logger.TestLogger(t)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+
+		relayers := make(map[relay.Network]loop.Relayer)
+		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
+		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
+
+		processConfig := plugins.NewRegistrarConfig(config, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
+
+		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
+			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
+		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
+
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+			jobOCR2VRF.Type: delegateOCR2,
+		}, db, lggr, nil)
+
+		err := spawner.CreateJob(jobOCR2VRF)
+		require.NoError(t, err)
+		jobSpecID := jobOCR2VRF.ID
+		delegateOCR2.jobID = jobOCR2VRF.ID
+
+		lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			lggr.Debugf("Got here, with args %v", args)
+		})
+
+		err = spawner.DeleteJob(jobSpecID)
+		require.NoError(t, err)
+
+		lp.AssertNumberOfCalls(t, "UnregisterFilter", 3)
+
+		lp.On("Close").Return(nil).Once()
+		spawner.Close()
 	})
 }

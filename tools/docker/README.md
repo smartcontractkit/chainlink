@@ -243,7 +243,7 @@ This is nothing new, just a demonstration that you should be able to run all the
 $ make install
 
 # run go tests
-$ go run ./core/main.go local db preparetest
+$ make testdb
 $ go test ./...
 
 # run evm tests

@@ -1,3 +1,5 @@
+// The blockhash store package provides a service that stores blockhashes such that they are available
+// for on-chain proofs beyond the EVM 256 block limit.
 package blockhashstore
 
 import (
@@ -9,12 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ BHS = &BulletproofBHS{}
@@ -27,20 +31,24 @@ type bpBHSConfig interface {
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof
 // transaction manager, and reads BlockhashStore state from the contract.
 type BulletproofBHS struct {
-	config      bpBHSConfig
-	jobID       uuid.UUID
-	fromAddress common.Address
-	txm         txmgr.TxManager
-	abi         *abi.ABI
-	bhs         blockhash_store.BlockhashStoreInterface
+	config        bpBHSConfig
+	jobID         uuid.UUID
+	fromAddresses []ethkey.EIP55Address
+	txm           txmgr.EvmTxManager
+	abi           *abi.ABI
+	bhs           blockhash_store.BlockhashStoreInterface
+	chainID       *big.Int
+	gethks        keystore.Eth
 }
 
 // NewBulletproofBHS creates a new instance with the given transaction manager and blockhash store.
 func NewBulletproofBHS(
 	config bpBHSConfig,
-	fromAddress common.Address,
-	txm txmgr.TxManager,
+	fromAddresses []ethkey.EIP55Address,
+	txm txmgr.EvmTxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
+	chainID *big.Int,
+	gethks keystore.Eth,
 ) (*BulletproofBHS, error) {
 	bhsABI, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -49,11 +57,13 @@ func NewBulletproofBHS(
 	}
 
 	return &BulletproofBHS{
-		config:      config,
-		fromAddress: fromAddress,
-		txm:         txm,
-		abi:         bhsABI,
-		bhs:         bhs,
+		config:        config,
+		fromAddresses: fromAddresses,
+		txm:           txm,
+		abi:           bhsABI,
+		bhs:           bhs,
+		chainID:       chainID,
+		gethks:        gethks,
 	}, nil
 }
 
@@ -64,11 +74,16 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
-		FromAddress:    c.fromAddress,
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
+	if err != nil {
+		return errors.Wrap(err, "getting next from address")
+	}
+
+	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
+		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       c.config.EvmGasLimitDefault(),
+		FeeLimit:       c.config.EvmGasLimitDefault(),
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
@@ -91,4 +106,37 @@ func (c *BulletproofBHS) IsStored(ctx context.Context, blockNum uint64) (bool, e
 		return false, errors.Wrap(err, "getting blockhash")
 	}
 	return true, nil
+}
+
+func (c *BulletproofBHS) sendingKeys() []common.Address {
+	var keys []common.Address
+	for _, a := range c.fromAddresses {
+		keys = append(keys, a.Address())
+	}
+	return keys
+}
+
+func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
+	payload, err := c.abi.Pack("storeEarliest")
+	if err != nil {
+		return errors.Wrap(err, "packing args")
+	}
+
+	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	if err != nil {
+		return errors.Wrap(err, "getting next from address")
+	}
+
+	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      c.bhs.Address(),
+		EncodedPayload: payload,
+		FeeLimit:       c.config.EvmGasLimitDefault(),
+		Strategy:       txmgr.NewSendEveryStrategy(),
+	}, pg.WithParentCtx(ctx))
+	if err != nil {
+		return errors.Wrap(err, "creating transaction")
+	}
+
+	return nil
 }

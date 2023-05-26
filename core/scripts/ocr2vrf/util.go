@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -24,24 +25,53 @@ import (
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"go.dedis.ch/kyber/v3/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_router"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	dkgContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/load_test_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_router"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 var (
-	suite pairing.Suite = &altbn_128.PairingSuite{}
-	g1                  = suite.G1()
-	g2                  = suite.G2()
+	suite              pairing.Suite = &altbn_128.PairingSuite{}
+	g1                               = suite.G1()
+	g2                               = suite.G2()
+	tomlConfigTemplate               = `
+	[P2P.V1]
+	Enabled = false
+
+	[P2P.V2]
+	Enabled = true
+	ListenAddresses = ["127.0.0.1:8000"]
+
+	[Feature]
+	LogPoller = true
+
+	[OCR2]
+	Enabled = true
+
+	[[EVM]]
+	FinalityDepth = 1
+	ChainID = '%d'
+
+	[EVM.Transactions]
+	ForwardersEnabled = %t
+
+	[EVM.HeadTracker]
+	HistoryDepth = 1
+
+	[[EVM.Nodes]]
+	Name = "chain1"
+	HTTPURL = "%s"
+	WSURL = "%s"
+	`
 )
 
 func deployDKG(e helpers.Environment) common.Address {
@@ -56,8 +86,8 @@ func deployVRFRouter(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress, linkEthFeed, router string) common.Address {
-	_, tx, _, err := vrf_coordinator.DeployVRFCoordinator(
+func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, linkAddress, linkEthFeed, router string) (common.Address, *vrf_coordinator.VRFCoordinator) {
+	_, tx, coordinator, err := vrf_coordinator.DeployVRFCoordinator(
 		e.Owner,
 		e.Ec,
 		beaconPeriodBlocks,
@@ -66,7 +96,16 @@ func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, li
 		common.HexToAddress(router),
 	)
 	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID), coordinator
+}
+
+func configureVRFCoordinator(e helpers.Environment, coordinator *vrf_coordinator.VRFCoordinator, maxCbGasLimit, maxCbArgsLen uint32) *gethtypes.Receipt {
+	tx, err := coordinator.SetConfig(e.Owner, vrf_coordinator.VRFCoordinatorConfig{
+		MaxCallbackGasLimit:        maxCbGasLimit,
+		MaxCallbackArgumentsLength: maxCbArgsLen,
+	})
+	helpers.PanicErr(err)
+	return helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf coordinator setConfig")
 }
 
 func deployAuthorizedForwarder(e helpers.Environment, link common.Address, owner common.Address) common.Address {
@@ -261,7 +300,12 @@ func getSubscription(e helpers.Environment, vrfCoordinatorAddr string, subId *bi
 
 // returns subscription ID that belongs to the given owner. Returns result found first
 func findSubscriptionID(e helpers.Environment, vrfCoordinatorAddr string) *big.Int {
-	fopts := &bind.FilterOpts{}
+	// Use most recent 500 blocks as search window.
+	head, err := e.Ec.BlockNumber(context.Background())
+	helpers.PanicErr(err)
+	fopts := &bind.FilterOpts{
+		Start: head - 500,
+	}
 
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 	subscriptionIterator, err := coordinator.FilterSubscriptionCreated(fopts, nil, []common.Address{e.Owner.From})
@@ -534,16 +578,15 @@ func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e help
 	return payload
 }
 
-func configureEnvironmentVariables(useForwarder bool, index int, databasePrefix string, databaseSuffixes string) {
-	helpers.PanicErr(os.Setenv("ETH_USE_FORWARDERS", fmt.Sprintf("%t", useForwarder)))
-	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
-	helpers.PanicErr(os.Setenv("FEATURE_LOG_POLLER", "true"))
-	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
-	helpers.PanicErr(os.Setenv("P2P_NETWORKING_STACK", "V2"))
-	helpers.PanicErr(os.Setenv("P2PV2_LISTEN_ADDRESSES", "127.0.0.1:8000"))
-	helpers.PanicErr(os.Setenv("ETH_HEAD_TRACKER_HISTORY_DEPTH", "1"))
-	helpers.PanicErr(os.Setenv("ETH_FINALITY_DEPTH", "1"))
-	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+func configureEnvironmentVariables(useForwarder bool, chainID int64, wsUrl string, ethURL string, index int, databasePrefix string, databaseSuffixes string) {
+	// Set permitted envars for v2.
+	helpers.PanicErr(os.Setenv("CL_DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+	helpers.PanicErr(os.Setenv("CL_CONFIG", fmt.Sprintf(tomlConfigTemplate, chainID, useForwarder, ethURL, wsUrl)))
+
+	// Unset prohibited envars for v2.
+	helpers.PanicErr(os.Unsetenv("ETH_URL"))
+	helpers.PanicErr(os.Unsetenv("ETH_HTTP_URL"))
+	helpers.PanicErr(os.Unsetenv("ETH_CHAIN_ID"))
 }
 
 func resetDatabase(client *cmd.Client, context *cli.Context) {

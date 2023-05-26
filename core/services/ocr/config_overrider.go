@@ -11,9 +11,9 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ConfigOverriderImpl struct {
@@ -47,7 +47,7 @@ func NewConfigOverriderImpl(
 
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
-			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
+			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())
 	}
 
 	addressBig := contractAddress.Big()

@@ -11,17 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -55,6 +54,31 @@ func TestChainScopedConfig(t *testing.T) {
 		gcfg2 := configtest.NewGeneralConfig(t, overrides)
 		cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
 		assert.Equal(t, assets.NewWeiI(42000000000), cfg2.EvmGasPriceDefault())
+	})
+
+	t.Run("EvmGasBumpTxDepthDefault", func(t *testing.T) {
+		t.Run("uses MaxInFlightTransactions when not set", func(t *testing.T) {
+			assert.Equal(t, cfg.EvmMaxInFlightTransactions(), cfg.EvmGasBumpTxDepth())
+		})
+
+		t.Run("uses customer configured value when set", func(t *testing.T) {
+			var override uint32 = 10
+			gasBumpOverrides := func(c *chainlink.Config, s *chainlink.Secrets) {
+				id := utils.NewBig(big.NewInt(rand.Int63()))
+				c.EVM[0] = &v2.EVMConfig{
+					ChainID: id,
+					Chain: v2.Defaults(id, &v2.Chain{
+						GasEstimator: v2.GasEstimator{
+							BumpTxDepth: ptr(uint32(override)),
+						},
+					}),
+				}
+			}
+			gcfg2 := configtest.NewGeneralConfig(t, gasBumpOverrides)
+			cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
+			assert.NotEqual(t, cfg2.EvmMaxInFlightTransactions(), cfg2.EvmGasBumpTxDepth())
+			assert.Equal(t, override, cfg2.EvmGasBumpTxDepth())
+		})
 	})
 
 	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
@@ -290,7 +314,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
-	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.GeneralConfig {
+	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := utils.NewBigI(id)
 			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.Defaults(chainID, chains...),
@@ -303,10 +327,10 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	}
 
 	// Validate built-in
-	for id := range evmconfig.ChainSpecificConfigDefaultSets() {
+	for _, id := range v2.DefaultIDs {
 		id := id
-		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
-			cfg := configWithChains(t, id)
+		t.Run(fmt.Sprintf("chainID-%s", id), func(t *testing.T) {
+			cfg := configWithChains(t, id.Int64())
 			assert.NoError(t, cfg.Validate())
 		})
 	}

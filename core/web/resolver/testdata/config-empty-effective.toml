@@ -4,7 +4,7 @@ RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
 [Feature]
-FeedsManager = false
+FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 
@@ -113,6 +113,7 @@ ContractSubscribeInterval = '2m0s'
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
+CaptureEATelemetry = false
 
 [OCR]
 Enabled = false
@@ -124,6 +125,7 @@ DefaultTransactionQueueDepth = 1
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
+CaptureEATelemetry = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -190,3 +192,9 @@ Debug = false
 DSN = ''
 Environment = ''
 Release = ''
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false

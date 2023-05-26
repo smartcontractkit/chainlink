@@ -9,22 +9,22 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 )
 
 const (
@@ -36,8 +36,10 @@ const (
 	Keeper             Type = (Type)(pipeline.KeeperJobType)
 	VRF                Type = (Type)(pipeline.VRFJobType)
 	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	BlockHeaderFeeder  Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
+	Gateway            Type = (Type)(pipeline.GatewayJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -70,7 +72,9 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Gateway:            false,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:               true,
@@ -82,7 +86,9 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Gateway:            false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:               1,
@@ -94,44 +100,50 @@ var (
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
+		BlockHeaderFeeder:  1,
 		Bootstrap:          1,
+		Gateway:            1,
 	}
 )
 
 type Job struct {
-	ID                   int32     `toml:"-"`
-	ExternalJobID        uuid.UUID `toml:"externalJobID"`
-	OCROracleSpecID      *int32
-	OCROracleSpec        *OCROracleSpec
-	OCR2OracleSpecID     *int32
-	OCR2OracleSpec       *OCR2OracleSpec
-	CronSpecID           *int32
-	CronSpec             *CronSpec
-	DirectRequestSpecID  *int32
-	DirectRequestSpec    *DirectRequestSpec
-	FluxMonitorSpecID    *int32
-	FluxMonitorSpec      *FluxMonitorSpec
-	KeeperSpecID         *int32
-	KeeperSpec           *KeeperSpec
-	VRFSpecID            *int32
-	VRFSpec              *VRFSpec
-	WebhookSpecID        *int32
-	WebhookSpec          *WebhookSpec
-	BlockhashStoreSpecID *int32
-	BlockhashStoreSpec   *BlockhashStoreSpec
-	BootstrapSpec        *BootstrapSpec
-	BootstrapSpecID      *int32
-	PipelineSpecID       int32
-	PipelineSpec         *pipeline.Spec
-	JobSpecErrors        []SpecError
-	Type                 Type
-	SchemaVersion        uint32
-	GasLimit             clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed    bool          `toml:"forwardingAllowed"`
-	Name                 null.String
-	MaxTaskDuration      models.Interval
-	Pipeline             pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt            time.Time
+	ID                      int32     `toml:"-"`
+	ExternalJobID           uuid.UUID `toml:"externalJobID"`
+	OCROracleSpecID         *int32
+	OCROracleSpec           *OCROracleSpec
+	OCR2OracleSpecID        *int32
+	OCR2OracleSpec          *OCR2OracleSpec
+	CronSpecID              *int32
+	CronSpec                *CronSpec
+	DirectRequestSpecID     *int32
+	DirectRequestSpec       *DirectRequestSpec
+	FluxMonitorSpecID       *int32
+	FluxMonitorSpec         *FluxMonitorSpec
+	KeeperSpecID            *int32
+	KeeperSpec              *KeeperSpec
+	VRFSpecID               *int32
+	VRFSpec                 *VRFSpec
+	WebhookSpecID           *int32
+	WebhookSpec             *WebhookSpec
+	BlockhashStoreSpecID    *int32
+	BlockhashStoreSpec      *BlockhashStoreSpec
+	BlockHeaderFeederSpecID *int32
+	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
+	BootstrapSpec           *BootstrapSpec
+	BootstrapSpecID         *int32
+	GatewaySpec             *GatewaySpec
+	GatewaySpecID           *int32
+	PipelineSpecID          int32
+	PipelineSpec            *pipeline.Spec
+	JobSpecErrors           []SpecError
+	Type                    Type
+	SchemaVersion           uint32
+	GasLimit                clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed       bool          `toml:"forwardingAllowed"`
+	Name                    null.String
+	MaxTaskDuration         models.Interval
+	Pipeline                pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt               time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -139,7 +151,7 @@ func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
 }
 
 func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
-	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
+	return common.BytesToHash(common.RightPadBytes(id[:], utils.EVMWordByteLen))
 }
 
 // ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
@@ -231,6 +243,7 @@ type OCROracleSpec struct {
 	ObservationGracePeriodEnv                 bool
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
+	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
@@ -285,6 +298,18 @@ func (r JSONConfig) EVMChainID() (int64, error) {
 	return int64(f), nil
 }
 
+func (r JSONConfig) MercuryCredentialName() (string, error) {
+	url, ok := r["mercuryCredentialName"]
+	if !ok {
+		return "", nil
+	}
+	name, ok := url.(string)
+	if !ok {
+		return "", fmt.Errorf("expected string mercuryCredentialName but got: %T", url)
+	}
+	return name, nil
+}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -302,6 +327,8 @@ const (
 	OCR2Keeper OCR2PluginType = "ocr2automation"
 
 	OCR2Functions OCR2PluginType = "functions"
+
+	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -309,6 +336,7 @@ const (
 type OCR2OracleSpec struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
+	FeedID                            common.Hash     `toml:"feedID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
@@ -322,6 +350,7 @@ type OCR2OracleSpec struct {
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
+	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -490,11 +519,11 @@ type BlockhashStoreSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
-	// WaitBlocks defines the number of blocks to wait before a hash is stored.
-	WaitBlocks int32 `toml:"waitBlocks"`
-
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
@@ -510,7 +539,58 @@ type BlockhashStoreSpec struct {
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
-	FromAddress *ethkey.EIP55Address `toml:"fromAddress"`
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// BlockHeaderFeederSpec defines the job spec for the blockhash store feeder.
+type BlockHeaderFeederSpec struct {
+	ID int32
+
+	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
+	// no V1 coordinator will be watched.
+	CoordinatorV1Address *ethkey.EIP55Address `toml:"coordinatorV1Address"`
+
+	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
+	// no V2 coordinator will be watched.
+	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
+
+	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
+	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
+
+	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
+	// into.
+	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
+
+	// BatchBlockhashStoreAddress is the address of the BatchBlockhashStore contract to store blockhashes
+	// into.
+	BatchBlockhashStoreAddress ethkey.EIP55Address `toml:"batchBlockhashStoreAddress"`
+
+	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
+	PollPeriod time.Duration `toml:"pollPeriod"`
+
+	// RunTimeout defines the timeout for a single run of the blockhash store feeder.
+	RunTimeout time.Duration `toml:"runTimeout"`
+
+	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// FromAddress is the sender address that should be used to store blockhashes.
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// GetBlockHashesBatchSize is the RPC call batch size for retrieving blockhashes
+	GetBlockhashesBatchSize uint16 `toml:"getBlockhashesBatchSize"`
+
+	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
+	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
@@ -523,6 +603,7 @@ type BlockhashStoreSpec struct {
 type BootstrapSpec struct {
 	ID                                int32         `toml:"-"`
 	ContractID                        string        `toml:"contractID"`
+	FeedID                            *common.Hash  `toml:"feedID"`
 	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -548,4 +629,24 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		UpdatedAt:                         s.UpdatedAt,
 		P2PV2Bootstrappers:                pq.StringArray{},
 	}
+}
+
+type GatewaySpec struct {
+	ID            int32      `toml:"-"`
+	GatewayConfig JSONConfig `toml:"gatewayConfig"`
+	CreatedAt     time.Time  `toml:"-"`
+	UpdatedAt     time.Time  `toml:"-"`
+}
+
+func (s GatewaySpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *GatewaySpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
 }

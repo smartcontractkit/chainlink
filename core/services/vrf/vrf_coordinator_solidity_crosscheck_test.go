@@ -5,16 +5,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_consumer_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_request_id"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_request_id_v08"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id_v08"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
@@ -26,15 +26,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
+
+const defaultGasLimit uint32 = 500000
 
 // coordinatorUniverse represents the universe in which a randomness request occurs and
 // is fulfilled.
@@ -338,7 +339,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = uint64(evmconfig.DefaultGasLimit)
+	neil.GasLimit = uint64(defaultGasLimit)
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()

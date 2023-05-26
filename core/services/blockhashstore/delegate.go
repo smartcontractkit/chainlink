@@ -7,14 +7,16 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	v1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	v2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ job.ServiceCtx = &service{}
@@ -57,6 +59,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
 	}
 
+	if !chain.Config().FeatureLogPoller() {
+		return nil, errors.New("log poller must be enabled to run blockhashstore")
+	}
+
 	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EvmFinalityDepth()) {
 		return nil, fmt.Errorf(
 			"waitBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
@@ -70,9 +76,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	fromAddress := keys[0].Address
-	if jb.BlockhashStoreSpec.FromAddress != nil {
-		fromAddress = jb.BlockhashStoreSpec.FromAddress.Address()
+	fromAddresses := []ethkey.EIP55Address{keys[0].EIP55Address}
+	if jb.BlockhashStoreSpec.FromAddresses != nil {
+		fromAddresses = jb.BlockhashStoreSpec.FromAddresses
 	}
 
 	bhs, err := blockhash_store.NewBlockhashStore(
@@ -81,6 +87,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building BHS")
 	}
 
+	lp := chain.LogPoller()
 	var coordinators []Coordinator
 	if jb.BlockhashStoreSpec.CoordinatorV1Address != nil {
 		var c *v1.VRFCoordinator
@@ -89,7 +96,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
-		coordinators = append(coordinators, NewV1Coordinator(c))
+
+		var coord *V1Coordinator
+		coord, err = NewV1Coordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V1 coordinator")
+		}
+		coordinators = append(coordinators, coord)
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
@@ -98,10 +111,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
-		coordinators = append(coordinators, NewV2Coordinator(c))
+
+		var coord *V2Coordinator
+		coord, err = NewV2Coordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V2 coordinator")
+		}
+		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress, chain.TxManager(), bhs)
+	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -133,10 +152,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
 
+// AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 
-// BeforeJobDeleted satisfies the job.Delegate interface.
+// AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// OnDeleteJob satisfies the job.Delegate interface.
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const TrackableCallbackTimeout = 2 * time.Second
@@ -43,7 +43,7 @@ type headBroadcaster struct {
 	callbacks callbackSet
 	mailbox   *utils.Mailbox[*evmtypes.Head]
 	mutex     *sync.Mutex
-	chClose   chan struct{}
+	chClose   utils.StopChan
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
 	latest         *evmtypes.Head
@@ -69,6 +69,13 @@ func (hb *headBroadcaster) Close() error {
 		hb.wgDone.Wait()
 		return nil
 	})
+}
+
+func (hb *headBroadcaster) Name() string {
+	return hb.logger.Name()
+}
+func (hb *headBroadcaster) HealthReport() map[string]error {
+	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
 }
 
 func (hb *headBroadcaster) BroadcastNewLongestChain(head *evmtypes.Head) {
@@ -131,7 +138,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
 
-	ctx, cancel := utils.ContextFromChan(hb.chClose)
+	ctx, cancel := hb.chClose.NewCtx()
 	defer cancel()
 
 	for _, callback := range callbacks {

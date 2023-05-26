@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +45,7 @@ func TestSessionsController_Create(t *testing.T) {
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 			if test.wantSession {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -94,7 +94,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmailAdmin, cltest.Password)
 	resp, err := http.Post(app.Server.URL+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

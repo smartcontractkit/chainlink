@@ -13,9 +13,9 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
@@ -25,7 +25,7 @@ type (
 		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox[*evmtypes.Head]
-		chStop       chan struct{}
+		chStop       utils.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
 
@@ -125,6 +125,13 @@ func (pr *promReporter) Close() error {
 		return nil
 	})
 }
+func (pr *promReporter) Name() string {
+	return pr.lggr.Name()
+}
+
+func (pr *promReporter) HealthReport() map[string]error {
+	return map[string]error{pr.Name(): pr.StartStopOnce.Healthy()}
+}
 
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	pr.newHeads.Deliver(head)
@@ -133,7 +140,7 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.He
 func (pr *promReporter) eventLoop() {
 	pr.lggr.Debug("Starting event loop")
 	defer pr.wgDone.Done()
-	ctx, cancel := utils.ContextFromChan(pr.chStop)
+	ctx, cancel := pr.chStop.NewCtx()
 	defer cancel()
 	for {
 		select {

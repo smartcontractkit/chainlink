@@ -10,11 +10,11 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry13__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry13__factory'
+import { KeeperRegistry1_3__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry1_3__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogic13__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic13__factory'
-import { KeeperRegistry13 as KeeperRegistry } from '../../../typechain/KeeperRegistry13'
+import { KeeperRegistryLogic1_3__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic1_3__factory'
+import { KeeperRegistry1_3 as KeeperRegistry } from '../../../typechain/KeeperRegistry1_3'
 import { KeeperRegistryLogic13 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic13'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -22,6 +22,28 @@ import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRY v1.3 IS FROZEN ************************************/
+
+// All tests are disabled for this contract, as we expect it to never change in the future.
+// Instead, we test that the bytecode for the contract has not changed.
+// If this test ever fails, you should remove it and then re-run the original test suite.
+
+const BYTECODE = KeeperRegistryFactory.bytecode
+const BYTECODE_CHECKSUM =
+  '0x5ef7140f5c4ec2d62f8ac3d5c4385b7e40c3441fb1e4073a9545fae5f12a0ec5'
+
+describe('KeeperRegistry1_3 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(ethers.utils.id(BYTECODE), BYTECODE_CHECKSUM)
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -75,7 +97,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistry1_3', () => {
+describe.skip('KeeperRegistry1_3', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')

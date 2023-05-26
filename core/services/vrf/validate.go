@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 
 func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 
 	tree, err := toml.Load(tomlString)
@@ -85,6 +85,12 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
 			foundVRFTask = true
+		}
+
+		if t.Type() == pipeline.TaskTypeVRFV2 {
+			if len(spec.FromAddresses) == 0 {
+				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length")
+			}
 		}
 	}
 	if !foundVRFTask {

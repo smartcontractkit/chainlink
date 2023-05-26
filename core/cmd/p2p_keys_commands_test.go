@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestP2PKeyPresenter_RenderTable(t *testing.T) {
@@ -106,7 +106,8 @@ func TestClient_DeleteP2PKey(t *testing.T) {
 	require.NoError(t, set.Set("yes", "true"))
 
 	strID := key.ID()
-	set.Parse([]string{strID})
+	err = set.Parse([]string{strID})
+	require.NoError(t, err)
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteP2PKey(c)
 	require.NoError(t, err)
@@ -133,7 +134,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{"0"}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c := cli.NewContext(nil, set, nil)
@@ -146,7 +147,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c = cli.NewContext(nil, set, nil)
@@ -161,7 +162,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ImportP2PKey, set, "")
 
 	require.NoError(t, set.Parse([]string{keyName}))
-	require.NoError(t, set.Set("oldpassword", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportP2PKey(c))
