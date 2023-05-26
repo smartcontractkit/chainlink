@@ -65,22 +65,14 @@ contract AutomationConsumerBenchmark {
     return count[id];
   }
 
-  function eligible(
-    uint256 id,
-    uint256 range,
-    uint256 firstEligibleBuffer
-  ) internal view returns (bool) {
+  function eligible(uint256 id, uint256 range, uint256 firstEligibleBuffer) internal view returns (bool) {
     return
       initialCall[id] == 0
         ? block.number >= firstEligibleBuffer + deployedAt
         : (block.number - initialCall[id] < range && block.number > nextEligible[id]);
   }
 
-  function checkEligible(
-    uint256 id,
-    uint256 range,
-    uint256 firstEligibleBuffer
-  ) public view returns (bool) {
+  function checkEligible(uint256 id, uint256 range, uint256 firstEligibleBuffer) public view returns (bool) {
     return eligible(id, range, firstEligibleBuffer);
   }
 
