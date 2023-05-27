@@ -121,7 +121,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IndexOutOfRange();
   error InsufficientFunds();
   error InvalidDataLength();
-  error InvalidOffchainConfig();
+  error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
   error MigrationNotPermitted();
@@ -281,6 +281,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
+  event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(

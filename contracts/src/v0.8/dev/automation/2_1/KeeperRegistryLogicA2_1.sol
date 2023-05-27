@@ -130,7 +130,8 @@ contract KeeperRegistryLogicA2_1 is
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepOffchainConfigSet(id, extraData);
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
+    emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
   }
 
@@ -189,7 +190,7 @@ contract KeeperRegistryLogicA2_1 is
       try KeeperRegistryLogicA2_1(address(this)).validateTrigger(triggerType, offchainConfig) {
         return;
       } catch {
-        revert InvalidOffchainConfig();
+        revert InvalidTrigger();
       }
     }
   }
@@ -244,9 +245,6 @@ contract KeeperRegistryLogicA2_1 is
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     _requireAdminAndNotCancelled(id);
@@ -255,20 +253,20 @@ contract KeeperRegistryLogicA2_1 is
     emit UpkeepGasLimitSet(id, gasLimit);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
-    Trigger triggerType = getTriggerType(id);
+  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);
-    validateTrigger(triggerType, config);
+    Trigger triggerType = getTriggerType(id);
+    validateTrigger(triggerType, triggerConfig);
+    s_upkeepTriggerConfig[id] = triggerConfig;
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
+  }
+
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
+    _requireAdminAndNotCancelled(id);
     s_upkeepOffchainConfig[id] = config;
     emit UpkeepOffchainConfigSet(id, config);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
@@ -282,9 +280,6 @@ contract KeeperRegistryLogicA2_1 is
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function migrateUpkeeps(
     uint256[] calldata ids,
     address destination
@@ -301,6 +296,7 @@ contract KeeperRegistryLogicA2_1 is
     bytes[] memory checkDatas = new bytes[](ids.length);
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
+    bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
@@ -309,17 +305,20 @@ contract KeeperRegistryLogicA2_1 is
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
+      triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
+      delete s_upkeepTriggerConfig[id];
+      delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, offchainConfigs);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, triggerConfigs, offchainConfigs);
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,

@@ -108,6 +108,6 @@ export default {
     forbidOnly: Boolean(process.env.CI),
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS ? true : false,
+    enabled: Boolean(process.env.REPORT_GAS),
   },
 }

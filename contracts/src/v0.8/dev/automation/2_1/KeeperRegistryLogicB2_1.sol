@@ -255,6 +255,10 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return ids;
   }
 
+  function getUpkeepTriggerConfig(uint256 upkeepId) public view returns (bytes memory) {
+    return s_upkeepTriggerConfig[upkeepId];
+  }
+
   /**
    * @notice read the current info about any transmitter address
    */
