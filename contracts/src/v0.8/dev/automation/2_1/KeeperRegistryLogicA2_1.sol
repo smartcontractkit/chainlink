@@ -229,55 +229,12 @@ contract KeeperRegistryLogicA2_1 is
     emit UpkeepCanceled(id, uint64(height));
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
-
-    uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
-    s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
-    emit FundsWithdrawn(id, amountToWithdraw, to);
-  }
-
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    _requireAdminAndNotCancelled(id);
-    s_upkeep[id].executeGas = gasLimit;
-
-    emit UpkeepGasLimitSet(id, gasLimit);
-  }
-
   function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);
     Trigger triggerType = getTriggerType(id);
     validateTrigger(triggerType, triggerConfig);
     s_upkeepTriggerConfig[id] = triggerConfig;
     emit UpkeepTriggerConfigSet(id, triggerConfig);
-  }
-
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepOffchainConfig[id] = config;
-    emit UpkeepOffchainConfigSet(id, config);
-  }
-
-  function withdrawPayment(address from, address to) external {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
-
-    uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
-    s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
-
-    i_link.transfer(to, balance);
-
-    emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
   function migrateUpkeeps(

@@ -240,6 +240,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
+   * @dev structure of offchain config for cron triggers
+   */
+  struct CronTriggerConfig {
+    string cron; // cron string such as "* * * 0 0"
+    bytes payload; // function + data to call on target contract
+  }
+
+  /**
    * @dev used for both conditional and ready trigger types
    */
   struct BlockTrigger {
