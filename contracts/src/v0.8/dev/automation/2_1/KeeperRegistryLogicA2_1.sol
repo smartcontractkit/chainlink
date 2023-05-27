@@ -114,19 +114,21 @@ contract KeeperRegistryLogicA2_1 is
 
   function registerUpkeep(
     address target,
-    uint32 gasLimit,
+    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
     address admin,
-    bytes calldata checkData,
+    bytes calldata checkData, // TODO - this should be included in the trigger
     bytes calldata extraData
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-    Trigger triggerType = Trigger(uint8(bytes1(extraData[0:1]))); // directly grab first byte
-    validateTrigger(triggerType, extraData[1:]);
+    (Trigger triggerType, bytes memory triggerConfig, bytes memory offchainConfig) = abi.decode(
+      extraData,
+      (Trigger, bytes, bytes)
+    );
+    validateTrigger(triggerType, triggerConfig);
     id = _createID(triggerType);
     AutomationForwarder forwarder = new AutomationForwarder(id, target);
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, extraData, forwarder);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
     s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = extraData[1:];
     emit UpkeepRegistered(id, gasLimit, admin);
     emit UpkeepOffchainConfigSet(id, extraData);
     return (id);
@@ -166,7 +168,7 @@ contract KeeperRegistryLogicA2_1 is
     return uint256(bytes32(idBytes));
   }
 
-  function validateTrigger(Trigger triggerType, bytes calldata offchainConfig) public {
+  function validateTrigger(Trigger triggerType, bytes memory offchainConfig) public {
     if (msg.sender == address(this)) {
       // separate call stack, we can revert with any reason here
       if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
@@ -343,8 +345,9 @@ contract KeeperRegistryLogicA2_1 is
       Upkeep[] memory upkeeps,
       bytes[] memory checkDatas,
       address[] memory upkeepAdmins,
+      bytes[] memory triggerConfigs,
       bytes[] memory offchainConfigs
-    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[], bytes[]));
     // TODO - we should be creating the forwarder in the transcoder, not here
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
@@ -358,6 +361,7 @@ contract KeeperRegistryLogicA2_1 is
         upkeeps[idx].balance,
         checkDatas[idx],
         upkeeps[idx].paused,
+        triggerConfigs[idx],
         offchainConfigs[idx],
         upkeeps[idx].forwarder
       );

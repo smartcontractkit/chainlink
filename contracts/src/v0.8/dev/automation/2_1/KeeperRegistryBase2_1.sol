@@ -110,6 +110,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
+  mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general configuration preferences
 
   error ArrayHasNoEntries();
@@ -358,6 +359,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 balance,
     bytes memory checkData,
     bool paused,
+    bytes memory triggerConfig,
     bytes memory offchainConfig,
     AutomationForwarder forwarder
   ) internal {
@@ -379,6 +381,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
+    s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
   }
