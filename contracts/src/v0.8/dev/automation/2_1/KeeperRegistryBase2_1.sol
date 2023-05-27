@@ -30,6 +30,7 @@ struct Upkeep {
   uint32 maxValidBlocknumber;
   bool paused;
   AutomationForwarder forwarder;
+  // TODO - Trigger would fit in here...
   // 3 bytes left in 1st EVM word - not written to in transmit
   uint96 amountSpent;
   uint96 balance;
@@ -109,6 +110,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
+  mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general configuration preferences
 
   error ArrayHasNoEntries();
@@ -119,6 +121,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IndexOutOfRange();
   error InsufficientFunds();
   error InvalidDataLength();
+  error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
   error MigrationNotPermitted();
@@ -150,7 +153,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IncorrectNumberOfFaultyOracles();
   error RepeatedSigner();
   error RepeatedTransmitter();
-  error OnchainConfigNonEmpty();
   error CheckDataExceedsLimit();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
@@ -230,11 +232,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   struct LogTriggerConfig {
     address contractAddress;
+    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
     bytes32 topic0;
     bytes32 topic1;
     bytes32 topic2;
     bytes32 topic3;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
   }
 
   /**
@@ -279,6 +281,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
+  event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(
@@ -357,6 +360,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 balance,
     bytes memory checkData,
     bool paused,
+    bytes memory triggerConfig,
     bytes memory offchainConfig,
     AutomationForwarder forwarder
   ) internal {
@@ -378,6 +382,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
+    s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
   }
@@ -527,8 +532,24 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
-    // TODO
-    return Trigger.CONDITION;
+    // TODO - alternatively, we could just look this up from storage
+    bytes32 rawID = bytes32(upkeepId);
+    bytes1 empty = bytes1(0);
+    for (uint256 idx = 4; idx < 15; idx++) {
+      if (rawID[idx] != empty) {
+        // old IDs that were created before this standard and migrated to this registry
+        return Trigger.CONDITION;
+      }
+    }
+    return Trigger(uint8(rawID[15]));
+  }
+
+  /**
+   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
+   */
+  function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
+    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
+    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 
   /**

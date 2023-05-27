@@ -18,6 +18,93 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     address fastGasFeed
   ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
 
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function transferPayeeship(address transmitter, address proposed) external {
+    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
+    if (proposed == msg.sender) revert ValueNotChanged();
+
+    if (s_proposedPayee[transmitter] != proposed) {
+      s_proposedPayee[transmitter] = proposed;
+      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
+    }
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function acceptPayeeship(address transmitter) external {
+    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
+    address past = s_transmitterPayees[transmitter];
+    s_transmitterPayees[transmitter] = msg.sender;
+    s_proposedPayee[transmitter] = ZERO_ADDRESS;
+
+    emit PayeeshipTransferred(transmitter, past, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function transferUpkeepAdmin(uint256 id, address proposed) external {
+    _requireAdminAndNotCancelled(id);
+    if (proposed == msg.sender) revert ValueNotChanged();
+    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
+
+    if (s_proposedAdmin[id] != proposed) {
+      s_proposedAdmin[id] = proposed;
+      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
+    }
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function acceptUpkeepAdmin(uint256 id) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
+    address past = s_upkeepAdmin[id];
+    s_upkeepAdmin[id] = msg.sender;
+    s_proposedAdmin[id] = ZERO_ADDRESS;
+
+    emit UpkeepAdminTransferred(id, past, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function pauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    s_upkeep[id].paused = true;
+    s_upkeepIDs.remove(id);
+    emit UpkeepPaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function unpauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
+    Upkeep memory upkeep = s_upkeep[id];
+    if (!upkeep.paused) revert OnlyPausedUpkeep();
+    s_upkeep[id].paused = false;
+    s_upkeepIDs.add(id);
+    emit UpkeepUnpaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+    _requireAdminAndNotCancelled(id);
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
+  }
+
   ///////////////////
   // OWNER ACTIONS //
   ///////////////////
@@ -166,6 +253,10 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       }
     }
     return ids;
+  }
+
+  function getUpkeepTriggerConfig(uint256 upkeepId) public view returns (bytes memory) {
+    return s_upkeepTriggerConfig[upkeepId];
   }
 
   /**
