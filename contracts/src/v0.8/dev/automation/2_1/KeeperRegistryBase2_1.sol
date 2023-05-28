@@ -248,6 +248,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
+   * @notice structure of offchain config for "run when ready" triggers
+   */
+  struct ReadyTriggerConfig {
+    bytes payload; // function + data to call on target contract
+  } // TODO - the struct adds overhead...
+
+  /**
    * @dev used for both conditional and ready trigger types
    */
   struct BlockTrigger {
