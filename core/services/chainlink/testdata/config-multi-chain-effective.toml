@@ -240,7 +240,6 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
@@ -324,7 +323,6 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
@@ -359,8 +357,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
@@ -402,7 +400,6 @@ LimitTransfer = 21000
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
-BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
@@ -437,8 +434,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
@@ -471,7 +468,7 @@ OCR2CacheTTL = '1m0s'
 TxMsgTimeout = '10m0s'
 
 [[Cosmos.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 TendermintURL = 'http://bombay.cosmos.com'
 
 [[Solana]]
@@ -515,7 +512,7 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
 
 [[Starknet]]
@@ -523,9 +520,8 @@ ChainID = 'foobar'
 OCR2CachePollPeriod = '5s'
 OCR2CacheTTL = '1m0s'
 RequestTimeout = '10s'
-TxTimeout = '1m0s'
-TxSendFrequency = '1h0m0s'
-TxMaxBatchSize = 100
+TxTimeout = '10s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

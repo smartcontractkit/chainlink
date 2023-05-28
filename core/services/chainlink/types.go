@@ -11,7 +11,7 @@ import (
 //go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
 
 type GeneralConfig interface {
-	config.GeneralConfig
+	config.AppConfig
 	v2.HasEVMConfigs
 	CosmosConfigs() cosmos.CosmosConfigs
 	SolanaConfigs() solana.SolanaConfigs

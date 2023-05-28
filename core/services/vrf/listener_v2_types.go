@@ -25,7 +25,7 @@ type batchFulfillment struct {
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
-	maxLinks      []interface{}
+	maxLinks      []*big.Int
 	txHashes      []common.Hash
 }
 
@@ -47,7 +47,7 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 		lbs: []log.Broadcast{
 			result.req.lb,
 		},
-		maxLinks: []interface{}{
+		maxLinks: []*big.Int{
 			result.maxLink,
 		},
 		txHashes: []common.Hash{
@@ -158,7 +158,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		ethTX, err = lsn.txm.CreateTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,

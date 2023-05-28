@@ -293,12 +293,12 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
@@ -370,8 +370,7 @@ OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
-TxSendFrequency = '42s'
-TxMaxBatchSize = 17
+ConfirmationPoll = '42s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

@@ -13,6 +13,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -116,6 +117,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
+				nonce := evmtypes.Nonce(num)
 
 				f.Mocks.txmStore.On("FindEthTxByHash", hash).Return(&txmgr.EvmTx{
 					ID:             1,
@@ -126,7 +128,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					FeeLimit:       100,
 					Value:          big.Int(assets.NewEthValue(100)),
 					ChainID:        big.NewInt(22),
-					Sequence:       &num,
+					Sequence:       &nonce,
 				}, nil)
 				f.Mocks.txmStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{1}).Return([]txmgr.EvmTxAttempt{
 					{

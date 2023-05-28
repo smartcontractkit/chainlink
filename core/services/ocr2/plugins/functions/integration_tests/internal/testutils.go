@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_client_example"
@@ -222,7 +221,6 @@ type Node struct {
 	PeerID         string
 	Transmitter    common.Address
 	Keybundle      ocr2key.KeyBundle
-	Config         config.GeneralConfig
 	OracleIdentity confighelper2.OracleIdentityExtra
 }
 
@@ -294,7 +292,6 @@ func StartNewNode(
 		PeerID:      p2pKey.PeerID().Raw(),
 		Transmitter: transmitter,
 		Keybundle:   kb,
-		Config:      config,
 		OracleIdentity: confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  kb.PublicKey(),
@@ -383,7 +380,8 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		source := jsonMap["data"].(map[string]any)["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		require.NoError(t, err)
 	}))
 }
 

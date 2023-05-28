@@ -12,11 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
-	config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
@@ -33,7 +32,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
-		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 
 		assert.False(t, config.DevWebServer())
@@ -49,7 +48,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 				*c.Insecure.DisableRateLimiting = true
 				*c.Insecure.InfiniteDepthQueries = true
 				*c.AuditLogger.Enabled = true
-			}}.New(logger.TestLogger(t))
+			}}.New()
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
@@ -61,16 +60,17 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	})
 
 	t.Run("ValidateConfig fails if insecure config is set on non-dev builds", func(t *testing.T) {
-		opts := GeneralConfigOpts{}
-		err := opts.ParseConfig(`
+		config := `
 		  [insecure]
 		  DevWebServer = true
 		  DisableRateLimiting = false
 		  InfiniteDepthQueries = false
 		  OCRDevelopmentMode = false
-		`)
-		require.NoError(t, err)
-		cfg, err := opts.init()
+		`
+		opts := GeneralConfigOpts{
+			ConfigStrings: []string{config},
+		}
+		cfg, err := opts.New()
 		require.NoError(t, err)
 		err = cfg.Validate()
 		require.Contains(t, err.Error(), "invalid configuration: Insecure.DevWebServer: invalid value (true): insecure configs are not allowed on secure builds")
@@ -83,7 +83,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("unset db url", func(t *testing.T) {
 		t.Setenv(string(v2.EnvDatabaseURL), "")
 
-		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
@@ -93,7 +93,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("garbage db url", func(t *testing.T) {
 		t.Setenv(string(v2.EnvDatabaseURL), "garbage")
 
-		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
@@ -103,7 +103,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("dev url", func(t *testing.T) {
 		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable")
 
-		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.NoError(t, err)
@@ -112,11 +112,24 @@ func TestValidateDB(t *testing.T) {
 	t.Run("bad password url", func(t *testing.T) {
 		t.Setenv(string(v2.EnvDatabaseURL), "postgres://postgres:pwdToShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
 
-		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
+		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
 
+}
+
+func TestConfig_LogSQL(t *testing.T) {
+	config, err := GeneralConfigOpts{}.New()
+	require.NoError(t, err)
+
+	config.SetLogSQL(true)
+	assert.Equal(t, config.LogSQL(), true)
+	assert.Equal(t, config.Database().LogSQL(), true)
+
+	config.SetLogSQL(false)
+	assert.Equal(t, config.LogSQL(), false)
+	assert.Equal(t, config.Database().LogSQL(), false)
 }

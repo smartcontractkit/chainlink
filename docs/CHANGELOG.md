@@ -9,30 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+# 2.2.0 - UNRELEASED
+
 ### Added
+
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 
 ### Fixed
- - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
+- Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
- - Bumping batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
-  - `LogBackfillBatchSize = 1000`
-  - `RPCDefaultBatchSize: 250`
-  - `GasEstimator.BatchSize = 25`
+- Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
+- Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
+- Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+	- `LogBackfillBatchSize = 1000`
+	- `RPCDefaultBatchSize: 250`
+	- `GasEstimator.BatchSize = 25`
+- Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 
-## 2.1.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.1.1 - 2023-05-22
+
+### Updated
+
+- Upgraded WSRPC to v0.7.2
+
+### Fixed
+
+- Fixed a bug that would cause telemetry to be sent with the wrong type.
+
+## 2.1.0 - 2023-05-16
 
 ### Changed
 
 - Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
   if any Database-specific configuration is invalid.
 
-<!-- unreleasedstop -->
-
 ## 2.0.0 - 2023-04-20
-
 
 ### Added
 

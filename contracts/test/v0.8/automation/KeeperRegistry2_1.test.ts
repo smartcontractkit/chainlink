@@ -10,7 +10,9 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry21__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry21__factory'
+import { KeeperRegistry2_1__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_1__factory'
+import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicAFactory } from '../../../typechain/factories/KeeperRegistryLogicA2_1__factory'
+import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from '../../../typechain/factories/KeeperRegistryLogicB2_1__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
@@ -80,6 +82,8 @@ const gasCalculationMargin = BigNumber.from(4000)
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
+let keeperRegistryLogicAFactory: KeeperRegistryLogicAFactory
+let keeperRegistryLogicBFactory: KeeperRegistryLogicBFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
@@ -313,9 +317,13 @@ describe('KeeperRegistry2_1', () => {
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
-    keeperRegistryFactory = (await ethers.getContractFactory(
-      'KeeperRegistry2_1',
-    )) as unknown as KeeperRegistryFactory // bug in typechain requires force casting
+    keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_1')
+    keeperRegistryLogicAFactory = await ethers.getContractFactory(
+      'KeeperRegistryLogicA2_1',
+    )
+    keeperRegistryLogicBFactory = await ethers.getContractFactory(
+      'KeeperRegistryLogicB2_1',
+    )
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory = await ethers.getContractFactory(
       'UpkeepAutoFunder',
@@ -431,12 +439,18 @@ describe('KeeperRegistry2_1', () => {
   }
 
   const deployRegistry = async (
-    ...params: Parameters<KeeperRegistryFactory['deploy']>
+    ...params: Parameters<KeeperRegistryLogicBFactory['deploy']>
   ): Promise<IKeeperRegistry> => {
-    return IKeeperRegistryMasterFactory.connect(
-      (await keeperRegistryFactory.connect(owner).deploy(...params)).address,
-      owner,
-    )
+    const logicB = await keeperRegistryLogicBFactory
+      .connect(owner)
+      .deploy(...params)
+    const logicA = await keeperRegistryLogicAFactory
+      .connect(owner)
+      .deploy(logicB.address)
+    const master = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(logicA.address)
+    return IKeeperRegistryMasterFactory.connect(master.address, owner)
   }
 
   const verifyMaxPayment = async (
