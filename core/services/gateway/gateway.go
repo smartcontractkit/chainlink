@@ -7,6 +7,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -30,7 +31,7 @@ type gateway struct {
 func NewGatewayFromConfig(config *GatewayConfig, lggr logger.Logger) (Gateway, error) {
 	codec := &JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, codec, lggr)
+	connMgr, err := NewConnectionManager(config, common.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}

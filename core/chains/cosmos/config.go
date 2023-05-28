@@ -22,7 +22,7 @@ import (
 
 type CosmosConfigs []*CosmosConfig
 
-func (cs CosmosConfigs) ValidateConfig() (err error) {
+func (cs CosmosConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -52,9 +52,17 @@ func (cs CosmosConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+
 }
 
-func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) {
+func (cs CosmosConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -66,6 +74,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs CosmosConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {

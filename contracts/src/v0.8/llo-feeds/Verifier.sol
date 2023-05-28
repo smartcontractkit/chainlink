@@ -330,7 +330,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       )
     );
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
+    // 0x0006 corresponds to ConfigDigestPrefixMercuryV02 in libocr
+    uint256 prefix = 0x0006 << (256 - 16); // 0x000600..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
