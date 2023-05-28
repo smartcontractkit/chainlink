@@ -76,6 +76,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256 linkNative
     )
   {
+    Trigger triggerType = getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
@@ -91,25 +92,30 @@ contract KeeperRegistryLogicA2_1 is
       linkNative,
       false
     );
-    if (upkeep.balance < maxLinkPayment)
+    if (upkeep.balance < maxLinkPayment) {
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
-
-    gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
-    gasUsed = gasUsed - gasleft();
-
-    if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, result) = abi.decode(result, (bool, bytes));
-      if (!upkeepNeeded)
-        return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-      if (result.length > s_storage.maxPerformDataSize)
-        return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
     }
 
-    return (success, result, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
+    upkeepNeeded = true;
+
+    if (triggerType == Trigger.CONDITION || triggerType == Trigger.LOG) {
+      gasUsed = gasleft();
+      bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
+      (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+      gasUsed = gasUsed - gasleft();
+      if (!upkeepNeeded) {
+        upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
+      } else {
+        (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
+        if (!upkeepNeeded)
+          return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+        if (performData.length > s_storage.maxPerformDataSize)
+          return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+      }
+    }
+    // TODO - consider doing cron validation
+
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
   function registerUpkeep(
@@ -175,13 +181,16 @@ contract KeeperRegistryLogicA2_1 is
       if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
         require(offchainConfig.length == 0);
       } else if (triggerType == Trigger.LOG) {
-        // will revert if data isn't the valid type
+        // will revert if data isn't in the correct format
         LogTriggerConfig memory trigger = abi.decode(offchainConfig, (LogTriggerConfig));
         require(trigger.contractAddress != ZERO_ADDRESS);
         require(trigger.topic0 != bytes32(0));
         require(uint8(trigger.filterSelector) < 8); // 8 corresponds to 1000 in binary, max is 111
       } else if (triggerType == Trigger.CRON) {
-        // TODO
+        // will revert if data isn't in the correct format
+        CronTriggerConfig memory trigger = abi.decode(offchainConfig, (CronTriggerConfig));
+        require(trigger.payload.length % 32 == 4);
+        // TODO - gas analysis to see if it's feasible to validate cron string
       } else {
         revert();
       }

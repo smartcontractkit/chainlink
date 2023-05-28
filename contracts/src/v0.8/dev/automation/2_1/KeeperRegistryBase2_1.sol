@@ -228,7 +228,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev structure of offchain config for log triggers
+   * @notice structure of offchain config for log triggers
    */
   struct LogTriggerConfig {
     address contractAddress;
@@ -240,7 +240,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev structure of offchain config for cron triggers
+   * @notice structure of offchain config for cron triggers
    */
   struct CronTriggerConfig {
     string cron; // cron string such as "* * * 0 0"

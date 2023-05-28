@@ -347,6 +347,15 @@ describe('KeeperRegistry2_1', () => {
     [Trigger.LOG, logTriggerConfig, '0x'],
   )
 
+  const cronTriggerConfig = ethers.utils.defaultAbiCoder.encode(
+    ['tuple(string,bytes)'],
+    [['* * * 0 0', ethers.utils.randomBytes(36)]],
+  )
+  const cronUpkeepExtraData = ethers.utils.defaultAbiCoder.encode(
+    ['uint8', 'bytes', 'bytes'],
+    [Trigger.CRON, cronTriggerConfig, '0x'],
+  )
+
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -369,7 +378,8 @@ describe('KeeperRegistry2_1', () => {
   let upkeepId: BigNumber // basic upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
   let ltUpkeepId: BigNumber // log trigger upkeepID
-  const numUpkeps = 3 // see above
+  let cUpkeepId: BigNumber // log trigger upkeepID
+  const numUpkeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -798,19 +808,28 @@ describe('KeeperRegistry2_1', () => {
     afUpkeepId = await getUpkeepID(tx)
 
     const ltUpkeep = await upkeepMockFactory.deploy()
-    await linkToken
-      .connect(owner)
-      .transfer(await admin.getAddress(), toWei('1000'))
     tx = await registry
       .connect(owner)
       .registerUpkeep(
         ltUpkeep.address,
         executeGas,
         await admin.getAddress(),
-        randomBytes,
+        emptyBytes,
         logUpkeepExtraData,
       )
     ltUpkeepId = await getUpkeepID(tx)
+
+    const cronUpkeep = await upkeepMockFactory.deploy()
+    tx = await registry
+      .connect(owner)
+      .registerUpkeep(
+        cronUpkeep.address,
+        executeGas,
+        await admin.getAddress(),
+        emptyBytes,
+        cronUpkeepExtraData,
+      )
+    cUpkeepId = await getUpkeepID(tx)
 
     await autoFunderUpkeep.setUpkeepId(afUpkeepId)
     // Give enough funds for upkeep as well as to the upkeep contract
@@ -3716,6 +3735,14 @@ describe('KeeperRegistry2_1', () => {
         ],
       ],
     )
+    const newCronConfig = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(string,bytes)'],
+      [['0 0 0 0 0', ethers.utils.randomBytes(4)]],
+    )
+    const invalidCronConfig = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(string,bytes)'],
+      [['0 0 0 0 0', ethers.utils.randomBytes(5)]],
+    )
 
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
@@ -3795,6 +3822,30 @@ describe('KeeperRegistry2_1', () => {
         .setUpkeepTriggerConfig(ltUpkeepId, newLogConfig)
       const updatedConfig = await registry.getUpkeepTriggerConfig(ltUpkeepId)
       assert.equal(newLogConfig, updatedConfig)
+    })
+
+    it('validates the config for cron triggered upkeeps', async () => {
+      await evmRevert(
+        registry.connect(admin).setUpkeepTriggerConfig(cUpkeepId, randomBytes),
+        'InvalidTrigger()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepTriggerConfig(cUpkeepId, newConditionalConfig),
+        'InvalidTrigger()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepTriggerConfig(cUpkeepId, invalidCronConfig),
+        'InvalidTrigger()',
+      )
+      await registry
+        .connect(admin)
+        .setUpkeepTriggerConfig(cUpkeepId, newCronConfig)
+      const updatedConfig = await registry.getUpkeepTriggerConfig(cUpkeepId)
+      assert.equal(newCronConfig, updatedConfig)
     })
 
     it('emits a log', async () => {
