@@ -708,20 +708,6 @@ func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duratio
 	return r0
 }
 
-// DatabaseLockingMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseLockingMode() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // DatabaseURL provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseURL() url.URL {
 	ret := _m.Called()
@@ -1932,34 +1918,6 @@ func (_m *ChainScopedConfig) KeystorePassword() string {
 	return r0
 }
 
-// LeaseLockDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) LeaseLockDuration() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// LeaseLockRefreshInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) LeaseLockRefreshInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // LinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) LinkContractAddress() string {
 	ret := _m.Called()
@@ -2088,20 +2046,6 @@ func (_m *ChainScopedConfig) MercuryCredentials(credName string) *ocr2models.Mer
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
 		}
-	}
-
-	return r0
-}
-
-// MigrateDatabase provides a mock function with given fields:
-func (_m *ChainScopedConfig) MigrateDatabase() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2585,34 +2529,6 @@ func (_m *ChainScopedConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error
 	}
 
 	return r0, r1
-}
-
-// ORMMaxIdleConns provides a mock function with given fields:
-func (_m *ChainScopedConfig) ORMMaxIdleConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// ORMMaxOpenConns provides a mock function with given fields:
-func (_m *ChainScopedConfig) ORMMaxOpenConns() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
 }
 
 // OperatorFactoryAddress provides a mock function with given fields:
