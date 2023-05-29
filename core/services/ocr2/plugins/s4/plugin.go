@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"google.golang.org/protobuf/proto"
 )
 
 type plugin struct {
@@ -48,24 +47,17 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.Product).Inc()
 
-	versions, err := c.orm.GetVersions(c.addressRange, pg.WithParentCtx(ctx))
+	ormVersions, err := c.orm.GetVersions(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
-	query := &Query{
-		Versions: make([]*VersionRow, len(versions)),
-		AddressRange: &AddressRange{
-			MinAddress: MarshalAddress(c.addressRange.MinAddress),
-			MaxAddress: MarshalAddress(c.addressRange.MaxAddress),
-		},
+	versions := make([]*VersionRow, len(ormVersions))
+	for i, v := range ormVersions {
+		versions[i] = convertVersionRow(v)
 	}
 
-	for i := range versions {
-		query.Versions[i] = convertVersionRow(versions[i])
-	}
-
-	queryBytes, err := proto.Marshal(query)
+	queryBytes, err := MarshalQuery(versions)
 	if err != nil {
 		return nil, err
 	}
@@ -92,29 +84,25 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 	}
 
 	if uint(len(unconfirmedRows)) < c.config.MaxObservationEntries {
-		versionRows, addressRange, err := UnmarshalQuery(query)
-		if err != nil || addressRange == nil {
+		versionRows, err := UnmarshalQuery(query)
+		if err != nil {
 			c.logger.Errorw("Failed to UnmarshalQuery, likely data is malformed", "err", err)
 		} else {
-			if c.addressRange.Interval().Cmp(addressRange.Interval()) != 0 {
-				c.logger.Errorw("Address interval does not match, likely query is malformed", "current", c.addressRange.Interval(), "query", addressRange.Interval())
-			} else {
-				maxObservationRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
-				for _, vr := range versionRows {
-					address, err := UnmarshalAddress(vr.Address)
-					if err != nil {
-						c.logger.Errorw("Failed to unmarshal address from Query", "err", err, "address", vr.Address)
-						continue
-					}
-					row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
-					if err == nil && row.Version > vr.Version {
-						observationRows = append(observationRows, convertRow(row))
-					} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
-						c.logger.Errorw("ORM Get error", "err", err)
-					}
-					if len(observationRows) >= maxObservationRows {
-						break
-					}
+			maxObservationRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
+			for _, vr := range versionRows {
+				address, err := UnmarshalAddress(vr.Address)
+				if err != nil {
+					c.logger.Errorw("Failed to unmarshal address from Query", "err", err, "address", vr.Address)
+					continue
+				}
+				row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
+				if err == nil && row.Version > vr.Version {
+					observationRows = append(observationRows, convertRow(row))
+				} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
+					c.logger.Errorw("ORM Get error", "err", err)
+				}
+				if len(observationRows) >= maxObservationRows {
+					break
 				}
 			}
 		}
@@ -137,7 +125,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 
 	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
 
-	return MarshalRows(rows, nil)
+	return MarshalRows(rows)
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
@@ -146,7 +134,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	reportMap := make(map[key]*Row)
 
 	for _, ao := range aos {
-		observationRows, _, err := UnmarshalRows(ao.Observation)
+		observationRows, err := UnmarshalRows(ao.Observation)
 		if err != nil {
 			return false, nil, errors.Wrap(err, "failed to UnmarshalRows in Report()")
 		}
@@ -174,7 +162,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		reportRows = append(reportRows, row)
 	}
 
-	report, err := MarshalRows(reportRows, nil)
+	report, err := MarshalRows(reportRows)
 	if err != nil {
 		return false, nil, err
 	}
@@ -187,7 +175,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
 	promReportingPluginShouldAccept.WithLabelValues(c.config.Product).Inc()
 
-	reportRows, _, err := UnmarshalRows(report)
+	reportRows, err := UnmarshalRows(report)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to UnmarshalRows in ShouldAcceptFinalizedReport()")
 	}

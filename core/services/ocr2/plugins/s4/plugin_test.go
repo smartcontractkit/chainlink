@@ -284,6 +284,9 @@ func TestPlugin_Query(t *testing.T) {
 		}
 		versions := rowsToVersions(ormRows)
 
+		ar, err := s4_svc.NewInitialAddressRangeForIntervals(config.NSnapshotShards)
+		assert.NoError(t, err)
+
 		for i := 0; i <= int(config.NSnapshotShards); i++ {
 			from := i * 16
 			to := from + 16
@@ -302,12 +305,11 @@ func TestPlugin_Query(t *testing.T) {
 
 			assert.Len(t, qq.Versions, 16)
 			for _, r := range qq.Versions {
-				minAddress := common.HexToAddress(qq.AddressRange.MinAddress).Big()
-				maxAddress := common.HexToAddress(qq.AddressRange.MaxAddress).Big()
 				thisAddress := common.HexToAddress(r.Address).Big()
-				assert.True(t, thisAddress.Cmp(minAddress) >= 0)
-				assert.True(t, thisAddress.Cmp(maxAddress) <= 0)
+				assert.True(t, ar.Contains((*utils.Big)(thisAddress)))
 			}
+
+			ar.Advance()
 		}
 	})
 }
@@ -351,10 +353,6 @@ func TestPlugin_Observation(t *testing.T) {
 		versions := rowsToVersions(ormRows)
 		query := &s4.Query{
 			Versions: make([]*s4.VersionRow, len(versions)),
-			AddressRange: &s4.AddressRange{
-				MinAddress: s4.MarshalAddress(s4_svc.MinAddress),
-				MaxAddress: s4.MarshalAddress(s4_svc.MaxAddress),
-			},
 		}
 		for i, v := range versions {
 			query.Versions[i] = &s4.VersionRow{
