@@ -9,7 +9,7 @@ require (
 	github.com/ava-labs/coreth v0.11.0-rc.4
 	github.com/docker/docker v23.0.1+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.12.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
@@ -91,7 +91,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
-	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
