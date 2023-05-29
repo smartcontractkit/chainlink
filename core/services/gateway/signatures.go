@@ -20,7 +20,7 @@ func SignMessage(msgBody *MessageBody, privateKey *ecdsa.PrivateKey) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	return SignData(rawData, privateKey)
+	return SignData(privateKey, rawData...)
 }
 
 func ValidateMessageSignature(msg *Message) error {
@@ -36,31 +36,35 @@ func ValidateMessageSignature(msg *Message) error {
 	if err != nil {
 		return err
 	}
-	return ValidateSignature(rawData, signatureBytes, senderBytes)
+	signerBytes, err := ValidateSignature(signatureBytes, rawData...)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(senderBytes, signerBytes) {
+		return errors.New("invalid signer address")
+	}
+	return nil
 }
 
-func SignData(data [][]byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
+func SignData(privateKey *ecdsa.PrivateKey, data ...[]byte) ([]byte, error) {
 	hash := crypto.Keccak256Hash(data...)
 	return crypto.Sign(hash.Bytes(), privateKey)
 }
 
-func ValidateSignature(data [][]byte, signature []byte, signerAddress []byte) error {
+func ValidateSignature(signature []byte, data ...[]byte) (signerAddress []byte, err error) {
 	hash := crypto.Keccak256Hash(data...)
 	sigPublicKey, err := crypto.Ecrecover(hash.Bytes(), signature)
 	if err != nil {
-		return err
+		return
 	}
 	ecdsaPubKey, _ := crypto.UnmarshalPubkey(sigPublicKey)
-	sigAddr := crypto.PubkeyToAddress(*ecdsaPubKey)
-	if !bytes.Equal(sigAddr.Bytes(), signerAddress) {
-		return errors.New("invalid signer")
-	}
+	signerAddress = crypto.PubkeyToAddress(*ecdsaPubKey).Bytes()
 
 	signatureNoRecoverID := signature[:len(signature)-1]
 	if !crypto.VerifySignature(sigPublicKey, hash.Bytes(), signatureNoRecoverID) {
-		return errors.New("invalid signature")
+		return nil, errors.New("invalid signature")
 	}
-	return nil
+	return
 }
 
 func getRawMessageBody(msgBody *MessageBody) ([][]byte, error) {
