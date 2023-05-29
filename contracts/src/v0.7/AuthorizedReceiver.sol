@@ -22,7 +22,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
     }
     // Set new to true
     for (uint256 i = 0; i < senders.length; i++) {
-      require(s_authorizedSenders[senders[i]] == false, "must not have duplicate addresses");
+      require(s_authorizedSenders[senders[i]] == false, "Must not have duplicate address");
       s_authorizedSenders[senders[i]] = true;
     }
     // Replace list
