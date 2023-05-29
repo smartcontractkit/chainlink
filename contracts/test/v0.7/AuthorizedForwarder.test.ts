@@ -112,12 +112,12 @@ describe('AuthorizedForwarder', () => {
             await roles.oracleNode3.getAddress(),
           ]
         })
-        it('reverts with a must not have duplicate addresses message', async () => {
+        it('reverts with a Must not have duplicate address message', async () => {
           await evmRevert(
             forwarder
               .connect(roles.defaultAccount)
               .setAuthorizedSenders(newSenders),
-            'must not have duplicate addresses',
+            'Must not have duplicate address',
           )
         })
       })
