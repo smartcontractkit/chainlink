@@ -4,6 +4,22 @@ option go_package = "core/services/ocr2/plugins/s4";
 
 package types;
 
+message AddressRange {
+    string minAddress = 1;
+    string maxAddress = 2;
+}
+
+message VersionRow {
+    string address   = 1;
+    uint32 slotid    = 2;
+    uint64 version   = 3;
+}
+
+message Query {
+    repeated VersionRow versions = 1;
+    AddressRange addressRange    = 2;
+}
+
 message Row {
     string address   = 1;
     uint32 slotid    = 2;
@@ -13,13 +29,8 @@ message Row {
     bytes signature  = 6;
 }
 
-message AddressRange {
-    string minAddress = 1;
-    string maxAddress = 2;
-}
-
 message Rows {
-    repeated Row rows  = 1;
+    repeated Row rows         = 1;
     AddressRange addressRange = 2;
 }
 

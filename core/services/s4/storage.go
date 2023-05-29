@@ -84,7 +84,8 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, ErrSlotIdTooBig
 	}
 
-	row, err := s.orm.Get(key.Address, key.SlotId, pg.WithParentCtx(ctx))
+	bigAddress := utils.NewBig(key.Address.Big())
+	row, err := s.orm.Get(bigAddress, key.SlotId, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, nil, err
 	}

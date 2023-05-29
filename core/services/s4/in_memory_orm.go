@@ -1,12 +1,12 @@
 package s4
 
 import (
+	"sort"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type key struct {
@@ -27,12 +27,12 @@ func NewInMemoryORM() ORM {
 	}
 }
 
-func (o *inMemoryOrm) Get(address common.Address, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o *inMemoryOrm) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	mkey := key{
-		address: address.String(),
+		address: address.Hex(),
 		slot:    slotId,
 	}
 	row, ok := o.rows[mkey]
@@ -47,7 +47,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	defer o.mu.Unlock()
 
 	mkey := key{
-		address: common.BigToAddress(row.Address.ToInt()).String(),
+		address: row.Address.Hex(),
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]
@@ -79,21 +79,47 @@ func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Row, error) {
+func (o *inMemoryOrm) GetVersions(addressRange *AddressRange, qopts ...pg.QOpt) ([]*VersionRow, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	now := time.Now().UnixMilli()
-	var selection []key
-	for k, v := range o.rows {
-		if v.Expiration > now && addressRange.Contains(v.Address) {
-			selection = append(selection, k)
+	var versions []*VersionRow
+	for _, row := range o.rows {
+		if row.Expiration > now {
+			versions = append(versions, &VersionRow{
+				Address: utils.NewBig(row.Address.ToInt()),
+				SlotId:  row.SlotId,
+				Version: row.Version,
+			})
 		}
 	}
 
-	rows := make([]*Row, len(selection))
-	for i, s := range selection {
-		rows[i] = o.rows[s].Clone()
+	return versions, nil
+}
+
+func (o *inMemoryOrm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	now := time.Now().UnixMilli()
+	var rows []*Row
+	for _, row := range o.rows {
+		if row.Expiration > now && !row.Confirmed {
+			rows = append(rows, row)
+		}
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].UpdatedAt < rows[j].UpdatedAt
+	})
+
+	if uint(len(rows)) > limit {
+		rows = rows[:limit]
+	}
+
+	for i, row := range rows {
+		rows[i] = row.Clone()
 	}
 
 	return rows, nil

@@ -30,22 +30,50 @@ func UnmarshalRows(data []byte) ([]*Row, *s4.AddressRange, error) {
 	if err := proto.Unmarshal(data, rows); err != nil {
 		return nil, nil, err
 	}
-	var addressRange *s4.AddressRange
-	if rows.AddressRange != nil {
-		minAddress, err := UnmarshalAddress(rows.AddressRange.MinAddress)
-		if err != nil {
-			return nil, nil, err
-		}
-		maxAddress, err := UnmarshalAddress(rows.AddressRange.MaxAddress)
-		if err != nil {
-			return nil, nil, err
-		}
-		addressRange = &s4.AddressRange{
-			MinAddress: minAddress,
-			MaxAddress: maxAddress,
-		}
+	addressRange, err := UnmarshalAddressRange(rows.AddressRange)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rows.Rows == nil {
+		rows.Rows = make([]*Row, 0)
 	}
 	return rows.Rows, addressRange, nil
+}
+
+func UnmarshalQuery(data []byte) ([]*VersionRow, *s4.AddressRange, error) {
+	query := &Query{}
+	if err := proto.Unmarshal(data, query); err != nil {
+		return nil, nil, err
+	}
+	addressRange, err := UnmarshalAddressRange(query.AddressRange)
+	if err != nil {
+		return nil, nil, err
+	}
+	if query.Versions == nil {
+		query.Versions = make([]*VersionRow, 0)
+	}
+	return query.Versions, addressRange, nil
+}
+
+func UnmarshalAddressRange(addressRange *AddressRange) (*s4.AddressRange, error) {
+	if addressRange == nil {
+		return nil, nil
+	}
+
+	var ormAddressRange *s4.AddressRange
+	minAddress, err := UnmarshalAddress(addressRange.MinAddress)
+	if err != nil {
+		return nil, err
+	}
+	maxAddress, err := UnmarshalAddress(addressRange.MaxAddress)
+	if err != nil {
+		return nil, err
+	}
+	ormAddressRange = &s4.AddressRange{
+		MinAddress: minAddress,
+		MaxAddress: maxAddress,
+	}
+	return ormAddressRange, nil
 }
 
 func MarshalAddress(address *utils.Big) string {
