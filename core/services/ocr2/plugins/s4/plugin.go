@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"google.golang.org/protobuf/proto"
 )
 
 type plugin struct {
@@ -47,26 +48,34 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.Product).Inc()
 
-	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
+	versions, err := c.orm.GetVersions(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to GetSnapshot in Query()")
+		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
-	rows := make([]*Row, len(snapshot))
-	for i, row := range snapshot {
-		rows[i] = convertRow(row)
+	query := &Query{
+		Versions: make([]*VersionRow, len(versions)),
+		AddressRange: &AddressRange{
+			MinAddress: MarshalAddress(c.addressRange.MinAddress),
+			MaxAddress: MarshalAddress(c.addressRange.MaxAddress),
+		},
 	}
-	query, err := MarshalRows(rows, c.addressRange)
+
+	for i := range versions {
+		query.Versions[i] = convertVersionRow(versions[i])
+	}
+
+	queryBytes, err := proto.Marshal(query)
 	if err != nil {
 		return nil, err
 	}
 
-	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
-	promReportingPluginsQueryByteSize.WithLabelValues(c.config.Product).Set(float64(len(query)))
+	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.Product).Set(float64(len(versions)))
+	promReportingPluginsQueryByteSize.WithLabelValues(c.config.Product).Set(float64(len(queryBytes)))
 
 	c.addressRange.Advance()
 
-	return query, err
+	return queryBytes, err
 }
 
 func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query types.Query) (types.Observation, error) {
@@ -76,67 +85,59 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
 
-	queryRows, addressRange, err := UnmarshalRows(query)
+	observationRows := make([]*Row, 0)
+	unconfirmedRows, err := c.orm.GetUnconfirmedRows(c.config.MaxObservationEntries, pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to UnmarshalRows in Observation()")
+		return nil, errors.Wrap(err, "failed to GetUnconfirmedRows in Observation()")
 	}
 
-	if c.addressRange.Interval().Cmp(addressRange.Interval()) != 0 {
-		// the leader and this oracle have different intervals, which indicates
-		// either the leader is malicious or it is a misconfiguration.
-		return nil, errors.Wrap(err, "address range intervals do not match")
-	}
-
-	snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to GetSnapshot in Observation()")
-	}
-
-	snapshotMap := make(map[key]*Row)
-	unconfirmedMap := make(map[key]*Row)
-	for _, row := range snapshot {
-		r := convertRow(row)
-		mkey := key{
-			address: r.Address,
-			slot:    uint(r.Slotid),
-		}
-		snapshotMap[mkey] = r
-		if !row.Confirmed {
-			unconfirmedMap[mkey] = r
-		}
-	}
-
-	observation := make([]*Row, 0)
-	for _, queryRow := range queryRows {
-		if err := verifySignature(queryRow); err != nil {
-			promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
-			c.logger.Errorw("Observation detected invalid signature in a Query row", "err", err)
-			continue
-		}
-
-		mkey := key{
-			address: queryRow.Address,
-			slot:    uint(queryRow.Slotid),
-		}
-		snapshotRow, ok := snapshotMap[mkey]
-		if ok && queryRow.Version < snapshotRow.Version {
-			observation = append(observation, queryRow)
-			delete(unconfirmedMap, mkey)
+	if uint(len(unconfirmedRows)) < c.config.MaxObservationEntries {
+		versionRows, addressRange, err := UnmarshalQuery(query)
+		if err != nil || addressRange == nil {
+			c.logger.Errorw("Failed to UnmarshalQuery, likely data is malformed", "err", err)
+		} else {
+			if c.addressRange.Interval().Cmp(addressRange.Interval()) != 0 {
+				c.logger.Errorw("Address interval does not match, likely query is malformed", "current", c.addressRange.Interval(), "query", addressRange.Interval())
+			} else {
+				maxObservationRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
+				for _, vr := range versionRows {
+					address, err := UnmarshalAddress(vr.Address)
+					if err != nil {
+						c.logger.Errorw("Failed to unmarshal address from Query", "err", err, "address", vr.Address)
+						continue
+					}
+					row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
+					if err == nil && row.Version > vr.Version {
+						observationRows = append(observationRows, convertRow(row))
+					} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
+						c.logger.Errorw("ORM Get error", "err", err)
+					}
+					if len(observationRows) >= maxObservationRows {
+						break
+					}
+				}
+			}
 		}
 	}
 
-	for _, unconfirmed := range unconfirmedMap {
-		// Unconfirmed rows are given higher priority
-		// (the final slice can be trimmed due to MaxObservationEntries)
-		observation = append([]*Row{unconfirmed}, observation...)
-	}
-	if len(observation) > int(c.config.MaxObservationEntries) {
-		observation = observation[:c.config.MaxObservationEntries]
+	observationEntriesCount := len(unconfirmedRows) + len(observationRows)
+	if observationEntriesCount > int(c.config.MaxObservationEntries) {
+		observationEntriesCount = int(c.config.MaxObservationEntries)
 	}
 
-	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(observation)))
+	rows := make([]*Row, observationEntriesCount)
+	for i := 0; i < observationEntriesCount; i++ {
+		if i < len(unconfirmedRows) {
+			rows[i] = convertRow(unconfirmedRows[i])
+		} else {
+			j := i - len(unconfirmedRows)
+			rows[i] = observationRows[j]
+		}
+	}
 
-	return MarshalRows(observation, addressRange)
+	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
+
+	return MarshalRows(rows, nil)
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
@@ -222,6 +223,14 @@ func (c *plugin) ShouldTransmitAcceptedReport(context.Context, types.ReportTimes
 
 func (c *plugin) Close() error {
 	return nil
+}
+
+func convertVersionRow(from *s4.VersionRow) *VersionRow {
+	return &VersionRow{
+		Address: from.Address.Hex(),
+		Slotid:  uint32(from.SlotId),
+		Version: from.Version,
+	}
 }
 
 func convertRow(from *s4.Row) *Row {

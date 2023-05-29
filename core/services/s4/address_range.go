@@ -58,6 +58,10 @@ func NewInitialAddressRangeForIntervals(intervals uint) (*AddressRange, error) {
 // When it reaches the end of the address space, it resets to the initial state,
 // returned by NewAddressRangeForFirstInterval().
 func (r *AddressRange) Advance() {
+	if r == nil {
+		return
+	}
+
 	interval := r.Interval()
 
 	r.MinAddress = r.MinAddress.Add(interval)
@@ -75,10 +79,16 @@ func (r *AddressRange) Advance() {
 
 // Contains returns true if the given address belongs the range.
 func (r *AddressRange) Contains(address *utils.Big) bool {
+	if r == nil {
+		return false
+	}
 	return r.MinAddress.Cmp(address) <= 0 && r.MaxAddress.Cmp(address) >= 0
 }
 
 // Interval returns the interval between max and min address plus one.
 func (r *AddressRange) Interval() *utils.Big {
+	if r == nil {
+		return nil
+	}
 	return r.MaxAddress.Sub(r.MinAddress).Add(utils.NewBigI(1))
 }
