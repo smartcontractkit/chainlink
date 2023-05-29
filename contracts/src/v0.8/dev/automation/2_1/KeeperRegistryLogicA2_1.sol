@@ -76,6 +76,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256 linkNative
     )
   {
+    Trigger triggerType = getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
@@ -91,25 +92,30 @@ contract KeeperRegistryLogicA2_1 is
       linkNative,
       false
     );
-    if (upkeep.balance < maxLinkPayment)
+    if (upkeep.balance < maxLinkPayment) {
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
-
-    gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
-    gasUsed = gasUsed - gasleft();
-
-    if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, result) = abi.decode(result, (bool, bytes));
-      if (!upkeepNeeded)
-        return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-      if (result.length > s_storage.maxPerformDataSize)
-        return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
     }
 
-    return (success, result, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
+    upkeepNeeded = true;
+
+    if (triggerType == Trigger.CONDITION || triggerType == Trigger.LOG) {
+      gasUsed = gasleft();
+      bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
+      (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+      gasUsed = gasUsed - gasleft();
+      if (!upkeepNeeded) {
+        upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
+      } else {
+        (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
+        if (!upkeepNeeded)
+          return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+        if (performData.length > s_storage.maxPerformDataSize)
+          return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+      }
+    }
+    // TODO - consider doing cron validation
+
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
 
   function registerUpkeep(
@@ -124,7 +130,7 @@ contract KeeperRegistryLogicA2_1 is
       extraData,
       (Trigger, bytes, bytes)
     );
-    validateTrigger(triggerType, triggerConfig);
+    validateTriggerConfig(triggerType, triggerConfig);
     id = _createID(triggerType);
     AutomationForwarder forwarder = new AutomationForwarder(id, target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
@@ -169,25 +175,31 @@ contract KeeperRegistryLogicA2_1 is
     return uint256(bytes32(idBytes));
   }
 
-  function validateTrigger(Trigger triggerType, bytes memory offchainConfig) public {
+  function validateTriggerConfig(Trigger triggerType, bytes memory triggerConfig) public {
     if (msg.sender == address(this)) {
       // separate call stack, we can revert with any reason here
-      if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
-        require(offchainConfig.length == 0);
+      if (triggerType == Trigger.CONDITION) {
+        require(triggerConfig.length == 0);
       } else if (triggerType == Trigger.LOG) {
-        // will revert if data isn't the valid type
-        LogTriggerConfig memory trigger = abi.decode(offchainConfig, (LogTriggerConfig));
+        // will revert if data isn't in the correct format
+        LogTriggerConfig memory trigger = abi.decode(triggerConfig, (LogTriggerConfig));
         require(trigger.contractAddress != ZERO_ADDRESS);
         require(trigger.topic0 != bytes32(0));
         require(uint8(trigger.filterSelector) < 8); // 8 corresponds to 1000 in binary, max is 111
       } else if (triggerType == Trigger.CRON) {
-        // TODO
+        // will revert if data isn't in the correct format
+        CronTriggerConfig memory trigger = abi.decode(triggerConfig, (CronTriggerConfig));
+        require(trigger.payload.length % 32 == 4);
+        // TODO - gas analysis to see if it's feasible to validate cron string
+      } else if (triggerType == Trigger.READY) {
+        ReadyTriggerConfig memory trigger = abi.decode(triggerConfig, (ReadyTriggerConfig));
+        require(trigger.payload.length % 32 == 4);
       } else {
         revert();
       }
     } else {
       // called directly, only revert with proper message
-      try KeeperRegistryLogicA2_1(address(this)).validateTrigger(triggerType, offchainConfig) {
+      try KeeperRegistryLogicA2_1(address(this)).validateTriggerConfig(triggerType, triggerConfig) {
         return;
       } catch {
         revert InvalidTrigger();
@@ -229,55 +241,12 @@ contract KeeperRegistryLogicA2_1 is
     emit UpkeepCanceled(id, uint64(height));
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
-
-    uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
-    s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
-    emit FundsWithdrawn(id, amountToWithdraw, to);
-  }
-
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    _requireAdminAndNotCancelled(id);
-    s_upkeep[id].executeGas = gasLimit;
-
-    emit UpkeepGasLimitSet(id, gasLimit);
-  }
-
   function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);
     Trigger triggerType = getTriggerType(id);
-    validateTrigger(triggerType, triggerConfig);
+    validateTriggerConfig(triggerType, triggerConfig);
     s_upkeepTriggerConfig[id] = triggerConfig;
     emit UpkeepTriggerConfigSet(id, triggerConfig);
-  }
-
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepOffchainConfig[id] = config;
-    emit UpkeepOffchainConfigSet(id, config);
-  }
-
-  function withdrawPayment(address from, address to) external {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
-
-    uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
-    s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
-
-    i_link.transfer(to, balance);
-
-    emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
   function migrateUpkeeps(

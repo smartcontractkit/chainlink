@@ -228,7 +228,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev structure of offchain config for log triggers
+   * @notice structure of offchain config for log triggers
    */
   struct LogTriggerConfig {
     address contractAddress;
@@ -238,6 +238,21 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 topic2;
     bytes32 topic3;
   }
+
+  /**
+   * @notice structure of offchain config for cron triggers
+   */
+  struct CronTriggerConfig {
+    string cron; // cron string such as "* * * 0 0"
+    bytes payload; // function + data to call on target contract
+  }
+
+  /**
+   * @notice structure of offchain config for "run when ready" triggers
+   */
+  struct ReadyTriggerConfig {
+    bytes payload; // function + data to call on target contract
+  } // TODO - the struct adds overhead...
 
   /**
    * @dev used for both conditional and ready trigger types
