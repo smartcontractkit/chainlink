@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
-- Add a new field called`Priority` to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. Lower number means higher priority. If priority is not defined it will default to `0` (highest priority).
-- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin where the highest priority is favored. Example:
+- Add a new field called`Priority` to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Priority` levels are considered in ascending order. If not defined it will default to `Priority = 0` (first level).
+- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of `Priority`. Example:
 ```
 [EVM.NodePool]
 SelectionMode = 'PriorityLevel'
