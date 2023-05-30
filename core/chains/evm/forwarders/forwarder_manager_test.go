@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,6 +31,13 @@ import (
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
 
 var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Methods["getChainlinkToken"]
+
+func createLogPoller(t *testing.T, db *sqlx.DB, lggr logger.Logger, ec client.Client) logpoller.LogPoller {
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	lp.StartOnce("LogPoller", func() error { return nil }) // Required because forwarder validates lp.Ready()
+	t.Cleanup(func() { lp.StopOnce("LogPoller", func() error { return nil }) })
+	return lp
+}
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -58,7 +66,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	t.Log(authorized)
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	lp := createLogPoller(t, db, lggr, evmClient)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg, evmcfg.Database())
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 
@@ -111,7 +119,8 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
+	lp := createLogPoller(t, db, lggr, evmClient)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg, evmcfg.Database())
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 
