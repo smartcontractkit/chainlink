@@ -293,6 +293,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
+  event UpkeepAdminOffchainConfigSet(uint256 indexed id, bytes adminOffchainConfig);
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);

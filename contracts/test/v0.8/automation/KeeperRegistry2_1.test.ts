@@ -4980,9 +4980,13 @@ describe('KeeperRegistry2_1', () => {
     })
 
     it('allows upkeep manager to set admin offchain config', async () => {
-      await registry
+      const tx = await registry
         .connect(payee1)
         .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
+      await expect(tx)
+        .to.emit(registry, 'UpkeepAdminOffchainConfigSet')
+        .withArgs(upkeepId, '0x1234')
+
       const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
       assert.equal(cfg, '0x1234')
     })

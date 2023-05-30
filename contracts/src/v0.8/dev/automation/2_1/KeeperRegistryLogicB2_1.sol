@@ -184,6 +184,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       revert OnlyCallableByUpkeepManager();
     }
     s_upkeepAdminOffchainConfig[upkeepId] = newAdminOffchainConfig;
+    emit UpkeepAdminOffchainConfigSet(upkeepId, newAdminOffchainConfig);
   }
 
   /**
