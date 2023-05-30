@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.4;
+pragma solidity 0.8.6;
 
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
@@ -14,10 +14,6 @@ interface IAggregatorProxy {
 
 interface ILinkAvailable {
   function linkAvailableForPayment() external view returns (int256 availableBalance);
-}
-
-interface ITransmitters {
-  function transmitters() external view returns (address[] memory);
 }
 
 /**
@@ -102,6 +98,9 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
    * @param minBalances the list of corresponding minBalance for the target address
    */
   function addToWatchList(address[] calldata addresses, uint256[] calldata minBalances) external onlyOwner {
+    if (addresses.length != minBalances.length) {
+      revert InvalidWatchList();
+    }
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       if (s_watchList.contains(addresses[idx])) {
         revert DuplicateAddress(addresses[idx]);
@@ -110,6 +109,20 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
         revert InvalidWatchList();
       }
       s_watchList.set(addresses[idx], minBalances[idx]);
+    }
+    emit WatchlistUpdated();
+  }
+
+  /**
+   * @notice Adds addresses to the watchlist without overwriting existing members
+   * @param addresses the list of target addresses to remove from the watchlist
+   */
+  function removeFromWatchlist(address[] calldata addresses) external onlyOwner {
+    for (uint256 idx = 0; idx < addresses.length; idx++) {
+      if (!s_watchList.contains(addresses[idx])) {
+        revert InvalidWatchList();
+      }
+      s_watchList.remove(addresses[idx]);
     }
     emit WatchlistUpdated();
   }
@@ -125,9 +138,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint256 numTargets = s_watchList.length();
     uint256 numChecked = 0;
-    uint256 numToCheck = MAX_CHECK;
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
-    numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
+    uint256 numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
     uint256 numFound = 0;
     address[] memory targetsToFund = new address[](MAX_PERFORM);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
@@ -299,19 +311,10 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < 0 || uint256(balance) >= minBalance) {
-        return (false, address(0));
-      }
-    } catch {
-      return (false, address(0));
-    }
-    try ITransmitters(address(target)).transmitters() returns (address[] memory transmitters) {
-      // we only need to check for transmitters on data feeds, for all other contracts we only need
-      // to check balance
-      if (transmitters.length == 0) {
-        return (false, address(0));
+      if (balance < 0 || uint256(balance) < minBalance) {
+        return (true, address(target));
       }
     } catch {}
-    return (true, address(target));
+    return (false, address(0));
   }
 }

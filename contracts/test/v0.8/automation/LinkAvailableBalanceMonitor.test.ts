@@ -252,7 +252,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
   })
 
-  describe('setWatchList() / addToWatchList() / getWatchList()', () => {
+  describe('setWatchList() / addToWatchList() / removeFromWatchlist() / getWatchList()', () => {
     const watchAddress1 = randAddr()
     const watchAddress2 = randAddr()
     const watchAddress3 = randAddr()
@@ -264,7 +264,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.deepEqual(watchList, [[], []])
     })
 
-    it('Should allow owner to set the watchlist', async () => {
+    it('Should allow owner to adjust the watchlist', async () => {
       // add first watchlist
       let tx = await labm
         .connect(owner)
@@ -296,26 +296,28 @@ describe('LinkAvailableBalanceMonitor', () => {
       // remove some from watchlist
       tx = await labm
         .connect(owner)
-        .setWatchList([watchAddress3, watchAddress1], [oneLINK, oneLINK])
+        .removeFromWatchlist([watchAddress3, watchAddress1])
       await tx.wait()
       watchList = await labm.getWatchList()
-      assert.deepEqual(watchList[0], [watchAddress3, watchAddress1])
+      assert.deepEqual(watchList[0], [watchAddress2])
       assert.deepEqual(
         watchList[1].map((x) => x.toString()),
-        [oneLINK, oneLINK].map((x) => x.toString()),
+        [oneLINK].map((x) => x.toString()),
       )
       // add some to watchlist
-      tx = await labm.connect(owner).addToWatchList([watchAddress2], [twoLINK])
+      tx = await labm
+        .connect(owner)
+        .addToWatchList([watchAddress1, watchAddress3], [twoLINK, twoLINK])
       await tx.wait()
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], [
-        watchAddress3,
-        watchAddress1,
         watchAddress2,
+        watchAddress1,
+        watchAddress3,
       ])
       assert.deepEqual(
         watchList[1].map((x) => x.toString()),
-        [oneLINK, oneLINK, twoLINK].map((x) => x.toString()),
+        [oneLINK, twoLINK, twoLINK].map((x) => x.toString()),
       )
     })
 
@@ -357,6 +359,8 @@ describe('LinkAvailableBalanceMonitor', () => {
         .connect(stranger)
         .addToWatchList([watchAddress1], [oneLINK])
       await expect(addTxStranger).to.be.revertedWith(OWNABLE_ERR)
+      const removeTxStranger = labm.connect(stranger).removeFromWatchlist([])
+      await expect(removeTxStranger).to.be.revertedWith(OWNABLE_ERR)
     })
 
     it('Should revert if any of the addresses are empty', async () => {
