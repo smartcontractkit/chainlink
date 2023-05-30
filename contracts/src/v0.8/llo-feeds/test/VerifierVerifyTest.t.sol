@@ -9,7 +9,7 @@ import {AccessControllerInterface} from "../../interfaces/AccessControllerInterf
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
   bytes32[3] internal s_reportContext;
 
-  event ReportVerified(bytes32 indexed feedId, bytes32 reportHash, address requester);
+  event ReportVerified(bytes32 indexed feedId, address requester);
 
   Report internal s_testReportOne;
 
@@ -226,7 +226,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     vm.expectEmit(true, true, true, true, address(s_verifier));
-    emit ReportVerified(s_testReportOne.feedId, keccak256(abi.encode(s_testReportOne)), msg.sender);
+    emit ReportVerified(s_testReportOne.feedId, msg.sender);
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }

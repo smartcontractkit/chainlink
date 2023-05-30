@@ -136,13 +136,10 @@ func (c *chainSet[N, S]) Start(ctx context.Context) error {
 }
 
 func (c *chainSet[N, S]) Close() error {
-	return c.StopOnce("ChainSet", func() (err error) {
+	return c.StopOnce("ChainSet", func() error {
 		c.lggr.Debug("Stopping")
 
-		for _, c := range c.chains {
-			err = multierr.Combine(err, c.Close())
-		}
-		return
+		return services.MultiCloser(maps.Values(c.chains)).Close()
 	})
 }
 

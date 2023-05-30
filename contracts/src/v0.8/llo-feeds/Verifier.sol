@@ -64,7 +64,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice This event is emitted when a new report is verified.
   /// It is used to keep a historical record of verified reports.
-  event ReportVerified(bytes32 indexed feedId, bytes32 reportHash, address requester);
+  event ReportVerified(bytes32 indexed feedId, address requester);
 
   /// @notice This event is emitted whenever a new configuration is set for a feed.  It triggers a new run of the offchain reporting protocol.
   event ConfigSet(
@@ -222,7 +222,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 hashedReport = keccak256(reportData);
 
     _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
-    emit ReportVerified(feedId, hashedReport, sender);
+    emit ReportVerified(feedId, sender);
     return reportData;
   }
 
@@ -330,7 +330,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       )
     );
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
+    // 0x0006 corresponds to ConfigDigestPrefixMercuryV02 in libocr
+    uint256 prefix = 0x0006 << (256 - 16); // 0x000600..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
