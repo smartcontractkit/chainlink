@@ -31,6 +31,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.Gateway
 }
 
+func (d *Delegate) OnCreateJob(spec job.Job, q pg.Queryer) error { return nil }
 func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
 func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
