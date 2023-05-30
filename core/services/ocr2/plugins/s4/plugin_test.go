@@ -23,9 +23,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func createPluginConfig(maxObservationEntries uint) *s4.PluginConfig {
+func createPluginConfig(maxEntries uint) *s4.PluginConfig {
 	return &s4.PluginConfig{
-		MaxObservationEntries: maxObservationEntries,
+		MaxObservationEntries: maxEntries,
+		MaxReportEntries:      maxEntries,
 		NSnapshotShards:       1,
 	}
 }
@@ -54,9 +55,8 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	ormRows := generateTestOrmRows(t, n, ttl)
 	rows := make([]*s4.Row, n)
 	for i := 0; i < n; i++ {
-		addressStr := s4.MarshalAddress(ormRows[i].Address)
 		rows[i] = &s4.Row{
-			Address:    addressStr,
+			Address:    ormRows[i].Address.Hex(),
 			Slotid:     uint32(ormRows[i].SlotId),
 			Version:    ormRows[i].Version,
 			Expiration: ormRows[i].Expiration,
@@ -141,6 +141,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := &s4.PluginConfig{
 			NSnapshotShards:       0,
 			MaxObservationEntries: 1,
+			MaxReportEntries:      1,
 		}
 		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorIs(t, err, s4_svc.ErrInvalidIntervals)
@@ -150,15 +151,27 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := &s4.PluginConfig{
 			NSnapshotShards:       1,
 			MaxObservationEntries: 0,
+			MaxReportEntries:      1,
 		}
 		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of observation entries cannot be zero")
+	})
+
+	t.Run("MaxReportEntries is zero", func(t *testing.T) {
+		config := &s4.PluginConfig{
+			NSnapshotShards:       1,
+			MaxObservationEntries: 1,
+			MaxReportEntries:      0,
+		}
+		_, err := s4.NewReportingPlugin(logger, config, orm)
+		assert.ErrorContains(t, err, "max number of report entries cannot be zero")
 	})
 
 	t.Run("happy", func(t *testing.T) {
 		config := &s4.PluginConfig{
 			NSnapshotShards:       1,
 			MaxObservationEntries: 1,
+			MaxReportEntries:      1,
 		}
 		p, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.NoError(t, err)
@@ -426,6 +439,7 @@ func TestPlugin_FullCycle(t *testing.T) {
 		Product:               "test",
 		NSnapshotShards:       1,
 		MaxObservationEntries: 100,
+		MaxReportEntries:      100,
 	}
 
 	for i := 0; i < nOracles; i++ {

@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
@@ -29,6 +28,9 @@ var _ types.ReportingPlugin = (*plugin)(nil)
 func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
+	}
+	if config.MaxReportEntries == 0 {
+		return nil, errors.New("max number of report entries cannot be zero")
 	}
 
 	addressRange, err := s4.NewInitialAddressRangeForIntervals(config.NSnapshotShards)
@@ -54,7 +56,11 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 
 	versions := make([]*VersionRow, len(ormVersions))
 	for i, v := range ormVersions {
-		versions[i] = convertVersionRow(v)
+		versions[i] = &VersionRow{
+			Address: v.Address.Hex(),
+			Slotid:  uint32(v.SlotId),
+			Version: v.Version,
+		}
 	}
 
 	queryBytes, err := MarshalQuery(versions)
@@ -77,7 +83,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
 
-	observationRows := make([]*Row, 0)
+	observationRows := make([]*s4.Row, 0)
 	unconfirmedRows, err := c.orm.GetUnconfirmedRows(c.config.MaxObservationEntries, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetUnconfirmedRows in Observation()")
@@ -97,7 +103,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 				}
 				row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
 				if err == nil && row.Version > vr.Version {
-					observationRows = append(observationRows, convertRow(row))
+					observationRows = append(observationRows, row)
 				} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
 					c.logger.Errorw("ORM Get error", "err", err)
 				}
@@ -108,20 +114,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		}
 	}
 
-	observationEntriesCount := len(unconfirmedRows) + len(observationRows)
-	if observationEntriesCount > int(c.config.MaxObservationEntries) {
-		observationEntriesCount = int(c.config.MaxObservationEntries)
-	}
-
-	rows := make([]*Row, observationEntriesCount)
-	for i := 0; i < observationEntriesCount; i++ {
-		if i < len(unconfirmedRows) {
-			rows[i] = convertRow(unconfirmedRows[i])
-		} else {
-			j := i - len(unconfirmedRows)
-			rows[i] = observationRows[j]
-		}
-	}
+	rows := convertRows(append(unconfirmedRows, observationRows...))
 
 	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
 
@@ -140,7 +133,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		}
 
 		for _, row := range observationRows {
-			if err := verifySignature(row); err != nil {
+			if err := row.VerifySignature(); err != nil {
 				promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
 				c.logger.Errorw("Report detected invalid signature", "err", err, "oracleID", ao.Observer)
 				continue
@@ -160,6 +153,10 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	reportRows := make([]*Row, 0)
 	for _, row := range reportMap {
 		reportRows = append(reportRows, row)
+
+		if len(reportRows) >= int(c.config.MaxReportEntries) {
+			break
+		}
 	}
 
 	report, err := MarshalRows(reportRows)
@@ -213,14 +210,6 @@ func (c *plugin) Close() error {
 	return nil
 }
 
-func convertVersionRow(from *s4.VersionRow) *VersionRow {
-	return &VersionRow{
-		Address: from.Address.Hex(),
-		Slotid:  uint32(from.SlotId),
-		Version: from.Version,
-	}
-}
-
 func convertRow(from *s4.Row) *Row {
 	return &Row{
 		Address:    from.Address.Hex(),
@@ -232,21 +221,10 @@ func convertRow(from *s4.Row) *Row {
 	}
 }
 
-func verifySignature(row *Row) error {
-	address := common.HexToAddress(row.Address)
-	e := &s4.Envelope{
-		Address:    address.Bytes(),
-		SlotID:     uint(row.Slotid),
-		Payload:    row.Payload,
-		Version:    row.Version,
-		Expiration: row.Expiration,
+func convertRows(from []*s4.Row) []*Row {
+	rows := make([]*Row, len(from))
+	for i, row := range from {
+		rows[i] = convertRow(row)
 	}
-	signer, err := e.GetSignerAddress(row.Signature)
-	if err != nil {
-		return err
-	}
-	if signer != address {
-		return s4.ErrWrongSignature
-	}
-	return nil
+	return rows
 }
