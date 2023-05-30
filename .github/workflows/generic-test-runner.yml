@@ -23,7 +23,7 @@ on:
         description: 'Test to run'
         required: true
         default: 'OCRBasic'
-      test-inputs:
+      testInputs:
         description: 'Custom test inputs'
         required: false
         default: ''
@@ -121,6 +121,8 @@ jobs:
           echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+      - name: Debug Input
+        run: echo ${{ github.event.inputs.testInputs }}
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run Test
