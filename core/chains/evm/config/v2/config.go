@@ -35,12 +35,13 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 
 func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
+	/* temp hack
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupeFmt(c.ChainID) {
 			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), c.ChainID.String()))
 		}
-	}
+	}*/
 
 	// Unique node names
 	names := v2.UniqueStrings{}
