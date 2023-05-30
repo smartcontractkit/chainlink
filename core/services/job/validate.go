@@ -23,6 +23,7 @@ var (
 		BlockhashStore:     {},
 		Bootstrap:          {},
 		BlockHeaderFeeder:  {},
+		Gateway:            {},
 	}
 )
 

@@ -185,7 +185,11 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 	if err != nil {
 		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
 	}
-	k.waitTx(ctx, approveRegistryTx)
+
+	if err := k.waitTx(ctx, approveRegistryTx); err != nil {
+		log.Fatalf("KeeperRegistry ApproveFunds failed for registryAddr: %s, and approveAmount: %s, error is: %s", k.cfg.RegistryAddress, k.approveAmount, err.Error())
+	}
+
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 }
 
@@ -372,7 +376,10 @@ func (k *Keeper) getRegistry12(ctx context.Context) (common.Address, *registry12
 		if err != nil {
 			log.Fatal("Registry config update: ", err)
 		}
-		k.waitTx(ctx, transaction)
+
+		if err := k.waitTx(ctx, transaction); err != nil {
+			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is: %s", k.cfg.RegistryAddress, err.Error())
+		}
 		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
 	} else {
 		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
@@ -403,7 +410,10 @@ func (k *Keeper) getRegistry11(ctx context.Context) (common.Address, *registry11
 		if err != nil {
 			log.Fatal("Registry config update: ", err)
 		}
-		k.waitTx(ctx, transaction)
+
+		if err := k.waitTx(ctx, transaction); err != nil {
+			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is %s", k.cfg.RegistryAddress, err.Error())
+		}
 		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
 	} else {
 		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
@@ -452,7 +462,10 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 		}
-		k.waitTx(ctx, registerUpkeepTx)
+
+		if err := k.waitTx(ctx, registerUpkeepTx); err != nil {
+			log.Fatalf("RegisterUpkeep failed for upkeepId: %s, error is %s", upkeepAddr.Hex(), err.Error())
+		}
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
 
 		upkeepAddrs = append(upkeepAddrs, upkeepAddr)
@@ -496,7 +509,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 		// Onchain transaction
 		if err := k.waitTx(ctx, addFundsTx); err != nil {
-			log.Fatal("AddFunds failed for upkeepId: ", upkeepId, ", and upkeepAddr: ", upkeepAddr.Hex())
+			log.Fatalf("AddFunds failed for upkeepId: %s, and upkeepAddr: %s, error is: %s", upkeepId, upkeepAddr.Hex(), err.Error())
 		}
 
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
@@ -512,7 +525,11 @@ func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer 
 		if err != nil {
 			log.Fatal("SetKeepers failed: ", err)
 		}
-		k.waitTx(ctx, setKeepersTx)
+
+		if err := k.waitTx(ctx, setKeepersTx); err != nil {
+			log.Fatalf("SetKeepers failed, error is: %s", err.Error())
+		}
+
 		log.Println("Keepers registered:", helpers.ExplorerLink(k.cfg.ChainID, setKeepersTx.Hash()))
 	} else {
 		log.Println("No Keepers to register")

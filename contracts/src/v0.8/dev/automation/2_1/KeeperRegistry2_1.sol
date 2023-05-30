@@ -19,6 +19,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.1.0: introduces support for log, cron, and ready triggers
+                           : removes the need for "wrapped perform data"
    * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
    *                       : fixes issue with arbitrum block number
    *                       : does an early return in case of stale report instead of revert
@@ -200,34 +202,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (epoch > hotVars.latestEpoch) {
       s_hotVars.latestEpoch = epoch;
     }
-  }
-
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id) {
-    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-    id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = new AutomationForwarder(id, target);
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
-    s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = offchainConfig;
-    emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepOffchainConfigSet(id, offchainConfig);
-    return (id);
-  }
-
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**

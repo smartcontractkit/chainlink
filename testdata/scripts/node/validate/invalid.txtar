@@ -8,14 +8,6 @@ Log.Level = 'debug'
 [[EVM]]
 ChainID = '1'
 
-[[EVM]]
-ChainID = '1'
-
-[[EVM.Nodes]]
-Name = 'fake'
-WSURL = 'wss://foo.bar/ws'
-HTTPURL = 'https://foo.bar'
-
 [[EVM.Nodes]]
 Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
