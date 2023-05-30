@@ -120,3 +120,16 @@ func TestValidateDB(t *testing.T) {
 	})
 
 }
+
+func TestConfig_LogSQL(t *testing.T) {
+	config, err := GeneralConfigOpts{}.New()
+	require.NoError(t, err)
+
+	config.SetLogSQL(true)
+	assert.Equal(t, config.LogSQL(), true)
+	assert.Equal(t, config.Database().LogSQL(), true)
+
+	config.SetLogSQL(false)
+	assert.Equal(t, config.LogSQL(), false)
+	assert.Equal(t, config.Database().LogSQL(), false)
+}

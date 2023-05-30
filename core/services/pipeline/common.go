@@ -40,6 +40,7 @@ const (
 	BlockHeaderFeederJobType  string = "blockheaderfeeder"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"
+	GatewayJobType            string = "gateway"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -66,7 +67,6 @@ type (
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration

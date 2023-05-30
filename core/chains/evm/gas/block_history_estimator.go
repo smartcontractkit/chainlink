@@ -838,19 +838,17 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 			b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
 			return tx.GasPrice
 		}
+		if tx.GasPrice != nil {
+			// Always use the gas price if provided
+			return tx.GasPrice
+		}
 		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
-			// This should not pass config validation
 			b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
-			// This should not pass config validation
 			b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
 			return nil
-		}
-		if tx.GasPrice != nil {
-			// Always use the gas price if provided
-			return tx.GasPrice
 		}
 
 		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md

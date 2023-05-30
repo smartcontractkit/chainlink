@@ -36,6 +36,7 @@ const (
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
 	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
+	GatewayJobSpec           JobSpecType = "gateway"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -416,6 +417,20 @@ func NewBootstrapSpec(spec *job.BootstrapSpec) *BootstrapSpec {
 	}
 }
 
+type GatewaySpec struct {
+	GatewayConfig map[string]interface{} `json:"gatewayConfig"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
+}
+
+func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
+	return &GatewaySpec{
+		GatewayConfig: spec.GatewayConfig,
+		CreatedAt:     spec.CreatedAt,
+		UpdatedAt:     spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -456,6 +471,7 @@ type JobResource struct {
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
 	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
+	GatewaySpec            *GatewaySpec            `json:"gatewaySpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -497,6 +513,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BlockHeaderFeederSpec = NewBlockHeaderFeederSpec(j.BlockHeaderFeederSpec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
+	case job.Gateway:
+		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
 	}
 
 	jes := []JobError{}

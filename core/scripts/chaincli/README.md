@@ -51,10 +51,10 @@ As the `keeper registry deploy` command executes, _two_ address are written to t
 
 The second address, `KeeperRegistry2.0` is the address you need; in the `.env` file, set `KEEPER_REGISTRY_ADDRESS` variable to the `KeeperRegistry2.0` address.
 
-We need this same address again for the next phase; run the following `bootstrap` command, passing the registry address as a parameter:
+Run the following `bootstrap` command to start bootstrap nodes:
 
 ```shell
-./chaincli bootstrap <KEEPER_REGISTRY_ADDRESS>
+./chaincli bootstrap
 ```
 
 The output of this command will show the tcp address of the deployed bootstrap node in the following format: `<p2p-key>@bootstrap:8000`.

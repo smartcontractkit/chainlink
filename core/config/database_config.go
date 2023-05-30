@@ -7,24 +7,48 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
-type Database interface {
-	DatabaseBackupDir() string
-	DatabaseBackupFrequency() time.Duration
-	DatabaseBackupMode() DatabaseBackupMode
-	DatabaseBackupOnVersionUpgrade() bool
-	DatabaseBackupURL() *url.URL
+// Note: this is a legacy interface. Any new fields should be added to the database
+// interface defined below and accessed via cfg.Database().<FieldName>().
+type DatabaseV1 interface {
 	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseListenerMaxReconnectDuration() time.Duration
-	DatabaseListenerMinReconnectInterval() time.Duration
-	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
+	LogSQL() bool
+}
+
+type Backup interface {
+	Dir() string
+	Frequency() time.Duration
+	Mode() DatabaseBackupMode
+	OnVersionUpgrade() bool
+	URL() *url.URL
+}
+
+type Lock interface {
+	LockingMode() string
+	LeaseDuration() time.Duration
+	LeaseRefreshInterval() time.Duration
+}
+
+type Listener interface {
+	MaxReconnectDuration() time.Duration
+	MinReconnectInterval() time.Duration
+	FallbackPollInterval() time.Duration
+}
+
+type Database interface {
+	Backup() Backup
+	Listener() Listener
+	Lock() Lock
+	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
+	DatabaseDefaultLockTimeout() time.Duration
+	DatabaseDefaultQueryTimeout() time.Duration
+	DatabaseURL() url.URL
+	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
-	TriggerFallbackDBPollInterval() time.Duration
+	MaxIdleConns() int
+	MaxOpenConns() int
+	LogSQL() bool
 }
