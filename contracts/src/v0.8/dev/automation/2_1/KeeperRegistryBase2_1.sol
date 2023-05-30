@@ -8,6 +8,7 @@ import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OV
 import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
+import "./interfaces/MercuryLookupCompatibleInterface.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
@@ -52,6 +53,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
+  bytes4 internal constant MERCURY_CALLBACK_SELECTOR = MercuryLookupCompatibleInterface.mercuryCallback.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
@@ -109,9 +111,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+  address internal s_upkeepManager;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
-  mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general configuration preferences
+  mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
+  mapping(uint256 => bytes) internal s_upkeepAdminOffchainConfig; // general config set by an administrative role
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -134,6 +138,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error OnlyCallableByPayee();
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
+  error OnlyCallableByUpkeepManager();
   error OnlyPausedUpkeep();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
@@ -329,6 +334,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
+    s_upkeepManager = msg.sender;
   }
 
   /////////////

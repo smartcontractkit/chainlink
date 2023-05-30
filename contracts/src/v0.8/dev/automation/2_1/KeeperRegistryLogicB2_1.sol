@@ -176,6 +176,23 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function setUpkeepAdminOffchainConfig(uint256 upkeepId, bytes calldata newAdminOffchainConfig) external {
+    if (msg.sender != s_upkeepManager) {
+      revert OnlyCallableByUpkeepManager();
+    }
+    s_upkeepAdminOffchainConfig[upkeepId] = newAdminOffchainConfig;
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function setUpkeepManager(address newUpkeepManager) external onlyOwner {
+    s_upkeepManager = newUpkeepManager;
+  }
+
   /////////////
   // GETTERS //
   /////////////
@@ -208,7 +225,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
    * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
-   * by suppling as many results as it can within the bounds of the upkeep set
+   * by supplying as many results as it can within the bounds of the upkeep set
    */
   function getActiveUpkeepIDs(uint256 startIndex, uint256 endIndex) external view returns (uint256[] memory) {
     uint256 maxIndex = s_upkeepIDs.length();
@@ -229,7 +246,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
    * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
-   * by suppling as many results as it can within the bounds of the upkeep set
+   * by supplying as many results as it can within the bounds of the upkeep set
    */
   function getActiveUpkeepIDsByType(
     uint256 startIndex,
@@ -367,5 +384,19 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
     return s_peerRegistryMigrationPermission[peer];
+  }
+
+  /**
+   * @notice returns the upkeep manager address
+   */
+  function getUpkeepManager() external view returns (address) {
+    return s_upkeepManager;
+  }
+
+  /**
+   * @notice returns the upkeep administrative offchain config
+   */
+  function getUpkeepAdminOffchainConfig(uint256 upkeepId) external view returns (bytes memory) {
+    return s_upkeepAdminOffchainConfig[upkeepId];
   }
 }
