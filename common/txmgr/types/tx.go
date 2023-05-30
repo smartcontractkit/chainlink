@@ -133,9 +133,8 @@ type TxAttempt[
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   TxAttemptState
-	// Receipts                []Receipt[R, TX_HASH, BLOCK_HASH] `json:"-"`
-	Receipts []R `json:"-"`
-	TxType   int
+	Receipts                []R `json:"-"`
+	TxType                  int
 }
 
 func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) String() string {

@@ -57,13 +57,11 @@ type dbReceipt struct {
 
 func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
 	return dbReceipt{
-		// ID:               evmReceipt.ID, // TODO: is this needed
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
 		BlockNumber:      evmReceipt.BlockNumber.Int64(),
 		TransactionIndex: evmReceipt.TransactionIndex,
 		Receipt:          *evmReceipt,
-		// CreatedAt:        evmReceipt.CreatedAt, // TODO: is this needed
 	}
 }
 

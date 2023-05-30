@@ -1017,7 +1017,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		"confirmedInTxIndex", receipt.GetTransactionIndex(),
 		"ethTxID", etx.ID,
 		"attemptID", attempt.ID,
-		// "receiptID", receipt.ID, // TODO: is this necessary to log?
 		"nReceipts", len(attempt.Receipts),
 		"id", "eth_confirmer")
 
