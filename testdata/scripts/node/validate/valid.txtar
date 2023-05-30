@@ -167,6 +167,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR]
 Enabled = false

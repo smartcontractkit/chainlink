@@ -508,7 +508,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())
