@@ -161,7 +161,7 @@ describe('AuthorizedForwarder', () => {
             forwarder
               .connect(roles.defaultAccount)
               .setAuthorizedSenders(newSenders),
-            'Must have at least 1 authorized sender',
+            'Must have at least 1 auth sender',
           )
         })
       })
