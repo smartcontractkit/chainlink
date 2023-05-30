@@ -61,6 +61,7 @@ func TestDoc(t *testing.T) {
 
 		// per-job limits are nilable
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR2)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.DR)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)
