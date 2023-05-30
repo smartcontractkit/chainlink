@@ -40,16 +40,32 @@ struct Config {
 /// @dev that are used in the VRF Owner contract below.
 interface IVRFCoordinatorV2 {
   function acceptOwnership() external;
+
   function transferOwnership(address to) external;
+
   function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external;
+
   function deregisterProvingKey(uint256[2] calldata publicProvingKey) external;
-  function setConfig(uint16 minimumRequestConfirmations, uint32 maxGasLimit, uint32 stalenessSeconds, uint32 gasAfterPaymentCalculation, int256 fallbackWeiPerUnitLink, FeeConfig memory feeConfig) external;
-  function getConfig() external view returns (
+
+  function setConfig(
+    uint16 minimumRequestConfirmations,
+    uint32 maxGasLimit,
+    uint32 stalenessSeconds,
+    uint32 gasAfterPaymentCalculation,
+    int256 fallbackWeiPerUnitLink,
+    FeeConfig memory feeConfig
+  ) external;
+
+  function getConfig()
+    external
+    view
+    returns (
       uint16 minimumRequestConfirmations,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation
     );
+
   function getFeeConfig()
     external
     view
@@ -64,11 +80,19 @@ interface IVRFCoordinatorV2 {
       uint24 reqsForTier4,
       uint24 reqsForTier5
     );
+
   function getFallbackWeiPerUnitLink() external view returns (int256);
+
   function ownerCancelSubscription(uint64 subId) external;
+
   function recoverFunds(address to) external;
+
   function hashOfKey(uint256[2] memory publicKey) external pure returns (bytes32);
-  function fulfillRandomWords(VRFTypes.Proof memory proof, VRFTypes.RequestCommitment memory rc) external returns (uint96);
+
+  function fulfillRandomWords(
+    VRFTypes.Proof memory proof,
+    VRFTypes.RequestCommitment memory rc
+  ) external returns (uint96);
 }
 
 /**
@@ -78,7 +102,6 @@ interface IVRFCoordinatorV2 {
  * @notice a VRF fulfillment reverts on-chain).
  */
 contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
-
   int256 private constant MAX_INT256 = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
   IVRFCoordinatorV2 internal s_vrfCoordinator;
@@ -209,11 +232,14 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @dev when too many local variables are in the same scope.
    */
   function getConfigs() private view returns (Config memory) {
-    (uint16 minimumRequestConfirmations,
+    (
+      uint16 minimumRequestConfirmations,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation) = s_vrfCoordinator.getConfig();
-    (uint32 fulfillmentFlatFeeLinkPPMTier1,
+      uint32 gasAfterPaymentCalculation
+    ) = s_vrfCoordinator.getConfig();
+    (
+      uint32 fulfillmentFlatFeeLinkPPMTier1,
       uint32 fulfillmentFlatFeeLinkPPMTier2,
       uint32 fulfillmentFlatFeeLinkPPMTier3,
       uint32 fulfillmentFlatFeeLinkPPMTier4,
@@ -221,26 +247,28 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
       uint24 reqsForTier2,
       uint24 reqsForTier3,
       uint24 reqsForTier4,
-      uint24 reqsForTier5) = s_vrfCoordinator.getFeeConfig();
+      uint24 reqsForTier5
+    ) = s_vrfCoordinator.getFeeConfig();
     int256 fallbackWeiPerUnitLink = s_vrfCoordinator.getFallbackWeiPerUnitLink();
-    return Config({
-      minimumRequestConfirmations: minimumRequestConfirmations,
-      maxGasLimit: maxGasLimit,
-      stalenessSeconds: stalenessSeconds,
-      gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      fallbackWeiPerUnitLink: fallbackWeiPerUnitLink,
-      feeConfig: FeeConfig({
-        fulfillmentFlatFeeLinkPPMTier1: fulfillmentFlatFeeLinkPPMTier1,
-        fulfillmentFlatFeeLinkPPMTier2: fulfillmentFlatFeeLinkPPMTier2,
-        fulfillmentFlatFeeLinkPPMTier3: fulfillmentFlatFeeLinkPPMTier3,
-        fulfillmentFlatFeeLinkPPMTier4: fulfillmentFlatFeeLinkPPMTier4,
-        fulfillmentFlatFeeLinkPPMTier5: fulfillmentFlatFeeLinkPPMTier5,
-        reqsForTier2: reqsForTier2,
-        reqsForTier3: reqsForTier3,
-        reqsForTier4: reqsForTier4,
-        reqsForTier5: reqsForTier5
-      })
-    });
+    return
+      Config({
+        minimumRequestConfirmations: minimumRequestConfirmations,
+        maxGasLimit: maxGasLimit,
+        stalenessSeconds: stalenessSeconds,
+        gasAfterPaymentCalculation: gasAfterPaymentCalculation,
+        fallbackWeiPerUnitLink: fallbackWeiPerUnitLink,
+        feeConfig: FeeConfig({
+          fulfillmentFlatFeeLinkPPMTier1: fulfillmentFlatFeeLinkPPMTier1,
+          fulfillmentFlatFeeLinkPPMTier2: fulfillmentFlatFeeLinkPPMTier2,
+          fulfillmentFlatFeeLinkPPMTier3: fulfillmentFlatFeeLinkPPMTier3,
+          fulfillmentFlatFeeLinkPPMTier4: fulfillmentFlatFeeLinkPPMTier4,
+          fulfillmentFlatFeeLinkPPMTier5: fulfillmentFlatFeeLinkPPMTier5,
+          reqsForTier2: reqsForTier2,
+          reqsForTier3: reqsForTier3,
+          reqsForTier4: reqsForTier4,
+          reqsForTier5: reqsForTier5
+        })
+      });
   }
 
   /**
@@ -248,7 +276,10 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param proof contains the proof and randomness
    * @param rc request commitment pre-image, committed to at request time
    */
-  function fulfillRandomWords(VRFTypes.Proof memory proof, VRFTypes.RequestCommitment memory rc) external validateAuthorizedSender {
+  function fulfillRandomWords(
+    VRFTypes.Proof memory proof,
+    VRFTypes.RequestCommitment memory rc
+  ) external validateAuthorizedSender {
     uint256 requestId = requestIdFromProof(proof.pk, proof.seed);
 
     // Get current configs to restore them to original values after

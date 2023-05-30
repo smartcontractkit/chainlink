@@ -11,8 +11,6 @@ solc-select install 0.8.6
 solc-select install 0.8.15
 solc-select install 0.8.16
 
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFOwner.sol
-
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
 $SCRIPTPATH/native_solc6_compile FluxAggregator.sol
