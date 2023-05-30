@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 ### Added
+- Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
+- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:
+```
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+- New settings Evm.GasEstimator.LimitJobType.OCR2, OCR2.DefaultTransactionQueueDepth, OCR2.SimulateTransactions for OCR2
+  jobs. These replace the settings Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransaction
+  for OCR2.
 
+[[EVM.Nodes]]
+Name = '...'
+WSURL = '...'
+HTTPURL = '...'
+Order = 5 
+```
 ### Fixed
 
 ### Changed
