@@ -768,7 +768,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		}
 
 		requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
-		etx, err = lsn.txm.CreateEthTransaction(txmgr.EvmNewTx{
+		etx, err = lsn.txm.CreateTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
