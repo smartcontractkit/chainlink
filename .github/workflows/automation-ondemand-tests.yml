@@ -8,7 +8,7 @@ on:
         type: string
         default: 2.0.0
       chainlinkImage:
-        description: Chainlink image repo to use
+        description: Chainlink image repo to use (Skip to build from head/ref)
         required: false
         type: string
         default: public.ecr.aws/chainlink/chainlink
@@ -89,14 +89,6 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.head_ref || github.ref_name }}
-      - name: Check if image exists
-        id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        with:
-          repository: chainlink-tests
-          tag: ${{ github.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Test Image
         uses: ./.github/actions/build-test-image
         with:
@@ -139,6 +131,17 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.head_ref || github.ref_name }}
+      - name: Determine build to use
+        id: determine-build
+        shell: bash
+        run: |
+          if [[ "${{ inputs.chainlinkImage }}" == "" ]]; then
+            echo "image=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink" >>$GITHUB_OUTPUT
+            echo "version=${{ github.head_ref || github.ref_name }}" >>$GITHUB_OUTPUT
+          else
+            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+          fi
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         env:
@@ -149,8 +152,8 @@ jobs:
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
+          cl_repo: ${{ steps.determine-build.outputs.image }}
+          cl_image_tag: ${{ steps.determine-build.outputs.version }}
           artifacts_location: ./integration-tests/${{ matrix.tests.name }}/logs
           publish_check_name: Automation On Demand Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
