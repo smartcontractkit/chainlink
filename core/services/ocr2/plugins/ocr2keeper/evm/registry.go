@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -81,7 +82,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, mv job.MercuryVersion, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -117,6 +118,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
+			version:       mv,
 			abi:           mercuryLookupCompatibleABI,
 			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
@@ -174,10 +176,15 @@ type activeUpkeep struct {
 
 type MercuryConfig struct {
 	cred          *models.MercuryCredentials
+	version       job.MercuryVersion
 	abi           abi.ABI
 	upkeepCache   *cache.Cache
 	cooldownCache *cache.Cache
 	apiErrCache   *cache.Cache
+}
+
+func (mc *MercuryConfig) Validate() bool {
+	return (mc.version == job.MercuryV02 || mc.version == job.MercuryV03) && mc.cred.Validate()
 }
 
 type EvmRegistry struct {
@@ -575,6 +582,13 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 			chResult <- checkResult{
 				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
 			}
+			return
+		}
+		if r.mercury.version != job.MercuryV02 && r.mercury.version != job.MercuryV03 {
+			chResult <- checkResult{
+				err: fmt.Errorf("mercury version must be either %s or %s but it's %s", job.MercuryV02, job.MercuryV03, r.mercury.version),
+			}
+			return
 		}
 		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
 		if err != nil {

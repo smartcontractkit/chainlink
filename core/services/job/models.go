@@ -40,10 +40,13 @@ const (
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 	Gateway            Type = (Type)(pipeline.GatewayJobType)
+	MercuryV02              = MercuryVersion("v0.2")
+	MercuryV03              = MercuryVersion("v0.3")
 )
 
 //revive:disable:redefines-builtin-id
 type Type string
+type MercuryVersion string
 
 func (t Type) String() string {
 	return string(t)
@@ -308,6 +311,21 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 		return "", fmt.Errorf("expected string mercuryCredentialName but got: %T", url)
 	}
 	return name, nil
+}
+
+func (r JSONConfig) MercuryVersion() (MercuryVersion, error) {
+	v, ok := r["mercuryVersion"]
+	if !ok {
+		return "", nil
+	}
+	version, ok := v.(MercuryVersion)
+	if !ok {
+		return "", fmt.Errorf("expected string mercuryVersion but got: %T", version)
+	}
+	if version != MercuryV02 && version != MercuryV03 {
+		return "", fmt.Errorf("mercuryVersion can only be one of %s and %s", MercuryV02, MercuryV03)
+	}
+	return version, nil
 }
 
 // OCR2PluginType defines supported OCR2 plugin types.

@@ -24,6 +24,18 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+)
+
+const (
+	FeedID             = "feedID"
+	MercuryPathV2      = "/client?"
+	MercuryPathV3      = "/v1/reports?"
+	MercuryBatchPathV3 = "/v1/reports/bulk?"
+	RetryDelay         = 500 * time.Millisecond
+	Timestamp          = "timestamp"
+	TotalAttempt       = 5
+	UserId             = "userId"
 )
 
 type MercuryLookup struct {
@@ -43,11 +55,6 @@ type MercuryBytes struct {
 	Error error
 	Bytes []byte
 }
-
-const (
-	RetryDelay   = 500 * time.Millisecond
-	TotalAttempt = 3
-)
 
 // mercuryLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
@@ -186,8 +193,20 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 
 func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *MercuryLookup, upkeepId *big.Int) ([][]byte, error) {
 	ch := make(chan MercuryBytes, len(ml.feeds))
-	for i := range ml.feeds {
-		go r.singleFeedRequest(ctx, ch, upkeepId, i, ml)
+	if r.mercury.version == job.MercuryV02 {
+		for i := range ml.feeds {
+			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml)
+		}
+	} else if r.mercury.version == job.MercuryV03 {
+		if ml.queryLabel != Timestamp {
+			return nil, fmt.Errorf("[MercuryLookup] %s is not a supported query label. only timestamp is supported in v0.3", ml.queryLabel)
+		}
+		if ml.feedLabel != FeedID {
+			return nil, fmt.Errorf("[MercuryLookup] %s is not a supported feed label. only feedID is supported in v0.3", ml.feedLabel)
+		}
+		go r.multiFeedsRequest(ctx, ch, upkeepId, ml)
+	} else {
+		return nil, fmt.Errorf("invalid mercury version: %s", r.mercury.version)
 	}
 	var reqErr error
 	results := make([][]byte, len(ml.feeds))
@@ -206,8 +225,10 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 	q := url.Values{
 		ml.feedLabel:  {ml.feeds[index]},
 		ml.queryLabel: {ml.query.String()},
+		UserId:        {upkeepId.String()},
 	}
-	reqUrl := fmt.Sprintf("%s/client?%s", r.mercury.cred.URL, q.Encode())
+	path := MercuryPathV2
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, path, q.Encode())
 	r.lggr.Debugf("MercuryLookup request URL: %s", reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -217,7 +238,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, "/client?"+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, path+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", r.mercury.cred.Username)
 	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
@@ -268,9 +289,89 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		retry.Delay(RetryDelay),
 		retry.Attempts(TotalAttempt))
 
-	// if all retries fail, it's very likely the feed IDs are incorrect or block number is too old or too new, put into cooldownf
+	// if all retries fail, it's very likely the feed IDs are incorrect or block number is too old or too new, put into cooldown
 	if retryErr != nil {
 		ch <- MercuryBytes{Index: index, Error: retryErr}
+		r.setCachesOnAPIErr(upkeepId)
+	}
+}
+
+func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, ml *MercuryLookup) {
+	q := url.Values{
+		ml.queryLabel: {ml.query.String()},
+		UserId:        {upkeepId.String()},
+	}
+	for _, f := range ml.feeds {
+		q.Add(ml.feedLabel, f)
+	}
+	path := MercuryBatchPathV3
+	if len(ml.feeds) < 2 {
+		path = MercuryPathV3
+	}
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, path, q.Encode())
+	r.lggr.Debugf("MercuryLookup request URL: %s", reqUrl)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
+	if err != nil {
+		ch <- MercuryBytes{Index: -1, Error: err}
+		return
+	}
+
+	ts := time.Now().UTC().UnixMilli()
+	signature := r.generateHMAC(http.MethodGet, path+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.mercury.cred.Username)
+	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
+	req.Header.Set("X-Authorization-Signature-SHA256", signature)
+
+	retryErr := retry.Do(
+		func() error {
+			resp, err1 := r.hc.Do(req)
+			if err1 != nil {
+				r.lggr.Errorf("MercuryLookup upkeep %s block %s GET request fails for multi feed: %v", upkeepId.String(), ml.query.String(), err1)
+				return err1
+			}
+			defer resp.Body.Close()
+			body, err1 := io.ReadAll(resp.Body)
+			if err1 != nil {
+				r.lggr.Errorf("MercuryLookup upkeep %s block %s fails to read response body for multi feed: %v", upkeepId.String(), ml.query.String(), err1)
+				return err1
+			}
+
+			if resp.StatusCode == http.StatusNotFound {
+				// there are 2 possible causes for 404: incorrect URL and querying a block where report has not been generated
+				r.lggr.Errorf("MercuryLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.query.String(), resp.StatusCode)
+				// return 404 for retry
+				return fmt.Errorf("%d", http.StatusNotFound)
+			} else if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("MercuryLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.query.String(), resp.StatusCode)
+			}
+
+			var m MercuryResponse
+			err1 = json.Unmarshal(body, &m)
+			if err1 != nil {
+				r.lggr.Errorf("MercuryLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for multi feed: %v", upkeepId.String(), ml.query.String(), err1)
+				return err1
+			}
+			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
+			if err1 != nil {
+				r.lggr.Errorf("MercuryLookup upkeep %s block %s failed to decode chainlinkBlob %s for multi feed: %v", upkeepId.String(), ml.query.String(), m.ChainlinkBlob, err1)
+				return err1
+			}
+			ch <- MercuryBytes{Index: -1, Bytes: blobBytes}
+			return nil
+		},
+		// only retry when the error is 404 Not Found
+		retry.RetryIf(func(err error) bool {
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound)
+		}),
+		retry.Context(ctx),
+		retry.Delay(RetryDelay),
+		retry.Attempts(TotalAttempt))
+
+	// if all retries fail, it's very likely the feed IDs are incorrect or block number is too old or too new, put into cooldown
+	if retryErr != nil {
+		ch <- MercuryBytes{Index: -1, Error: retryErr}
 		r.setCachesOnAPIErr(upkeepId)
 	}
 }

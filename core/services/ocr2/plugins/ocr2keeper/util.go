@@ -57,11 +57,13 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, Encoder, *LogProvider, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials, mv job.MercuryVersion) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, Encoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm.EvmRegistry
+
+	lggr.Debugf("EVMDependencies: mv is ", mv)
 
 	oSpec := spec.OCR2OracleSpec
 
@@ -81,7 +83,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, mc, lggr); err != nil {
+	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, mc, mv, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

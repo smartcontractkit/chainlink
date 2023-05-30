@@ -632,14 +632,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, dkgProvider, oracleCtx}, nil
 	case job.OCR2Keeper:
-		credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+		cn, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to get mercury credential name")
+			return nil, errors.Wrap(err2, "failed to get mercuryCredentialName")
+		}
+		mc := d.cfg.MercuryCredentials(cn)
+
+		mv, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryVersion()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to get mercuryVersion")
 		}
 
-		mc := d.cfg.MercuryCredentials(credName)
-
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, mv)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}

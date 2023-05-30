@@ -77,6 +77,7 @@ type Config struct {
 	MercuryID       string `mapstructure:"MERCURY_ID"`
 	MercuryKey      string `mapstructure:"MERCURY_KEY"`
 	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
+	MercuryVersion  string `mapstructure:"MERCURY_VERSION"`
 }
 
 // New creates a new config
