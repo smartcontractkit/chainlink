@@ -367,7 +367,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	bf := eb.newResendBackoff()
 
 	for {
-		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
+		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.FallbackPollInterval()))
 
 		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
 		if err != nil {
@@ -376,7 +376,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		// On retryable errors we implement exponential backoff retries. This
 		// handles intermittent connectivity, remote RPC races, timing issues etc
 		if retryable {
-			pollDBTimer.Reset(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
+			pollDBTimer.Reset(utils.WithJitter(eb.config.FallbackPollInterval()))
 			errorRetryCh = time.After(bf.Duration())
 		} else {
 			bf = eb.newResendBackoff()

@@ -241,13 +241,6 @@ type Database struct {
 	Lock     DatabaseLock     `toml:",omitempty"`
 }
 
-func (d *Database) LockingMode() string {
-	if *d.Lock.Enabled {
-		return "lease"
-	}
-	return "none"
-}
-
 func (d *Database) setFrom(f *Database) {
 	if v := f.DefaultIdleInTxSessionTimeout; v != nil {
 		d.DefaultIdleInTxSessionTimeout = v
@@ -298,6 +291,13 @@ type DatabaseLock struct {
 	Enabled              *bool
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
+}
+
+func (l *DatabaseLock) Mode() string {
+	if *l.Enabled {
+		return "lease"
+	}
+	return "none"
 }
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
@@ -642,6 +642,8 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	DefaultTransactionQueueDepth       *uint32
+	SimulateTransactions               *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -671,6 +673,12 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.DefaultTransactionQueueDepth; v != nil {
+		o.DefaultTransactionQueueDepth = v
+	}
+	if v := f.SimulateTransactions; v != nil {
+		o.SimulateTransactions = v
 	}
 }
 

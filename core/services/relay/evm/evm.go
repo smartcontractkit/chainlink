@@ -326,16 +326,16 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
-	if configWatcher.chain.Config().OCRSimulateTransactions() {
+	if configWatcher.chain.Config().OCR2SimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
 	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -376,16 +376,16 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
-	if configWatcher.chain.Config().OCRSimulateTransactions() {
+	if configWatcher.chain.Config().OCR2SimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
 	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
 	}
 	if pluginGasLimit != nil {
 		gasLimit = *pluginGasLimit

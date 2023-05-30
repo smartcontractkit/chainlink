@@ -130,6 +130,22 @@ func (_m *Config) ChainType() config.ChainType {
 	return r0
 }
 
+// Database provides a mock function with given fields:
+func (_m *Config) Database() config.Database {
+	ret := _m.Called()
+
+	var r0 config.Database
+	if rf, ok := ret.Get(0).(func() config.Database); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Database)
+		}
+	}
+
+	return r0
+}
+
 // DatabaseDefaultQueryTimeout provides a mock function with given fields:
 func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
 	ret := _m.Called()
@@ -519,20 +535,6 @@ func (_m *Config) LogSQL() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TriggerFallbackDBPollInterval provides a mock function with given fields:
-func (_m *Config) TriggerFallbackDBPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
