@@ -613,6 +613,50 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMasterCallerSession) GetUpkeep(id *
 	return _IKeeperRegistryMaster.Contract.GetUpkeep(&_IKeeperRegistryMaster.CallOpts, id)
 }
 
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterCaller) GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	var out []interface{}
+	err := _IKeeperRegistryMaster.contract.Call(opts, &out, "getUpkeepAdminOffchainConfig", upkeepId)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterSession) GetUpkeepAdminOffchainConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IKeeperRegistryMaster.Contract.GetUpkeepAdminOffchainConfig(&_IKeeperRegistryMaster.CallOpts, upkeepId)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterCallerSession) GetUpkeepAdminOffchainConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IKeeperRegistryMaster.Contract.GetUpkeepAdminOffchainConfig(&_IKeeperRegistryMaster.CallOpts, upkeepId)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterCaller) GetUpkeepManager(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _IKeeperRegistryMaster.contract.Call(opts, &out, "getUpkeepManager")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterSession) GetUpkeepManager() (common.Address, error) {
+	return _IKeeperRegistryMaster.Contract.GetUpkeepManager(&_IKeeperRegistryMaster.CallOpts)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterCallerSession) GetUpkeepManager() (common.Address, error) {
+	return _IKeeperRegistryMaster.Contract.GetUpkeepManager(&_IKeeperRegistryMaster.CallOpts)
+}
+
 func (_IKeeperRegistryMaster *IKeeperRegistryMasterCaller) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 	var out []interface{}
 	err := _IKeeperRegistryMaster.contract.Call(opts, &out, "getUpkeepTriggerConfig", upkeepId)
@@ -1023,6 +1067,18 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactorSession) SetPeerReg
 	return _IKeeperRegistryMaster.Contract.SetPeerRegistryMigrationPermission(&_IKeeperRegistryMaster.TransactOpts, peer, permission)
 }
 
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactor) SetUpkeepAdminOffchainConfig(opts *bind.TransactOpts, upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.contract.Transact(opts, "setUpkeepAdminOffchainConfig", upkeepId, newAdminOffchainConfig)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterSession) SetUpkeepAdminOffchainConfig(upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.Contract.SetUpkeepAdminOffchainConfig(&_IKeeperRegistryMaster.TransactOpts, upkeepId, newAdminOffchainConfig)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactorSession) SetUpkeepAdminOffchainConfig(upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.Contract.SetUpkeepAdminOffchainConfig(&_IKeeperRegistryMaster.TransactOpts, upkeepId, newAdminOffchainConfig)
+}
+
 func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactor) SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error) {
 	return _IKeeperRegistryMaster.contract.Transact(opts, "setUpkeepGasLimit", id, gasLimit)
 }
@@ -1033,6 +1089,18 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMasterSession) SetUpkeepGasLimit(id
 
 func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactorSession) SetUpkeepGasLimit(id *big.Int, gasLimit uint32) (*types.Transaction, error) {
 	return _IKeeperRegistryMaster.Contract.SetUpkeepGasLimit(&_IKeeperRegistryMaster.TransactOpts, id, gasLimit)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactor) SetUpkeepManager(opts *bind.TransactOpts, newUpkeepManager common.Address) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.contract.Transact(opts, "setUpkeepManager", newUpkeepManager)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterSession) SetUpkeepManager(newUpkeepManager common.Address) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.Contract.SetUpkeepManager(&_IKeeperRegistryMaster.TransactOpts, newUpkeepManager)
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactorSession) SetUpkeepManager(newUpkeepManager common.Address) (*types.Transaction, error) {
+	return _IKeeperRegistryMaster.Contract.SetUpkeepManager(&_IKeeperRegistryMaster.TransactOpts, newUpkeepManager)
 }
 
 func (_IKeeperRegistryMaster *IKeeperRegistryMasterTransactor) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
@@ -3409,6 +3477,134 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMasterFilterer) ParseUnpaused(log t
 	return event, nil
 }
 
+type IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator struct {
+	Event *IKeeperRegistryMasterUpkeepAdminOffchainConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IKeeperRegistryMasterUpkeepAdminOffchainConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IKeeperRegistryMasterUpkeepAdminOffchainConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IKeeperRegistryMasterUpkeepAdminOffchainConfigSet struct {
+	Id                  *big.Int
+	AdminOffchainConfig []byte
+	Raw                 types.Log
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterFilterer) FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IKeeperRegistryMaster.contract.FilterLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator{contract: _IKeeperRegistryMaster.contract, event: "UpkeepAdminOffchainConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterFilterer) WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IKeeperRegistryMasterUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _IKeeperRegistryMaster.contract.WatchLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IKeeperRegistryMasterUpkeepAdminOffchainConfigSet)
+				if err := _IKeeperRegistryMaster.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IKeeperRegistryMaster *IKeeperRegistryMasterFilterer) ParseUpkeepAdminOffchainConfigSet(log types.Log) (*IKeeperRegistryMasterUpkeepAdminOffchainConfigSet, error) {
+	event := new(IKeeperRegistryMasterUpkeepAdminOffchainConfigSet)
+	if err := _IKeeperRegistryMaster.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type IKeeperRegistryMasterUpkeepAdminTransferRequestedIterator struct {
 	Event *IKeeperRegistryMasterUpkeepAdminTransferRequested
 
@@ -5193,6 +5389,8 @@ func (_IKeeperRegistryMaster *IKeeperRegistryMaster) ParseLog(log types.Log) (ge
 		return _IKeeperRegistryMaster.ParseTransmitted(log)
 	case _IKeeperRegistryMaster.abi.Events["Unpaused"].ID:
 		return _IKeeperRegistryMaster.ParseUnpaused(log)
+	case _IKeeperRegistryMaster.abi.Events["UpkeepAdminOffchainConfigSet"].ID:
+		return _IKeeperRegistryMaster.ParseUpkeepAdminOffchainConfigSet(log)
 	case _IKeeperRegistryMaster.abi.Events["UpkeepAdminTransferRequested"].ID:
 		return _IKeeperRegistryMaster.ParseUpkeepAdminTransferRequested(log)
 	case _IKeeperRegistryMaster.abi.Events["UpkeepAdminTransferred"].ID:
@@ -5293,6 +5491,10 @@ func (IKeeperRegistryMasterUnpaused) Topic() common.Hash {
 	return common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa")
 }
 
+func (IKeeperRegistryMasterUpkeepAdminOffchainConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x09a658476c5597979b9948f488ec2958cfead97bc8f46b19ca0b21cdab93cdee")
+}
+
 func (IKeeperRegistryMasterUpkeepAdminTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0xb1cbb2c4b8480034c27e06da5f096b8233a8fd4497028593a41ff6df79726b35")
 }
@@ -5390,6 +5592,10 @@ type IKeeperRegistryMasterInterface interface {
 
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 
+	GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+
+	GetUpkeepManager(opts *bind.CallOpts) (common.Address, error)
+
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 
 	INext(opts *bind.CallOpts) (common.Address, error)
@@ -5446,7 +5652,11 @@ type IKeeperRegistryMasterInterface interface {
 
 	SetPeerRegistryMigrationPermission(opts *bind.TransactOpts, peer common.Address, permission uint8) (*types.Transaction, error)
 
+	SetUpkeepAdminOffchainConfig(opts *bind.TransactOpts, upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error)
+
 	SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error)
+
+	SetUpkeepManager(opts *bind.TransactOpts, newUpkeepManager common.Address) (*types.Transaction, error)
 
 	SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error)
 
@@ -5579,6 +5789,12 @@ type IKeeperRegistryMasterInterface interface {
 	WatchUnpaused(opts *bind.WatchOpts, sink chan<- *IKeeperRegistryMasterUnpaused) (event.Subscription, error)
 
 	ParseUnpaused(log types.Log) (*IKeeperRegistryMasterUnpaused, error)
+
+	FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IKeeperRegistryMasterUpkeepAdminOffchainConfigSetIterator, error)
+
+	WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IKeeperRegistryMasterUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepAdminOffchainConfigSet(log types.Log) (*IKeeperRegistryMasterUpkeepAdminOffchainConfigSet, error)
 
 	FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IKeeperRegistryMasterUpkeepAdminTransferRequestedIterator, error)
 

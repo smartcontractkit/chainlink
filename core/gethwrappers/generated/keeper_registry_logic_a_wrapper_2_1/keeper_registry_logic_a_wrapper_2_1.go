@@ -2498,6 +2498,134 @@ func (_KeeperRegistryLogicA *KeeperRegistryLogicAFilterer) ParseUnpaused(log typ
 	return event, nil
 }
 
+type KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator struct {
+	Event *KeeperRegistryLogicAUpkeepAdminOffchainConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(KeeperRegistryLogicAUpkeepAdminOffchainConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(KeeperRegistryLogicAUpkeepAdminOffchainConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type KeeperRegistryLogicAUpkeepAdminOffchainConfigSet struct {
+	Id                  *big.Int
+	AdminOffchainConfig []byte
+	Raw                 types.Log
+}
+
+func (_KeeperRegistryLogicA *KeeperRegistryLogicAFilterer) FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicA.contract.FilterLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator{contract: _KeeperRegistryLogicA.contract, event: "UpkeepAdminOffchainConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_KeeperRegistryLogicA *KeeperRegistryLogicAFilterer) WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicAUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicA.contract.WatchLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(KeeperRegistryLogicAUpkeepAdminOffchainConfigSet)
+				if err := _KeeperRegistryLogicA.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_KeeperRegistryLogicA *KeeperRegistryLogicAFilterer) ParseUpkeepAdminOffchainConfigSet(log types.Log) (*KeeperRegistryLogicAUpkeepAdminOffchainConfigSet, error) {
+	event := new(KeeperRegistryLogicAUpkeepAdminOffchainConfigSet)
+	if err := _KeeperRegistryLogicA.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type KeeperRegistryLogicAUpkeepAdminTransferRequestedIterator struct {
 	Event *KeeperRegistryLogicAUpkeepAdminTransferRequested
 
@@ -4249,6 +4377,8 @@ func (_KeeperRegistryLogicA *KeeperRegistryLogicA) ParseLog(log types.Log) (gene
 		return _KeeperRegistryLogicA.ParseStaleUpkeepReport(log)
 	case _KeeperRegistryLogicA.abi.Events["Unpaused"].ID:
 		return _KeeperRegistryLogicA.ParseUnpaused(log)
+	case _KeeperRegistryLogicA.abi.Events["UpkeepAdminOffchainConfigSet"].ID:
+		return _KeeperRegistryLogicA.ParseUpkeepAdminOffchainConfigSet(log)
 	case _KeeperRegistryLogicA.abi.Events["UpkeepAdminTransferRequested"].ID:
 		return _KeeperRegistryLogicA.ParseUpkeepAdminTransferRequested(log)
 	case _KeeperRegistryLogicA.abi.Events["UpkeepAdminTransferred"].ID:
@@ -4339,6 +4469,10 @@ func (KeeperRegistryLogicAStaleUpkeepReport) Topic() common.Hash {
 
 func (KeeperRegistryLogicAUnpaused) Topic() common.Hash {
 	return common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa")
+}
+
+func (KeeperRegistryLogicAUpkeepAdminOffchainConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x09a658476c5597979b9948f488ec2958cfead97bc8f46b19ca0b21cdab93cdee")
 }
 
 func (KeeperRegistryLogicAUpkeepAdminTransferRequested) Topic() common.Hash {
@@ -4533,6 +4667,12 @@ type KeeperRegistryLogicAInterface interface {
 	WatchUnpaused(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicAUnpaused) (event.Subscription, error)
 
 	ParseUnpaused(log types.Log) (*KeeperRegistryLogicAUnpaused, error)
+
+	FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicAUpkeepAdminOffchainConfigSetIterator, error)
+
+	WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicAUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepAdminOffchainConfigSet(log types.Log) (*KeeperRegistryLogicAUpkeepAdminOffchainConfigSet, error)
 
 	FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*KeeperRegistryLogicAUpkeepAdminTransferRequestedIterator, error)
 
