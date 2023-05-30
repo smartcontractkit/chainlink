@@ -171,6 +171,10 @@ func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
 	return c.cfg.GasEstimator.LimitJobType.OCR
 }
 
+func (c *ChainScoped) EvmGasLimitOCR2JobType() *uint32 {
+	return c.cfg.GasEstimator.LimitJobType.OCR2
+}
+
 func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
 	return c.cfg.GasEstimator.LimitJobType.DR
 }
