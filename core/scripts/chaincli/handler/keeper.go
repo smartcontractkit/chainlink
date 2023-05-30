@@ -16,10 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
+	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -94,6 +98,8 @@ func (k *Keeper) DeployRegistry(ctx context.Context) {
 		k.deployRegistry12(ctx)
 	case keeper.RegistryVersion_2_0:
 		k.deployRegistry20(ctx)
+	case keeper.RegistryVersion_2_1:
+		k.deployRegistry21(ctx)
 	default:
 		panic("unsupported registry version")
 	}
@@ -106,6 +112,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 	var keeperRegistry11 *registry11.KeeperRegistry
 	var keeperRegistry12 *registry12.KeeperRegistry
 	var keeperRegistry20 *registry20.KeeperRegistry
+	var keeperRegistry21 *iregistry21.IKeeperRegistryMaster
 	if k.cfg.RegistryAddress != "" {
 		callOpts := bind.CallOpts{
 			From:    k.fromAddr,
@@ -138,6 +145,14 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
+		case keeper.RegistryVersion_2_1:
+			registryAddr, keeperRegistry21 = k.getRegistry21(ctx)
+			state, err := keeperRegistry21.GetState(&callOpts)
+			if err != nil {
+				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
+			}
+			upkeepCount = state.State.NumUpkeeps.Int64()
+			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
 			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
 		}
@@ -176,6 +191,52 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 	}
 
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
+}
+
+// deployRegistry21 deploys a version 2.1 keeper registry
+func (k *Keeper) deployRegistry21(ctx context.Context) (common.Address, *iregistry21.IKeeperRegistryMaster) {
+	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
+		k.buildTxOpts(ctx),
+		k.client,
+		0,
+		common.HexToAddress(k.cfg.LinkTokenAddr),
+		common.HexToAddress(k.cfg.LinkETHFeedAddr),
+		common.HexToAddress(k.cfg.FastGasFeedAddr),
+	)
+	if err != nil {
+		log.Fatal("DeployAbi failed: ", err)
+	}
+	k.waitDeployment(ctx, tx)
+	log.Println("KeeperRegistryLogicB 2.1 Logic deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+
+	registryLogicAAddr, tx, _, err := registrylogica21.DeployKeeperRegistryLogicA(
+		k.buildTxOpts(ctx),
+		k.client,
+		registryLogicBAddr,
+	)
+	if err != nil {
+		log.Fatal("DeployAbi failed: ", err)
+	}
+	k.waitDeployment(ctx, tx)
+	log.Println("KeeperRegistryLogicA 2.1 Logic deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+
+	registryAddr, deployKeeperRegistryTx, _, err := registry21.DeployKeeperRegistry(
+		k.buildTxOpts(ctx),
+		k.client,
+		registryLogicAAddr,
+	)
+	if err != nil {
+		log.Fatal("DeployAbi failed: ", err)
+	}
+	k.waitDeployment(ctx, deployKeeperRegistryTx)
+	log.Println("KeeperRegistry 2.1 deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
+
+	registryInstance, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
+	if err != nil {
+		log.Fatal("Failed to attach to deployed contract: ", err)
+	}
+
+	return registryAddr, registryInstance
 }
 
 // deployRegistry20 deploys a version 2.0 keeper registry
@@ -282,6 +343,24 @@ func (k *Keeper) getRegistry20(ctx context.Context) (common.Address, *registry20
 	return registryAddr, keeperRegistry20
 }
 
+// getRegistry21 attaches to an existing 2.1 registry and possibly updates registry config
+func (k *Keeper) getRegistry21(ctx context.Context) (common.Address, *iregistry21.IKeeperRegistryMaster) {
+	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
+	keeperRegistry21, err := iregistry21.NewIKeeperRegistryMaster(
+		registryAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatal("Registry failed: ", err)
+	}
+	if k.cfg.RegistryConfigUpdate {
+		panic("KeeperRegistry2.1 could not be updated")
+	} else {
+		log.Println("KeeperRegistry2.1 config not updated: KEEPER_CONFIG_UPDATE=false")
+	}
+	return registryAddr, keeperRegistry21
+}
+
 // getRegistry12 attaches to an existing 1.2 registry and possibly updates registry config
 func (k *Keeper) getRegistry12(ctx context.Context) (common.Address, *registry12.KeeperRegistry) {
 	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
@@ -378,7 +457,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 		// Register
 		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData),
+			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData), []byte{},
 		)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
