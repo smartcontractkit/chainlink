@@ -702,6 +702,8 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
+DefaultTransactionQueueDepth = 1 # Default
+SimulateTransactions = false # Default
 ```
 
 
@@ -792,6 +794,18 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
+
+### DefaultTransactionQueueDepth
+```toml
+DefaultTransactionQueueDepth = 1 # Default
+```
+DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
+
+### SimulateTransactions
+```toml
+SimulateTransactions = false # Default
+```
+SimulateTransactions enables transaction simulation for OCR2.
 
 ## OCR
 ```toml
@@ -4412,6 +4426,7 @@ Only applies to EIP-1559 transactions)
 ```toml
 [EVM.GasEstimator.LimitJobType]
 OCR = 100_000 # Example
+OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
@@ -4424,6 +4439,12 @@ Keeper = 100_000 # Example
 OCR = 100_000 # Example
 ```
 OCR overrides LimitDefault for OCR jobs.
+
+### OCR2
+```toml
+OCR2 = 100_000 # Example
+```
+OCR2 overrides LimitDefault for OCR2 jobs.
 
 ### DR
 ```toml
