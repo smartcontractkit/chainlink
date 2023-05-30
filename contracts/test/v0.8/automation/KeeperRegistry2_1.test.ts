@@ -4968,8 +4968,8 @@ describe('KeeperRegistry2_1', () => {
     it('reverts when non manager tries to set admin offchain config', async () => {
       await evmRevert(
         registry
-        .connect(payee2)
-        .setUpkeepAdminOffchainConfig(upkeepId, '0x1234'),
+          .connect(payee2)
+          .setUpkeepAdminOffchainConfig(upkeepId, '0x1234'),
         'OnlyCallableByUpkeepManager()',
       )
     })
@@ -4981,8 +4981,8 @@ describe('KeeperRegistry2_1', () => {
 
     it('allows upkeep manager to set admin offchain config', async () => {
       await registry
-      .connect(payee1)
-      .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
+        .connect(payee1)
+        .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
       const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
       assert.equal(cfg, '0x1234')
     })
