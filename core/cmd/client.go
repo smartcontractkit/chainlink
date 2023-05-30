@@ -153,7 +153,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
+	dbListener := cfg.Database().Listener()
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
