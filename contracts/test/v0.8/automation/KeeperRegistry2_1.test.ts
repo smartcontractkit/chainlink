@@ -4941,4 +4941,54 @@ describe('KeeperRegistry2_1', () => {
         )
     })
   })
+
+  describe('#setUpkeepManager() / #getUpkeepManager()', () => {
+    it('reverts when non owner tries to set upkeep manager', async () => {
+      await evmRevert(
+        registry.connect(payee1).setUpkeepManager(await payee2.getAddress()),
+        'Only callable by owner',
+      )
+    })
+
+    it('returns contract owner as the initial upkeep manager', async () => {
+      assert.equal(await registry.getUpkeepManager(), await registry.owner())
+    })
+
+    it('allows owner to set a new upkeep manager', async () => {
+      await registry.connect(owner).setUpkeepManager(await payee2.getAddress())
+      assert.equal(await registry.getUpkeepManager(), await payee2.getAddress())
+    })
+  })
+
+  describe('#setUpkeepAdminOffchainConfig() / #getUpkeepAdminOffchainConfig()', () => {
+    beforeEach(async () => {
+      await registry.connect(owner).setUpkeepManager(await payee1.getAddress())
+    })
+
+    it('reverts when non manager tries to set admin offchain config', async () => {
+      await evmRevert(
+        registry
+          .connect(payee2)
+          .setUpkeepAdminOffchainConfig(upkeepId, '0x1234'),
+        'OnlyCallableByUpkeepManager()',
+      )
+    })
+
+    it('returns empty bytes for upkeep admin offchain config before setting', async () => {
+      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+      assert.equal(cfg, '0x')
+    })
+
+    it('allows upkeep manager to set admin offchain config', async () => {
+      const tx = await registry
+        .connect(payee1)
+        .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
+      await expect(tx)
+        .to.emit(registry, 'UpkeepAdminOffchainConfigSet')
+        .withArgs(upkeepId, '0x1234')
+
+      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+      assert.equal(cfg, '0x1234')
+    })
+  })
 })
