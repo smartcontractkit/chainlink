@@ -306,7 +306,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe.only('KeeperRegistry2_1', () => {
+describe('KeeperRegistry2_1', () => {
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
