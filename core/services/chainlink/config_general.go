@@ -461,14 +461,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
 func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
 	return g.c.Database.DefaultLockTimeout.Duration()
 }
@@ -962,10 +954,6 @@ func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
 
 func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {

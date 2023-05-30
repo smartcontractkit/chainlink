@@ -6,7 +6,7 @@ go 1.20
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -84,7 +84,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
-	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -283,7 +282,7 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230508053235-41120ca1f9f3 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230517200758-40dada2543a1 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230526232037-00743d25b7ec // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230522061116-665c91c3d1fa // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
