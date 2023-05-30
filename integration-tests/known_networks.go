@@ -64,15 +64,15 @@ var (
 	}
 
 	SimulatedEVMNonDev = blockchain.EVMNetwork{
-		Name:                 "simulated",
+		Name:                 "geth",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              1337,
 		PrivateKeys: []string{
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 		},
-		URLs:                      []string{"ws://simulated-ethereum-geth:8546"},
-		HTTPURLs:                  []string{"http://simulated-ethereum-geth:8544"},
+		URLs:                      []string{"ws://geth-ethereum-geth:8546"},
+		HTTPURLs:                  []string{"http://geth-ethereum-geth:8544"},
 		ChainlinkTransactionLimit: 500000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
