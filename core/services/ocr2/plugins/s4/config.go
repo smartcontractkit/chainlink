@@ -4,4 +4,5 @@ type PluginConfig struct {
 	Product               string
 	NSnapshotShards       uint
 	MaxObservationEntries uint
+	MaxReportEntries      uint
 }

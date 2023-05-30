@@ -45,3 +45,15 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, qq, n)
 }
+
+func Test_VerifySignature(t *testing.T) {
+	t.Parallel()
+
+	rows := generateTestRows(t, 2, time.Minute)
+	err := rows[0].VerifySignature()
+	assert.NoError(t, err)
+
+	rows[1].Signature[0] = ^rows[1].Signature[0]
+	err = rows[1].VerifySignature()
+	assert.Error(t, err)
+}
