@@ -26,14 +26,14 @@ func TestDatabaseConfig(t *testing.T) {
 	assert.Nil(t, backup.URL())
 
 	db := cfg.Database()
-	assert.Equal(t, db.DatabaseDefaultIdleInTxSessionTimeout(), 1*time.Minute)
-	assert.Equal(t, db.DatabaseDefaultLockTimeout(), 1*time.Hour)
+	assert.Equal(t, db.DefaultIdleInTxSessionTimeout(), 1*time.Minute)
+	assert.Equal(t, db.DefaultLockTimeout(), 1*time.Hour)
 	assert.Equal(t, db.DatabaseDefaultQueryTimeout(), 1*time.Second)
 	assert.Equal(t, db.LogSQL(), true)
 	assert.Equal(t, db.MaxIdleConns(), 7)
 	assert.Equal(t, db.MaxOpenConns(), 13)
 	assert.Equal(t, db.MigrateDatabase(), true)
-	assert.Equal(t, db.GetDatabaseDialectConfiguredOrDefault(), dialects.Postgres)
+	assert.Equal(t, db.Dialect(), dialects.Postgres)
 	url := db.DatabaseURL()
 	assert.NotEqual(t, url.String(), "")
 
