@@ -88,7 +88,7 @@ func main() {
 		"-f", fmt.Sprintf("wsURL=%s", wsURL),
 		"-f", fmt.Sprintf("httpURL=%s", httpURL),
 		"-f", fmt.Sprintf("fundingKey=%s", fundingKey),
-		"-f", fmt.Sprintf("testInputs=@%s", "test.toml"),
+		"-F", fmt.Sprintf("testInputs=@%s", "test.toml"),
 	)
 	if err != nil {
 		fmt.Printf("Error running gh workflow run: %v\n", err)
