@@ -1,4 +1,4 @@
-package forwarders
+package forwarders_test
 
 import (
 	"database/sql"
@@ -9,46 +9,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/sqlx"
 )
-
-type TestORM struct {
-	ORM
-	db *sqlx.DB
-}
-
-func setupORM(t *testing.T) *TestORM {
-	t.Helper()
-
-	var (
-		db   = pgtest.NewSqlxDB(t)
-		lggr = logger.TestLogger(t)
-		orm  = NewORM(db, lggr, pgtest.NewQConfig(true))
-	)
-
-	return &TestORM{ORM: orm, db: db}
-}
 
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation
 func Test_DeleteForwarder(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDBWithRollback(t)
+	_, db := heavyweight.FullTestDBNoFixturesV2(t, "delete_forwarder", nil)
 	lggr := logger.TestLogger(t)
-	tORM := NewORM(db, lggr, pgtest.NewQConfig(true))
+	orm := forwarders.NewORM(db, lggr, pgtest.NewQConfig(true))
 
 	addr := testutils.NewAddress()
 	chainID := testutils.NewRandomEVMChainID()
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 
-	fwd, err := tORM.CreateForwarder(addr, *utils.NewBig(chainID))
+	fwd, err := orm.CreateForwarder(addr, *utils.NewBig(chainID))
 	require.NoError(t, err)
 	assert.Equal(t, addr, fwd.Address)
 
@@ -69,7 +52,7 @@ func Test_DeleteForwarder(t *testing.T) {
 	}
 
 	for _, expect := range expected {
-		err = tORM.DeleteForwarder(fwd.ID, testCleanupFn)
+		err = orm.DeleteForwarder(fwd.ID, testCleanupFn)
 		assert.ErrorIs(t, err, expect)
 	}
 	assert.Equal(t, 2, cleanupCalled)

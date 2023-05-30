@@ -34,8 +34,8 @@ var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Meth
 
 func createLogPoller(t *testing.T, db *sqlx.DB, lggr logger.Logger, ec client.Client) logpoller.LogPoller {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
-	lp.StartOnce("LogPoller", func() error { return nil }) // Required because forwarder validates lp.Ready()
-	t.Cleanup(func() { lp.StopOnce("LogPoller", func() error { return nil }) })
+	require.NoError(t, lp.StartOnce("LogPoller", func() error { return nil })) // Required because forwarder validates lp.Ready())
+	t.Cleanup(func() { require.NoError(t, lp.StopOnce("LogPoller", func() error { return nil })) })
 	return lp
 }
 

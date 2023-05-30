@@ -9,12 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	mocklogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -26,10 +32,19 @@ type TestEVMForwardersController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) *TestEVMForwardersController {
+func setupEVMForwardersControllerTest(t *testing.T, lp logpoller.LogPoller, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) *TestEVMForwardersController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
+	mockLogPoller := mocklogpoller.NewLogPoller(t)
+	mockLogPoller.On("Name").Return("mock logpoller")
+	mockLogPoller.On("Start", mock.Anything).Return(nil)
+	mockLogPoller.On("Ready").Return(nil)
+	mockLogPoller.On("HealthReport").Return(nil)
+	mockLogPoller.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	mockLogPoller.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
+	mockLogPoller.On("Close", mock.Anything).Return(nil)
+
+	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn), mockLogPoller)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
@@ -44,7 +59,14 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
 	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
-	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := logpoller.NewORM(chainId.ToInt(), db, lggr, pgtest.NewQConfig(true))
+	ec := evmtest.NewEthClientMock(t)
+	lp := logpoller.NewLogPoller(orm, ec, lggr, 0, 0, 0, 0, 0)
+
+	controller := setupEVMForwardersControllerTest(t, lp, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = ptr(true)
 		c.EVM = evmcfg.EVMConfigs{
 			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
 		}
@@ -81,7 +103,12 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainId := utils.NewBig(testutils.NewRandomEVMChainID())
-	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := logpoller.NewORM(chainId.ToInt(), db, lggr, pgtest.NewQConfig(true))
+	lp := logpoller.NewLogPoller(orm, nil, lggr, 0, 0, 0, 0, 0)
+	controller := setupEVMForwardersControllerTest(t, lp, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = ptr(true)
 		c.EVM = evmcfg.EVMConfigs{
 			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
 		}
