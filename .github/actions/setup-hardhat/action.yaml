@@ -4,7 +4,7 @@ inputs:
     required: true
     description: A cache namespace to add
   cache-version:
-    default: "5"
+    default: "6"
     description: Change to bust cache
 description: Setup pnpm for contracts
 runs:
