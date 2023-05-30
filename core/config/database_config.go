@@ -13,17 +13,8 @@ type DatabaseV1 interface {
 	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseListenerMaxReconnectDuration() time.Duration
-	DatabaseListenerMinReconnectInterval() time.Duration
-	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
-	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
-	TriggerFallbackDBPollInterval() time.Duration
 	LogSQL() bool
 }
 
@@ -35,21 +26,29 @@ type Backup interface {
 	URL() *url.URL
 }
 
+type Lock interface {
+	LockingMode() string
+	LeaseDuration() time.Duration
+	LeaseRefreshInterval() time.Duration
+}
+
+type Listener interface {
+	MaxReconnectDuration() time.Duration
+	MinReconnectInterval() time.Duration
+	FallbackPollInterval() time.Duration
+}
+
 type Database interface {
 	Backup() Backup
+	Listener() Listener
+	Lock() Lock
 	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
 	DatabaseDefaultLockTimeout() time.Duration
 	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseListenerMaxReconnectDuration() time.Duration
-	DatabaseListenerMinReconnectInterval() time.Duration
-	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
 	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
-	TriggerFallbackDBPollInterval() time.Duration
+	MaxIdleConns() int
+	MaxOpenConns() int
 	LogSQL() bool
 }

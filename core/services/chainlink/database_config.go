@@ -34,6 +34,38 @@ func (b *backupConfig) URL() *url.URL {
 	return b.s.BackupURL.URL()
 }
 
+type lockConfig struct {
+	c v2.DatabaseLock
+}
+
+func (l *lockConfig) LockingMode() string {
+	return l.c.Mode()
+}
+
+func (l *lockConfig) LeaseDuration() time.Duration {
+	return l.c.LeaseDuration.Duration()
+}
+
+func (l *lockConfig) LeaseRefreshInterval() time.Duration {
+	return l.c.LeaseRefreshInterval.Duration()
+}
+
+type listenerConfig struct {
+	c v2.DatabaseListener
+}
+
+func (l *listenerConfig) MaxReconnectDuration() time.Duration {
+	return l.c.MaxReconnectDuration.Duration()
+}
+
+func (l *listenerConfig) MinReconnectInterval() time.Duration {
+	return l.c.MinReconnectInterval.Duration()
+}
+
+func (l *listenerConfig) FallbackPollInterval() time.Duration {
+	return l.c.FallbackPollInterval.Duration()
+}
+
 var _ config.Database = (*databaseConfig)(nil)
 
 type databaseConfig struct {
@@ -49,6 +81,18 @@ func (d *databaseConfig) Backup() config.Backup {
 	}
 }
 
+func (d *databaseConfig) Lock() config.Lock {
+	return &lockConfig{
+		d.c.Lock,
+	}
+}
+
+func (d *databaseConfig) Listener() config.Listener {
+	return &listenerConfig{
+		c: d.c.Listener,
+	}
+}
+
 func (d *databaseConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
 	return d.c.DefaultIdleInTxSessionTimeout.Duration()
 }
@@ -61,18 +105,6 @@ func (d *databaseConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return d.c.DefaultQueryTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return d.c.Listener.MaxReconnectDuration.Duration()
-}
-
-func (d *databaseConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return d.c.Listener.MinReconnectInterval.Duration()
-}
-
-func (d *databaseConfig) DatabaseLockingMode() string {
-	return d.c.LockingMode()
-}
-
 func (d *databaseConfig) DatabaseURL() url.URL {
 	return *d.s.URL.URL()
 }
@@ -81,28 +113,16 @@ func (d *databaseConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dialec
 	return d.c.Dialect
 }
 
-func (d *databaseConfig) LeaseLockDuration() time.Duration {
-	return d.c.Lock.LeaseDuration.Duration()
-}
-
-func (d *databaseConfig) LeaseLockRefreshInterval() time.Duration {
-	return d.c.Lock.LeaseRefreshInterval.Duration()
-}
-
 func (d *databaseConfig) MigrateDatabase() bool {
 	return *d.c.MigrateOnStartup
 }
 
-func (d *databaseConfig) ORMMaxIdleConns() int {
+func (d *databaseConfig) MaxIdleConns() int {
 	return int(*d.c.MaxIdleConns)
 }
 
-func (d *databaseConfig) ORMMaxOpenConns() int {
+func (d *databaseConfig) MaxOpenConns() int {
 	return int(*d.c.MaxOpenConns)
-}
-
-func (d *databaseConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return d.c.Listener.FallbackPollInterval.Duration()
 }
 
 func (d *databaseConfig) LogSQL() (sql bool) {
