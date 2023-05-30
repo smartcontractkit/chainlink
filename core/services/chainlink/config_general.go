@@ -461,26 +461,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
-}
-
 func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
 	return g.c.Database.DefaultLockTimeout.Duration()
 }
@@ -608,16 +588,6 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
-}
-
 func (g *generalConfig) LogFileDir() string {
 	s := *g.c.Log.File.Dir
 	if s == "" {
@@ -728,6 +698,14 @@ func (g *generalConfig) OCR2TraceLogging() bool {
 
 func (g *generalConfig) OCR2CaptureEATelemetry() bool {
 	return *g.c.OCR2.CaptureEATelemetry
+}
+
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
@@ -984,10 +962,6 @@ func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
 
 func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {

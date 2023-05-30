@@ -285,7 +285,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
-	ldb := pg.NewLockedDB(cli.Config, lggr)
+	cfg := cli.Config
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
@@ -570,7 +571,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	lggr := logger.Sugared(cli.Logger.Named("RebroadcastTransactions"))
-	db, err := pg.OpenUnlockedDB(cli.Config)
+	db, err := pg.OpenUnlockedDB(cli.Config.AppID(), cli.Config.Database())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
@@ -692,7 +693,7 @@ func (cli *Client) validateDB(ctx *clipkg.Context) error {
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
-	cfg := cli.Config
+	cfg := cli.Config.Database()
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
@@ -812,7 +813,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
-	cfg := cli.Config
+	cfg := cli.Config.Database()
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
@@ -837,7 +838,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -851,7 +852,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -867,7 +868,7 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -883,7 +884,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}

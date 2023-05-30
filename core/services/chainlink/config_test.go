@@ -343,6 +343,8 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
+		DefaultTransactionQueueDepth:       ptr[uint32](1),
+		SimulateTransactions:               ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -464,6 +466,7 @@ func TestConfig_Marshal(t *testing.T) {
 						VRF:    ptr[uint32](1003),
 						FM:     ptr[uint32](1004),
 						Keeper: ptr[uint32](1005),
+						OCR2:   ptr[uint32](1006),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -756,6 +759,8 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
@@ -875,6 +880,7 @@ TipCapMin = '1 wei'
 
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001
+OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
