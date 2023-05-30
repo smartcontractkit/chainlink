@@ -48,7 +48,7 @@ func (s priorityLevelNodeSelector) getHighestPriorityAliveTier() []nodesWithPrio
 	var nodes []nodesWithPriority
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
-			nodes = append(nodes, nodesWithPriority{n, n.PriorityLevel()})
+			nodes = append(nodes, nodesWithPriority{n, n.Order()})
 		}
 	}
 
@@ -81,7 +81,7 @@ func removeLowerTiers(nodes []nodesWithPriority) []nodesWithPriority {
 func nrOfPriorityTiers(nodes []Node) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
-		priority := n.PriorityLevel()
+		priority := n.Order()
 		if highestPriority < priority {
 			highestPriority = priority
 		}
@@ -94,8 +94,8 @@ func firstOrHighestPriority(nodes []Node) Node {
 	hp := int32(math.MaxInt32)
 	var node Node
 	for _, n := range nodes {
-		if n.PriorityLevel() < hp {
-			hp = n.PriorityLevel()
+		if n.Order() < hp {
+			hp = n.Order()
 			node = n
 		}
 	}

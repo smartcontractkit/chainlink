@@ -22,12 +22,12 @@ type Configs interface {
 }
 
 type Node struct {
-	Name          string
-	EVMChainID    utils.Big
-	WSURL         null.String
-	HTTPURL       null.String
-	SendOnly      bool
-	PriorityLevel int32
+	Name       string
+	EVMChainID utils.Big
+	WSURL      null.String
+	HTTPURL    null.String
+	SendOnly   bool
+	Order      int32
 
 	State string
 }

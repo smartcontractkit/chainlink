@@ -463,7 +463,7 @@ func (_m *Node) PendingNonceAt(ctx context.Context, account common.Address) (uin
 }
 
 // PriorityLevel provides a mock function with given fields:
-func (_m *Node) PriorityLevel() int32 {
+func (_m *Node) Order() int32 {
 	ret := _m.Called()
 
 	var r0 int32
