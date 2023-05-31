@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -430,24 +430,42 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
-	case *keeper_registry_logic_b_wrapper_2_1.KeeperRegistryLogicBUpkeepTriggerConfigSet:
-		r.lggr.Debugf("KeeperRegistryLogicBUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepTriggerConfigSet:
+		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.updateUpkeepConfig(l.Id, l.TriggerConfig)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepCanceled:
+		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.markInactive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.markInactive(l.Id)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepRegistered:
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.addToActive(l.Id, false)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepReceived:
+		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepUnpaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepGasLimitSet:
+		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.addToActive(l.Id, true)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
