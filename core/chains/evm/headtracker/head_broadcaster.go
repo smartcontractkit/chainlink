@@ -40,6 +40,8 @@ type headBroadcaster[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hash
 }
 type evmHeadBroadcaster = headBroadcaster[*evmtypes.Head, common.Hash]
 
+var _ commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash] = &evmHeadBroadcaster{}
+
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster[
 	H commontypes.Head[BLOCK_HASH],
