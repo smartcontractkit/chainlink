@@ -48,26 +48,26 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.ProductName).Inc()
 
-	ormVersions, err := c.orm.GetVersions(c.addressRange, pg.WithParentCtx(ctx))
+	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetVersions in Query()")
 	}
 
-	versions := make([]*VersionRow, len(ormVersions))
-	for i, v := range ormVersions {
-		versions[i] = &VersionRow{
+	rows := make([]*SnapshotRow, len(snapshot))
+	for i, v := range snapshot {
+		rows[i] = &SnapshotRow{
 			Address: v.Address.Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
 	}
 
-	queryBytes, err := MarshalQuery(versions)
+	queryBytes, err := MarshalQuery(rows)
 	if err != nil {
 		return nil, err
 	}
 
-	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(versions)))
+	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
 
 	c.addressRange.Advance()

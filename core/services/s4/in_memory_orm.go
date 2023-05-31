@@ -81,15 +81,15 @@ func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt)
 	return nil
 }
 
-func (o *inMemoryOrm) GetVersions(addressRange *AddressRange, qopts ...pg.QOpt) ([]*VersionRow, error) {
+func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	now := time.Now().UnixMilli()
-	var versions []*VersionRow
+	var rows []*SnapshotRow
 	for _, row := range o.rows {
 		if row.Expiration > now {
-			versions = append(versions, &VersionRow{
+			rows = append(rows, &SnapshotRow{
 				Address: utils.NewBig(row.Address.ToInt()),
 				SlotId:  row.SlotId,
 				Version: row.Version,
@@ -97,7 +97,7 @@ func (o *inMemoryOrm) GetVersions(addressRange *AddressRange, qopts ...pg.QOpt) 
 		}
 	}
 
-	return versions, nil
+	return rows, nil
 }
 
 func (o *inMemoryOrm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {

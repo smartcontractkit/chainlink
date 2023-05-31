@@ -28,17 +28,17 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 
 	const n = 100
 	rows := generateTestOrmRows(t, n, time.Minute)
-	ormVersions := rowsToVersions(rows)
+	ormVersions := rowsToShapshotRows(rows)
 
-	versions := make([]*s4.VersionRow, len(ormVersions))
+	snapshot := make([]*s4.SnapshotRow, len(ormVersions))
 	for i, v := range ormVersions {
-		versions[i] = &s4.VersionRow{
+		snapshot[i] = &s4.SnapshotRow{
 			Address: v.Address.Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
 	}
-	data, err := s4.MarshalQuery(versions)
+	data, err := s4.MarshalQuery(snapshot)
 	assert.NoError(t, err)
 
 	qq, err := s4.UnmarshalQuery(data)

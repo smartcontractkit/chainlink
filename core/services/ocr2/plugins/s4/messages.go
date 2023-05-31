@@ -10,22 +10,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func MarshalQuery(versions []*VersionRow) ([]byte, error) {
+func MarshalQuery(rows []*SnapshotRow) ([]byte, error) {
 	rr := &Query{
-		Versions: versions,
+		Rows: rows,
 	}
 	return proto.Marshal(rr)
 }
 
-func UnmarshalQuery(data []byte) ([]*VersionRow, error) {
+func UnmarshalQuery(data []byte) ([]*SnapshotRow, error) {
 	query := &Query{}
 	if err := proto.Unmarshal(data, query); err != nil {
 		return nil, err
 	}
-	if query.Versions == nil {
-		query.Versions = make([]*VersionRow, 0)
+	if query.Rows == nil {
+		query.Rows = make([]*SnapshotRow, 0)
 	}
-	return query.Versions, nil
+	return query.Rows, nil
 }
 
 func MarshalRows(rows []*Row) ([]byte, error) {

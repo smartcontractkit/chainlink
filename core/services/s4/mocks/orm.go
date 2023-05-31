@@ -71,6 +71,39 @@ func (_m *ORM) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*s4.Row, 
 	return r0, r1
 }
 
+// GetSnapshot provides a mock function with given fields: addressRange, qopts
+func (_m *ORM) GetSnapshot(addressRange *s4.AddressRange, qopts ...pg.QOpt) ([]*s4.SnapshotRow, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, addressRange)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []*s4.SnapshotRow
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) ([]*s4.SnapshotRow, error)); ok {
+		return rf(addressRange, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) []*s4.SnapshotRow); ok {
+		r0 = rf(addressRange, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*s4.SnapshotRow)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*s4.AddressRange, ...pg.QOpt) error); ok {
+		r1 = rf(addressRange, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetUnconfirmedRows provides a mock function with given fields: limit, qopts
 func (_m *ORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*s4.Row, error) {
 	_va := make([]interface{}, len(qopts))
@@ -97,39 +130,6 @@ func (_m *ORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*s4.Row, erro
 
 	if rf, ok := ret.Get(1).(func(uint, ...pg.QOpt) error); ok {
 		r1 = rf(limit, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetVersions provides a mock function with given fields: addressRange, qopts
-func (_m *ORM) GetVersions(addressRange *s4.AddressRange, qopts ...pg.QOpt) ([]*s4.VersionRow, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, addressRange)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 []*s4.VersionRow
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) ([]*s4.VersionRow, error)); ok {
-		return rf(addressRange, qopts...)
-	}
-	if rf, ok := ret.Get(0).(func(*s4.AddressRange, ...pg.QOpt) []*s4.VersionRow); ok {
-		r0 = rf(addressRange, qopts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*s4.VersionRow)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*s4.AddressRange, ...pg.QOpt) error); ok {
-		r1 = rf(addressRange, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

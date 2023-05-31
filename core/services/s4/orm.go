@@ -19,8 +19,8 @@ type Row struct {
 	UpdatedAt  int64
 }
 
-// VersionRow used by GetVersions function.
-type VersionRow struct {
+// SnapshotRow used by GetVersions function.
+type SnapshotRow struct {
 	Address *utils.Big
 	SlotId  uint
 	Version uint64
@@ -46,9 +46,9 @@ type ORM interface {
 	// up to the given limit.
 	DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error
 
-	// GetVersions selects all non-expired row versions for the given addresses range.
+	// GetSnapshot selects all non-expired row versions for the given addresses range.
 	// For the full address range, use NewFullAddressRange().
-	GetVersions(addressRange *AddressRange, qopts ...pg.QOpt) ([]*VersionRow, error)
+	GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error)
 
 	// GetUnconfirmedRows selects all non-expired, non-confirmed rows ordered by UpdatedAt.
 	// The number of returned rows is limited to the given limit.
