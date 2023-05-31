@@ -25,7 +25,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
 
 	originalMessage := []byte("test")
 
-	encryptedMessage := NaclBoxSealAnonymous(t, kr.ConfigEncryptionPublicKey(), originalMessage)
+	encryptedMessage := naclBoxSealAnonymous(t, kr.ConfigEncryptionPublicKey(), originalMessage)
 
 	decryptedMessage, err := kr.NaclBoxOpenAnonymous(encryptedMessage)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
 	assert.Equal(t, err.Error(), "decryption failed")
 }
 
-func NaclBoxSealAnonymous(t *testing.T, peerPublicKey [curve25519.PointSize]byte, plaintext []byte) []byte {
+func naclBoxSealAnonymous(t *testing.T, peerPublicKey [curve25519.PointSize]byte, plaintext []byte) []byte {
 	t.Helper()
 
 	ciphertext, err := box.SealAnonymous(nil, plaintext, &peerPublicKey, cryptorand.Reader)

@@ -50,7 +50,7 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 	return ok, nil
 }
 
-// NaclBoxOpenAnonymous decrypts a message that was encrypted using the public key
+// NaclBoxOpenAnonymous decrypts a message that was encrypted using the OCR2 Offchain public key
 func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error) {
 	if len(ciphertext) < box.Overhead {
 		return nil, errors.New("ciphertext too short")
