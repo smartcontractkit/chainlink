@@ -479,10 +479,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 
 		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-			Configs:  starknet.NewConfigs(cfgs),
+			Config:          cfg,
+			Logger:          starkLggr,
+			KeyStoreAdapter: keystore.NewStarkNetKeystoreAdapter(keystore.NewStarkNetLooppKeystore(keyStore.StarkNet())),
+			Configs:         starknet.NewConfigs(cfgs),
 		}
 
 		chainSet, err := starknet.NewChainSet(opts, cfgs)

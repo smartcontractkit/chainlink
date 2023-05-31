@@ -290,7 +290,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids             []string
 		starkLggr       = appLggr.Named("StarkNet")
 		cfgs            = cfg.StarknetConfigs()
-		signer          = &keystore.StarknetLooppSigner{ks}
+		ksAdapter       = keystore.NewStarkNetKeystoreAdapter(&keystore.StarknetLooppSigner{ks})
 	)
 	for _, c := range cfgs {
 		c := c
@@ -319,14 +319,18 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		if err != nil {
 			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
 		}
-		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), signer)
+		// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
+		// be compatible with instantiating a [keystore.NewStarkNetKeystoreAdapter]. We can't pass an adapter
+		// directly because it doesn't satisfy the interface. Instead we ensure the delicate balance by constructing
+		// a keystore adapter above, which we know to be good, and pass a reference to its LOOPp keystore implementation.
+		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), ksAdapter.Loopp())
 	} else {
 		// fallback to embedded chainset
 		opts := starknet.ChainSetOpts{
-			Logger:   starkLggr,
-			KeyStore: signer,
-			Configs:  starknet.NewConfigs(cfgs),
-			Config:   cfg,
+			Logger:          starkLggr,
+			KeyStoreAdapter: ksAdapter,
+			Configs:         starknet.NewConfigs(cfgs),
+			Config:          cfg,
 		}
 		chainSet, err := starknet.NewChainSet(opts, cfgs)
 		if err != nil {

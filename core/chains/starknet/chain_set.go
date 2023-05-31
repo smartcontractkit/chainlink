@@ -15,10 +15,10 @@ import (
 )
 
 type ChainSetOpts struct {
-	Config   coreconfig.AppConfig
-	Logger   logger.Logger
-	KeyStore keystore.StarkNet
-	Configs  types.Configs
+	Config          coreconfig.AppConfig
+	Logger          logger.Logger
+	KeyStoreAdapter keystore.StarkNetKeystoreAdapter
+	Configs         types.Configs
 }
 
 func (o *ChainSetOpts) Name() string {
@@ -35,8 +35,8 @@ func (o *ChainSetOpts) Validate() (err error) {
 	if o.Logger == nil {
 		err = multierr.Append(err, required("Logger'"))
 	}
-	if o.KeyStore == nil {
-		err = multierr.Append(err, required("KeyStore"))
+	if o.KeyStoreAdapter == nil {
+		err = multierr.Append(err, required("KeyStoreAdapter"))
 	}
 	if o.Configs == nil {
 		err = multierr.Append(err, required("Configs"))
@@ -52,7 +52,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.KeyStoreAdapter, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}
