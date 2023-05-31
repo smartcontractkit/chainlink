@@ -1,5 +1,6 @@
 name: Automation On Demand Tests
 on:
+  pull_request: 
   workflow_dispatch:
     inputs:
       chainlinkVersion:
