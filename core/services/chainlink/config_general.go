@@ -700,6 +700,14 @@ func (g *generalConfig) OCR2CaptureEATelemetry() bool {
 	return *g.c.OCR2.CaptureEATelemetry
 }
 
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
+}
+
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	return g.c.P2P.NetworkStack()
 }
