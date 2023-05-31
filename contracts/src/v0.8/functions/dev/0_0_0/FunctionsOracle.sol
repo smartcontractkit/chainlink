@@ -32,6 +32,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   error EmptyBillingRegistry();
   error UnauthorizedPublicKeyChange();
 
+  bytes private s_thresholdPublicKey;
   bytes private s_donPublicKey;
   IFunctionsBillingRegistry private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
@@ -67,6 +68,23 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       revert EmptyBillingRegistry();
     }
     s_registry = IFunctionsBillingRegistry(registryAddress);
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function getThresholdPublicKey() external view override returns (bytes memory) {
+    return s_thresholdPublicKey;
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+    if (thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_thresholdPublicKey = thresholdPublicKey;
   }
 
   /**
