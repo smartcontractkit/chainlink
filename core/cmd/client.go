@@ -246,7 +246,7 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 	}
 	if len(ids) > 0 {
 		if err := solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Solana chains")
+			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
 		}
 	}
 
@@ -290,7 +290,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids             []string
 		starkLggr       = appLggr.Named("StarkNet")
 		cfgs            = cfg.StarknetConfigs()
-		signer          = &keystore.StarknetLooppSigner{ks} //starkkey.NewLooppKeystore(ks.Get)
+		signer          = &keystore.StarknetLooppSigner{ks}
 	)
 	for _, c := range cfgs {
 		c := c
@@ -298,7 +298,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 	}
 	if len(ids) > 0 {
 		if err := starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
-			return nil, errors.Wrap(err, "failed to setup Solana chains")
+			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
 		}
 	}
 
@@ -308,7 +308,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 			Starknet starknet.StarknetConfigs
 		}{Starknet: cfgs})
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal Starknet configs: %w", err)
+			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 		}
 
 		starknetCmdFn, err := plugins.MakeLoopCmd(loopRegistry, plugins.LoopExecConfig{
@@ -317,7 +317,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 			LoggingConfig: cfg,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
+			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
 		}
 		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), signer)
 	} else {
@@ -326,10 +326,11 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 			Logger:   starkLggr,
 			KeyStore: signer,
 			Configs:  starknet.NewConfigs(cfgs),
+			Config:   cfg,
 		}
 		chainSet, err := starknet.NewChainSet(opts, cfgs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
+			return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
 		}
 		starknetRelayer = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 	}

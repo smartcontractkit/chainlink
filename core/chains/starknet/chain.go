@@ -47,7 +47,7 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Con
 	}
 
 	looppKs := keystore.NewStarkNetLooppKeystore(ks)
-	ksAdapter := keystore.NewStarkNetKeystoreAdapter(looppKs) //starkkey.NewKeystoreAdapter(looppKs)
+	ksAdapter := keystore.NewStarkNetKeystoreAdapter(looppKs)
 	var err error
 	ch.txm, err = txm.New(lggr, ksAdapter.Loopp(), cfg, getClient)
 	if err != nil {

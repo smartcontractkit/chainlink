@@ -12,7 +12,7 @@ type LoopExecConfig struct {
 	LoggingConfig
 }
 
-// makeLoopCmd is helper to ensure synchronization between the loop registry and os cmd to exec the LOOP
+// MakeLoopCmd is helper to ensure synchronization between the loop registry and os cmd to exec the LOOP
 func MakeLoopCmd(loopRegistry *LoopRegistry, lcfg LoopExecConfig) (func() *exec.Cmd, error) {
 	registeredLoop, err := loopRegistry.Register(lcfg.Id, lcfg.LoggingConfig)
 	if err != nil {
