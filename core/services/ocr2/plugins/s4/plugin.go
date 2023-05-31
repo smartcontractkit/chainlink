@@ -19,11 +19,6 @@ type plugin struct {
 	addressRange *s4.AddressRange
 }
 
-type key struct {
-	address string
-	slotID  uint
-}
-
 var _ types.ReportingPlugin = (*plugin)(nil)
 
 func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
@@ -61,7 +56,7 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 	versions := make([]*VersionRow, len(ormVersions))
 	for i, v := range ormVersions {
 		versions[i] = &VersionRow{
-			Address: v.Address.Hex(),
+			Address: v.Address.Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
@@ -101,11 +96,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		} else {
 			maxObservationRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
 			for _, vr := range versionRows {
-				address, err := UnmarshalAddress(vr.Address)
-				if err != nil {
-					c.logger.Errorw("Failed to unmarshal address from Query", "err", err, "address", vr.Address)
-					continue
-				}
+				address := UnmarshalAddress(vr.Address)
 				row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
 				if err == nil && row.Version > vr.Version {
 					queryRows = append(queryRows, row)
@@ -129,6 +120,11 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
+	type key struct {
+		address string
+		slotID  uint
+	}
+
 	reportMap := make(map[key]*Row)
 
 	for _, ao := range aos {
@@ -144,7 +140,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 				continue
 			}
 			mkey := key{
-				address: row.Address,
+				address: UnmarshalAddress(row.Address).String(),
 				slotID:  uint(row.Slotid),
 			}
 			report, ok := reportMap[mkey]
@@ -183,12 +179,8 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 	}
 
 	for _, row := range reportRows {
-		address, err := UnmarshalAddress(row.Address)
-		if err != nil {
-			return false, err
-		}
 		ormRow := &s4.Row{
-			Address:    address,
+			Address:    UnmarshalAddress(row.Address),
 			SlotId:     uint(row.Slotid),
 			Payload:    row.Payload,
 			Version:    row.Version,
@@ -217,7 +209,7 @@ func (c *plugin) Close() error {
 
 func convertRow(from *s4.Row) *Row {
 	return &Row{
-		Address:    from.Address.Hex(),
+		Address:    from.Address.Bytes(),
 		Slotid:     uint32(from.SlotId),
 		Version:    from.Version,
 		Expiration: from.Expiration,

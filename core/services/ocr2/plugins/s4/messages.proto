@@ -5,7 +5,7 @@ option go_package = "core/services/ocr2/plugins/s4";
 package types;
 
 message VersionRow {
-    string address   = 1;
+    bytes address    = 1;
     uint32 slotid    = 2;
     uint64 version   = 3;
 }
@@ -15,7 +15,7 @@ message Query {
 }
 
 message Row {
-    string address   = 1;
+    bytes address    = 1;
     uint32 slotid    = 2;
     bytes payload    = 3;
     uint64 version   = 4;
