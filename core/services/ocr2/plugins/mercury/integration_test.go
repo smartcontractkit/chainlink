@@ -124,9 +124,11 @@ func TestIntegration_Mercury(t *testing.T) {
 	t.Cleanup(stopMining)
 
 	// Deploy config contract
-	verifierProxyAddr, _, _, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	verifierProxyAddr, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
 	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
+	require.NoError(t, err)
+	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -176,11 +178,13 @@ func TestIntegration_Mercury(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := fmt.Sprintf(`{"error": "pError test error"}`)
-				res.Write([]byte(resp))
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)

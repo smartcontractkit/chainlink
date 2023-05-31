@@ -1,0 +1,10 @@
+NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
+DonId = "example_don"
+MinHandshakeChallengeLen = 10
+
+[WsClientConfig]
+HandshakeTimeoutMillis = 200
+
+[[Gateways]]
+Id = "example_gateway"
+URL = "ws://localhost:8081/node"

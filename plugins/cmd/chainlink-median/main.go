@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/hashicorp/go-plugin"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -20,23 +20,17 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
+	slggr := logger.Sugared(lggr)
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
 		lggr.Fatalf("Failed to start prometheus server: %s", err)
 	}
-	defer func() {
-		if err := promServer.Close(); err != nil {
-			lggr.Warnf("Error during prometheus server shut down", err)
-		}
-	}()
+	defer slggr.ErrorIfFn(promServer.Close, "error closing prometheus server")
 
 	mp := median.NewPlugin(lggr)
-	err = mp.Start(context.Background())
-	if err != nil {
-		lggr.Fatalf("Failed to start median plugin: %s", err)
-	}
+	defer slggr.ErrorIfFn(mp.Close, "error closing pluginMedian")
 
 	stop := make(chan struct{})
 	defer close(stop)

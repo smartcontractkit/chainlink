@@ -29,23 +29,17 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(envCfg)
 	defer closeLggr()
+	slggr := logger.Sugared(lggr)
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
 		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
 	}
-	defer func() {
-		err := promServer.Close()
-		if err != nil {
-			lggr.Errorf("error closing prometheus server: %s", err)
-		}
-	}()
+	defer slggr.ErrorIfFn(promServer.Close, "error closing prometheus server")
 
 	cp := &pluginRelayer{lggr: lggr}
-	defer func() {
-		logger.Sugared(lggr).ErrorIfFn(cp.Close, "pluginRelayer")
-	}()
+	defer slggr.ErrorIfFn(cp.Close, "error closing pluginRelayer")
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)

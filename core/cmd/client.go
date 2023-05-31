@@ -64,7 +64,7 @@ import (
 var prometheus *ginprom.Prometheus
 var initOnce sync.Once
 
-func initPrometheus(cfg config.GeneralConfig) {
+func initPrometheus(cfg config.Prometheus) {
 	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
@@ -116,29 +116,6 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
-	if err := loadOpts(opts, configFiles...); err != nil {
-		return err
-	}
-
-	if secretsFile != "" {
-		b, err := os.ReadFile(secretsFile)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
-		}
-
-		secretsTOML := string(b)
-		err = opts.ParseSecrets(secretsTOML)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg, err := opts.New()
-	cli.Config = cfg
-	return err
-}
-
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
 	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
@@ -154,7 +131,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		initPrometheus(cfg)
 	})
 
-	err = handleNodeVersioning(db, appLggr, cfg)
+	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +153,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
+	dbListener := cfg.Database().Listener()
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -312,7 +290,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids             []string
 		starkLggr       = appLggr.Named("StarkNet")
 		cfgs            = cfg.StarknetConfigs()
-		signer          = &keystore.StarkNetSigner{ks}
+		signer          = &keystore.LooppKeystore{ks} //starkkey.NewLooppKeystore(ks.Get)
 	)
 	for _, c := range cfgs {
 		c := c
@@ -360,7 +338,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.GeneralConfig) error {
+func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
@@ -375,8 +353,9 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.Gene
 
 		// Take backup if app version is newer than DB version
 		// Need to do this BEFORE migration
-		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
+		backupCfg := cfg.Backup()
+		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg.DatabaseURL(), rootDir, cfg.Backup(), appLggr, appv, dbv); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
@@ -405,7 +384,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, cfg chainlink.Gene
 	return nil
 }
 
-func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -420,7 +399,7 @@ func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, a
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
-	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
 	if err != nil {
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
@@ -464,14 +443,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
+	timeoutDuration := config.DefaultHTTPTimeout().Duration()
 	if config.Port() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -495,7 +475,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
-func sentryInit(cfg config.BasicConfig) error {
+func sentryInit(cfg config.Sentry) error {
 	sentrydsn := cfg.SentryDSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
@@ -528,7 +508,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -540,7 +520,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+		case <-time.After(timeout):
 			// pause between attempts, default 15s
 		}
 	}

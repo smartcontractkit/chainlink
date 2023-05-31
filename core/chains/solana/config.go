@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
@@ -24,6 +25,10 @@ import (
 type SolanaConfigs []*SolanaConfig
 
 func (cs SolanaConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs SolanaConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -55,7 +60,10 @@ func (cs SolanaConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
+func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -67,6 +75,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {

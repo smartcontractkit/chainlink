@@ -54,3 +54,10 @@ func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCrede
 	}
 	return nil
 }
+
+func (g *generalConfig) ThresholdKeyShare() string {
+	if g.secrets.Threshold.ThresholdKeyShare == nil {
+		return ""
+	}
+	return string(*g.secrets.Threshold.ThresholdKeyShare)
+}

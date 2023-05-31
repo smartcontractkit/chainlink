@@ -7,13 +7,15 @@ import (
 )
 
 type GatewayConfig struct {
-	UserServerConfig gw_net.HTTPServerConfig
-	NodeServerConfig NodeServerConfig
-	Dons             []DONConfig
+	UserServerConfig        gw_net.HTTPServerConfig
+	NodeServerConfig        gw_net.WebSocketServerConfig
+	ConnectionManagerConfig ConnectionManagerConfig
+	Dons                    []DONConfig
 }
 
-type NodeServerConfig struct {
-	Port uint16
+type ConnectionManagerConfig struct {
+	AuthTimestampToleranceSec uint32
+	AuthChallengeLen          uint32
 }
 
 type DONConfig struct {

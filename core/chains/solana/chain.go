@@ -293,8 +293,7 @@ func (c *chain) Close() error {
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
 		c.lggr.Debug("Stopping balance monitor")
-		return multierr.Combine(c.txm.Close(),
-			c.balanceMonitor.Close())
+		return services.CloseAll(c.txm, c.balanceMonitor)
 	})
 }
 

@@ -15,11 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = EthConfirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmConfirmer              = Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
 	EvmBroadcaster            = Broadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList, *assets.Wei]
 	EvmResender               = Resender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt, EvmAccessList]
 	EvmReaper                 = Reaper[*big.Int]
@@ -41,6 +42,23 @@ type (
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 	EvmTxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 )
+
+func NewEvmTxm(
+	chainId *big.Int,
+	cfg txmgrtypes.TxmConfig[*assets.Wei], // explicit type to allow inference
+	keyStore EvmKeyStore,
+	lggr logger.Logger,
+	checkerFactory EvmTransmitCheckerFactory,
+	fwdMgr EvmFwdMgr,
+	txAttemptBuilder EvmTxAttemptBuilder,
+	txStore EvmTxStore,
+	nonceSyncer EvmNonceSyncer,
+	broadcaster *EvmBroadcaster,
+	confirmer *EvmConfirmer,
+	resender *EvmResender,
+) *EvmTxm {
+	return NewTxm(chainId, cfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender)
+}
 
 const (
 	// TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198

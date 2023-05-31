@@ -21,6 +21,7 @@ type Config interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
 	MercuryCredentials(credName string) *models.MercuryCredentials
+	ThresholdKeyShare() string
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.

@@ -60,16 +60,17 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	})
 
 	t.Run("ValidateConfig fails if insecure config is set on non-dev builds", func(t *testing.T) {
-		opts := GeneralConfigOpts{}
-		err := opts.ParseConfig(`
+		config := `
 		  [insecure]
 		  DevWebServer = true
 		  DisableRateLimiting = false
 		  InfiniteDepthQueries = false
 		  OCRDevelopmentMode = false
-		`)
-		require.NoError(t, err)
-		cfg, err := opts.init()
+		`
+		opts := GeneralConfigOpts{
+			ConfigStrings: []string{config},
+		}
+		cfg, err := opts.New()
 		require.NoError(t, err)
 		err = cfg.Validate()
 		require.Contains(t, err.Error(), "invalid configuration: Insecure.DevWebServer: invalid value (true): insecure configs are not allowed on secure builds")
@@ -118,4 +119,17 @@ func TestValidateDB(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
 
+}
+
+func TestConfig_LogSQL(t *testing.T) {
+	config, err := GeneralConfigOpts{}.New()
+	require.NoError(t, err)
+
+	config.SetLogSQL(true)
+	assert.Equal(t, config.LogSQL(), true)
+	assert.Equal(t, config.Database().LogSQL(), true)
+
+	config.SetLogSQL(false)
+	assert.Equal(t, config.LogSQL(), false)
+	assert.Equal(t, config.Database().LogSQL(), false)
 }
