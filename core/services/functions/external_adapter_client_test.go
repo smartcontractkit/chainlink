@@ -15,8 +15,7 @@ import (
 
 func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 			"result": "success",
 			"data": {
 				"result": "0x616263646566",
@@ -24,9 +23,6 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 			},
 			"statusCode": 200
 		}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 
@@ -53,8 +49,7 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 			"result": "error",
 			"data": {
 				"result": "",
@@ -62,9 +57,6 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 			},
 			"statusCode": 200
 		}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 
@@ -91,13 +83,9 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 			"invalid": "invalid"
 		}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 
 	defer ts.Close()
@@ -125,14 +113,10 @@ func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_MissingData(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 			"result": "success",
 			"statusCode": 200
 		}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 
@@ -159,8 +143,7 @@ func Test_FetchEncryptedSecrets_MissingData(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 				"result": "success",
 				"data": {
 					"result": "invalidHexstring",
@@ -168,9 +151,6 @@ func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 				},
 				"statusCode": 200
 			}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 
@@ -197,8 +177,7 @@ func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 				"result": "error",
 				"data": {
 					"error": "invalidHexstring",
@@ -206,9 +185,6 @@ func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 				},
 				"statusCode": 200
 			}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 
@@ -235,8 +211,7 @@ func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/fetcher" {
-			fmt.Fprintln(w, `{
+		fmt.Fprintln(w, `{
 				"result": "unexpected",
 				"data": {
 					"result": "0x01",
@@ -244,9 +219,6 @@ func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 				},
 				"statusCode": 200
 			}`)
-		} else {
-			http.NotFound(w, r)
-		}
 	}))
 	defer ts.Close()
 

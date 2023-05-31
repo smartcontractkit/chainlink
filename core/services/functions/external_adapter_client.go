@@ -21,8 +21,14 @@ type ExternalAdapterInterface struct {
 }
 
 type secretsPayload struct {
-	RequestId            string `json:"requestId"`
-	JobName              string `json:"jobName"`
+	Endpoint  string      `json:"endpoint"`
+	RequestId string      `json:"requestId"`
+	JobName   string      `json:"jobName"`
+	Data      secretsData `json:"data"`
+}
+
+type secretsData struct {
+	RequestType          string `json:"requestType"`
 	EncryptedSecretsUrls string `json:"encryptedSecretsUrls"`
 }
 
@@ -41,13 +47,19 @@ type responseData struct {
 func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
 	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
 
-	payload := secretsPayload{
-		RequestId:            requestId,
-		JobName:              jobName,
+	data := secretsData{
+		RequestType:          "fetchThresholdEncryptedSecrets",
 		EncryptedSecretsUrls: encodedSecretsUrls,
 	}
 
-	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, "/fetcher", payload, requestId, jobName)
+	payload := secretsPayload{
+		Endpoint:  "fetcher",
+		RequestId: requestId,
+		JobName:   jobName,
+		Data:      data,
+	}
+
+	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, payload, requestId, jobName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error fetching encrypted secrets")
 	}
@@ -57,7 +69,6 @@ func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, en
 
 func (ea ExternalAdapterInterface) externalAdapterRequest(
 	ctx context.Context,
-	endpoint string,
 	payload interface{},
 	requestId string,
 	jobName string,
@@ -67,7 +78,7 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 		return nil, nil, errors.Wrap(err, "error constructing external adapter request payload")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", ea.AdapterURL.JoinPath(endpoint).String(), bytes.NewBuffer(jsonPayload))
+	req, err := http.NewRequestWithContext(ctx, "POST", ea.AdapterURL.String(), bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error constructing external adapter request")
 	}
