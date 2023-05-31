@@ -238,12 +238,13 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   ) internal view returns (uint256) {
     // Get the L1 price per byte estimate from the L2 precompile
     // This is zero if we're not on an L2.
-    (, uint256 l1PricePerByte,,,,) = ChainSpecificUtil.getPricesInWei();
+    (, uint256 l1PricePerByte, , , , ) = ChainSpecificUtil.getPricesInWei();
     // Multiply the L1 price per byte estimate by the estimated size of the fulfillment
     // transaction that will end up getting posted on L1.
     // This needs to be charged upfront because it will get charged during fulfillment
     // when ChainSpecificUtil.getCurrentTxL1GasFees() is called.
-    uint256 l1CostWei = l1PricePerByte * (FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES + ChainSpecificUtil.postToL1StaticOverheadBytes());
+    uint256 l1CostWei = l1PricePerByte *
+      (FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES + ChainSpecificUtil.postToL1StaticOverheadBytes());
     // costWei is the base fee denominated in wei (native)
     // costWei takes into account any l1 costs if we're on an L2 (like arbitrum or optimism)
     uint256 costWei = (_requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) + l1CostWei);
