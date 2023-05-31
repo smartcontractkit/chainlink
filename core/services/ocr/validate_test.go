@@ -9,6 +9,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -399,7 +400,7 @@ answer1      [type=median index=0];
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.DevMode = false
+				c.Insecure.OCRDevelopmentMode = null.BoolFrom(false).Ptr()
 				if tc.overrides != nil {
 					tc.overrides(c, s)
 				}

@@ -17,11 +17,11 @@ import (
 type Config interface {
 	config.OCR2Config
 	pg.QConfig
-	Dev() bool
 	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
 	MercuryCredentials(credName string) *models.MercuryCredentials
+	ThresholdKeyShare() string
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
@@ -47,9 +47,7 @@ func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
 		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
 	}
-	// FIXME: cfg.Dev() to be deprecated in favor of insecure config family.
-	// https://smartcontract-it.atlassian.net/browse/BCF-2062
-	if config.Dev() || config.OCRDevelopmentMode() {
+	if config.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
 		// For example to lower contractConfigTrackerPollInterval to speed up tests.
 		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode

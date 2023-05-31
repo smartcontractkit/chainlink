@@ -32,6 +32,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -271,12 +272,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-		relayers := make(map[relay.Network]func() (loop.Relayer, error))
+		relayers := make(map[relay.Network]loop.Relayer)
 		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
-		relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: cc}
-		relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
+		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, config,
+		processConfig := plugins.NewRegistrarConfig(config, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
+
+		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 

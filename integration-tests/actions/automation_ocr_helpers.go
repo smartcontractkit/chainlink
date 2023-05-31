@@ -15,11 +15,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -119,7 +120,7 @@ func CreateOCRKeeperJobs(
 ) {
 	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
-	bootstrapNode.RemoteIP()
+	bootstrapNode.InternalIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -138,7 +139,7 @@ func CreateOCRKeeperJobs(
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
@@ -162,7 +163,9 @@ func CreateOCRKeeperJobs(
 				RelayConfig: map[string]interface{}{
 					"chainID": int(chainID),
 				},
-				PluginConfig:                      map[string]interface{}{},
+				PluginConfig: map[string]interface{}{
+					"mercuryCredentialName": "\"cred1\"",
+				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[0]),                  // get node ocr2config.ID
@@ -172,7 +175,7 @@ func CreateOCRKeeperJobs(
 		}
 
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
-		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
+		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 	}
 	l.Info().Msg("Done creating OCR automation jobs")
 }

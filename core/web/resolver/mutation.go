@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -1011,12 +1012,12 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	switch jbt {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
+		if !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
+		if !config.FeatureOffchainReporting2() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
@@ -1037,6 +1038,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = blockheaderfeeder.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
+	case job.Gateway:
+		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

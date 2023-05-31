@@ -33,6 +33,14 @@ func fundOCR2VRFNodes(e helpers.Environment) {
 }
 
 func setupOCR2VRFNodes(e helpers.Environment) {
+	// Websocket URL & HTTP url required.
+	wsUrl := os.Getenv("ETH_URL")
+	httpUrl := os.Getenv("ETH_HTTP_URL")
+	if len(wsUrl) == 0 || len(httpUrl) == 0 {
+		fmt.Println("ETH_URL & ETH_HTTP_URL are required for this script.")
+		os.Exit(1)
+	}
+
 	fs := flag.NewFlagSet("ocr2vrf-setup", flag.ExitOnError)
 
 	keyID := fs.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
@@ -43,10 +51,12 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	weiPerUnitLink := fs.String("wei-per-unit-link", "6e16", "wei per unit link price for feed")
 	beaconPeriodBlocks := fs.Int64("beacon-period-blocks", 3, "beacon period in blocks")
 	subscriptionBalanceString := fs.String("subscription-balance", "1e19", "amount to fund subscription")
+	maxCallbackGasLimit := fs.Uint("max-cb-gas-limit", 2.5e6, "max callback gas limit")
+	maxCallbackArgumentsLength := fs.Uint("max-cb-args-length", 32*10 /* 10 EVM words */, "max callback arguments length")
 
 	apiFile := fs.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := fs.String("password", "../../../tools/secrets/password.txt", "password file")
-	databasePrefix := fs.String("database-prefix", "postgres://postgres:postgres@localhost:5432/ocr2vrf-test", "database prefix")
+	databasePrefix := fs.String("database-prefix", "postgres://postgres:postgres_password_padded_for_security@localhost:5432/ocr2vrf-test", "database prefix")
 	databaseSuffixes := fs.String("database-suffixes", "sslmode=disable", "database parameters to be added")
 	nodeCount := fs.Int("node-count", 6, "number of nodes")
 	fundingAmount := fs.Int64("funding-amount", 1e17, "amount to fund nodes") // .1 ETH
@@ -90,7 +100,10 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	vrfRouterAddress := deployVRFRouter(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+
+	fmt.Println("Configuring VRF coordinator...")
+	configureVRFCoordinator(e, vrfCoordinator, uint32(*maxCallbackGasLimit), uint32(*maxCallbackArgumentsLength))
 
 	fmt.Println("Registering VRF coordinator...")
 	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
@@ -188,7 +201,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		payload := setupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder, *resetDatabase)
+		payload := SetupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, *useForwarder, *resetDatabase, wsUrl, httpUrl)
 
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
 		offChainPublicKeys = append(offChainPublicKeys, payload.OffChainPublicKey)
@@ -335,7 +348,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	vrfRouterAddress := deployVRFRouter(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
 
 	fmt.Println("Registering VRF coordinator...")
 	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
@@ -540,7 +553,19 @@ func printStandardCommands(
 	fmt.Println()
 }
 
-func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databasePrefix, databaseSuffixes string, useForwarder bool, resetDB bool) *cmd.SetupOCR2VRFNodePayload {
+func SetupNode(
+	e helpers.Environment,
+	flagSet *flag.FlagSet,
+	nodeIdx int,
+	databasePrefix,
+	databaseSuffixes string,
+	useForwarder bool,
+	resetDB bool,
+	wsUrl string,
+	httpUrl string,
+) *cmd.SetupOCR2VRFNodePayload {
+	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0), e.ChainID, wsUrl, httpUrl, nodeIdx, databasePrefix, databaseSuffixes)
+
 	client := newSetupClient()
 	app := cmd.NewApp(client)
 	ctx := cli.NewContext(app, flagSet, nil)
@@ -553,7 +578,6 @@ func setupNode(e helpers.Environment, flagSet *flag.FlagSet, nodeIdx int, databa
 	err := app.Before(ctx)
 	helpers.PanicErr(err)
 
-	configureEnvironmentVariables((useForwarder) && (nodeIdx > 0), nodeIdx, databasePrefix, databaseSuffixes)
 	if resetDB {
 		resetDatabase(client, ctx)
 	}

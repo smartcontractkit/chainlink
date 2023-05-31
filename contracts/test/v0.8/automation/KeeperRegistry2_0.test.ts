@@ -9,12 +9,12 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry20__factory'
+import { KeeperRegistry2_0__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_0__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { KeeperRegistryLogic2_0__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic2_0__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
+import { KeeperRegistry2_0 as KeeperRegistry } from '../../../typechain/KeeperRegistry2_0'
 import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -22,6 +22,28 @@ import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRY v2.0 IS FROZEN ************************************/
+
+// All tests are disabled for this contract, as we expect it to never change in the future.
+// Instead, we test that the bytecode for the contract has not changed.
+// If this test ever fails, you should remove it and then re-run the original test suite.
+
+const BYTECODE = KeeperRegistryFactory.bytecode
+const BYTECODE_CHECKSUM =
+  '0x60660453a335cdcd42b5aa64e58a8c04517e8a8645d2618b51a7552df6e2973b'
+
+describe('KeeperRegistry2_0 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(ethers.utils.id(BYTECODE), BYTECODE_CHECKSUM)
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 // copied from AutomationRegistryInterface2_0.sol
 enum UpkeepFailureReason {
@@ -250,7 +272,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistry2_0', () => {
+describe.skip('KeeperRegistry2_0', () => {
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')

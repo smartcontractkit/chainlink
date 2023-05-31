@@ -190,7 +190,7 @@ func TestRunner(t *testing.T) {
 
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
-		cfg.On("Dev").Return(true)
+		cfg.On("OCRDevelopmentMode").Return(true)
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
@@ -230,7 +230,7 @@ func TestRunner(t *testing.T) {
 		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
@@ -267,7 +267,7 @@ answer1      [type=median index=0];
 		// Duplicate bridge names that exist is ok
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
+		cfg2.On("OCRDevelopmentMode").Return(true)
 		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
@@ -695,7 +695,8 @@ ds1 -> ds1_parse;
 		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"USD":10.1}`))
+			_, err = res.Write([]byte(`{"USD":10.1}`))
+			require.NoError(t, err)
 		}))
 		defer serv.Close()
 
@@ -854,7 +855,8 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
 		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
@@ -1034,7 +1036,8 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
 		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())

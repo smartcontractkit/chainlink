@@ -12,11 +12,7 @@ contract MockOptimismL1CrossDomainMessenger is IL1CrossDomainMessenger {
     return address(0);
   }
 
-  function sendMessage(
-    address _target,
-    bytes memory _message,
-    uint32 _gasLimit
-  ) public {
+  function sendMessage(address _target, bytes memory _message, uint32 _gasLimit) public {
     emit SentMessage(_target, msg.sender, _message, s_nonce, _gasLimit);
     s_nonce++;
   }

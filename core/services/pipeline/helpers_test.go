@@ -61,8 +61,3 @@ func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore,
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
-
-func (t *ETHGetBlockTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
-	t.chainSet = cc
-	t.config = config
-}

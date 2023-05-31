@@ -22,8 +22,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -32,7 +30,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -43,8 +40,6 @@ import (
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr simplelogger.Logger
-
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 	secretsTOML   string // with env overdies includes, redacted
@@ -56,9 +51,6 @@ type generalConfig struct {
 
 	appIDOnce sync.Once
 
-	randomP2PPort     uint16
-	randomP2PPortOnce sync.Once
-
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 
 	passwordMu sync.RWMutex // passwords are set after initialization
@@ -68,6 +60,9 @@ type generalConfig struct {
 //
 // See ParseTOML to initilialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
+	ConfigStrings []string
+	SecretsString string
+
 	Config
 	Secrets
 
@@ -77,68 +72,44 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
-// ParseTOML sets Config and Secrets from the given TOML strings.
-func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
-	return multierr.Combine(o.ParseConfig(config), o.ParseSecrets(secrets))
-}
-
-// ParseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
-func (o *GeneralConfigOpts) ParseConfig(config string) error {
+// parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
 	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
-	o.Config.SetFrom(&c)
+
+	// Overrides duplicate fields
+	if err4 := o.Config.SetFrom(&c); err4 != nil {
+		return fmt.Errorf("invalid configuration: %w", err4)
+	}
 	return nil
 }
 
-// ParseSecrets sets Secrets from the given TOML string.
-func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
-	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
+// parseSecrets sets Secrets from the given TOML string.
+func (o *GeneralConfigOpts) parseSecrets() (err error) {
+	if err2 := v2.DecodeTOML(strings.NewReader(o.SecretsString), &o.Secrets); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
 	return nil
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
-func (o GeneralConfigOpts) New(lggr logger.Logger) (GeneralConfig, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, err
-	}
-	cfg.lggr = lggr
-	return cfg, nil
-}
-
-// NewAndLogger returns a GeneralConfig for the given options, and a logger.Logger (with close func).
-func (o GeneralConfigOpts) NewAndLogger() (GeneralConfig, logger.Logger, func() error, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, nil, nil, err
+func (o GeneralConfigOpts) New() (GeneralConfig, error) {
+	for _, c := range o.ConfigStrings {
+		err := o.parseConfig(c)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// placeholder so we can call config methods to bootstrap the real logger
-	cfg.lggr, err = simplelogger.New()
-	if err != nil {
-		return nil, nil, nil, err
+	if o.SecretsString != "" {
+		err := o.parseSecrets()
+		if err != nil {
+			return nil, err
+		}
 	}
-	lggrCfg := logger.Config{
-		LogLevel:       cfg.LogLevel(),
-		Dir:            cfg.LogFileDir(),
-		JsonConsole:    cfg.JSONConsole(),
-		UnixTS:         cfg.LogUnixTimestamps(),
-		FileMaxSizeMB:  int(cfg.LogFileMaxSize() / utils.MB),
-		FileMaxAgeDays: int(cfg.LogFileMaxAge()),
-		FileMaxBackups: int(cfg.LogFileMaxBackups()),
-	}
-	lggr, closeLggr := lggrCfg.New()
 
-	cfg.lggr = lggr
-	return cfg, lggr, closeLggr, nil
-}
-
-// new returns a new generalConfig, but with a nil lggr.
-func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
@@ -146,8 +117,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		o.Config.DevMode = v2.EnvDev.IsTrue()
-
 		err = o.Secrets.setEnv()
 		if err != nil {
 			return nil, err
@@ -254,10 +223,6 @@ func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
 // ConfigTOML implements chainlink.ConfigV2
 func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
-}
-
-func (g *generalConfig) Dev() bool {
-	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -407,7 +372,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if g.Dev() {
+	if !build.IsProd() {
 		return "develop"
 	}
 	return "production"
@@ -492,40 +457,8 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
-}
-
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
+func (g *generalConfig) Database() coreconfig.Database {
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
 func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
@@ -655,16 +588,6 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
-}
-
 func (g *generalConfig) LogFileDir() string {
 	s := *g.c.Log.File.Dir
 	if s == "" {
@@ -777,6 +700,14 @@ func (g *generalConfig) OCR2CaptureEATelemetry() bool {
 	return *g.c.OCR2.CaptureEATelemetry
 }
 
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
+}
+
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	return g.c.P2P.NetworkStack()
 }
@@ -828,22 +759,6 @@ func (g *generalConfig) P2PListenIP() net.IP {
 func (g *generalConfig) P2PListenPort() uint16 {
 	v1 := g.c.P2P.V1
 	p := *v1.ListenPort
-	if p == 0 && *v1.Enabled {
-		g.randomP2PPortOnce.Do(func() {
-			addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-			if err != nil {
-				panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err))
-			}
-			l, err := net.ListenTCP("tcp", addr)
-			if err != nil {
-				panic(fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err))
-			}
-			defer l.Close()
-			g.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
-			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
-		})
-		return g.randomP2PPort
-	}
 	return p
 }
 
@@ -948,8 +863,7 @@ func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
 	h, err := parse.HomeDir(d)
 	if err != nil {
-		g.lggr.Error("Failed to expand RootDir. You may need to set an explicit path", "err", err)
-		return d
+		panic(err) // never happens since we validate that the RootDir is expandable in config.Core.ValidateConfig().
 	}
 	return h
 }
@@ -1050,10 +964,6 @@ func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
 }
 
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
-}
-
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 	return *g.c.WebServer.RateLimit.Unauthenticated
 }
@@ -1064,22 +974,23 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
-	return build.Dev && g.c.Insecure.DevWebServer != nil &&
+	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
 		*g.c.Insecure.DevWebServer
 }
 
 func (g *generalConfig) OCRDevelopmentMode() bool {
-	return build.Dev && g.c.Insecure.OCRDevelopmentMode != nil &&
+	// OCRDevelopmentMode is allowed in TestBuilds as well
+	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
 		*g.c.Insecure.OCRDevelopmentMode
 }
 
 func (g *generalConfig) DisableRateLimiting() bool {
-	return build.Dev && g.c.Insecure.DisableRateLimiting != nil &&
+	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
 		*g.c.Insecure.DisableRateLimiting
 }
 
 func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.Dev && g.c.Insecure.InfiniteDepthQueries != nil &&
+	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
 }
 

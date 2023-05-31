@@ -53,12 +53,7 @@ contract SCA is IAccount {
 
   /// @dev Execute a transaction on behalf of the owner. This function can only
   /// @dev be called by the EntryPoint contract, and assumes that `validateUserOp` has succeeded.
-  function executeTransactionFromEntryPoint(
-    address to,
-    uint256 value,
-    uint48 deadline,
-    bytes calldata data
-  ) external {
+  function executeTransactionFromEntryPoint(address to, uint256 value, uint48 deadline, bytes calldata data) external {
     if (msg.sender != i_entryPoint) {
       revert NotAuthorized(msg.sender);
     }

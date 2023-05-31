@@ -25,7 +25,7 @@ func Test_Serialize_Deserialize(t *testing.T) {
 			BlockHeight:       10,
 			ConfirmationDelay: 20,
 			Callbacks: []types.AbstractCostedCallbackRequest{{
-				RequestID:      1,
+				RequestID:      big.NewInt(1),
 				NumWords:       2,
 				Requester:      common.HexToAddress("0x03"),
 				Arguments:      []byte{4},

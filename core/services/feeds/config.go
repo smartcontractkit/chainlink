@@ -10,7 +10,6 @@ import (
 type Config interface {
 	pg.QConfig
 	config.OCR2Config
-	Dev() bool
 	OCRDevelopmentMode() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
@@ -18,4 +17,6 @@ type Config interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	JobPipelineMaxSuccessfulRuns() uint64
 	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
+	// ThresholdKeyShare is unused in feeds, to be refactored to decouple from Secrets interface in core/config/secrets.go
+	ThresholdKeyShare() string
 }

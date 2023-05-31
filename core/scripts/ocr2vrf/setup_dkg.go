@@ -7,21 +7,23 @@ import (
 	"os"
 	"strings"
 
-	"github.com/urfave/cli"
-
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
 func setupDKGNodes(e helpers.Environment) {
-	client := newSetupClient()
-	app := cmd.NewApp(client)
+	// Websocket URL & HTTP url required.
+	wsUrl := os.Getenv("ETH_URL")
+	httpUrl := os.Getenv("ETH_HTTP_URL")
+	if len(wsUrl) == 0 || len(httpUrl) == 0 {
+		fmt.Println("ETH_URL & ETH_HTTP_URL are required for this script.")
+		os.Exit(1)
+	}
 
 	cmd := flag.NewFlagSet("dkg-setup", flag.ExitOnError)
 	keyID := cmd.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
 	apiFile := cmd.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := cmd.String("password", "../../../tools/secrets/password.txt", "password file")
-	databasePrefix := cmd.String("database-prefix", "postgres://postgres:postgres@localhost:5432/dkg-test", "database prefix")
+	databasePrefix := cmd.String("database-prefix", "postgres://postgres:postgres_password_padded_for_security@localhost:5432/dkg-test", "database prefix")
 	databaseSuffixes := cmd.String("database-suffixes", "sslmode=disable", "database parameters to be added")
 	nodeCount := cmd.Int("node-count", 6, "number of nodes")
 	fundingAmount := cmd.Int64("funding-amount", 10000000000000000, "amount to fund nodes") // .1 ETH
@@ -64,17 +66,8 @@ func setupDKGNodes(e helpers.Environment) {
 		}
 		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
-		// Create context from flags.
-		context := cli.NewContext(app, flagSet, nil)
-
-		// Set environment variables needed to set up DKG jobs.
-		configureEnvironmentVariables(false, i, *databasePrefix, *databaseSuffixes)
-
-		// Reset DKG node database.
-		resetDatabase(client, context)
-
 		// Setup DKG node.
-		payload := setupOCR2VRFNodeFromClient(client, context, e)
+		payload := SetupNode(e, flagSet, i, *databasePrefix, *databaseSuffixes, false, true, wsUrl, httpUrl)
 
 		// Append arguments for dkg-set-config command.
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)

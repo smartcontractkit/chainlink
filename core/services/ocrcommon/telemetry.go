@@ -267,7 +267,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 		return
 	}
 
-	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash := e.getFinalValues(obs)
+	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash, obsBlockTimestamp := e.getFinalValues(obs)
 
 	for _, trr := range trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
@@ -295,6 +295,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 			DpAsk:                         askPrice,
 			CurrentBlockNumber:            obsBlockNum,
 			CurrentBlockHash:              common.BytesToHash(obsBlockHash).String(),
+			CurrentBlockTimestamp:         obsBlockTimestamp,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
 			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
@@ -394,7 +395,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 }
 
 // getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercury.Observation) (int64, int64, int64, int64, []byte) {
+func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercury.Observation) (int64, int64, int64, int64, []byte, uint64) {
 	var benchmarkPrice, bid, ask int64
 
 	if obs.BenchmarkPrice.Val != nil {
@@ -407,7 +408,7 @@ func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercury.Observatio
 		ask = obs.Ask.Val.Int64()
 	}
 
-	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val
+	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val, obs.CurrentBlockTimestamp.Val
 }
 
 // EnqueueEnhancedTelem sends data to the telemetry channel for processing

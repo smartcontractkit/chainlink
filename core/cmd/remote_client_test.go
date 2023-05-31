@@ -153,7 +153,9 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app := startNewApplicationV2(t, nil)
+			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+			})
 			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
@@ -190,7 +192,9 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app := startNewApplicationV2(t, nil)
+			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+			})
 			client, _ := app.NewClientAndRenderer()
 
 			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
@@ -213,7 +217,9 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 func TestClient_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplicationV2(t, nil)
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+	})
 	client, r := app.NewClientAndRenderer()
 
 	token := auth.NewToken()
@@ -237,7 +243,9 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplicationV2(t, nil)
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+	})
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)

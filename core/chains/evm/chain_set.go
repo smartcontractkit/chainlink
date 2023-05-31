@@ -73,7 +73,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	var ms services.MultiStart
 	for _, c := range cll.Chains() {
 		if err := ms.Start(ctx, c); err != nil {
-			return errors.Wrapf(err, "failed to start chain %q", c.ID())
+			return errors.Wrapf(err, "failed to start chain %q", c.ID().String())
 		}
 		cll.startedChains = append(cll.startedChains, c)
 	}
@@ -241,7 +241,7 @@ func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amoun
 }
 
 type GeneralConfig interface {
-	config.GeneralConfig
+	config.AppConfig
 	v2.HasEVMConfigs
 }
 

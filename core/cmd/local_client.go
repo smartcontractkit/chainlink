@@ -52,7 +52,7 @@ import (
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
 
-func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
+func initLocalSubCmds(client *Client, safe bool) []cli.Command {
 	return []cli.Command{
 		{
 			Name:    "start",
@@ -156,15 +156,13 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 			Name:        "db",
 			Usage:       "Commands for managing the database.",
 			Description: "Potentially destructive commands for managing the database.",
-			Before: func(ctx *clipkg.Context) error {
-				return client.configExitErr(client.Config.ValidateDB)
-			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "reset",
 					Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.ResetDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "dangerWillRobinson",
@@ -175,8 +173,9 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 				{
 					Name:   "preparetest",
 					Usage:  "Reset database and load fixtures.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.PrepareTestDatabase,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "user-only",
@@ -188,31 +187,36 @@ func initLocalSubCmds(client *Client, devMode bool) []cli.Command {
 					Name:   "version",
 					Usage:  "Display the current database version.",
 					Action: client.VersionDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: client.StatusDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: client.MigrateDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: client.RollbackDatabase,
+					Before: client.validateDB,
 					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "create-migration",
 					Usage:  "Create a new migration.",
-					Hidden: !devMode,
+					Hidden: safe,
 					Action: client.CreateMigration,
+					Before: client.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "type",
@@ -273,7 +277,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
-	if cli.Config.Dev() || build.Dev {
+	if build.IsDev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
@@ -281,7 +285,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return fmt.Errorf("failed to create root directory %q: %w", cli.Config.RootDir(), err)
 	}
 
-	ldb := pg.NewLockedDB(cli.Config, lggr)
+	cfg := cli.Config
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
@@ -566,7 +571,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	lggr := logger.Sugared(cli.Logger.Named("RebroadcastTransactions"))
-	db, err := pg.OpenUnlockedDB(cli.Config)
+	db, err := pg.OpenUnlockedDB(cli.Config.AppID(), cli.Config.Database())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
@@ -617,7 +622,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEthConfirmer(orm, ethClient, cfg, keyStore.Eth(), txBuilder, chain.Logger())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -679,10 +684,16 @@ func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	return nil
 }
 
+// ValidateDB is a BeforeFunc to run prior to database sub commands
+// the ctx must be that of the last subcommand to be validated
+func (cli *Client) validateDB(ctx *clipkg.Context) error {
+	return cli.configExitErr(cli.Config.ValidateDB)
+}
+
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
-	cfg := cli.Config
+	cfg := cli.Config.Database()
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
@@ -802,7 +813,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
-	cfg := cli.Config
+	cfg := cli.Config.Database()
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
@@ -827,7 +838,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -841,7 +852,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -857,7 +868,7 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -873,7 +884,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}

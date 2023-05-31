@@ -40,6 +40,7 @@ const (
 	BlockHeaderFeederJobType  string = "blockheaderfeeder"
 	WebhookJobType            string = "webhook"
 	BootstrapJobType          string = "bootstrap"
+	GatewayJobType            string = "gateway"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -66,7 +67,6 @@ type (
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration
@@ -370,7 +370,6 @@ const (
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
 	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHGetBlock      TaskType = "ethgetblock"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
 	TaskTypeHTTP             TaskType = "http"
@@ -450,8 +449,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeETHGetBlock:
-		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
@@ -566,6 +563,8 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
 	case OffchainReportingJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+	case OffchainReporting2JobType:
+		jobTypeGasLimit = cfg.EvmGasLimitOCR2JobType()
 	case KeeperJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
 	case VRFJobType:

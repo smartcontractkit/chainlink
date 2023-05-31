@@ -75,7 +75,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	tx := types.NewTx(&types.DynamicFeeTx{})
 	kst := ksmocks.NewEth(t)
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
-	var n int64
+	var n evmtypes.Nonce
 	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
-		var n int64
+		var n evmtypes.Nonce
 		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))

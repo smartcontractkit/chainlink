@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -275,9 +276,9 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		})).Once().Return(nil)
+		}), mock.Anything).Once().Return(clienttypes.Successful, nil)
 	}
 
 	assert.NoError(t, client.RebroadcastTransactions(c))
@@ -348,9 +349,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
-				ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				})).Once().Return(nil)
+				}), mock.Anything).Once().Return(clienttypes.Successful, nil)
 			}
 
 			assert.NoError(t, client.RebroadcastTransactions(c))
@@ -384,7 +385,8 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 			if !test.enableAddress {
-				keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+				err := keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+				require.NoError(t, err)
 			}
 
 			app := mocks.NewApplication(t)
@@ -395,7 +397,7 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
-			ethClient.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 
 			lggr := logger.TestLogger(t)
 

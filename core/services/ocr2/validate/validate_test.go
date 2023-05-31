@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -584,7 +585,7 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.DevMode = false
+				c.Insecure.OCRDevelopmentMode = testutils.Ptr(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {
 					tc.overrides(c, s)
 				}

@@ -153,8 +153,7 @@ func main() {
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
 
-		uid, err := uuid.FromString(*jobID)
-		helpers.PanicErr(err)
+		uid := uuid.MustParse(*jobID)
 		tx, err := coordinator.RegisterProvingKey(
 			e.Owner,
 			decimal.RequireFromString(*fee).BigInt(),

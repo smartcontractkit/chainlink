@@ -33,9 +33,9 @@ type chain struct {
 	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (ch *chain, err error) {
+func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("starknetChainID", id)
-	ch = &chain{
+	ch := &chain{
 		id:   id,
 		cfg:  cfg,
 		cfgs: cfgs,
@@ -46,7 +46,10 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Con
 		return ch.getClient()
 	}
 
-	ch.txm, err = txm.New(lggr, ks, cfg, getClient)
+	looppKs := keystore.NewStarkNetLooppKeystore(ks)
+	ksAdapter := keystore.NewStarkNetKeystoreAdapter(looppKs)
+	var err error
+	ch.txm, err = txm.New(lggr, ksAdapter.Loopp(), cfg, getClient)
 	if err != nil {
 		return nil, err
 	}

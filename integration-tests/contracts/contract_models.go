@@ -9,12 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -108,6 +110,25 @@ type OffChainAggregatorConfig struct {
 	F                int           // The allowed number of "bad" oracles
 	N                int           // The number of oracles
 	OracleIdentities []ocrConfigHelper.OracleIdentityExtra
+}
+
+type OffChainAggregatorV2Config struct {
+	DeltaProgress                           time.Duration
+	DeltaResend                             time.Duration
+	DeltaRound                              time.Duration
+	DeltaGrace                              time.Duration
+	DeltaStage                              time.Duration
+	RMax                                    uint8
+	S                                       []int
+	Oracles                                 []ocrConfigHelper2.OracleIdentityExtra
+	ReportingPluginConfig                   []byte
+	MaxDurationQuery                        time.Duration
+	MaxDurationObservation                  time.Duration
+	MaxDurationReport                       time.Duration
+	MaxDurationShouldAcceptFinalizedReport  time.Duration
+	MaxDurationShouldTransmitAcceptedReport time.Duration
+	F                                       int
+	OnchainConfig                           []byte
 }
 
 type OffchainAggregatorData struct {

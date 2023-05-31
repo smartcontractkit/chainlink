@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -57,7 +56,6 @@ type ocr2Node struct {
 	transmitter          common.Address
 	effectiveTransmitter common.Address
 	keybundle            ocr2key.KeyBundle
-	config               config.GeneralConfig
 }
 
 func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
@@ -111,7 +109,7 @@ func setupNodeOCR2(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
 
@@ -183,7 +181,6 @@ func setupNodeOCR2(
 		transmitter:          transmitter,
 		effectiveTransmitter: effectiveTransmitter,
 		keybundle:            kb,
-		config:               config,
 	}
 }
 
@@ -305,7 +302,8 @@ fromBlock = %d
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(5 * time.Second)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err := res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -319,7 +317,8 @@ fromBlock = %d
 				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err = res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)
@@ -567,7 +566,8 @@ chainID 			= 1337
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(5 * time.Second)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err := res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(slowServers[i].Close)
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -581,7 +581,8 @@ chainID 			= 1337
 				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
+			_, err = res.Write([]byte(`{"data":10}`))
+			require.NoError(t, err)
 		}))
 		t.Cleanup(servers[i].Close)
 		u, _ := url.Parse(servers[i].URL)

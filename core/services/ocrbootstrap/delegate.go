@@ -2,7 +2,6 @@ package ocrbootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -11,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -28,13 +26,12 @@ type Delegate struct {
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
 	cfg               validate.Config
 	lggr              logger.SugaredLogger
-	relayers          map[relay.Network]func() (loop.Relayer, error)
+	relayers          map[relay.Network]loop.Relayer
 	isNewlyCreatedJob bool
 }
 
 type Config interface {
 	validate.Config
-	plugins.EnvConfig
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -44,7 +41,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg Config,
-	relayers map[relay.Network]func() (loop.Relayer, error),
+	relayers map[relay.Network]loop.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -76,7 +73,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	relayerFn, exists := d.relayers[spec.Relay]
+	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
@@ -84,11 +81,6 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
 
-	relayer, err := relayerFn()
-	if err != nil {
-		//TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
-		return nil, fmt.Errorf("failed to get relayer: %w", err)
-	}
 	ctxVals := loop.ContextValues{
 		JobID:      jobSpec.ID,
 		JobName:    jobSpec.Name.ValueOrZero(),
@@ -96,7 +88,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		FeedID:     spec.FeedID,
 	}
 	ctx := ctxVals.ContextWithValues(context.Background())
-	//TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+
 	configProvider, err := relayer.NewConfigProvider(ctx, types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
@@ -122,10 +114,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:   d.peerWrapper.Peer2,
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
-		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
+		Database:              NewDB(d.db.DB, spec.ID, lggr),
 		LocalConfig:           lc,
-		Logger: logger.NewOCRWrapper(d.lggr.Named("OCRBootstrap"), true, func(msg string) {
-			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		Logger: logger.NewOCRWrapper(lggr.Named("OCRBootstrap"), true, func(msg string) {
+			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}

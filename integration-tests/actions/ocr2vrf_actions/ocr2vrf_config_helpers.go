@@ -113,7 +113,7 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 }
 
 func BuildOCR2DKGConfigVars(

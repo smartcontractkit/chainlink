@@ -31,8 +31,8 @@ var (
 )
 
 var FunctionsOracleEventsMockMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersActive\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"senders\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"changedBy\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersDeactive\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"InvalidRequestID\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OracleRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"OracleResponse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"UserCallbackError\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"UserCallbackRawError\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersActive\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"senders\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"changedBy\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersChanged\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersDeactive\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"emitConfigSet\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"emitInitialized\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"emitInvalidRequestID\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"emitOracleRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"emitOracleResponse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"emitOwnershipTransferRequested\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"emitOwnershipTransferred\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"emitTransmitted\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"emitUserCallbackError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"emitUserCallbackRawError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b50610c50806100206000396000f3fe608060405234801561001057600080fd5b50600436106100df5760003560e01c80639784f15a1161008c578063c9d3d08111610066578063c9d3d08114610191578063ddd5603c146101a4578063e055cff0146101b7578063f7420bc2146101ca57600080fd5b80639784f15a14610158578063b019b4e81461016b578063bef9e1831461017e57600080fd5b80632d6d80b3116100bd5780632d6d80b31461011f5780636446fe92146101325780638eb62eb61461014557600080fd5b806317472dac146100e457806327a88d59146100f95780632a7f477b1461010c575b600080fd5b6100f76100f23660046106c9565b6101dd565b005b6100f761010736600461075c565b61022a565b6100f761011a3660046107fd565b610258565b6100f761012d366004610717565b610294565b6100f7610140366004610775565b6102d1565b6100f761015336600461075c565b610319565b6100f76101663660046106c9565b610347565b6100f76101793660046106e4565b61038d565b6100f761018c3660046109b2565b6103eb565b6100f761019f366004610844565b61041e565b6100f76101b2366004610895565b61044e565b6100f76101c53660046108b8565b610489565b6100f76101d83660046106e4565b6104db565b60405173ffffffffffffffffffffffffffffffffffffffff821681527fae51766a982895b0c444fc99fc1a560762b464d709e6c78376c85617f7eeb5ce906020015b60405180910390a150565b60405181907f9e9bc7616d42c2835d05ae617e508454e63b30b934be8aa932ebc125e0e58a6490600090a250565b817fe0b838ffe6ee22a0d3acf19a85db6a41b34a1ab739e2d6c759a2e42d95bdccb2826040516102889190610b1d565b60405180910390a25050565b7ff263cfb3e4298332e776194610cf9fdc09ccb3ada8b9aa39764d882e11fbf0a082826040516102c5929190610ae5565b60405180910390a15050565b857fa1ec73989d79578cd6f67d4f593ac3e0a4d1020e5c0164db52108d7ff785406c8686868686604051610309959493929190610a89565b60405180910390a2505050505050565b60405181907fa1c120e327c9ad8b075793878c88d59b8934b97ae37117faa3bb21616237f7be90600090a250565b60405173ffffffffffffffffffffffffffffffffffffffff821681527fea3828816a323b8d7ff49d755efd105e7719166d6c76fad97a28eee5eccc3d9a9060200161021f565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a35050565b60405160ff821681527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200161021f565b817fb2931868c372fe17a25643458add467d60ec5c51125a99b7309f41f5bcd2da6c826040516102889190610b1d565b6040805183815263ffffffff831660208201527fb04e63db38c49950639fa09d29872f21f5d49d614f3a969d8adf3d4b52e41a6291016102c5565b7f1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e058989898989898989896040516104c899989796959493929190610b30565b60405180910390a1505050505050505050565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae127860405160405180910390a35050565b600067ffffffffffffffff83111561055357610553610c14565b61058460207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f86011601610bc5565b905082815283838301111561059857600080fd5b828260208301376000602084830101529392505050565b803573ffffffffffffffffffffffffffffffffffffffff811681146105d357600080fd5b919050565b600082601f8301126105e957600080fd5b8135602067ffffffffffffffff82111561060557610605610c14565b8160051b610614828201610bc5565b83815282810190868401838801850189101561062f57600080fd5b600093505b8584101561065957610645816105af565b835260019390930192918401918401610634565b50979650505050505050565b600082601f83011261067657600080fd5b61068583833560208501610539565b9392505050565b803563ffffffff811681146105d357600080fd5b803567ffffffffffffffff811681146105d357600080fd5b803560ff811681146105d357600080fd5b6000602082840312156106db57600080fd5b610685826105af565b600080604083850312156106f757600080fd5b610700836105af565b915061070e602084016105af565b90509250929050565b6000806040838503121561072a57600080fd5b823567ffffffffffffffff81111561074157600080fd5b61074d858286016105d8565b92505061070e602084016105af565b60006020828403121561076e57600080fd5b5035919050565b60008060008060008060c0878903121561078e57600080fd5b8635955061079e602088016105af565b94506107ac604088016105af565b93506107ba606088016106a0565b92506107c8608088016105af565b915060a087013567ffffffffffffffff8111156107e457600080fd5b6107f089828a01610665565b9150509295509295509295565b6000806040838503121561081057600080fd5b82359150602083013567ffffffffffffffff81111561082e57600080fd5b61083a85828601610665565b9150509250929050565b6000806040838503121561085757600080fd5b82359150602083013567ffffffffffffffff81111561087557600080fd5b8301601f8101851361088657600080fd5b61083a85823560208401610539565b600080604083850312156108a857600080fd5b8235915061070e6020840161068c565b60008060008060008060008060006101208a8c0312156108d757600080fd5b6108e08a61068c565b985060208a013597506108f560408b016106a0565b965060608a013567ffffffffffffffff8082111561091257600080fd5b61091e8d838e016105d8565b975060808c013591508082111561093457600080fd5b6109408d838e016105d8565b965061094e60a08d016106b8565b955060c08c013591508082111561096457600080fd5b6109708d838e01610665565b945061097e60e08d016106a0565b93506101008c013591508082111561099557600080fd5b506109a28c828d01610665565b9150509295985092959850929598565b6000602082840312156109c457600080fd5b610685826106b8565b600081518084526020808501945080840160005b83811015610a1357815173ffffffffffffffffffffffffffffffffffffffff16875295820195908201906001016109e1565b509495945050505050565b6000815180845260005b81811015610a4457602081850181015186830182015201610a28565b81811115610a56576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b600073ffffffffffffffffffffffffffffffffffffffff8088168352808716602084015267ffffffffffffffff8616604084015280851660608401525060a06080830152610ada60a0830184610a1e565b979650505050505050565b604081526000610af860408301856109cd565b905073ffffffffffffffffffffffffffffffffffffffff831660208301529392505050565b6020815260006106856020830184610a1e565b600061012063ffffffff8c1683528a602084015267ffffffffffffffff808b166040850152816060850152610b678285018b6109cd565b91508382036080850152610b7b828a6109cd565b915060ff881660a085015283820360c0850152610b988288610a1e565b90861660e08501528381036101008501529050610bb58185610a1e565b9c9b505050505050505050505050565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610c0c57610c0c610c14565b604052919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c6343000806000a",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersActive\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"senders\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"changedBy\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"AuthorizedSendersDeactive\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"InvalidRequestID\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OracleRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"OracleResponse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"ResponseTransmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"UserCallbackError\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"UserCallbackRawError\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersActive\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"senders\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"changedBy\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersChanged\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"emitAuthorizedSendersDeactive\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"emitConfigSet\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"emitInitialized\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"emitInvalidRequestID\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"requestingContract\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"requestInitiator\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"subscriptionId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"subscriptionOwner\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"emitOracleRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"name\":\"emitOracleResponse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"emitOwnershipTransferRequested\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"emitOwnershipTransferred\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"emitResponseTransmitted\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"emitTransmitted\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"emitUserCallbackError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"lowLevelData\",\"type\":\"bytes\"}],\"name\":\"emitUserCallbackRawError\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610cd9806100206000396000f3fe608060405234801561001057600080fd5b50600436106100ea5760003560e01c8063b019b4e81161008c578063ddd5603c11610066578063ddd5603c146101af578063df4a9fe0146101c2578063e055cff0146101d5578063f7420bc2146101e857600080fd5b8063b019b4e814610176578063bef9e18314610189578063c9d3d0811461019c57600080fd5b80632d6d80b3116100c85780632d6d80b31461012a5780636446fe921461013d5780638eb62eb6146101505780639784f15a1461016357600080fd5b806317472dac146100ef57806327a88d59146101045780632a7f477b14610117575b600080fd5b6101026100fd36600461072f565b6101fb565b005b6101026101123660046107c2565b610248565b610102610125366004610886565b610276565b61010261013836600461077d565b6102b2565b61010261014b3660046107fe565b6102ef565b61010261015e3660046107c2565b610337565b61010261017136600461072f565b610365565b61010261018436600461074a565b6103ab565b610102610197366004610a3b565b610409565b6101026101aa3660046108cd565b61043c565b6101026101bd36600461091e565b61046c565b6101026101d03660046107db565b6104a7565b6101026101e3366004610941565b6104ef565b6101026101f636600461074a565b610541565b60405173ffffffffffffffffffffffffffffffffffffffff821681527fae51766a982895b0c444fc99fc1a560762b464d709e6c78376c85617f7eeb5ce906020015b60405180910390a150565b60405181907f9e9bc7616d42c2835d05ae617e508454e63b30b934be8aa932ebc125e0e58a6490600090a250565b817fe0b838ffe6ee22a0d3acf19a85db6a41b34a1ab739e2d6c759a2e42d95bdccb2826040516102a69190610ba6565b60405180910390a25050565b7ff263cfb3e4298332e776194610cf9fdc09ccb3ada8b9aa39764d882e11fbf0a082826040516102e3929190610b6e565b60405180910390a15050565b857fa1ec73989d79578cd6f67d4f593ac3e0a4d1020e5c0164db52108d7ff785406c8686868686604051610327959493929190610b12565b60405180910390a2505050505050565b60405181907fa1c120e327c9ad8b075793878c88d59b8934b97ae37117faa3bb21616237f7be90600090a250565b60405173ffffffffffffffffffffffffffffffffffffffff821681527fea3828816a323b8d7ff49d755efd105e7719166d6c76fad97a28eee5eccc3d9a9060200161023d565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a35050565b60405160ff821681527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200161023d565b817fb2931868c372fe17a25643458add467d60ec5c51125a99b7309f41f5bcd2da6c826040516102a69190610ba6565b6040805183815263ffffffff831660208201527fb04e63db38c49950639fa09d29872f21f5d49d614f3a969d8adf3d4b52e41a6291016102e3565b60405173ffffffffffffffffffffffffffffffffffffffff8216815282907fdc941eddab34a6109ab77798299c6b1f035b125fd6f774d266ecbf9541d630a6906020016102a6565b7f1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e0589898989898989898960405161052e99989796959493929190610bb9565b60405180910390a1505050505050505050565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae127860405160405180910390a35050565b600067ffffffffffffffff8311156105b9576105b9610c9d565b6105ea60207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f86011601610c4e565b90508281528383830111156105fe57600080fd5b828260208301376000602084830101529392505050565b803573ffffffffffffffffffffffffffffffffffffffff8116811461063957600080fd5b919050565b600082601f83011261064f57600080fd5b8135602067ffffffffffffffff82111561066b5761066b610c9d565b8160051b61067a828201610c4e565b83815282810190868401838801850189101561069557600080fd5b600093505b858410156106bf576106ab81610615565b83526001939093019291840191840161069a565b50979650505050505050565b600082601f8301126106dc57600080fd5b6106eb8383356020850161059f565b9392505050565b803563ffffffff8116811461063957600080fd5b803567ffffffffffffffff8116811461063957600080fd5b803560ff8116811461063957600080fd5b60006020828403121561074157600080fd5b6106eb82610615565b6000806040838503121561075d57600080fd5b61076683610615565b915061077460208401610615565b90509250929050565b6000806040838503121561079057600080fd5b823567ffffffffffffffff8111156107a757600080fd5b6107b38582860161063e565b92505061077460208401610615565b6000602082840312156107d457600080fd5b5035919050565b600080604083850312156107ee57600080fd5b8235915061077460208401610615565b60008060008060008060c0878903121561081757600080fd5b8635955061082760208801610615565b945061083560408801610615565b935061084360608801610706565b925061085160808801610615565b915060a087013567ffffffffffffffff81111561086d57600080fd5b61087989828a016106cb565b9150509295509295509295565b6000806040838503121561089957600080fd5b82359150602083013567ffffffffffffffff8111156108b757600080fd5b6108c3858286016106cb565b9150509250929050565b600080604083850312156108e057600080fd5b82359150602083013567ffffffffffffffff8111156108fe57600080fd5b8301601f8101851361090f57600080fd5b6108c38582356020840161059f565b6000806040838503121561093157600080fd5b82359150610774602084016106f2565b60008060008060008060008060006101208a8c03121561096057600080fd5b6109698a6106f2565b985060208a0135975061097e60408b01610706565b965060608a013567ffffffffffffffff8082111561099b57600080fd5b6109a78d838e0161063e565b975060808c01359150808211156109bd57600080fd5b6109c98d838e0161063e565b96506109d760a08d0161071e565b955060c08c01359150808211156109ed57600080fd5b6109f98d838e016106cb565b9450610a0760e08d01610706565b93506101008c0135915080821115610a1e57600080fd5b50610a2b8c828d016106cb565b9150509295985092959850929598565b600060208284031215610a4d57600080fd5b6106eb8261071e565b600081518084526020808501945080840160005b83811015610a9c57815173ffffffffffffffffffffffffffffffffffffffff1687529582019590820190600101610a6a565b509495945050505050565b6000815180845260005b81811015610acd57602081850181015186830182015201610ab1565b81811115610adf576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b600073ffffffffffffffffffffffffffffffffffffffff8088168352808716602084015267ffffffffffffffff8616604084015280851660608401525060a06080830152610b6360a0830184610aa7565b979650505050505050565b604081526000610b816040830185610a56565b905073ffffffffffffffffffffffffffffffffffffffff831660208301529392505050565b6020815260006106eb6020830184610aa7565b600061012063ffffffff8c1683528a602084015267ffffffffffffffff808b166040850152816060850152610bf08285018b610a56565b91508382036080850152610c04828a610a56565b915060ff881660a085015283820360c0850152610c218288610aa7565b90861660e08501528381036101008501529050610c3e8185610aa7565b9c9b505050505050505050505050565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610c9557610c95610c9d565b604052919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c6343000806000a",
 }
 
 var FunctionsOracleEventsMockABI = FunctionsOracleEventsMockMetaData.ABI
@@ -289,6 +289,18 @@ func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockSession) EmitOwnershi
 
 func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockTransactorSession) EmitOwnershipTransferred(from common.Address, to common.Address) (*types.Transaction, error) {
 	return _FunctionsOracleEventsMock.Contract.EmitOwnershipTransferred(&_FunctionsOracleEventsMock.TransactOpts, from, to)
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockTransactor) EmitResponseTransmitted(opts *bind.TransactOpts, requestId [32]byte, transmitter common.Address) (*types.Transaction, error) {
+	return _FunctionsOracleEventsMock.contract.Transact(opts, "emitResponseTransmitted", requestId, transmitter)
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockSession) EmitResponseTransmitted(requestId [32]byte, transmitter common.Address) (*types.Transaction, error) {
+	return _FunctionsOracleEventsMock.Contract.EmitResponseTransmitted(&_FunctionsOracleEventsMock.TransactOpts, requestId, transmitter)
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockTransactorSession) EmitResponseTransmitted(requestId [32]byte, transmitter common.Address) (*types.Transaction, error) {
+	return _FunctionsOracleEventsMock.Contract.EmitResponseTransmitted(&_FunctionsOracleEventsMock.TransactOpts, requestId, transmitter)
 }
 
 func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockTransactor) EmitTransmitted(opts *bind.TransactOpts, configDigest [32]byte, epoch uint32) (*types.Transaction, error) {
@@ -1579,6 +1591,134 @@ func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockFilterer) ParseOwners
 	return event, nil
 }
 
+type FunctionsOracleEventsMockResponseTransmittedIterator struct {
+	Event *FunctionsOracleEventsMockResponseTransmitted
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *FunctionsOracleEventsMockResponseTransmittedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FunctionsOracleEventsMockResponseTransmitted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(FunctionsOracleEventsMockResponseTransmitted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *FunctionsOracleEventsMockResponseTransmittedIterator) Error() error {
+	return it.fail
+}
+
+func (it *FunctionsOracleEventsMockResponseTransmittedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type FunctionsOracleEventsMockResponseTransmitted struct {
+	RequestId   [32]byte
+	Transmitter common.Address
+	Raw         types.Log
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockFilterer) FilterResponseTransmitted(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsOracleEventsMockResponseTransmittedIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _FunctionsOracleEventsMock.contract.FilterLogs(opts, "ResponseTransmitted", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionsOracleEventsMockResponseTransmittedIterator{contract: _FunctionsOracleEventsMock.contract, event: "ResponseTransmitted", logs: logs, sub: sub}, nil
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockFilterer) WatchResponseTransmitted(opts *bind.WatchOpts, sink chan<- *FunctionsOracleEventsMockResponseTransmitted, requestId [][32]byte) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+
+	logs, sub, err := _FunctionsOracleEventsMock.contract.WatchLogs(opts, "ResponseTransmitted", requestIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(FunctionsOracleEventsMockResponseTransmitted)
+				if err := _FunctionsOracleEventsMock.contract.UnpackLog(event, "ResponseTransmitted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_FunctionsOracleEventsMock *FunctionsOracleEventsMockFilterer) ParseResponseTransmitted(log types.Log) (*FunctionsOracleEventsMockResponseTransmitted, error) {
+	event := new(FunctionsOracleEventsMockResponseTransmitted)
+	if err := _FunctionsOracleEventsMock.contract.UnpackLog(event, "ResponseTransmitted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type FunctionsOracleEventsMockTransmittedIterator struct {
 	Event *FunctionsOracleEventsMockTransmitted
 
@@ -1975,6 +2115,8 @@ func (_FunctionsOracleEventsMock *FunctionsOracleEventsMock) ParseLog(log types.
 		return _FunctionsOracleEventsMock.ParseOwnershipTransferRequested(log)
 	case _FunctionsOracleEventsMock.abi.Events["OwnershipTransferred"].ID:
 		return _FunctionsOracleEventsMock.ParseOwnershipTransferred(log)
+	case _FunctionsOracleEventsMock.abi.Events["ResponseTransmitted"].ID:
+		return _FunctionsOracleEventsMock.ParseResponseTransmitted(log)
 	case _FunctionsOracleEventsMock.abi.Events["Transmitted"].ID:
 		return _FunctionsOracleEventsMock.ParseTransmitted(log)
 	case _FunctionsOracleEventsMock.abi.Events["UserCallbackError"].ID:
@@ -2027,6 +2169,10 @@ func (FunctionsOracleEventsMockOwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
+func (FunctionsOracleEventsMockResponseTransmitted) Topic() common.Hash {
+	return common.HexToHash("0xdc941eddab34a6109ab77798299c6b1f035b125fd6f774d266ecbf9541d630a6")
+}
+
 func (FunctionsOracleEventsMockTransmitted) Topic() common.Hash {
 	return common.HexToHash("0xb04e63db38c49950639fa09d29872f21f5d49d614f3a969d8adf3d4b52e41a62")
 }
@@ -2063,6 +2209,8 @@ type FunctionsOracleEventsMockInterface interface {
 	EmitOwnershipTransferRequested(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error)
 
 	EmitOwnershipTransferred(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error)
+
+	EmitResponseTransmitted(opts *bind.TransactOpts, requestId [32]byte, transmitter common.Address) (*types.Transaction, error)
 
 	EmitTransmitted(opts *bind.TransactOpts, configDigest [32]byte, epoch uint32) (*types.Transaction, error)
 
@@ -2129,6 +2277,12 @@ type FunctionsOracleEventsMockInterface interface {
 	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *FunctionsOracleEventsMockOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
 	ParseOwnershipTransferred(log types.Log) (*FunctionsOracleEventsMockOwnershipTransferred, error)
+
+	FilterResponseTransmitted(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsOracleEventsMockResponseTransmittedIterator, error)
+
+	WatchResponseTransmitted(opts *bind.WatchOpts, sink chan<- *FunctionsOracleEventsMockResponseTransmitted, requestId [][32]byte) (event.Subscription, error)
+
+	ParseResponseTransmitted(log types.Log) (*FunctionsOracleEventsMockResponseTransmitted, error)
 
 	FilterTransmitted(opts *bind.FilterOpts) (*FunctionsOracleEventsMockTransmittedIterator, error)
 

@@ -43,10 +43,12 @@ func TestMercuryConfigPoller(t *testing.T) {
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	proxyAddress, _, _, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
+	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
 	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
+	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
+	require.NoError(t, err)
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)

@@ -101,6 +101,7 @@ type VRFCoordinatorV3 interface {
 	CreateSubscription() error
 	FindSubscriptionID() (*big.Int, error)
 	AddConsumer(subId *big.Int, consumerAddress string) error
+	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
 }
 
 type VRFBeacon interface {
@@ -130,6 +131,7 @@ type VRFBeaconConsumer interface {
 	RequestRandomnessFulfillment(
 		numWords uint16,
 		subID, confirmationDelayArg *big.Int,
+		requestGasLimit,
 		callbackGasLimit uint32,
 		arguments []byte,
 	) (*types.Receipt, error)

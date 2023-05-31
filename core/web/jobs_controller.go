@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -221,12 +222,12 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	switch jobType {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
+		if !config.FeatureOffchainReporting() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
+		if !config.FeatureOffchainReporting2() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
@@ -247,6 +248,8 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 		jb, err = blockheaderfeeder.ValidatedSpec(tomlString)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
+	case job.Gateway:
+		jb, err = gateway.ValidatedGatewaySpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

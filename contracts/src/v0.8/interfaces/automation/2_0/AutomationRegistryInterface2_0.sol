@@ -132,16 +132,9 @@ interface AutomationRegistryBaseInterface {
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
-  function getTransmitterInfo(address query)
-    external
-    view
-    returns (
-      bool active,
-      uint8 index,
-      uint96 balance,
-      uint96 lastCollected,
-      address payee
-    );
+  function getTransmitterInfo(
+    address query
+  ) external view returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee);
 
   function getState()
     external
@@ -161,7 +154,9 @@ interface AutomationRegistryBaseInterface {
  * if we actually inherit from this interface, so we document it here.
  */
 interface AutomationRegistryInterface is AutomationRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId)
+  function checkUpkeep(
+    uint256 upkeepId
+  )
     external
     view
     returns (
@@ -175,7 +170,9 @@ interface AutomationRegistryInterface is AutomationRegistryBaseInterface {
 }
 
 interface AutomationRegistryExecutableInterface is AutomationRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId)
+  function checkUpkeep(
+    uint256 upkeepId
+  )
     external
     returns (
       bool upkeepNeeded,
