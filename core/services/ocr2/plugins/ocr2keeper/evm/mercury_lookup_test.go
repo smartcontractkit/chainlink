@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
@@ -25,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
@@ -42,9 +41,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
-	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
-	var headTracker httypes.HeadTracker
-	var headBroadcaster httypes.HeadBroadcaster
+	cooldownCache, apiErrCache := setupCaches(DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 	var logPoller logpoller.LogPoller
 	mockRegistry := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)
@@ -52,8 +49,8 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
-			ht:     headTracker,
-			hb:     headBroadcaster,
+			ht:     htmocks.NewHeadTracker(t),
+			hb:     htmocks.NewHeadBroadcaster(t),
 			chHead: make(chan types.BlockKey, 1),
 		},
 		lggr:     lggr,
@@ -63,7 +60,6 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		txHashes: make(map[string]bool),
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
-		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
@@ -74,12 +70,12 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 				Password: "FakeClientKey",
 			},
 			abi:           mercuryCompatibleABI,
-			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
 		hc: mockHttpClient,
 	}
+	r.upkeepIndex = newUpkeepIndex(lggr, r.fetchUpkeep, r.fetchUpkeeps)
 	return r
 }
 
@@ -330,7 +326,9 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 				mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(tt.upkeepInfo, tt.upkeepInfoErr)
 			}
 			if tt.upkeepCache {
-				r.mercury.upkeepCache.Set(upkeepId.String(), tt.upkeepInfo, cache.DefaultExpiration)
+				r.upkeepIndex.setLocalUpkeepInfo(upkeepId, upkeepInfoEntry{
+					target: tt.upkeepInfo.Target,
+				})
 			}
 
 			got, err := r.mercuryLookup(context.Background(), tt.input)
@@ -397,7 +395,6 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 }
 
 func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
-	executeGas := uint32(100)
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -407,7 +404,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		mercuryLookup *MercuryLookup
 		values        [][]byte
 		statusCode    int
-		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
+		target        common.Address
 		opts          *bind.CallOpts
 
 		callbackMsg  ethereum.CallMsg
@@ -429,11 +426,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
-				Target:         to,
-				ExecuteGas:     executeGas,
-				OffchainConfig: nil,
-			},
+			target:     to,
 			opts: &bind.CallOpts{
 				BlockNumber: big.NewInt(999),
 			},
@@ -453,11 +446,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
-				Target:         to,
-				ExecuteGas:     executeGas,
-				OffchainConfig: nil,
-			},
+			target:     to,
 			opts: &bind.CallOpts{
 				BlockNumber: big.NewInt(18952430),
 			},
@@ -476,11 +465,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
-				Target:         to,
-				ExecuteGas:     executeGas,
-				OffchainConfig: nil,
-			},
+			target:     to,
 			opts: &bind.CallOpts{
 				BlockNumber: big.NewInt(999),
 			},
@@ -504,7 +489,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			}
 			client.On("CallContract", mock.Anything, callbackMsg, tt.opts.BlockNumber).Return(tt.callbackResp, tt.callbackErr)
 
-			upkeepNeeded, performData, err := r.mercuryLookupCallback(context.Background(), tt.mercuryLookup, tt.values, tt.upkeepInfo, tt.opts)
+			upkeepNeeded, performData, err := r.mercuryLookupCallback(context.Background(), tt.mercuryLookup, tt.values, tt.target, tt.opts)
 			assert.Equal(t, tt.upkeepNeeded, upkeepNeeded, tt.name)
 			assert.Equal(t, tt.performData, performData, tt.name)
 			if tt.wantErr != nil {

@@ -23,8 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 type MercuryLookup struct {
@@ -87,7 +85,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			return nil, err
 		}
 		// need upkeep info for offchainConfig and to hit callback
-		upkeepInfo, err := r.getUpkeepInfo(upkeepId, opts)
+		upkeepInfo, err := r.upkeepIndex.GetUpkeepInfo(ctx, block, upkeepId, false)
 		if err != nil {
 			r.lggr.Errorf("MercuryLookup upkeep %s block %s GetUpkeep: %v", upkeepId.String(), block.String(), err)
 			return nil, err
@@ -100,7 +98,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 			continue
 		}
 
-		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo, opts)
+		needed, performData, err := r.mercuryLookupCallback(ctx, mercuryLookup, values, upkeepInfo.target, opts)
 		if err != nil {
 			r.lggr.Errorf("MercuryLookup upkeep %s block %s mercuryLookupCallback err: %v", upkeepId.String(), block.String(), err)
 			continue
@@ -118,28 +116,6 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []types.U
 	}
 	// don't surface error to plugin bc MercuryLookup process should be self-contained.
 	return upkeepResults, nil
-}
-
-func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
-	zero := common.Address{}
-	var err error
-	var upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo
-	u, found := r.mercury.upkeepCache.Get(upkeepId.String())
-	if found {
-		upkeepInfo = u.(keeper_registry_wrapper2_0.UpkeepInfo)
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s cache hit UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
-	} else {
-		upkeepInfo, err = r.registry.GetUpkeep(opts, upkeepId)
-		if err != nil {
-			return upkeepInfo, err
-		}
-		if upkeepInfo.Target == zero {
-			return upkeepInfo, errors.New("upkeepInfo should not be nil")
-		}
-		r.lggr.Debugf("MercuryLookup upkeep %s block %s cache miss UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
-		r.mercury.upkeepCache.Set(upkeepId.String(), upkeepInfo, cache.DefaultExpiration)
-	}
-	return upkeepInfo, nil
 }
 
 // decodeMercuryLookup decodes the revert error MercuryLookup(string feedLabel, string[] feeds, string feedLabel, uint256 query, byte[] extraData)
@@ -162,7 +138,7 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 
 // mercuryLookupCallback calls the callback(string[] memory chainlinkBlobHex, bytes memory extraData) specified by the
 // 4-byte selector from the revert. the return will match check telling us if the upkeep is needed and what the perform data is
-func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *MercuryLookup, values [][]byte, upkeepInfo keeper_registry_wrapper2_0.UpkeepInfo, opts *bind.CallOpts) (bool, []byte, error) {
+func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *MercuryLookup, values [][]byte, target common.Address, opts *bind.CallOpts) (bool, []byte, error) {
 	payload, err := r.mercury.abi.Pack("mercuryCallback", values, mercuryLookup.extraData)
 	if err != nil {
 		return false, nil, fmt.Errorf("callback args pack error: %w", err)
@@ -170,7 +146,7 @@ func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *
 
 	// use gas 0 to provide infinite gas and from empty address
 	callbackMsg := ethereum.CallMsg{
-		To:   &upkeepInfo.Target,
+		To:   &target,
 		Data: payload,
 	}
 

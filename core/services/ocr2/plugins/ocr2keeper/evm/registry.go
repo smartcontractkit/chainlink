@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -95,7 +96,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
-	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
+	cooldownCache, apiErrCache := setupCaches(DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
@@ -110,19 +111,20 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		txHashes: make(map[string]bool),
 		registry: registry,
 		abi:      keeperRegistryABI,
-		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
 			abi:           mercuryLookupCompatibleABI,
-			upkeepCache:   upkeepInfoCache,
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
 		hc: http.DefaultClient,
+
+		logFilters: newLogFiltersManager(client.LogPoller()),
 	}
+	r.upkeepIndex = newUpkeepIndex(lggr, r.fetchUpkeep, r.fetchUpkeeps)
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
@@ -131,10 +133,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	return r, nil
 }
 
-func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
-	// cache that stores UpkeepInfo for callback during MercuryLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
+func setupCaches(defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache) {
 	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
 	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
 	// cache for Mercurylookup Upkeeps that are on ice due to errors
@@ -142,7 +141,7 @@ func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiE
 
 	// cache for tracking errors for an Upkeep during MercuryLookup
 	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
-	return upkeepInfoCache, cooldownCache, apiErrCache
+	return cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -195,28 +194,19 @@ type EvmRegistry struct {
 	lastPollBlock int64
 	ctx           context.Context
 	cancel        context.CancelFunc
-	active        map[string]activeUpkeep
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
 	mercury       MercuryConfig
 	hc            HttpClient
+	upkeepIndex   *upkeepIndex
+	logFilters    *logFiltersManager
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
 func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentifier, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	keys := make([]types.UpkeepIdentifier, len(r.active))
-	var i int
-	for _, value := range r.active {
-		keys[i] = types.UpkeepIdentifier(value.ID.String())
-		i++
-	}
-
-	return keys, nil
+	return r.upkeepIndex.GetActiveUpkeepIDs(), nil
 }
 
 func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
@@ -356,8 +346,6 @@ func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
-	idMap := make(map[string]activeUpkeep)
-
 	r.lggr.Debugf("Re-initializing active upkeeps list")
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
@@ -365,30 +353,7 @@ func (r *EvmRegistry) initialize() error {
 		return fmt.Errorf("failed to get ids from contract: %s", err)
 	}
 
-	var offset int
-	for offset < len(ids) {
-		batch := FetchUpkeepConfigBatchSize
-		if len(ids)-offset < batch {
-			batch = len(ids) - offset
-		}
-
-		actives, err := r.getUpkeepConfigs(startupCtx, ids[offset:offset+batch])
-		if err != nil {
-			return fmt.Errorf("failed to get configs for id batch (length '%d'): %s", batch, err)
-		}
-
-		for _, active := range actives {
-			idMap[active.ID.String()] = active
-		}
-
-		offset += batch
-	}
-
-	r.mu.Lock()
-	r.active = idMap
-	r.mu.Unlock()
-
-	return nil
+	return r.upkeepIndex.Initialize(startupCtx, ids...)
 }
 
 func (r *EvmRegistry) pollLogs() error {
@@ -465,6 +430,15 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
+	case *keeper_registry_logic_b_wrapper_2_1.KeeperRegistryLogicBUpkeepTriggerConfigSet:
+		r.lggr.Debugf("KeeperRegistryLogicBUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.updateUpkeepConfig(l.Id, l.TriggerConfig)
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCanceled:
+		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.markInactive(l.Id)
+	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepPaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.markInactive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
@@ -483,26 +457,32 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 }
 
 func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.upkeepIndex.AddActiveUpkeep(r.ctx, id, force)
+}
 
-	if r.active == nil {
-		r.active = make(map[string]activeUpkeep)
-	}
+func (r *EvmRegistry) updateUpkeepConfig(id *big.Int, cfg []byte) {
+	r.upkeepIndex.setUpkeepConfig(id, cfg)
 
-	if _, ok := r.active[id.String()]; !ok || force {
-		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
+	uid := id.String()
+	switch getUpkeepType(types.UpkeepIdentifier(uid)) {
+	case logTrigger:
+		// for log upkeeps, we need to register the log filter
+		// TODO: check cfg type
+		parsed, err := r.packer.UnpackUpkeepConfig(string(cfg))
 		if err != nil {
-			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
-			return
+			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
+			return // TODO: handle?
 		}
-
-		if len(actives) != 1 {
-			return
+		if err := r.logFilters.Register(uid, parsed); err != nil {
+			r.lggr.Warnw("failed to register log filter", "upkeepID", uid)
+			// TODO: handle?
 		}
-
-		r.active[id.String()] = actives[0]
+	default:
 	}
+}
+
+func (r *EvmRegistry) markInactive(id *big.Int) {
+	r.upkeepIndex.setUpkeepState(id, stateInactive)
 }
 
 func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
@@ -600,12 +580,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 			continue
 		}
 
-		r.mu.RLock()
-		up, ok := r.active[id.String()]
-		r.mu.RUnlock()
+		up, ok := r.upkeepIndex.getLocalUpkeepInfo(id)
 
 		if ok {
-			upkeepResults[i].ExecuteGas = up.PerformGasLimit
+			upkeepResults[i].ExecuteGas = up.performGasLimit
 		}
 	}
 
@@ -750,69 +728,6 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	}
 
 	return checkResults, multiErr
-}
-
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
-	if len(ids) == 0 {
-		return []activeUpkeep{}, nil
-	}
-
-	var (
-		uReqs    = make([]rpc.BatchElem, len(ids))
-		uResults = make([]*string, len(ids))
-	)
-
-	for i, id := range ids {
-		opts, err := r.buildCallOpts(ctx, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get call opts: %s", err)
-		}
-
-		payload, err := r.abi.Pack("getUpkeep", id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
-		}
-
-		var result string
-		uReqs[i] = rpc.BatchElem{
-			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
-			Result: &result,
-		}
-
-		uResults[i] = &result
-	}
-
-	if err := r.client.BatchCallContext(ctx, uReqs); err != nil {
-		return nil, fmt.Errorf("rpc error: %s", err)
-	}
-
-	var (
-		multiErr error
-		results  = make([]activeUpkeep, len(ids))
-	)
-
-	for i, req := range uReqs {
-		if req.Error != nil {
-			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
-		} else {
-			var err error
-			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack result: %s", err)
-			}
-		}
-	}
-
-	return results, multiErr
 }
 
 func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
