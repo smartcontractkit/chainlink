@@ -16,7 +16,7 @@ type TxmConfig[FEE_UNIT Unit] interface {
 
 // FEE_UNIT - fee unit
 type BroadcasterConfig[FEE_UNIT Unit] interface {
-	TriggerFallbackDBPollInterval() time.Duration
+	FallbackPollInterval() time.Duration
 	MaxInFlightTransactions() uint32
 
 	// from gas.Config
