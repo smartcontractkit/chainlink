@@ -115,7 +115,7 @@ func TestKeyStoreAdapter(t *testing.T) {
 	starkKey, err := starkkey.New()
 	require.NoError(t, err)
 
-	baseKs := &mocks.StarkNet{}
+	baseKs := mocks.NewStarkNet(t)
 
 	lk := &keystore.StarknetLooppSigner{baseKs}
 	adapter := keystore.NewStarkNetKeystoreAdapter(lk) //starkkey.NewKeystoreAdapter(lk)

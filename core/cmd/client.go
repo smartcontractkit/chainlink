@@ -259,8 +259,8 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 		}
 
-		solCmdFn, err := plugins.MakeLoopCmd(loopRegistry, plugins.LoopExecConfig{
-			Id:            solLggr.Name(),
+		solCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            solLggr.Name(),
 			Cmd:           cmdName,
 			LoggingConfig: cfg,
 		})
@@ -311,8 +311,8 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 		}
 
-		starknetCmdFn, err := plugins.MakeLoopCmd(loopRegistry, plugins.LoopExecConfig{
-			Id:            starkLggr.Name(),
+		starknetCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            starkLggr.Name(),
 			Cmd:           cmdName,
 			LoggingConfig: cfg,
 		})

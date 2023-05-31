@@ -337,7 +337,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	reg := plugins.NewLoopRegistry()
-	ks := &mocks.Solana{}
+	ks := mocks.NewSolana(t)
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
@@ -365,7 +365,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	reg := plugins.NewLoopRegistry()
-	ks := &mocks.StarkNet{}
+	ks := mocks.NewStarkNet(t)
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
