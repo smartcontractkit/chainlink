@@ -620,7 +620,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
+	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config.Database().LogSQL, cli.Config.Database().DatabaseDefaultQueryTimeout())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	chainCfg := chain.Config()
 	cfg := txmgr.NewEvmTxmConfig(chainCfg)

@@ -50,7 +50,7 @@ func NewTxm(
 	}
 	checker := &txmgr.CheckerFactory{Client: client}
 	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), cfg, keyStore, estimator)
-	txStore := txmgr.NewTxStore(db, lggr, pg.ToConfig(dbCfg.LogSQL, dbCfg.DatabaseDefaultQueryTimeout))
+	txStore := txmgr.NewTxStore(db, lggr, dbCfg.LogSQL, dbCfg.DatabaseDefaultQueryTimeout)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, client, keyStore)
 
 	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
