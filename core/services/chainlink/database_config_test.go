@@ -33,9 +33,6 @@ func TestDatabaseConfig(t *testing.T) {
 	assert.Equal(t, db.MaxIdleConns(), 7)
 	assert.Equal(t, db.MaxOpenConns(), 13)
 	assert.Equal(t, db.MigrateDatabase(), true)
-	assert.Equal(t, db.DatabaseListenerMaxReconnectDuration(), 1*time.Minute)
-	assert.Equal(t, db.DatabaseListenerMinReconnectInterval(), 5*time.Minute)
-	assert.Equal(t, db.TriggerFallbackDBPollInterval(), 2*time.Minute)
 	assert.Equal(t, db.GetDatabaseDialectConfiguredOrDefault(), dialects.Postgres)
 	url := db.DatabaseURL()
 	assert.NotEqual(t, url.String(), "")
@@ -44,4 +41,9 @@ func TestDatabaseConfig(t *testing.T) {
 	assert.Equal(t, lock.LockingMode(), "none")
 	assert.Equal(t, lock.LeaseDuration(), 1*time.Minute)
 	assert.Equal(t, lock.LeaseRefreshInterval(), 1*time.Second)
+
+	l := db.Listener()
+	assert.Equal(t, l.MaxReconnectDuration(), 1*time.Minute)
+	assert.Equal(t, l.MinReconnectInterval(), 5*time.Minute)
+	assert.Equal(t, l.FallbackPollInterval(), 2*time.Minute)
 }
