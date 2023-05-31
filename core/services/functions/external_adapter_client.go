@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type ExternalAdapterInterface struct {
-	AdapterURL                   url.URL
-	MaxSecretsFetchResponseBytes int64
+type ExternalAdapterClient struct {
+	AdapterURL       url.URL
+	MaxResponseBytes int64
 }
 
 type secretsPayload struct {
@@ -44,7 +44,7 @@ type responseData struct {
 	ErrorString string `json:"errorString"`
 }
 
-func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
+func (ea ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
 	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
 
 	data := secretsData{
@@ -59,7 +59,7 @@ func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, en
 		Data:      data,
 	}
 
-	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, payload, requestId, jobName)
+	encryptedSecrets, userError, err = ea.request(ctx, payload, requestId, jobName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error fetching encrypted secrets")
 	}
@@ -67,12 +67,12 @@ func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, en
 	return encryptedSecrets, userError, nil
 }
 
-func (ea ExternalAdapterInterface) externalAdapterRequest(
+func (ea ExternalAdapterClient) request(
 	ctx context.Context,
 	payload interface{},
 	requestId string,
 	jobName string,
-) (result, userError []byte, err error) {
+) (userResult, userError []byte, err error) {
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error constructing external adapter request payload")
@@ -91,7 +91,7 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 	}
 	defer resp.Body.Close()
 
-	source := http.MaxBytesReader(nil, resp.Body, ea.MaxSecretsFetchResponseBytes)
+	source := http.MaxBytesReader(nil, resp.Body, ea.MaxResponseBytes)
 	body, err := io.ReadAll(source)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error reading external adapter response")
@@ -101,6 +101,10 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 	err = json.Unmarshal(body, &eaResp)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, fmt.Sprintf("error parsing external adapter response %s", body))
+	}
+
+	if eaResp.StatusCode != 200 {
+		return nil, nil, fmt.Errorf("external adapter responded with error code %d", eaResp.StatusCode)
 	}
 
 	if eaResp.Data == nil {
@@ -115,11 +119,11 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 		}
 		return nil, userError, nil
 	case "success":
-		result, err = utils.TryParseHex(eaResp.Data.Result)
+		userResult, err = utils.TryParseHex(eaResp.Data.Result)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "error decoding result hex string")
 		}
-		return result, nil, nil
+		return userResult, nil, nil
 	default:
 		return nil, nil, fmt.Errorf("unexpected result in response: '%+v'", eaResp.Result)
 	}
