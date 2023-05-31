@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -622,7 +623,22 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, keyStore.Eth(), txBuilder, chain.Logger())
+
+	ethConfirmerCfg := types.ConfirmerConfig[*assets.Wei]{
+		RPCDefaultBatchSize:     cfg.RPCDefaultBatchSize(),
+		UseForwarders:           cfg.UseForwarders(),
+		FeeBumpTxDepth:          cfg.FeeBumpTxDepth(),
+		MaxInFlightTransactions: cfg.MaxInFlightTransactions(),
+		FeeLimitDefault:         cfg.FeeLimitDefault(),
+
+		FeeBumpThreshold: cfg.FeeBumpThreshold(),
+		FinalityDepth:    cfg.FinalityDepth(),
+		MaxFeePrice:      cfg.MaxFeePrice(),
+		FeeBumpPercent:   cfg.FeeBumpPercent(),
+
+		DefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+	}
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), ethConfirmerCfg, keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {

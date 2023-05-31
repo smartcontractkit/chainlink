@@ -127,7 +127,22 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ethKeyStore, feeEstimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), ethKeyStore, txBuilder, lggr)
+	txmCfg := txmgr.NewEvmTxmConfig(config)
+	ethConfirmerCfg := txmgrtypes.ConfirmerConfig[*assets.Wei]{
+		RPCDefaultBatchSize:     txmCfg.RPCDefaultBatchSize(),
+		UseForwarders:           txmCfg.UseForwarders(),
+		FeeBumpTxDepth:          txmCfg.FeeBumpTxDepth(),
+		MaxInFlightTransactions: txmCfg.MaxInFlightTransactions(),
+		FeeLimitDefault:         txmCfg.FeeLimitDefault(),
+
+		FeeBumpThreshold: txmCfg.FeeBumpThreshold(),
+		FinalityDepth:    txmCfg.FinalityDepth(),
+		MaxFeePrice:      txmCfg.MaxFeePrice(),
+		FeeBumpPercent:   txmCfg.FeeBumpPercent(),
+
+		DefaultQueryTimeout: txmCfg.Database().DatabaseDefaultQueryTimeout(),
+	}
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), ethConfirmerCfg, ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance

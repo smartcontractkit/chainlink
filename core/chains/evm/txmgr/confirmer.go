@@ -193,10 +193,10 @@ func NewConfirmer[
 // Start is a comment to appease the linter
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) Start(_ context.Context) error {
 	return ec.StartOnce("Confirmer", func() error {
-		if ec.config.FeeBumpThreshold() == 0 {
+		if ec.config.FeeBumpThreshold == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
 		} else {
-			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.FeeBumpThreshold()), "ethGasBumpThreshold", ec.config.FeeBumpThreshold())
+			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.FeeBumpThreshold, "ethGasBumpThreshold", ec.config.FeeBumpThreshold))
 		}
 
 		return ec.startInternal()
@@ -360,7 +360,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr)
+	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize), ec.lggr)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -431,7 +431,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.FinalityDepth(), ec.chainID); err != nil {
+	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.config.FinalityDepth, ec.chainID); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 	return nil
@@ -476,7 +476,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) fetchAndSaveReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
-	batchSize := int(ec.config.RPCDefaultBatchSize())
+	batchSize := int(ec.config.RPCDefaultBatchSize)
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
@@ -516,7 +516,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) batchFetchReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], blockNum int64) (receipts []R, err error) {
 	// Metadata is required to determine whether a tx is forwarded or not.
-	if ec.config.UseForwarders() {
+	if ec.config.UseForwarders {
 		err = ec.txStore.PreloadEthTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "Confirmer#batchFetchReceipts error loading txs for attempts")
@@ -591,7 +591,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 
 		// This is only recording forwarded tx that were mined and have a status.
 		// Counters are prone to being inaccurate due to re-orgs.
-		if ec.config.UseForwarders() {
+		if ec.config.UseForwarders {
 			meta, metaErr := attempt.Tx.GetMeta()
 			if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
@@ -637,9 +637,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	threshold := int64(ec.config.FeeBumpThreshold())
-	bumpDepth := int64(ec.config.FeeBumpTxDepth())
-	maxInFlightTransactions := ec.config.MaxInFlightTransactions()
+	threshold := int64(ec.config.FeeBumpThreshold)
+	bumpDepth := int64(ec.config.FeeBumpTxDepth)
+	maxInFlightTransactions := ec.config.MaxInFlightTransactions
 	etxs, err := ec.FindEthTxsRequiringRebroadcast(ctx, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
@@ -786,7 +786,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		"txHash", attempt.Hash,
 		"previousAttempt", attempt,
 		"feeLimit", etx.FeeLimit,
-		"maxGasPrice", ec.config.MaxFeePrice(),
+		"maxGasPrice", ec.config.MaxFeePrice,
 		"sequence", etx.Sequence,
 	}
 }
@@ -858,7 +858,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 		lggr.With(
 			"sendError", sendError,
-			"maxGasPriceConfig", ec.config.MaxFeePrice(),
+			"maxGasPriceConfig", ec.config.MaxFeePrice,
 			"previousAttempt", attempt,
 			"replacementAttempt", replacementAttempt,
 		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
@@ -891,14 +891,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.config.DefaultQueryTimeout
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case clienttypes.InsufficientFunds:
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.config.DefaultQueryTimeout
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	case clienttypes.Successful:
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.config.DefaultQueryTimeout
 		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
 	case clienttypes.Unknown:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
@@ -919,9 +919,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
-	if head.ChainLength() < ec.config.FinalityDepth() {
+	if head.ChainLength() < ec.config.FinalityDepth {
 		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.FinalityDepth(),
+			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.FinalityDepth,
 		}
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
 			warnMsg := "Chain length supplied for re-org detection was shorter than EvmFinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
@@ -1078,7 +1078,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, seq SEQ, overrideGasLimit uint32, fee FEE) (string, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
-		gasLimit = ec.config.FeeLimitDefault()
+		gasLimit = ec.config.FeeLimitDefault
 	}
 	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {

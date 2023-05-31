@@ -55,7 +55,22 @@ func NewTxm(
 		FeePriceDefault:         txmCfg.FeePriceDefault(),
 	}
 	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmClient, broadcasterCfg, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
-	ethConfirmer := txmgr.NewEvmConfirmer(txStore, txmClient, txmCfg, keyStore, txAttemptBuilder, lggr)
+
+	ethConfirmerCfg := types.ConfirmerConfig[*assets.Wei]{
+		RPCDefaultBatchSize:     txmCfg.RPCDefaultBatchSize(),
+		UseForwarders:           txmCfg.UseForwarders(),
+		FeeBumpTxDepth:          txmCfg.FeeBumpTxDepth(),
+		MaxInFlightTransactions: txmCfg.MaxInFlightTransactions(),
+		FeeLimitDefault:         txmCfg.FeeLimitDefault(),
+
+		FeeBumpThreshold: txmCfg.FeeBumpThreshold(),
+		FinalityDepth:    txmCfg.FinalityDepth(),
+		MaxFeePrice:      txmCfg.MaxFeePrice(),
+		FeeBumpPercent:   txmCfg.FeeBumpPercent(),
+
+		DefaultQueryTimeout: txmCfg.Database().DatabaseDefaultQueryTimeout(),
+	}
+	ethConfirmer := txmgr.NewEvmConfirmer(txStore, txmClient, ethConfirmerCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		ethResender = txmgr.NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, txmCfg)

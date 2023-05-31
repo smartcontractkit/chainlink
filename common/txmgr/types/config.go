@@ -4,7 +4,6 @@ import "time"
 
 // FEE_UNIT - fee unit
 type TxmConfig[FEE_UNIT Unit] interface {
-	ConfirmerConfig[FEE_UNIT]
 	ResenderConfig
 	ReaperConfig
 
@@ -25,21 +24,21 @@ type BroadcasterConfig[FEE_UNIT Unit] struct {
 }
 
 // FEE_UNIT - fee unit
-type ConfirmerConfig[FEE_UNIT Unit] interface {
-	RPCDefaultBatchSize() uint32
-	UseForwarders() bool
-	FeeBumpTxDepth() uint32
-	MaxInFlightTransactions() uint32
-	FeeLimitDefault() uint32
+type ConfirmerConfig[FEE_UNIT Unit] struct {
+	RPCDefaultBatchSize     uint32
+	UseForwarders           bool
+	FeeBumpTxDepth          uint32
+	MaxInFlightTransactions uint32
+	FeeLimitDefault         uint32
 
 	// from gas.Config
-	FeeBumpThreshold() uint64
-	FinalityDepth() uint32
-	MaxFeePrice() FEE_UNIT
-	FeeBumpPercent() uint16
+	FeeBumpThreshold uint64
+	FinalityDepth    uint32
+	MaxFeePrice      FEE_UNIT
+	FeeBumpPercent   uint16
 
 	// from pg.QConfig
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout time.Duration
 }
 
 type ResenderConfig interface {
