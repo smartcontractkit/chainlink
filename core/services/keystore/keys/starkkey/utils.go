@@ -56,3 +56,14 @@ func GenerateKey(material io.Reader) (k Key, err error) {
 
 	return k, nil
 }
+
+// pad bytes to specific length
+func padBytes(a []byte, length int) []byte {
+	if len(a) < length {
+		pad := make([]byte, length-len(a))
+		return append(pad, a...)
+	}
+
+	// return original if length is >= to specified length
+	return a
+}
