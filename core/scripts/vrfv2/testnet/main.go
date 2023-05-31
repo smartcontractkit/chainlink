@@ -1098,6 +1098,25 @@ func main() {
 			*wrapperPremiumPercentage,
 			*keyHash,
 			*maxNumWords)
+	case "wrapper-get-fulfillment-tx-size":
+		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		size, err := wrapper.SFulfillmentTxSizeBytes(nil)
+		helpers.PanicErr(err)
+		fmt.Println("fulfillment tx size of wrapper", *wrapperAddress, "is:", size)
+	case "wrapper-set-fulfillment-tx-size":
+		cmd := flag.NewFlagSet("wrapper-set-fulfillment-tx-size", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		size := cmd.Uint("size", 0, "size of the fulfillment transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "size")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		tx, err := wrapper.SetFulfillmentTxSize(e.Owner, uint32(*size))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set fulfillment tx size")
 	case "wrapper-consumer-deploy":
 		cmd := flag.NewFlagSet("wrapper-consumer-deploy", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "address of link token")

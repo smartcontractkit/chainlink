@@ -28,7 +28,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   /// @dev dataSize = proofSize + commitmentSize = 4608 bits
   /// @dev selector = 32 bits
   /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
-  uint32 public constant FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES = 580;
+  uint32 public s_fulfillmentTxSizeBytes = 580;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
@@ -105,6 +105,14 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint64 subId = ExtendedVRFCoordinatorV2Interface(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
     ExtendedVRFCoordinatorV2Interface(_coordinator).addConsumer(subId, address(this));
+  }
+
+  /**
+   * @notice setFulfillmentTxSize sets the size of the fulfillment transaction in bytes.
+   * @param size is the size of the fulfillment transaction in bytes.
+   */
+  function setFulfillmentTxSize(uint32 size) external onlyOwner {
+    s_fulfillmentTxSizeBytes = size;
   }
 
   /**
@@ -234,18 +242,12 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
-    // Get the L1 price per byte estimate from the L2 precompile
-    // This is zero if we're not on an L2.
-    (, uint256 l1PricePerByte, , , , ) = ChainSpecificUtil.getPricesInWei();
-    // Multiply the L1 price per byte estimate by the estimated size of the fulfillment
-    // transaction that will end up getting posted on L1.
-    // This needs to be charged upfront because it will get charged during fulfillment
-    // when ChainSpecificUtil.getCurrentTxL1GasFees() is called.
-    uint256 l1CostWei = l1PricePerByte *
-      (FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES + ChainSpecificUtil.postToL1StaticOverheadBytes());
     // costWei is the base fee denominated in wei (native)
-    // costWei takes into account any l1 costs if we're on an L2 (like arbitrum or optimism)
-    uint256 costWei = (_requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) + l1CostWei);
+    // costWei takes into account the L1 posting costs of the VRF fulfillment
+    // transaction, if we are on an L2.
+    uint256 costWei = (_requestGasPrice *
+      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
+      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
     // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
     // baseFee is the base fee denominated in juels (link)
     uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
