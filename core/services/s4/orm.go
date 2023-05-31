@@ -16,7 +16,7 @@ type Row struct {
 	Expiration int64
 	Confirmed  bool
 	Signature  []byte
-	UpdatedAt  int64
+	UpdatedAt  time.Time
 }
 
 // SnapshotRow used by GetVersions function.

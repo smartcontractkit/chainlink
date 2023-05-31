@@ -56,7 +56,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	}
 
 	clone := row.Clone()
-	clone.UpdatedAt = time.Now().UnixMilli()
+	clone.UpdatedAt = time.Now().UTC()
 	o.rows[mkey] = clone
 	return nil
 }
@@ -113,7 +113,7 @@ func (o *inMemoryOrm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, 
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
-		return rows[i].UpdatedAt < rows[j].UpdatedAt
+		return rows[i].UpdatedAt.Before(rows[j].UpdatedAt)
 	})
 
 	if uint(len(rows)) > limit {
