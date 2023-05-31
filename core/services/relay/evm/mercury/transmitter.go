@@ -200,8 +200,8 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *mercuryTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(mt.fromAccount)
+func (mt *mercuryTransmitter) FromAccount() (ocrtypes.Account, error) {
+	return ocrtypes.Account(mt.fromAccount), nil
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
