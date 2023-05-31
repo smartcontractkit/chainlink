@@ -16,7 +16,8 @@ import (
 )
 
 type ExternalAdapterInterface struct {
-	AdapterURL url.URL
+	AdapterURL                   url.URL
+	MaxSecretsFetchResponseBytes int64
 }
 
 type secretsPayload struct {
@@ -46,7 +47,7 @@ func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, en
 		EncryptedSecretsUrls: encodedSecretsUrls,
 	}
 
-	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, "/fetcher", payload, 100_000, requestId, jobName)
+	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, "/fetcher", payload, requestId, jobName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error fetching encrypted secrets")
 	}
@@ -58,7 +59,6 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 	ctx context.Context,
 	endpoint string,
 	payload interface{},
-	maxResponseBytes int64,
 	requestId string,
 	jobName string,
 ) (result, userError []byte, err error) {
@@ -80,7 +80,7 @@ func (ea ExternalAdapterInterface) externalAdapterRequest(
 	}
 	defer resp.Body.Close()
 
-	source := http.MaxBytesReader(nil, resp.Body, maxResponseBytes)
+	source := http.MaxBytesReader(nil, resp.Body, ea.MaxSecretsFetchResponseBytes)
 	body, err := io.ReadAll(source)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error reading external adapter response")

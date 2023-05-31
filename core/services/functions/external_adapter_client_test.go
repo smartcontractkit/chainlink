@@ -38,7 +38,8 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -75,7 +76,8 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -108,7 +110,8 @@ func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -141,7 +144,8 @@ func Test_FetchEncryptedSecrets_MissingData(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -178,7 +182,8 @@ func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -215,7 +220,8 @@ func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -252,7 +258,8 @@ func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 	jobName := "TestJob"
 
 	ea := ExternalAdapterInterface{
-		AdapterURL: *adapterUrl,
+		AdapterURL:                   *adapterUrl,
+		MaxSecretsFetchResponseBytes: 100_000,
 	}
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
