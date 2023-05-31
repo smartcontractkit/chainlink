@@ -26,6 +26,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
@@ -46,7 +47,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need mercury abi")
 	cooldownCache, apiErrCache := setupCaches(DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 	var logPoller logpoller.LogPoller
-	mockRegistry := mocks.NewRegistry(t)
+	mockRegistry := mocks.NewRegistryV2_1(t)
 	mockHttpClient := mocks.NewHttpClient(t)
 	client := evmClientMocks.NewClient(t)
 
@@ -173,7 +174,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 
 		upkeepCache   bool
 		mockGetUpkeep bool
-		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
+		upkeepInfo    keeper_registry_logic_b_wrapper_2_1.UpkeepInfo
 		upkeepInfoErr error
 
 		want           []types.UpkeepResult
@@ -185,7 +186,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			name:         "success - cached upkeep",
 			input:        []types.UpkeepResult{upkeepResult},
 			callbackResp: callbackResp,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: keeper_registry_logic_b_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -200,7 +201,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			input:         []types.UpkeepResult{upkeepResult},
 			callbackResp:  callbackResp,
 			mockGetUpkeep: true,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: keeper_registry_logic_b_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -264,7 +265,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			input:         []types.UpkeepResult{upkeepResult},
 			mockGetUpkeep: true,
 			callbackResp:  upkeepNeededFalseResp,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: keeper_registry_logic_b_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -325,7 +326,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 
 			// either set cache or mock getUpkeep
 			if tt.mockGetUpkeep {
-				mockReg := mocks.NewRegistry(t)
+				mockReg := mocks.NewRegistryV2_1(t)
 				r.registry = mockReg
 				mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(tt.upkeepInfo, tt.upkeepInfoErr)
 			}

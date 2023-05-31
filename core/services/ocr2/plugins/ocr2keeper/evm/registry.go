@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
@@ -72,6 +74,52 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
+type TriggerType uint8
+
+var (
+	TypeConditional TriggerType = 0
+	TypeBlock       TriggerType = 1
+	TypeLog         TriggerType = 2
+	TypeCron        TriggerType = 3
+)
+
+//go:generate mockery --quiet --name RegistryV2_1 --output ./mocks/ --case=underscore
+type RegistryV2_1 interface {
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error)
+	GetState(opts *bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error)
+	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int, trig uint8) ([]*big.Int, error)
+	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
+}
+
+type registryFacadeV2_1 struct {
+	registry  *keeper_registry_wrapper_2_1.KeeperRegistry
+	registryA *keeper_registry_logic_a_wrapper_2_1.KeeperRegistryLogicA
+	registryB *keeper_registry_logic_b_wrapper_2_1.KeeperRegistryLogicB
+}
+
+var _ RegistryV2_1 = (*registryFacadeV2_1)(nil)
+
+func (r *registryFacadeV2_1) GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error) {
+	return r.registryB.GetUpkeep(opts, id)
+}
+
+func (r *registryFacadeV2_1) GetState(opts *bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error) {
+	return r.registryB.GetState(opts)
+}
+
+func (r *registryFacadeV2_1) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+	return r.registryB.GetActiveUpkeepIDs(opts, startIndex, maxCount)
+}
+
+func (r *registryFacadeV2_1) GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int, trig uint8) ([]*big.Int, error) {
+	return r.registryB.GetActiveUpkeepIDsByType(opts, startIndex, maxCount, trig)
+}
+
+func (r *registryFacadeV2_1) ParseLog(log coreTypes.Log) (generated.AbigenLog, error) {
+	return r.registryA.ParseLog(log)
+}
+
 //go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -95,9 +143,27 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
+	// registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+	// }
+	registryV2_1, err := keeper_registry_wrapper_2_1.NewKeeperRegistry(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+	}
+	registryLogicB, err := keeper_registry_logic_b_wrapper_2_1.NewKeeperRegistryLogicB(addr, client.Client())
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+	}
+	registryLogicA, err := keeper_registry_logic_a_wrapper_2_1.NewKeeperRegistryLogicA(addr, client.Client())
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+	}
+
+	registryFacade := &registryFacadeV2_1{
+		registry:  registryV2_1,
+		registryA: registryLogicA,
+		registryB: registryLogicB,
 	}
 
 	cooldownCache, apiErrCache := setupCaches(DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
@@ -113,7 +179,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		addr:        addr,
 		client:      client.Client(),
 		txHashes:    make(map[string]bool),
-		registry:    registry,
+		registry:    registryFacade,
 		abi:         keeperRegistryABI,
 		packer:      &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		packer_v2_1: &evmRegistryPackerV2_1{abi: keeperRegistryABI_2_1},
@@ -189,7 +255,7 @@ type EvmRegistry struct {
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
-	registry      Registry
+	registry      RegistryV2_1
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
 	packer_v2_1   *evmRegistryPackerV2_1
