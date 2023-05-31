@@ -307,3 +307,14 @@ message BigInt {
   bool negative = 1;
   bytes value = 2;
 }
+
+// Keys, Signatures, Messages to sign
+
+message StarknetSignature {
+  BigInt x = 1;
+  BigInt y = 2;
+}
+
+message StarknetMessageHash {
+  BigInt hash = 1;
+}

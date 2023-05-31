@@ -13,6 +13,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/bigbigendian"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -24,7 +25,10 @@ import (
 // https://github.com/smartcontractkit/offchain-reporting/blob/master/lib/offchainreporting2/reportingplugin/median/median.go
 
 const onchainConfigVersion = 1
-const onchainConfigEncodedLength = 1 + byteWidthInt192 + byteWidthInt192
+
+var onchainConfigVersionBig = big.NewInt(onchainConfigVersion)
+
+const onchainConfigEncodedLength = 96 //TODO 1 + byteWidthInt192 + byteWidthInt192
 
 type OnchainConfig struct {
 	// applies to all values: price, bid and ask
@@ -53,15 +57,19 @@ func (StandardOnchainConfigCodec) Decode(b []byte) (OnchainConfig, error) {
 		return OnchainConfig{}, pkgerrors.Errorf("unexpected length of OnchainConfig, expected %v, got %v", onchainConfigEncodedLength, len(b))
 	}
 
-	if b[0] != onchainConfigVersion {
-		return OnchainConfig{}, pkgerrors.Errorf("unexpected version of OnchainConfig, expected %v, got %v", onchainConfigVersion, b[0])
-	}
-
-	min, err := DecodeValueInt192(b[1 : 1+byteWidthInt192])
+	v, err := bigbigendian.DeserializeSigned(32, b[:32])
 	if err != nil {
 		return OnchainConfig{}, err
 	}
-	max, err := DecodeValueInt192(b[1+byteWidthInt192:])
+	if v.Cmp(onchainConfigVersionBig) != 0 {
+		return OnchainConfig{}, pkgerrors.Errorf("unexpected version of OnchainConfig, expected %v, got %v", onchainConfigVersion, v)
+	}
+
+	min, err := bigbigendian.DeserializeSigned(32, b[32:64])
+	if err != nil {
+		return OnchainConfig{}, err
+	}
+	max, err := bigbigendian.DeserializeSigned(32, b[64:96])
 	if err != nil {
 		return OnchainConfig{}, err
 	}
@@ -74,16 +82,20 @@ func (StandardOnchainConfigCodec) Decode(b []byte) (OnchainConfig, error) {
 }
 
 func (StandardOnchainConfigCodec) Encode(c OnchainConfig) ([]byte, error) {
-	minBytes, err := EncodeValueInt192(c.Min)
+	verBytes, err := bigbigendian.SerializeSigned(32, onchainConfigVersionBig)
 	if err != nil {
 		return nil, err
 	}
-	maxBytes, err := EncodeValueInt192(c.Max)
+	minBytes, err := bigbigendian.SerializeSigned(32, c.Min)
+	if err != nil {
+		return nil, err
+	}
+	maxBytes, err := bigbigendian.SerializeSigned(32, c.Max)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]byte, 0, onchainConfigEncodedLength)
-	result = append(result, onchainConfigVersion)
+	result = append(result, verBytes...)
 	result = append(result, minBytes...)
 	result = append(result, maxBytes...)
 	return result, nil
