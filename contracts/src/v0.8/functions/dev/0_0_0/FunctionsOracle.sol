@@ -36,6 +36,8 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   IFunctionsBillingRegistry private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
 
+  bytes private s_thresholdPublicKey;
+
   /**
    * @dev Initializes the contract.
    */
@@ -285,6 +287,4 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
   uint256[48] private __gap;
-
-  bytes private s_thresholdPublicKey;
 }
