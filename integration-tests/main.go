@@ -195,6 +195,9 @@ func getTestDirectory() (string, error) {
 		Label: "Test Type",
 		Items: testDirectories,
 		Size:  10,
+		Searcher: func(input string, index int) bool {
+			return strings.Contains(testDirectories[index], input)
+		},
 	}
 	_, dir, err := testDirectoryPrompt.Run()
 	if err != nil {
@@ -209,10 +212,14 @@ func getTestDirectory() (string, error) {
 
 // getTest searches the chosen test directory for valid tests to run
 func getTest(dir string) (string, error) {
+	items := testNames(dir)
 	testPrompt := promptui.Select{
 		Label: "Test Name",
-		Items: testNames(dir),
+		Items: items,
 		Size:  15,
+		Searcher: func(input string, index int) bool {
+			return strings.Contains(testNames(dir)[index], input)
+		},
 	}
 	_, test, err := testPrompt.Run()
 	if err != nil {
@@ -340,4 +347,8 @@ func getNetwork() (networkName, networkWs, networkHTTP, fundingKey string, err e
 	}
 
 	return network, networkWs, networkHTTP, fundingKey, nil
+}
+
+func defaultTextSearch(term string, _ int) bool {
+	return strings.Contains(term, "default")
 }
