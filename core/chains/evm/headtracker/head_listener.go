@@ -52,6 +52,8 @@ type headListener[
 
 type evmHeadListener = headListener[*evmtypes.Head, *evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash, evmclient.Client]
 
+var _ commontypes.HeadListener[*evmtypes.Head, common.Hash] = &evmHeadListener{}
+
 func NewHeadListener[
 	H commontypes.Head[BLOCK_HASH],
 	HTH htrktypes.Head[H, BLOCK_HASH, ID],
