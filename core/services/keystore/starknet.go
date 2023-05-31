@@ -153,22 +153,22 @@ func (ks *starknet) getByID(id string) (starkkey.Key, error) {
 	return key, nil
 }
 
-// LooppKeystore implements [loop.Keystore] interface and the requirements
+// StarknetLooppSigner implements [loop.Keystore] interface and the requirements
 // of signature d/encoding of the [KeystoreAdapter]
-type LooppKeystore struct {
+type StarknetLooppSigner struct {
 	StarkNet
 }
 
-func NewLooppKeystore(ks StarkNet) *LooppKeystore {
-	return &LooppKeystore{StarkNet: ks}
+func NewLooppKeystore(ks StarkNet) *StarknetLooppSigner {
+	return &StarknetLooppSigner{StarkNet: ks}
 }
 
-var _ loop.Keystore = &LooppKeystore{}
+var _ loop.Keystore = &StarknetLooppSigner{}
 
 // Sign implements [loop.Keystore]
 // hash is expected to be the byte representation of big.Int
 // the return []byte is encodes a starknet signature per [signature.bytes]
-func (lk *LooppKeystore) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 
 	k, err := lk.Get(id)
 	if err != nil {
@@ -193,17 +193,6 @@ func (lk *LooppKeystore) Sign(ctx context.Context, id string, hash []byte) ([]by
 }
 
 // TODO what is this supposed to return for starknet?
-func (lk *LooppKeystore) Accounts(ctx context.Context) ([]string, error) {
+func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
 	return nil, fmt.Errorf("unimplemented")
-}
-
-// pad bytes to specific length
-func padBytes(a []byte, length int) []byte {
-	if len(a) < length {
-		pad := make([]byte, length-len(a))
-		return append(pad, a...)
-	}
-
-	// return original if length is >= to specified length
-	return a
 }

@@ -290,7 +290,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids             []string
 		starkLggr       = appLggr.Named("StarkNet")
 		cfgs            = cfg.StarknetConfigs()
-		signer          = &keystore.LooppKeystore{ks} //starkkey.NewLooppKeystore(ks.Get)
+		signer          = &keystore.StarknetLooppSigner{ks} //starkkey.NewLooppKeystore(ks.Get)
 	)
 	for _, c := range cfgs {
 		c := c
