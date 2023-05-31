@@ -144,6 +144,18 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EvmTx {
 	}
 }
 
+func NewEthNewTx(t *testing.T, fromAddress common.Address) txmgr.EvmNewTx {
+	return txmgr.EvmNewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      testutils.NewAddress(),
+		EncodedPayload: []byte{1, 2, 3},
+		FeeLimit:       uint32(1000000000),
+		Strategy:       txmgr.SendEveryStrategy{
+				
+		},
+	}
+}
+
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.EvmTx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -317,6 +329,14 @@ func MustInsertUnstartedEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddres
 	etx.State = txmgr.EthTxUnstarted
 	etx.Subject = subject
 	require.NoError(t, txStore.InsertEthTx(&etx))
+	return etx
+}
+
+func MustInsertNewEthTx(t *testing.T, txMgr *txmgr.EvmTxm, fromAddress common.Address, strategy txmgrtypes.TxStrategy) txmgr.EvmTx {
+	newEvmTx := NewEthNewTx(t, fromAddress)
+	newEvmTx.Strategy = strategy 
+	etx, err := txMgr.CreateTransaction(newEvmTx)
+	require.NoError(t, err)
 	return etx
 }
 

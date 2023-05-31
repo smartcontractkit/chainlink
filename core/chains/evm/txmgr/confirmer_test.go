@@ -45,10 +45,10 @@ func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func mustInsertUnstartedEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddress gethCommon.Address) {
-	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = txmgr.EthTxUnstarted
-	require.NoError(t, txStore.InsertEthTx(&etx))
+func mustInsertUnstartedEthTx(t *testing.T, txMgr txmgr.EvmTxManager, fromAddress gethCommon.Address) {
+	newEvmTx := cltest.NewEthNewTx(t, fromAddress)
+	_, err := txMgr.CreateTransaction(newEvmTx)
+	require.NoError(t, err)
 }
 
 func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmTxAttempt {
@@ -188,6 +188,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
+	evmTxmCfg := txmgr.NewEvmTxmConfig(config)
+	txMgr := txmgr.NewEvmTxm(ethClient.ConfiguredChainID(), evmTxmCfg, ethKeyStore, logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
@@ -205,7 +208,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		nonce++
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, nonce, fromAddress)
 		nonce++
-		mustInsertUnstartedEthTx(t, txStore, fromAddress)
+		mustInsertUnstartedEthTx(t, txMgr, fromAddress)
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -1347,7 +1350,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -1368,7 +1371,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
+	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmCfg, ethKeyStore, nil)
 	require.NoError(t, err)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
@@ -2803,7 +2806,11 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	config := newTestChainScopedConfig(t)
-	mustInsertUnstartedEthTx(t, txStore, fromAddress)
+	evmTxmCfg := txmgr.NewEvmTxmConfig(config)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	txMgr := txmgr.NewEvmTxm(ethClient.ConfiguredChainID(), evmTxmCfg, ethKeyStore, logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
+	mustInsertUnstartedEthTx(t, txMgr, fromAddress)
 	mustInsertInProgressEthTx(t, txStore, 0, fromAddress)
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)

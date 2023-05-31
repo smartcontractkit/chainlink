@@ -76,6 +76,11 @@ func NewTestEthBroadcaster(
 	return ethBroadcaster, err
 }
 
+func mustInsertUnstartedNewEthTx(t *testing.T, txMgr txmgr.EvmTxManager, fromAddress gethCommon.Address) {
+	newEvmTx := cltest.NewEthNewTx(t, fromAddress)
+	_, err := txMgr.CreateTransaction(newEvmTx)
+	require.NoError(t, err)
+}
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
 	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.DatabaseURL())
@@ -142,10 +147,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
 
-	eb, err := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
+	evmTxmCfg := txmgr.NewEvmTxmConfig(evmCfg)
+	txMgr := txmgr.NewEvmTxm(ethClient.ConfiguredChainID(), evmTxmCfg, ethKeyStore, logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
+	eb, err := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmCfg, checkerFactory, false)
 	require.NoError(t, err)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
@@ -164,15 +172,15 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
 		_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		etx := txmgr.EvmTx{
+		etx := txmgr.EvmNewTx{
 			FromAddress:    otherAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
-			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgr.EthTxUnstarted,
+			Strategy:       txmgr.SendEveryStrategy{},
 		}
-		require.NoError(t, txStore.InsertEthTx(&etx))
+		_, err := txMgr.CreateTransaction(etx)
+		require.NoError(t, err)
 
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
@@ -248,9 +256,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			if tx.Nonce() != uint64(0) {
 				return false
 			}
-			require.Equal(t, evmcfg.ChainID(), tx.ChainId())
+			require.Equal(t, evmCfg.ChainID(), tx.ChainId())
 			require.Equal(t, uint64(gasLimit), tx.Gas())
-			require.Equal(t, evmcfg.EvmGasPriceDefault().ToInt(), tx.GasPrice())
+			require.Equal(t, evmCfg.EvmGasPriceDefault().ToInt(), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.String(), tx.Value().String())
 			require.Equal(t, earlierEthTx.EncodedPayload, tx.Data())
@@ -271,9 +279,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			if tx.Nonce() != uint64(1) {
 				return false
 			}
-			require.Equal(t, evmcfg.ChainID(), tx.ChainId())
+			require.Equal(t, evmCfg.ChainID(), tx.ChainId())
 			require.Equal(t, uint64(gasLimit), tx.Gas())
-			require.Equal(t, evmcfg.EvmGasPriceDefault().ToInt(), tx.GasPrice())
+			require.Equal(t, evmCfg.EvmGasPriceDefault().ToInt(), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.String(), tx.Value().String())
 			require.Equal(t, laterEthTx.EncodedPayload, tx.Data())
@@ -314,7 +322,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.NotNil(t, attempt.TxFee.Legacy)
 		assert.Nil(t, attempt.TxFee.DynamicTipCap)
 		assert.Nil(t, attempt.TxFee.DynamicFeeCap)
-		assert.Equal(t, evmcfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
+		assert.Equal(t, evmCfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
 
 		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
@@ -337,7 +345,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		attempt = laterTransaction.TxAttempts[0]
 
 		assert.Equal(t, laterTransaction.ID, attempt.TxID)
-		assert.Equal(t, evmcfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
+		assert.Equal(t, evmCfg.EvmGasPriceDefault(), attempt.TxFee.Legacy)
 
 		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
@@ -352,8 +360,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.NewWeiI(rnd + 1)
 		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(rnd + 2)
 	})
-	evmcfg = evmtest.NewChainScopedConfig(t, cfg)
-	eb, err = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
+	evmCfg = evmtest.NewChainScopedConfig(t, cfg)
+	eb, err = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmCfg, checkerFactory, false)
 	require.NoError(t, err)
 
 	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
@@ -1958,21 +1966,24 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_tx_triggers", nil)
 	txStore := cltest.NewTxStore(t, db, cfg)
 
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, evmCfg.DatabaseURL())
 	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
-
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	evmTxmCfg := txmgr.NewEvmTxmConfig(evmCfg)
+	txMgr := txmgr.NewEvmTxm(ethClient.ConfiguredChainID(), evmTxmCfg, ethKeyStore, logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
 	ethTxInsertListener, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 	require.NoError(t, err)
 
 	// Give it some time to start listening
 	time.Sleep(100 * time.Millisecond)
 
-	mustInsertUnstartedEthTx(t, txStore, fromAddress)
+	mustInsertUnstartedEthTx(t, txMgr, fromAddress)
 	gomega.NewWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
 }
 
