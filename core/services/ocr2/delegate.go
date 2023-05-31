@@ -231,8 +231,6 @@ func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
-	default:
-		return nil
 	}
 
 	rargs := types.RelayArgs{
