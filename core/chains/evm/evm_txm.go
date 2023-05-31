@@ -48,9 +48,15 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
+		dbConfig := builder.DBConfig{
+			LogSQL:                      cfg.Database().LogSQL,
+			DatabaseDefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+			FallbackPollInterval:        cfg.Database().Listener().FallbackPollInterval(),
+		}
 		txm, err = builder.NewTxm(
 			db,
 			cfg,
+			dbConfig,
 			client,
 			lggr,
 			logPoller,

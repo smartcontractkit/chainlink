@@ -622,7 +622,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, cli.Config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
-	cfg := txmgr.NewEvmTxmConfig(chain.Config())
+	chainCfg := chain.Config()
+	cfg := txmgr.NewEvmTxmConfig(chainCfg)
 
 	ethConfirmerCfg := types.ConfirmerConfig[*assets.Wei]{
 		RPCDefaultBatchSize:     cfg.RPCDefaultBatchSize(),
@@ -636,7 +637,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		MaxFeePrice:      cfg.MaxFeePrice(),
 		FeeBumpPercent:   cfg.FeeBumpPercent(),
 
-		DefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+		DefaultQueryTimeout: chainCfg.Database().DatabaseDefaultQueryTimeout(),
 	}
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), ethConfirmerCfg, keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1

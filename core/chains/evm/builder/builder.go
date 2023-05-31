@@ -1,6 +1,8 @@
 package builder
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -15,9 +17,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+type DBConfig struct {
+	LogSQL                      func() bool
+	DatabaseDefaultQueryTimeout time.Duration
+	FallbackPollInterval        time.Duration
+}
+
 func NewTxm(
 	db *sqlx.DB,
 	cfg txmgr.Config,
+	dbCfg DBConfig,
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
@@ -32,23 +41,22 @@ func NewTxm(
 	if cfg.EvmUseForwarders() {
 		fcfg := forwarders.Config{
 			EvmFinalityDepth:    int(cfg.EvmFinalityDepth()),
-			LogSQL:              cfg.Database().LogSQL,
-			DefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+			LogSQL:              dbCfg.LogSQL,
+			DefaultQueryTimeout: dbCfg.DatabaseDefaultQueryTimeout,
 		}
 		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, fcfg)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
 	checker := &txmgr.CheckerFactory{Client: client}
-	// create tx attempt builder
 	txAttemptBuilder := txmgr.NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), cfg, keyStore, estimator)
-	txStore := txmgr.NewTxStore(db, lggr, cfg.Database())
+	txStore := txmgr.NewTxStore(db, lggr, pg.ToConfig(dbCfg.LogSQL, dbCfg.DatabaseDefaultQueryTimeout))
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, client, keyStore)
 
 	txmCfg := txmgr.NewEvmTxmConfig(cfg)       // wrap Evm specific config
 	txmClient := txmgr.NewEvmTxmClient(client) // wrap Evm specific client
 	broadcasterCfg := types.BroadcasterConfig[*assets.Wei]{
-		FallbackPollInterval:    txmCfg.FallbackPollInterval(),
+		FallbackPollInterval:    dbCfg.FallbackPollInterval,
 		MaxInFlightTransactions: txmCfg.MaxInFlightTransactions(),
 		IsL2:                    txmCfg.IsL2(),
 		MaxFeePrice:             txmCfg.MaxFeePrice(),
@@ -68,7 +76,7 @@ func NewTxm(
 		MaxFeePrice:      txmCfg.MaxFeePrice(),
 		FeeBumpPercent:   txmCfg.FeeBumpPercent(),
 
-		DefaultQueryTimeout: txmCfg.Database().DatabaseDefaultQueryTimeout(),
+		DefaultQueryTimeout: dbCfg.DatabaseDefaultQueryTimeout,
 	}
 	ethConfirmer := txmgr.NewEvmConfirmer(txStore, txmClient, ethConfirmerCfg, keyStore, txAttemptBuilder, lggr)
 	var ethResender *txmgr.EvmResender

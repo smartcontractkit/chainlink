@@ -40,7 +40,7 @@ import (
 )
 
 func makeTestEvmTxm(
-	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.EvmTxManager, error) {
+	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, dbCfg builder.DBConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.EvmTxManager, error) {
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 
@@ -59,6 +59,7 @@ func makeTestEvmTxm(
 	return builder.NewTxm(
 		db,
 		cfg,
+		dbCfg,
 		ethClient,
 		lggr,
 		lp,
@@ -82,7 +83,12 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db, config).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, keyStore, nil)
+	dbConfig := builder.DBConfig{
+		LogSQL:                      config.Database().LogSQL,
+		DatabaseDefaultQueryTimeout: config.Database().DatabaseDefaultQueryTimeout(),
+		FallbackPollInterval:        config.Database().Listener().FallbackPollInterval(),
+	}
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, dbConfig, keyStore, nil)
 	require.NoError(t, err)
 
 	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
@@ -110,7 +116,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	config.On("LogSQL").Return(false)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
+	dbConfig := builder.DBConfig{
+		LogSQL:                      config.Database().LogSQL,
+		DatabaseDefaultQueryTimeout: config.Database().DatabaseDefaultQueryTimeout(),
+		FallbackPollInterval:        config.Database().Listener().FallbackPollInterval(),
+	}
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, dbConfig, kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -394,7 +405,13 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
+
+	dbConfig := builder.DBConfig{
+		LogSQL:                      config.Database().LogSQL,
+		DatabaseDefaultQueryTimeout: config.Database().DatabaseDefaultQueryTimeout(),
+		FallbackPollInterval:        config.Database().Listener().FallbackPollInterval(),
+	}
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, dbConfig, kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
@@ -484,7 +501,12 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst, eventBroadcaster)
+	dbConfig := builder.DBConfig{
+		LogSQL:                      config.Database().LogSQL,
+		DatabaseDefaultQueryTimeout: config.Database().DatabaseDefaultQueryTimeout(),
+		FallbackPollInterval:        config.Database().Listener().FallbackPollInterval(),
+	}
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, dbConfig, kst, eventBroadcaster)
 	require.NoError(t, err)
 
 	head := cltest.Head(42)
@@ -564,7 +586,12 @@ func TestTxm_Reset(t *testing.T) {
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 
-	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, kst.Eth(), eventBroadcaster)
+	dbConfig := builder.DBConfig{
+		LogSQL:                      cfg.Database().LogSQL,
+		DatabaseDefaultQueryTimeout: cfg.Database().DatabaseDefaultQueryTimeout(),
+		FallbackPollInterval:        cfg.Database().Listener().FallbackPollInterval(),
+	}
+	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, dbConfig, kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)
