@@ -76,11 +76,6 @@ func NewTestEthBroadcaster(
 	return ethBroadcaster, err
 }
 
-func mustInsertUnstartedNewEthTx(t *testing.T, txMgr txmgr.EvmTxManager, fromAddress gethCommon.Address) {
-	newEvmTx := cltest.NewEthNewTx(t, fromAddress)
-	_, err := txMgr.CreateTransaction(newEvmTx)
-	require.NoError(t, err)
-}
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
 	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.DatabaseURL())
