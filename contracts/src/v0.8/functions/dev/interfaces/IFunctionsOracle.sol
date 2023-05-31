@@ -34,7 +34,7 @@ interface IFunctionsOracle {
    */
   function setThresholdPublicKey(bytes calldata thresholdPublicKey) external;
 
-    /**
+  /**
    * @notice Returns the DON's secp256k1 public key that is used to encrypt secrets
    * @dev All nodes on the DON have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key
