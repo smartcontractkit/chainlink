@@ -19,19 +19,19 @@ type ExternalAdapterInterface struct {
 	AdapterURL url.URL
 }
 
-type Payload struct {
+type secretsPayload struct {
 	RequestId            string `json:"requestId"`
 	JobName              string `json:"jobName"`
 	EncryptedSecretsUrls string `json:"encryptedSecretsUrls"`
 }
 
-type Response struct {
-	Result     string       `json:"result"`
-	Data       ResponseData `json:"data"`
-	StatusCode int          `json:"statusCode"`
+type response struct {
+	Result     string        `json:"result"`
+	Data       *responseData `json:"data"`
+	StatusCode int           `json:"statusCode"`
 }
 
-type ResponseData struct {
+type responseData struct {
 	Result      string `json:"result"`
 	Error       string `json:"error"`
 	ErrorString string `json:"errorString"`
@@ -40,55 +40,76 @@ type ResponseData struct {
 func (ea ExternalAdapterInterface) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
 	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
 
-	payload := Payload{
+	payload := secretsPayload{
 		RequestId:            requestId,
 		JobName:              jobName,
 		EncryptedSecretsUrls: encodedSecretsUrls,
 	}
 
-	jsonPayload, err := json.Marshal(payload)
+	encryptedSecrets, userError, err = ea.externalAdapterRequest(ctx, "/fetcher", payload, 100_000, requestId, jobName)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error constructing adapter encrypted secrets fetch payload")
+		return nil, nil, errors.Wrap(err, "error fetching encrypted secrets")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", ea.AdapterURL.JoinPath("/fetcher").String(), bytes.NewBuffer(jsonPayload))
+	return encryptedSecrets, userError, nil
+}
+
+func (ea ExternalAdapterInterface) externalAdapterRequest(
+	ctx context.Context,
+	endpoint string,
+	payload interface{},
+	maxResponseBytes int64,
+	requestId string,
+	jobName string,
+) (result, userError []byte, err error) {
+	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error constructing external adapter encrypted secrets fetch request")
+		return nil, nil, errors.Wrap(err, "error constructing external adapter request payload")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", ea.AdapterURL.JoinPath(endpoint).String(), bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error constructing external adapter request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error during external adapter encrypted secrets fetch request")
+		return nil, nil, errors.Wrap(err, "error during external adapter request")
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	source := http.MaxBytesReader(nil, resp.Body, maxResponseBytes)
+	body, err := io.ReadAll(source)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error reading external adapter encrypted secrets fetch response")
+		return nil, nil, errors.Wrap(err, "error reading external adapter response")
 	}
 
-	var apiResponse Response
-	err = json.Unmarshal(body, &apiResponse)
+	var eaResp response
+	err = json.Unmarshal(body, &eaResp)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("error parsing external adapter encrypted secrets fetch response %s", body))
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("error parsing external adapter response %s", body))
 	}
 
-	switch apiResponse.Result {
+	if eaResp.Data == nil {
+		return nil, nil, errors.New("external adapter response data was empty")
+	}
+
+	switch eaResp.Result {
 	case "error":
-		userError, err = utils.TryParseHex(apiResponse.Data.Error)
+		userError, err = utils.TryParseHex(eaResp.Data.Error)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "error decoding userError hex string")
 		}
 		return nil, userError, nil
 	case "success":
-		encryptedSecrets, err = utils.TryParseHex(apiResponse.Data.Result)
+		result, err = utils.TryParseHex(eaResp.Data.Result)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "error decoding encryptedSecrets hex string")
+			return nil, nil, errors.Wrap(err, "error decoding result hex string")
 		}
-		return encryptedSecrets, nil, nil
+		return result, nil, nil
 	default:
-		return nil, nil, fmt.Errorf("unexpected response %s", apiResponse.Result)
+		return nil, nil, fmt.Errorf("unexpected result in response: '%+v'", eaResp.Result)
 	}
 }

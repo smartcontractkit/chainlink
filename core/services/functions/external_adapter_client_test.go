@@ -15,7 +15,8 @@ import (
 
 func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
 			"result": "success",
 			"data": {
 				"result": "0x616263646566",
@@ -23,6 +24,9 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 			},
 			"statusCode": 200
 		}`)
+		} else {
+			http.NotFound(w, r)
+		}
 	}))
 	defer ts.Close()
 
@@ -48,7 +52,8 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
 			"result": "error",
 			"data": {
 				"result": "",
@@ -56,6 +61,9 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 			},
 			"statusCode": 200
 		}`)
+		} else {
+			http.NotFound(w, r)
+		}
 	}))
 	defer ts.Close()
 
@@ -81,9 +89,47 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 
 func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
 			"invalid": "invalid"
 		}`)
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err, "Unexpected error")
+
+	encryptedSecretsUrls := []byte("test")
+	requestId := "1234"
+	jobName := "TestJob"
+
+	ea := ExternalAdapterInterface{
+		AdapterURL: *adapterUrl,
+	}
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(ctx, encryptedSecretsUrls, requestId, jobName)
+
+	assert.Nil(t, encryptedSecrets, "Unexpected encryptedSecrets")
+	assert.Nil(t, userError, "Unexpected userError")
+	assert.Equal(t, "error fetching encrypted secrets: external adapter response data was empty", err.Error())
+}
+
+func Test_FetchEncryptedSecrets_MissingData(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
+			"result": "success",
+			"statusCode": 200
+		}`)
+		} else {
+			http.NotFound(w, r)
+		}
 	}))
 	defer ts.Close()
 
@@ -104,5 +150,116 @@ func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 
 	assert.Nil(t, encryptedSecrets, "Unexpected encryptedSecrets")
 	assert.Nil(t, userError, "Unexpected userError")
-	assert.Equal(t, err.Error(), "unexpected response ")
+	assert.Equal(t, "error fetching encrypted secrets: external adapter response data was empty", err.Error())
+}
+
+func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
+				"result": "success",
+				"data": {
+					"result": "invalidHexstring",
+					"error": ""
+				},
+				"statusCode": 200
+			}`)
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err, "Unexpected error")
+
+	encryptedSecretsUrls := []byte("test")
+	requestId := "1234"
+	jobName := "TestJob"
+
+	ea := ExternalAdapterInterface{
+		AdapterURL: *adapterUrl,
+	}
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(ctx, encryptedSecretsUrls, requestId, jobName)
+
+	assert.Nil(t, encryptedSecrets, "Unexpected encryptedSecrets")
+	assert.Nil(t, userError, "Unexpected userError")
+	assert.Equal(t, "error fetching encrypted secrets: error decoding result hex string: hex string must have 0x prefix", err.Error())
+}
+
+func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
+				"result": "error",
+				"data": {
+					"error": "invalidHexstring",
+					"result": ""
+				},
+				"statusCode": 200
+			}`)
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err, "Unexpected error")
+
+	encryptedSecretsUrls := []byte("test")
+	requestId := "1234"
+	jobName := "TestJob"
+
+	ea := ExternalAdapterInterface{
+		AdapterURL: *adapterUrl,
+	}
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(ctx, encryptedSecretsUrls, requestId, jobName)
+
+	assert.Nil(t, encryptedSecrets, "Unexpected encryptedSecrets")
+	assert.Nil(t, userError, "Unexpected userError")
+	assert.Equal(t, "error fetching encrypted secrets: error decoding userError hex string: hex string must have 0x prefix", err.Error())
+}
+
+func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/fetcher" {
+			fmt.Fprintln(w, `{
+				"result": "unexpected",
+				"data": {
+					"result": "0x01",
+					"error": ""
+				},
+				"statusCode": 200
+			}`)
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err, "Unexpected error")
+
+	encryptedSecretsUrls := []byte("test")
+	requestId := "1234"
+	jobName := "TestJob"
+
+	ea := ExternalAdapterInterface{
+		AdapterURL: *adapterUrl,
+	}
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(ctx, encryptedSecretsUrls, requestId, jobName)
+
+	assert.Nil(t, encryptedSecrets, "Unexpected encryptedSecrets")
+	assert.Nil(t, userError, "Unexpected userError")
+	assert.Equal(t, "error fetching encrypted secrets: unexpected result in response: 'unexpected'", err.Error())
 }
