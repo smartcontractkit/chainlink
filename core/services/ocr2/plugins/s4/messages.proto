@@ -4,14 +4,14 @@ option go_package = "core/services/ocr2/plugins/s4";
 
 package types;
 
-message VersionRow {
+message SnapshotRow {
     bytes address    = 1;
     uint32 slotid    = 2;
     uint64 version   = 3;
 }
 
 message Query {
-    repeated VersionRow versions = 1;
+    repeated SnapshotRow rows = 1;
 }
 
 message Row {

@@ -124,7 +124,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	assert.Less(t, rows[0].UpdatedAt, rows[99].UpdatedAt)
 }
 
-func TestInMemoryORM_GetVersions(t *testing.T) {
+func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
 
 	orm := s4.NewInMemoryORM()
@@ -148,13 +148,13 @@ func TestInMemoryORM_GetVersions(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	versions, err := orm.GetVersions(s4.NewFullAddressRange())
+	rows, err := orm.GetSnapshot(s4.NewFullAddressRange())
 	assert.NoError(t, err)
-	assert.Len(t, versions, n)
+	assert.Len(t, rows, n)
 
 	testMap := make(map[uint64]int)
 	for i := 0; i < n; i++ {
-		testMap[versions[i].Version]++
+		testMap[rows[i].Version]++
 	}
 	assert.Len(t, testMap, n)
 	for _, c := range testMap {

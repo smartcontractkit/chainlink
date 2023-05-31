@@ -111,19 +111,19 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 	}
 }
 
-func compareVersions(t *testing.T, protoVersions []*s4.VersionRow, ormVersions []*s4_svc.VersionRow) {
-	assert.Equal(t, len(ormVersions), len(protoVersions))
-	for i, row := range protoVersions {
+func compareSnapshotRows(t *testing.T, snapshot []*s4.SnapshotRow, ormVersions []*s4_svc.SnapshotRow) {
+	assert.Equal(t, len(ormVersions), len(snapshot))
+	for i, row := range snapshot {
 		assert.Equal(t, row.Address, ormVersions[i].Address.Bytes())
 		assert.Equal(t, row.Slotid, uint32(ormVersions[i].SlotId))
 		assert.Equal(t, row.Version, ormVersions[i].Version)
 	}
 }
 
-func rowsToVersions(rows []*s4_svc.Row) []*s4_svc.VersionRow {
-	versions := make([]*s4_svc.VersionRow, len(rows))
+func rowsToShapshotRows(rows []*s4_svc.Row) []*s4_svc.SnapshotRow {
+	versions := make([]*s4_svc.SnapshotRow, len(rows))
 	for i, r := range rows {
-		versions[i] = &s4_svc.VersionRow{
+		versions[i] = &s4_svc.SnapshotRow{
 			Address: r.Address,
 			SlotId:  r.SlotId,
 			Version: r.Version,
@@ -262,9 +262,9 @@ func TestPlugin_Query(t *testing.T) {
 
 	t.Run("happy", func(t *testing.T) {
 		ormRows := generateTestOrmRows(t, 10, time.Minute)
-		versions := rowsToVersions(ormRows)
+		rows := rowsToShapshotRows(ormRows)
 
-		orm.On("GetVersions", mock.Anything, mock.Anything).Return(versions, nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(rows, nil).Once()
 
 		queryBytes, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
@@ -273,12 +273,12 @@ func TestPlugin_Query(t *testing.T) {
 		err = proto.Unmarshal(queryBytes, query)
 		assert.NoError(t, err)
 
-		compareVersions(t, query.Versions, versions)
+		compareSnapshotRows(t, query.Rows, rows)
 	})
 
 	t.Run("empty", func(t *testing.T) {
-		empty := make([]*s4_svc.VersionRow, 0)
-		orm.On("GetVersions", mock.Anything, mock.Anything).Return(empty, nil).Once()
+		empty := make([]*s4_svc.SnapshotRow, 0)
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(empty, nil).Once()
 
 		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 		assert.NoError(t, err)
@@ -294,7 +294,7 @@ func TestPlugin_Query(t *testing.T) {
 			thisAddress[0] = byte(i)
 			ormRows[i].Address = utils.NewBig(thisAddress.Big())
 		}
-		versions := rowsToVersions(ormRows)
+		versions := rowsToShapshotRows(ormRows)
 
 		ar, err := s4_svc.NewInitialAddressRangeForIntervals(config.NSnapshotShards)
 		assert.NoError(t, err)
@@ -306,7 +306,7 @@ func TestPlugin_Query(t *testing.T) {
 				from = 0
 				to = 16
 			}
-			orm.On("GetVersions", mock.Anything, mock.Anything).Return(versions[from:to], nil).Once()
+			orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(versions[from:to], nil).Once()
 
 			query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 			assert.NoError(t, err)
@@ -315,8 +315,8 @@ func TestPlugin_Query(t *testing.T) {
 			err = proto.Unmarshal(query, qq)
 			assert.NoError(t, err)
 
-			assert.Len(t, qq.Versions, 16)
-			for _, r := range qq.Versions {
+			assert.Len(t, qq.Rows, 16)
+			for _, r := range qq.Rows {
 				thisAddress := s4.UnmarshalAddress(r.Address)
 				assert.True(t, ar.Contains((*utils.Big)(thisAddress)))
 			}
@@ -362,12 +362,12 @@ func TestPlugin_Observation(t *testing.T) {
 		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
 
-		versions := rowsToVersions(ormRows)
+		snapshotRows := rowsToShapshotRows(ormRows)
 		query := &s4.Query{
-			Versions: make([]*s4.VersionRow, len(versions)),
+			Rows: make([]*s4.SnapshotRow, len(snapshotRows)),
 		}
-		for i, v := range versions {
-			query.Versions[i] = &s4.VersionRow{
+		for i, v := range snapshotRows {
+			query.Rows[i] = &s4.SnapshotRow{
 				Address: v.Address.Bytes(),
 				Slotid:  uint32(v.SlotId),
 				Version: v.Version,
