@@ -7,6 +7,8 @@ import (
 	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	mock "github.com/stretchr/testify/mock"
 
+	time "time"
+
 	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -15,19 +17,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// DeleteExpired provides a mock function with given fields: qopts
-func (_m *ORM) DeleteExpired(qopts ...pg.QOpt) error {
+// DeleteExpired provides a mock function with given fields: limit, utcNow, qopts
+func (_m *ORM) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
+	_ca = append(_ca, limit, utcNow)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) error); ok {
-		r0 = rf(qopts...)
+	if rf, ok := ret.Get(0).(func(uint, time.Time, ...pg.QOpt) error); ok {
+		r0 = rf(limit, utcNow, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

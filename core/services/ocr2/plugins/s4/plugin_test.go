@@ -25,9 +25,10 @@ import (
 
 func createPluginConfig(maxEntries uint) *s4.PluginConfig {
 	return &s4.PluginConfig{
-		MaxObservationEntries: maxEntries,
-		MaxReportEntries:      maxEntries,
-		NSnapshotShards:       1,
+		MaxObservationEntries:   maxEntries,
+		MaxReportEntries:        maxEntries,
+		MaxDeleteExpiredEntries: maxEntries,
+		NSnapshotShards:         1,
 	}
 }
 
@@ -138,41 +139,39 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 	orm := s4_mocks.NewORM(t)
 
 	t.Run("ErrInvalidIntervals", func(t *testing.T) {
-		config := &s4.PluginConfig{
-			NSnapshotShards:       0,
-			MaxObservationEntries: 1,
-			MaxReportEntries:      1,
-		}
+		config := createPluginConfig(1)
+		config.NSnapshotShards = 0
+
 		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorIs(t, err, s4_svc.ErrInvalidIntervals)
 	})
 
 	t.Run("MaxObservationEntries is zero", func(t *testing.T) {
-		config := &s4.PluginConfig{
-			NSnapshotShards:       1,
-			MaxObservationEntries: 0,
-			MaxReportEntries:      1,
-		}
+		config := createPluginConfig(1)
+		config.MaxObservationEntries = 0
+
 		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of observation entries cannot be zero")
 	})
 
 	t.Run("MaxReportEntries is zero", func(t *testing.T) {
-		config := &s4.PluginConfig{
-			NSnapshotShards:       1,
-			MaxObservationEntries: 1,
-			MaxReportEntries:      0,
-		}
+		config := createPluginConfig(1)
+		config.MaxReportEntries = 0
+
 		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of report entries cannot be zero")
 	})
 
+	t.Run("MaxDeleteExpiredEntries is zero", func(t *testing.T) {
+		config := createPluginConfig(1)
+		config.MaxDeleteExpiredEntries = 0
+
+		_, err := s4.NewReportingPlugin(logger, config, orm)
+		assert.ErrorContains(t, err, "max number of delete expired entries cannot be zero")
+	})
+
 	t.Run("happy", func(t *testing.T) {
-		config := &s4.PluginConfig{
-			NSnapshotShards:       1,
-			MaxObservationEntries: 1,
-			MaxReportEntries:      1,
-		}
+		config := createPluginConfig(1)
 		p, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.NoError(t, err)
 		assert.NotNil(t, p)
@@ -341,7 +340,7 @@ func TestPlugin_Observation(t *testing.T) {
 		for _, or := range ormRows {
 			or.Confirmed = false
 		}
-		orm.On("DeleteExpired", mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows, nil).Once()
 
 		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, []byte{})
@@ -360,7 +359,7 @@ func TestPlugin_Observation(t *testing.T) {
 			or.Confirmed = i < numUnconfirmed
 			or.Version = uint64(i)
 		}
-		orm.On("DeleteExpired", mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
 
 		versions := rowsToVersions(ormRows)
@@ -435,12 +434,8 @@ func TestPlugin_FullCycle(t *testing.T) {
 	rows := make([]*s4_svc.Row, nOracles)
 
 	logger := logger.TestLogger(t)
-	config := &s4.PluginConfig{
-		Product:               "test",
-		NSnapshotShards:       1,
-		MaxObservationEntries: 100,
-		MaxReportEntries:      100,
-	}
+	config := createPluginConfig(100)
+	config.ProductName = "test"
 
 	for i := 0; i < nOracles; i++ {
 		orms[i] = s4_svc.NewInMemoryORM()
