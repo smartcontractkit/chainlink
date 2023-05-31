@@ -7,6 +7,7 @@ require (
 	github.com/Depado/ginprom v1.7.11
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac
 	github.com/avast/retry-go/v4 v4.3.4
 	github.com/btcsuite/btcd v0.23.4
 	github.com/cosmos/cosmos-sdk v0.45.11
