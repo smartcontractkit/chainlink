@@ -6,10 +6,8 @@ import (
 )
 
 //go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
-type Head[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] interface {
+type Head[BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] interface {
 	types.Head[BLOCK_HASH]
-	// Equals returns true if the two heads are equal
-	Equals(H) bool
 	// ChainID returns the chain ID that the head is for
 	ChainID() CHAIN_ID
 	// Returns true if the head has a chain Id
