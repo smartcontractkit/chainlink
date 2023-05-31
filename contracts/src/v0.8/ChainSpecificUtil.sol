@@ -41,4 +41,23 @@ library ChainSpecificUtil {
     }
     return 0;
   }
+
+  function getPricesInWei() internal view returns (uint256, uint256, uint256, uint256, uint256, uint256) {
+    uint256 chainid = block.chainid;
+    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+      return ARBGAS.getPricesInWei();
+    }
+
+    return (0, 0, 0, 0, 0, 0);
+  }
+
+  function postToL1StaticOverheadBytes() internal view returns (uint256) {
+    uint256 chainid = block.chainid;
+    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+      // see https://developer.arbitrum.io/devs-how-tos/how-to-estimate-gas#where-do-we-get-all-this-information-from
+      return 140;
+    }
+
+    return 0;
+  }
 }

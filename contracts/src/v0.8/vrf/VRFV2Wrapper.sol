@@ -22,6 +22,15 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   ExtendedVRFCoordinatorV2Interface public immutable COORDINATOR;
   uint64 public immutable SUBSCRIPTION_ID;
+  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
+  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
+  /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
+  /// @dev dataSize = proofSize + commitmentSize = 4608 bits
+  /// @dev selector = 32 bits
+  /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
+  /// @dev typical compression results after brotli come out around 500 bytes,
+  /// @dev which makes for a good upper bound.
+  uint32 public constant FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES = 500;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
@@ -227,8 +236,14 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
-    // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    // Get the L1 price per byte estimate from the L2 precompile
+    // This is zero if we're not on an L2.
+    (, uint256 l1PricePerByte,,,,) = ChainSpecificUtil.getPricesInWei();
+    // Multiply the L1 price per byte estimate by the estimated size of the fulfillment
+    // transaction that will end up getting posted on L1.
+    // This needs to be charged upfront because it will get charged during fulfillment
+    // when ChainSpecificUtil.getCurrentTxL1GasFees() is called.
+    uint256 l1CostWei = l1PricePerByte * (FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES + ChainSpecificUtil.postToL1StaticOverheadBytes());
     // costWei is the base fee denominated in wei (native)
     // costWei takes into account any l1 costs if we're on an L2 (like arbitrum or optimism)
     uint256 costWei = (_requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) + l1CostWei);
