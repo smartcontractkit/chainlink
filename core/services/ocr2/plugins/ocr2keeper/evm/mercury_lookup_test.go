@@ -27,6 +27,7 @@ import (
 	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -38,6 +39,8 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.TestLogger(t)
 	addr := common.Address{}
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	require.Nil(t, err, "need registry abi")
+	keeperRegistryABI_2_1, err := abi.JSON(strings.NewReader(keeper_registry_wrapper_2_1.KeeperRegistryABI))
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
@@ -53,16 +56,17 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 			hb:     htmocks.NewHeadBroadcaster(t),
 			chHead: make(chan types.BlockKey, 1),
 		},
-		lggr:     lggr,
-		poller:   logPoller,
-		addr:     addr,
-		client:   client,
-		txHashes: make(map[string]bool),
-		registry: mockRegistry,
-		abi:      keeperRegistryABI,
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
+		lggr:        lggr,
+		poller:      logPoller,
+		addr:        addr,
+		client:      client,
+		txHashes:    make(map[string]bool),
+		registry:    mockRegistry,
+		abi:         keeperRegistryABI,
+		packer:      &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		packer_v2_1: &evmRegistryPackerV2_1{abi: keeperRegistryABI_2_1},
+		headFunc:    func(types.BlockKey) {},
+		chLog:       make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred: &models.MercuryCredentials{
 				URL:      "https://google.com",

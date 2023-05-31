@@ -168,7 +168,7 @@ func (r *EvmRegistry) fetchUpkeepsBatch(ctx context.Context, block *big.Int, ids
 			multierr.AppendInto(&multiErr, req.Error)
 			continue
 		}
-		res, err := r.packer.UnpackUpkeepInfo(ids[i], *uResults[i])
+		res, err := r.packer_v2_1.UnpackUpkeepInfo(ids[i], *uResults[i])
 		if err != nil {
 			multierr.AppendInto(&multiErr, fmt.Errorf("failed to unpack result: %s", err))
 			continue

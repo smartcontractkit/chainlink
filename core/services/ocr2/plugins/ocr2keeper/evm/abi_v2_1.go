@@ -3,36 +3,25 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 )
 
-type evmRegistryPackerV2_0 struct {
+type evmRegistryPackerV2_1 struct {
 	abi abi.ABI
 }
 
-// enum UpkeepFailureReason
-// https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
-const (
-	UPKEEP_FAILURE_REASON_NONE = iota
-	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
-	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
-	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
-	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
-)
-
-func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
-	return &evmRegistryPackerV2_0{abi: abi}
+func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
+	return &evmRegistryPackerV2_1{abi: abi}
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
+// TODO: adjust to 2.1 if needed
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key types.UpkeepKey, raw string) (types.UpkeepResult, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return types.UpkeepResult{}, err
@@ -79,7 +68,8 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
+// TODO: adjust to 2.1 if needed
+func (rp *evmRegistryPackerV2_1) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
 	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
 		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
@@ -105,7 +95,7 @@ func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) 
 	return true, performData, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err
@@ -120,41 +110,53 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
+func (rp *evmRegistryPackerV2_1) UnpackUpkeepConfig(raw string) (keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return activeUpkeep{}, err
+		return cfg, err
+	}
+
+	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(b)
+	if err != nil {
+		return cfg, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+	}
+
+	converted, ok := abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)).(*keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)
+	if !ok {
+		return cfg, fmt.Errorf("failed to convert type")
+	}
+	return *converted, nil
+}
+
+func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (upkeepInfoEntry, error) {
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return upkeepInfoEntry{}, err
 	}
 
 	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+		return upkeepInfoEntry{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	type upkeepInfo struct {
-		Target                 common.Address
-		ExecuteGas             uint32
-		CheckData              []byte
-		Balance                *big.Int
-		Admin                  common.Address
-		MaxValidBlocknumber    uint64
-		LastPerformBlockNumber uint32
-		AmountSpent            *big.Int
-		Paused                 bool
-		OffchainConfig         []byte
-	}
-	temp := *abi.ConvertType(out[0], new(upkeepInfo)).(*upkeepInfo)
+	temp := *abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)).(*keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)
 
-	au := activeUpkeep{
-		ID:              id,
-		PerformGasLimit: temp.ExecuteGas,
-		CheckData:       temp.CheckData,
+	u := upkeepInfoEntry{
+		id:              id,
+		target:          temp.Target,
+		performGasLimit: temp.ExecuteGas,
+		offchainConfig:  temp.OffchainConfig,
+	}
+	if temp.Paused {
+		u.state = stateInactive
 	}
 
-	return au, nil
+	return u, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.UpkeepResult, error) {
+// TODO: adjust to 2.1 if needed
+func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]types.UpkeepResult, error) {
 	out, err := rp.abi.Methods["transmit"].Inputs.UnpackValues(raw)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
@@ -168,32 +170,4 @@ func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]types.Upke
 		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
 	}
 	return decodedReport, nil
-}
-
-var (
-	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
-	// function which returns this tuple in order to decode the bytes
-	pdataABI, _ = abi.JSON(strings.NewReader(`[{
-		"name":"check",
-		"type":"function",
-		"outputs":[{
-			"name":"ret",
-			"type":"tuple",
-			"components":[
-				{"type":"uint32","name":"checkBlockNumber"},
-				{"type":"bytes32","name":"checkBlockhash"},
-				{"type":"bytes","name":"performData"}
-				]
-			}]
-		}]`,
-	))
-)
-
-type performDataWrapper struct {
-	Result performDataStruct
-}
-type performDataStruct struct {
-	CheckBlockNumber uint32   `abi:"checkBlockNumber"`
-	CheckBlockhash   [32]byte `abi:"checkBlockhash"`
-	PerformData      []byte   `abi:"performData"`
 }

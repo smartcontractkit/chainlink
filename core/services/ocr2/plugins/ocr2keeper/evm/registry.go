@@ -90,6 +90,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
+	keeperRegistryABI_2_1, err := abi.JSON(strings.NewReader(keeper_registry_wrapper_2_1.KeeperRegistryABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
 
 	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
 	if err != nil {
@@ -104,16 +108,17 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan types.BlockKey, 1),
 		},
-		lggr:     lggr,
-		poller:   client.LogPoller(),
-		addr:     addr,
-		client:   client.Client(),
-		txHashes: make(map[string]bool),
-		registry: registry,
-		abi:      keeperRegistryABI,
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
+		lggr:        lggr,
+		poller:      client.LogPoller(),
+		addr:        addr,
+		client:      client.Client(),
+		txHashes:    make(map[string]bool),
+		registry:    registry,
+		abi:         keeperRegistryABI,
+		packer:      &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		packer_v2_1: &evmRegistryPackerV2_1{abi: keeperRegistryABI_2_1},
+		headFunc:    func(types.BlockKey) {},
+		chLog:       make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
 			abi:           mercuryLookupCompatibleABI,
@@ -187,6 +192,7 @@ type EvmRegistry struct {
 	registry      Registry
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
+	packer_v2_1   *evmRegistryPackerV2_1
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
@@ -486,7 +492,7 @@ func (r *EvmRegistry) updateUpkeepConfig(id *big.Int, cfg []byte) {
 	case logTrigger:
 		// for log upkeeps, we need to register the log filter
 		// TODO: check cfg type
-		parsed, err := r.packer.UnpackUpkeepConfig(string(cfg))
+		parsed, err := r.packer_v2_1.UnpackUpkeepConfig(string(cfg))
 		if err != nil {
 			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
 			return // TODO: handle?
