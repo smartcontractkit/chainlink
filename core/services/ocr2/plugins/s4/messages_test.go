@@ -33,7 +33,7 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 	versions := make([]*s4.VersionRow, len(ormVersions))
 	for i, v := range ormVersions {
 		versions[i] = &s4.VersionRow{
-			Address: v.Address.Hex(),
+			Address: v.Address.Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}

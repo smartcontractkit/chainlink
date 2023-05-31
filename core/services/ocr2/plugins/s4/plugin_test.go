@@ -57,7 +57,7 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	rows := make([]*s4.Row, n)
 	for i := 0; i < n; i++ {
 		rows[i] = &s4.Row{
-			Address:    ormRows[i].Address.Hex(),
+			Address:    ormRows[i].Address.Bytes(),
 			Slotid:     uint32(ormRows[i].SlotId),
 			Version:    ormRows[i].Version,
 			Expiration: ormRows[i].Expiration,
@@ -103,7 +103,7 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
 func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 	assert.Equal(t, len(ormRows), len(protoRows))
 	for i, row := range protoRows {
-		assert.Equal(t, row.Address, ormRows[i].Address.Hex())
+		assert.Equal(t, row.Address, ormRows[i].Address.Bytes())
 		assert.Equal(t, row.Version, ormRows[i].Version)
 		assert.Equal(t, row.Expiration, ormRows[i].Expiration)
 		assert.Equal(t, row.Payload, ormRows[i].Payload)
@@ -114,7 +114,7 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 func compareVersions(t *testing.T, protoVersions []*s4.VersionRow, ormVersions []*s4_svc.VersionRow) {
 	assert.Equal(t, len(ormVersions), len(protoVersions))
 	for i, row := range protoVersions {
-		assert.Equal(t, row.Address, ormVersions[i].Address.Hex())
+		assert.Equal(t, row.Address, ormVersions[i].Address.Bytes())
 		assert.Equal(t, row.Slotid, uint32(ormVersions[i].SlotId))
 		assert.Equal(t, row.Version, ormVersions[i].Version)
 	}
@@ -317,7 +317,7 @@ func TestPlugin_Query(t *testing.T) {
 
 			assert.Len(t, qq.Versions, 16)
 			for _, r := range qq.Versions {
-				thisAddress := common.HexToAddress(r.Address).Big()
+				thisAddress := s4.UnmarshalAddress(r.Address)
 				assert.True(t, ar.Contains((*utils.Big)(thisAddress)))
 			}
 
@@ -368,7 +368,7 @@ func TestPlugin_Observation(t *testing.T) {
 		}
 		for i, v := range versions {
 			query.Versions[i] = &s4.VersionRow{
-				Address: v.Address.Hex(),
+				Address: v.Address.Bytes(),
 				Slotid:  uint32(v.SlotId),
 				Version: v.Version,
 			}

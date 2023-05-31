@@ -1,11 +1,12 @@
 package s4
 
 import (
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -45,16 +46,12 @@ func UnmarshalRows(data []byte) ([]*Row, error) {
 	return rows.Rows, nil
 }
 
-func UnmarshalAddress(address string) (*utils.Big, error) {
-	decoded, err := hexutil.DecodeBig(address)
-	if err != nil {
-		return nil, err
-	}
-	return utils.NewBig(decoded), nil
+func UnmarshalAddress(address []byte) *utils.Big {
+	return utils.NewBig(new(big.Int).SetBytes(address))
 }
 
 func (row *Row) VerifySignature() error {
-	address := common.HexToAddress(row.Address)
+	address := common.BytesToAddress(row.Address)
 	e := &s4.Envelope{
 		Address:    address.Bytes(),
 		SlotID:     uint(row.Slotid),
