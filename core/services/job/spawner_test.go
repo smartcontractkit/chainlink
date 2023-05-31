@@ -279,7 +279,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		processConfig := plugins.NewRegistrarConfig(config, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
+		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
