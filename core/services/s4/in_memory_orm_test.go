@@ -19,7 +19,7 @@ func TestInMemoryORM(t *testing.T) {
 	var slotId uint = 3
 	payload := testutils.Random32Byte()
 	signature := testutils.Random32Byte()
-	expiration := time.Now().Add(100 * time.Millisecond).UnixMilli()
+	expiration := time.Now().Add(time.Minute).UnixMilli()
 	row := &s4.Row{
 		Address:    utils.NewBig(address.Big()),
 		SlotId:     slotId,
@@ -60,16 +60,38 @@ func TestInMemoryORM(t *testing.T) {
 		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
+}
 
-	t.Run("delete expired", func(t *testing.T) {
-		ms := row.Expiration - time.Now().UnixMilli() + 100
-		time.Sleep(time.Duration(ms) * time.Millisecond)
-		err := orm.DeleteExpired()
+func TestInMemoryORM_DeleteExpired(t *testing.T) {
+	t.Parallel()
+
+	orm := s4.NewInMemoryORM()
+	baseTime := time.Now().Add(time.Minute).UTC()
+
+	for i := 0; i < 256; i++ {
+		var thisAddress common.Address
+		thisAddress[0] = byte(i)
+
+		row := &s4.Row{
+			Address:    utils.NewBig(thisAddress.Big()),
+			SlotId:     1,
+			Payload:    []byte{},
+			Version:    1,
+			Expiration: baseTime.Add(time.Duration(i) * time.Second).UnixMilli(),
+			Confirmed:  false,
+			Signature:  []byte{},
+		}
+		err := orm.Update(row)
 		assert.NoError(t, err)
+	}
 
-		_, err = orm.Get(utils.NewBig(address.Big()), slotId)
-		assert.ErrorIs(t, err, s4.ErrNotFound)
-	})
+	deadline := baseTime.Add(100 * time.Second)
+	err := orm.DeleteExpired(200, deadline)
+	assert.NoError(t, err)
+
+	rows, err := orm.GetUnconfirmedRows(200)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 156)
 }
 
 func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {

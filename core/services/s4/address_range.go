@@ -77,7 +77,7 @@ func (r *AddressRange) Advance() {
 	}
 }
 
-// Contains returns true if the given address belongs the range.
+// Contains returns true if the given address belongs to the range.
 func (r *AddressRange) Contains(address *utils.Big) bool {
 	if r == nil {
 		return false

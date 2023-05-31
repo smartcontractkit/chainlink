@@ -2,6 +2,7 @@ package s4
 
 import (
 	"context"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -20,7 +21,7 @@ type plugin struct {
 
 type key struct {
 	address string
-	slot    uint
+	slotID  uint
 }
 
 var _ types.ReportingPlugin = (*plugin)(nil)
@@ -32,6 +33,9 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 	if config.MaxReportEntries == 0 {
 		return nil, errors.New("max number of report entries cannot be zero")
 	}
+	if config.MaxDeleteExpiredEntries == 0 {
+		return nil, errors.New("max number of delete expired entries cannot be zero")
+	}
 
 	addressRange, err := s4.NewInitialAddressRangeForIntervals(config.NSnapshotShards)
 	if err != nil {
@@ -39,7 +43,7 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 	}
 
 	return &plugin{
-		logger:       logger.Named("OCR2-S4").With("product", config.Product),
+		logger:       logger.Named("OCR2-S4").With("product", config.ProductName),
 		config:       config,
 		orm:          orm,
 		addressRange: addressRange,
@@ -47,7 +51,7 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 }
 
 func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
-	promReportingPluginQuery.WithLabelValues(c.config.Product).Inc()
+	promReportingPluginQuery.WithLabelValues(c.config.ProductName).Inc()
 
 	ormVersions, err := c.orm.GetVersions(c.addressRange, pg.WithParentCtx(ctx))
 	if err != nil {
@@ -68,8 +72,8 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		return nil, err
 	}
 
-	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.Product).Set(float64(len(versions)))
-	promReportingPluginsQueryByteSize.WithLabelValues(c.config.Product).Set(float64(len(queryBytes)))
+	promReportingPluginsQueryRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(versions)))
+	promReportingPluginsQueryByteSize.WithLabelValues(c.config.ProductName).Set(float64(len(queryBytes)))
 
 	c.addressRange.Advance()
 
@@ -77,13 +81,14 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 }
 
 func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query types.Query) (types.Observation, error) {
-	promReportingPluginObservation.WithLabelValues(c.config.Product).Inc()
+	promReportingPluginObservation.WithLabelValues(c.config.ProductName).Inc()
 
-	if err := c.orm.DeleteExpired(pg.WithParentCtx(ctx)); err != nil {
+	now := time.Now().UTC()
+	if err := c.orm.DeleteExpired(c.config.MaxDeleteExpiredEntries, now, pg.WithParentCtx(ctx)); err != nil {
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
 
-	observationRows := make([]*s4.Row, 0)
+	queryRows := make([]*s4.Row, 0)
 	unconfirmedRows, err := c.orm.GetUnconfirmedRows(c.config.MaxObservationEntries, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetUnconfirmedRows in Observation()")
@@ -103,26 +108,26 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 				}
 				row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
 				if err == nil && row.Version > vr.Version {
-					observationRows = append(observationRows, row)
+					queryRows = append(queryRows, row)
 				} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
 					c.logger.Errorw("ORM Get error", "err", err)
 				}
-				if len(observationRows) >= maxObservationRows {
+				if len(queryRows) >= maxObservationRows {
 					break
 				}
 			}
 		}
 	}
 
-	rows := convertRows(append(unconfirmedRows, observationRows...))
+	rows := convertRows(append(unconfirmedRows, queryRows...))
 
-	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.Product).Set(float64(len(rows)))
+	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
 
 	return MarshalRows(rows)
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
-	promReportingPluginReport.WithLabelValues(c.config.Product).Inc()
+	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
 	reportMap := make(map[key]*Row)
 
@@ -134,13 +139,13 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 
 		for _, row := range observationRows {
 			if err := row.VerifySignature(); err != nil {
-				promReportingPluginWrongSigCount.WithLabelValues(c.config.Product).Inc()
+				promReportingPluginWrongSigCount.WithLabelValues(c.config.ProductName).Inc()
 				c.logger.Errorw("Report detected invalid signature", "err", err, "oracleID", ao.Observer)
 				continue
 			}
 			mkey := key{
 				address: row.Address,
-				slot:    uint(row.Slotid),
+				slotID:  uint(row.Slotid),
 			}
 			report, ok := reportMap[mkey]
 			if ok && report.Version >= row.Version {
@@ -164,13 +169,13 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		return false, nil, err
 	}
 
-	promReportingPluginsReportRowsCount.WithLabelValues(c.config.Product).Set(float64(len(reportRows)))
+	promReportingPluginsReportRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(reportRows)))
 
 	return true, report, nil
 }
 
 func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
-	promReportingPluginShouldAccept.WithLabelValues(c.config.Product).Inc()
+	promReportingPluginShouldAccept.WithLabelValues(c.config.ProductName).Inc()
 
 	reportRows, err := UnmarshalRows(report)
 	if err != nil {

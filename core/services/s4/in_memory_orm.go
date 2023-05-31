@@ -61,15 +61,17 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *inMemoryOrm) DeleteExpired(qopts ...pg.QOpt) error {
+func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	queue := make([]key, 0)
-	now := time.Now().UnixMilli()
 	for k, v := range o.rows {
-		if v.Expiration < now {
+		if v.Expiration < now.UnixMilli() {
 			queue = append(queue, k)
+			if len(queue) >= int(limit) {
+				break
+			}
 		}
 	}
 	for _, k := range queue {

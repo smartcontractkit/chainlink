@@ -1,6 +1,8 @@
 package s4
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -40,8 +42,9 @@ type ORM interface {
 	// UpdatedAt field value is ignored.
 	Update(row *Row, qopts ...pg.QOpt) error
 
-	// DeleteExpired deletes any entries having Expiration < now().
-	DeleteExpired(qopts ...pg.QOpt) error
+	// DeleteExpired deletes any entries having Expiration < utcNow,
+	// up to the given limit.
+	DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error
 
 	// GetVersions selects all non-expired row versions for the given addresses range.
 	// For the full address range, use NewFullAddressRange().
