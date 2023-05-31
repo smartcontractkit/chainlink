@@ -33,6 +33,11 @@ import (
 var ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
 var ErrInvalidQOpt = errors.New("evmTxStore: Invalid QOpt")
 
+type TestEvmTxStore interface {
+	EvmTxStore
+	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
+}
+
 type evmTxStore struct {
 	q         pg.Q
 	logger    logger.Logger
@@ -41,6 +46,7 @@ type evmTxStore struct {
 }
 
 var _ EvmTxStore = (*evmTxStore)(nil)
+var _ TestEvmTxStore = (*evmTxStore)(nil)
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -280,7 +286,7 @@ func NewTxStore(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-) EvmTxStore {
+) *evmTxStore {
 	namedLogger := lggr.Named("TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
