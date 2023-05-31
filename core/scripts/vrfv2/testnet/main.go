@@ -1060,6 +1060,18 @@ func main() {
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
+	case "wrapper-withdraw":
+		cmd := flag.NewFlagSet("wrapper-withdraw", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		recipientAddress := cmd.String("recipient-address", "", "address to withdraw to")
+		amount := cmd.String("amount", "", "amount to withdraw")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "recipient-address", "amount")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		amountInt := decimal.RequireFromString(*amount).BigInt()
+		tx, err := wrapper.Withdraw(e.Owner, common.HexToAddress(*recipientAddress), amountInt)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-get-subscription-id":
 		cmd := flag.NewFlagSet("wrapper-get-subscription-id", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")

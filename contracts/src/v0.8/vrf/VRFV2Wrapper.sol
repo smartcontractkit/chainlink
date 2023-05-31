@@ -28,9 +28,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   /// @dev dataSize = proofSize + commitmentSize = 4608 bits
   /// @dev selector = 32 bits
   /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
-  /// @dev typical compression results after brotli come out around 500 bytes,
-  /// @dev which makes for a good upper bound.
-  uint32 public constant FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES = 500;
+  uint32 public constant FULFILLMENT_COMPRESSED_TX_DATA_SIZE_BYTES = 580;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
