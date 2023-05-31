@@ -4681,7 +4681,7 @@ Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 SendOnly = false # Default
-Priority = 0 # Default
+Order = 100 # Default
 ```
 
 
@@ -4709,11 +4709,11 @@ SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 
-### Priority
+### Order
 ```toml
-Priority = 0 # Default
+Order = 100 # Default
 ```
-Priority of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
+Order of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
 
 ## EVM.OCR2.Automation
 ```toml
