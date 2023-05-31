@@ -199,18 +199,6 @@ func (h *Head) ToInt() *big.Int {
 	return big.NewInt(h.Number)
 }
 
-func (h *Head) Equals(r *Head) bool {
-	if h == nil && r == nil {
-		return true
-	}
-
-	if h == nil || r == nil {
-		return false
-	}
-
-	return h.Hash == r.Hash && h.Number == r.Number
-}
-
 // GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than
 // the supplied BlockNumber
 func (h *Head) GreaterThan(r *Head) bool {
