@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 )
 
 type evmRegistryPackerV2_0 struct {
@@ -120,6 +122,52 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
+func (rp *evmRegistryPackerV2_0) UnpackUpkeepConfig(raw string) (keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return cfg, err
+	}
+
+	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(b)
+	if err != nil {
+		return cfg, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+	}
+
+	converted, ok := abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)).(*keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)
+	if !ok {
+		return cfg, fmt.Errorf("failed to convert type")
+	}
+	return *converted, nil
+}
+
+func (rp *evmRegistryPackerV2_0) UnpackUpkeepInfo(id *big.Int, raw string) (upkeepInfoEntry, error) {
+	b, err := hexutil.Decode(raw)
+	if err != nil {
+		return upkeepInfoEntry{}, err
+	}
+
+	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
+	if err != nil {
+		return upkeepInfoEntry{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+	}
+
+	temp := *abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)).(*keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)
+
+	u := upkeepInfoEntry{
+		id:              id,
+		target:          temp.Target,
+		performGasLimit: temp.ExecuteGas,
+		offchainConfig:  temp.OffchainConfig,
+	}
+	if temp.Paused {
+		u.state = stateInactive
+	}
+
+	return u, nil
+}
+
+// TODO: remove
 func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
