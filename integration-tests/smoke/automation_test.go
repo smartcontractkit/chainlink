@@ -98,7 +98,6 @@ func TestMain(m *testing.M) {
 
 func TestAutomationBasic(t *testing.T) {
 	SetupAutomationBasic(t, false)
-
 }
 
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
