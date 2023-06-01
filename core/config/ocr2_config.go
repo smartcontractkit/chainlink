@@ -17,4 +17,6 @@ type OCR2Config interface {
 	// OCR2 config, cannot override in jobs
 	OCR2TraceLogging() bool
 	OCR2CaptureEATelemetry() bool
+	OCR2DefaultTransactionQueueDepth() uint32
+	OCR2SimulateTransactions() bool
 }

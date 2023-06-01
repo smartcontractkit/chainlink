@@ -41,8 +41,7 @@ import (
 	"github.com/urfave/cli"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -80,6 +79,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -463,14 +463,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-		}
 		cfgs := cfg.StarknetConfigs()
-		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
@@ -483,6 +477,20 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		if err != nil {
 			lggr.Fatal(err)
 		}
+
+		opts := starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			KeyStore: keyStore.StarkNet(),
+			Configs:  starknet.NewConfigs(cfgs),
+		}
+
+		chainSet, err := starknet.NewChainSet(opts, cfgs)
+		if err != nil {
+			lggr.Fatal(err)
+		}
+
+		chains.StarkNet = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
