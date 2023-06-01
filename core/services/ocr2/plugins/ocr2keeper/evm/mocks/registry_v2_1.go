@@ -9,7 +9,7 @@ import (
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
-	keeper_registry_logic_b_wrapper_2_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	i_keeper_registry_master_wrapper_2_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -74,18 +74,18 @@ func (_m *RegistryV2_1) GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex
 }
 
 // GetState provides a mock function with given fields: opts
-func (_m *RegistryV2_1) GetState(opts *bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error) {
+func (_m *RegistryV2_1) GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error) {
 	ret := _m.Called(opts)
 
-	var r0 keeper_registry_logic_b_wrapper_2_1.GetState
+	var r0 i_keeper_registry_master_wrapper_2_1.GetState
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) keeper_registry_logic_b_wrapper_2_1.GetState); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) i_keeper_registry_master_wrapper_2_1.GetState); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(keeper_registry_logic_b_wrapper_2_1.GetState)
+		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.GetState)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -98,18 +98,18 @@ func (_m *RegistryV2_1) GetState(opts *bind.CallOpts) (keeper_registry_logic_b_w
 }
 
 // GetUpkeep provides a mock function with given fields: opts, id
-func (_m *RegistryV2_1) GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error) {
+func (_m *RegistryV2_1) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error) {
 	ret := _m.Called(opts, id)
 
-	var r0 keeper_registry_logic_b_wrapper_2_1.UpkeepInfo
+	var r0 i_keeper_registry_master_wrapper_2_1.UpkeepInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error)); ok {
 		return rf(opts, id)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) keeper_registry_logic_b_wrapper_2_1.UpkeepInfo); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_keeper_registry_master_wrapper_2_1.UpkeepInfo); ok {
 		r0 = rf(opts, id)
 	} else {
-		r0 = ret.Get(0).(keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)
+		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {

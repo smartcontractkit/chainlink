@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
 const (
@@ -27,7 +27,7 @@ func newLogFiltersManager(poller logpoller.LogPoller) *logFiltersManager {
 }
 
 // Register takes an upkeep and register the corresponding filter if applicable
-func (lfm *logFiltersManager) Register(upkeepID string, cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) error {
+func (lfm *logFiltersManager) Register(upkeepID string, cfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) error {
 	err := validateLogTriggerConfig(cfg)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (lfm *logFiltersManager) UnRegister(upkeepID string) error {
 }
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
-func newLogFilter(upkeepID string, cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) logpoller.Filter {
+func newLogFilter(upkeepID string, cfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) logpoller.Filter {
 	sigs := []common.Hash{
 		common.BytesToHash(cfg.Topic0[:]),
 	}
@@ -56,7 +56,7 @@ func newLogFilter(upkeepID string, cfg keeper_registry_logic_b_wrapper_2_1.Keepe
 	}
 }
 
-func validateLogTriggerConfig(cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) error {
+func validateLogTriggerConfig(cfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig) error {
 	var zeroAddr common.Address
 	var zeroBytes [32]byte
 	if bytes.Equal(cfg.ContractAddress[:], zeroAddr[:]) {

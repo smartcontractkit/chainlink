@@ -25,10 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -85,39 +83,11 @@ var (
 
 //go:generate mockery --quiet --name RegistryV2_1 --output ./mocks/ --case=underscore
 type RegistryV2_1 interface {
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error)
-	GetState(opts *bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error)
+	GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int, trig uint8) ([]*big.Int, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
-}
-
-type registryFacadeV2_1 struct {
-	registry  *keeper_registry_wrapper_2_1.KeeperRegistry
-	registryA *keeper_registry_logic_a_wrapper_2_1.KeeperRegistryLogicA
-	registryB *keeper_registry_logic_b_wrapper_2_1.KeeperRegistryLogicB
-}
-
-var _ RegistryV2_1 = (*registryFacadeV2_1)(nil)
-
-func (r *registryFacadeV2_1) GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_logic_b_wrapper_2_1.UpkeepInfo, error) {
-	return r.registryB.GetUpkeep(opts, id)
-}
-
-func (r *registryFacadeV2_1) GetState(opts *bind.CallOpts) (keeper_registry_logic_b_wrapper_2_1.GetState, error) {
-	return r.registryB.GetState(opts)
-}
-
-func (r *registryFacadeV2_1) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
-	return r.registryB.GetActiveUpkeepIDs(opts, startIndex, maxCount)
-}
-
-func (r *registryFacadeV2_1) GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int, trig uint8) ([]*big.Int, error) {
-	return r.registryB.GetActiveUpkeepIDsByType(opts, startIndex, maxCount, trig)
-}
-
-func (r *registryFacadeV2_1) ParseLog(log coreTypes.Log) (generated.AbigenLog, error) {
-	return r.registryA.ParseLog(log)
 }
 
 //go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
@@ -138,7 +108,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	keeperRegistryABI_2_1, err := abi.JSON(strings.NewReader(keeper_registry_wrapper_2_1.KeeperRegistryABI))
+	keeperRegistryABI_2_1, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -147,23 +117,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	// if err != nil {
 	// 	return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	// }
-	registryV2_1, err := keeper_registry_wrapper_2_1.NewKeeperRegistry(addr, client.Client())
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
-	}
-	registryLogicB, err := keeper_registry_logic_b_wrapper_2_1.NewKeeperRegistryLogicB(addr, client.Client())
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
-	}
-	registryLogicA, err := keeper_registry_logic_a_wrapper_2_1.NewKeeperRegistryLogicA(addr, client.Client())
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
-	}
 
-	registryFacade := &registryFacadeV2_1{
-		registry:  registryV2_1,
-		registryA: registryLogicA,
-		registryB: registryLogicB,
+	registryV2_1, err := i_keeper_registry_master_wrapper_2_1.NewIKeeperRegistryMaster(addr, client.Client())
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
 	cooldownCache, apiErrCache := setupCaches(DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
@@ -179,7 +136,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		addr:        addr,
 		client:      client.Client(),
 		txHashes:    make(map[string]bool),
-		registry:    registryFacade,
+		registry:    registryV2_1,
 		abi:         keeperRegistryABI,
 		packer:      &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		packer_v2_1: &evmRegistryPackerV2_1{abi: keeperRegistryABI_2_1},
@@ -191,8 +148,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
-		hc: http.DefaultClient,
-
+		hc:         http.DefaultClient,
 		logFilters: newLogFiltersManager(client.LogPoller()),
 	}
 	r.upkeepIndex = newUpkeepIndex(lggr, r.fetchUpkeep, r.fetchUpkeeps)
@@ -502,40 +458,40 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepTriggerConfigSet:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.updateUpkeepConfig(l.Id, l.TriggerConfig)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepCanceled:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPaused:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.markInactive(l.Id)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepRegistered:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepReceived:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepUnpaused:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepGasLimitSet:
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:

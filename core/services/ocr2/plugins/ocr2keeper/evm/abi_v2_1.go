@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/chain"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
 type evmRegistryPackerV2_1 struct {
@@ -110,8 +110,8 @@ func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackUpkeepConfig(raw string) (keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig, error) {
-	var cfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+func (rp *evmRegistryPackerV2_1) UnpackUpkeepConfig(raw string) (i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return cfg, err
@@ -122,7 +122,7 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepConfig(raw string) (keeper_registry
 		return cfg, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)).(*keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)).(*i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type")
 	}
@@ -140,7 +140,7 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (upke
 		return upkeepInfoEntry{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	temp := *abi.ConvertType(out[0], new(keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)).(*keeper_registry_logic_b_wrapper_2_1.UpkeepInfo)
+	temp := *abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)).(*i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
 
 	u := upkeepInfoEntry{
 		id:              id,

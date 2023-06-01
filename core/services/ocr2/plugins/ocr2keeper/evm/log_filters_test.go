@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -16,13 +16,13 @@ func TestLogFiltersProvider_Register(t *testing.T) {
 		name      string
 		errored   bool
 		upkeepID  *big.Int
-		upkeepCfg keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+		upkeepCfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 	}{
 		{
 			"happy flow",
 			false,
 			big.NewInt(111),
-			keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{
+			i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
 			},
@@ -31,13 +31,13 @@ func TestLogFiltersProvider_Register(t *testing.T) {
 			"empty config",
 			true,
 			big.NewInt(111),
-			keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{},
+			i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{},
 		},
 		{
 			"invalid config",
 			true,
 			big.NewInt(111),
-			keeper_registry_logic_b_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{
+			i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig{
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{}, 32)),
 			},
