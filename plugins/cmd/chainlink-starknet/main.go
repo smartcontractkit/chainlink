@@ -83,7 +83,11 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
-	ksAdapter := keystore.NewStarkNetKeystoreAdapter(loopKs)
+	loopsigner, ok := (loopKs).(*keystore.StarknetLooppSigner)
+	if !ok {
+		return nil, fmt.Errorf("unsupported loop keystore implementation. incompatible with starknet keystore adapter")
+	}
+	ksAdapter := keystore.NewStarkNetKeystoreAdapterFromSigner(loopsigner)
 	chainSet, err := starknet.NewChainSet(starknet.ChainSetOpts{
 		Logger:          c.lggr,
 		KeyStoreAdapter: ksAdapter,

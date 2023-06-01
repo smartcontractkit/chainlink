@@ -7,17 +7,17 @@ import (
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
+	starktxm "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ChainSetOpts struct {
 	Config          coreconfig.AppConfig
 	Logger          logger.Logger
-	KeyStoreAdapter keystore.StarkNetKeystoreAdapter
+	KeyStoreAdapter starktxm.KeystoreAdapter
 	Configs         types.Configs
 }
 

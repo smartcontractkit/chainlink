@@ -13,12 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
+	starktxm "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -33,7 +33,7 @@ type chain struct {
 	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, ksAdapter keystore.StarkNetKeystoreAdapter, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg config.Config, ksAdapter starktxm.KeystoreAdapter, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = lggr.With("starknetChainID", id)
 	ch := &chain{
 		id:   id,
