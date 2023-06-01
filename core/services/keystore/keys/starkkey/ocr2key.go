@@ -5,8 +5,6 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
-	junotypes "github.com/NethermindEth/juno/pkg/types"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/caigo"
@@ -47,7 +45,10 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
 
-	hash := pedersen.ArrayDigest(dataArray...)
+	hash, err := caigo.Curve.ComputeHashOnElements(dataArray)
+	if err != nil {
+		return &big.Int{}, err
+	}
 	return hash, nil
 }
 
@@ -142,7 +143,7 @@ func (sk *OCR2Key) Unmarshal(in []byte) error {
 }
 
 func splitReport(report types.Report) ([][]byte, error) {
-	chunkSize := junotypes.FeltLength
+	chunkSize := 32
 	if len(report)%chunkSize != 0 {
 		return [][]byte{}, errors.New("invalid report length")
 	}
