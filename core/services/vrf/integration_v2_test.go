@@ -27,13 +27,13 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
