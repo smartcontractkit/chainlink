@@ -90,11 +90,7 @@ func NewMedianServices(ctx context.Context,
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
 
 	abort := func() {
-		var mc services.MultiClose
-		for i := range srvs {
-			mc = append(mc, srvs[i])
-		}
-		if cerr := mc.Close(); err != nil {
+		if cerr := services.MultiCloser(srvs).Close(); err != nil {
 			lggr.Errorw("Error closing unused services", "err", cerr)
 		}
 	}

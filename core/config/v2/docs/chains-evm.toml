@@ -221,6 +221,8 @@ TipCapMin = '1 wei' # Default
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
 OCR = 100_000 # Example
+# OCR2 overrides LimitDefault for OCR2 jobs.
+OCR2 = 100_000 # Example
 # DR overrides LimitDefault for Direct Request jobs.
 DR = 100_000 # Example
 # VRF overrides LimitDefault for VRF jobs.

@@ -157,7 +157,8 @@ func TestORM(t *testing.T) {
 	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		err = orm.InsertEthReceipt(&r)
+		id, err := orm.InsertEthReceipt(&r.Receipt)
+		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
 		cltest.AssertCount(t, db, "eth_receipts", 1)
@@ -211,7 +212,8 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	require.NoError(t, orm.InsertEthReceipt(&r))
+	_, err := orm.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
@@ -223,7 +225,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
 
 	var count int
-	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err = db.Get(&count, `SELECT count(*) FROM eth_txes`)
 	require.NoError(t, err)
 	require.Equal(t, 5, count)
 
@@ -1024,7 +1026,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 	// tx state should be confirmed missing receipt
 	// attempt should be broadcast before cutoff time
-	t.Run("succesfully mark errored transactions", func(t *testing.T) {
+	t.Run("successfully mark errored transactions", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 
 		err := txStore.MarkOldTxesMissingReceiptAsErrored(10, 2, ethClient.ConfiguredChainID())
@@ -1035,7 +1037,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
 	})
 
-	t.Run("succesfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
+	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
 		q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 		etx := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
@@ -1268,29 +1270,34 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
-		txMgr := txmgr.NewTxm(db, ec, evmTxmCfg, nil, nil, logger.TestLogger(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil, q)
+		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
+			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
+		etx2 := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		etx2.Sequence = &nonce
+		attempt2 := cltest.NewLegacyEthTxAttempt(t, etx2.ID)
+		attempt2.Hash = etx.TxAttempts[0].Hash
+
 		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
-		etx = cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
-		require.NotNil(t, etx.Sequence)
-		assert.Equal(t, nonce, *etx.Sequence)
+		err = txStore.UpdateEthTxUnstartedToInProgress(&etx2, &attempt2)
+		require.NoError(t, err)
 	})
 
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
+	// Same flow as previous test, but without calling txMgr.Abandon()
 	t.Run("duplicate tx hash disallowed in tx_eth_attempts", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
+		require.Len(t, etx.TxAttempts, 1)
 
-		etx2 := cltest.NewEthTx(t, fromAddress)
-		etx2.State = txmgr.EthTxUnstarted
-		require.NoError(t, txStore.InsertEthTx(&etx2))
+		etx.State = txmgr.EthTxUnstarted
 
-		// Should fail due to  idx_eth_tx_attempt_hash constraint
-		assert.ErrorContains(t, txStore.InsertEthTxAttempt(&etx.TxAttempts[0]), "idx_eth_tx_attempts_hash")
+		// Should fail due to idx_eth_tx_attempt_hash constraint
+		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
+		assert.ErrorContains(t, err, "idx_eth_tx_attempts_hash")
 		txStore = cltest.NewTxStore(t, db, cfg) // current txStore is poisened now, next test will need fresh one
 	})
 }

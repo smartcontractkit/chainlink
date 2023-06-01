@@ -8,6 +8,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -30,7 +31,10 @@ type Config interface {
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	TriggerFallbackDBPollInterval() time.Duration
+
+	// Note: currently only TriggerFallbackDBPollInterval is needed
+	// from here.
+	Database() config.Database
 }
 
 type (
@@ -82,3 +86,7 @@ func (c evmTxmConfig) TxResendAfterThreshold() time.Duration { return c.EthTxRes
 func (c evmTxmConfig) TxReaperInterval() time.Duration { return c.EthTxReaperInterval() }
 
 func (c evmTxmConfig) TxReaperThreshold() time.Duration { return c.EthTxReaperThreshold() }
+
+func (c evmTxmConfig) FallbackPollInterval() time.Duration {
+	return c.Database().Listener().FallbackPollInterval()
+}

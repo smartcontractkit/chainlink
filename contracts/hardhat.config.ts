@@ -47,7 +47,11 @@ export default {
     target: 'ethers-v5',
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      allowUnlimitedContractSize: Boolean(
+        process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
+      ),
+    },
   },
   solidity: {
     compilers: [
@@ -105,7 +109,7 @@ export default {
     forbidOnly: Boolean(process.env.CI),
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS ? true : false,
+    enabled: Boolean(process.env.REPORT_GAS),
   },
   warnings: !process.env.HIDE_WARNINGS,
 }

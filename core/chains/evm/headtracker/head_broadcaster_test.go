@@ -73,7 +73,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	ht := headtracker.NewHeadTracker(logger, ethClient, headtracker.NewWrappedConfig(evmCfg), hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
-	t.Cleanup(func() { require.NoError(t, services.MultiClose{mailMon, hb, ht}.Close()) })
+	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/s4";
+
+package types;
+
+message SnapshotRow {
+    bytes address    = 1;
+    uint32 slotid    = 2;
+    uint64 version   = 3;
+}
+
+message Query {
+    repeated SnapshotRow rows = 1;
+}
+
+message Row {
+    bytes address    = 1;
+    uint32 slotid    = 2;
+    bytes payload    = 3;
+    uint64 version   = 4;
+    int64 expiration = 5;
+    bytes signature  = 6;
+}
+
+message Rows {
+    repeated Row rows = 1;
+}
+

@@ -14,7 +14,6 @@ var BootstrapNodeCmd = &cobra.Command{
 	Use:   "bootstrap [address] [ui-port] [p2pv2-port]",
 	Short: "Setup a bootstrap node.",
 	Long:  `This commands launches a chainlink node inside the docker container and sets up the bootstrap job`,
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		baseHandler := handler.NewBaseHandler(cfg)
@@ -29,7 +28,7 @@ var BootstrapNodeCmd = &cobra.Command{
 			log.Fatal("failed to get p2pv2-port flag: ", err)
 		}
 
-		baseHandler.StartBootstrapNode(cmd.Context(), args[0], uiPort, p2pv2Port)
+		baseHandler.StartBootstrapNode(cmd.Context(), cfg.RegistryAddress, uiPort, p2pv2Port)
 	},
 }
 
