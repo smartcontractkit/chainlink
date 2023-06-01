@@ -11,3 +11,8 @@ func (cli *Client) CheckRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 func (cli *Client) ConfigV2Str(userOnly bool) (string, error) {
 	return cli.configV2Str(userOnly)
 }
+
+var (
+	SetupSolanaRelayer   = setupSolanaRelayer
+	SetupStarkNetRelayer = setupStarkNetRelayer
+)

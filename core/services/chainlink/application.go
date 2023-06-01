@@ -19,8 +19,6 @@ import (
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -38,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -167,9 +166,9 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet     // nil if disabled
-	Solana   loop.Relayer        // nil if disabled
-	StarkNet starkchain.ChainSet // nil if disabled
+	Cosmos   cosmos.ChainSet // nil if disabled
+	Solana   loop.Relayer    // nil if disabled
+	StarkNet loop.Relayer    // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -276,10 +275,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+	backupCfg := cfg.Database().Backup()
+	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.DatabaseURL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
@@ -348,6 +348,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
+			job.Gateway: gateway.NewDelegate(
+				chains.EVM,
+				keyStore.Eth(),
+				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -411,9 +415,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.Solana] = chains.Solana
 		}
 		if cfg.StarkNetEnabled() {
-			lggr := globalLogger.Named("StarkNet.Relayer")
-			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
-			relayers[relay.StarkNet] = relay.NewRelayerAdapter(starknetRelayer, chains.StarkNet)
+			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)

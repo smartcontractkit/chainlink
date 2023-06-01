@@ -695,7 +695,8 @@ ds1 -> ds1_parse;
 		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"USD":10.1}`))
+			_, err = res.Write([]byte(`{"USD":10.1}`))
+			require.NoError(t, err)
 		}))
 		defer serv.Close()
 
@@ -854,7 +855,8 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
 		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
@@ -1034,7 +1036,8 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
 		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())

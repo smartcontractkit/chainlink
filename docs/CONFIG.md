@@ -702,6 +702,8 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
+DefaultTransactionQueueDepth = 1 # Default
+SimulateTransactions = false # Default
 ```
 
 
@@ -792,6 +794,18 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
+
+### DefaultTransactionQueueDepth
+```toml
+DefaultTransactionQueueDepth = 1 # Default
+```
+DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
+
+### SimulateTransactions
+```toml
+SimulateTransactions = false # Default
+```
+SimulateTransactions enables transaction simulation for OCR2.
 
 ## OCR
 ```toml
@@ -4412,6 +4426,7 @@ Only applies to EIP-1559 transactions)
 ```toml
 [EVM.GasEstimator.LimitJobType]
 OCR = 100_000 # Example
+OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
@@ -4424,6 +4439,12 @@ Keeper = 100_000 # Example
 OCR = 100_000 # Example
 ```
 OCR overrides LimitDefault for OCR jobs.
+
+### OCR2
+```toml
+OCR2 = 100_000 # Example
+```
+OCR2 overrides LimitDefault for OCR2 jobs.
 
 ### DR
 ```toml
@@ -4964,9 +4985,8 @@ Enabled = true # Default
 OCR2CachePollPeriod = '5s' # Default
 OCR2CacheTTL = '1m' # Default
 RequestTimeout = '10s' # Default
-TxTimeout = '1m' # Default
-TxSendFrequency = '5s' # Default
-TxMaxBatchSize = 100 # Default
+TxTimeout = '10s' # Default
+ConfirmationPoll = '5s' # Default
 ```
 
 
@@ -5002,21 +5022,15 @@ RequestTimeout is the RPC client timeout.
 
 ### TxTimeout
 ```toml
-TxTimeout = '1m' # Default
+TxTimeout = '10s' # Default
 ```
 TxTimeout is the timeout for sending txes to an RPC endpoint.
 
-### TxSendFrequency
+### ConfirmationPoll
 ```toml
-TxSendFrequency = '5s' # Default
+ConfirmationPoll = '5s' # Default
 ```
-TxSendFrequency is how often to broadcast batches of txes.
-
-### TxMaxBatchSize
-```toml
-TxMaxBatchSize = 100 # Default
-```
-TxMaxBatchSize limits the size of tx batches.
+ConfirmationPoll is how often to confirmer checks for tx inclusion on chain.
 
 ## Starknet.Nodes
 ```toml

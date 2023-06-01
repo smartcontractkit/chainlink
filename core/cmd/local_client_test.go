@@ -385,7 +385,8 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 			if !test.enableAddress {
-				keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+				err := keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+				require.NoError(t, err)
 			}
 
 			app := mocks.NewApplication(t)
