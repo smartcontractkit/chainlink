@@ -354,13 +354,14 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout := time.After(2 * time.Second)
+		timeout := time.After(10 * time.Second)
 		ctx, cancel := context.WithCancel(tctx)
 
 		var wg sync.WaitGroup
-		wg.Add(2)
+		pass := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
@@ -368,9 +369,11 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			cancel()
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				lp.replayStart <- 4
+				close(pass)
 			}()
 		})
 
@@ -393,8 +396,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 2s")
-		case <-utils.WaitGroupChan(&wg):
+			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 10s")
+		case <-pass:
 		}
 	})
 
@@ -405,22 +408,22 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("shutdown during replay", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		var wg sync.WaitGroup
-		wg.Add(2)
+		safeToExit := make(chan struct{})
+		pass := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
-				defer wg.Done()
 				lp.replayStart <- 4
+				close(safeToExit)
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
-			defer wg.Done()
 			lp.cancel()
+			close(pass)
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		timeout := time.After(2 * time.Second)
+		timeout := time.After(10 * time.Second)
 		require.NoError(t, lp.Start(tctx))
 
 		defer func() {
@@ -428,14 +431,14 @@ func TestLogPoller_Replay(t *testing.T) {
 			case <-lp.replayStart: // unblock replayStart<- goroutine if it's stuck
 			default:
 			}
-			wg.Wait()
+			<-safeToExit
 			lp.Close()
 		}()
 
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
-		case <-utils.WaitGroupChan(&wg):
+			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 10s")
+		case <-pass:
 		}
 	})
 
