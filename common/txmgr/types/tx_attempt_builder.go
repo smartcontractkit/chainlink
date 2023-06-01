@@ -25,7 +25,7 @@ type TxAttemptBuilder[
 ] interface {
 	// interfaces for running the underlying estimator
 	services.ServiceCtx
-	HeadTrackable[HEAD, BLOCK_HASH]
+	types.HeadTrackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
 	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, opts ...Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
