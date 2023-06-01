@@ -157,7 +157,8 @@ func TestORM(t *testing.T) {
 	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		err = orm.InsertEthReceipt(&r)
+		id, err := orm.InsertEthReceipt(&r.Receipt)
+		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
 		cltest.AssertCount(t, db, "eth_receipts", 1)
@@ -211,7 +212,8 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	require.NoError(t, orm.InsertEthReceipt(&r))
+	_, err := orm.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
@@ -223,7 +225,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
 
 	var count int
-	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err = db.Get(&count, `SELECT count(*) FROM eth_txes`)
 	require.NoError(t, err)
 	require.Equal(t, 5, count)
 
