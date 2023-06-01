@@ -41,7 +41,7 @@ type TxManager[
 	FEE txmgrtypes.Fee,
 	ADD any,
 ] interface {
-	txmgrtypes.HeadTrackable[HEAD, BLOCK_HASH]
+	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
