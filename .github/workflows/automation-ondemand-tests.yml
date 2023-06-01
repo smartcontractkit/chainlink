@@ -1,5 +1,6 @@
 name: Automation On Demand Tests
 on:
+  pull_request: #debug
   workflow_dispatch:
     inputs:
       chainlinkVersion:
@@ -117,13 +118,13 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-chaos
             network: SIMULATED
-            command: ./chaos/automation_chaos_test.go
+            command: -run ^TestAutomationChaos$ ./chaos
           - name: reorg
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED_NONDEV
-            command: ./reorg/automation_reorg_test.go
+            command: -run ^TestAutomationReorg$ ./reorg
     runs-on: ${{ matrix.tests.os }}
     name: Automation On Demand ${{ matrix.tests.name }} Test
     steps:
