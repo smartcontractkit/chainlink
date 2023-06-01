@@ -60,7 +60,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-	lp := NewLogPoller(orm, nil, lggr, 15*time.Second, 1, 1, 2, 1000)
+	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	filter := Filter{"test Filter", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0}
 	err := lp.RegisterFilter(filter)
@@ -76,7 +76,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
 	// Set up a test chain with a log emitting contract deployed.
 
-	lp = NewLogPoller(orm, nil, lggr, 15*time.Second, 1, 1, 2, 1000)
+	lp = NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -308,7 +308,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		var ctx context.Context
 		var cancel context.CancelFunc
 		if withTimeout {
-			ctx, cancel = context.WithTimeout(parentCtx, time.Second)
+			ctx, cancel = context.WithTimeout(parentCtx, testutils.WaitTimeout(t))
 		} else {
 			ctx, cancel = context.WithCancel(parentCtx)
 		}
@@ -354,7 +354,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout := time.After(10 * time.Second)
+		timeout := time.After(testutils.WaitTimeout(t))
 		ctx, cancel := context.WithCancel(tctx)
 
 		var wg sync.WaitGroup
@@ -396,7 +396,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 10s")
+			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within %s", testutils.WaitTimeout(t))
 		case <-pass:
 		}
 	})
@@ -423,7 +423,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		timeout := time.After(10 * time.Second)
+		timeout := time.After(testutils.WaitTimeout(t))
 		require.NoError(t, lp.Start(tctx))
 
 		defer func() {
@@ -437,14 +437,14 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 10s")
+			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within %s", testutils.WaitTimeout(t))
 		case <-pass:
 		}
 	})
 
 	// ReplayAsync should return as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, testutils.WaitTimeout(t))
 		defer func() {
 			lp.replayComplete <- nil
 			lp.cancel()
@@ -461,7 +461,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, testutils.WaitTimeout(t))
 		defer func() {
 			lp.cancel()
 			lp.wg.Wait()
@@ -476,7 +476,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
 		case <-lp.ctx.Done():
-			assert.Fail(t, "failed to receive replayComplete signal within 2s")
+			assert.Fail(t, "failed to receive replayComplete signal within %s", testutils.WaitTimeout(t))
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
