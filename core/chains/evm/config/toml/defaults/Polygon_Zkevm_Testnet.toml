@@ -3,3 +3,12 @@ FinalityDepth = 1
 NoNewHeadsThreshold = '6m'
 RPCBlockQueryDelay = 3
 MinIncomingConfirmations = 1
+
+[GasEstimator]
+BumpMin = '2 gwei'
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 12
+
+[HeadTracker]
+HistoryDepth = 50
