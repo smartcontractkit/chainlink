@@ -7,7 +7,7 @@ MinIncomingConfirmations = 1
 [GasEstimator]
 BumpMin = '2 gwei'
 
-[EVM.GasEstimator.BlockHistory]
+[GasEstimator.BlockHistory]
 BlockHistorySize = 12
 
 [HeadTracker]
