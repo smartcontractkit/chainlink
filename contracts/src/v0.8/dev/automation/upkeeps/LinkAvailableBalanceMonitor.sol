@@ -114,7 +114,7 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice Adds addresses to the watchlist without overwriting existing members
+   * @notice Removes addresses from the watchlist
    * @param addresses the list of target addresses to remove from the watchlist
    */
   function removeFromWatchlist(address[] calldata addresses) external onlyOwner {
