@@ -150,21 +150,23 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 	if nodeUpgrade {
-		actions.UpgradeChainlinkNodeVersions(testEnv, upgradeImage, upgradeVersion,
-			chainlinkNodes[0], chainlinkNodes[1], chainlinkNodes[2], chainlinkNodes[3], chainlinkNodes[4])
-		time.Sleep(time.Second * 10)
-		gom.Eventually(func(g gomega.Gomega) {
-			// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
-			for i := 0; i < len(upkeepIDs); i++ {
-				counter, err := consumers[i].Counter(context.Background())
-				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-				expect := 10
-				l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
-				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-			}
-		}, "5m", "1s").Should(gomega.Succeed())
-
+		expect := 5
+		// Upgrade the nodes one at a time and check that the upkeeps are still being performed
+		for i := 0; i < 5; i++ {
+			actions.UpgradeChainlinkNodeVersions(testEnv, upgradeImage, upgradeVersion, chainlinkNodes[i])
+			time.Sleep(time.Second * 10)
+			expect = expect + 5
+			gom.Eventually(func(g gomega.Gomega) {
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+				}
+			}, "5m", "1s").Should(gomega.Succeed())
+		}
 	}
 
 	// Cancel all the registered upkeeps via the registry
