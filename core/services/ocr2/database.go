@@ -342,7 +342,7 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
+func (d *db) ReadMercuryProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
 	err = d.q.GetContext(ctx, &value, `
 SELECT value FROM ocr_mercury_protocol_states
 WHERE config_digest = $1 AND key = $2;
@@ -352,12 +352,12 @@ WHERE config_digest = $1 AND key = $2;
 		return nil, nil
 	}
 
-	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
+	err = errors.Wrapf(err, "ReadMercuryProtocolState failed for job %d", d.oracleSpecID)
 
 	return
 }
 
-func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
+func (d *db) WriteMercuryProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
 	if value == nil {
 		_, err = d.q.ExecContext(ctx, `DELETE FROM ocr_mercury_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
 	} else {
@@ -366,7 +366,7 @@ INSERT INTO ocr_mercury_protocol_states (config_digest, key, value) VALUES ($1, 
 ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, value)
 	}
 
-	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
+	err = errors.Wrapf(err, "WriteMercuryProtocolState failed for job %d", d.oracleSpecID)
 
 	return
 }
