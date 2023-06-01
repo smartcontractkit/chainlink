@@ -31,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New settings Evm.GasEstimator.LimitJobType.OCR2, OCR2.DefaultTransactionQueueDepth, OCR2.SimulateTransactions for OCR2
   jobs. These replace the settings Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransaction
   for OCR2.
-- TODO: Mercury changelog
 
 ### Fixed
 
