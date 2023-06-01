@@ -69,6 +69,9 @@ devDependencies:
   '@types/debug':
     specifier: ^4.1.7
     version: 4.1.7
+  '@types/deep-equal-in-any-order':
+    specifier: ^1.0.1
+    version: 1.0.1
   '@types/mocha':
     specifier: ^8.2.2
     version: 8.2.2
@@ -90,6 +93,9 @@ devDependencies:
   debug:
     specifier: ^4.3.2
     version: 4.3.4
+  deep-equal-in-any-order:
+    specifier: ^2.0.6
+    version: 2.0.6
   eslint:
     specifier: ^8.40.0
     version: 8.40.0
@@ -117,6 +123,9 @@ devDependencies:
   hardhat-gas-reporter:
     specifier: ^1.0.9
     version: 1.0.9(hardhat@2.12.7)
+  hardhat-ignore-warnings:
+    specifier: ^0.2.6
+    version: 0.2.8
   istanbul:
     specifier: ^0.4.5
     version: 0.4.5
@@ -1887,6 +1896,10 @@ packages:
     resolution: {integrity: sha512-9AonUzyTjXXhEOa0DnqpzZi6VHlqKMswga9EXjpXnnqxwLtdvPPtlO8evrI5D9S6asFRCQ6v+wpiUKbw+vKqyg==}
     dependencies:
       '@types/ms': 0.7.31
+    dev: true
+
+  /@types/deep-equal-in-any-order@1.0.1:
+    resolution: {integrity: sha512-hUWUUE53WjKfcCncSmWmNXVNNT+0Iz7gYFnov3zdCXrX3Thxp1Cnmfd5LwWOeCVUV5LhpiFgS05vaAG72doo9w==}
     dev: true
 
   /@types/events@3.0.0:
@@ -4296,6 +4309,13 @@ packages:
     dependencies:
       type-detect: 4.0.8
 
+  /deep-equal-in-any-order@2.0.6:
+    resolution: {integrity: sha512-RfnWHQzph10YrUjvWwhd15Dne8ciSJcZ3U6OD7owPwiVwsdE5IFSoZGg8rlwJD11ES+9H5y8j3fCofviRHOqLQ==}
+    dependencies:
+      lodash.mapvalues: 4.6.0
+      sort-any: 2.0.0
+    dev: true
+
   /deep-equal@1.1.1:
     resolution: {integrity: sha512-yd9c5AdiqVcR+JjcwUQb9DkhJc8ngNr0MahEBGvDiJw8puWab2yZlh+nkasOnZP+EGTAP6rRp2JzJhJZzvNF8g==}
     dependencies:
@@ -6036,7 +6056,7 @@ packages:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 5.0.1
+      minimatch: 5.1.6
       once: 1.4.0
     dev: true
 
@@ -6231,6 +6251,14 @@ packages:
       sha1: 1.1.1
     transitivePeerDependencies:
       - '@codechecks/client'
+    dev: true
+
+  /hardhat-ignore-warnings@0.2.8:
+    resolution: {integrity: sha512-vPX94rJyTzYsCOzGIYdOcJgn3iQI6qa+CI9ZZfgDhdXJpda8ljpOT7bdUKAYC4LyoP0Z5fWTmupXoPaQrty0gw==}
+    dependencies:
+      minimatch: 5.1.6
+      node-interval-tree: 2.1.2
+      solidity-comments: 0.0.2
     dev: true
 
   /hardhat@2.12.7(ts-node@10.0.0)(typescript@4.3.2):
@@ -7536,6 +7564,10 @@ packages:
     resolution: {integrity: sha512-C5N2Z3DgnnKr0LOpv/hKCgKdb7ZZwafIrsesve6lmzvZIRZRGaZ/l6Q8+2W7NaT+ZwO3fFlSCzCzrDCFdJfZ4g==}
     dev: true
 
+  /lodash.mapvalues@4.6.0:
+    resolution: {integrity: sha512-JPFqXFeZQ7BfS00H58kClY7SPVeHertPE0lNuCyZ26/XlN8TvakYD7b9bGyNmXbT/D3BbtPAAmq90gPWqLkxlQ==}
+    dev: true
+
   /lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
     dev: true
@@ -7853,6 +7885,13 @@ packages:
       brace-expansion: 2.0.1
     dev: true
 
+  /minimatch@5.1.6:
+    resolution: {integrity: sha512-lKwV/1brpG6mBUFHtb7NUmtABCb2WZZmm2wNiOA5hAb8VdCS4B3dtMWyvcoViccwAW/COERjXLt0zP1zXUN26g==}
+    engines: {node: '>=10'}
+    dependencies:
+      brace-expansion: 2.0.1
+    dev: true
+
   /minimist@1.2.6:
     resolution: {integrity: sha512-Jsjnk4bw3YJqYzbdyBiNsPWHPfO++UGG749Cxs6peCu5Xg4nrena6OVxOYxrQTqww0Jmwt+Ref8rggumkTLz9Q==}
     dev: true
@@ -8160,6 +8199,13 @@ packages:
   /node-gyp-build@4.5.0:
     resolution: {integrity: sha512-2iGbaQBV+ITgCz76ZEjmhUKAKVf7xfY1sRl4UiKQspfZMH2h06SyhNsnSVy50cwkFQDGLyif6m/6uFXHkOZ6rg==}
     hasBin: true
+    dev: true
+
+  /node-interval-tree@2.1.2:
+    resolution: {integrity: sha512-bJ9zMDuNGzVQg1xv0bCPzyEDxHgbrx7/xGj6CDokvizZZmastPsOh0JJLuY8wA5q2SfX1TLNMk7XNV8WxbGxzA==}
+    engines: {node: '>= 14.0.0'}
+    dependencies:
+      shallowequal: 1.1.0
     dev: true
 
   /nofilter@1.0.4:
@@ -9595,6 +9641,10 @@ packages:
       buffer: 6.0.3
     dev: true
 
+  /shallowequal@1.1.0:
+    resolution: {integrity: sha512-y0m1JoUZSlPAjXVtPPW70aZWfIL/dSP7AFkRnniLCrK/8MDKog3TySTBmckD+RObVxH0v4Tox67+F14PdED2oQ==}
+    dev: true
+
   /shebang-command@1.2.0:
     resolution: {integrity: sha512-EV3L1+UQWGor21OmnvojK36mhg+TyIKDh3iFBKBohr5xeXIhNBcx8oWdgkTEEQ+BEFFYdLRuqMfd5L84N1V5Vg==}
     engines: {node: '>=0.10.0'}
@@ -9799,8 +9849,114 @@ packages:
     resolution: {integrity: sha512-N6uqfaDulVZqjpjru+KvMLjV89M3hesyr/1/t8nkjohRagFSDmDxZvb9viKV98pdwpMzs61Nt2JAApgh0fkL0g==}
     dev: true
 
+  /solidity-comments-darwin-arm64@0.0.2:
+    resolution: {integrity: sha512-HidWkVLSh7v+Vu0CA7oI21GWP/ZY7ro8g8OmIxE8oTqyMwgMbE8F1yc58Sj682Hj199HCZsjmtn1BE4PCbLiGA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-darwin-x64@0.0.2:
+    resolution: {integrity: sha512-Zjs0Ruz6faBTPT6fBecUt6qh4CdloT8Bwoc0+qxRoTn9UhYscmbPQkUgQEbS0FQPysYqVzzxJB4h1Ofbf4wwtA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
   /solidity-comments-extractor@0.0.7:
     resolution: {integrity: sha512-wciNMLg/Irp8OKGrh3S2tfvZiZ0NEyILfcRCXCD4mp7SgK/i9gzLfhY2hY7VMCQJ3kH9UB9BzNdibIVMchzyYw==}
+    dev: true
+
+  /solidity-comments-freebsd-x64@0.0.2:
+    resolution: {integrity: sha512-8Qe4mpjuAxFSwZJVk7B8gAoLCdbtS412bQzBwk63L8dmlHogvE39iT70aAk3RHUddAppT5RMBunlPUCFYJ3ZTw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-arm64-gnu@0.0.2:
+    resolution: {integrity: sha512-spkb0MZZnmrP+Wtq4UxP+nyPAVRe82idOjqndolcNR0S9Xvu4ebwq+LvF4HiUgjTDmeiqYiFZQ8T9KGdLSIoIg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-arm64-musl@0.0.2:
+    resolution: {integrity: sha512-guCDbHArcjE+JDXYkxx5RZzY1YF6OnAKCo+sTC5fstyW/KGKaQJNPyBNWuwYsQiaEHpvhW1ha537IvlGek8GqA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-x64-gnu@0.0.2:
+    resolution: {integrity: sha512-zIqLehBK/g7tvrFmQljrfZXfkEeLt2v6wbe+uFu6kH/qAHZa7ybt8Vc0wYcmjo2U0PeBm15d79ee3AkwbIjFdQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-x64-musl@0.0.2:
+    resolution: {integrity: sha512-R9FeDloVlFGTaVkOlELDVC7+1Tjx5WBPI5L8r0AGOPHK3+jOcRh6sKYpI+VskSPDc3vOO46INkpDgUXrKydlIw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-arm64-msvc@0.0.2:
+    resolution: {integrity: sha512-QnWJoCQcJj+rnutULOihN9bixOtYWDdF5Rfz9fpHejL1BtNjdLW1om55XNVHGAHPqBxV4aeQQ6OirKnp9zKsug==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-ia32-msvc@0.0.2:
+    resolution: {integrity: sha512-vUg4nADtm/NcOtlIymG23NWJUSuMsvX15nU7ynhGBsdKtt8xhdP3C/zA6vjDk8Jg+FXGQL6IHVQ++g/7rSQi0w==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-x64-msvc@0.0.2:
+    resolution: {integrity: sha512-36j+KUF4V/y0t3qatHm/LF5sCUCBx2UndxE1kq5bOzh/s+nQgatuyB+Pd5BfuPQHdWu2KaExYe20FlAa6NL7+Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments@0.0.2:
+    resolution: {integrity: sha512-G+aK6qtyUfkn1guS8uzqUeua1dURwPlcOjoTYW/TwmXAcE7z/1+oGCfZUdMSe4ZMKklNbVZNiG5ibnF8gkkFfw==}
+    engines: {node: '>= 12'}
+    optionalDependencies:
+      solidity-comments-darwin-arm64: 0.0.2
+      solidity-comments-darwin-x64: 0.0.2
+      solidity-comments-freebsd-x64: 0.0.2
+      solidity-comments-linux-arm64-gnu: 0.0.2
+      solidity-comments-linux-arm64-musl: 0.0.2
+      solidity-comments-linux-x64-gnu: 0.0.2
+      solidity-comments-linux-x64-musl: 0.0.2
+      solidity-comments-win32-arm64-msvc: 0.0.2
+      solidity-comments-win32-ia32-msvc: 0.0.2
+      solidity-comments-win32-x64-msvc: 0.0.2
     dev: true
 
   /solidity-coverage@0.7.22:
@@ -9829,6 +9985,12 @@ packages:
       - bufferutil
       - supports-color
       - utf-8-validate
+    dev: true
+
+  /sort-any@2.0.0:
+    resolution: {integrity: sha512-T9JoiDewQEmWcnmPn/s9h/PH9t3d/LSWi0RgVmXSuDYeZXTZOZ1/wrK2PHaptuR1VXe3clLLt0pD6sgVOwjNEA==}
+    dependencies:
+      lodash: 4.17.21
     dev: true
 
   /source-map-resolve@0.5.3:
