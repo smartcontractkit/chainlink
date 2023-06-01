@@ -77,8 +77,16 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 		return nil, errors.New("ciphertextId too large")
 	}
 
+	if len(ciphertextId) == 0 {
+		return nil, errors.New("ciphertextId is empty")
+	}
+
 	if len(ciphertext) > dq.maxCiphertextBytes {
 		return nil, errors.New("ciphertext too large")
+	}
+
+	if len(ciphertext) == 0 {
+		return nil, errors.New("ciphertext is empty")
 	}
 
 	chPlaintext, err := dq.getResult(ciphertextId, ciphertext)

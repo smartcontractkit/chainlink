@@ -54,6 +54,17 @@ func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 	assert.Equal(t, err.Error(), "ciphertextId too large")
 }
 
+func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte(""), []byte("ciphertext"))
+	assert.Equal(t, err.Error(), "ciphertextId is empty")
+}
+
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 10, 64, testutils.WaitTimeout(t), lggr)
@@ -63,6 +74,17 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte("largeciphertext"))
 	assert.Equal(t, err.Error(), "ciphertext too large")
+}
+
+func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte("1"), []byte(""))
+	assert.Equal(t, err.Error(), "ciphertext is empty")
 }
 
 func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
