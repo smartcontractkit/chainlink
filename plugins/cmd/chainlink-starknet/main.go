@@ -18,7 +18,6 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -83,15 +82,10 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
-	loopsigner, ok := (loopKs).(*keystore.StarknetLooppSigner)
-	if !ok {
-		return nil, fmt.Errorf("unsupported loop keystore implementation. incompatible with starknet keystore adapter")
-	}
-	ksAdapter := keystore.NewStarkNetKeystoreAdapterFromSigner(loopsigner)
 	chainSet, err := starknet.NewChainSet(starknet.ChainSetOpts{
-		Logger:          c.lggr,
-		KeyStoreAdapter: ksAdapter,
-		Configs:         starknet.NewConfigs(cfg.Starknet),
+		Logger:   c.lggr,
+		KeyStore: loopKs,
+		Configs:  starknet.NewConfigs(cfg.Starknet),
 	}, cfg.Starknet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
