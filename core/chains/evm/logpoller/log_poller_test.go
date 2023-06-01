@@ -991,15 +991,19 @@ func TestNotifyAfterInsert(t *testing.T) {
 	err = o.InsertLogs([]logpoller.Log{log})
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
-		event := <-listener.Notify
-		expectedPayload := fmt.Sprintf(
-			"%s:%s,%s",
-			hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
-			hexutil.Encode(log.Topics[0])[2:],
-			hexutil.Encode(log.Topics[1])[2:],
-		)
-		require.Equal(t, event.Extra, expectedPayload)
-		return true
-	}, time.Second, 10*time.Millisecond)
+	testutils.AssertEventually(t, func() bool {
+		select {
+		case event := <-listener.Notify:
+			expectedPayload := fmt.Sprintf(
+				"%s:%s,%s",
+				hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
+				hexutil.Encode(log.Topics[0])[2:],
+				hexutil.Encode(log.Topics[1])[2:],
+			)
+			require.Equal(t, event.Extra, expectedPayload)
+			return true
+		default:
+			return false
+		}
+	})
 }
