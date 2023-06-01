@@ -61,6 +61,10 @@ install-solana: ## Build & install the chainlink-solana binary.
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
+.PHONY: install-starknet
+install-starknet: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \

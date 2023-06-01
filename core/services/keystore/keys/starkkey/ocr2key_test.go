@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	junotypes "github.com/NethermindEth/juno/pkg/types"
 	caigotypes "github.com/smartcontractkit/caigo/types"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -35,7 +34,7 @@ import (
 func TestStarknetKeyring_TestVector(t *testing.T) {
 	var kr1 OCR2Key
 	bigKey, _ := new(big.Int).SetString("2137244795266879235401249500471353867704187908407744160927664772020405449078", 10)
-	feltKey := junotypes.BigToFelt(bigKey)
+	feltKey := caigotypes.BigToFelt(bigKey)
 	err := kr1.Unmarshal(feltKey.Bytes())
 	require.NoError(t, err)
 	// kr2, err := NewOCR2Key(cryptorand.Reader)
@@ -59,14 +58,14 @@ func TestStarknetKeyring_TestVector(t *testing.T) {
 	}
 
 	var report []byte
-	report = append(report, junotypes.BigToFelt(big.NewInt(1)).Bytes()...)
-	report = append(report, junotypes.HexToFelt("0x00010203000000000000000000000000000000000000000000000000000000").Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(4)).Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, junotypes.BigToFelt(big.NewInt(1)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(1)).Bytes()...)
+	report = append(report, caigotypes.StrToFelt("0x00010203000000000000000000000000000000000000000000000000000000").Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(4)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
+	report = append(report, caigotypes.BigToFelt(big.NewInt(1)).Bytes()...)
 
 	// check that report hash matches expected
 	msg, err := ReportToSigData(ctx, report)
@@ -80,23 +79,23 @@ func TestStarknetKeyring_TestVector(t *testing.T) {
 	sig, err := kr1.Sign(ctx, report)
 	require.NoError(t, err)
 
-	pub := junotypes.BytesToFelt(sig[0:32])
-	r := junotypes.BytesToFelt(sig[32:64])
-	s := junotypes.BytesToFelt(sig[64:])
+	pub := caigotypes.BytesToFelt(sig[0:32])
+	r := caigotypes.BytesToFelt(sig[32:64])
+	s := caigotypes.BytesToFelt(sig[64:])
 
 	bigPubExpected, _ := new(big.Int).SetString("1118148281956858477519852250235501663092798578871088714409528077622994994907", 10)
-	feltPubExpected := junotypes.BigToFelt(bigPubExpected)
+	feltPubExpected := caigotypes.BigToFelt(bigPubExpected)
 	assert.Equal(t, feltPubExpected, pub)
 
 	bigRExpected, _ := new(big.Int).SetString("2898571078985034687500959842265381508927681132188252715370774777831313601543", 10)
-	feltRExpected := junotypes.BigToFelt(bigRExpected)
+	feltRExpected := caigotypes.BigToFelt(bigRExpected)
 	assert.Equal(t, feltRExpected, r)
 
 	// test for malleability
 	otherS, _ := new(big.Int).SetString("1930849708769648077928186998643944706551011476358007177069185543644456022504", 10)
 	bigSExpected, _ := new(big.Int).SetString("1687653079896483135769135784451125398975732275358080312084893914240056843079", 10)
 
-	feltSExpected := junotypes.BigToFelt(bigSExpected)
+	feltSExpected := caigotypes.BigToFelt(bigSExpected)
 	assert.NotEqual(t, otherS, s, "signature not in canonical form")
 	assert.Equal(t, feltSExpected, s)
 }
