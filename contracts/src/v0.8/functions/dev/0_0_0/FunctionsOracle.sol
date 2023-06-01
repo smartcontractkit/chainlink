@@ -36,6 +36,8 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   IFunctionsBillingRegistry private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
 
+  bytes private s_thresholdPublicKey;
+
   /**
    * @dev Initializes the contract.
    */
@@ -67,6 +69,23 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       revert EmptyBillingRegistry();
     }
     s_registry = IFunctionsBillingRegistry(registryAddress);
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function getThresholdPublicKey() external view override returns (bytes memory) {
+    return s_thresholdPublicKey;
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+    if (thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_thresholdPublicKey = thresholdPublicKey;
   }
 
   /**
@@ -267,5 +286,5 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * variables without shifting down storage in the inheritance chain.
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
-  uint256[49] private __gap;
+  uint256[48] private __gap;
 }
