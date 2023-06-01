@@ -3,7 +3,7 @@ package functions
 import (
 	"fmt"
 
-	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 )
 

@@ -62,12 +62,15 @@ func TestContractTransmitter(t *testing.T) {
 	transmitted2, _ := hex.DecodeString(
 		"000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777" + // config digest
 			"0000000000000000000000000000000000000000000000000000000000000002") // epoch
-	lp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything).Return(&logpoller.Log{
+	lp.On("LatestLogByEventSigWithConfs",
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&logpoller.Log{
 		Data: transmitted2,
 	}, nil)
 	digest, epoch, err = ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	assert.Equal(t, sampleAddress.String(), string(ot.FromAccount()))
+	from, err := ot.FromAccount()
+	require.NoError(t, err)
+	assert.Equal(t, sampleAddress.String(), string(from))
 }

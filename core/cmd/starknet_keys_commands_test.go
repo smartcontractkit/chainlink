@@ -11,11 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -100,7 +99,8 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		require.NoError(tt, set.Set("yes", "true"))
 
 		strID := key.ID()
-		set.Parse([]string{strID})
+		err = set.Parse([]string{strID})
+		require.NoError(t, err)
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewStarkNetKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -38,10 +39,17 @@ func (*JsonRPCCodec) DecodeRequest(msgBytes []byte) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if request.Params != nil {
-		request.Params.Body.MessageId = request.Id
-		request.Params.Body.Method = request.Method
+	if request.Version != "2.0" {
+		return nil, errors.New("incorrect jsonrpc version")
 	}
+	if request.Method == "" {
+		return nil, errors.New("empty method field")
+	}
+	if request.Params == nil {
+		return nil, errors.New("missing params attribute")
+	}
+	request.Params.Body.MessageId = request.Id
+	request.Params.Body.Method = request.Method
 	return request.Params, nil
 }
 

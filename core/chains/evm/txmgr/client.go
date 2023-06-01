@@ -29,6 +29,10 @@ func NewEvmTxmClient(c evmclient.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
+func (c *evmTxmClient) ConfiguredChainID() *big.Int {
+	return c.client.ConfiguredChainID()
+}
+
 func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
 	// preallocate
 	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
@@ -67,7 +71,7 @@ func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx EvmTx,
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
 
-func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n int64, err error) {
+func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n evmtypes.Nonce, err error) {
 	nextNonce, err := c.client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return n, err
@@ -76,7 +80,7 @@ func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Ad
 	if nextNonce > math.MaxInt64 {
 		return n, fmt.Errorf("nonce overflow, got: %v", nextNonce)
 	}
-	return int64(nextNonce), nil
+	return evmtypes.Nonce(nextNonce), nil
 }
 
 func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
@@ -116,7 +120,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	txAttemptBuilder EvmTxAttemptBuilder,
+	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EvmTxAttempt, err error),
 	seq evmtypes.Nonce,
 	gasLimit uint32,
 	fee gas.EvmFee,
@@ -124,7 +128,7 @@ func (c *evmTxmClient) SendEmptyTransaction(
 ) (txhash string, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	attempt, err := txAttemptBuilder.NewEmptyTxAttempt(seq, gasLimit, fee, fromAddress)
+	attempt, err := newTxAttempt(seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return txhash, err
 	}

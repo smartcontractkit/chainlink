@@ -98,7 +98,8 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 		require.NoError(tt, set.Set("yes", "true"))
 		strID := key.ID()
-		set.Parse([]string{strID})
+		err = set.Parse([]string{strID})
+		require.NoError(t, err)
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewDKGSignKeysClient(client).DeleteKey(c)
 		assert.NoError(tt, err)

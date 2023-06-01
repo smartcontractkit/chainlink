@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -67,16 +68,24 @@ func NewApp(client *Client) *cli.App {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
+		client.configFiles = c.StringSlice("config")
+		client.configFilesIsSet = c.IsSet("config")
+		client.secretsFile = c.String("secrets")
+		client.secretsFileIsSet = c.IsSet("secrets")
 
-		// setup a default config and logger
-		// these will be overwritten later if a TOML config is specified
-		if err := client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
+		// Default to using a stdout logger only.
+		// This is overidden for server commands which may start a rotating
+		// logger instead.
+		lggr, closeFn := logger.NewLogger()
+
+		cfg, err := opts.New()
+		if err != nil {
 			return err
 		}
 
-		if c.IsSet("config") || c.IsSet("secrets") {
-			client.flagsProcessed = true
-		}
+		client.Logger = lggr
+		client.CloseLogger = closeFn
+		client.Config = cfg
 
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
@@ -187,16 +196,59 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				if client.flagsProcessed {
-					if c.IsSet("config") || c.IsSet("secrets") {
-						// invalid mix of flags here and root
-						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				if c.IsSet("config") {
+					if client.configFilesIsSet || client.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						client.configFiles = c.StringSlice("config")
 					}
-					// flags at root
-					return nil
 				}
+
+				if c.IsSet("secrets") {
+					if client.configFilesIsSet || client.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						client.secretsFile = c.String("secrets")
+					}
+				}
+
 				// flags here, or ENV VAR only
-				return client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets"))
+				cfg, err := initServerConfig(&opts, client.configFiles, client.secretsFile)
+				if err != nil {
+					return err
+				}
+				client.Config = cfg
+
+				logFileMaxSizeMB := client.Config.LogFileMaxSize() / utils.MB
+				if logFileMaxSizeMB > 0 {
+					err = utils.EnsureDirAndMaxPerms(client.Config.LogFileDir(), os.FileMode(0700))
+					if err != nil {
+						return err
+					}
+				}
+
+				// Swap out the logger, replacing the old one.
+				err = client.CloseLogger()
+				if err != nil {
+					return err
+				}
+
+				lggrCfg := logger.Config{
+					LogLevel:       client.Config.LogLevel(),
+					Dir:            client.Config.LogFileDir(),
+					JsonConsole:    client.Config.JSONConsole(),
+					UnixTS:         client.Config.LogUnixTimestamps(),
+					FileMaxSizeMB:  int(logFileMaxSizeMB),
+					FileMaxAgeDays: int(client.Config.LogFileMaxAge()),
+					FileMaxBackups: int(client.Config.LogFileMaxBackups()),
+				}
+				l, closeFn := lggrCfg.New()
+
+				client.Logger = l
+				client.CloseLogger = closeFn
+
+				return nil
 			},
 		},
 		{
@@ -250,21 +302,33 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-// loadOpts applies file configs and then overlays env config
-func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
-	for _, fileName := range fileNames {
+func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) (chainlink.GeneralConfig, error) {
+	configs := []string{}
+	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			return nil, errors.Wrapf(err, "failed to read config file: %s", fileName)
 		}
-		if err := opts.ParseConfig(string(b)); err != nil {
-			return errors.Wrapf(err, "failed to parse file: %s", fileName)
-		}
+		configs = append(configs, string(b))
 	}
+
 	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
-		if err := opts.ParseConfig(configTOML); err != nil {
-			return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
-		}
+		configs = append(configs, configTOML)
 	}
-	return nil
+
+	opts.ConfigStrings = configs
+
+	secrets := ""
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
+		}
+
+		secrets = string(b)
+	}
+
+	opts.SecretsString = secrets
+
+	return opts.New()
 }

@@ -268,7 +268,7 @@ func CreateOCRv2Jobs(
 	if err != nil {
 		return err
 	}
-	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.RemoteIP(), 6690)
+	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
 	// Set the value for the jobs to report on
 	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
 	if err != nil {

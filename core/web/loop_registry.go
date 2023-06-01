@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -18,12 +19,17 @@ import (
 type LoopRegistryServer struct {
 	exposedPromPort int
 	registry        *plugins.LoopRegistry
+	logger          logger.SugaredLogger
+
+	jsonMarshalFn func(any) ([]byte, error)
 }
 
 func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 	return &LoopRegistryServer{
 		exposedPromPort: int(app.GetConfig().Port()),
 		registry:        app.GetLoopRegistry(),
+		logger:          app.GetLogger(),
+		jsonMarshalFn:   json.Marshal,
 	}
 }
 
@@ -46,12 +52,21 @@ func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.R
 		groups = append(groups, target)
 	}
 
-	b, err := json.Marshal(groups)
+	b, err := l.jsonMarshalFn(groups)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err = w.Write([]byte(err.Error()))
+		if err != nil {
+			l.logger.Error(err)
+		}
 		return
 	}
-	w.Write(b)
+	_, err = w.Write(b)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		l.logger.Error(err)
+	}
+
 }
 
 // pluginMetricHandlers routes from endpoints published in service discovery to the the backing LOOP endpoint

@@ -329,7 +329,8 @@ func TestSelectGasLimit(t *testing.T) {
 			VRF:    ptr(uint32(101)),
 			FM:     ptr(uint32(102)),
 			OCR:    ptr(uint32(103)),
-			Keeper: ptr(uint32(103)),
+			Keeper: ptr(uint32(104)),
+			OCR2:   ptr(uint32(105)),
 		}
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
@@ -350,6 +351,11 @@ func TestSelectGasLimit(t *testing.T) {
 		assert.Equal(t, uint32(103), gasLimit)
 	})
 
+	t.Run("OCR2 specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.OffchainReporting2JobType, nil)
+		assert.Equal(t, uint32(105), gasLimit)
+	})
+
 	t.Run("VRF specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.VRFJobType, nil)
 		assert.Equal(t, uint32(101), gasLimit)
@@ -362,7 +368,7 @@ func TestSelectGasLimit(t *testing.T) {
 
 	t.Run("keeper specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.KeeperJobType, nil)
-		assert.Equal(t, uint32(103), gasLimit)
+		assert.Equal(t, uint32(104), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {

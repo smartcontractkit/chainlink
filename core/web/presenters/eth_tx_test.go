@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEthTxResource(t *testing.T) {
@@ -59,7 +60,7 @@ func TestEthTxResource(t *testing.T) {
 	assert.JSONEq(t, expected, string(b))
 
 	var (
-		nonce           = int64(100)
+		nonce           = evmtypes.Nonce(100)
 		hash            = common.BytesToHash([]byte{1, 2, 3})
 		gasPrice        = assets.NewWeiI(1000)
 		broadcastBefore = int64(300)

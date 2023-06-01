@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -64,7 +64,7 @@ import (
 var prometheus *ginprom.Prometheus
 var initOnce sync.Once
 
-func initPrometheus(cfg config.GeneralConfig) {
+func initPrometheus(cfg config.Prometheus) {
 	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
@@ -91,7 +91,10 @@ type Client struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
-	flagsProcessed bool
+	configFiles      []string
+	configFilesIsSet bool
+	secretsFile      string
+	secretsFileIsSet bool
 }
 
 func (cli *Client) errorOut(err error) cli.ExitCoder {
@@ -113,43 +116,6 @@ func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
 	return nil
 }
 
-func (cli *Client) initConfigAndLogger(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) error {
-	if err := loadOpts(opts, configFiles...); err != nil {
-		return err
-	}
-
-	if secretsFile != "" {
-		b, err := os.ReadFile(secretsFile)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
-		}
-
-		secretsTOML := string(b)
-		err = opts.ParseSecrets(secretsTOML)
-		if err != nil {
-			return err
-		}
-	}
-
-	if cfg, lggr, closeLggr, err := opts.NewAndLogger(); err != nil {
-		return err
-	} else {
-		// If the logger has already been set due to prior initialization, close it out here.
-		if cli.CloseLogger != nil {
-			err := cli.CloseLogger()
-			if err != nil {
-				return errors.Wrap(err, "failed to close initialized logger")
-			}
-		}
-
-		cli.Config = cfg
-		cli.Logger = lggr
-		cli.CloseLogger = closeLggr
-	}
-
-	return nil
-}
-
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
 	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
@@ -165,49 +131,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		initPrometheus(cfg)
 	})
 
+	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
+	if err != nil {
+		return nil, err
+	}
+
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
-
-	// Set up the versioning Configs
-	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
-
-	if static.Version != static.Unset {
-		var appv, dbv *semver.Version
-		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
-		if err != nil {
-			// Exit immediately and don't touch the database if the app version is too old
-			return nil, errors.Wrap(err, "CheckVersion")
-		}
-
-		// Take backup if app version is newer than DB version
-		// Need to do this BEFORE migration
-		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
-				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-				} else {
-					return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-				}
-			}
-		}
-	}
-
-	// Migrate the database
-	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
-			return nil, errors.Wrap(err, "initializeORM#Migrate")
-		}
-	}
-
-	// Update to latest version
-	if static.Version != static.Unset {
-		version := versioning.NewNodeVersion(static.Version)
-		if err = verORM.UpsertNodeVersion(version); err != nil {
-			return nil, errors.Wrap(err, "UpsertNodeVersion")
-		}
-	}
-
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
@@ -224,7 +153,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
+	dbListener := cfg.Database().Listener()
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -260,74 +190,19 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	if cfg.SolanaEnabled() {
-		solLggr := appLggr.Named("Solana")
-		cfgs := cfg.SolanaConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			c := c
-			ids = append(ids, *c.ChainID)
+		solanaRelayer, err := setupSolanaRelayer(appLggr, db, cfg, loopRegistry, keyStore.Solana())
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
-		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Solana chains")
-			}
-		}
-
-		if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
-			tomls, err := toml.Marshal(struct {
-				Solana solana.SolanaConfigs
-			}{Solana: cfgs})
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to marshal Solana configs")
-			}
-
-			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
-			}
-			chainPluginService := loop.NewRelayerService(solLggr, func() *exec.Cmd {
-				cmd := exec.Command(cmdName)
-				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
-				return cmd
-			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
-			chains.Solana = chainPluginService
-		} else {
-			opts := solana.ChainSetOpts{
-				Logger:   solLggr,
-				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
-				Configs:  solana.NewConfigs(cfgs),
-			}
-			chainSet, err := solana.NewChainSet(opts, cfgs)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to load Solana chainset")
-			}
-			chains.Solana = relay.NewLocalRelayerService(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
-		}
+		chains.Solana = solanaRelayer
 	}
 
 	if cfg.StarkNetEnabled() {
-		starkLggr := appLggr.Named("StarkNet")
-		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-		}
-		cfgs := cfg.StarknetConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			c := c
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
-			}
-		}
-		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+		starkRelayer, err := setupStarkNetRelayer(appLggr, db, cfg, loopRegistry, keyStore.StarkNet())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
+			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
+		chains.StarkNet = starkRelayer
 	}
 
 	// Configure and optionally start the audit log forwarder service
@@ -357,7 +232,160 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	})
 }
 
-func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.Solana) (loop.Relayer, error) {
+	var (
+		solanaRelayer loop.Relayer
+		ids           []string
+		solLggr       = appLggr.Named("Solana")
+		cfgs          = cfg.SolanaConfigs()
+		signer        = &keystore.SolanaSigner{ks}
+	)
+	for _, c := range cfgs {
+		c := c
+		ids = append(ids, *c.ChainID)
+	}
+	if len(ids) > 0 {
+		if err := solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
+		}
+	}
+
+	if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+		// setup the solana relayer to be a LOOP
+		tomls, err := toml.Marshal(struct {
+			Solana solana.SolanaConfigs
+		}{Solana: cfgs})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
+		}
+
+		solCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            solLggr.Name(),
+			Cmd:           cmdName,
+			LoggingConfig: cfg,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
+		}
+		solanaRelayer = loop.NewRelayerService(solLggr, solCmdFn, string(tomls), signer)
+	} else {
+		// fallback to embedded chainset
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			KeyStore: signer,
+			Configs:  solana.NewConfigs(cfgs),
+		}
+		chainSet, err := solana.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
+		}
+		solanaRelayer = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
+	}
+	return solanaRelayer, nil
+}
+
+func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.StarkNet) (loop.Relayer, error) {
+	var (
+		starknetRelayer loop.Relayer
+		ids             []string
+		starkLggr       = appLggr.Named("StarkNet")
+		cfgs            = cfg.StarknetConfigs()
+		signer          = &keystore.StarknetLooppSigner{ks}
+	)
+	for _, c := range cfgs {
+		c := c
+		ids = append(ids, *c.ChainID)
+	}
+	if len(ids) > 0 {
+		if err := starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
+		}
+	}
+
+	if cmdName := v2.EnvStarknetPluginCmd.Get(); cmdName != "" {
+		// setup the starknet relayer to be a LOOP
+		tomls, err := toml.Marshal(struct {
+			Starknet starknet.StarknetConfigs
+		}{Starknet: cfgs})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
+		}
+
+		starknetCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            starkLggr.Name(),
+			Cmd:           cmdName,
+			LoggingConfig: cfg,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
+		}
+		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), signer)
+	} else {
+		// fallback to embedded chainset
+		opts := starknet.ChainSetOpts{
+			Logger:   starkLggr,
+			KeyStore: signer,
+			Configs:  starknet.NewConfigs(cfgs),
+			Config:   cfg,
+		}
+		chainSet, err := starknet.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
+		}
+		starknetRelayer = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+	}
+	return starknetRelayer, nil
+
+}
+
+// handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
+func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database) error {
+	var err error
+	// Set up the versioning Configs
+	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
+
+	if static.Version != static.Unset {
+		var appv, dbv *semver.Version
+		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		if err != nil {
+			// Exit immediately and don't touch the database if the app version is too old
+			return fmt.Errorf("CheckVersion: %w", err)
+		}
+
+		// Take backup if app version is newer than DB version
+		// Need to do this BEFORE migration
+		backupCfg := cfg.Backup()
+		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg.DatabaseURL(), rootDir, cfg.Backup(), appLggr, appv, dbv); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				} else {
+					return fmt.Errorf("initializeORM#FindLatestNodeVersion: %w", err)
+				}
+			}
+		}
+	}
+
+	// Migrate the database
+	if cfg.MigrateDatabase() {
+		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+			return fmt.Errorf("initializeORM#Migrate: %w", err)
+		}
+	}
+
+	// Update to latest version
+	if static.Version != static.Unset {
+		version := versioning.NewNodeVersion(static.Version)
+		if err = verORM.UpsertNodeVersion(version); err != nil {
+			return fmt.Errorf("UpsertNodeVersion: %w", err)
+		}
+	}
+	return nil
+}
+
+func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -372,7 +400,7 @@ func takeBackupIfVersionUpgrade(cfg periodicbackup.Config, lggr logger.Logger, a
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
-	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
 	if err != nil {
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
@@ -416,14 +444,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
+	timeoutDuration := config.DefaultHTTPTimeout().Duration()
 	if config.Port() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -447,7 +476,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
-func sentryInit(cfg config.BasicConfig) error {
+func sentryInit(cfg config.Sentry) error {
 	sentrydsn := cfg.SentryDSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
@@ -480,7 +509,7 @@ func sentryInit(cfg config.BasicConfig) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.BasicConfig, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -492,7 +521,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+		case <-time.After(timeout):
 			// pause between attempts, default 15s
 		}
 	}

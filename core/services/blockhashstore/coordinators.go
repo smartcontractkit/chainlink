@@ -119,7 +119,7 @@ func (v *V1Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock()
+	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
@@ -210,7 +210,7 @@ func (v *V2Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock()
+	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}

@@ -4,16 +4,18 @@
  */
 
 const dest = 'src/v0.8/dev/automation/2_1/interfaces'
+const srcDest = `${dest}/IKeeperRegistryMaster.sol`
+const abiDest = `${dest}/temp.json`
 
 const cmd = `
-cat ${dest}/temp.json | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${dest}/IKeeperRegistryMaster.sol IKeeperRegistryMaster;
-rm ${dest}/temp.json;
+cat ${abiDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IKeeperRegistryMaster;
+rm ${abiDest};
 pnpm prettier --write src/v0.8/dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 `
 
-import { KeeperRegistry21__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry21__factory'
-import { KeeperRegistryLogicA21__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA21__factory'
-import { KeeperRegistryLogicB21__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB21__factory'
+import { KeeperRegistry2_1__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry2_1__factory'
+import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA2_1__factory'
+import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB2_1__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
@@ -36,7 +38,7 @@ for (const abi of abis) {
   }
 }
 
-fs.writeFileSync(`${dest}/temp.json`, JSON.stringify(combinedABI))
+fs.writeFileSync(`${abiDest}`, JSON.stringify(combinedABI))
 
 exec(cmd)
 

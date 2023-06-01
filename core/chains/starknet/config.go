@@ -10,6 +10,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
@@ -20,6 +21,10 @@ import (
 type StarknetConfigs []*StarknetConfig
 
 func (cs StarknetConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs StarknetConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -51,7 +56,10 @@ func (cs StarknetConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
+func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -63,6 +71,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
@@ -221,11 +230,8 @@ func setFromChain(c, f *stkcfg.Chain) {
 	if f.TxTimeout != nil {
 		c.TxTimeout = f.TxTimeout
 	}
-	if f.TxSendFrequency != nil {
-		c.TxSendFrequency = f.TxSendFrequency
-	}
-	if f.TxMaxBatchSize != nil {
-		c.TxMaxBatchSize = f.TxMaxBatchSize
+	if f.ConfirmationPoll != nil {
+		c.ConfirmationPoll = f.ConfirmationPoll
 	}
 }
 
@@ -290,12 +296,8 @@ func (c *StarknetConfig) TxTimeout() time.Duration {
 	return c.Chain.TxTimeout.Duration()
 }
 
-func (c *StarknetConfig) TxSendFrequency() time.Duration {
-	return c.Chain.TxSendFrequency.Duration()
-}
-
-func (c *StarknetConfig) TxMaxBatchSize() int {
-	return int(*c.Chain.TxMaxBatchSize)
+func (c *StarknetConfig) ConfirmationPoll() time.Duration {
+	return c.Chain.ConfirmationPoll.Duration()
 }
 
 func (c *StarknetConfig) OCR2CachePollPeriod() time.Duration {

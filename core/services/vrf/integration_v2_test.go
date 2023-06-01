@@ -2260,7 +2260,7 @@ func TestStartingCountsV1(t *testing.T) {
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	b := time.Now()
-	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
+	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
 	reqID := utils.PadByteToHash(0x10)
 	m1 := txmgr.EthTxMeta{
 		RequestID: &reqID,
@@ -2335,7 +2335,7 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
-		newNonce := i + 1
+		newNonce := evmtypes.Nonce(i + 1)
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
 			Sequence:           &newNonce,
 			FromAddress:        k.Address,
@@ -2406,15 +2406,14 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
-			Receipt:          &evmtypes.Receipt{},
+			Receipt:          evmtypes.Receipt{},
 			CreatedAt:        time.Now(),
 		})
 	}
 	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		dbReceipt := txmgr.DbReceiptFromEvmReceipt(&r)
-		_, err := db.NamedExec(sql, &dbReceipt)
+		_, err := db.NamedExec(sql, &r)
 		require.NoError(t, err)
 	}
 

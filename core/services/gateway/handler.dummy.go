@@ -11,7 +11,7 @@ import (
 type dummyHandler struct {
 	donConfig      *DONConfig
 	connMgr        DONConnectionManager
-	savedCallbacks map[string]chan UserCallbackPayload
+	savedCallbacks map[string]chan<- UserCallbackPayload
 	mu             sync.Mutex
 }
 
@@ -21,13 +21,13 @@ func NewDummyHandler(donConfig *DONConfig, connMgr DONConnectionManager) (Handle
 	return &dummyHandler{
 		donConfig:      donConfig,
 		connMgr:        connMgr,
-		savedCallbacks: make(map[string]chan UserCallbackPayload),
+		savedCallbacks: make(map[string]chan<- UserCallbackPayload),
 	}, nil
 }
 
-func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *Message, callbackChan chan UserCallbackPayload) error {
+func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *Message, callbackCh chan<- UserCallbackPayload) error {
 	d.mu.Lock()
-	d.savedCallbacks[msg.Body.MessageId] = callbackChan
+	d.savedCallbacks[msg.Body.MessageId] = callbackCh
 	connMgr := d.connMgr
 	d.mu.Unlock()
 
@@ -40,13 +40,13 @@ func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *Message, call
 
 func (d *dummyHandler) HandleNodeMessage(ctx context.Context, msg *Message, nodeAddr string) error {
 	d.mu.Lock()
-	callbackChan := d.savedCallbacks[msg.Body.MessageId]
+	callbackCh := d.savedCallbacks[msg.Body.MessageId]
 	delete(d.savedCallbacks, msg.Body.MessageId)
 	d.mu.Unlock()
 
-	if callbackChan != nil {
-		callbackChan <- UserCallbackPayload{Msg: msg, ErrCode: NoError, ErrMsg: ""}
-		close(callbackChan)
+	if callbackCh != nil {
+		callbackCh <- UserCallbackPayload{Msg: msg, ErrCode: NoError, ErrMsg: ""}
+		close(callbackCh)
 	}
 	return nil
 }

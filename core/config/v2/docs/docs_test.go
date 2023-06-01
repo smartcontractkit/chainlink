@@ -55,8 +55,13 @@ func TestDoc(t *testing.T) {
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
+		// EVM.GasEstimator.BumpTxDepth doesn't have a constant default - it is derived from another field
+		require.Zero(t, *docDefaults.GasEstimator.BumpTxDepth)
+		docDefaults.GasEstimator.BumpTxDepth = nil
+
 		// per-job limits are nilable
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR)
+		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.OCR2)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.DR)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)

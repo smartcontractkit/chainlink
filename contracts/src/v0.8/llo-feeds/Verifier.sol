@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
@@ -64,7 +64,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice This event is emitted when a new report is verified.
   /// It is used to keep a historical record of verified reports.
-  event ReportVerified(bytes32 indexed feedId, bytes32 reportHash, address requester);
+  event ReportVerified(bytes32 indexed feedId, address requester);
 
   /// @notice This event is emitted whenever a new configuration is set for a feed.  It triggers a new run of the offchain reporting protocol.
   event ConfigSet(
@@ -185,7 +185,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 0.0.2";
+    return "Verifier 1.0.0";
   }
 
   /// @inheritdoc IVerifier
@@ -222,7 +222,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 hashedReport = keccak256(reportData);
 
     _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
-    emit ReportVerified(feedId, hashedReport, sender);
+    emit ReportVerified(feedId, sender);
     return reportData;
   }
 
@@ -241,9 +241,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   ) private view {
     uint8 expectedNumSignatures = config.f + 1;
 
-    if (config.f == 0)
-      // Is digest configured?
-      revert DigestNotSet(feedId, configDigest);
     if (!config.isActive) revert DigestInactive(feedId, configDigest);
     if (rs.length != expectedNumSignatures) revert IncorrectSignatureCount(rs.length, expectedNumSignatures);
     if (rs.length != ss.length) revert MismatchedSignatures(rs.length, ss.length);
@@ -333,7 +330,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       )
     );
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
+    // 0x0006 corresponds to ConfigDigestPrefixMercuryV02 in libocr
+    uint256 prefix = 0x0006 << (256 - 16); // 0x000600..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
@@ -442,10 +440,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    // We need to manually set the verifier in the proxy
-    // the first time.
-    if (feedVerifierState.configCount > 1)
-      IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
 
     emit ConfigSet(
       feedId,

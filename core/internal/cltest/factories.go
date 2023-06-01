@@ -159,7 +159,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce in
 
 	etx.BroadcastAt = &broadcastAt
 	etx.InitialBroadcastAt = &broadcastAt
-	n := nonce
+	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.State = txmgr.EthTxUnconfirmed
 	etx.ChainID = chainID
@@ -232,7 +232,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore 
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
-	n := nonce
+	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.State = txmgr.EthTxUnconfirmed
 	require.NoError(t, txStore.InsertEthTx(&etx))
@@ -257,7 +257,8 @@ func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 
 	etx.BroadcastAt = &broadcastAt
 	etx.InitialBroadcastAt = &broadcastAt
-	etx.Sequence = &nonce
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
 	etx.State = txmgr.EthTxConfirmedMissingReceipt
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
@@ -274,7 +275,8 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.EvmTx
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
-	etx.Sequence = &nonce
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
 	etx.State = txmgr.EthTxConfirmed
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
@@ -285,7 +287,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.EvmTx
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.EvmTxStore, nonce int64, fromAddress common.Address) txmgr.EvmTx {
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.EvmTxStore, nonce evmtypes.Nonce, fromAddress common.Address) txmgr.EvmTx {
 	etx := NewEthTx(t, fromAddress)
 
 	etx.Sequence = &nonce
@@ -367,25 +369,29 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 		BlockHash:        blockHash,
 		TxHash:           txHash,
 		TransactionIndex: transactionIndex,
-		Receipt:          &receipt,
+		Receipt:          receipt,
 	}
 	return r
 }
 
-func MustInsertEthReceipt(t *testing.T, txStore txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
+func MustInsertEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
-	require.NoError(t, txStore.InsertEthReceipt(&r))
+	id, err := txStore.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
 	return r
 }
 
-func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.EvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
+func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EvmReceipt {
 	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
-	require.NoError(t, txStore.InsertEthReceipt(&r))
+	id, err := txStore.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
 	return r
 }
 
 // Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.EvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.EvmTx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
 	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
 	return etx
@@ -461,8 +467,12 @@ func MustInsertRandomKey(
 				nonce = int64(v)
 			case int64:
 				nonce = v
+			case evmtypes.Nonce:
+				nonce = v.Int64()
 			case bool:
 				enabled = v
+			default:
+				t.Logf("ignoring unknown type in MustInsertRandomKey: %T, note: chain IDs are processed earlier", opt)
 			}
 		}
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
