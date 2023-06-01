@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-var (
+const (
 	loggerName = "PluginMedian"
 )
 
