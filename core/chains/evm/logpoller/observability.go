@@ -17,14 +17,18 @@ var (
 		float64(1 * time.Millisecond),
 		float64(5 * time.Millisecond),
 		float64(10 * time.Millisecond),
-		float64(20 * time.Millisecond),
+		float64(25 * time.Millisecond),
 		float64(50 * time.Millisecond),
+		float64(75 * time.Millisecond),
 		float64(100 * time.Millisecond),
-		float64(200 * time.Millisecond),
+		float64(250 * time.Millisecond),
 		float64(500 * time.Millisecond),
+		float64(750 * time.Millisecond),
 		float64(1 * time.Second),
 		float64(2 * time.Second),
 		float64(5 * time.Second),
+		float64(7 * time.Second),
+		float64(10 * time.Second),
 	}
 	lpQueryHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
@@ -69,6 +73,12 @@ func (o *ObservedLogPoller) IndexedLogsByBlockRange(start, end int64, eventSig c
 	})
 }
 
+func (o *ObservedLogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQuery(o.histogram, "IndexedLogsCreatedAfter", address, func() ([]Log, error) {
+		return o.LogPoller.IndexedLogsCreatedAfter(eventSig, address, topicIndex, topicValues, after, qopts...)
+	})
+}
+
 func (o *ObservedLogPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "IndexedLogsTopicGreaterThan", address, func() ([]Log, error) {
 		return o.LogPoller.IndexedLogsTopicGreaterThan(eventSig, address, topicIndex, topicValueMin, confs, qopts...)
@@ -90,6 +100,12 @@ func (o *ObservedLogPoller) IndexedLogsWithSigsExcluding(address common.Address,
 func (o *ObservedLogPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "LogsDataWordRange", address, func() ([]Log, error) {
 		return o.LogPoller.LogsDataWordRange(eventSig, address, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
+	})
+}
+
+func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQuery(o.histogram, "LogsCreatedAfter", address, func() ([]Log, error) {
+		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, qopts...)
 	})
 }
 
