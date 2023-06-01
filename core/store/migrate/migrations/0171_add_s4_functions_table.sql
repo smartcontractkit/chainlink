@@ -15,14 +15,12 @@ CREATE TABLE "s4".functions(
 );
 
 CREATE UNIQUE INDEX functions_address_slot_id_idx ON "s4".functions(address, slot_id);
-CREATE INDEX functions_version_idx ON "s4".functions(version);
 CREATE INDEX functions_expiration_idx ON "s4".functions(expiration);
 CREATE INDEX functions_confirmed_idx ON "s4".functions(confirmed);
 
 -- +goose Down
 
 DROP INDEX IF EXISTS functions_address_slot_id_idx;
-DROP INDEX IF EXISTS functions_version_idx;
 DROP INDEX IF EXISTS functions_expiration_idx;
 DROP INDEX IF EXISTS functions_confirmed_idx;
 

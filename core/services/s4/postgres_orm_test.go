@@ -82,7 +82,6 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 	for _, row := range rows {
 		gotRow, err := orm.Get(row.Address, row.SlotId)
 		assert.NoError(t, err)
-		row.UpdatedAt = gotRow.UpdatedAt
 		assert.Equal(t, row, gotRow)
 	}
 
@@ -186,8 +185,5 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 		for _, row := range gotRows {
 			assert.False(t, row.Confirmed)
 		}
-		updatedAtEqual := gotRows[0].UpdatedAt.Equal(gotRows[4].UpdatedAt)
-		updatedAtBefore := gotRows[0].UpdatedAt.Before(gotRows[4].UpdatedAt)
-		assert.True(t, updatedAtEqual || updatedAtBefore)
 	})
 }

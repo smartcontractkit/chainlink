@@ -13,27 +13,28 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-type postgres struct {
+const postgresSchemaName = "s4"
+
+type orm struct {
 	q         pg.Q
 	tableName string
 }
 
-var _ ORM = (*postgres)(nil)
-
-const fields = "address, slot_id, version, expiration, confirmed, payload, signature, updated_at"
+var _ ORM = (*orm)(nil)
 
 func NewPostgresORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, tableName string) ORM {
-	return &postgres{
+	return &orm{
 		q:         pg.NewQ(db, lggr, cfg),
-		tableName: fmt.Sprintf(`"s4".%s`, tableName),
+		tableName: fmt.Sprintf(`"%s".%s`, postgresSchemaName, tableName),
 	}
 }
 
-func (p postgres) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o orm) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
 	row := &Row{}
-	q := p.q.WithOpts(qopts...)
+	q := o.q.WithOpts(qopts...)
 
-	stmt := fmt.Sprintf(`SELECT %s FROM %s WHERE address=$1 AND slot_id=$2;`, fields, p.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s 
+	                     WHERE address=$1 AND slot_id=$2;`, o.tableName)
 	if err := q.Get(row, stmt, address, slotId); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			err = ErrNotFound
@@ -43,36 +44,35 @@ func (p postgres) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, 
 	return row, nil
 }
 
-func (p postgres) Update(row *Row, qopts ...pg.QOpt) error {
-	q := p.q.WithOpts(qopts...)
+func (o orm) Update(row *Row, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 
-	stmt := fmt.Sprintf(`INSERT INTO %s as t (%s)
-	                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-					     ON CONFLICT (address, slot_id)
+	stmt := fmt.Sprintf(`INSERT INTO %s as t (address, slot_id, version, expiration, confirmed, payload, signature, updated_at)
+						 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+						 ON CONFLICT (address, slot_id)
 						 DO UPDATE SET version = EXCLUDED.version,
 									   expiration = EXCLUDED.expiration,
 									   confirmed = EXCLUDED.confirmed,
 									   payload = EXCLUDED.payload,
 									   signature = EXCLUDED.signature,
 									   updated_at = NOW()
-                         WHERE t.version < EXCLUDED.version;`,
-		p.tableName, fields)
+						 WHERE t.version < EXCLUDED.version;`, o.tableName)
 	return q.ExecQ(stmt, row.Address, row.SlotId, row.Version, row.Expiration, row.Confirmed, row.Payload, row.Signature)
 }
 
-func (p postgres) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error {
-	q := p.q.WithOpts(qopts...)
+func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 
-	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE expiration < $1 LIMIT $2)`, p.tableName)
-	stmt := fmt.Sprintf(`%s DELETE FROM %s WHERE id IN (SELECT id FROM rows);`, with, p.tableName)
+	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE expiration < $1 LIMIT $2)`, o.tableName)
+	stmt := fmt.Sprintf(`%s DELETE FROM %s WHERE id IN (SELECT id FROM rows);`, with, o.tableName)
 	return q.ExecQ(stmt, utcNow.UnixMilli(), limit)
 }
 
-func (p postgres) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
-	q := p.q.WithOpts(qopts...)
+func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
+	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version FROM %s WHERE address >= $1 AND address <= $2;`, p.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version FROM %s WHERE address >= $1 AND address <= $2;`, o.tableName)
 	if err := q.Select(&rows, stmt, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -81,11 +81,12 @@ func (p postgres) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*
 	return rows, nil
 }
 
-func (p postgres) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
-	q := p.q.WithOpts(qopts...)
+func (o orm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
+	q := o.q.WithOpts(qopts...)
 	rows := make([]*Row, 0)
 
-	stmt := fmt.Sprintf(`SELECT %s FROM %s WHERE confirmed IS FALSE ORDER BY updated_at LIMIT $1;`, fields, p.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s
+	                     WHERE confirmed IS FALSE ORDER BY updated_at LIMIT $1;`, o.tableName)
 	if err := q.Select(&rows, stmt, limit); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
