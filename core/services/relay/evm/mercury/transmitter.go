@@ -26,6 +26,10 @@ import (
 )
 
 const MaxTransmitQueueSize = 10_000
+const (
+	// Mercury server error codes
+	DuplicateReport = 2
+)
 
 type Transmitter interface {
 	relaymercury.Transmitter
@@ -160,8 +164,12 @@ func (mt *mercuryTransmitter) runloop() {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
 			// on networking/unknown errors
-			err := errors.New(res.Error)
-			mt.lggr.Errorw("Transmit report failed; mercury server returned error", "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", err)
+			switch res.Code {
+			case DuplicateReport:
+				mt.lggr.Debugw("Transmit report succeeded; duplicate report", "code", res.Code)
+			default:
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+			}
 		}
 	}
 }
