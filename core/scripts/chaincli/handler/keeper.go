@@ -9,12 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -24,10 +20,31 @@ import (
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/umbracle/ethgo/abi"
 )
+
+// Upkeep type
+const (
+	Conditional int = iota
+	Mercury
+	LogTrigger
+)
+
+var extraDataEncoder *abi.Type
+
+func init() {
+	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
+	if err != nil {
+		panic(err)
+	}
+	extraDataEncoder = method.Inputs
+}
 
 // Keeper is the keepers commands handler
 type Keeper struct {
@@ -168,6 +185,9 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 		case keeper.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
+		case keeper.RegistryVersion_2_1:
+			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx)
+			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
 			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
 		}
@@ -319,6 +339,8 @@ func (k *Keeper) UpdateRegistry(ctx context.Context) {
 		registryAddr, _ = k.getRegistry12(ctx)
 	case keeper.RegistryVersion_2_0:
 		registryAddr, _ = k.getRegistry20(ctx)
+	case keeper.RegistryVersion_2_1:
+		registryAddr, _ = k.getRegistry21(ctx)
 	default:
 		panic("unexpected registry address")
 	}
@@ -431,12 +453,37 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		// Deploy
 		var upkeepAddr common.Address
 		var deployUpkeepTx *types.Transaction
+		var checkData []byte
+		var extraData []byte
 		var err error
-		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
-			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
-				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
-			)
-		} else if k.cfg.UpkeepMercury {
+		switch k.cfg.UpkeepType {
+		case Conditional:
+			checkData = []byte(k.cfg.UpkeepCheckData)
+			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
+			if err != nil {
+				log.Fatal(err)
+			}
+			if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+				upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(
+					k.buildTxOpts(ctx),
+					k.client,
+					big.NewInt(k.cfg.UpkeepTestRange),
+					big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+				)
+			} else {
+				upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(
+					k.buildTxOpts(ctx),
+					k.client,
+					big.NewInt(k.cfg.UpkeepTestRange),
+					big.NewInt(k.cfg.UpkeepInterval),
+				)
+			}
+		case Mercury:
+			checkData = []byte(k.cfg.UpkeepCheckData)
+			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
+			if err != nil {
+				log.Fatal(err)
+			}
 			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
 				k.buildTxOpts(ctx),
 				k.client,
@@ -444,10 +491,29 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepInterval),
 				false,
 			)
-		} else {
-			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
-				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
+		case LogTrigger:
+			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
+				k.buildTxOpts(ctx),
+				k.client,
+				big.NewInt(k.cfg.UpkeepTestRange),
 			)
+			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
+			logTriggerConfig, err1 := abi.Encode(map[string]interface{}{
+				"contractAddress": upkeepAddr,
+				"filterSelector":  0,                                                                    // no indexed topics filtered
+				"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()
+				"topic1":          "0x",
+				"topic2":          "0x",
+				"topic3":          "0x",
+			}, logTriggerConfigType)
+			if err1 != nil {
+				log.Fatal("error here 1", err1)
+			}
+			var err2 error
+			extraData, err2 = extraDataEncoder.Encode([]interface{}{1, logTriggerConfig, "0x"})
+			if err2 != nil {
+				log.Fatal(err2)
+			}
 		}
 		if err != nil {
 			log.Fatal(i, ": Deploy Upkeep failed - ", err)
@@ -457,7 +523,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 		// Register
 		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData), []byte{},
+			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, extraData,
 		)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
@@ -473,16 +539,25 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 	var err error
 	var upkeepGetter activeUpkeepGetter
+	var endIdx *big.Int // second arg in getActiveUpkeepIds (breaking change in v2.1)
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
 		panic("not supported 1.1 registry")
 	case keeper.RegistryVersion_1_2:
+		endIdx = big.NewInt(k.cfg.UpkeepCount)
 		upkeepGetter, err = registry12.NewKeeperRegistry(
 			registryAddr,
 			k.client,
 		)
 	case keeper.RegistryVersion_2_0:
+		endIdx = big.NewInt(k.cfg.UpkeepCount)
 		upkeepGetter, err = registry20.NewKeeperRegistry(
+			registryAddr,
+			k.client,
+		)
+	case keeper.RegistryVersion_2_1:
+		endIdx = big.NewInt(0).Add(big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
+		upkeepGetter, err = iregistry21.NewIKeeperRegistryMaster(
 			registryAddr,
 			k.client,
 		)
@@ -493,7 +568,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Fatal("Registry failed: ", err)
 	}
 
-	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
+	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), endIdx)
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve
