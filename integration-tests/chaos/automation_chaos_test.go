@@ -37,8 +37,50 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
+AnnounceAddresses = ["0.0.0.0:8090"]
+ListenAddresses = ["0.0.0.0:8090"]`
+
+	settingNetwork = networks.DetermineSelectedNetwork()
+
+	defaultAutomationSettings = map[string]interface{}{
+		"toml":     client.AddNetworksConfig(baseTOML, settingNetwork),
+		"replicas": "6",
+		"db": map[string]interface{}{
+			"stateful": true,
+			"capacity": "1Gi",
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "250m",
+					"memory": "256Mi",
+				},
+			},
+		},
+	}
+
+	defaultEthereumSettings = &ethereum.Props{
+		NetworkName: settingNetwork.Name,
+		Simulated:   settingNetwork.Simulated,
+		WsURLs:      settingNetwork.URLs,
+		Values: map[string]interface{}{
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
+				},
+				"limits": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
+				},
+			},
+			"geth": map[string]interface{}{
+				"blocktime": "1",
+			},
+		},
+	}
 
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),

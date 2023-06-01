@@ -901,9 +901,12 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 }
 
 type dbConfig interface {
-	pg.ConnectionConfig
+	DefaultIdleInTxSessionTimeout() time.Duration
+	DefaultLockTimeout() time.Duration
+	MaxOpenConns() int
+	MaxIdleConns() int
 	DatabaseURL() url.URL
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	Dialect() dialects.DialectName
 }
 
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
@@ -911,7 +914,7 @@ func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	if parsed.String() == "" {
 		return nil, errDBURLMissing
 	}
-	return pg.NewConnection(parsed.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
+	return pg.NewConnection(parsed.String(), cfg.Dialect(), cfg)
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {

@@ -42,7 +42,6 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/OneOfOne/xxhash v1.2.6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
@@ -285,7 +284,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/caigo v0.0.0-20230526231506-786d4587099a // indirect
+	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
