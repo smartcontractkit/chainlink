@@ -1,6 +1,9 @@
 name: Integration Tests
 on:
-  workflow_dispatch:
+  pull_request:
+  push:
+    tags:
+      - "*"
 
 # Only run 1 of this workflow at a time per PR
 concurrency:

@@ -17,13 +17,6 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
-	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
-	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
-	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
-	// SelectedNetworks []blockchain.EVMNetwork = determineSelectedNetworks()
-	// // SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
-	// SelectedNetwork blockchain.EVMNetwork = SelectedNetworks[0]
-
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
