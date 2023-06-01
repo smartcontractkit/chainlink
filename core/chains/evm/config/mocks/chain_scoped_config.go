@@ -14,8 +14,6 @@ import (
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
@@ -633,34 +631,6 @@ func (_m *ChainScopedConfig) Database() coreconfig.Database {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.Database)
 		}
-	}
-
-	return r0
-}
-
-// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseDefaultLockTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultLockTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -1563,20 +1533,6 @@ func (_m *ChainScopedConfig) GasEstimatorMode() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// GetDatabaseDialectConfiguredOrDefault provides a mock function with given fields:
-func (_m *ChainScopedConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	ret := _m.Called()
-
-	var r0 dialects.DialectName
-	if rf, ok := ret.Get(0).(func() dialects.DialectName); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(dialects.DialectName)
 	}
 
 	return r0

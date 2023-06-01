@@ -13,8 +13,6 @@ import (
 
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
@@ -485,34 +483,6 @@ func (_m *GeneralConfig) Database() config.Database {
 	return r0
 }
 
-// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseDefaultLockTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // DatabaseDefaultQueryTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	ret := _m.Called()
@@ -868,20 +838,6 @@ func (_m *GeneralConfig) FeatureUICSAKeys() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GetDatabaseDialectConfiguredOrDefault provides a mock function with given fields:
-func (_m *GeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	ret := _m.Called()
-
-	var r0 dialects.DialectName
-	if rf, ok := ret.Get(0).(func() dialects.DialectName); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(dialects.DialectName)
 	}
 
 	return r0
