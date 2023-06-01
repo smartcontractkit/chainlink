@@ -53,7 +53,6 @@ type evmHeadListener = headListener[*evmtypes.Head, ethereum.Subscription, *big.
 var _ commontypes.HeadListener[*evmtypes.Head, common.Hash] = &evmHeadListener{}
 
 func NewHeadListener[
-	H commontypes.Head[BLOCK_HASH],
 	HTH htrktypes.Head[BLOCK_HASH, ID],
 	S commontypes.Subscription,
 	ID txmgrtypes.ID,
@@ -79,7 +78,7 @@ func NewEvmHeadListener(
 ) *evmHeadListener {
 	wrappedConfig := NewWrappedConfig(config)
 	return NewHeadListener[
-		*evmtypes.Head, *evmtypes.Head,
+		*evmtypes.Head,
 		ethereum.Subscription, *big.Int, common.Hash,
 	](lggr, ethClient, wrappedConfig, chStop)
 }
