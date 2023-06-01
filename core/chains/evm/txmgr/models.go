@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -44,23 +43,6 @@ type (
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 	EvmTxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 )
-
-func NewEvmTxm(
-	chainId *big.Int,
-	cfg txmgrtypes.TxmConfig[*assets.Wei], // explicit type to allow inference
-	keyStore EvmKeyStore,
-	lggr logger.Logger,
-	checkerFactory EvmTransmitCheckerFactory,
-	fwdMgr EvmFwdMgr,
-	txAttemptBuilder EvmTxAttemptBuilder,
-	txStore EvmTxStore,
-	nonceSyncer EvmNonceSyncer,
-	broadcaster *EvmBroadcaster,
-	confirmer *EvmConfirmer,
-	resender *EvmResender,
-) *EvmTxm {
-	return txmgr.NewTxm(chainId, cfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender)
-}
 
 var _ EvmKeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
 
