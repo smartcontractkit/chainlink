@@ -10,9 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 ### Added
 
-### Changed
-- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
-
 ### Fixed
 
 ### Changed
@@ -44,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restricted scope of the Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransactions settings so they
   apply only to OCR. Previously these settings would apply to OCR2 as well as OCR. You must use the OCR2 equivalents added above if you
   want your settings to apply to OCR2.
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
 
 <!-- unreleasedstop -->
 
