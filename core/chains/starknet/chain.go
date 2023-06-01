@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,14 +46,8 @@ func newChain(id string, cfg config.Config, ks keystore.StarkNet, cfgs types.Con
 		return ch.getClient()
 	}
 
-	looppKs := starkkey.NewLooppKeystore(func(id string) (*big.Int, error) {
-		k, err := ks.Get(id)
-		if err != nil {
-			return nil, err
-		}
-		return k.ToPrivKey(), nil
-	})
-	ksAdapter := starkkey.NewKeystoreAdapter(looppKs)
+	looppKs := keystore.NewStarkNetLooppKeystore(ks)
+	ksAdapter := keystore.NewStarkNetKeystoreAdapter(looppKs)
 	var err error
 	ch.txm, err = txm.New(lggr, ksAdapter.Loopp(), cfg, getClient)
 	if err != nil {
