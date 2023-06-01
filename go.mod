@@ -63,7 +63,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/caigo v0.0.0-20230526231506-786d4587099a
+	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f
