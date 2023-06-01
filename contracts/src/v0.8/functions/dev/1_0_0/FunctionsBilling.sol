@@ -317,7 +317,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     uint64 subscriptionId,
     uint64 nonce
   ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
+    return keccak256(abi.encode(don, client, subscriptionId, nonce, block.number));
   }
 
   /**
