@@ -40,7 +40,6 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/OneOfOne/xxhash v1.2.6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect

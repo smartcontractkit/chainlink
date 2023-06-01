@@ -7,7 +7,6 @@ require (
 	github.com/Depado/ginprom v1.7.11
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac
 	github.com/avast/retry-go/v4 v4.3.4
 	github.com/btcsuite/btcd v0.23.4
 	github.com/cosmos/cosmos-sdk v0.45.11
@@ -113,6 +112,7 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
