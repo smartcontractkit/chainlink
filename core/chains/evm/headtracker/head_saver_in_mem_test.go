@@ -19,7 +19,7 @@ func configureInMemorySaver(t *testing.T) *headtracker.EvmInMemoryHeadSaver {
 	return headtracker.NewEvmInMemoryHeadSaver(htCfg, lggr)
 }
 
-func TestInMemoryHeadSaver_Save_Happy(t *testing.T) {
+func TestInMemoryHeadSaver_Save(t *testing.T) {
 	t.Parallel()
 	saver := configureInMemorySaver(t)
 
@@ -52,28 +52,27 @@ func TestInMemoryHeadSaver_Save_Happy(t *testing.T) {
 		require.Equal(t, int64(3), latest.Number)
 	})
 
-	t.Run("saving head with same block number", func(t *testing.T) {
-		head := cltest.Head(1)
+	t.Run("saving heads with same block number", func(t *testing.T) {
+		head := cltest.Head(4)
 		err := saver.Save(testutils.Context(t), head)
+		require.NoError(t, err)
+
+		head = cltest.Head(4)
+		err = saver.Save(testutils.Context(t), head)
+		require.NoError(t, err)
+
+		head = cltest.Head(4)
+		err = saver.Save(testutils.Context(t), head)
 		require.NoError(t, err)
 
 		latest := saver.LatestChain()
 		require.NoError(t, err)
-		require.Equal(t, int64(1), latest.Number)
+		require.Equal(t, int64(4), latest.Number)
 
-		head = cltest.Head(1)
-		err = saver.Save(testutils.Context(t), head)
-		require.NoError(t, err)
-
-		latest = saver.LatestChain()
-		require.NoError(t, err)
-		require.Equal(t, int64(1), latest.Number)
-
-		// Log the heads in HeadsNumber
-		hs := saver.HeadsNumber
-		t.Log(hs)
-		// check hs.HeadsNumber to make sure there are 2 heads
-		require.Equal(t, 2, len(saver.HeadsNumber))
+		headsWithSameNumber := len(saver.HeadByNumber(4))
+		require.Equal(t, 3, headsWithSameNumber)
 	})
-
 }
+
+// Test for TrimOldHead
+func TestInMemoryHeadSaver_TrimOldHeads

@@ -58,25 +58,9 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
-	hs.mu.Lock()
-	defer hs.mu.Unlock()
-	historyDepth := uint(hs.config.HeadTrackerHistoryDepth())
-	finality := uint(hs.config.FinalityDepth())
-	fmt.Println("historyDepth: ", historyDepth)
-	fmt.Println("finality: ", finality)
+	historyDepth := int64(hs.config.HeadTrackerHistoryDepth())
+	hs.AddHeads(int64(historyDepth), head) // TODO: Why int64?
 
-	// TODO: Is it possible to move this to AddHeads as they share similar logic?
-	blockHash := head.BlockHash()
-	blockNumber := head.BlockNumber()
-
-	hs.Heads[blockHash] = head
-	hs.HeadsNumber[blockNumber] = append(hs.HeadsNumber[blockNumber], head)
-
-	if !hs.latestHead.IsValid() {
-		hs.latestHead = head
-	} else if head.BlockNumber() > hs.latestHead.BlockNumber() {
-		hs.latestHead = head
-	}
 	return nil
 }
 
@@ -120,6 +104,10 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
+	finality := uint(hs.config.FinalityDepth())
+	fmt.Println("historyDepth: ", historyDepth)
+	fmt.Println("finality: ", finality)
+
 	// Trim heads to avoid including head that is too old
 	// Triming occurs to remove outdated data before adding
 	hs.trimHeads(historyDepth)
@@ -143,8 +131,9 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 		hs.Heads[blockHash] = head
 		hs.HeadsNumber[blockNumber] = append(hs.HeadsNumber[blockNumber], head)
 
-		// Update the latest head if Block number is higher
-		if head.BlockNumber() > hs.latestHead.BlockNumber() {
+		if !hs.latestHead.IsValid() {
+			hs.latestHead = head
+		} else if head.BlockNumber() > hs.latestHead.BlockNumber() {
 			hs.latestHead = head
 		}
 	}
