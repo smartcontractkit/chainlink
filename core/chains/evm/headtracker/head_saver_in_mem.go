@@ -6,14 +6,14 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type inMemoryHeadSaver[H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] struct {
-	config      Config
+type inMemoryHeadSaver[H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH types.Hashable, CHAIN_ID types.ID] struct {
+	config      htrktypes.Config
 	logger      logger.Logger
 	latestHead  H
 	Heads       map[BLOCK_HASH]H
@@ -25,13 +25,13 @@ type inMemoryHeadSaver[H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH
 
 type EvmInMemoryHeadSaver = inMemoryHeadSaver[*evmtypes.Head, common.Hash, *big.Int]
 
-var _ types.InMemoryHeadSaver[*evmtypes.Head, common.Hash, *big.Int] = (*EvmInMemoryHeadSaver)(nil)
+var _ types.HeadSaver[*evmtypes.Head, common.Hash] = (*EvmInMemoryHeadSaver)(nil)
 
 func NewInMemoryHeadSaver[
 	H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID],
 	BLOCK_HASH types.Hashable,
 	CHAIN_ID types.ID](
-	config Config,
+	config htrktypes.Config,
 	lggr logger.Logger,
 	getNilHead func() H,
 	setParent func(H, H),
@@ -46,15 +46,14 @@ func NewInMemoryHeadSaver[
 	}
 }
 
-func NewEvmInMemoryHeadSaver() *EvmInMemoryHeadSaver {
-	return &EvmInMemoryHeadSaver{
-		Heads:       make(map[common.Hash]*evmtypes.Head),
-		HeadsNumber: make(map[int64][]*evmtypes.Head),
-		getNilHead:  func() *evmtypes.Head { return nil },
-		setParent: func(h *evmtypes.Head, parent *evmtypes.Head) {
-			h.Parent = parent
-		},
-	}
+func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHeadSaver {
+	evmConfig := NewWrappedConfig(config)
+	return NewInMemoryHeadSaver[*evmtypes.Head, common.Hash, *big.Int](
+		evmConfig,
+		lggr,
+		func() *evmtypes.Head { return nil },
+		func(head, parent *evmtypes.Head) { head.Parent = parent },
+	)
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
@@ -67,14 +66,14 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, 
 	hs.Heads[blockHash] = head
 	hs.HeadsNumber[blockNumber] = append(hs.HeadsNumber[blockNumber], head)
 
-	if head.BlockNumber() > hs.latestHead.BlockNumber() {
+	if head.BlockNumber() > hs.latestHead.BlockNumber() || !hs.latestHead.IsValid() {
 		hs.latestHead = head
 	}
 	return nil
 }
 
 // No OP function for EVM
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) Load(ctx context.Context) (H, error) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Load(ctx context.Context) (H, error) {
 
 	// Pseudo Code
 	// 1.Gets Heads from client
@@ -83,14 +82,14 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) Load(ctx context.Context) (H, error)
 	return hs.latestHead, nil
 }
 
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) LatestChain() H {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) LatestChain() H {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 
 	return hs.latestHead
 }
 
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) Chain(blockHash BLOCK_HASH) H {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Chain(blockHash BLOCK_HASH) H {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 
@@ -101,7 +100,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) Chain(blockHash BLOCK_HASH) H {
 	return hs.getNilHead()
 }
 
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) HeadByNumber(blockNumber int64) []H {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) HeadByNumber(blockNumber int64) []H {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 
@@ -109,7 +108,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) HeadByNumber(blockNumber int64) []H 
 }
 
 // Assembles the heads together and populates the Heads Map
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) AddHeads(historyDepth int64, newHeads ...H) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int64, newHeads ...H) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
@@ -145,7 +144,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) AddHeads(historyDepth int64, newHead
 
 // TrimOldHeads() removes old heads such that only N new heads remain
 // This function can be called externally to remove old heads.
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) TrimOldHeads(number int64) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(number int64) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
@@ -154,7 +153,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) TrimOldHeads(number int64) {
 
 // trimHeads is an internal function without locking to prevent deadlocks
 // This function has no mutex locking as it is supposed to be called by functions which already have mutex locking in place.
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) trimHeads(number int64) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(number int64) {
 
 	// Create a list to store block numbers to remove
 	var blockNumbersToRemove []int64
