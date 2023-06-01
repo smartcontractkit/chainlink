@@ -64,7 +64,6 @@ type (
 	Config interface {
 		BridgeResponseURL() *url.URL
 		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		JobPipelineMaxRunDuration() time.Duration

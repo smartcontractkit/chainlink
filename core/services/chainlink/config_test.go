@@ -1267,7 +1267,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
-	dbURL := c.DatabaseURL()
+	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
