@@ -62,10 +62,10 @@ func NewHeadListener[
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config Config, chStop chan struct{},
+	config htrktypes.Config, chStop chan struct{},
 ) *headListener[HTH, S, ID, BLOCK_HASH] {
 	return &headListener[HTH, S, ID, BLOCK_HASH]{
-		config: NewWrappedConfig(config),
+		config: config,
 		client: client,
 		logger: lggr.Named("HeadListener"),
 		chStop: chStop,
@@ -77,10 +77,11 @@ func NewEvmHeadListener(
 	ethClient evmclient.Client,
 	config Config, chStop chan struct{},
 ) *evmHeadListener {
+	wrappedConfig := NewWrappedConfig(config)
 	return NewHeadListener[
 		*evmtypes.Head, *evmtypes.Head,
 		ethereum.Subscription, *big.Int, common.Hash,
-	](lggr, ethClient, config, chStop)
+	](lggr, ethClient, wrappedConfig, chStop)
 }
 
 func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Name() string {
