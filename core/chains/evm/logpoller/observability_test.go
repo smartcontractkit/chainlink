@@ -37,6 +37,18 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	resetMetrics(*lp)
 }
 
+func TestShouldPublishMetricInCaseOfError(t *testing.T) {
+	ctx := testutils.Context(t)
+	lp := createObservedPollLogger(t)
+	require.Equal(t, 0, testutil.CollectAndCount(lp.histogram))
+
+	_, err := lp.LatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
+	require.Error(t, err)
+
+	require.Equal(t, 1, testutil.CollectAndCount(lp.histogram))
+	resetMetrics(*lp)
+}
+
 func TestNotObservedFunctions(t *testing.T) {
 	ctx := testutils.Context(t)
 	lp := createObservedPollLogger(t)
