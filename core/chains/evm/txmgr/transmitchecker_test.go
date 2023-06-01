@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -104,7 +105,7 @@ func TestTransmitCheckers(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(642)),
 			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgr.EthTxUnstarted,
+			State:          txmgrcommon.EthTxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
 			Tx:        tx,
@@ -182,7 +183,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgr.EthTxUnstarted,
+				State:          txmgrcommon.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -287,7 +288,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgr.EthTxUnstarted,
+				State:          txmgrcommon.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{

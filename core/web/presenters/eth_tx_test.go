@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -25,7 +26,7 @@ func TestEthTxResource(t *testing.T) {
 		FromAddress:    common.HexToAddress("0x1"),
 		ToAddress:      common.HexToAddress("0x2"),
 		FeeLimit:       uint32(5000),
-		State:          txmgr.EthTxConfirmed,
+		State:          txmgrcommon.EthTxConfirmed,
 		Value:          big.Int(assets.NewEthValue(1)),
 	}
 

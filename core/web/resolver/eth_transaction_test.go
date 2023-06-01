@@ -13,6 +13,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -66,7 +67,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					FeeLimit:       100,
 					Value:          big.Int(assets.NewEthValue(100)),
@@ -123,7 +124,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					FeeLimit:       100,
 					Value:          big.Int(assets.NewEthValue(100)),
@@ -251,7 +252,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						ID:             1,
 						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          txmgr.EthTxInProgress,
+						State:          txmgrcommon.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
 						FeeLimit:       100,
 						Value:          big.Int(assets.NewEthValue(100)),

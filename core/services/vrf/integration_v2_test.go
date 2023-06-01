@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -1986,7 +1987,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].Tx.State == txmgr.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.EthTxConfirmed
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
@@ -2284,7 +2285,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &datatypes.JSON{},
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2296,7 +2297,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md1_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2308,7 +2309,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2320,7 +2321,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2341,7 +2342,7 @@ func TestStartingCountsV1(t *testing.T) {
 			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
-			State:              txmgr.EthTxUnconfirmed,
+			State:              txmgrcommon.EthTxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			Meta:               &md1,

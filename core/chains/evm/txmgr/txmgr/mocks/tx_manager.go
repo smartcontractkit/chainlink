@@ -12,7 +12,7 @@ import (
 
 	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 )
