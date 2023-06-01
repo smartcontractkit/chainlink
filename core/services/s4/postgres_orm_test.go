@@ -77,6 +77,9 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 		row.Version++
 		err = orm.Update(row)
 		assert.NoError(t, err)
+
+		err = orm.Update(row)
+		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
 	}
 
 	for _, row := range rows {
@@ -128,7 +131,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		assert.Empty(t, rows)
 	})
 
-	t.Run("real rows", func(t *testing.T) {
+	t.Run("with rows", func(t *testing.T) {
 		rows := generateTestRows(t, 100)
 
 		for _, row := range rows {
@@ -169,7 +172,7 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 		assert.Empty(t, rows)
 	})
 
-	t.Run("real rows", func(t *testing.T) {
+	t.Run("with rows", func(t *testing.T) {
 		rows := generateTestRows(t, 10)
 
 		for _, row := range rows {
