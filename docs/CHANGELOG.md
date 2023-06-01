@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Changed
+
+- Restricted scope of the Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransactions settings so they
+  apply only to OCR. Previously these settings would apply to OCR2 as well as OCR. You must use the OCR2 equivalents added above if you
+  want your settings to apply to OCR2.
 
 # 2.2.0 - UNRELEASED
 
@@ -30,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- `RPCDefaultBatchSize: 250`
 	- `GasEstimator.BatchSize = 25`
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
 
 <!-- unreleasedstop -->
 
