@@ -108,7 +108,18 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 			assert.Equal(t, -1, int(bn))
 		})
 		t.Run("when initialValidFromBlockNumber is set to some non-zero value", func(t *testing.T) {
-			t.Fatal("TODO")
+			c := MockWSRPCClient{
+				latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+					out = new(pb.LatestReportResponse)
+					out.Report = nil
+					return out, nil
+				},
+			}
+			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 42)
+			bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
+			require.NoError(t, err)
+
+			assert.Equal(t, 41, int(bn))
 		})
 	})
 	t.Run("failing query", func(t *testing.T) {
@@ -117,7 +128,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -134,7 +145,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")
