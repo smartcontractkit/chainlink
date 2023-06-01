@@ -1379,8 +1379,8 @@ github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
-github.com/smartcontractkit/caigo v0.0.0-20230526231506-786d4587099a h1:B0WjTVtPW+GNY90rpmiwD/8tf3xr4jFC60sjuznNtRs=
-github.com/smartcontractkit/caigo v0.0.0-20230526231506-786d4587099a/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
+github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e h1:XY8DncHICYQ1WDVpoXM7Tv3tztNHa1/DctDlSmqgU10=
+github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906 h1:u7Lw7oqLEjADlJPJQnzlCLNSbj038QttaKY0lCa3V78=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906/go.mod h1:MH+MRJaG4SZAbRq5g7//AFY9H9sg5+lLDQnm85aHP6A=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086 h1:d2WiCTnsCtA16KVabnX3E9SZH1irp2/d0MLT0/UI3XY=
