@@ -6,14 +6,13 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type inMemoryHeadSaver[H htrktypes.Head[BLOCK_HASH, CHAIN_ID], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] struct {
+type inMemoryHeadSaver[H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] struct {
 	config      Config
 	logger      logger.Logger
 	latestHead  H
@@ -26,17 +25,18 @@ type inMemoryHeadSaver[H htrktypes.Head[BLOCK_HASH, CHAIN_ID], BLOCK_HASH types.
 
 type EvmInMemoryHeadSaver = inMemoryHeadSaver[*evmtypes.Head, common.Hash, *big.Int]
 
-var _ types.HeadSaver[*evmtypes.Head, common.Hash, *big.Int] = (*EvmInMemoryHeadSaver)(nil)
+var _ types.InMemoryHeadSaver[*evmtypes.Head, common.Hash, *big.Int] = (*EvmInMemoryHeadSaver)(nil)
 
 func NewInMemoryHeadSaver[
-	H types.Head[BLOCK_HASH],
-	BLOCK_HASH types.Hashable](
+	H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID],
+	BLOCK_HASH types.Hashable,
+	CHAIN_ID types.ID](
 	config Config,
 	lggr logger.Logger,
 	getNilHead func() H,
 	setParent func(H, H),
-) *inMemoryHeadSaver[H, BLOCK_HASH] {
-	return &inMemoryHeadSaver[H, BLOCK_HASH]{
+) *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID] {
+	return &inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]{
 		config:      config,
 		logger:      lggr.Named("InMemoryHeadSaver"),
 		Heads:       make(map[BLOCK_HASH]H),
@@ -48,7 +48,6 @@ func NewInMemoryHeadSaver[
 
 func NewEvmInMemoryHeadSaver() *EvmInMemoryHeadSaver {
 	return &EvmInMemoryHeadSaver{
-
 		Heads:       make(map[common.Hash]*evmtypes.Head),
 		HeadsNumber: make(map[int64][]*evmtypes.Head),
 		getNilHead:  func() *evmtypes.Head { return nil },
@@ -58,7 +57,7 @@ func NewEvmInMemoryHeadSaver() *EvmInMemoryHeadSaver {
 	}
 }
 
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH]) Save(ctx context.Context, head H) error {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 

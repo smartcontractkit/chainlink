@@ -24,3 +24,16 @@ type Head[BLOCK_HASH Hashable] interface {
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
 }
+
+// TODO: This is a temporary interface for the sake of POC. It will be removed
+//
+//go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
+type HeadTrackerHead[BLOCK_HASH Hashable, CHAIN_ID ID] interface {
+	Head[BLOCK_HASH]
+	// ChainID returns the chain ID that the head is for
+	ChainID() CHAIN_ID
+	// Returns true if the head has a chain Id
+	HasChainID() bool
+	// IsValid returns true if the head is valid.
+	IsValid() bool
+}

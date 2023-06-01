@@ -17,3 +17,8 @@ type HeadSaver[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// Chain returns a head for the specified hash, or nil.
 	Chain(hash BLOCK_HASH) H
 }
+
+// TODO: This will be a temporary interface until we move the Head Tracker component to make use of HeadTrackerHead
+type InMemoryHeadSaver[H HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH Hashable, CHAIN_ID ID] interface {
+	HeadSaver[H, BLOCK_HASH]
+}
