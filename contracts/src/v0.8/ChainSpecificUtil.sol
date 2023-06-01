@@ -45,7 +45,7 @@ library ChainSpecificUtil {
   /**
    * @notice Returns the gas cost in wei of calldataSizeBytes of calldata being posted
    * @notice to L1.
-  */
+   */
   function getL1CalldataGasCost(uint256 calldataSizeBytes) internal view returns (uint256) {
     uint256 chainid = block.chainid;
     if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
