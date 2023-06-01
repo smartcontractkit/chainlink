@@ -428,7 +428,7 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	assertCount := func(expected int64) {
-		testutils.AssertCount(t, sqlDB, "ocr_mercury_protocol_states", expected)
+		testutils.AssertCount(t, sqlDB, "ocr_protocol_states", expected)
 	}
 
 	t.Run("stores and retrieves protocol state", func(t *testing.T) {

@@ -344,7 +344,7 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 
 func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
 	err = d.q.GetContext(ctx, &value, `
-SELECT value FROM ocr_mercury_protocol_states
+SELECT value FROM ocr_protocol_states
 WHERE config_digest = $1 AND key = $2;
 `, configDigest, key)
 
@@ -359,10 +359,10 @@ WHERE config_digest = $1 AND key = $2;
 
 func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
 	if value == nil {
-		_, err = d.q.ExecContext(ctx, `DELETE FROM ocr_mercury_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
+		_, err = d.q.ExecContext(ctx, `DELETE FROM ocr_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
 	} else {
 		_, err = d.q.ExecContext(ctx, `
-INSERT INTO ocr_mercury_protocol_states (config_digest, key, value) VALUES ($1, $2, $3)
+INSERT INTO ocr_protocol_states (config_digest, key, value) VALUES ($1, $2, $3)
 ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, value)
 	}
 

@@ -62,7 +62,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
 
 		require.NoError(t, err)
@@ -86,7 +86,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -101,13 +101,13 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 					return out, nil
 				},
 			}
-			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
 			bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 			require.NoError(t, err)
 
 			assert.Equal(t, -1, int(bn))
 		})
-		t.Run("when initialValidFromBlockNumber is set to some value", func(t *testing.T) {
+		t.Run("when initialValidFromBlockNumber is set to some non-zero value", func(t *testing.T) {
 			t.Fatal("TODO")
 		})
 	})
