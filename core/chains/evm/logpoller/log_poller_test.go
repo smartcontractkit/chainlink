@@ -228,7 +228,7 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.Equal(t, uint64(34), h.Number.Uint64())
 
 	// save these 3 receipts for later
-	receipts := rawdb.ReadReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), params.AllEthashProtocolChanges)
+	receipts := rawdb.ReadReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), uint64(time.Now().Unix()), params.AllEthashProtocolChanges)
 	require.NotZero(t, receipts.Len())
 
 	// Simulate a situation where the rpc server has a block, but no logs available for it yet

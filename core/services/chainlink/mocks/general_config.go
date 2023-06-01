@@ -13,8 +13,6 @@ import (
 
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	dialects "github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
@@ -485,64 +483,8 @@ func (_m *GeneralConfig) Database() config.Database {
 	return r0
 }
 
-// DatabaseDefaultIdleInTxSessionTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseDefaultLockTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseDefaultLockTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // DatabaseDefaultQueryTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseListenerMaxReconnectDuration provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// DatabaseListenerMinReconnectInterval provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -896,20 +838,6 @@ func (_m *GeneralConfig) FeatureUICSAKeys() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GetDatabaseDialectConfiguredOrDefault provides a mock function with given fields:
-func (_m *GeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	ret := _m.Called()
-
-	var r0 dialects.DialectName
-	if rf, ok := ret.Get(0).(func() dialects.DialectName); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(dialects.DialectName)
 	}
 
 	return r0
@@ -1440,6 +1368,20 @@ func (_m *GeneralConfig) OCR2DatabaseTimeout() time.Duration {
 	return r0
 }
 
+// OCR2DefaultTransactionQueueDepth provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -1462,6 +1404,20 @@ func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	}
 
 	return r0, r1
+}
+
+// OCR2SimulateTransactions provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2SimulateTransactions() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // OCR2TraceLogging provides a mock function with given fields:
@@ -2555,20 +2511,6 @@ func (_m *GeneralConfig) ThresholdKeyShare() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TriggerFallbackDBPollInterval provides a mock function with given fields:
-func (_m *GeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
