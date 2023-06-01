@@ -86,9 +86,9 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
-			err = f.checkLogPollerStatus()
-			if err != nil {
-				return err
+			if f.logpoller == evmlogpoller.LogPollerDisabled {
+				f.logger.Warn("Log poller is required for contract forwarder to receive AuthorizedSendersChanged logs")
+				return nil
 			}
 		}
 
@@ -195,13 +195,6 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 		f.setCachedSenders(fwdr.Address, senders)
 
 	}
-}
-
-func (f *FwdMgr) checkLogPollerStatus() error {
-	if err := f.logpoller.Ready(); err != nil {
-		return errors.Wrapf(err, "Log poller is required for contract forwarder to receive AuthorizedSendersChanged logs")
-	}
-	return nil
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
