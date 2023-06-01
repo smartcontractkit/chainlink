@@ -21,13 +21,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
+var (
+	loggerName = "PluginStarknet"
+)
+
 func main() {
 	envCfg, err := plugins.GetEnvConfig()
 	if err != nil {
 		fmt.Printf("Failed to get environment configuration: %s\n", err)
 		os.Exit(1)
 	}
-	lggr, closeLggr := plugins.NewLogger(envCfg)
+	lggr, closeLggr := plugins.NewLogger(loggerName, envCfg)
 	defer closeLggr()
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
