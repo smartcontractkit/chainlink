@@ -2,6 +2,7 @@ package headtracker
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -59,14 +60,21 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
+	historyDepth := uint(hs.config.HeadTrackerHistoryDepth())
+	finality := uint(hs.config.FinalityDepth())
+	fmt.Println("historyDepth: ", historyDepth)
+	fmt.Println("finality: ", finality)
 
+	// TODO: Is it possible to move this to AddHeads as they share similar logic?
 	blockHash := head.BlockHash()
 	blockNumber := head.BlockNumber()
 
 	hs.Heads[blockHash] = head
 	hs.HeadsNumber[blockNumber] = append(hs.HeadsNumber[blockNumber], head)
 
-	if head.BlockNumber() > hs.latestHead.BlockNumber() || !hs.latestHead.IsValid() {
+	if !hs.latestHead.IsValid() {
+		hs.latestHead = head
+	} else if head.BlockNumber() > hs.latestHead.BlockNumber() {
 		hs.latestHead = head
 	}
 	return nil
