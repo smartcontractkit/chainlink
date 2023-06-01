@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {ConfirmedOwner} from "../../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {AuthorizedReceiver} from "../AuthorizedReceiver.sol";
-import "../../vrf/VRFTypes.sol";
+import "./VRFTypes.sol";
 
 // Taken from VRFCoordinatorV2.sol
 // Must be abi-compatible with what's there
@@ -130,6 +130,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
 
   /**
    * @notice Returns the address of the VRF coordinator reference in this contract.
+   * @return The address of the VRF coordinator reference in this contract.
    */
   function getVRFCoordinator() public view returns (address) {
     return address(s_vrfCoordinator);
@@ -230,6 +231,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @notice Get all relevant configs from the VRF coordinator.
    * @dev This is done in a separate function to avoid the "stack too deep" issue
    * @dev when too many local variables are in the same scope.
+   * @return Config struct containing all relevant configs from the VRF coordinator.
    */
   function getConfigs() private view returns (Config memory) {
     (
