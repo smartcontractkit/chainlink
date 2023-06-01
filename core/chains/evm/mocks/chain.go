@@ -28,7 +28,7 @@ import (
 
 	monitor "github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 )
