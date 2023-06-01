@@ -93,11 +93,11 @@ func (d *databaseConfig) Listener() config.Listener {
 	}
 }
 
-func (d *databaseConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+func (d *databaseConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	return d.c.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseDefaultLockTimeout() time.Duration {
+func (d *databaseConfig) DefaultLockTimeout() time.Duration {
 	return d.c.DefaultLockTimeout.Duration()
 }
 
@@ -109,7 +109,7 @@ func (d *databaseConfig) DatabaseURL() url.URL {
 	return *d.s.URL.URL()
 }
 
-func (d *databaseConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
+func (d *databaseConfig) Dialect() dialects.DialectName {
 	return d.c.Dialect
 }
 
