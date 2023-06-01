@@ -55,6 +55,18 @@ func NewObservedLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod ti
 	}
 }
 
+func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQuery(o.histogram, "LogsCreatedAfter", address, func() ([]Log, error) {
+		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, qopts...)
+	})
+}
+
+func (o *ObservedLogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	return withObservedQuery(o.histogram, "LatestLogByEventSigWithConfs", common.Address{}, func() (*Log, error) {
+		return o.LogPoller.LatestLogByEventSigWithConfs(eventSig, address, confs, qopts...)
+	})
+}
+
 func (o *ObservedLogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "LatestLogEventSigsAddrsWithConfs", common.Address{}, func() ([]Log, error) {
 		return o.LogPoller.LatestLogEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
@@ -100,12 +112,6 @@ func (o *ObservedLogPoller) IndexedLogsWithSigsExcluding(address common.Address,
 func (o *ObservedLogPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "LogsDataWordRange", address, func() ([]Log, error) {
 		return o.LogPoller.LogsDataWordRange(eventSig, address, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
-	})
-}
-
-func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
-	return withObservedQuery(o.histogram, "LogsCreatedAfter", address, func() ([]Log, error) {
-		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, qopts...)
 	})
 }
 
