@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -174,7 +175,8 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(oc.transmittedEventSig, oc.contractAddress, 1)
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(
+		oc.transmittedEventSig, oc.contractAddress, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -186,8 +188,8 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
-func (oc *contractTransmitter) FromAccount() ocrtypes.Account {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String())
+func (oc *contractTransmitter) FromAccount() (ocrtypes.Account, error) {
+	return ocrtypes.Account(oc.transmitter.FromAddress().String()), nil
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }

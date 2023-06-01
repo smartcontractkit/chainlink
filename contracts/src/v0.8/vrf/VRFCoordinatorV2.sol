@@ -58,12 +58,9 @@ contract VRFCoordinatorV2 is
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */
-    private s_consumers;
-  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
-    private s_subscriptionConfigs;
-  mapping(uint64 => Subscription) /* subId */ /* subscription */
-    private s_subscriptions;
+  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */ private s_consumers;
+  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ private s_subscriptionConfigs;
+  mapping(uint64 => Subscription) /* subId */ /* subscription */ private s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
   uint64 private s_currentSubId;
@@ -106,13 +103,10 @@ contract VRFCoordinatorV2 is
     uint32 numWords;
     address sender;
   }
-  mapping(bytes32 => address) /* keyHash */ /* oracle */
-    private s_provingKeys;
+  mapping(bytes32 => address) /* keyHash */ /* oracle */ private s_provingKeys;
   bytes32[] private s_provingKeyHashes;
-  mapping(address => uint96) /* oracle */ /* LINK balance */
-    private s_withdrawableTokens;
-  mapping(uint256 => bytes32) /* requestID */ /* commitment */
-    private s_requestCommitments;
+  mapping(address => uint96) /* oracle */ /* LINK balance */ private s_withdrawableTokens;
+  mapping(uint256 => bytes32) /* requestID */ /* commitment */ private s_requestCommitments;
   event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
   event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
@@ -164,11 +158,7 @@ contract VRFCoordinatorV2 is
     FeeConfig feeConfig
   );
 
-  constructor(
-    address link,
-    address blockhashStore,
-    address linkEthFeed
-  ) ConfirmedOwner(msg.sender) {
+  constructor(address link, address blockhashStore, address linkEthFeed) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
@@ -352,16 +342,7 @@ contract VRFCoordinatorV2 is
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function getRequestConfig()
-    external
-    view
-    override
-    returns (
-      uint16,
-      uint32,
-      bytes32[] memory
-    )
-  {
+  function getRequestConfig() external view override returns (uint16, uint32, bytes32[] memory) {
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
@@ -452,11 +433,7 @@ contract VRFCoordinatorV2 is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -486,15 +463,10 @@ contract VRFCoordinatorV2 is
     return success;
   }
 
-  function getRandomnessFromProof(Proof memory proof, RequestCommitment memory rc)
-    private
-    view
-    returns (
-      bytes32 keyHash,
-      uint256 requestId,
-      uint256 randomness
-    )
-  {
+  function getRandomnessFromProof(
+    Proof memory proof,
+    RequestCommitment memory rc
+  ) private view returns (bytes32 keyHash, uint256 requestId, uint256 randomness) {
     keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
@@ -614,8 +586,10 @@ contract VRFCoordinatorV2 is
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
+    // Will return non-zero on chains that have this enabled
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
+    uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
     uint256 fee = 1e12 * uint256(fulfillmentFlatFeeLinkPPM);
     if (paymentNoFee > (1e27 - fee)) {
@@ -653,11 +627,7 @@ contract VRFCoordinatorV2 is
     }
   }
 
-  function onTokenTransfer(
-    address, /* sender */
-    uint256 amount,
-    bytes calldata data
-  ) external override nonReentrant {
+  function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
@@ -683,17 +653,9 @@ contract VRFCoordinatorV2 is
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function getSubscription(uint64 subId)
-    external
-    view
-    override
-    returns (
-      uint96 balance,
-      uint64 reqCount,
-      address owner,
-      address[] memory consumers
-    )
-  {
+  function getSubscription(
+    uint64 subId
+  ) external view override returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -726,12 +688,10 @@ contract VRFCoordinatorV2 is
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner)
-    external
-    override
-    onlySubOwner(subId)
-    nonReentrant
-  {
+  function requestSubscriptionOwnerTransfer(
+    uint64 subId,
+    address newOwner
+  ) external override onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;

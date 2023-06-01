@@ -21,4 +21,10 @@ solc_version = '0.8.6'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
 
+[profile.vrf]
+optimizer_runs = 10000
+src = 'src/v0.8/vrf'
+test = 'src/v0.8/vrf' # skips tests for no VRF foundry tests
+solc_version = '0.8.6'
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

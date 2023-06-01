@@ -309,7 +309,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
 	set.String("old-password", "../internal/fixtures/incorrect_password.txt", "")
-	set.Parse([]string{keyfilepath})
+	err = set.Parse([]string{keyfilepath})
+	require.NoError(t, err)
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	require.NoError(t, err)

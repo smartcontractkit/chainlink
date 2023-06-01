@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 set -x
 # get machine / kernel name
 _get_platform() {

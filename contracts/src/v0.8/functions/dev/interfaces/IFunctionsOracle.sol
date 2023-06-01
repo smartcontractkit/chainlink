@@ -20,6 +20,21 @@ interface IFunctionsOracle {
   function setRegistry(address registryAddress) external;
 
   /**
+   * @notice Returns the DON's threshold encryption public key used to encrypt secrets
+   * @dev All nodes on the DON have separate key shares of the threshold decryption key
+   * and nodes must participate in a threshold decryption OCR round to decrypt secrets
+   * @return thresholdPublicKey the DON's threshold encryption public key
+   */
+  function getThresholdPublicKey() external view returns (bytes memory);
+
+  /**
+   * @notice Sets the DON's threshold encryption public key used to encrypt secrets
+   * @dev Used to rotate the key
+   * @param thresholdPublicKey The new public key
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external;
+
+  /**
    * @notice Returns the DON's secp256k1 public key that is used to encrypt secrets
    * @dev All nodes on the DON have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key
@@ -61,10 +76,10 @@ interface IFunctionsOracle {
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getRequiredFee(bytes calldata data, IFunctionsBillingRegistry.RequestBilling calldata billing)
-    external
-    view
-    returns (uint96);
+  function getRequiredFee(
+    bytes calldata data,
+    IFunctionsBillingRegistry.RequestBilling calldata billing
+  ) external view returns (uint96);
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
@@ -89,9 +104,5 @@ interface IFunctionsOracle {
    * @param gasLimit Gas limit for the fulfillment callback
    * @return requestId A unique request identifier (unique per DON)
    */
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint32 gasLimit
-  ) external returns (bytes32);
+  function sendRequest(uint64 subscriptionId, bytes calldata data, uint32 gasLimit) external returns (bytes32);
 }

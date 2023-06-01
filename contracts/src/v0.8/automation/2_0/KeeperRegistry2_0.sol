@@ -69,7 +69,9 @@ contract KeeperRegistry2_0 is
   /**
    * @param keeperRegistryLogic address of the logic contract
    */
-  constructor(KeeperRegistryBase2_0 keeperRegistryLogic)
+  constructor(
+    KeeperRegistryBase2_0 keeperRegistryLogic
+  )
     KeeperRegistryBase2_0(
       keeperRegistryLogic.getMode(),
       keeperRegistryLogic.getLinkAddress(),
@@ -236,11 +238,10 @@ contract KeeperRegistry2_0 is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function simulatePerformUpkeep(uint256 id, bytes calldata performData)
-    external
-    cannotExecute
-    returns (bool success, uint256 gasUsed)
-  {
+  function simulatePerformUpkeep(
+    uint256 id,
+    bytes calldata performData
+  ) external cannotExecute returns (bool success, uint256 gasUsed) {
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
@@ -253,11 +254,7 @@ contract KeeperRegistry2_0 is
    * @param sender the account which transferred the funds
    * @param amount number of LINK transfer
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  ) external override {
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
     if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
@@ -439,18 +436,9 @@ contract KeeperRegistry2_0 is
   /**
    * @notice read the current info about any transmitter address
    */
-  function getTransmitterInfo(address query)
-    external
-    view
-    override
-    returns (
-      bool active,
-      uint8 index,
-      uint96 balance,
-      uint96 lastCollected,
-      address payee
-    )
-  {
+  function getTransmitterInfo(
+    address query
+  ) external view override returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) {
     Transmitter memory transmitter = s_transmitters[query];
     uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
     uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
@@ -558,11 +546,7 @@ contract KeeperRegistry2_0 is
     external
     view
     override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    )
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest)
   {
     return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_latestConfigDigest);
   }
@@ -574,11 +558,7 @@ contract KeeperRegistry2_0 is
     external
     view
     override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
   }
@@ -598,11 +578,7 @@ contract KeeperRegistry2_0 is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available
    */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -717,11 +693,10 @@ contract KeeperRegistry2_0 is
    * @dev calls the Upkeep target with the performData param passed in by the
    * transmitter and the exact gas required by the Upkeep
    */
-  function _performUpkeep(Upkeep memory upkeep, bytes memory performData)
-    private
-    nonReentrant
-    returns (bool success, uint256 gasUsed)
-  {
+  function _performUpkeep(
+    Upkeep memory upkeep,
+    bytes memory performData
+  ) private nonReentrant returns (bool success, uint256 gasUsed) {
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     success = _callWithExactGas(upkeep.executeGas, upkeep.target, callData);
@@ -803,7 +778,9 @@ contract KeeperRegistry2_0 is
    * performed. It returns the success status / failure reason along with the perform data payload.
    * @param id identifier of the upkeep to check
    */
-  function checkUpkeep(uint256 id)
+  function checkUpkeep(
+    uint256 id
+  )
     external
     override
     cannotExecute
@@ -950,10 +927,10 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function migrateUpkeeps(uint256[] calldata ids, address destination)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
+  function migrateUpkeeps(
+    uint256[] calldata ids,
+    address destination
+  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
     // Executed through logic contract
     _fallback();
   }
@@ -961,10 +938,9 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps)
-    external
-    override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2)
-  {
+  function receiveUpkeeps(
+    bytes calldata encodedUpkeeps
+  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
     // Executed through logic contract
     _fallback();
   }

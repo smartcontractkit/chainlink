@@ -8,10 +8,7 @@ contract ErroredVerifier is IVerifier {
     return interfaceId == this.verify.selector;
   }
 
-  function verify(
-    bytes memory, /**signedReport**/
-    address /**sender**/
-  ) external pure override returns (bytes memory) {
+  function verify(bytes memory /**signedReport**/, address /**sender**/) external pure override returns (bytes memory) {
     revert("Failed to verify");
   }
 
@@ -27,29 +24,11 @@ contract ErroredVerifier is IVerifier {
     revert("Failed to set config");
   }
 
-  function latestConfigDigestAndEpoch(bytes32)
-    external
-    pure
-    override
-    returns (
-      bool,
-      bytes32,
-      uint32
-    )
-  {
+  function latestConfigDigestAndEpoch(bytes32) external pure override returns (bool, bytes32, uint32) {
     revert("Failed to get latest config digest and epoch");
   }
 
-  function latestConfigDetails(bytes32)
-    external
-    pure
-    override
-    returns (
-      uint32,
-      uint32,
-      bytes32
-    )
-  {
+  function latestConfigDetails(bytes32) external pure override returns (uint32, uint32, bytes32) {
     revert("Failed to get latest config details");
   }
 }

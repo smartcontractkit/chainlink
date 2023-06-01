@@ -30,10 +30,10 @@ interface FunctionsBillingRegistryInterface {
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getRequiredFee(bytes calldata data, FunctionsBillingRegistryInterface.RequestBilling memory billing)
-    external
-    view
-    returns (uint96);
+  function getRequiredFee(
+    bytes calldata data,
+    FunctionsBillingRegistryInterface.RequestBilling memory billing
+  ) external view returns (uint96);
 
   /**
    * @notice Estimate the total cost to make a request: gas re-imbursement, plus DON fee, plus Registry fee

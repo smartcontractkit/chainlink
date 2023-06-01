@@ -79,7 +79,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
+	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -127,7 +127,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateEthTransaction(txmgr.EvmNewTx{
+	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,

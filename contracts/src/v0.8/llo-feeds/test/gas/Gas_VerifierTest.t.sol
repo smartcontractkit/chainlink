@@ -12,6 +12,7 @@ contract Verifier_setConfig is BaseTest {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     s_signerAddrs = _getSignerAddresses(signers);
+    s_verifierProxy.initializeVerifier(address(s_verifier));
   }
 
   function testSetConfigSuccess_gas() public {

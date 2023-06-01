@@ -187,7 +187,8 @@ func (r *chainIDResp) newSendOnlyNode(t *testing.T, nodeChainID int64) evmclient
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
 	rpcSrv := rpc.NewServer()
 	t.Cleanup(rpcSrv.Stop)
-	rpcSrv.RegisterName("eth", &chainIDService{*r})
+	err := rpcSrv.RegisterName("eth", &chainIDService{*r})
+	require.NoError(t, err)
 	ts := httptest.NewServer(rpcSrv)
 	t.Cleanup(ts.Close)
 

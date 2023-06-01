@@ -36,6 +36,8 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   IFunctionsBillingRegistry private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
 
+  bytes private s_thresholdPublicKey;
+
   /**
    * @dev Initializes the contract.
    */
@@ -67,6 +69,23 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       revert EmptyBillingRegistry();
     }
     s_registry = IFunctionsBillingRegistry(registryAddress);
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function getThresholdPublicKey() external view override returns (bytes memory) {
+    return s_thresholdPublicKey;
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+    if (thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_thresholdPublicKey = thresholdPublicKey;
   }
 
   /**
@@ -137,7 +156,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * @inheritdoc IFunctionsOracle
    */
   function getRequiredFee(
-    bytes calldata, /* data */
+    bytes calldata /* data */,
     IFunctionsBillingRegistry.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
@@ -196,8 +215,8 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _validateReport(
-    bytes32, /* configDigest */
-    uint40, /* epochAndRound */
+    bytes32 /* configDigest */,
+    uint40 /* epochAndRound */,
     bytes memory /* report */
   ) internal pure override returns (bool) {
     // validate within _report to save gas
@@ -267,5 +286,5 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * variables without shifting down storage in the inheritance chain.
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
-  uint256[49] private __gap;
+  uint256[48] private __gap;
 }

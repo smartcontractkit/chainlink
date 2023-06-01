@@ -2,117 +2,60 @@
 package bigmath
 
 import (
-	"fmt"
 	"math/big"
-	"strings"
 )
-
-// ToIntable represents a type that is convertable to a big.Int, ex utils.Big
-type ToIntable interface {
-	ToInt() *big.Int
-}
 
 // I returns a new big.Int.
 func I() *big.Int { return new(big.Int) }
 
-// Add performs addition with the given values after coercing them to big.Int, or panics if it cannot.
-func Add(addend1, addend2 interface{}) *big.Int { return I().Add(bnIfy(addend1), bnIfy(addend2)) }
+// Add performs addition with the given values.
+func Add(addend1, addend2 *big.Int) *big.Int { return I().Add(addend1, addend2) }
 
-// Div performs division with the given values after coercing them to big.Int, or panics if it cannot.
-func Div(dividend, divisor interface{}) *big.Int { return I().Div(bnIfy(dividend), bnIfy(divisor)) }
+// Div performs division with the given values.
+func Div(dividend, divisor *big.Int) *big.Int { return I().Div(dividend, divisor) }
 
-// Equal compares the given values after coercing them to big.Int, or panics if it cannot.
-func Equal(left, right interface{}) bool { return bnIfy(left).Cmp(bnIfy(right)) == 0 }
+// Equal compares the given values.
+func Equal(left, right *big.Int) bool { return left.Cmp(right) == 0 }
 
-// Exp performs modular eponentiation with the given values after coercing them to big.Int, or panics if it cannot.
-func Exp(base, exponent, modulus interface{}) *big.Int {
-	return I().Exp(bnIfy(base), bnIfy(exponent), bnIfy(modulus))
+// Exp performs modular eponentiation with the given values.
+func Exp(base, exponent, modulus *big.Int) *big.Int {
+	return I().Exp(base, exponent, modulus)
 }
 
-// Mul performs multiplication with the given values after coercing them to big.Int, or panics if it cannot.
-func Mul(multiplicand, multiplier interface{}) *big.Int {
-	return I().Mul(bnIfy(multiplicand), bnIfy(multiplier))
+// Mul performs multiplication with the given values.
+func Mul(multiplicand, multiplier *big.Int) *big.Int {
+	return I().Mul(multiplicand, multiplier)
 }
 
-// Mod performs modulus with the given values after coercing them to big.Int, or panics if it cannot.
-func Mod(dividend, divisor interface{}) *big.Int { return I().Mod(bnIfy(dividend), bnIfy(divisor)) }
+// Mod performs modulus with the given values.
+func Mod(dividend, divisor *big.Int) *big.Int { return I().Mod(dividend, divisor) }
 
-// Sub performs subtraction with the given values after coercing them to big.Int, or panics if it cannot.
-func Sub(minuend, subtrahend interface{}) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
+// Sub performs subtraction with the given values.
+func Sub(minuend, subtrahend *big.Int) *big.Int { return I().Sub(minuend, subtrahend) }
 
-// Max returns the maximum of the two given values after coercing them to big.Int,
-// or panics if it cannot.
-func Max(x, y interface{}) *big.Int {
-	xBig := bnIfy(x)
-	yBig := bnIfy(y)
-	if xBig.Cmp(yBig) == 1 {
-		return xBig
+// Max returns the maximum of the two given values.
+func Max(x, y *big.Int) *big.Int {
+	if x.Cmp(y) == 1 {
+		return x
 	}
-	return yBig
+	return y
 }
 
-// Min returns the min of the two given values after coercing them to big.Int,
-// or panics if it cannot.
-func Min(x, y interface{}) *big.Int {
-	xBig := bnIfy(x)
-	yBig := bnIfy(y)
-	if xBig.Cmp(yBig) == -1 {
-		return xBig
+// Min returns the min of the two given values.
+func Min(x, y *big.Int) *big.Int {
+	if x.Cmp(y) == -1 {
+		return x
 	}
-	return yBig
+	return y
 }
 
-// Accumulate returns the sum of the given slice after coercing all elements
-// to a big.Int, or panics if it cannot.
-func Accumulate(s []interface{}) (r *big.Int) {
+// Accumulate returns the sum of the given slice.
+func Accumulate(s []*big.Int) (r *big.Int) {
 	r = big.NewInt(0)
 	for _, e := range s {
-		r.Add(r, bnIfy(e))
+		r.Add(r, e)
 	}
 	return
-}
-
-func bnIfy(val interface{}) *big.Int {
-	if toIntable, ok := val.(ToIntable); ok {
-		return toIntable.ToInt()
-	}
-	switch v := val.(type) {
-	case uint:
-		return big.NewInt(0).SetUint64(uint64(v))
-	case uint8:
-		return big.NewInt(0).SetUint64(uint64(v))
-	case uint16:
-		return big.NewInt(0).SetUint64(uint64(v))
-	case uint32:
-		return big.NewInt(0).SetUint64(uint64(v))
-	case uint64:
-		return big.NewInt(0).SetUint64(v)
-	case int:
-		return big.NewInt(int64(v))
-	case int8:
-		return big.NewInt(int64(v))
-	case int16:
-		return big.NewInt(int64(v))
-	case int32:
-		return big.NewInt(int64(v))
-	case int64:
-		return big.NewInt(int64(v))
-	case float64: // when decoding from db: JSON numbers are floats
-		return big.NewInt(0).SetUint64(uint64(v))
-	case string:
-		if strings.TrimSpace(v) == "" {
-			panic("invalid big int string")
-		}
-		n, ok := big.NewInt(0).SetString(v, 10)
-		if !ok {
-			panic(fmt.Sprintf("unable to convert %s to big.Int", v))
-		}
-		return n
-	case *big.Int:
-		return v
-	default:
-		panic(fmt.Sprintf("invalid type for big num conversion: %v", v))
-	}
 }
 
 // nolint

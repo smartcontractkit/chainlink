@@ -203,7 +203,8 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 	tc.workersMutex.Lock()
 	defer tc.workersMutex.Unlock()
 
-	worker, found := tc.workers[payload.ContractID]
+	workerKey := fmt.Sprintf("%s_%s", payload.ContractID, payload.TelemType)
+	worker, found := tc.workers[workerKey]
 
 	if !found {
 		worker = NewTelemetryIngressBatchWorker(
@@ -220,7 +221,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			tc.logging,
 		)
 		worker.Start()
-		tc.workers[payload.ContractID] = worker
+		tc.workers[workerKey] = worker
 	}
 
 	return worker

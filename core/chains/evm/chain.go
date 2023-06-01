@@ -110,7 +110,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
-		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver, opts.MailMon)
+		headTracker = headtracker.NewHeadTracker(l, client, headtracker.NewWrappedConfig(cfg), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -120,7 +120,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
-			logPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
+			logPoller = logpoller.NewObservedLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
 		}
 	}
 

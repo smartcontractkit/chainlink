@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -54,7 +55,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	var n int64
 
 	cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, n, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(n), fromAddress)
 	n++
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, n, 42, fromAddress)
 	n++

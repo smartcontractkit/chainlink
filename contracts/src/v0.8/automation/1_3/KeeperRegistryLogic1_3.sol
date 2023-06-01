@@ -29,7 +29,10 @@ contract KeeperRegistryLogic1_3 is KeeperRegistryBase1_3 {
     address fastGasFeed
   ) KeeperRegistryBase1_3(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(
+    uint256 id,
+    address from
+  )
     external
     cannotExecute
     returns (

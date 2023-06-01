@@ -187,7 +187,8 @@ func TestPollLogs(t *testing.T) {
 			mp := new(mocks.LogPoller)
 
 			if test.LatestBlock != nil {
-				mp.On("LatestBlock").Return(test.LatestBlock.OutputBlock, test.LatestBlock.OutputErr)
+				mp.On("LatestBlock", mock.Anything).
+					Return(test.LatestBlock.OutputBlock, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {

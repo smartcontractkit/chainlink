@@ -32,11 +32,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param l2UptimeFeedAddr the address of the OptimismSequencerUptimeFeed contract address
    * @param gasLimit the gasLimit to use for sending a message from L1 to L2
    */
-  constructor(
-    address l1CrossDomainMessengerAddress,
-    address l2UptimeFeedAddr,
-    uint32 gasLimit
-  ) {
+  constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit) {
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
     require(l2UptimeFeedAddr != address(0), "Invalid OptimismSequencerUptimeFeed contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
@@ -81,9 +77,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
    */
   function validate(
-    uint256, /* previousRoundId */
+    uint256 /* previousRoundId */,
     int256 previousAnswer,
-    uint256, /* currentRoundId */
+    uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call

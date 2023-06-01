@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
@@ -104,7 +104,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 0.0.1";
+    return "VerifierProxy 1.0.0";
   }
 
   //***************************//
@@ -153,12 +153,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function setVerifier(bytes32 currentConfigDigest, bytes32 newConfigDigest)
-    external
-    override
-    onlyUnsetConfigDigest(newConfigDigest)
-    onlyInitializedVerifier
-  {
+  function setVerifier(
+    bytes32 currentConfigDigest,
+    bytes32 newConfigDigest
+  ) external override onlyUnsetConfigDigest(newConfigDigest) onlyInitializedVerifier {
     s_verifiersByConfig[newConfigDigest] = msg.sender;
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
   }

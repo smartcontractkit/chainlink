@@ -8,6 +8,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -22,7 +23,7 @@ type Config interface {
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
 	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
+	EvmGasBumpTxDepth() uint32
 	EvmGasLimitDefault() uint32
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
@@ -30,7 +31,10 @@ type Config interface {
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	TriggerFallbackDBPollInterval() time.Duration
+
+	// Note: currently only TriggerFallbackDBPollInterval is needed
+	// from here.
+	Database() config.Database
 }
 
 type (
@@ -67,7 +71,7 @@ func (c evmTxmConfig) FeePriceDefault() *assets.Wei { return c.EvmGasPriceDefaul
 
 func (c evmTxmConfig) RPCDefaultBatchSize() uint32 { return c.EvmRPCDefaultBatchSize() }
 
-func (c evmTxmConfig) FeeBumpTxDepth() uint16 { return c.EvmGasBumpTxDepth() }
+func (c evmTxmConfig) FeeBumpTxDepth() uint32 { return c.EvmGasBumpTxDepth() }
 
 func (c evmTxmConfig) FeeLimitDefault() uint32 { return c.EvmGasLimitDefault() }
 
@@ -82,3 +86,7 @@ func (c evmTxmConfig) TxResendAfterThreshold() time.Duration { return c.EthTxRes
 func (c evmTxmConfig) TxReaperInterval() time.Duration { return c.EthTxReaperInterval() }
 
 func (c evmTxmConfig) TxReaperThreshold() time.Duration { return c.EthTxReaperThreshold() }
+
+func (c evmTxmConfig) FallbackPollInterval() time.Duration {
+	return c.Database().Listener().FallbackPollInterval()
+}

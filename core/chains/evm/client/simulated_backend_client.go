@@ -670,3 +670,7 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 
 	return callMsg
 }
+
+func (c *SimulatedBackendClient) IsL2() bool {
+	return false
+}

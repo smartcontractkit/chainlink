@@ -19,8 +19,6 @@ import (
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -38,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -57,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
@@ -78,6 +78,8 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChains() Chains
+
+	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -137,6 +139,7 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	loopRegistry             *plugins.LoopRegistry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -157,14 +160,15 @@ type ApplicationOpts struct {
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
+	LoopRegistry             *plugins.LoopRegistry
 }
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet      // nil if disabled
-	Solana   relay.RelayerService // nil if disabled
-	StarkNet starkchain.ChainSet  // nil if disabled
+	Cosmos   cosmos.ChainSet // nil if disabled
+	Solana   loop.Relayer    // nil if disabled
+	StarkNet loop.Relayer    // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -201,6 +205,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// as OCR2 job implementations, in the case of Median today.
+	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
+	// we need to initialize in case we serve OCR2 LOOPs
+	loopRegistry := opts.LoopRegistry
+	if loopRegistry == nil {
+		loopRegistry = plugins.NewLoopRegistry()
+	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
@@ -262,10 +275,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+	backupCfg := cfg.Database().Backup()
+	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.DatabaseURL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
@@ -334,6 +348,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
+			job.Gateway: gateway.NewDelegate(
+				chains.EVM,
+				keyStore.Eth(),
+				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -382,28 +400,25 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]func() (loop.Relayer, error))
+		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
-			relayer := relay.RelayerAdapter{Relayer: evmRelayer, RelayerExt: chains.EVM}
-			relayers[relay.EVM] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
 			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
-			relayer := relay.RelayerAdapter{Relayer: cosmosRelayer, RelayerExt: chains.Cosmos}
-			relayers[relay.Cosmos] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.Cosmos] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
 		}
 		if cfg.SolanaEnabled() {
-			relayers[relay.Solana] = chains.Solana.Relayer
+			relayers[relay.Solana] = chains.Solana
 		}
 		if cfg.StarkNetEnabled() {
-			lggr := globalLogger.Named("StarkNet.Relayer")
-			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
-			relayer := relay.RelayerAdapter{Relayer: starknetRelayer, RelayerExt: chains.StarkNet}
-			relayers[relay.StarkNet] = func() (loop.Relayer, error) { return &relayer, nil }
+			relayers[relay.StarkNet] = chains.StarkNet
 		}
+		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -412,7 +427,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
@@ -489,6 +504,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
+		loopRegistry:             loopRegistry,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -573,6 +589,10 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 		return app.stop()
 	}
 	return nil
+}
+
+func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+	return app.loopRegistry
 }
 
 // Stop allows the application to exit by halting schedules, closing

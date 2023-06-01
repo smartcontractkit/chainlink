@@ -11,6 +11,6 @@ import (
 // Chain implementations should notify head events to the core txm via this interface.
 //
 //go:generate mockery --quiet --name HeadTrackable --output ./mocks/ --case=underscore
-type HeadTrackable[H commontypes.Head[HASH], HASH commontypes.Hashable] interface {
+type HeadTrackable[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] interface {
 	OnNewLongestChain(ctx context.Context, head H)
 }

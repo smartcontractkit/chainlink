@@ -14,31 +14,32 @@ import (
 //
 //go:generate mockery --quiet --name TxAttemptBuilder --output ./mocks/ --case=underscore
 type TxAttemptBuilder[
-	HEAD types.Head[TX_HASH], // HEAD - chain head type
-	FEE Fee, // FEE - chain fee type
+	CHAIN_ID ID, // CHAIN_ID - chain id type
+	HEAD types.Head[BLOCK_HASH], // HEAD - chain head type
 	ADDR types.Hashable, // ADDR - chain address type
-	TX_HASH types.Hashable, // TX_HASH - chain tx hash type
-	TX any, // TX - tx type (will be replaced in future)
-	TXATTEMPT any, // TXATTEMPT - tx attempt type (will be replaced  in future)
-	SEQ Sequence,
+	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
+	R ChainReceipt[TX_HASH, BLOCK_HASH], //  R - chain receipt type
+	SEQ Sequence, // SEQ - chain sequence/nonce type
+	FEE Fee, // FEE - chain fee type
+	ADD any, // additional parameter within Tx to pass extra information
 ] interface {
 	// interfaces for running the underlying estimator
 	services.ServiceCtx
-	HeadTrackable[HEAD, TX_HASH]
+	HeadTrackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
-	NewTxAttempt(ctx context.Context, tx TX, lggr logger.Logger, opts ...Opt) (attempt TXATTEMPT, fee FEE, feeLimit uint32, retryable bool, err error)
+	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, opts ...Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
 
 	// NewTxAttemptWithType builds a transaction using the configured fee estimator (new estimation) + passed in tx type
-	NewTxAttemptWithType(ctx context.Context, tx TX, lggr logger.Logger, txType int, opts ...Opt) (attempt TXATTEMPT, fee FEE, feeLimit uint32, retryable bool, err error)
+	NewTxAttemptWithType(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, txType int, opts ...Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
 
 	// NewBumpTxAttempt builds a transaction using the configured fee estimator (bumping) + tx type from previous attempt
 	// this should only be used after an initial attempt has been broadcast and the underlying gas estimator only needs to bump the fee
-	NewBumpTxAttempt(ctx context.Context, tx TX, previousAttempt TXATTEMPT, priorAttempts []PriorAttempt[FEE, TX_HASH], lggr logger.Logger) (attempt TXATTEMPT, bumpedFee FEE, bumpedFeeLimit uint32, retryable bool, err error)
+	NewBumpTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], previousAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], priorAttempts []PriorAttempt[FEE, TX_HASH], lggr logger.Logger) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], bumpedFee FEE, bumpedFeeLimit uint32, retryable bool, err error)
 
 	// NewCustomTxAttempt builds a transaction using the passed in fee + tx type
-	NewCustomTxAttempt(tx TX, fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (attempt TXATTEMPT, retryable bool, err error)
+	NewCustomTxAttempt(tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], retryable bool, err error)
 
 	// NewEmptyTxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-	NewEmptyTxAttempt(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TXATTEMPT, err error)
+	NewEmptyTxAttempt(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
 }

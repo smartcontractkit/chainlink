@@ -32,7 +32,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 
 	err = orm.UpsertNodeVersion(NewNodeVersion("9.9.7"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Application version (9.9.7) is older than database version (9.9.8). Only Chainlink 9.9.8 or later can be run on this database")
+	assert.Contains(t, err.Error(), "Application version (9.9.7) is lower than database version (9.9.8). Only Chainlink 9.9.8 or higher can be run on this database")
 
 	require.NoError(t, orm.UpsertNodeVersion(NewNodeVersion("9.9.9")))
 
@@ -79,7 +79,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 	// lower version returns error
 	_, _, err = CheckVersion(db, lggr, "9.9.7")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Application version (9.9.7) is older than database version (9.9.8). Only Chainlink 9.9.8 or later can be run on this database")
+	assert.Contains(t, err.Error(), "Application version (9.9.7) is lower than database version (9.9.8). Only Chainlink 9.9.8 or higher can be run on this database")
 
 	// equal version is ok
 	var appv, dbv *semver.Version
