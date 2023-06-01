@@ -133,7 +133,7 @@ type TxAttempt[
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   TxAttemptState
-	Receipts                []Receipt[R, TX_HASH, BLOCK_HASH] `json:"-"`
+	Receipts                []R `json:"-"`
 	TxType                  int
 }
 

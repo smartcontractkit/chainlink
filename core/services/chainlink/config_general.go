@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -461,10 +460,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
-}
-
 func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return g.c.Database.DefaultQueryTimeout.Duration()
 }
@@ -499,10 +494,6 @@ func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
 
 func (g *generalConfig) FMSimulateTransactions() bool {
 	return *g.c.FluxMonitor.SimulateTransactions
-}
-
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	return g.c.Database.Dialect
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
