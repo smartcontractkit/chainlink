@@ -42,6 +42,9 @@ type OCRSoakTest struct {
 	ocrInstances          []contracts.OffchainAggregator
 	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
 	OperatorForwarderFlow bool
+
+	// DEBUG DON'T USE THIS. TEMP KLUDGE FOR L2s!!!!!!!
+	seenEventBlockHashes map[string]struct{}
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -67,8 +70,9 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 			ContractReports:       make(map[string]*testreporters.OCRSoakTestReport),
 			ExpectedRoundDuration: inputs.ExpectedRoundTime,
 		},
-		mockPath:       "ocr",
-		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
+		mockPath:             "ocr",
+		ocrInstanceMap:       make(map[string]contracts.OffchainAggregator),
+		seenEventBlockHashes: make(map[string]struct{}),
 	}
 }
 
@@ -340,27 +344,54 @@ func (o *OCRSoakTest) subscribeOCREvents(
 	for i := 0; i < len(o.ocrInstances); i++ {
 		addresses = append(addresses, common.HexToAddress(o.ocrInstances[i].Address()))
 	}
-	query := geth.FilterQuery{
+	query := &geth.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
 		Addresses: addresses,
+		Topics: [][]common.Hash{
+			{common.HexToHash("0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f")}, // Hash of AnswerUpdated event
+		},
 	}
 
 	go func() {
+		rpcDegraded, rpcDegradedTime, rpcDegradedNotifyTime := false, time.Now(), time.Now()
 		ticker := time.NewTicker(time.Second)
 		for range ticker.C { // Poll the chain
-			logs, err := o.chainClient.FilterLogs(context.Background(), query)
-			if err != nil {
-				l.Error().Err(err).Msg("Error filtering OCR logs, RPC possibly down")
+			logs, err := o.chainClient.FilterLogs(context.Background(), *query)
+			if err != nil { // RPC has likely degraded
+				if rpcDegraded && time.Since(rpcDegradedNotifyTime) >= time.Minute*5 {
+					l.Error().Err(err).Msg("Error filtering OCR logs, RPC still in degraded state")
+					rpcDegradedNotifyTime = time.Now()
+				} else {
+					l.Error().Err(err).Msg("Error filtering OCR logs, RPC possibly down")
+					rpcDegraded, rpcDegradedTime, rpcDegradedNotifyTime = true, time.Now(), time.Now()
+				}
+				continue
 			}
-			query.FromBlock = big.NewInt(0).SetUint64(latestBlockNum + 1)
-			for _, log := range logs {
-				eventDetails, err := contractABI.EventByID(log.Topics[0])
+			if err == nil && rpcDegraded { // RPC is healthy again, look for logs
+				l.Info().Str("Downtime", time.Since(rpcDegradedTime).String()).Msg("RPC Has Recovered")
+				rpcDegraded = false
+			}
+			// Move the FromBlock up to the latest block for the next query
+			latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
+			if err != nil {
+				l.Error().Err(err).Msg("Error getting latest block number")
+			}
+			query.FromBlock = big.NewInt(0).SetUint64(latestBlockNum)
+			for logIndex := range logs {
+				// DEBUG BADDDDDDDD
+				if _, seen := o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()]; seen {
+					continue
+				} else {
+					o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = struct{}{}
+				}
+				// DEBUG END OF BADDDD
+				eventDetails, err := contractABI.EventByID(logs[logIndex].Topics[0])
 				if err != nil {
 					l.Error().Err(err).Msg("Error getting event details from abi for OCR log")
 					continue
 				}
-				ocrInstance := o.ocrInstanceMap[log.Address.Hex()]
-				go o.processNewEvent(t, answerUpdated, &log, eventDetails, ocrInstance, contractABI)
+				ocrInstance := o.ocrInstanceMap[logs[logIndex].Address.Hex()]
+				go o.processNewEvent(t, answerUpdated, &logs[logIndex], eventDetails, ocrInstance, contractABI)
 			}
 		}
 	}()
