@@ -698,36 +698,30 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 
 type OCRSpecConfig interface {
 	P2PPeerID() p2pkey.PeerID
-	OCRBlockchainTimeout() time.Duration
+	OCR() config.OCR
 	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRObservationTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	OCRKeyBundleID() (string, error)
-	OCRCaptureEATelemetry() bool
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
-		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
+		os.ObservationTimeout = models.Interval(cfg.OCR().ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
 		os.BlockchainTimeoutEnv = true
-		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
+		os.BlockchainTimeout = models.Interval(cfg.OCR().BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
 		os.ContractConfigTrackerSubscribeIntervalEnv = true
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCR().ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
 		os.ContractConfigTrackerPollIntervalEnv = true
-		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
+		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCR().ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmationsEnv = true
@@ -745,7 +739,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
-	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
+	os.CaptureEATelemetry = cfg.OCR().CaptureEATelemetry()
 
 	return &os
 }
@@ -753,7 +747,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 // LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
-		ta, err := cfg.OCRTransmitterAddress()
+		ta, err := cfg.OCR().TransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
@@ -764,7 +758,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 	}
 
 	if os.EncryptedOCRKeyBundleID == nil {
-		kb, err := cfg.OCRKeyBundleID()
+		kb, err := cfg.OCR().KeyBundleID()
 		if err != nil {
 			return nil, err
 		}

@@ -31,7 +31,7 @@ type PeerWrapperConfig interface {
 	config.P2PV1Networking
 	config.P2PV2Networking
 	pg.QConfig
-	OCRTraceLogging() bool
+	OCR() config.OCR
 	FeatureOffchainReporting() bool
 }
 
@@ -194,7 +194,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	peerConfig := ocrnetworking.PeerConfig{
 		NetworkingStack: p.config.P2PNetworkingStack(),
 		PrivKey:         key.PrivKey,
-		Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
+		Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCR().TraceLogging(), func(string) {}),
 
 		// V1 config
 		V1ListenIP:                         p.config.P2PListenIP(),

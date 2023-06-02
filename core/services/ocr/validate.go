@@ -14,25 +14,18 @@ import (
 	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
-	OCRBlockchainTimeout() time.Duration
+	OCR() config.OCR
 	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
-	OCRKeyBundleID() (string, error)
 	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PPeerID() p2pkey.PeerID
-	OCRCaptureEATelemetry() bool
 	OCRDevelopmentMode() bool
 }
 
@@ -153,7 +146,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	if spec.OCROracleSpec.ObservationTimeout != 0 {
 		observationTimeout = spec.OCROracleSpec.ObservationTimeout.Duration()
 	} else {
-		observationTimeout = config.OCRObservationTimeout()
+		observationTimeout = config.OCR().ObservationTimeout()
 	}
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")

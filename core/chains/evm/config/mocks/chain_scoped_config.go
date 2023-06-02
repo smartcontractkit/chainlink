@@ -14,8 +14,6 @@ import (
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -2095,6 +2093,22 @@ func (_m *ChainScopedConfig) NodeSyncThreshold() uint32 {
 	return r0
 }
 
+// OCR provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR() coreconfig.OCR {
+	ret := _m.Called()
+
+	var r0 coreconfig.OCR
+	if rf, ok := ret.Get(0).(func() coreconfig.OCR); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.OCR)
+		}
+	}
+
+	return r0
+}
+
 // OCR2AutomationGasLimit provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCR2AutomationGasLimit() uint32 {
 	ret := _m.Called()
@@ -2273,34 +2287,6 @@ func (_m *ChainScopedConfig) OCR2TraceLogging() bool {
 	return r0
 }
 
-// OCRBlockchainTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRBlockchainTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRCaptureEATelemetry provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRCaptureEATelemetry() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // OCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -2310,34 +2296,6 @@ func (_m *ChainScopedConfig) OCRContractConfirmations() uint16 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// OCRContractPollInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRContractPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRContractSubscribeInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRContractSubscribeInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -2371,20 +2329,6 @@ func (_m *ChainScopedConfig) OCRDatabaseTimeout() time.Duration {
 	return r0
 }
 
-// OCRDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
 // OCRDevelopmentMode provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRDevelopmentMode() bool {
 	ret := _m.Called()
@@ -2399,30 +2343,6 @@ func (_m *ChainScopedConfig) OCRDevelopmentMode() bool {
 	return r0
 }
 
-// OCRKeyBundleID provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
-	ret := _m.Called()
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (string, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // OCRObservationGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRObservationGracePeriod() time.Duration {
 	ret := _m.Called()
@@ -2435,72 +2355,6 @@ func (_m *ChainScopedConfig) OCRObservationGracePeriod() time.Duration {
 	}
 
 	return r0
-}
-
-// OCRObservationTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRObservationTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRSimulateTransactions provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTraceLogging provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRTraceLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTransmitterAddress provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	ret := _m.Called()
-
-	var r0 ethkey.EIP55Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (ethkey.EIP55Address, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() ethkey.EIP55Address); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(ethkey.EIP55Address)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // OperatorFactoryAddress provides a mock function with given fields:

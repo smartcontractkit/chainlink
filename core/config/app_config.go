@@ -40,7 +40,6 @@ type AppConfig interface {
 	Keeper
 	Keystore
 	Logging
-	OCR1Config
 	OCR2Config
 	P2PNetworking
 	P2PV1Networking
@@ -54,6 +53,7 @@ type AppConfig interface {
 	audit.Config
 
 	Database() Database
+	OCR() OCR
 }
 type DatabaseBackupMode string
 
