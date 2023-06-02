@@ -70,7 +70,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	hb := headtracker.NewEvmHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, cfg)
+	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg)
 	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)

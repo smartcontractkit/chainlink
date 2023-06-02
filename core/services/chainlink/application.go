@@ -294,7 +294,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	srvcs = append(srvcs, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
