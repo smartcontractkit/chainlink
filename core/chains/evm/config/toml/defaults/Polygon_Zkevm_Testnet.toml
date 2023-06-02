@@ -1,7 +1,7 @@
 ChainID = '1442'
 FinalityDepth = 1
 NoNewHeadsThreshold = '6m'
-RPCBlockQueryDelay = 3
+RPCBlockQueryDelay = 10
 MinIncomingConfirmations = 1
 
 [GasEstimator]
