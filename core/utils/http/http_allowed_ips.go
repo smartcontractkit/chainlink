@@ -63,7 +63,7 @@ func isRestrictedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 }
 
 func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
-	dbURL := cfg.DatabaseURL()
+	dbURL := cfg.URL()
 	if dbURL.String() == "" {
 		return false, nil
 	}
