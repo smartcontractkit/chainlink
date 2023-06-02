@@ -78,7 +78,6 @@ github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0
 github.com/Masterminds/semver/v3 v3.2.1 h1:RN9w6+7QoMeJVGyfmbcgs28Br8cvmnucEXnY0rYXWg0=
 github.com/Masterminds/semver/v3 v3.2.1/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYrf8m9wsX0PNOMQ=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
-github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac h1:TQ2m26VW06Df1P82Ed/jZhBtf13pReWyl2XQ8hy+J08=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OneOfOne/xxhash v1.2.6 h1:U68crOE3y3MPttCMQGywZOLrTeF5HHJ3/vDBCJn9/bA=
@@ -1346,7 +1345,7 @@ github.com/smartcontractkit/chainlink-env v0.32.5/go.mod h1:9c0Czq4a6wZKY20BcoAl
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086 h1:d2WiCTnsCtA16KVabnX3E9SZH1irp2/d0MLT0/UI3XY=
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086/go.mod h1:zfUba6Okm7zTBxap24I78Vq9z+twHmjXSMBAl2C2Qgc=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f h1:XtumoxAyCO4JnDbhUjD+BT3H3NohfpVG3IOLKWE5m+k=
-github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230531021926-052aa18e1b0e h1:1DDyjXPODK/Zz7YZmMW9JA7iqWGqbBrM4Q//XKK9RZg=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 h1:ZblU/X27pIHAZ7c/37TZf7ykZ4jkfVUmvIcchyO2rnw=
 github.com/smartcontractkit/chainlink-testing-framework v1.11.6 h1:W5BfxVDRWZ/PepyMUyJqR8w8XcnFbP4aZqL+ha+DiaA=
 github.com/smartcontractkit/chainlink-testing-framework v1.11.6/go.mod h1:76JD6PEhH9QActeOUKfPjm/4Cfyn+cpp3u0ASoq0RpU=
 github.com/smartcontractkit/libocr v0.0.0-20230525150148-a75f6e244bb3 h1:/Gel/U5eIZ/BGGr25OrHaXiVDTAJ5DYX5+UlXp3q7Gg=
