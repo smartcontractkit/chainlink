@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
@@ -75,6 +76,16 @@ type VRFv2Consumer interface {
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	ChangeEVMClient(newClient blockchain.EVMClient)
+}
+
+type VRFv2LoadTestConsumer interface {
+	Address() string
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
+	ChangeEVMClient(newClient blockchain.EVMClient)
+
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
+
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
 }
 
 type DKG interface {
@@ -149,4 +160,13 @@ type BatchBlockhashStore interface {
 type RequestStatus struct {
 	Fulfilled   bool
 	RandomWords []*big.Int
+}
+
+type LoadTestRequestStatus struct {
+	Fulfilled             bool
+	RandomWords           []*big.Int
+	requestTimestamp      *big.Int
+	fulfilmentTimestamp   *big.Int
+	requestBlockNumber    *big.Int
+	fulfilmentBlockNumber *big.Int
 }

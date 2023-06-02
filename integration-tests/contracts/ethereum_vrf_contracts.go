@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
@@ -152,6 +153,25 @@ func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (
 	return &EthereumVRFv2Consumer{
 		client:   e.client,
 		consumer: instance.(*eth_contracts.VRFv2Consumer),
+		address:  address,
+	}, err
+}
+
+//DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2Consumer, error)
+
+func (e *EthereumContractDeployer) DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("VRFV2LoadTestWithMetrics", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(auth, backend, common.HexToAddress(coordinatorAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFv2LoadTestConsumer{
+		client:   e.client,
+		consumer: instance.(*vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics),
 		address:  address,
 	}, err
 }
@@ -435,7 +455,18 @@ type EthereumVRFv2Consumer struct {
 	consumer *eth_contracts.VRFv2Consumer
 }
 
+// EthereumVRFv2LoadTestConsumer represents VRFv2 consumer contract for performing Load Tests
+type EthereumVRFv2LoadTestConsumer struct {
+	address  *common.Address
+	client   blockchain.EVMClient
+	consumer *vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics
+}
+
 func (v *EthereumVRFv2Consumer) ChangeEVMClient(newClient blockchain.EVMClient) {
+	v.client = newClient
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) ChangeEVMClient(newClient blockchain.EVMClient) {
 	v.client = newClient
 }
 
@@ -541,6 +572,23 @@ func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.
 	}, arg0)
 }
 
+func (v *EthereumVRFv2LoadTestConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(keyHash [32]byte, subID uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	tx, err := v.consumer.RequestRandomWords(opts, subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -550,6 +598,20 @@ func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID 
 
 func (v *EthereumVRFv2Consumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.LastRequestId(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error) {
+	return v.consumer.GetRequestStatus(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}, requestID)
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
+	return v.consumer.SLastRequestId(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
