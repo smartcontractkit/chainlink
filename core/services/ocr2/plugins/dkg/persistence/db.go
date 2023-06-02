@@ -83,7 +83,6 @@ func (s *shareDB) WriteShareRecords(
 	defer func() {
 		duration := time.Since(start)
 		promWriteShareRecords.WithLabelValues(s.chainType, s.chainID.String()).Observe(float64(duration))
-		// lggr.Debugw("Inserted DKG shares into DB", "duration", duration) // see ocr2vrf code for logs
 	}()
 
 	var named []dkgShare

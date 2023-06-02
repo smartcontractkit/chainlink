@@ -101,8 +101,6 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		chStop:       make(chan struct{}),
 	}
 
-	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", cfg.NodeSelectionMode())
-
 	return p
 }
 
@@ -339,7 +337,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 				defer cancel()
 
 				err := NewSendError(n.SendTransaction(sendCtx, tx))
-				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
+				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err.Error())
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since
 					// the primary SendTransaction may well have succeeded already

@@ -505,7 +505,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		if err2 := cli.CookieAuthenticator.Logout(); err2 != nil {
-			cli.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
+			cli.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2.Error())
 		}
 		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}

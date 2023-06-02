@@ -122,7 +122,6 @@ func (c *chainSet[N, S]) SendTx(ctx context.Context, chainID, from, to string, a
 
 func (c *chainSet[N, S]) Start(ctx context.Context) error {
 	return c.StartOnce("ChainSet", func() error {
-		c.lggr.Debug("Starting")
 
 		var ms services.MultiStart
 		for id, ch := range c.chains {
@@ -137,7 +136,6 @@ func (c *chainSet[N, S]) Start(ctx context.Context) error {
 
 func (c *chainSet[N, S]) Close() error {
 	return c.StopOnce("ChainSet", func() error {
-		c.lggr.Debug("Stopping")
 
 		return services.MultiCloser(maps.Values(c.chains)).Close()
 	})

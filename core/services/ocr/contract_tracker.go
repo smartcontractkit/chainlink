@@ -304,7 +304,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			t.logger.Warnw("ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
 		}
 	default:
-		t.logger.Debugw("got unrecognised log topic", "topic", topics[0])
+		t.logger.Errorw("unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
 		if err := t.logBroadcaster.MarkConsumed(lb); err != nil {

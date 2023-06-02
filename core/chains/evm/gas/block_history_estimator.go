@@ -487,7 +487,6 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 
 	blockHistory := b.getBlocks()
 	if len(blockHistory) == 0 {
-		lggr.Debug("No blocks in history, cannot set gas price")
 		return
 	}
 
@@ -619,7 +618,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 			if errors.Is(err, evmtypes.ErrMissingBlock) {
 				num := HexToInt64(req.Args[0])
 				missingBlocks = append(missingBlocks, num)
-				lggr.Debugw(
+				lggr.Warnw(
 					fmt.Sprintf("Failed to fetch block: RPC node returned a missing block on query for block number %d even though the WS subscription already sent us this block. It might help to increase EVM.RPCBlockQueryDelay (currently %d)",
 						num, blockDelay,
 					),

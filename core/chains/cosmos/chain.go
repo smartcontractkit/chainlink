@@ -127,14 +127,12 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 // Start starts cosmos chain.
 func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
-		c.lggr.Debug("Starting")
 		return c.txm.Start(ctx)
 	})
 }
 
 func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
-		c.lggr.Debug("Stopping")
 		return c.txm.Close()
 	})
 }

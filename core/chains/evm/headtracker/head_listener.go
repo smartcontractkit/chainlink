@@ -196,8 +196,6 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) b
 	for {
 		hl.unsubscribe()
 
-		hl.logger.Debugf("Subscribing to new heads on chain %s", chainId.String())
-
 		select {
 		case <-hl.chStop:
 			return false

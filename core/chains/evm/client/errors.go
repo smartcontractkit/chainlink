@@ -429,6 +429,7 @@ func NewSendErrorReturnCode(err error, lggr logger.Logger, tx *types.Transaction
 		return clienttypes.Successful, err
 	}
 	if sendError.IsTransactionAlreadyInMempool() {
+		// potential reduction
 		lggr.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
 		return clienttypes.Successful, err
 	}

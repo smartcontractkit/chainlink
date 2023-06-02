@@ -417,6 +417,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
+	// Potential to reduce: high cardinality
 	b.logger.Debug("Starting the event loop")
 	for {
 		// Replay requests take priority.
@@ -429,6 +430,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		select {
 		case rawLog := <-chRawLogs:
+			// Potential to reduce: high cardinality
 			b.logger.Debugw("Received a log",
 				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
 			b.onNewLog(rawLog)
@@ -444,6 +446,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			if blockNum := b.invalidatePool(); blockNum > 0 {
 				lggr = lggr.With("blockNumber", blockNum)
 			}
+			// Potential to reduce: high cardinality
 			lggr.Debugw("Subscription terminated. Backfilling after resubscribing")
 			return true, err
 
@@ -456,6 +459,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
+				// Potential to reduce: high cardinality
 				b.logger.Debug("Returning from the event loop to resubscribe")
 				return true, nil
 			}

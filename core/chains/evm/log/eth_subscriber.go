@@ -209,6 +209,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		}
 		chRawLogs := make(chan types.Log)
 
+		// potential to reduce: is Addresses human readable?
 		sub.logger.Debugw("Calling SubscribeFilterLogs with params", "addresses", addresses, "topics", topics)
 
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)

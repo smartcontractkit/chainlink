@@ -56,14 +56,7 @@ func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head,
 }
 
 func (hs *headSaver) LatestChain() *evmtypes.Head {
-	head := hs.heads.LatestHead()
-	if head == nil {
-		return nil
-	}
-	if head.ChainLength() < hs.config.EvmFinalityDepth() {
-		hs.logger.Debugw("chain shorter than EvmFinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.EvmFinalityDepth())
-	}
-	return head
+	return hs.heads.LatestHead()
 }
 
 func (hs *headSaver) Chain(hash common.Hash) *evmtypes.Head {

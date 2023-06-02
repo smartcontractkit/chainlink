@@ -311,7 +311,7 @@ func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHe
 		l.Debugw("Finished backfill",
 			"fetched", fetched,
 			"time", time.Since(mark),
-			"err", err)
+			"err", err.Error())
 	}()
 
 	for i := head.Number - 1; i >= baseHeight; i-- {
@@ -324,7 +324,7 @@ func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHe
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
 		if ctx.Err() != nil {
-			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
+			ht.log.Debugw("context canceled, aborting backfill", "err", err.Error(), "ctx.Err", ctx.Err())
 			break
 		} else if err != nil {
 			return errors.Wrap(err, "fetchAndSaveHead failed")

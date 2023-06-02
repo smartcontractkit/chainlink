@@ -280,6 +280,7 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 
 func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
+		// potential to reduce
 		c.lggr.Debug("Starting")
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
@@ -290,6 +291,7 @@ func (c *chain) Start(ctx context.Context) error {
 
 func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
+		// potential to reduce
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
 		c.lggr.Debug("Stopping balance monitor")

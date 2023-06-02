@@ -239,7 +239,6 @@ func (s *service) Close() error {
 }
 
 func (s *service) runFeeder() {
-	s.logger.Debugw("Running BlockHeaderFeeder")
 	ctx, cancel := context.WithTimeout(s.parentCtx, s.runTimeout)
 	defer cancel()
 	err := s.feeder.Run(ctx)

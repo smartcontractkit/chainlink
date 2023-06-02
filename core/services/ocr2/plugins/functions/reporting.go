@@ -181,7 +181,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		if err2 != nil {
 			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
-				"err":       err2,
+				"err":       err2.Error(),
 			})
 			continue
 		}

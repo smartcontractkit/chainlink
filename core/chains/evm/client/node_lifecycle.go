@@ -315,11 +315,12 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 			n.setLatestReceived(head.Number, head.TotalDifficulty)
 			if !isOutOfSync(head.Number, head.TotalDifficulty) {
 				// back in-sync! flip back into alive loop
+				// potential reduction for node state
 				lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)), "blockNumber", head.Number, "totalDifficulty", head.TotalDifficulty, "nodeState", n.State())
 				n.declareInSync()
 				return
 			}
-			lggr.Debugw(msgReceivedBlock, "blockNumber", head.Number, "totalDifficulty", head.TotalDifficulty, "nodeState", n.State())
+			lggr.Debugw(msgReceivedBlock, "blockNumber", head.Number, "totalDifficulty", head.TotalDifficulty, "nodeState", n.State().String())
 		case <-time.After(zombieNodeCheckInterval(n.cfg)):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {

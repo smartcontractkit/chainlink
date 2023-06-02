@@ -179,7 +179,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 
 func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
-		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
+		c.logger.Infof("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
 		if err := c.client.Dial(ctx); err != nil {
@@ -207,8 +207,6 @@ func (c *chain) Start(ctx context.Context) error {
 
 func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() (merr error) {
-		c.logger.Debug("Chain: stopping")
-
 		if c.balanceMonitor != nil {
 			c.logger.Debug("Chain: stopping balance monitor")
 			merr = c.balanceMonitor.Close()

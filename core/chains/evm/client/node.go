@@ -999,16 +999,18 @@ func (n *node) logResult(
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+		// potential reduction of results
 		lggr.Debugw(
 			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
 			results...,
 		)
 	} else {
 		promEVMPoolRPCNodeCallsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		lggr.Errorw(
 			fmt.Sprintf("evmclient.Client#%s RPC call failure", callName),
 			append(results, "err", err)...,
 		)
+
 	}
 	promEVMPoolRPCCallTiming.
 		WithLabelValues(
@@ -1027,6 +1029,7 @@ func (n *node) wrapWS(err error) error {
 	return err
 }
 
+// potential to remove debug logging
 func (n *node) wrapHTTP(err error) error {
 	err = wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.Redacted()))
 	if err != nil {

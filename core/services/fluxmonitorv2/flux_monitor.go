@@ -511,6 +511,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 		fm.logger.Errorf("Error determining if log was already consumed: %v", err)
 		return
 	} else if consumed {
+		// Potential to reduce
 		fm.logger.Debug("Log was already consumed by Flux Monitor, skipping")
 		return
 	}

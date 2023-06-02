@@ -90,7 +90,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 }
 
 func (cll *chainSet) Close() (err error) {
-	cll.logger.Debug("EVM: stopping")
+	cll.logger.Infow("EVM: stopping")
 	for _, c := range cll.startedChains {
 		err = multierr.Combine(err, c.Close())
 	}
@@ -119,7 +119,6 @@ func (cll *chainSet) Ready() (err error) {
 func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	if id == nil {
 		if cll.defaultID == nil {
-			cll.logger.Debug("Chain ID not specified, and default is nil")
 			return nil, errors.New("chain ID not specified, and default is nil")
 		}
 		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())

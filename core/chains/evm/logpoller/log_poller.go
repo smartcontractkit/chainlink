@@ -225,7 +225,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 		}
 		lp.lggr.Warnw("Updating existing filter with more events or addresses", "filter", filter)
 	} else {
-		lp.lggr.Debugw("Creating new filter", "filter", filter)
+		lp.lggr.Debugw("Creating new filter")
 	}
 
 	if err := lp.orm.InsertFilter(filter); err != nil {
@@ -641,6 +641,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 			return err
 		}
 
+		// potential to reduce: blocks
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), pg.WithQueryer(tx))
