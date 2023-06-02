@@ -169,14 +169,14 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	require.Error(t, err)
 
 	// Can't closeInternal unstarted instance
-	require.Error(t, ec.CloseInternal())
+	require.Error(t, ec.XXXTestCloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, ec.StartInternal())
+	require.NoError(t, ec.XXXTestStartInternal())
 	// Can't startInternal already started instance
-	require.Error(t, ec.StartInternal())
+	require.Error(t, ec.XXXTestStartInternal())
 	// Can successfully closeInternal again
-	require.NoError(t, ec.CloseInternal())
+	require.NoError(t, ec.XXXTestCloseInternal())
 }
 
 func TestEthConfirmer_CheckForReceipts(t *testing.T) {
@@ -1808,7 +1808,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.SetClient(txmgr.NewEvmTxmClient(ethClient))
+	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient))
 
 	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1846,7 +1846,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	var attempt1_2 txmgr.EvmTxAttempt
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.SetClient(txmgr.NewEvmTxmClient(ethClient))
+	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient))
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)

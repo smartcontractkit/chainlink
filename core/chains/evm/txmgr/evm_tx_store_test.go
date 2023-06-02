@@ -1273,7 +1273,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
-		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
+		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
 		etx2 := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)

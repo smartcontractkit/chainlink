@@ -71,7 +71,7 @@ func NewTestEthBroadcaster(
 	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
-	ethBroadcaster.DisableUnstartedTxAutoProcessing()
+	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
 	err = ethBroadcaster.Start(testutils.Context(t))
 	t.Cleanup(func() { assert.NoError(t, ethBroadcaster.Close()) })
 	return ethBroadcaster, err
@@ -125,14 +125,14 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	require.Error(t, err)
 
 	// Can't closeInternal unstarted instance
-	require.Error(t, eb.CloseInternal())
+	require.Error(t, eb.XXXTestCloseInternal())
 
 	// Can successfully startInternal a previously closed instance
-	require.NoError(t, eb.StartInternal())
+	require.NoError(t, eb.XXXTestStartInternal())
 	// Can't startInternal already started instance
-	require.Error(t, eb.StartInternal())
+	require.Error(t, eb.XXXTestStartInternal())
 	// Can successfully closeInternal again
-	require.NoError(t, eb.CloseInternal())
+	require.NoError(t, eb.XXXTestCloseInternal())
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
@@ -688,7 +688,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		&testCheckerFactory{},
 		false,
 	)
-	eb.DisableUnstartedTxAutoProcessing()
+	eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 	etx := txmgr.EvmTx{
 		FromAddress:    fromAddress,
@@ -2052,7 +2052,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, estimator)
 		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, kst)
 		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, kst, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
-		eb.DisableUnstartedTxAutoProcessing()
+		eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
