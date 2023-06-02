@@ -254,7 +254,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], hashAttempt1_1, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 		}).Once()
 
 		// No error because it is merely logged
@@ -281,7 +281,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], hashAttempt1_1, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 			elems[0].Error = errors.New("foo")
 		}).Once()
 
@@ -318,7 +318,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 			// Second transaction still unconfirmed
 			elems[1].Result = &evmtypes.Receipt{}
 		}).Once()
@@ -381,7 +381,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			// Most expensive attempt still unconfirmed
 			elems[2].Result = &evmtypes.Receipt{}
 			// Second most expensive attempt is confirmed
-			elems[1].Result = &txmReceipt
+			*(elems[1].Result.(*evmtypes.Receipt)) = txmReceipt
 			// Cheapest attempt still unconfirmed
 			elems[0].Result = &evmtypes.Receipt{}
 		}).Once()
@@ -411,7 +411,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &receipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = receipt
 		}).Once()
 
 		// Do the thing
@@ -438,7 +438,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &receipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = receipt
 		}).Once()
 
 		// Do the thing
@@ -467,7 +467,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 		}).Once()
 
 		// Do the thing
@@ -518,7 +518,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			// First attempt still unconfirmed
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second attempt is confirmed
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 		}).Once()
 
 		// Do the thing
@@ -563,7 +563,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First attempt still unconfirmed
-			elems[0].Result = &txmReceipt
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
 		}).Once()
 		data, err := utils.ABIEncode(`[{"type":"uint256"}]`, big.NewInt(10))
 		require.NoError(t, err)
@@ -696,7 +696,7 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 			cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &txmReceipt // confirmed
+		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt // confirmed
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
@@ -837,7 +837,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt2_9.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &txmReceipt2_9
+		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt2_9
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 10))
@@ -855,7 +855,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &txmReceipt1_1
+		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt1_1
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 11))
@@ -947,7 +947,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
-			elems[0].Result = &txmReceipt0
+			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt0
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second transaction stil unconfirmed
 			elems[2].Result = &evmtypes.Receipt{}
@@ -955,7 +955,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			// Third transaction still unconfirmed
 			elems[4].Result = &evmtypes.Receipt{}
 			// Fourth transaction is confirmed
-			elems[5].Result = &txmReceipt3
+			*(elems[5].Result.(*evmtypes.Receipt)) = txmReceipt3
 		}).Once()
 
 		// PERFORM
@@ -1015,7 +1015,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			elems[0].Result = &evmtypes.Receipt{}
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second transaction confirmed
-			elems[2].Result = &txmReceipt
+			*(elems[2].Result.(*evmtypes.Receipt)) = txmReceipt
 		}).Once()
 
 		// PERFORM

@@ -90,11 +90,13 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
+		res := &evmtypes.Receipt{}
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
-			Result: &evmtypes.Receipt{},
+			Result: res,
 		}
+		txReceipt = append(txReceipt, res)
 		reqs = append(reqs, req)
 	}
 
@@ -103,15 +105,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 	}
 
 	for _, req := range reqs {
-		result, err := req.Result, req.Error
-
-		receipt, ok := result.(*evmtypes.Receipt)
-		if !ok {
-			return nil, nil, fmt.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
-		}
-
-		txReceipt = append(txReceipt, receipt)
-		txErr = append(txErr, err)
+		txErr = append(txErr, req.Error)
 	}
 	return txReceipt, txErr, nil
 }
