@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -30,8 +31,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
-var ErrInvalidQOpt = errors.New("evmTxStore: Invalid QOpt")
+var (
+	ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
+	ErrInvalidQOpt   = errors.New("evmTxStore: Invalid QOpt")
+
+	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
+	// This most likely happened because an external wallet used the account for this nonce
+	ErrCouldNotGetReceipt = "could not get receipt"
+)
 
 type TestEvmTxStore interface {
 	EvmTxStore
@@ -893,7 +900,7 @@ func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmTxAttempt) error {
 }
 
 func updateEthTxUnconfirm(q pg.Queryer, etx EvmTx) error {
-	if etx.State != EthTxConfirmed {
+	if etx.State != txmgr.EthTxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
 	_, err := q.Exec(`UPDATE eth_txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
@@ -1227,7 +1234,7 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(etx *EvmTx, fromAdd
 func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
-	if etx.State != EthTxInProgress {
+	if etx.State != txmgr.EthTxInProgress {
 		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
@@ -1235,7 +1242,7 @@ func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	}
 
 	etx.Sequence = nil
-	etx.State = EthTxFatalError
+	etx.State = txmgr.EthTxFatalError
 
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
@@ -1260,7 +1267,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if etx.InitialBroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
 	}
-	if etx.State != EthTxInProgress {
+	if etx.State != txmgr.EthTxInProgress {
 		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
@@ -1269,7 +1276,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if NewAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return pkgerrors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
-	etx.State = EthTxUnconfirmed
+	etx.State = txmgr.EthTxUnconfirmed
 	attempt.State = NewAttemptState
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if err := incrNextNonceCallback(tx); err != nil {
@@ -1294,13 +1301,13 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 	if etx.Sequence == nil {
 		return errors.New("in_progress transaction must have nonce")
 	}
-	if etx.State != EthTxUnstarted {
+	if etx.State != txmgr.EthTxUnstarted {
 		return pkgerrors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
-	etx.State = EthTxInProgress
+	etx.State = txmgr.EthTxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
 		// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
 		// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
@@ -1311,7 +1318,7 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 		// can be abandoned.)
 		_, err := tx.Exec(`DELETE FROM eth_tx_attempts a USING eth_txes t
 			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
-			attempt.Hash, EthTxFatalError,
+			attempt.Hash, txmgr.EthTxFatalError,
 		)
 		if err == nil {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
@@ -1330,7 +1337,7 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 			if isPqErr := errors.As(err, &pqErr); isPqErr {
 				switch pqErr.ConstraintName {
 				case "eth_tx_attempts_eth_tx_id_fkey":
-					return errEthTxRemoved
+					return txmgr.ErrEthTxRemoved
 				default:
 				}
 			}
@@ -1414,12 +1421,12 @@ func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, stat
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnstarted, chainID, qopts...)
 }
 
 func (o *evmTxStore) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int, qopts ...pg.QOpt) (err error) {

@@ -93,7 +93,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 			return true
 		})).Run(func(args mock.Arguments) {}).Return(nil)
 
-		err := er.ResendUnconfirmed()
+		err := er.XXXTestResendUnconfirmed()
 		require.NoError(t, err)
 
 	})
@@ -131,10 +131,10 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil)
 
 		// Try to resend the same unconfirmed attempt twice within the unconfirmedTxAlertDelay to only receive one alert
-		err1 := er.ResendUnconfirmed()
+		err1 := er.XXXTestResendUnconfirmed()
 		require.NoError(t, err1)
 
-		err2 := er.ResendUnconfirmed()
+		err2 := er.XXXTestResendUnconfirmed()
 		require.NoError(t, err2)
 		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than max duration", 1)
 	})
