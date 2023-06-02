@@ -21,7 +21,7 @@ type ServiceCtx interface {
 }
 
 type Config interface {
-	DatabaseURL() url.URL
+	URL() url.URL
 	pg.QConfig
 }
 

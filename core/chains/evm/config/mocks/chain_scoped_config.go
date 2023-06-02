@@ -650,20 +650,6 @@ func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return r0
 }
 
-// DatabaseURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseURL() url.URL {
-	ret := _m.Called()
-
-	var r0 url.URL
-	if rf, ok := ret.Get(0).(func() url.URL); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(url.URL)
-	}
-
-	return r0
-}
-
 // DefaultChainID provides a mock function with given fields:
 func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	ret := _m.Called()
