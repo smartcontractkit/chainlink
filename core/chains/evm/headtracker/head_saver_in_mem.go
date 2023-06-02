@@ -58,7 +58,7 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
 	historyDepth := int64(hs.config.HeadTrackerHistoryDepth())
-	hs.AddHeads(int64(historyDepth), head) // TODO: Why int64?
+	hs.AddHeads(historyDepth, head)
 
 	return nil
 }
