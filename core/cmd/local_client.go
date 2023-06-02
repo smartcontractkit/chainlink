@@ -694,7 +694,7 @@ func (cli *Client) validateDB(ctx *clipkg.Context) error {
 // in secrets TOML. This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	cfg := cli.Config.Database()
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
 	}
@@ -738,7 +738,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	cfg := cli.Config
 
 	// Creating pristine DB copy to speed up FullTestDB
-	dbUrl := cfg.DatabaseURL()
+	dbUrl := cfg.Database().URL()
 	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
 	if err != nil {
 		return cli.errorOut(err)
@@ -805,7 +805,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg.DatabaseURL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
+	if err := insertFixtures(cfg.Database().URL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -814,7 +814,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	cfg := cli.Config.Database()
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return cli.errorOut(errDBURLMissing)
 	}
@@ -905,12 +905,12 @@ type dbConfig interface {
 	DefaultLockTimeout() time.Duration
 	MaxOpenConns() int
 	MaxIdleConns() int
-	DatabaseURL() url.URL
+	URL() url.URL
 	Dialect() dialects.DialectName
 }
 
 func newConnection(cfg dbConfig) (*sqlx.DB, error) {
-	parsed := cfg.DatabaseURL()
+	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return nil, errDBURLMissing
 	}

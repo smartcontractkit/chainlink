@@ -34,7 +34,7 @@ func TestDatabaseConfig(t *testing.T) {
 	assert.Equal(t, db.MaxOpenConns(), 13)
 	assert.Equal(t, db.MigrateDatabase(), true)
 	assert.Equal(t, db.Dialect(), dialects.Postgres)
-	url := db.DatabaseURL()
+	url := db.URL()
 	assert.NotEqual(t, url.String(), "")
 
 	lock := db.Lock()
