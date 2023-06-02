@@ -3,6 +3,7 @@ package testsetups
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -44,7 +45,7 @@ type OCRSoakTest struct {
 	OperatorForwarderFlow bool
 
 	// DEBUG DON'T USE THIS. TEMP KLUDGE FOR L2s!!!!!!!
-	seenEventBlockHashes map[string]string // hash: address
+	seenEventBlockHashes map[string]struct{} // hash + address: exists
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -72,7 +73,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 		},
 		mockPath:             "ocr",
 		ocrInstanceMap:       make(map[string]contracts.OffchainAggregator),
-		seenEventBlockHashes: make(map[string]string),
+		seenEventBlockHashes: make(map[string]struct{}),
 	}
 }
 
@@ -373,11 +374,12 @@ func (o *OCRSoakTest) subscribeOCREvents(
 			}
 			for logIndex := range logs {
 				ocrInstance := o.ocrInstanceMap[logs[logIndex].Address.Hex()]
+				blockInstanceCombo := fmt.Sprintf("%s-%s", logs[logIndex].BlockHash.Hex(), ocrInstance.Address())
 				// DEBUG BADDDDDDDD
-				if addr, seen := o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()]; seen && addr == ocrInstance.Address() {
+				if _, seen := o.seenEventBlockHashes[blockInstanceCombo]; seen {
 					continue
 				}
-				o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = ocrInstance.Address()
+				o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = struct{}{}
 				// DEBUG END OF BADDDD
 				eventDetails, err := contractABI.EventByID(logs[logIndex].Topics[0])
 				if err != nil {
