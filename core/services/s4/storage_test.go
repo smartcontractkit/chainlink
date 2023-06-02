@@ -62,7 +62,7 @@ func TestStorage_Errors(t *testing.T) {
 			SlotId:  1,
 			Version: 0,
 		}
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(1), mock.Anything).Return(nil, s4.ErrNotFound)
+		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
 		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
@@ -149,7 +149,7 @@ func TestStorage_Errors(t *testing.T) {
 		assert.NoError(t, err)
 
 		ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(2), mock.Anything).Return(nil, s4.ErrNotFound)
+		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
 
 		err = storage.Put(testutils.Context(t), key, record, signature)
 		assert.NoError(t, err)
@@ -205,7 +205,7 @@ func TestStorage_PutAndGet(t *testing.T) {
 		ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
 		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(2), mock.Anything).Return(&s4.Row{
 			Address:    utils.NewBig(key.Address.Big()),
-			SlotId:     2,
+			SlotId:     key.SlotId,
 			Version:    key.Version,
 			Payload:    record.Payload,
 			Expiration: record.Expiration,
