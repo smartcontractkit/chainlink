@@ -352,11 +352,12 @@ var (
 		"CELO_ALFAJORES":    CeloAlfajores,
 		"RSK":               RSKTestnet,
 		"MUMBAI":            PolygonMumbai,
-    "POLYGON_MAINNET":   PolygonMainnet,
+		"POLYGON_MAINNET":   PolygonMainnet,
 		"AVALANCHE_FUJI":    AvalancheFuji,
-    "AVALANCHE_MAINNET": AvalancheMainnet,
+		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
 		"CELO_MAINNET":      CeloMainnet,
+	}
 )
 
 // determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which network(s) to run the tests on
