@@ -46,20 +46,6 @@ func (_m *Config) BridgeResponseURL() *url.URL {
 	return r0
 }
 
-// DatabaseURL provides a mock function with given fields:
-func (_m *Config) DatabaseURL() url.URL {
-	ret := _m.Called()
-
-	var r0 url.URL
-	if rf, ok := ret.Get(0).(func() url.URL); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(url.URL)
-	}
-
-	return r0
-}
-
 // DefaultHTTPLimit provides a mock function with given fields:
 func (_m *Config) DefaultHTTPLimit() int64 {
 	ret := _m.Called()
