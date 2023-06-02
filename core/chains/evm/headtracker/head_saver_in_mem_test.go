@@ -14,7 +14,7 @@ import (
 func configureInMemorySaver(t *testing.T) *headtracker.EvmInMemoryHeadSaver {
 	lggr := logger.TestLogger(t)
 	htCfg := htmocks.NewConfig(t)
-	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(2))
+	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(1))
 	htCfg.On("EvmFinalityDepth").Return(uint32(1))
 	return headtracker.NewEvmInMemoryHeadSaver(htCfg, lggr)
 }
@@ -79,6 +79,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 	saver := configureInMemorySaver(t)
 
 	t.Run("happy path, trimming old heads", func(t *testing.T) {
+
 		// Save heads with block numbers 1, 2, 3, and 4
 		for i := 1; i <= 4; i++ {
 			head := cltest.Head(i)
@@ -86,12 +87,8 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		t.Log("Heads before trimming", saver.Heads)
-
 		// Trim old heads, keeping only the last two (block numbers 3 and 4)
 		saver.TrimOldHeads(3)
-
-		t.Log("Heads after trimming", saver.Heads)
 
 		// Check that the correct heads remain
 		require.Equal(t, 2, len(saver.Heads))
@@ -100,6 +97,30 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		require.Equal(t, 0, len(saver.HeadByNumber(1)))
 
 		// Check that the latest head is correct
+		latest := saver.LatestChain()
+		require.Equal(t, int64(4), latest.Number)
+
+		// Clear All Heads
+		saver.TrimOldHeads(6)
+		require.Equal(t, 0, len(saver.Heads))
+		require.Equal(t, 0, len(saver.HeadsNumber))
+	})
+
+	t.Run("error path, block number lower than highest chain", func(t *testing.T) {
+		// Save heads with block numbers 1, 2, 3, and 4
+		for i := 1; i <= 4; i++ {
+			head := cltest.Head(i)
+			err := saver.Save(testutils.Context(t), head)
+			require.NoError(t, err)
+		}
+
+		saver.TrimOldHeads(1)
+
+		// Check that no heads are removed
+		require.Equal(t, 4, len(saver.Heads))
+		require.Equal(t, 4, len(saver.HeadsNumber))
+
+		// Check that the latest head remains the same
 		latest := saver.LatestChain()
 		require.Equal(t, int64(4), latest.Number)
 	})
