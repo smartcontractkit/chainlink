@@ -2,7 +2,6 @@ package headtracker
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sync"
 
@@ -75,10 +74,16 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Load(ctx context.Context) 
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) LatestChain() H {
-	hs.mu.RLock()
-	defer hs.mu.RUnlock()
+	head := hs.LatestHead()
 
-	return hs.latestHead
+	if !head.IsValid() {
+		return hs.getNilHead()
+	}
+
+	if head.ChainLength() < hs.config.FinalityDepth() {
+		hs.logger.Debugw("chain shorter than EvmFinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.FinalityDepth())
+	}
+	return head
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Chain(blockHash BLOCK_HASH) H {
@@ -103,10 +108,6 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) HeadByNumber(blockNumber i
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int64, newHeads ...H) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
-
-	finality := uint(hs.config.FinalityDepth())
-	fmt.Println("historyDepth: ", historyDepth)
-	fmt.Println("finality: ", finality)
 
 	// Trim heads to avoid including head that is too old
 	// Triming occurs to remove outdated data before adding
@@ -141,36 +142,28 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 
 // TrimOldHeads() removes old heads such that only N new heads remain
 // This function can be called externally to remove old heads.
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(number int64) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(historyDepth int64) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
-	hs.trimHeads(number)
+	hs.trimHeads(historyDepth)
 }
 
-// trimHeads is an internal function without locking to prevent deadlocks
-// This function has no mutex locking as it is supposed to be called by functions which already have mutex locking in place.
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(number int64) {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int64) {
+	for headNumber, headNumberList := range hs.HeadsNumber {
+		if headNumber < historyDepth {
+			for _, head := range headNumberList {
+				delete(hs.Heads, head.BlockHash())
+			}
 
-	// Create a list to store block numbers to remove
-	var blockNumbersToRemove []int64
-
-	// Iterate through the map and identify the block numbers to remove
-	for headNumber, headList := range hs.HeadsNumber {
-		if headNumber < number { // TODO: Check if this is correct
-			blockNumbersToRemove = append(blockNumbersToRemove, headNumber)
-		}
-
-		// Remove each of the head using blockHash in the Heads map
-		for _, head := range headList {
-			delete(hs.Heads, head.BlockHash())
+			delete(hs.HeadsNumber, headNumber) // TODO: Check if this is safe, and good practice
 		}
 	}
+}
 
-	// Remove the corresponding heads from the Heads map according to the block hashes
-	for _, headList := range hs.HeadsNumber {
-		for _, head := range headList {
-			delete(hs.Heads, head.BlockHash())
-		}
-	}
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) LatestHead() H {
+	hs.mu.RLock()
+	defer hs.mu.RUnlock()
+
+	return hs.latestHead
 }
