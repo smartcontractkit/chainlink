@@ -33,6 +33,11 @@ import (
 var ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
 var ErrInvalidQOpt = errors.New("evmTxStore: Invalid QOpt")
 
+type TestEvmTxStore interface {
+	EvmTxStore
+	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
+}
+
 type evmTxStore struct {
 	q         pg.Q
 	logger    logger.Logger
@@ -41,6 +46,7 @@ type evmTxStore struct {
 }
 
 var _ EvmTxStore = (*evmTxStore)(nil)
+var _ TestEvmTxStore = (*evmTxStore)(nil)
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -55,28 +61,18 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
-func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
+func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
 	return dbReceipt{
-		ID:               evmReceipt.ID,
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
-		BlockNumber:      evmReceipt.BlockNumber,
+		BlockNumber:      evmReceipt.BlockNumber.Int64(),
 		TransactionIndex: evmReceipt.TransactionIndex,
-		Receipt:          *evmReceipt.Receipt,
-		CreatedAt:        evmReceipt.CreatedAt,
+		Receipt:          *evmReceipt,
 	}
 }
 
-func DbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
-	return EvmReceipt{
-		ID:               receipt.ID,
-		TxHash:           receipt.TxHash,
-		BlockHash:        receipt.BlockHash,
-		BlockNumber:      receipt.BlockNumber,
-		TransactionIndex: receipt.TransactionIndex,
-		Receipt:          &receipt.Receipt,
-		CreatedAt:        receipt.CreatedAt,
-	}
+func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
+	return &receipt.Receipt
 }
 
 // Directly maps to onchain receipt schema.
@@ -91,8 +87,8 @@ type dbReceiptPlus struct {
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
-	receipts := make([]EvmReceipt, len(rs))
+func fromDBReceipts(rs []dbReceipt) []*evmtypes.Receipt {
+	receipts := make([]*evmtypes.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
 	}
@@ -290,7 +286,7 @@ func NewTxStore(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-) EvmTxStore {
+) *evmTxStore {
 	namedLogger := lggr.Named("TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
@@ -487,7 +483,8 @@ func (o *evmTxStore) InsertEthTxAttempt(attempt *EvmTxAttempt) error {
 	return pkgerrors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *evmTxStore) InsertEthReceipt(receipt *EvmReceipt) error {
+// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
+func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	// convert to database representation
 	r := DbReceiptFromEvmReceipt(receipt)
 
@@ -496,10 +493,7 @@ func (o *evmTxStore) InsertEthReceipt(receipt *EvmReceipt) error {
 ) RETURNING *`
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
-	// method expects original (destination) receipt struct to be updated
-	*receipt = DbReceiptToEvmReceipt(&r)
-
-	return pkgerrors.Wrap(err, "InsertEthReceipt failed")
+	return r.ID, pkgerrors.Wrap(err, "InsertEthReceipt failed")
 }
 
 // FindEthTxWithAttempts finds the EvmTx with its attempts and receipts preloaded
@@ -583,7 +577,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
 
-	var receipts []EvmReceipt = fromDBReceipts(rs)
+	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
@@ -603,7 +597,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmTxAttempt) error 
 	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
-	var receipts []EvmReceipt = fromDBReceipts(rs)
+	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash.String()]
 		attempt.Receipts = append(attempt.Receipts, receipt)

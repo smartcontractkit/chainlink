@@ -11,6 +11,7 @@ import (
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -114,7 +115,7 @@ func MakeEvmPriorAttempt(a txmgrtypes.PriorAttempt[EvmFee, common.Hash]) EvmPrio
 //
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
-	txmgrtypes.HeadTrackable[*evmtypes.Head, common.Hash]
+	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.ServiceCtx
 
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction

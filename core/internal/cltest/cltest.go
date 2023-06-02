@@ -41,6 +41,7 @@ import (
 	"github.com/urfave/cli"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -356,7 +357,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
 	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.Database())
+	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -462,14 +463,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-		}
 		cfgs := cfg.StarknetConfigs()
-		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
@@ -482,6 +477,20 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		if err != nil {
 			lggr.Fatal(err)
 		}
+
+		opts := starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
+			Configs:  starknet.NewConfigs(cfgs),
+		}
+
+		chainSet, err := starknet.NewChainSet(opts, cfgs)
+		if err != nil {
+			lggr.Fatal(err)
+		}
+
+		chains.StarkNet = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -1630,7 +1639,7 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	return states[0]
 }
 
-func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
+func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
 	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
 }
 
