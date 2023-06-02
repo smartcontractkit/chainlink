@@ -371,12 +371,6 @@ func (o *OCRSoakTest) subscribeOCREvents(
 				l.Info().Str("Downtime", time.Since(rpcDegradedTime).String()).Msg("RPC Has Recovered")
 				rpcDegraded = false
 			}
-			// Move the FromBlock up to the latest block for the next query
-			latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
-			if err != nil {
-				l.Error().Err(err).Msg("Error getting latest block number")
-			}
-			query.FromBlock = big.NewInt(0).SetUint64(latestBlockNum)
 			for logIndex := range logs {
 				// DEBUG BADDDDDDDD
 				if _, seen := o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()]; seen {
