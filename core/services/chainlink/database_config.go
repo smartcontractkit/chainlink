@@ -50,6 +50,22 @@ func (l *lockConfig) LeaseRefreshInterval() time.Duration {
 	return l.c.LeaseRefreshInterval.Duration()
 }
 
+type listenerConfig struct {
+	c v2.DatabaseListener
+}
+
+func (l *listenerConfig) MaxReconnectDuration() time.Duration {
+	return l.c.MaxReconnectDuration.Duration()
+}
+
+func (l *listenerConfig) MinReconnectInterval() time.Duration {
+	return l.c.MinReconnectInterval.Duration()
+}
+
+func (l *listenerConfig) FallbackPollInterval() time.Duration {
+	return l.c.FallbackPollInterval.Duration()
+}
+
 var _ config.Database = (*databaseConfig)(nil)
 
 type databaseConfig struct {
@@ -71,11 +87,17 @@ func (d *databaseConfig) Lock() config.Lock {
 	}
 }
 
-func (d *databaseConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
+func (d *databaseConfig) Listener() config.Listener {
+	return &listenerConfig{
+		c: d.c.Listener,
+	}
+}
+
+func (d *databaseConfig) DefaultIdleInTxSessionTimeout() time.Duration {
 	return d.c.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseDefaultLockTimeout() time.Duration {
+func (d *databaseConfig) DefaultLockTimeout() time.Duration {
 	return d.c.DefaultLockTimeout.Duration()
 }
 
@@ -83,19 +105,11 @@ func (d *databaseConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return d.c.DefaultQueryTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return d.c.Listener.MaxReconnectDuration.Duration()
-}
-
-func (d *databaseConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return d.c.Listener.MinReconnectInterval.Duration()
-}
-
-func (d *databaseConfig) DatabaseURL() url.URL {
+func (d *databaseConfig) URL() url.URL {
 	return *d.s.URL.URL()
 }
 
-func (d *databaseConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
+func (d *databaseConfig) Dialect() dialects.DialectName {
 	return d.c.Dialect
 }
 
@@ -109,10 +123,6 @@ func (d *databaseConfig) MaxIdleConns() int {
 
 func (d *databaseConfig) MaxOpenConns() int {
 	return int(*d.c.MaxOpenConns)
-}
-
-func (d *databaseConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return d.c.Listener.FallbackPollInterval.Duration()
 }
 
 func (d *databaseConfig) LogSQL() (sql bool) {

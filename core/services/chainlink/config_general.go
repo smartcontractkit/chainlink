@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -461,18 +460,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
-}
-
 func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return g.c.Database.DefaultQueryTimeout.Duration()
 }
@@ -507,10 +494,6 @@ func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
 
 func (g *generalConfig) FMSimulateTransactions() bool {
 	return *g.c.FluxMonitor.SimulateTransactions
-}
-
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	return g.c.Database.Dialect
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
@@ -706,6 +689,14 @@ func (g *generalConfig) OCR2TraceLogging() bool {
 
 func (g *generalConfig) OCR2CaptureEATelemetry() bool {
 	return *g.c.OCR2.CaptureEATelemetry
+}
+
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
@@ -962,10 +953,6 @@ func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
 
 func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {

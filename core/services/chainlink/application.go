@@ -19,8 +19,6 @@ import (
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -168,9 +166,9 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet     // nil if disabled
-	Solana   loop.Relayer        // nil if disabled
-	StarkNet starkchain.ChainSet // nil if disabled
+	Cosmos   cosmos.ChainSet // nil if disabled
+	Solana   loop.Relayer    // nil if disabled
+	StarkNet loop.Relayer    // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -281,7 +279,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.DatabaseURL(), cfg.RootDir(), backupCfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
@@ -417,9 +415,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.Solana] = chains.Solana
 		}
 		if cfg.StarkNetEnabled() {
-			lggr := globalLogger.Named("StarkNet.Relayer")
-			starknetRelayer := starknetrelay.NewRelayer(lggr, chains.StarkNet)
-			relayers[relay.StarkNet] = relay.NewRelayerAdapter(starknetRelayer, chains.StarkNet)
+			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
@@ -455,7 +451,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chains.EVM.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
