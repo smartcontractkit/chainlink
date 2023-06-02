@@ -14,14 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type registryMock struct {
+type registry struct {
 	pgo  uint32
 	mpds uint32
 }
 
-func (r *registryMock) CheckGasOverhead() uint32   { return uint32(0) }
-func (r *registryMock) PerformGasOverhead() uint32 { return r.pgo }
-func (r *registryMock) MaxPerformDataSize() uint32 { return r.mpds }
+func (r *registry) CheckGasOverhead() uint32   { return uint32(0) }
+func (r *registry) PerformGasOverhead() uint32 { return r.pgo }
+func (r *registry) MaxPerformDataSize() uint32 { return r.mpds }
 
 func TestBuildJobSpec(t *testing.T) {
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
@@ -48,12 +48,12 @@ func TestBuildJobSpec(t *testing.T) {
 	gasTipCap := assets.NewWeiI(48)
 	gasFeeCap := assets.NewWeiI(72)
 
-	m := &registryMock{
+	r := &registry{
 		pgo:  uint32(9),
 		mpds: uint32(1000),
 	}
 
-	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, r, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{

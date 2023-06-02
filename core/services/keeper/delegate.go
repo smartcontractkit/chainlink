@@ -92,7 +92,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		}
 	}
 
-	registry := chain.Config().Keeper().Registry()
+	keeper := chain.Config().Keeper()
+	registry := keeper.Registry()
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
