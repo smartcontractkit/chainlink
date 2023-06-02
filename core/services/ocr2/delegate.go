@@ -11,8 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
@@ -256,6 +257,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
 		}
+		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
@@ -282,6 +284,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
+	lggr = logger.Sugared(lggr.With("transmitterID", transmitterID))
 
 	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)
 	peerWrapper := d.peerWrapper
@@ -355,7 +358,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chain")
 		}
 
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          mercuryProvider.ContractTransmitter(),
@@ -374,7 +377,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem, chain)
+		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem, chain, mercuryProvider.ContractTransmitter())
 
 		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
@@ -384,7 +387,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return mercuryServices, err2
 
 	case job.Median:
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			Database:                     ocrDB,
@@ -432,7 +435,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		noopMonitoringEndpoint := telemetry.NoopAgent{}
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          dkgProvider.ContractTransmitter(),
@@ -791,7 +794,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
-		sharedOracleArgs := libocr2.OracleArgs{
+		sharedOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),

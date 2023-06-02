@@ -17,9 +17,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.7
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20230503222226-29f534b2de1a
-	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230525140914-92eb40f2b228
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230510102715-c58be582bf19
+	github.com/smartcontractkit/libocr v0.0.0-20230531174957-6e75d6e613d1
+	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230602154337-d9bc7d3f7161
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230511132215-c7d370897a3d
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/viper v1.14.0
@@ -284,11 +284,11 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartcontractkit/caigo v0.0.0-20230508053235-41120ca1f9f3 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.0 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230526232037-00743d25b7ec // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230518143827-0b7a6e43719c // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230522061116-665c91c3d1fa // indirect
+	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230531184247-9617be7da020 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531175356-03a8f54e3528 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531175652-9edfbba8ed45 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230531180015-4bfd036299c3 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
