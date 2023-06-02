@@ -11,7 +11,6 @@ import (
 // interface defined below and accessed via cfg.Database().<FieldName>().
 type DatabaseV1 interface {
 	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseURL() url.URL
 	LogSQL() bool
 }
 
@@ -40,7 +39,7 @@ type Database interface {
 	Listener() Listener
 	Lock() Lock
 	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseURL() url.URL
+	LogSQL() bool
 
 	Dialect() dialects.DialectName
 	DefaultIdleInTxSessionTimeout() time.Duration
@@ -48,5 +47,5 @@ type Database interface {
 	MigrateDatabase() bool
 	MaxIdleConns() int
 	MaxOpenConns() int
-	LogSQL() bool
+	URL() url.URL
 }

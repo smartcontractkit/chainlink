@@ -88,7 +88,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
 		a := utils.NewDependentAwaiter()
 		a.AddDependents(1)
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
+		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
 		// Starting the spawner should signal to the dependents
 		result := make(chan bool)
 		go func() {
@@ -127,7 +127,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateB := &delegate{jobB.Type, []job.ServiceCtx{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
 
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 			jobB.Type: delegateB,
 		}, db, lggr, nil)
@@ -177,7 +177,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 		}, db, lggr, nil)
 
@@ -211,7 +211,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 		}, db, lggr, nil)
 
@@ -283,7 +283,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
 			jobOCR2VRF.Type: delegateOCR2,
 		}, db, lggr, nil)
 

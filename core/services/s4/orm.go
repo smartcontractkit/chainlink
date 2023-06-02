@@ -16,7 +16,6 @@ type Row struct {
 	Expiration int64
 	Confirmed  bool
 	Signature  []byte
-	UpdatedAt  int64
 }
 
 // SnapshotRow used by GetVersions function.
@@ -64,7 +63,6 @@ func (r Row) Clone() *Row {
 		Expiration: r.Expiration,
 		Confirmed:  r.Confirmed,
 		Signature:  make([]byte, len(r.Signature)),
-		UpdatedAt:  r.UpdatedAt,
 	}
 	copy(clone.Payload, r.Payload)
 	copy(clone.Signature, r.Signature)

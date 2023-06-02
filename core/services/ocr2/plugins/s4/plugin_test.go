@@ -77,7 +77,6 @@ func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confime
 		Confirmed:  confimed,
 		Expiration: time.Now().Add(ttl).UnixMilli(),
 		Payload:    mustRandomBytes(t, 64),
-		UpdatedAt:  time.Now().Add(-time.Second).UnixMilli(),
 	}
 	env := &s4_svc.Envelope{
 		Address:    addr.Bytes(),

@@ -230,7 +230,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	// Use real clients here to actually test the local connection blocking
-	r := clhttp.NewRestrictedHTTPClient(config, logger.TestLogger(t))
+	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
 	u := clhttp.NewUnrestrictedHTTPClient()
 	task.HelperSetDependencies(config, r, u)
 
