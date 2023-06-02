@@ -115,47 +115,51 @@ var (
 )
 
 type Job struct {
-	ID                            int32     `toml:"-"`
-	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
-	OCROracleSpecID               *int32
-	OCROracleSpec                 *OCROracleSpec
-	OCR2OracleSpecID              *int32
-	OCR2OracleSpec                *OCR2OracleSpec
-	CronSpecID                    *int32
-	CronSpec                      *CronSpec
-	DirectRequestSpecID           *int32
-	DirectRequestSpec             *DirectRequestSpec
-	FluxMonitorSpecID             *int32
-	FluxMonitorSpec               *FluxMonitorSpec
-	KeeperSpecID                  *int32
-	KeeperSpec                    *KeeperSpec
-	VRFSpecID                     *int32
-	VRFSpec                       *VRFSpec
-	WebhookSpecID                 *int32
-	WebhookSpec                   *WebhookSpec
-	BlockhashStoreSpecID          *int32
-	BlockhashStoreSpec            *BlockhashStoreSpec
-	BlockHeaderFeederSpecID       *int32
-	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
-	LegacyGasStationServerSpecID  *int32
-	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
-	LegacyGasStationSidecarSpecID *int32
-	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
-	BootstrapSpec                 *BootstrapSpec
-	BootstrapSpecID               *int32
-	GatewaySpec                   *GatewaySpec
-	GatewaySpecID                 *int32
+	ID                            int32                        `toml:"-"`
+	ExternalJobID                 uuid.UUID                    `toml:"externalJobID"`
+	BlockhashStoreSpec            *BlockhashStoreSpec          `db:"-"`
+	BlockhashStoreSpecID          *int32                       `db:"-"`
+	BlockHeaderFeederSpec         *BlockHeaderFeederSpec       `db:"-"`
+	BlockHeaderFeederSpecID       *int32                       `db:"-"`
+	BootstrapSpec                 *BootstrapSpec               `db:"-"`
+	BootstrapSpecID               *int32                       `db:"-"`
+	CronSpec                      *CronSpec                    `db:"-"`
+	CronSpecID                    *int32                       `db:"-"`
+	DirectRequestSpec             *DirectRequestSpec           `db:"-"`
+	DirectRequestSpecID           *int32                       `db:"-"`
+	FluxMonitorSpec               *FluxMonitorSpec             `db:"-"`
+	FluxMonitorSpecID             *int32                       `db:"-"`
+	KeeperSpec                    *KeeperSpec                  `db:"-"`
+	KeeperSpecID                  *int32                       `db:"-"`
+	LegacyGasStationServerSpec    *LegacyGasStationServerSpec  `db:"-"`
+	LegacyGasStationServerSpecID  *int32                       `db:"-"`
+	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec `db:"-"`
+	LegacyGasStationSidecarSpecID *int32                       `db:"-"`
+	OCR2OracleSpec                *OCR2OracleSpec              `db:"-"`
+	OCR2OracleSpecID              *int32                       `db:"-"`
+	OCROracleSpec                 *OCROracleSpec               `db:"-"`
+	OCROracleSpecID               *int32                       `db:"-"`
+	VRFSpec                       *VRFSpec                     `db:"-"`
+	VRFSpecID                     *int32                       `db:"-"`
+	WebhookSpec                   *WebhookSpec                 `db:"-"`
+	WebhookSpecID                 *int32                       `db:"-"`
+	GatewaySpec                   *GatewaySpec                 `db:"-"`
+	GatewaySpecID                 *int32                       `db:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
 	Type                          Type
-	SchemaVersion                 uint32
-	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	Name                          null.String
-	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt                     time.Time
+	// Type spec contains job type specific configuration that is customisable per job.
+	// Each job of one type can configure the same properties, but with different values.
+	// TODO: Document where properties for the type are defined.
+	TypeSpec          JSONConfig
+	SchemaVersion     uint32
+	GasLimit          clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed bool          `toml:"forwardingAllowed"`
+	Name              null.String
+	MaxTaskDuration   models.Interval
+	Pipeline          pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt         time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
