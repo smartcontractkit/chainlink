@@ -57,6 +57,10 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
+	if !head.IsValid() {
+		return nil
+	}
+
 	historyDepth := int64(hs.config.HeadTrackerHistoryDepth())
 	hs.AddHeads(historyDepth, head)
 
@@ -66,19 +70,11 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, 
 // No OP function for EVM
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Load(ctx context.Context) (H, error) {
 
-	// Pseudo Code
-	// 1.Gets Heads from client
-	// 2.Calls AddHeads to link the heads together and populate the Map struct
-
-	return hs.latestHead, nil
+	return hs.LatestChain(), nil
 }
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) LatestChain() H {
-	head := hs.LatestHead()
-
-	if !head.IsValid() {
-		return hs.getNilHead()
-	}
+	head := hs.getLatestHead()
 
 	if head.ChainLength() < hs.config.FinalityDepth() {
 		hs.logger.Debugw("chain shorter than EvmFinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.FinalityDepth())
@@ -158,7 +154,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int
 	}
 }
 
-func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) LatestHead() H {
+func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) getLatestHead() H {
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 

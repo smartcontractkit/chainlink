@@ -60,6 +60,11 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		require.Equal(t, int64(3), latest.Number)
 	})
 
+	t.Run("save invalid head", func(t *testing.T) {
+		err := saver.Save(testutils.Context(t), nil)
+		require.NoError(t, err)
+	})
+
 	t.Run("saving heads with same block number", func(t *testing.T) {
 		head := cltest.Head(4)
 		err := saver.Save(testutils.Context(t), head)
@@ -225,5 +230,20 @@ func TestInMemoryHeadSaver_Chain(t *testing.T) {
 		retrievedHead := saver.Chain(invalidBlockHash)
 
 		require.Nil(t, retrievedHead)
+	})
+}
+
+func TestInMemoryHeadSaver_LatestChain(t *testing.T) {
+	t.Parallel()
+	saver := configureInMemorySaverFinalityDepth(t)
+
+	t.Run("happy path", func(t *testing.T) {
+		// Save a valid head
+		head := cltest.Head(1)
+		err := saver.Save(testutils.Context(t), head)
+		require.NoError(t, err)
+
+		latest := saver.LatestChain()
+		require.Equal(t, int64(1), latest.Number)
 	})
 }
