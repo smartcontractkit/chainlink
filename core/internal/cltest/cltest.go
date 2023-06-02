@@ -45,6 +45,7 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -1320,7 +1321,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmclimocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *commonmocks.Subscription) {
 	t.Helper()
 
 	// Start
