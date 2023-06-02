@@ -4,6 +4,9 @@ FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 
 ARG SUITES=chaos migration performance reorg smoke soak benchmark
 
+## DEBUG
+RUN sudo apt-get install iptables 
+
 COPY . testdir/
 WORKDIR /go/testdir
 RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
