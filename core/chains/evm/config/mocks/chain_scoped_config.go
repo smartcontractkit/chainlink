@@ -1574,155 +1574,17 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
-// KeeperBaseFeeBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperBaseFeeBufferPercent() uint16 {
+// Keeper provides a mock function with given fields:
+func (_m *ChainScopedConfig) Keeper() coreconfig.Keeper {
 	ret := _m.Called()
 
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
+	var r0 coreconfig.Keeper
+	if rf, ok := ret.Get(0).(func() coreconfig.Keeper); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperGasPriceBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperGasTipCapBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperMaximumGracePeriod provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// KeeperRegistryCheckGasOverhead provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryMaxPerformDataSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryPerformGasOverhead provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistrySyncInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncUpkeepQueueSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperTurnLookBack provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperTurnLookBack() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Keeper)
+		}
 	}
 
 	return r0

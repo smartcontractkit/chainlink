@@ -37,7 +37,6 @@ type AppConfig interface {
 	FluxMonitor
 	Insecure
 	JobPipeline
-	Keeper
 	Keystore
 	Logging
 	OCR1Config
@@ -54,6 +53,7 @@ type AppConfig interface {
 
 	Database() Database
 	AuditLogger() audit.Config
+	Keeper() Keeper
 }
 type DatabaseBackupMode string
 
