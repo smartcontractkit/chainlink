@@ -638,12 +638,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		mc := d.cfg.MercuryCredentials(cn)
 
-		mv, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryVersion()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "failed to get mercuryVersion")
-		}
-
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, mv)
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}

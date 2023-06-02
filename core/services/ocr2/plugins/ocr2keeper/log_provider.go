@@ -50,6 +50,7 @@ func logProviderFilterName(addr common.Address) string {
 
 func NewLogProvider(
 	logger logger.Logger,
+	version RegistryVersion,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,
@@ -90,7 +91,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
+		packer:            pluginevm.NewEvmRegistryPacker(version, abi),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil

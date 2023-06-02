@@ -42,7 +42,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
-	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
+	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, CleanupInterval)
 	var headTracker httypes.HeadTracker
 	var headBroadcaster httypes.HeadBroadcaster
 	var logPoller logpoller.LogPoller
@@ -64,7 +64,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		packer:   &evmRegistryPacker{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{

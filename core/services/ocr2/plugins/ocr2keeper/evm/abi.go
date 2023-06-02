@@ -6,13 +6,17 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 )
 
-type evmRegistryPackerV2_0 struct {
-	abi abi.ABI
+type evmRegistryPacker struct {
+	version ocr2keeper.RegistryVersion
+	abi     abi.ABI
 }
 
 // enum UpkeepFailureReason
@@ -25,16 +29,15 @@ const (
 	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
+	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 )
 
-func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
-	return &evmRegistryPackerV2_0{abi: abi}
+func NewEvmRegistryPacker(version ocr2keeper.RegistryVersion, abi abi.ABI) *evmRegistryPacker {
+	return &evmRegistryPacker{version: version, abi: abi}
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
-	var (
-		result EVMAutomationUpkeepResult20
-	)
+func (rp *evmRegistryPacker) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
+	var result EVMAutomationUpkeepResult20
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
@@ -88,40 +91,31 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
-	typBytes, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
-	}
-	boolTyp, err := abi.NewType("bool", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
-	}
-	callbackOutput := abi.Arguments{
-		{Name: "upkeepNeeded", Type: boolTyp},
-		{Name: "performData", Type: typBytes},
-	}
-	unpack, err := callbackOutput.Unpack(callbackResp)
-	if err != nil {
-		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
+// UnpackMercuryLookupResult should only be called on v2_1 registry
+func (rp *evmRegistryPacker) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+	if rp.version != ocr2keeper.KEEPER_REGISTRY_V2_1 {
+		return false, nil, 0, nil, fmt.Errorf("registry version %s does not support mercury lookup", rp.version)
 	}
 
-	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
-	if !upkeepNeeded {
-		return false, nil, nil
+	out, err := rp.abi.Methods["mercuryCallback"].Outputs.UnpackValues(callbackResp)
+	if err != nil {
+		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
-	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
-	return true, performData, nil
+
+	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPacker) UnpackSimulatePerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err
 	}
 
-	out, err := rp.abi.Methods["simulatePerformUpkeep"].
-		Outputs.UnpackValues(b)
+	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
 	}
@@ -129,7 +123,8 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
+// UnpackUpkeepResult will include a Forwarder field in upkeepInfo struct
+func (rp *evmRegistryPacker) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return activeUpkeep{}, err
@@ -140,30 +135,23 @@ func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (ac
 		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	type upkeepInfo struct {
-		Target                 common.Address
-		ExecuteGas             uint32
-		CheckData              []byte
-		Balance                *big.Int
-		Admin                  common.Address
-		MaxValidBlocknumber    uint64
-		LastPerformBlockNumber uint32
-		AmountSpent            *big.Int
-		Paused                 bool
-		OffchainConfig         []byte
-	}
-	temp := *abi.ConvertType(out[0], new(upkeepInfo)).(*upkeepInfo)
-
-	au := activeUpkeep{
-		ID:              id,
-		PerformGasLimit: temp.ExecuteGas,
-		CheckData:       temp.CheckData,
+	au := activeUpkeep{ID: id}
+	if rp.version == ocr2keeper.KEEPER_REGISTRY_V2_0 {
+		temp := *abi.ConvertType(out[0], new(keeper_registry_wrapper2_0.UpkeepInfo)).(*keeper_registry_wrapper2_0.UpkeepInfo)
+		au.PerformGasLimit = temp.ExecuteGas
+		au.CheckData = temp.CheckData
+	} else if rp.version == ocr2keeper.KEEPER_REGISTRY_V2_1 {
+		temp := *abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)).(*i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
+		au.PerformGasLimit = temp.ExecuteGas
+		au.CheckData = temp.CheckData
+	} else {
+		return activeUpkeep{}, fmt.Errorf("failed to unpack upkeep result for registry version %s", rp.version)
 	}
 
 	return au, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+func (rp *evmRegistryPacker) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	var (
 		enc     = EVMAutomationEncoder20{}
 		decoded []ocr2keepers.UpkeepResult

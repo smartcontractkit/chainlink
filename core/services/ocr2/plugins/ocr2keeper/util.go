@@ -1,9 +1,14 @@
 package ocr2keeper
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
@@ -13,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -20,6 +26,13 @@ import (
 	kevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+)
+
+type RegistryVersion string
+
+const (
+	KEEPER_REGISTRY_V2_0 RegistryVersion = "KeeperRegistry 2.0"
+	KEEPER_REGISTRY_V2_1 RegistryVersion = "KeeperRegistry 2.1"
 )
 
 type Encoder interface {
@@ -57,13 +70,11 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials, mv job.MercuryVersion) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, Encoder, *LogProvider, error) {
+func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm.EvmRegistry, Encoder, *LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm.EvmRegistry
-
-	lggr.Debugf("EVMDependencies: mv is ", mv)
 
 	oSpec := spec.OCR2OracleSpec
 
@@ -83,7 +94,17 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, mc, mv, lggr); err != nil {
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%w: %s", kevm.ErrABINotParsable, err)
+	}
+
+	version, err := getRegistryVersion(keeperRegistryABI, rAddr, chain)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to get registry version: %v", err)
+	}
+
+	if registry, err = kevm.NewEVMRegistryService(rAddr, chain, mc, version, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
@@ -92,7 +113,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var lookbackBlocks int64 = 250
-	logProvider, err := NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
+	logProvider, err := NewLogProvider(lggr, version, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
 	return keeperProvider, registry, encoder, logProvider, err
 }
@@ -103,4 +124,31 @@ func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
 		return nil, err
 	}
 	return []string{logProviderFilterName(addr.Address()), kevm.UpkeepFilterName(addr.Address())}, err
+}
+
+func getRegistryVersion(registryABI abi.ABI, addr common.Address, client evm.Chain) (RegistryVersion, error) {
+	payload, err := registryABI.Pack("typeAndVersion")
+	if err != nil {
+		return "", err
+	}
+
+	var b hexutil.Bytes
+	args := map[string]interface{}{
+		"to":   addr.Hex(),
+		"data": hexutil.Bytes(payload),
+	}
+
+	var out []interface{}
+	err = client.Client().CallContext(context.Background(), &b, "eth_call", args)
+	if err != nil {
+		return "", err
+	}
+	v := abi.ConvertType(out[0], new(string)).(string)
+	if strings.HasPrefix(v, string(KEEPER_REGISTRY_V2_0)) {
+		return KEEPER_REGISTRY_V2_0, nil
+	}
+	if strings.HasPrefix(v, string(KEEPER_REGISTRY_V2_1)) {
+		return KEEPER_REGISTRY_V2_1, nil
+	}
+	return "", fmt.Errorf("unsupported registry version %s", v)
 }
