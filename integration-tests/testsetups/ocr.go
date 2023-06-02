@@ -356,6 +356,7 @@ func (o *OCRSoakTest) subscribeOCREvents(
 	go func() {
 		rpcDegraded, rpcDegradedTime, rpcDegradedNotifyTime := false, time.Now(), time.Now()
 		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for range ticker.C { // Poll the chain
 			logs, err := o.chainClient.FilterLogs(context.Background(), *query)
 			if err != nil { // RPC has likely degraded
@@ -379,7 +380,7 @@ func (o *OCRSoakTest) subscribeOCREvents(
 				if _, seen := o.seenEventBlockHashes[blockInstanceCombo]; seen {
 					continue
 				}
-				o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = struct{}{}
+				o.seenEventBlockHashes[blockInstanceCombo] = struct{}{}
 				// DEBUG END OF BADDDD
 				eventDetails, err := contractABI.EventByID(logs[logIndex].Topics[0])
 				if err != nil {
