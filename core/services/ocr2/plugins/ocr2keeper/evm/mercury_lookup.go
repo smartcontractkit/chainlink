@@ -100,8 +100,8 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			continue
 		}
 
-		// do anything? failure reason not allowed?
 		if !allowed {
+			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
 			continue
 		}
@@ -243,19 +243,20 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *MercuryLookup, u
 
 	var reqErr error
 	retryable := true
+	allSuccess := true
 	results := make([][]byte, resultLen)
 	for i := 0; i < len(results); i++ {
 		m := <-ch
 		if m.Error != nil {
-			retryable = false
 			reqErr = errors.Join(reqErr, m.Error)
+			retryable = retryable && m.Retryable
+			allSuccess = false
 		}
 		results[m.Index] = m.Bytes
 	}
-	r.lggr.Debugf("MercuryLookup upkeep %s retryable %s reqErr %w", upkeepId.String(), retryable, reqErr)
-
-	// set retryable properly
-	return results, retryable, reqErr
+	r.lggr.Debugf("MercuryLookup upkeep %s retryable %s reqErr %w", upkeepId.String(), retryable && !allSuccess, reqErr)
+	// only retry when not all successful AND none are not retryable
+	return results, retryable && !allSuccess, reqErr
 }
 
 // singleFeedRequest sends a Mercury request for a single feed report.
@@ -338,7 +339,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		retry.Attempts(TotalAttempt))
 
 	// if all retries fail, return the error and ask the caller to handle cool down and heavyweight retry
-	if retryErr != nil || retryable {
+	if retryErr != nil {
 		mb := MercuryBytes{
 			Index:     index,
 			Retryable: retryable,
