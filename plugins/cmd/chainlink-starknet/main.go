@@ -13,16 +13,16 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	pkgsol "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const (
-	loggerName = "PluginSolana"
+	loggerName = "PluginStarknet"
 )
 
 func main() {
@@ -33,17 +33,23 @@ func main() {
 	}
 	lggr, closeLggr := plugins.NewLogger(loggerName, envCfg)
 	defer closeLggr()
-	slggr := logger.Sugared(lggr)
 
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
 		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
 	}
-	defer slggr.ErrorIfFn(promServer.Close, "error closing prometheus server")
+	defer func() {
+		err := promServer.Close()
+		if err != nil {
+			lggr.Errorf("error closing prometheus server: %s", err)
+		}
+	}()
 
 	cp := &pluginRelayer{lggr: lggr}
-	defer slggr.ErrorIfFn(cp.Close, "error closing pluginRelayer")
+	defer func() {
+		logger.Sugared(lggr).ErrorIfFn(cp.Close, "pluginRelayer")
+	}()
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -68,25 +74,29 @@ type pluginRelayer struct {
 	closers []io.Closer
 }
 
-func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore loop.Keystore) (loop.Relayer, error) {
+// NewRelayer implements the Loopp factory method used by the Loopp server to instantiate a starknet relayer
+// [github.com/smartcontractkit/chainlink-relay/pkg/loop.PluginRelayer]
+// loopKs must be an implementation that can construct a starknet keystore adapter
+// [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
+func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs loop.Keystore) (loop.Relayer, error) {
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Solana solana.SolanaConfigs
+		Starknet starknet.StarknetConfigs
 	}
 	if err := d.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
-	chainSet, err := solana.NewChainSet(solana.ChainSetOpts{
+	chainSet, err := starknet.NewChainSet(starknet.ChainSetOpts{
 		Logger:   c.lggr,
-		KeyStore: keystore,
-		Configs:  solana.NewConfigs(cfg.Solana),
-	}, cfg.Solana)
+		KeyStore: loopKs,
+		Configs:  starknet.NewConfigs(cfg.Starknet),
+	}, cfg.Starknet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.lggr, chainSet), chainSet)
+	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.lggr, chainSet), chainSet)
 
 	c.mu.Lock()
 	c.closers = append(c.closers, ra)
