@@ -109,15 +109,12 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
 
-	// Trim heads to avoid including head that is too old
-	// Triming occurs to remove outdated data before adding
 	hs.trimHeads(historyDepth)
 
 	for _, head := range newHeads {
 		blockHash := head.BlockHash()
 		blockNumber := head.BlockNumber()
 
-		// Check if the head already exists
 		if _, exists := hs.Heads[blockHash]; exists {
 			continue
 		}
@@ -125,7 +122,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 		if parent, exists := hs.Heads[blockHash]; exists {
 			hs.setParent(head, parent)
 		} else {
-			// Ignore Parent's head if is too old
+			// If parent's head is too old, we should set it to nil
 			hs.setParent(head, hs.getNilHead())
 		}
 
@@ -149,6 +146,8 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(historyDepth 
 	hs.trimHeads(historyDepth)
 }
 
+// trimHeads() is should only be called by functions with mutex locking.
+// trimHeads() is an internal function without locking to prevent deadlocks
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int64) {
 	for headNumber, headNumberList := range hs.HeadsNumber {
 		if headNumber < historyDepth {
@@ -156,7 +155,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int
 				delete(hs.Heads, head.BlockHash())
 			}
 
-			delete(hs.HeadsNumber, headNumber) // TODO: Check if this is safe, and good practice
+			delete(hs.HeadsNumber, headNumber)
 		}
 	}
 }

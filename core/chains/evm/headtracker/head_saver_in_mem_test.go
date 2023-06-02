@@ -1,6 +1,7 @@
 package headtracker_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -72,6 +73,25 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		headsWithSameNumber := len(saver.HeadByNumber(4))
 		require.Equal(t, 3, headsWithSameNumber)
 	})
+	t.Run("concurrent calls to Save", func(t *testing.T) {
+		var wg sync.WaitGroup
+		numRoutines := 10
+		wg.Add(numRoutines)
+
+		for i := 1; i <= numRoutines; i++ {
+			go func(num int) {
+				defer wg.Done()
+				head := cltest.Head(num)
+				err := saver.Save(testutils.Context(t), head)
+				require.NoError(t, err)
+			}(i)
+		}
+
+		wg.Wait()
+
+		latest := saver.LatestChain()
+		require.Equal(t, int64(numRoutines), latest.Number)
+	})
 }
 
 func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
@@ -107,7 +127,6 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 	})
 
 	t.Run("error path, block number lower than highest chain", func(t *testing.T) {
-		// Save heads with block numbers 1, 2, 3, and 4
 		for i := 1; i <= 4; i++ {
 			head := cltest.Head(i)
 			err := saver.Save(testutils.Context(t), head)
@@ -120,8 +139,53 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		require.Equal(t, 4, len(saver.Heads))
 		require.Equal(t, 4, len(saver.HeadsNumber))
 
+		latest := saver.LatestChain()
+		require.Equal(t, 4, latest.Number)
+	})
+
+	t.Run("concurrent calls to TrimOldHeads", func(t *testing.T) {
+		// Save heads with block numbers 1, 2, 3, and 4
+		for i := 1; i <= 4; i++ {
+			head := cltest.Head(i)
+			err := saver.Save(testutils.Context(t), head)
+			require.NoError(t, err)
+		}
+
+		t.Log("Heads before trimming", saver.Heads)
+
+		// Concurrently add multiple heads with different block numbers
+		var wg sync.WaitGroup
+		wg.Add(4)
+		for i := 5; i <= 8; i++ {
+			go func(num int) {
+				defer wg.Done()
+				head := cltest.Head(num)
+				err := saver.Save(testutils.Context(t), head)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
+
+		// Concurrently trim old heads with different block numbers
+		wg.Add(7)
+		for i := 1; i <= 7; i++ {
+			go func(num int) {
+				defer wg.Done()
+				saver.TrimOldHeads(int64(num))
+			}(i)
+		}
+		wg.Wait()
+
+		t.Log("Heads after trimming", saver.Heads)
+
+		// Check that the correct heads remain after concurrent calls to TrimOldHeads
+		require.Equal(t, 2, len(saver.Heads))
+		require.Equal(t, 1, len(saver.HeadByNumber(7)))
+		require.Equal(t, 1, len(saver.HeadByNumber(8)))
+		require.Equal(t, 0, len(saver.HeadByNumber(1)))
+
 		// Check that the latest head remains the same
 		latest := saver.LatestChain()
-		require.Equal(t, int64(4), latest.Number)
+		require.Equal(t, int64(8), latest.Number)
 	})
 }
