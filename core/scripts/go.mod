@@ -41,7 +41,6 @@ require (
 	github.com/Depado/ginprom v1.7.11 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
@@ -288,7 +287,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230531014621-9c303da4c086 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230531021926-052aa18e1b0e // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
