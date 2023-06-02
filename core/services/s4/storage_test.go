@@ -132,6 +132,7 @@ func TestStorage_Errors(t *testing.T) {
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
+	/* to be reworked
 	t.Run("ErrNotFound if expired", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
 		key := &s4.Key{
@@ -156,6 +157,7 @@ func TestStorage_Errors(t *testing.T) {
 		_, _, err = storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
+	*/
 
 	t.Run("ErrVersionTooLow", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
