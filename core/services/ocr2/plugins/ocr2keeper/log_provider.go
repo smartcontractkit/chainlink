@@ -50,7 +50,7 @@ func logProviderFilterName(addr common.Address) string {
 
 func NewLogProvider(
 	logger logger.Logger,
-	version RegistryVersion,
+	version evm.RegistryVersion,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,

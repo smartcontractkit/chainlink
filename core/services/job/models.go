@@ -40,10 +40,13 @@ const (
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 	Gateway            Type = (Type)(pipeline.GatewayJobType)
+	MercuryV02              = MercuryVersion("v0.2")
+	MercuryV03              = MercuryVersion("v0.3")
 )
 
 //revive:disable:redefines-builtin-id
 type Type string
+type MercuryVersion string
 
 func (t Type) String() string {
 	return string(t)

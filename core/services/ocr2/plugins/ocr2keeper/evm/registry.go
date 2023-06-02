@@ -31,19 +31,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
-	// DefaultUpkeepExpiration decides how long an upkeep info will be valid for. after it expires, a getUpkeepInfo
-	// call will be made to the registry to obtain the most recent upkeep info and refresh this cache.
-	DefaultUpkeepExpiration = 10 * time.Minute
 	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 10 * time.Minute
+	DefaultAllowListExpiration = 20 * time.Minute
 	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 15 * time.Minute
+	CleanupInterval = 25 * time.Minute
 )
 
 var (
@@ -89,7 +85,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, version ocr2keeper.RegistryVersion, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, version RegistryVersion, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -114,14 +110,13 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
-	upkeepInfoCache, allowListCache := setupCaches(DefaultUpkeepExpiration, DefaultAllowListExpiration, CleanupInterval)
+	allowListCache := cache.New(DefaultAllowListExpiration, CleanupInterval)
 
 	var mercuryCfg *MercuryConfig
-	if version == ocr2keeper.KEEPER_REGISTRY_V2_1 {
+	if version == KeeperRegistryV21 {
 		mercuryCfg = &MercuryConfig{
 			cred:                  mc,
 			abi:                   mercuryLookupCompatibleABI,
-			upkeepCache:           upkeepInfoCache,
 			mercuryAllowListCache: allowListCache,
 		}
 	}
@@ -158,15 +153,6 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	return r, nil
 }
 
-func setupCaches(defaultUpkeepExpiration, defaultAllowListExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache) {
-	// cache that stores UpkeepInfo for callback during MercuryLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
-	// cache for tracking allow list info
-	allowListCache := cache.New(defaultAllowListExpiration, cleanupInterval)
-	return upkeepInfoCache, allowListCache
-}
-
 var upkeepStateEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
@@ -195,7 +181,6 @@ type activeUpkeep struct {
 type MercuryConfig struct {
 	cred                  *models.MercuryCredentials
 	abi                   abi.ABI
-	upkeepCache           *cache.Cache
 	mercuryAllowListCache *cache.Cache
 }
 
@@ -210,7 +195,7 @@ type EvmRegistry struct {
 	registry21    Registry21
 	abi           abi.ABI
 	abi21         abi.ABI
-	version       ocr2keeper.RegistryVersion
+	version       RegistryVersion
 	packer        *evmRegistryPacker
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
@@ -593,7 +578,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 	}
 
 	// only go through mercury process if the registry version is 2.1
-	if r.version == ocr2keeper.KEEPER_REGISTRY_V2_1 && mercuryEnabled {
+	if r.version == KeeperRegistryV21 && mercuryEnabled {
 		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
 			chResult <- checkResult{
 				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),

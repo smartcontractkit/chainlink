@@ -11,11 +11,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+)
+
+type RegistryVersion string
+
+const (
+	KeeperRegistryV20 RegistryVersion = "KeeperRegistry 2.0"
+	KeeperRegistryV21 RegistryVersion = "KeeperRegistry 2.1"
 )
 
 type evmRegistryPacker struct {
-	version ocr2keeper.RegistryVersion
+	version RegistryVersion
 	abi     abi.ABI
 }
 
@@ -32,7 +38,7 @@ const (
 	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 )
 
-func NewEvmRegistryPacker(version ocr2keeper.RegistryVersion, abi abi.ABI) *evmRegistryPacker {
+func NewEvmRegistryPacker(version RegistryVersion, abi abi.ABI) *evmRegistryPacker {
 	return &evmRegistryPacker{version: version, abi: abi}
 }
 
@@ -93,7 +99,7 @@ func (rp *evmRegistryPacker) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw st
 
 // UnpackMercuryLookupResult should only be called on v2_1 registry
 func (rp *evmRegistryPacker) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
-	if rp.version != ocr2keeper.KEEPER_REGISTRY_V2_1 {
+	if rp.version != KeeperRegistryV21 {
 		return false, nil, 0, nil, fmt.Errorf("registry version %s does not support mercury lookup", rp.version)
 	}
 
@@ -136,11 +142,11 @@ func (rp *evmRegistryPacker) UnpackUpkeepResult(id *big.Int, raw string) (active
 	}
 
 	au := activeUpkeep{ID: id}
-	if rp.version == ocr2keeper.KEEPER_REGISTRY_V2_0 {
+	if rp.version == KeeperRegistryV20 {
 		temp := *abi.ConvertType(out[0], new(keeper_registry_wrapper2_0.UpkeepInfo)).(*keeper_registry_wrapper2_0.UpkeepInfo)
 		au.PerformGasLimit = temp.ExecuteGas
 		au.CheckData = temp.CheckData
-	} else if rp.version == ocr2keeper.KEEPER_REGISTRY_V2_1 {
+	} else if rp.version == KeeperRegistryV21 {
 		temp := *abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)).(*i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
 		au.PerformGasLimit = temp.ExecuteGas
 		au.CheckData = temp.CheckData

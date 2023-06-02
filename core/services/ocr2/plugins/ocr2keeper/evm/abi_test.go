@@ -11,6 +11,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
@@ -149,7 +150,7 @@ func TestUnpackPerformResult(t *testing.T) {
 }
 
 func TestUnpackMercuryLookupResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	registry21ABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	if err != nil {
 		assert.Nil(t, err)
 	}
@@ -178,16 +179,16 @@ func TestUnpackMercuryLookupResult(t *testing.T) {
 			CallbackResp: []byte{0, 0, 0, 23, 4, 163, 66, 91, 228, 102, 200, 84, 144, 233, 218, 44, 168, 192, 191, 253, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			UpkeepNeeded: false,
 			PerformData:  nil,
-			ErrorString:  "callback output unpack error: abi: improperly encoded boolean value",
+			ErrorString:  "abi: improperly encoded boolean value: unpack checkUpkeep return: ",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPacker{abi: registryABI}
+			packer := &evmRegistryPacker{version: KeeperRegistryV21, abi: registry21ABI}
 			needed, pd, _, _, err := packer.UnpackMercuryLookupResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
-				assert.EqualError(t, err, test.ErrorString)
+				assert.EqualError(t, err, test.ErrorString+hexutil.Encode(test.CallbackResp))
 			} else {
 				assert.Nil(t, err)
 			}

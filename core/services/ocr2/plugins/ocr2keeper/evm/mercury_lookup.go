@@ -94,6 +94,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 		}
 
 		allowed, err := r.allowedToUseMercury(opts, upkeepId)
+		r.lggr.Info(allowed)
 		if err != nil {
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d failed to query mercury allow list: %v", upkeepId, block, err)
 			continue
@@ -105,10 +106,11 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			continue
 		}
 
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d perform data: %v", upkeepId, block, upkeepResults[i].PerformData)
 		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
 		if err != nil {
-			r.lggr.Debugf("[MercuryLookup] upkeep %s block %d decodeMercuryLookup: %v", upkeepId, block, err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d decodeMercuryLookup: %v", upkeepId, block, err)
 			continue
 		}
 
@@ -121,11 +123,15 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			continue
 		}
 
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d values: %v", values)
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d extraData: %v", mercuryLookup.extraData)
 		needed, performData, failureReason, _, err := r.mercuryCallback21(ctx, upkeepId, values, mercuryLookup.extraData, block)
 		if err != nil {
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryLookupCallback err: %v", upkeepId, block, err)
 			continue
 		}
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d performData: %v", performData)
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d failureReason: %v", failureReason)
 
 		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
@@ -152,6 +158,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 // this upkeep is allowed to use Mercury service.
 func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (bool, error) {
 	allowed, ok := r.mercury.mercuryAllowListCache.Get(upkeepId.String())
+	r.lggr.Info(allowed)
 	if ok {
 		return allowed.(bool), nil
 	}

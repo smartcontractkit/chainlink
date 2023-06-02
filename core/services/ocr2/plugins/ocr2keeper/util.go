@@ -1,14 +1,10 @@
 package ocr2keeper
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
@@ -26,13 +22,6 @@ import (
 	kevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-)
-
-type RegistryVersion string
-
-const (
-	KEEPER_REGISTRY_V2_0 RegistryVersion = "KeeperRegistry 2.0"
-	KEEPER_REGISTRY_V2_1 RegistryVersion = "KeeperRegistry 2.1"
 )
 
 type Encoder interface {
@@ -94,12 +83,13 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+
+	reg, err := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%w: %s", kevm.ErrABINotParsable, err)
+		return nil, nil, nil, nil, fmt.Errorf("%w: %s", kevm.ErrRegistryCallFailure, err)
 	}
 
-	version, err := getRegistryVersion(keeperRegistryABI, rAddr, chain)
+	version, err := getRegistryVersion(reg)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to get registry version: %v", err)
 	}
@@ -126,29 +116,17 @@ func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
 	return []string{logProviderFilterName(addr.Address()), kevm.UpkeepFilterName(addr.Address())}, err
 }
 
-func getRegistryVersion(registryABI abi.ABI, addr common.Address, client evm.Chain) (RegistryVersion, error) {
-	payload, err := registryABI.Pack("typeAndVersion")
+func getRegistryVersion(registry *keeper_registry_wrapper2_0.KeeperRegistry) (kevm.RegistryVersion, error) {
+	v, err := registry.TypeAndVersion(nil)
 	if err != nil {
 		return "", err
 	}
 
-	var b hexutil.Bytes
-	args := map[string]interface{}{
-		"to":   addr.Hex(),
-		"data": hexutil.Bytes(payload),
+	if strings.HasPrefix(v, string(kevm.KeeperRegistryV20)) {
+		return kevm.KeeperRegistryV20, nil
 	}
-
-	var out []interface{}
-	err = client.Client().CallContext(context.Background(), &b, "eth_call", args)
-	if err != nil {
-		return "", err
-	}
-	v := abi.ConvertType(out[0], new(string)).(string)
-	if strings.HasPrefix(v, string(KEEPER_REGISTRY_V2_0)) {
-		return KEEPER_REGISTRY_V2_0, nil
-	}
-	if strings.HasPrefix(v, string(KEEPER_REGISTRY_V2_1)) {
-		return KEEPER_REGISTRY_V2_1, nil
+	if strings.HasPrefix(v, string(kevm.KeeperRegistryV21)) {
+		return kevm.KeeperRegistryV20, nil
 	}
 	return "", fmt.Errorf("unsupported registry version %s", v)
 }
