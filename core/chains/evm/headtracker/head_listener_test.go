@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -43,7 +43,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
+	hl := headtracker.NewEvmHeadListener(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
 
 	var headCount atomic.Int32
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -56,7 +56,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -105,7 +105,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg.BlockEmissionIdleWarningThreshold()
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
+	hl := headtracker.NewEvmHeadListener(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
 
 	firstHeadAwaiter := cltest.NewAwaiter()
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -117,7 +117,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -168,7 +168,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, nil)
 			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 			chStop := make(chan struct{})
-			hl := headtracker.NewHeadListener(l, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
+			hl := headtracker.NewEvmHeadListener(l, ethClient, headtracker.NewWrappedConfig(evmcfg), chStop)
 
 			hnhCalled := make(chan *evmtypes.Head)
 			hnh := func(_ context.Context, header *evmtypes.Head) error {
@@ -180,7 +180,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 
 			chSubErrTest := make(chan error)
 			var chSubErr <-chan error = chSubErrTest
-			sub := evmclimocks.NewSubscription(t)
+			sub := commonmocks.NewSubscription(t)
 			// sub.Err is called twice because we enter the select loop two times: once
 			// initially and once again after exactly one head has been received
 			sub.On("Err").Return(chSubErr).Twice()
@@ -215,7 +215,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			// Expect a resubscribe
 			chSubErrTest2 := make(chan error)
 			var chSubErr2 <-chan error = chSubErrTest2
-			sub2 := evmclimocks.NewSubscription(t)
+			sub2 := commonmocks.NewSubscription(t)
 			sub2.On("Err").Return(chSubErr2)
 			subscribeAwaiter2 := cltest.NewAwaiter()
 
