@@ -30,7 +30,7 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().Database().LogSQL()))
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{
@@ -81,7 +81,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	}
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().Database().LogSQL()))
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

@@ -560,20 +560,6 @@ func (_m *ChainScopedConfig) Database() coreconfig.Database {
 	return r0
 }
 
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // DefaultChainID provides a mock function with given fields:
 func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	ret := _m.Called()
@@ -1636,20 +1622,6 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
-// LogSQL provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

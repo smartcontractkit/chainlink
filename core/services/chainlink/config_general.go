@@ -458,15 +458,7 @@ func (g *generalConfig) CertFile() string {
 }
 
 func (g *generalConfig) Database() coreconfig.Database {
-	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
-}
-
-func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	return g.c.Database.DefaultQueryTimeout.Duration()
-}
-
-func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
 func (g *generalConfig) WebDefaultHTTPLimit() int64 {

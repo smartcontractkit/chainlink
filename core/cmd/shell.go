@@ -135,7 +135,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
 	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
@@ -146,7 +146,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = evm.EnsureChains(db, appLggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, appLggr, cfg.Database(), ids); err != nil {
 				return nil, errors.Wrap(err, "failed to setup EVM chains")
 			}
 		}
@@ -212,7 +212,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr)
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg.Database())
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		SqlxDB:                   db,
@@ -244,7 +244,7 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		if err := solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+		if err := solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
 			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
 		}
 	}
@@ -296,7 +296,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		if err := starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+		if err := starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
 			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
 		}
 	}
@@ -343,7 +343,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database) error {
 	var err error
 	// Set up the versioning Configs
-	verORM := versioning.NewORM(db, appLggr, cfg.DatabaseDefaultQueryTimeout())
+	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version

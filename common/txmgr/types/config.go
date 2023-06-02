@@ -16,13 +16,16 @@ type TxmConfig[FEE_UNIT Unit] interface {
 
 // FEE_UNIT - fee unit
 type BroadcasterConfig[FEE_UNIT Unit] interface {
-	FallbackPollInterval() time.Duration
 	MaxInFlightTransactions() uint32
 
 	// from gas.Config
 	IsL2() bool
 	MaxFeePrice() FEE_UNIT
 	FeePriceDefault() FEE_UNIT
+}
+
+type BroadcasterListenerConfig interface {
+	FallbackPollInterval() time.Duration
 }
 
 // FEE_UNIT - fee unit
@@ -38,9 +41,11 @@ type ConfirmerConfig[FEE_UNIT Unit] interface {
 	FinalityDepth() uint32
 	MaxFeePrice() FEE_UNIT
 	FeeBumpPercent() uint16
+}
 
+type ConfirmerDatabaseConfig interface {
 	// from pg.QConfig
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 }
 
 type ResenderConfig interface {
