@@ -4636,7 +4636,7 @@ SelectionMode controls node selection strategy:
 SyncThreshold = 5 # Default
 ```
 SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
-Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`,`PriorityLevel`), or total difficulty (`TotalDifficulty`).
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`, `PriorityLevel`), or total difficulty (`TotalDifficulty`).
 
 Set to 0 to disable this check.
 

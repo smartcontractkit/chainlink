@@ -31,7 +31,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 			// third node is alive, LatestReceivedBlockNumber = 2 (best node)
 			node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(2), nil)
 		}
-		node.On("Order").Maybe().Return(int32(0))
+		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 	}
 
@@ -42,7 +42,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		// fourth node is alive, LatestReceivedBlockNumber = 2 (same as 3rd)
 		node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(2), nil)
-		node.On("Order").Return(int32(0))
+		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)
@@ -53,7 +53,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		// fifth node is alive, LatestReceivedBlockNumber = 3 (better than 3rd and 4th)
 		node.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(3), nil)
-		node.On("Order").Return(int32(0))
+		node.On("Order").Return(int32(1))
 		nodes = append(nodes, node)
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)
@@ -63,10 +63,10 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 	t.Run("nodes never update latest block number", func(t *testing.T) {
 		node1 := evmmocks.NewNode(t)
 		node1.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(-1), nil)
-		node1.On("Order").Return(int32(0))
+		node1.On("Order").Return(int32(1))
 		node2 := evmmocks.NewNode(t)
 		node2.On("StateAndLatest").Return(evmclient.NodeStateAlive, int64(-1), nil)
-		node2.On("Order").Return(int32(0))
+		node2.On("Order").Return(int32(1))
 		nodes := []evmclient.Node{node1, node2}
 
 		selector := evmclient.NewHighestHeadNodeSelector(nodes)

@@ -11,7 +11,7 @@ type priorityLevelNodeSelector struct {
 	roundRobinCount []atomic.Uint32
 }
 
-type nodesWithPriority struct {
+type nodeWithPriority struct {
 	node     Node
 	priority int32
 }
@@ -44,11 +44,11 @@ func (s priorityLevelNodeSelector) Name() string {
 
 // getHighestPriorityAliveTier filters nodes that are not in state NodeStateAlive and
 // returns only the highest tier of alive nodes
-func (s priorityLevelNodeSelector) getHighestPriorityAliveTier() []nodesWithPriority {
-	var nodes []nodesWithPriority
+func (s priorityLevelNodeSelector) getHighestPriorityAliveTier() []nodeWithPriority {
+	var nodes []nodeWithPriority
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
-			nodes = append(nodes, nodesWithPriority{n, n.Order()})
+			nodes = append(nodes, nodeWithPriority{n, n.Order()})
 		}
 	}
 
@@ -59,13 +59,13 @@ func (s priorityLevelNodeSelector) getHighestPriorityAliveTier() []nodesWithPrio
 	return removeLowerTiers(nodes)
 }
 
-// removeLowerTiers take a slice of nodesWithPriority and keeps only the highest tier
-func removeLowerTiers(nodes []nodesWithPriority) []nodesWithPriority {
-	sort.Slice(nodes, func(i, j int) bool {
+// removeLowerTiers take a slice of nodeWithPriority and keeps only the highest tier
+func removeLowerTiers(nodes []nodeWithPriority) []nodeWithPriority {
+	sort.SliceStable(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
 	})
 
-	var nodes2 []nodesWithPriority
+	var nodes2 []nodeWithPriority
 	currentPriority := nodes[len(nodes)-1].priority
 
 	for _, n := range nodes {
