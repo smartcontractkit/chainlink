@@ -140,7 +140,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		require.Equal(t, 4, len(saver.HeadsNumber))
 
 		latest := saver.LatestChain()
-		require.Equal(t, 4, latest.Number)
+		require.Equal(t, int64(4), latest.Number)
 	})
 
 	t.Run("concurrent calls to TrimOldHeads", func(t *testing.T) {
@@ -150,8 +150,6 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 			err := saver.Save(testutils.Context(t), head)
 			require.NoError(t, err)
 		}
-
-		t.Log("Heads before trimming", saver.Heads)
 
 		// Concurrently add multiple heads with different block numbers
 		var wg sync.WaitGroup
@@ -176,15 +174,12 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		}
 		wg.Wait()
 
-		t.Log("Heads after trimming", saver.Heads)
-
 		// Check that the correct heads remain after concurrent calls to TrimOldHeads
 		require.Equal(t, 2, len(saver.Heads))
 		require.Equal(t, 1, len(saver.HeadByNumber(7)))
 		require.Equal(t, 1, len(saver.HeadByNumber(8)))
 		require.Equal(t, 0, len(saver.HeadByNumber(1)))
 
-		// Check that the latest head remains the same
 		latest := saver.LatestChain()
 		require.Equal(t, int64(8), latest.Number)
 	})

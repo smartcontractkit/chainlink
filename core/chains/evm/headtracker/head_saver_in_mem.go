@@ -137,8 +137,6 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 	}
 }
 
-// TrimOldHeads() removes old heads such that only N new heads remain
-// This function can be called externally to remove old heads.
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(historyDepth int64) {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
