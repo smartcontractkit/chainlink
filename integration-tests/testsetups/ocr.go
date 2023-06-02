@@ -44,7 +44,7 @@ type OCRSoakTest struct {
 	OperatorForwarderFlow bool
 
 	// DEBUG DON'T USE THIS. TEMP KLUDGE FOR L2s!!!!!!!
-	seenEventBlockHashes map[string]struct{}
+	seenEventBlockHashes map[string]string // hash: address
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -72,7 +72,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 		},
 		mockPath:             "ocr",
 		ocrInstanceMap:       make(map[string]contracts.OffchainAggregator),
-		seenEventBlockHashes: make(map[string]struct{}),
+		seenEventBlockHashes: make(map[string]string),
 	}
 }
 
@@ -372,19 +372,18 @@ func (o *OCRSoakTest) subscribeOCREvents(
 				rpcDegraded = false
 			}
 			for logIndex := range logs {
+				ocrInstance := o.ocrInstanceMap[logs[logIndex].Address.Hex()]
 				// DEBUG BADDDDDDDD
-				if _, seen := o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()]; seen {
+				if addr, seen := o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()]; seen && addr == ocrInstance.Address() {
 					continue
-				} else {
-					o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = struct{}{}
 				}
+				o.seenEventBlockHashes[logs[logIndex].BlockHash.Hex()] = ocrInstance.Address()
 				// DEBUG END OF BADDDD
 				eventDetails, err := contractABI.EventByID(logs[logIndex].Topics[0])
 				if err != nil {
 					l.Error().Err(err).Msg("Error getting event details from abi for OCR log")
 					continue
 				}
-				ocrInstance := o.ocrInstanceMap[logs[logIndex].Address.Hex()]
 				go o.processNewEvent(t, answerUpdated, &logs[logIndex], eventDetails, ocrInstance, contractABI)
 			}
 		}
