@@ -5,7 +5,7 @@ FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 ARG SUITES=chaos migration performance reorg smoke soak benchmark
 
 ## DEBUG
-RUN sudo apt-get install iptables 
+RUN apt-get update && apt-get install -y iptables
 
 COPY . testdir/
 WORKDIR /go/testdir
