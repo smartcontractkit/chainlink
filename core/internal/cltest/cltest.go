@@ -44,6 +44,7 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -215,7 +216,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
 }
 
-func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmConfirmer, error) {
+func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) (*txmgr.EvmConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
