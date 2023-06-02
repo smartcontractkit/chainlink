@@ -876,22 +876,6 @@ func (g *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
 }
 
-func (g *generalConfig) SentryDSN() string {
-	return *g.c.Sentry.DSN
-}
-
-func (g *generalConfig) SentryDebug() bool {
-	return *g.c.Sentry.Debug
-}
-
-func (g *generalConfig) SentryEnvironment() string {
-	return *g.c.Sentry.Environment
-}
-
-func (g *generalConfig) SentryRelease() string {
-	return *g.c.Sentry.Release
-}
-
 func (g *generalConfig) TLSCertPath() string {
 	return *g.c.WebServer.TLS.CertPath
 }
@@ -983,6 +967,10 @@ func (g *generalConfig) DisableRateLimiting() bool {
 func (g *generalConfig) InfiniteDepthQueries() bool {
 	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
+}
+
+func (g *generalConfig) Sentry() coreconfig.Sentry {
+	return sentryConfig{g.c.Sentry}
 }
 
 var (

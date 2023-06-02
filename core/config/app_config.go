@@ -48,12 +48,12 @@ type AppConfig interface {
 	Prometheus
 	Pyroscope
 	Secrets
-	Sentry
 	TelemetryIngress
 	Web
 	audit.Config
 
 	Database() Database
+	Sentry() Sentry
 }
 type DatabaseBackupMode string
 

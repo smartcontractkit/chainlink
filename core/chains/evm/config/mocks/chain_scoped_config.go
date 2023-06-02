@@ -3017,57 +3017,17 @@ func (_m *ChainScopedConfig) SecureCookies() bool {
 	return r0
 }
 
-// SentryDSN provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryDSN() string {
+// Sentry provides a mock function with given fields:
+func (_m *ChainScopedConfig) Sentry() coreconfig.Sentry {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Sentry
+	if rf, ok := ret.Get(0).(func() coreconfig.Sentry); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryDebug provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryDebug() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// SentryEnvironment provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryRelease provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryRelease() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Sentry)
+		}
 	}
 
 	return r0
