@@ -16,13 +16,20 @@ func configureInMemorySaver(t *testing.T) *headtracker.EvmInMemoryHeadSaver {
 	lggr := logger.TestLogger(t)
 	htCfg := htmocks.NewConfig(t)
 	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(1))
+	return headtracker.NewEvmInMemoryHeadSaver(htCfg, lggr)
+}
+
+func configureInMemorySaverFinalityDepth(t *testing.T) *headtracker.EvmInMemoryHeadSaver {
+	lggr := logger.TestLogger(t)
+	htCfg := htmocks.NewConfig(t)
+	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(1))
 	htCfg.On("EvmFinalityDepth").Return(uint32(1))
 	return headtracker.NewEvmInMemoryHeadSaver(htCfg, lggr)
 }
 
 func TestInMemoryHeadSaver_Save(t *testing.T) {
 	t.Parallel()
-	saver := configureInMemorySaver(t)
+	saver := configureInMemorySaverFinalityDepth(t)
 
 	t.Run("happy path, saving heads", func(t *testing.T) {
 		head := cltest.Head(1)
@@ -96,10 +103,9 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 
 func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 	t.Parallel()
-	saver := configureInMemorySaver(t)
+	saver := configureInMemorySaverFinalityDepth(t)
 
 	t.Run("happy path, trimming old heads", func(t *testing.T) {
-
 		// Save heads with block numbers 1, 2, 3, and 4
 		for i := 1; i <= 4; i++ {
 			head := cltest.Head(i)
@@ -182,5 +188,42 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 
 		latest := saver.LatestChain()
 		require.Equal(t, int64(8), latest.Number)
+	})
+}
+
+func TestInMemoryHeadSaver_Chain(t *testing.T) {
+	t.Parallel()
+	saver := configureInMemorySaver(t)
+
+	t.Run("happy path, valid block hash", func(t *testing.T) {
+		head1 := cltest.Head(1)
+		head2 := cltest.Head(2)
+		err := saver.Save(testutils.Context(t), head1)
+		require.NoError(t, err)
+		err = saver.Save(testutils.Context(t), head2)
+		require.NoError(t, err)
+
+		retrievedHead1 := saver.Chain(head1.BlockHash())
+		retrievedHead2 := saver.Chain(head2.BlockHash())
+
+		require.Equal(t, head1, retrievedHead1)
+		require.Equal(t, head2, retrievedHead2)
+
+	})
+
+	t.Run("invalid block hash", func(t *testing.T) {
+		head1 := cltest.Head(1)
+		err := saver.Save(testutils.Context(t), head1)
+		require.NoError(t, err)
+		head2 := cltest.Head(2)
+		err = saver.Save(testutils.Context(t), head2)
+		require.NoError(t, err)
+
+		saver.TrimOldHeads(2)
+
+		invalidBlockHash := head1.BlockHash()
+		retrievedHead := saver.Chain(invalidBlockHash)
+
+		require.Nil(t, retrievedHead)
 	})
 }
