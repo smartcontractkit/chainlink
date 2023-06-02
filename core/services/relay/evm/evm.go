@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
@@ -137,6 +138,54 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, err
 	}
 	return configProvider, err
+}
+
+func (r *Relayer) RegisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
+	var relayConfig types.RelayConfig
+	filters, err := FiltersFromRelayArgs(args)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(args.RelayConfig, &relayConfig)
+	if err != nil {
+		return err
+	}
+	chain, err := r.chainSet.Get(relayConfig.ChainID.ToInt())
+	if err != nil {
+		return err
+	}
+	for _, filter := range filters {
+		r.lggr.Debugf("Registering new filter %s", filter)
+		if err := chain.LogPoller().RegisterFilter(filter, q); err != nil {
+			return pkgerrors.Wrapf(err, "Failed to register filter %s", filter)
+		}
+	}
+	return nil
+}
+
+func (r *Relayer) UnregisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
+	var relayConfig types.RelayConfig
+	filters, err := FiltersFromRelayArgs(args)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(args.RelayConfig, &relayConfig)
+	if err != nil {
+		return err
+	}
+	chain, err := r.chainSet.Get(relayConfig.ChainID.ToInt())
+	if err != nil {
+		return err
+	}
+	for _, filter := range filters {
+		r.lggr.Debugf("Unregistering filter %s", filter.Name)
+		if err := chain.LogPoller().UnregisterFilter(filter.Name, q); err != nil {
+			return pkgerrors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
+		}
+	}
+	return nil
 }
 
 func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter, err error) {

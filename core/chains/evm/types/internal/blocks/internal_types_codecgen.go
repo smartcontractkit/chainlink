@@ -7,13 +7,12 @@ package blocks
 
 import (
 	"errors"
-	"runtime"
-	"sort"
-	"strconv"
-
 	pkg2_common "github.com/ethereum/go-ethereum/common"
 	pkg1_hexutil "github.com/ethereum/go-ethereum/common/hexutil"
 	codec1978 "github.com/ugorji/go/codec"
+	"runtime"
+	"sort"
+	"strconv"
 )
 
 const (

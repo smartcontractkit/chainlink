@@ -10,7 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type Network string
@@ -27,6 +29,11 @@ var (
 		StarkNet: {},
 	}
 )
+
+type LogPollerCapable interface {
+	RegisterLogFilters(args types.RelayArgs, q pg.Queryer) (err error)
+	UnregisterLogFilters(args types.RelayArgs, q pg.Queryer) (err error)
+}
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {
@@ -87,4 +94,29 @@ func (r *relayerAdapter) HealthReport() map[string]error {
 	maps.Copy(r.Relayer.HealthReport(), hr)
 	maps.Copy(r.RelayerExt.HealthReport(), hr)
 	return hr
+}
+
+type ErrLogFiltersNotSupported struct {
+	relayName string
+}
+
+func (e ErrLogFiltersNotSupported) Error() string {
+	return fmt.Sprintf("Log filtering is not supported by relay %s", e.relayName)
+}
+
+func (r *relayerAdapter) RegisterLogFilters(rargs types.RelayArgs, q pg.Queryer) (err error) {
+	relay, ok := r.Relayer.(LogPollerCapable)
+	if !ok {
+		return ErrLogFiltersNotSupported{r.Relayer.Name()} // only supported for evm currently
+	}
+	return relay.RegisterLogFilters(rargs, q)
+
+}
+
+func (r *relayerAdapter) UnregisterLogFilters(rargs types.RelayArgs, q pg.Queryer) (err error) {
+	relay, ok := r.Relayer.(LogPollerCapable)
+	if !ok {
+		return ErrLogFiltersNotSupported{r.Relayer.Name()} // only supported for evm currently
+	}
+	return relay.UnregisterLogFilters(rargs, q)
 }

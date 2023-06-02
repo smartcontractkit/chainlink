@@ -72,6 +72,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
+
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
@@ -129,7 +130,30 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 }
 
 // OnCreateJob satisfies the job.Delegate interface.
-func (d *Delegate) OnCreateJob(spec job.Job, q pg.Queryer) error {
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
+	spec := jb.BootstrapSpec
+	if spec == nil {
+		return errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", spec)
+	}
+
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	}
+
+	rargs := types.RelayArgs{
+		JobID:       spec.ID,
+		ContractID:  spec.ContractID,
+		RelayConfig: spec.RelayConfig.Bytes(),
+	}
+	r, ok := relayer.(relay.LogPollerCapable)
+	if !ok {
+		return nil
+	}
+	err := r.RegisterLogFilters(rargs, q)
+	if err != nil && !errors.Is(err, relay.ErrLogFiltersNotSupported{}) {
+		return errors.Wrapf(err, "Failed to register required log filters for OCRBootstrap job, with relay args: %v", rargs)
+	}
 	return nil
 }
 
@@ -141,6 +165,29 @@ func (d *Delegate) AfterJobCreated(spec job.Job) {
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
+	spec := jb.BootstrapSpec
+	if spec == nil {
+		return errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", spec)
+	}
+
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	}
+
+	rargs := types.RelayArgs{
+		JobID:       spec.ID,
+		ContractID:  spec.ContractID,
+		RelayConfig: spec.RelayConfig.Bytes(),
+	}
+	r, ok := relayer.(relay.LogPollerCapable)
+	if !ok {
+		return nil
+	}
+	err := r.UnregisterLogFilters(rargs, q)
+	if err != nil && !errors.Is(err, relay.ErrLogFiltersNotSupported{}) {
+		return errors.Wrapf(err, "Failed to unregister log filters for OCRBootstrap job, with relay args: %v", rargs)
+	}
 	return nil
 }

@@ -119,7 +119,6 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 	lp := createLogPoller(t, db, lggr, evmClient)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg, evmcfg.Database())
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
