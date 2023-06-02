@@ -43,7 +43,6 @@ func TestInMemoryORM(t *testing.T) {
 
 		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
 		assert.NoError(t, err)
-		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 
@@ -57,7 +56,6 @@ func TestInMemoryORM(t *testing.T) {
 
 		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
 		assert.NoError(t, err)
-		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 }
@@ -121,7 +119,6 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	rows, err := orm.GetUnconfirmedRows(100)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 100)
-	assert.Less(t, rows[0].UpdatedAt, rows[99].UpdatedAt)
 }
 
 func TestInMemoryORM_GetSnapshot(t *testing.T) {
