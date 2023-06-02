@@ -51,9 +51,9 @@ type AppConfig interface {
 	Sentry
 	TelemetryIngress
 	Web
-	audit.Config
 
 	Database() Database
+	AuditLogger() audit.Config
 }
 type DatabaseBackupMode string
 
