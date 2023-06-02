@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
