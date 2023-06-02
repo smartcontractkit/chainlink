@@ -42,9 +42,15 @@ type startedNodeData struct {
 // 5. fund nodes if needed
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
-func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs bool, force bool) {
+func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, bootstrap bool) {
 	lggr, closeLggr := logger.NewLogger()
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
+
+	if bootstrap {
+		baseHandler := NewBaseHandler(k.cfg)
+		tcpAddr := baseHandler.StartBootstrapNode(ctx, k.cfg.RegistryAddress, 5688, 8000, force)
+		k.cfg.BootstrapNodeAddr = tcpAddr
+	}
 
 	var extraTOML string
 	if k.cfg.OCR2Keepers {
