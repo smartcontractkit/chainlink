@@ -224,7 +224,6 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 
 func (o *OCRSoakTest) processNewEvent(
 	t *testing.T,
-	eventSub geth.Subscription,
 	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
 	event *types.Log,
 	eventDetails *abi.Event,
@@ -327,8 +326,7 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 	require.Less(t, inputs.TimeBetweenRounds, time.Hour, "TimeBetweenRounds must be less than 1 hour")
 }
 
-// subscribeToAnswerUpdatedEvent subscribes to the event log for AnswerUpdated event and
-// verifies if the answer is matching with the expected value
+// subscribeOCREvents polls the chain for events on OCR contracts
 func (o *OCRSoakTest) subscribeOCREvents(
 	t *testing.T,
 	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
@@ -338,33 +336,31 @@ func (o *OCRSoakTest) subscribeOCREvents(
 	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
+	addresses := make([]common.Address, len(o.ocrInstances))
+	for i := 0; i < len(o.ocrInstances); i++ {
+		addresses = append(addresses, common.HexToAddress(o.ocrInstances[i].Address()))
+	}
 	query := geth.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
-		Addresses: []common.Address{},
+		Addresses: addresses,
 	}
-	for i := 0; i < len(o.ocrInstances); i++ {
-		query.Addresses = append(query.Addresses, common.HexToAddress(o.ocrInstances[i].Address()))
-	}
-	eventLogs := make(chan types.Log)
-	sub, err := o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
 
 	go func() {
-		defer sub.Unsubscribe()
-
-		for {
-			select {
-			case err := <-sub.Err():
-				l.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
-				sub.Unsubscribe()
-
-				sub, err = o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-			case vLog := <-eventLogs:
-				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				require.NoError(t, err, "Getting event details for OCR instances shouldn't fail")
-
-				go o.processNewEvent(t, sub, answerUpdated, &vLog, eventDetails, o.ocrInstances[0], contractABI)
+		ticker := time.NewTicker(time.Second)
+		for range ticker.C { // Poll the chain
+			logs, err := o.chainClient.FilterLogs(context.Background(), query)
+			if err != nil {
+				l.Error().Err(err).Msg("Error filtering OCR logs, RPC possibly down")
+			}
+			query.FromBlock = big.NewInt(0).SetUint64(latestBlockNum + 1)
+			for _, log := range logs {
+				eventDetails, err := contractABI.EventByID(log.Topics[0])
+				if err != nil {
+					l.Error().Err(err).Msg("Error getting event details from abi for OCR log")
+					continue
+				}
+				ocrInstance := o.ocrInstanceMap[log.Address.Hex()]
+				go o.processNewEvent(t, answerUpdated, &log, eventDetails, ocrInstance, contractABI)
 			}
 		}
 	}()
