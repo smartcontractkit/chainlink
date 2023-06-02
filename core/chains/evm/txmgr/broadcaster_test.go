@@ -60,7 +60,7 @@ func NewTestEthBroadcaster(
 	nonceAutoSync bool,
 ) (*txmgr.EvmBroadcaster, error) {
 	t.Helper()
-	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, config.Database().URL())
 	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
@@ -79,7 +79,7 @@ func NewTestEthBroadcaster(
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, "eth_broadcaster_optimistic_locking", nil)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, cfg.Database().URL())
 	err := eventBroadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
@@ -1236,7 +1236,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
-					eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.New())
+					eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 					err := eventBroadcaster.Start(testutils.Context(t))
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
@@ -1963,7 +1963,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.Database().URL())
 	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
