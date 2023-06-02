@@ -105,7 +105,7 @@ func (d *databaseConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return d.c.DefaultQueryTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseURL() url.URL {
+func (d *databaseConfig) URL() url.URL {
 	return *d.s.URL.URL()
 }
 
