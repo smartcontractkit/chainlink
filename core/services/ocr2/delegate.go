@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -52,6 +53,7 @@ import (
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
+	bridgeORM             bridges.ORM
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -90,6 +92,7 @@ var _ job.Delegate = (*Delegate)(nil)
 func NewDelegate(
 	db *sqlx.DB,
 	jobORM job.ORM,
+	bridgeORM bridges.ORM,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -106,6 +109,7 @@ func NewDelegate(
 	return &Delegate{
 		db:                    db,
 		jobORM:                jobORM,
+		bridgeORM:             bridgeORM,
 		pipelineRunner:        pipelineRunner,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
@@ -738,8 +742,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		functionsServicesConfig := functions.FunctionsServicesConfig{
 			Job:             jb,
-			PipelineRunner:  d.pipelineRunner,
 			JobORM:          d.jobORM,
+			BridgeORM:       d.bridgeORM,
 			OCR2JobConfig:   d.cfg,
 			DB:              d.db,
 			Chain:           chain,
