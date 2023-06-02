@@ -375,8 +375,8 @@ func (o *OCRSoakTest) subscribeOCREvents(
 			}
 			for logIndex := range logs {
 				ocrInstance := o.ocrInstanceMap[logs[logIndex].Address.Hex()]
-				blockInstanceCombo := fmt.Sprintf("%s-%s", logs[logIndex].BlockHash.Hex(), ocrInstance.Address())
 				// DEBUG BADDDDDDDD
+				blockInstanceCombo := fmt.Sprintf("%s-%s", logs[logIndex].BlockHash.Hex(), ocrInstance.Address())
 				if _, seen := o.seenEventBlockHashes[blockInstanceCombo]; seen {
 					continue
 				}
