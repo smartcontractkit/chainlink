@@ -40,7 +40,7 @@ type upkeepIndex struct {
 
 func newUpkeepIndex(lggr logger.Logger, fetcher UpkeepFetcher, batchFetcher UpkeepBatchFetcher) *upkeepIndex {
 	return &upkeepIndex{
-		lggr: lggr,
+		lggr: lggr.Named("UpkeepIndex"),
 
 		upkeeps: make(map[string]upkeepInfoEntry),
 		lock:    new(sync.RWMutex),
@@ -52,6 +52,7 @@ func newUpkeepIndex(lggr logger.Logger, fetcher UpkeepFetcher, batchFetcher Upke
 
 // Initialize enables to initialize the index with the upkeeps from the registry
 func (index *upkeepIndex) Initialize(ctx context.Context, ids ...*big.Int) error {
+	index.lggr.Infow("Initializing upkeep index", "count", len(ids))
 	infos, err := index.batchFetcher(ctx, nil, ids)
 	if err != nil {
 		return errors.Wrap(err, "failed to get configs to initialize the upkeep index")
@@ -60,6 +61,8 @@ func (index *upkeepIndex) Initialize(ctx context.Context, ids ...*big.Int) error
 	for _, upkeepInfo := range infos {
 		upkeeps[upkeepInfo.id.String()] = upkeepInfo
 	}
+
+	index.lggr.Debugw("Fetched upkeeps", "count", len(upkeeps))
 
 	index.lock.Lock()
 	defer index.lock.Unlock()
@@ -113,9 +116,9 @@ func (index *upkeepIndex) GetUpkeepInfo(ctx context.Context, block *big.Int, upk
 		}
 		// otherwise the entry is expired, fetching...
 	}
-
 	upkeepInfo, err := index.fetcher(ctx, block, upkeepID)
 	if err != nil {
+		index.lggr.Warnw("Failed to fetch upkeep info", "upkeepID", upkeepID.String(), "err", err.Error())
 		return upkeepInfo, err
 	}
 	index.lggr.Debugf("UpkeepInfo upkeep %s block %d cache miss UpkeepInfo: %+v", upkeepID.String(), block, upkeepInfo)

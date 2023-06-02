@@ -127,7 +127,7 @@ func (r *EvmRegistry) fetchUpkeepsBatch(ctx context.Context, block *big.Int, ids
 			continue
 		}
 
-		payload, err := r.abi.Pack("getUpkeep", id)
+		payload, err := r.abi_2_1.Pack("getUpkeep", id)
 		if err != nil {
 			r.lggr.Warnw("failed to pack id with abi", "err", err, "id", id)
 			uResults[i] = nil

@@ -131,13 +131,14 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan types.BlockKey, 1),
 		},
-		lggr:        lggr,
+		lggr:        lggr.Named("EvmRegistry"),
 		poller:      client.LogPoller(),
 		addr:        addr,
 		client:      client.Client(),
 		txHashes:    make(map[string]bool),
 		registry:    registryV2_1,
 		abi:         keeperRegistryABI,
+		abi_2_1:     keeperRegistryABI_2_1,
 		packer:      &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		packer_v2_1: &evmRegistryPackerV2_1{abi: keeperRegistryABI_2_1},
 		headFunc:    func(types.BlockKey) {},
@@ -151,7 +152,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		hc:         http.DefaultClient,
 		logFilters: newLogFiltersManager(client.LogPoller()),
 	}
-	r.upkeepIndex = newUpkeepIndex(lggr, r.fetchUpkeep, r.fetchUpkeeps)
+	r.upkeepIndex = newUpkeepIndex(r.lggr, r.fetchUpkeep, r.fetchUpkeeps)
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
@@ -213,6 +214,7 @@ type EvmRegistry struct {
 	client        client.Client
 	registry      RegistryV2_1
 	abi           abi.ABI
+	abi_2_1       abi.ABI
 	packer        *evmRegistryPackerV2_0
 	packer_v2_1   *evmRegistryPackerV2_1
 	chLog         chan logpoller.Log
@@ -513,7 +515,6 @@ func (r *EvmRegistry) updateUpkeepConfig(id *big.Int, cfg []byte) {
 	switch getUpkeepType(types.UpkeepIdentifier(uid)) {
 	case logTrigger:
 		// for log upkeeps, we need to register the log filter
-		// TODO: check cfg type
 		parsed, err := r.packer_v2_1.UnpackUpkeepConfig(string(cfg))
 		if err != nil {
 			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
@@ -521,8 +522,9 @@ func (r *EvmRegistry) updateUpkeepConfig(id *big.Int, cfg []byte) {
 		}
 		if err := r.logFilters.Register(uid, parsed); err != nil {
 			r.lggr.Warnw("failed to register log filter", "upkeepID", uid)
-			// TODO: handle?
+			return // TODO: handle?
 		}
+		r.lggr.Debugw("registered log filter", "upkeepID", uid)
 	default:
 	}
 }
@@ -656,7 +658,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 			return nil, err
 		}
 
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
+		payload, err := r.abi_2_1.Pack("checkUpkeep", upkeepId)
 		if err != nil {
 			return nil, err
 		}
@@ -727,7 +729,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
-		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
+		payload, err := r.abi_2_1.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
 		if err != nil {
 			return nil, err
 		}
