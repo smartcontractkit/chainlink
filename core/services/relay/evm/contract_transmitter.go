@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -55,6 +57,22 @@ func transmitterFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
 }
 
+func newTransmitterFilter(addr common.Address) (logpoller.Filter, error) {
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
+	if err != nil {
+		return logpoller.Filter{}, err
+	}
+	transmitted, ok := contractABI.Events["Transmitted"]
+	if !ok {
+		return logpoller.Filter{}, errors.New("Failed to parse OCR2Aggregate ABI")
+	}
+	return logpoller.Filter{
+		Name:      transmitterFilterName(addr),
+		EventSigs: []common.Hash{transmitted.ID},
+		Addresses: []common.Address{addr},
+	}, nil
+}
+
 func NewOCRContractTransmitter(
 	address gethcommon.Address,
 	caller contractReader,
@@ -69,10 +87,6 @@ func NewOCRContractTransmitter(
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
-	if err != nil {
-		return nil, err
-	}
 	if reportToEvmTxMeta == nil {
 		reportToEvmTxMeta = reportToEvmTxMetaNoop
 	}

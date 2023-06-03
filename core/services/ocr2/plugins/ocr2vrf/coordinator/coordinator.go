@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -14,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -173,24 +174,7 @@ func New(
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	onchainRouter, err := newRouter(lggr, beaconAddress, coordinatorAddress, client)
 	if err != nil {
-		return nil, errors.Wrap(err, "onchain router creation")
-	}
-
-	t := newTopics()
-
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
-		EventSigs: []common.Hash{
-			t.randomnessRequestedTopic,
-			t.randomnessFulfillmentRequestedTopic,
-			t.randomWordsFulfilledTopic,
-			t.configSetTopic,
-			t.outputsServedTopic,
-			t.newTransmissionTopic}, Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}})
-	if err != nil {
-		return nil, err
+		return nil, pkgerrors.Wrap(err, "onchain router creation")
 	}
 
 	cacheEvictionWindowSeconds := int64(60)
@@ -203,7 +187,7 @@ func New(
 		beaconAddress:            beaconAddress,
 		dkgAddress:               dkgAddress,
 		lp:                       logPoller,
-		topics:                   t,
+		topics:                   newTopics(),
 		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
@@ -263,7 +247,7 @@ func (c *coordinator) ReportIsOnchain(
 		1,
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		return false, errors.Wrap(err, "log poller IndexedLogs")
+		return false, pkgerrors.Wrap(err, "log poller IndexedLogs")
 	}
 
 	// Filter for valid logs that match the current config digest.
@@ -328,7 +312,7 @@ func (c *coordinator) ReportBlocks(
 	// TODO: use head broadcaster instead?
 	currentHeight, err := c.CurrentChainHeight(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "header by number")
+		err = pkgerrors.Wrap(err, "header by number")
 		return
 	}
 
@@ -350,7 +334,7 @@ func (c *coordinator) ReportBlocks(
 		c.coordinatorAddress,
 		pg.WithParentCtx(ctx))
 	if err != nil {
-		err = errors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
+		err = pkgerrors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
 		return
 	}
 
@@ -362,7 +346,7 @@ func (c *coordinator) ReportBlocks(
 		outputsServedLogs,
 		err := c.unmarshalLogs(logs)
 	if err != nil {
-		err = errors.Wrap(err, "unmarshal logs")
+		err = pkgerrors.Wrap(err, "unmarshal logs")
 		return
 	}
 
@@ -389,7 +373,7 @@ func (c *coordinator) ReportBlocks(
 		recentBlockHashesStartHeight,
 	)
 	if err != nil {
-		err = errors.Wrap(err, "get blockhashes in ReportBlocks")
+		err = pkgerrors.Wrap(err, "get blockhashes in ReportBlocks")
 		return
 	}
 
@@ -403,7 +387,7 @@ func (c *coordinator) ReportBlocks(
 	redeemRandomnessBlocksRequested := make(map[block]struct{})
 	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
-		err = errors.Wrap(err, "filter requests in ReportBlocks")
+		err = pkgerrors.Wrap(err, "filter requests in ReportBlocks")
 		return
 	}
 	for _, uf := range unfulfilled {
@@ -415,7 +399,7 @@ func (c *coordinator) ReportBlocks(
 
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
-		err = errors.Wrap(err, "filter callbacks in ReportBlocks")
+		err = pkgerrors.Wrap(err, "filter callbacks in ReportBlocks")
 		return
 	}
 	for _, uf := range unfulfilled {
@@ -517,7 +501,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	// Get a mapping of block numbers to block hashes.
 	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
 	if err != nil {
-		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
+		err = pkgerrors.Wrap(err, "get blockhashes for ReportBlocks")
 	}
 	return
 }
@@ -547,7 +531,7 @@ func (c *coordinator) getBlockhashesMapping(
 
 	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
 	if err != nil {
-		return nil, errors.Wrap(err, "logpoller.GetBlocks")
+		return nil, pkgerrors.Wrap(err, "logpoller.GetBlocks")
 	}
 
 	blockhashesMapping = make(map[uint64]common.Hash)
@@ -762,7 +746,7 @@ func (c *coordinator) unmarshalLogs(
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
+				err = pkgerrors.Wrap(err2, "unmarshal RandomnessRequested log")
 				return
 			}
 			rr, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomnessRequested)
@@ -776,7 +760,7 @@ func (c *coordinator) unmarshalLogs(
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
+				err = pkgerrors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
 				return
 			}
 			rfr, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested)
@@ -790,7 +774,7 @@ func (c *coordinator) unmarshalLogs(
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
+				err = pkgerrors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
 				return
 			}
 			rwf, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled)
@@ -804,7 +788,7 @@ func (c *coordinator) unmarshalLogs(
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal OutputsServed log")
+				err = pkgerrors.Wrap(err2, "unmarshal OutputsServed log")
 				return
 			}
 			nt, ok := unpacked.(*vrf_coordinator.VRFCoordinatorOutputsServed)
@@ -840,10 +824,10 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	// Check for a re-org, and return an error if one is present.
 	blockhashesMapping, err := c.getBlockhashesMapping(ctx, []uint64{report.RecentBlockHeight})
 	if err != nil {
-		return errors.Wrap(err, "getting blockhash mapping in ReportWillBeTransmitted")
+		return pkgerrors.Wrap(err, "getting blockhash mapping in ReportWillBeTransmitted")
 	}
 	if blockhashesMapping[report.RecentBlockHeight] != report.RecentBlockHash {
-		return errors.Errorf("blockhash of report does not match most recent blockhash in ReportWillBeTransmitted")
+		return pkgerrors.Errorf("blockhash of report does not match most recent blockhash in ReportWillBeTransmitted")
 	}
 
 	blocksRequested := []blockInReport{}
@@ -915,7 +899,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
-		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
+		err = pkgerrors.Wrap(err, "latest vrf ConfigSet by sig with confs")
 		return
 	}
 
@@ -926,21 +910,21 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
-		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")
+		err = pkgerrors.Wrap(err, "latest dkg ConfigSet by sig with confs")
 		return
 	}
 
 	var vrfConfigSetLog vrf_beacon.VRFBeaconConfigSet
 	err = vrfBeaconABI.UnpackIntoInterface(&vrfConfigSetLog, configSetEvent, latestVRF.Data)
 	if err != nil {
-		err = errors.Wrap(err, "unpack vrf ConfigSet into interface")
+		err = pkgerrors.Wrap(err, "unpack vrf ConfigSet into interface")
 		return
 	}
 
 	var dkgConfigSetLog dkg_wrapper.DKGConfigSet
 	err = dkgABI.UnpackIntoInterface(&dkgConfigSetLog, configSetEvent, latestDKG.Data)
 	if err != nil {
-		err = errors.Wrap(err, "unpack dkg ConfigSet into interface")
+		err = pkgerrors.Wrap(err, "unpack dkg ConfigSet into interface")
 		return
 	}
 
@@ -966,7 +950,7 @@ func (c *coordinator) ProvingKeyHash(ctx context.Context) (common.Hash, error) {
 		Context: ctx,
 	})
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "get proving block hash")
+		return [32]byte{}, pkgerrors.Wrap(err, "get proving block hash")
 	}
 
 	return h, nil
@@ -978,7 +962,7 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 		Context: ctx,
 	})
 	if err != nil {
-		return 0, errors.Wrap(err, "get beacon period blocks")
+		return 0, pkgerrors.Wrap(err, "get beacon period blocks")
 	}
 
 	return uint16(beaconPeriodBlocks.Int64()), nil
@@ -990,7 +974,7 @@ func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) 
 		Context: ctx,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get confirmation delays")
+		return nil, pkgerrors.Wrap(err, "could not get confirmation delays")
 	}
 	var result []uint32
 	for _, c := range confDelays {
@@ -1003,7 +987,7 @@ func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) 
 func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
 	keyID, err := c.onchainRouter.SKeyID(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return dkg.KeyID{}, errors.Wrap(err, "could not get key ID")
+		return dkg.KeyID{}, pkgerrors.Wrap(err, "could not get key ID")
 	}
 	return keyID, nil
 }
@@ -1087,7 +1071,7 @@ func (c *coordinator) UpdateConfiguration(
 	// Unmarshal off-chain config.
 	err := proto.Unmarshal(b, c.coordinatorConfig)
 	if err != nil {
-		return errors.Wrap(err, "error setting offchain config on coordinator")
+		return pkgerrors.Wrap(err, "error setting offchain config on coordinator")
 	}
 
 	// Update local caches with new eviction window.
@@ -1134,26 +1118,41 @@ func (c *coordinator) emitReportWillBeTransmittedMetrics(
 	promCallbacksInReport.WithLabelValues(c.labelValues()...).Observe(float64(numCallbacks))
 }
 
-func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) string {
-	return logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
-}
-
-func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
+func FiltersFromSpec(spec *job.OCR2OracleSpec) (filters []logpoller.Filter, err error) {
 	var cfg ocr2vrfconfig.PluginConfig
-	var beaconAddress, coordinatorAddress, dkgAddress ethkey.EIP55Address
+	var beacon ethkey.EIP55Address
 
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
-		err = errors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
+		err = pkgerrors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
 		return nil, err
 	}
 
-	if beaconAddress, err = ethkey.NewEIP55Address(spec.ContractID); err == nil {
-		if coordinatorAddress, err = ethkey.NewEIP55Address(cfg.VRFCoordinatorAddress); err == nil {
-			if dkgAddress, err = ethkey.NewEIP55Address(cfg.DKGContractAddress); err == nil {
-				return []string{filterName(beaconAddress.Address(), coordinatorAddress.Address(), dkgAddress.Address())}, nil
-			}
-		}
+	beacon, err = ethkey.NewEIP55Address(spec.ContractID)
+	coord, err2 := ethkey.NewEIP55Address(cfg.VRFCoordinatorAddress)
+	if err2 != nil {
+		err = errors.Join(err, err2)
 	}
+	dkg, err2 := ethkey.NewEIP55Address(cfg.DKGContractAddress)
+	if err == nil {
+		err = errors.Join(err, err2)
+	}
+	return []logpoller.Filter{createLogFilter(beacon.Address(), coord.Address(), dkg.Address())}, nil
+}
 
-	return nil, err
+func createLogFilter(beaconAddress common.Address, coordinatorAddress common.Address, dkgAddress common.Address) logpoller.Filter {
+	t := newTopics()
+	return logpoller.Filter{
+		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
+		EventSigs: []common.Hash{
+			t.randomnessRequestedTopic,
+			t.randomnessFulfillmentRequestedTopic,
+			t.randomWordsFulfilledTopic,
+			t.configSetTopic,
+			t.outputsServedTopic,
+			t.newTransmissionTopic},
+		Addresses: []common.Address{beaconAddress, coordinatorAddress, dkgAddress}}
+}
+
+func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) string {
+	return logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress)
 }

@@ -99,14 +99,22 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 	return logpoller.FilterName("OCR3 Mercury ConfigPoller", addr.String(), feedID.Hex())
 }
 
+func NewConfigPollerFilter(addr common.Address) logpoller.Filter {
+	return logpoller.Filter{
+		Name:      logpoller.FilterName("OCR3 Mercury ConfigPoller", addr.String(), feedID.HEX()),
+		EventSigs: []common.Hash{FeedScopedConfigSet},
+		Addresses: []common.Address{addr},
+	}
+}
+
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
+	err := destChainPoller.RegisterFilter(NewConfigPollerFilter(addr), nil)
+
 	if err != nil {
 		return nil, err
 	}
-
-	subscription, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
+	subscription, err = eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
 	if err != nil {
 		return nil, err
 	}

@@ -178,6 +178,11 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 	return []job.ServiceCtx{configProvider, job.NewServiceAdapter(bootstrapper)}, nil
 }
 
+// OnCreateJob satisfies the job.Delegate interface.
+func (d *Delegate) OnCreateJob(spec job.Job, q pg.Queryer) error {
+	return nil
+}
+
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {
 }

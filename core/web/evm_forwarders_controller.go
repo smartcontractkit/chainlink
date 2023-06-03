@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -49,14 +50,33 @@ type TrackEVMForwarderRequest struct {
 
 // Track adds a new EVM forwarder.
 func (cc *EVMForwardersController) Track(c *gin.Context) {
+	var fwd forwarders.Forwarder
 	request := &TrackEVMForwarderRequest{}
 
-	if err := c.ShouldBindJSON(&request); err != nil {
+	err := c.ShouldBindJSON(&request)
+	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
-	fwd, err := orm.CreateForwarder(request.Address, *request.EVMChainID)
+
+	db, lggr, cfg := cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database()
+	orm := forwarders.NewORM(db, lggr, cfg)
+	q := pg.NewQ(db, lggr, cfg)
+	err = q.Transaction(func(tx pg.Queryer) error {
+		fwd, err = orm.CreateForwarder(request.Address, *request.EVMChainID, pg.WithQueryer(tx))
+		if err != nil {
+			return err
+		}
+		chain, err2 := cc.App.GetChains().EVM.Get(request.EVMChainID.ToInt())
+		if err2 != nil {
+			return err2
+		}
+
+		if chain.LogPoller() == logpoller.LogPollerDisabled {
+			return errors.New("Log poller must be enabled to add or use forwarders")
+		}
+		return chain.LogPoller().RegisterFilter(forwarders.NewLogFilter(fwd.Address), tx)
+	})
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -91,7 +111,9 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 			// handle same as non-existent chain id
 			return nil
 		}
-		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr), pg.WithQueryer(tx))
+
+		filter := forwarders.NewLogFilter(addr)
+		return chain.LogPoller().UnregisterFilter(filter.Name, pg.WithQueryer(tx))
 	}
 
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())

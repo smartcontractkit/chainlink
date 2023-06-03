@@ -63,6 +63,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) OnCreateJob(spec job.Job, q pg.Queryer) error { return nil }
 func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }

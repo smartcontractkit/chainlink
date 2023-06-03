@@ -15,6 +15,7 @@ import (
 	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -99,12 +100,12 @@ func EVMDependencies20(
 	return keeperProvider, registry, encoder, logProvider, err
 }
 
-func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
+func FiltersFromSpec20(spec *job.OCR2OracleSpec) (filters []logpoller.Filter, err error) {
 	addr, err := ethkey.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
+	return []logpoller.Filter{kevm20.LogProviderFilter(addr.Address()), kevm20.UpkeepFilter(addr.Address())}, err
 }
 
 func EVMDependencies21(

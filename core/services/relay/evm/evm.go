@@ -23,6 +23,7 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -183,7 +184,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	return configProvider, err
 }
 
-func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, err error) {
+func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter, err error) {
 	var addr ethkey.EIP55Address
 	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err
@@ -194,11 +195,16 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	}
 
 	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
+		filters = []logpoller.Filter{mercury.NewConfigPollerFilter(addr.Address())}
 	} else {
-		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+		var transmitterFilter logpoller.Filter
+		transmitterFilter, err = newTransmitterFilter(addr.Address())
+		if err != nil {
+			return filters, err
+		}
+		filters = []logpoller.Filter{transmitterFilter}
 	}
-	return filterNames, err
+	return filters, err
 }
 
 type configWatcher struct {

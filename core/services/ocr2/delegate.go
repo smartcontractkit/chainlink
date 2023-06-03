@@ -11,6 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -34,6 +35,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -75,6 +77,15 @@ var ErrJobSpecNoRelayer = errors.New("OCR2 job spec could not get relayer id")
 type RelayGetter interface {
 	Get(id relay.ID) (loop.Relayer, error)
 }
+
+type ErrNonOCR2JobType struct {
+	job.Job
+}
+
+func (e ErrNonOCR2JobType) Error() string {
+	return fmt.Sprintf("ocr2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 job %v", e.Job)
+}
+
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
@@ -233,19 +244,100 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	// This is only called first time the job is created
 	d.isNewlyCreatedJob = true
 }
+
+func (d *Delegate) getLogPoller(spec *job.OCR2OracleSpec) evmlogpoller.LogPoller {
+	chain, err := d.legacyChains.Get(spec.ChainID)
+	if err != nil {
+		d.lggr.Error(err)
+		return nil
+	}
+
+	return chain.LogPoller()
+}
+
+func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID) (filters []evmlogpoller.Filter) {
+	var err error
+	switch spec.PluginType {
+	case job.OCR2VRF:
+		filters, err = ocr2coordinator.FiltersFromSpec(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+		}
+	case job.OCR2Keeper:
+		filters, err = ocr2keeper.FiltersFromSpec20(spec)
+		if err != nil {
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+		}
+	default:
+		return nil
+	}
+
+	rargs := types.RelayArgs{
+		ExternalJobID: extJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           true,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+	}
+
+	relayFilters, err := evmrelay.FiltersFromRelayArgs(rargs)
+	if err != nil {
+		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+		return nil
+	}
+
+	filters = append(filters, relayFilters...)
+	return filters
+}
+
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
+	spec := jb.OCR2OracleSpec
+	if spec == nil {
+		d.lggr.Error(ErrNonOCR2JobType{jb})
+		return nil
+	}
+	if spec.Relay != relay.EVM {
+		return nil
+	}
+	lp := d.getLogPoller(spec)
+	if lp == nil {
+		return nil
+	}
+
+	filters := d.filtersFromSpec(jb.OCR2OracleSpec, jb.ExternalJobID)
+	if filters == nil {
+		return nil
+	}
+
+	for _, filter := range filters {
+		d.lggr.Debugf("Registering new filter %s", filter)
+		if err := lp.RegisterFilter(filter, q); err != nil {
+			return errors.Wrapf(err, "Failed to register filter %s", filter)
+		}
+	}
+	return nil
+}
+
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
-
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		d.lggr.Errorf("offchainreporting2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 spec %v", jb)
+		d.lggr.Error(ErrNonOCR2JobType{jb})
+		return nil
+	}
+	if spec.Relay != relay.EVM {
 		return nil
 	}
 
-	rid, err := spec.RelayID()
+	lp := d.getLogPoller(spec)
+	if lp == nil {
+		return nil
+	}
+
+	rid, err := jb.OCR2OracleSpec.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob: "+ErrJobSpecNoRelayer.Error(), "err", err)
 		return nil
@@ -272,15 +364,18 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	}
 	lp := chain.LogPoller()
 
-	var filters []string
+	var filters []evmlogpoller.Filter
 	switch spec.PluginType {
-	case types.OCR2VRF:
-		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
+	case job.OCR2VRF:
+		filters := d.filtersFromSpec(jb.OCR2OracleSpec, jb.ExternalJobID)
+		if filters == nil {
+			return nil
+		}
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
-	case types.OCR2Keeper:
-		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
+	case job.OCR2Keeper:
+		filters, err = ocr2keeper.FiltersFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
@@ -296,7 +391,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		RelayConfig:   spec.RelayConfig.Bytes(),
 	}
 
-	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
+	relayFilters, err := evmrelay.FiltersFromRelayArgs(rargs)
 	if err != nil {
 		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
 		return nil
@@ -306,8 +401,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
-		if err != nil {
+		if err := lp.UnregisterFilter(filter.Name, pg.WithQueryer(q)); err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
 	}
@@ -318,7 +412,10 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
+		return nil, ErrNonOCR2JobType{jb}
+	}
+	if !spec.TransmitterID.Valid {
+		return nil, errors.Errorf("expected a transmitterID to be specified")
 	}
 
 	transmitterID := spec.TransmitterID.String

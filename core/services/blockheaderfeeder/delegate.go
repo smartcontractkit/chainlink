@@ -47,8 +47,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.BlockHeaderFeeder
 }
 
-// ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) getChainFromSpec(jb job.Job) (evm.Chain, error) {
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
@@ -61,6 +60,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	if !chain.Config().Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
+	}
+
+	return chain, nil
+}
+
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+	chain, err := d.getChainFromSpec(jb)
+	if err != nil {
+		return nil, err
 	}
 
 	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EVM().FinalityDepth()) {
@@ -201,13 +210,61 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
 
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
+	chain, err := d.getChainFromSpec(jb)
+	if err != nil {
+		d.logger.Error(err)
+		return nil
+	}
+
+	lp := chain.LogPoller()
+	if jb.BlockHeaderFeederSpec.CoordinatorV1Address == nil {
+		filter := blockhashstore.NewV1LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address())
+		lp.RegisterFilter(filter, q)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to register filter %v", filter)
+		}
+	}
+	if jb.BlockHeaderFeederSpec.CoordinatorV2Address == nil {
+		filter := blockhashstore.NewV2LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address())
+		lp.RegisterFilter(filter, q)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to register filter %v", filter)
+		}
+	}
+	return nil
+}
+
 func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 
 // BeforeJobDeleted satisfies the job.Delegate interface.
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
+	chain, err := d.getChainFromSpec(jb)
+	if err != nil {
+		d.logger.Error(err)
+		return nil
+	}
+
+	lp := chain.LogPoller()
+	if jb.BlockHeaderFeederSpec.CoordinatorV1Address == nil {
+		filter := blockhashstore.NewV1LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address())
+		err = lp.UnregisterFilter(filter.Name, q)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
+		}
+	}
+	if jb.BlockHeaderFeederSpec.CoordinatorV2Address == nil {
+		filter := blockhashstore.NewV2LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address())
+		err = lp.UnregisterFilter(filter.Name, q)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
+		}
+	}
+	return nil
+}
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
