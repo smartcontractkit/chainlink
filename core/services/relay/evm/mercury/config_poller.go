@@ -92,13 +92,17 @@ type ConfigPoller struct {
 	feedId             common.Hash
 }
 
-func FilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2 Mercury ConfigPoller", addr.String())
+func NewConfigPollerFilter(addr common.Address) logpoller.Filter {
+	return logpoller.Filter{
+		Name:      logpoller.FilterName("OCR2 Mercury ConfigPoller", addr.String()),
+		EventSigs: []common.Hash{FeedScopedConfigSet},
+		Addresses: []common.Address{addr},
+	}
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	err := destChainPoller.RegisterFilter(NewConfigPollerFilter(addr), nil)
 	if err != nil {
 		return nil, err
 	}

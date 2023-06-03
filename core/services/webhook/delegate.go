@@ -57,6 +57,8 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 	}
 }
 
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error { return nil }
+
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 	err := d.externalInitiatorManager.DeleteJob(*spec.WebhookSpecID)
 	if err != nil {

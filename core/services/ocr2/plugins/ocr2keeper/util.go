@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -97,12 +98,12 @@ func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	return keeperProvider, registry, encoder, logProvider, err
 }
 
-func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
+func FiltersFromSpec20(spec *job.OCR2OracleSpec) (filters []logpoller.Filter, err error) {
 	addr, err := ethkey.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
+	return []logpoller.Filter{kevm20.LogProviderFilter(addr.Address()), kevm20.UpkeepFilter(addr.Address())}, err
 }
 
 func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder, *kevm21.LogProvider, error) {

@@ -58,6 +58,8 @@ type (
 		JobType() Type
 		// BeforeJobCreated is only called once on first time job create.
 		BeforeJobCreated(spec Job)
+		// OnCreateJob is called from within the CREATE db transaction.
+		OnCreateJob(spec Job, q pg.Queryer) error
 		// ServicesForSpec returns services to be started and stopped for this
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
@@ -242,10 +244,20 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	err = js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		err = js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
+		if err != nil {
+			js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
+			return err
+		}
+
+		js.lggr.Debugw("Callback: OnCreateJob")
+		err = delegate.OnCreateJob(*jb, tx)
+		js.lggr.Debugw("Callback: OnCreateJob done")
+		return err
+	})
 	if err != nil {
-		js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
-		return
+		return err
 	}
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
@@ -373,6 +385,7 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 }
 
 func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
+func (n *NullDelegate) OnCreateJob(spec Job, q pg.Queryer) error { return nil }
 func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
 func (n *NullDelegate) BeforeJobDeleted(spec Job)                {}
 func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }

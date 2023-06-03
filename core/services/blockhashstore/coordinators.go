@@ -68,15 +68,19 @@ type V1Coordinator struct {
 	lp logpoller.LogPoller
 }
 
-// NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
+func NewV1LogFilter(addr common.Address) logpoller.Filter {
+	return logpoller.Filter{
+		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", addr),
 		EventSigs: []common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
 			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
-		}, Addresses: []common.Address{c.Address()},
-	})
+		}, Addresses: []common.Address{addr},
+	}
+}
+
+// NewV1Coordinator creates a new V1Coordinator from the given contract.
+func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
+	err := lp.RegisterFilter(NewV1LogFilter(c.Address()), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -157,19 +161,19 @@ type V2Coordinator struct {
 	lp logpoller.LogPoller
 }
 
-// NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
+func NewV2LogFilter(addr common.Address) logpoller.Filter {
+	return logpoller.Filter{
+		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", addr),
 		EventSigs: []common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		}, Addresses: []common.Address{c.Address()},
-	})
-
-	if err != nil {
-		return nil, err
+		}, Addresses: []common.Address{addr},
 	}
+}
+
+// NewV2Coordinator creates a new V2Coordinator from the given contract.
+func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
+	err := lp.RegisterFilter(NewV2LogFilter(c.Address()), nil)
 
 	return &V2Coordinator{c, lp}, err
 }

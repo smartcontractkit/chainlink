@@ -15,7 +15,7 @@ import (
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
+	CreateForwarder(addr common.Address, evmChainId utils.Big, qopts ...pg.QOpt) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
 	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
 	DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainId int64, addr common.Address) error) error
@@ -33,9 +33,10 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
-func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error) {
+func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big, qopts ...pg.QOpt) (fwd Forwarder, err error) {
+	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO evm_forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
-	err = o.q.Get(&fwd, sql, addr, evmChainId)
+	err = q.Get(&fwd, sql, addr, evmChainId)
 	return fwd, err
 }
 
@@ -50,14 +51,9 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 
 	var rowsAffected int64
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Get(&dest, `SELECT evm_chain_id, address FROM evm_forwarders WHERE id = $1`, id)
-		if err != nil {
-			return err
-		}
-		if cleanup != nil {
-			if err = cleanup(tx, dest.EvmChainId, dest.Address); err != nil {
-				return err
-			}
+		err2 := tx.Get(&dest, `SELECT evm_chain_id, address FROM evm_forwarders WHERE id = $1`, id)
+		if err2 != nil {
+			return err2
 		}
 
 		result, err2 := o.q.Exec(`DELETE FROM evm_forwarders WHERE id = $1`, id)
@@ -68,6 +64,14 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 			return err2
 		}
 		rowsAffected, err2 = result.RowsAffected()
+		if err2 != nil {
+			return err2
+		}
+
+		// cleanup should be last, as it may contain non-db side effects
+		if cleanup != nil {
+			err2 = cleanup(tx, dest.EvmChainId, dest.Address)
+		}
 
 		return err2
 	})

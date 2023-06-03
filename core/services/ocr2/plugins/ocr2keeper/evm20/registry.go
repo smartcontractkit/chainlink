@@ -97,7 +97,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 
 	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
-	r := &EvmRegistry{
+	return &EvmRegistry{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
 			hb:     client.HeadBroadcaster(),
@@ -123,13 +123,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		},
 		hc:  http.DefaultClient,
 		enc: EVMAutomationEncoder20{},
-	}
-
-	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
-	}
-
-	return r, nil
+	}, nil
 }
 
 func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
@@ -429,18 +423,12 @@ func (r *EvmRegistry) pollLogs() error {
 	return nil
 }
 
-func UpkeepFilterName(addr common.Address) string {
-	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
-}
-
-func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need
-	return r.poller.RegisterFilter(logpoller.Filter{
-		Name:      UpkeepFilterName(addr),
+func UpkeepFilter(addr common.Address) (filters logpoller.Filter) {
+	return logpoller.Filter{
+		Name:      logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String()),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
-	})
+	}
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
