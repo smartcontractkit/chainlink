@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"fmt"
-	"math/big"
 	"sync/atomic"
 	"time"
 
@@ -21,11 +20,6 @@ type Reaper[CHAIN_ID txmgrtypes.ID] struct {
 	trigger        chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
-}
-
-// NewEvmReaper instantiates a new EVM-specific reaper object
-func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, chainID *big.Int) *EvmReaper {
-	return NewReaper(lggr, store, config, chainID)
 }
 
 // NewReaper instantiates a new reaper object
