@@ -12,13 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+const (
+	loggerName = "PluginMedian"
+)
+
 func main() {
 	envCfg, err := plugins.GetEnvConfig()
 	if err != nil {
 		fmt.Printf("Failed to get environment configuration: %s\n", err)
 		os.Exit(1)
 	}
-	lggr, closeLggr := plugins.NewLogger(envCfg)
+	lggr, closeLggr := plugins.NewLogger(loggerName, envCfg)
 	defer closeLggr()
 	slggr := logger.Sugared(lggr)
 

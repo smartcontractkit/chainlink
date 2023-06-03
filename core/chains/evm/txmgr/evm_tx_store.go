@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	nullv4 "gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -30,8 +31,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
-var ErrInvalidQOpt = errors.New("evmTxStore: Invalid QOpt")
+var (
+	ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
+	ErrInvalidQOpt   = errors.New("evmTxStore: Invalid QOpt")
+
+	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
+	// This most likely happened because an external wallet used the account for this nonce
+	ErrCouldNotGetReceipt = "could not get receipt"
+)
+
+type TestEvmTxStore interface {
+	EvmTxStore
+	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
+}
 
 type evmTxStore struct {
 	q         pg.Q
@@ -41,6 +53,7 @@ type evmTxStore struct {
 }
 
 var _ EvmTxStore = (*evmTxStore)(nil)
+var _ TestEvmTxStore = (*evmTxStore)(nil)
 
 // Directly maps to columns of database table "eth_receipts".
 // Do not modify type unless you
@@ -55,28 +68,18 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
-func DbReceiptFromEvmReceipt(evmReceipt *EvmReceipt) dbReceipt {
+func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
 	return dbReceipt{
-		ID:               evmReceipt.ID,
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
-		BlockNumber:      evmReceipt.BlockNumber,
+		BlockNumber:      evmReceipt.BlockNumber.Int64(),
 		TransactionIndex: evmReceipt.TransactionIndex,
-		Receipt:          *evmReceipt.Receipt,
-		CreatedAt:        evmReceipt.CreatedAt,
+		Receipt:          *evmReceipt,
 	}
 }
 
-func DbReceiptToEvmReceipt(receipt *dbReceipt) EvmReceipt {
-	return EvmReceipt{
-		ID:               receipt.ID,
-		TxHash:           receipt.TxHash,
-		BlockHash:        receipt.BlockHash,
-		BlockNumber:      receipt.BlockNumber,
-		TransactionIndex: receipt.TransactionIndex,
-		Receipt:          &receipt.Receipt,
-		CreatedAt:        receipt.CreatedAt,
-	}
+func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
+	return &receipt.Receipt
 }
 
 // Directly maps to onchain receipt schema.
@@ -91,8 +94,8 @@ type dbReceiptPlus struct {
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []dbReceipt) []EvmReceipt {
-	receipts := make([]EvmReceipt, len(rs))
+func fromDBReceipts(rs []dbReceipt) []*evmtypes.Receipt {
+	receipts := make([]*evmtypes.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
 	}
@@ -290,7 +293,7 @@ func NewTxStore(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-) EvmTxStore {
+) *evmTxStore {
 	namedLogger := lggr.Named("TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
@@ -487,7 +490,8 @@ func (o *evmTxStore) InsertEthTxAttempt(attempt *EvmTxAttempt) error {
 	return pkgerrors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
-func (o *evmTxStore) InsertEthReceipt(receipt *EvmReceipt) error {
+// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
+func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	// convert to database representation
 	r := DbReceiptFromEvmReceipt(receipt)
 
@@ -496,10 +500,7 @@ func (o *evmTxStore) InsertEthReceipt(receipt *EvmReceipt) error {
 ) RETURNING *`
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
-	// method expects original (destination) receipt struct to be updated
-	*receipt = DbReceiptToEvmReceipt(&r)
-
-	return pkgerrors.Wrap(err, "InsertEthReceipt failed")
+	return r.ID, pkgerrors.Wrap(err, "InsertEthReceipt failed")
 }
 
 // FindEthTxWithAttempts finds the EvmTx with its attempts and receipts preloaded
@@ -583,7 +584,7 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EvmTx) (err error) {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
 	}
 
-	var receipts []EvmReceipt = fromDBReceipts(rs)
+	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
@@ -603,7 +604,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []EvmTxAttempt) error 
 	if err := q.Select(&rs, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load eth_receipts")
 	}
-	var receipts []EvmReceipt = fromDBReceipts(rs)
+	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash.String()]
 		attempt.Receipts = append(attempt.Receipts, receipt)
@@ -899,7 +900,7 @@ func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmTxAttempt) error {
 }
 
 func updateEthTxUnconfirm(q pg.Queryer, etx EvmTx) error {
-	if etx.State != EthTxConfirmed {
+	if etx.State != txmgr.EthTxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
 	_, err := q.Exec(`UPDATE eth_txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
@@ -1233,7 +1234,7 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(etx *EvmTx, fromAdd
 func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
-	if etx.State != EthTxInProgress {
+	if etx.State != txmgr.EthTxInProgress {
 		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
@@ -1241,7 +1242,7 @@ func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	}
 
 	etx.Sequence = nil
-	etx.State = EthTxFatalError
+	etx.State = txmgr.EthTxFatalError
 
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
@@ -1266,7 +1267,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if etx.InitialBroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
 	}
-	if etx.State != EthTxInProgress {
+	if etx.State != txmgr.EthTxInProgress {
 		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
@@ -1275,7 +1276,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if NewAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return pkgerrors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
-	etx.State = EthTxUnconfirmed
+	etx.State = txmgr.EthTxUnconfirmed
 	attempt.State = NewAttemptState
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if err := incrNextNonceCallback(tx); err != nil {
@@ -1294,73 +1295,49 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	})
 }
 
-// recoverFromTxAttemptsHashConflict recovers from an idx_eth_tx_attempts_hash constraint violation.
-// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
-// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
-// case, we uphold the constraint, leaving the original tx attempt as-is and returning the constraint violation error.
-//
-// Note:  the record of the original abandoned transaction will remain in eth_txes, only the attempt is replaced.  (Any receipt
-// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
-// can be abandoned.)
-func recoverFromTxAttemptsHashConflict(attempt *EvmTxAttempt, tx pg.Queryer, dupErr error, query string, args ...interface{}) (err error) {
-	var duplicateTx DbEthTx
-	defer func() {
-		if err != nil {
-			err = errors.Join(dupErr, err)
-		}
-	}()
-	err = tx.Get(&duplicateTx, `SELECT * FROM eth_txes t JOIN eth_tx_attempts a ON t.id = a.eth_tx_id WHERE a.hash = $1`, attempt.Hash)
-	if err == nil {
-		if duplicateTx.State != EthTxFatalError || !duplicateTx.Error.Valid || duplicateTx.Error.String != "abandoned" {
-			return err
-		}
-		var nrows int64
-		var res sql.Result // Remove previous attempt.
-		res, err = tx.Exec(`DELETE FROM eth_tx_attempts WHERE a.hash=$1`, attempt.Hash)
-		if err != nil {
-			return err
-		}
-		nrows, err = res.RowsAffected()
-		if err == nil {
-			if nrows == 0 {
-				err = pkgerrors.Wrap(err, "Failed to remove conflicting hash from eth_tx_attempts")
-			} else { // Try again to insert new attempt.
-				var dbAttempt DbEthTxAttempt
-				err = tx.Get(&dbAttempt, query, args...)
-			}
-		}
-	}
-	return err
-}
-
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
 func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if etx.Sequence == nil {
 		return errors.New("in_progress transaction must have nonce")
 	}
-	if etx.State != EthTxUnstarted {
+	if etx.State != txmgr.EthTxUnstarted {
 		return pkgerrors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
-	etx.State = EthTxInProgress
+	etx.State = txmgr.EthTxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
+		// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
+		// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
+		// case, we uphold the constraint, leaving the original tx attempt as-is and returning the constraint violation error.
+		//
+		// Note:  the record of the original abandoned transaction will remain in eth_txes, only the attempt is replaced.  (Any receipt
+		// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
+		// can be abandoned.)
+		_, err := tx.Exec(`DELETE FROM eth_tx_attempts a USING eth_txes t
+			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
+			attempt.Hash, txmgr.EthTxFatalError,
+		)
+		if err == nil {
+			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
+		} else if errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
 		dbAttempt := DbEthTxAttemptFromEthTxAttempt(attempt)
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, &dbAttempt)
 		if e != nil {
 			return pkgerrors.Wrap(e, "failed to BindNamed")
 		}
-		err := tx.Get(&dbAttempt, query, args...)
+		err = tx.Get(&dbAttempt, query, args...)
 		if err != nil {
 			var pqErr *pgconn.PgError
 			if isPqErr := errors.As(err, &pqErr); isPqErr {
 				switch pqErr.ConstraintName {
 				case "eth_tx_attempts_eth_tx_id_fkey":
-					return errEthTxRemoved
-				case "idx_eth_tx_attempts_hash":
-					err = recoverFromTxAttemptsHashConflict(attempt, tx, err, query, args...)
+					return txmgr.ErrEthTxRemoved
 				default:
 				}
 			}
@@ -1444,12 +1421,12 @@ func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, stat
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, EthTxUnconfirmed, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, EthTxUnstarted, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnstarted, chainID, qopts...)
 }
 
 func (o *evmTxStore) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int, qopts ...pg.QOpt) (err error) {

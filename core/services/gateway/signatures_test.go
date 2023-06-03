@@ -1,6 +1,7 @@
 package gateway_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,15 +39,17 @@ func TestSignatures_MessageSignAndValidate(t *testing.T) {
 func TestSignatures_BytesSignAndValidate(t *testing.T) {
 	t.Parallel()
 
-	data := [][]byte{[]byte("data_data")}
+	data := []byte("data_data")
 
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey).Bytes()
 
-	signature, err := gateway.SignData(data, privateKey)
+	signature, err := gateway.SignData(privateKey, data)
 	require.NoError(t, err)
 	require.Equal(t, 65, len(signature))
 
-	require.NoError(t, gateway.ValidateSignature(data, signature, address))
+	signer, err := gateway.ValidateSignature(signature, data)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(signer, address))
 }

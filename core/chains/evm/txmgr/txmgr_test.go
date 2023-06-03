@@ -17,9 +17,9 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/builder"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -56,7 +56,7 @@ func makeTestEvmTxm(
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	return builder.NewTxm(
+	return txmgr.NewTxm(
 		db,
 		cfg,
 		ethClient,
@@ -129,7 +129,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -142,7 +142,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -508,7 +508,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), gethcommon.Address{}).Return(uint64(0), nil).Maybe()
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())

@@ -30,6 +30,10 @@ type HasEVMConfigs interface {
 type EVMConfigs []*EVMConfig
 
 func (cs EVMConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -72,7 +76,10 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
+func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -84,6 +91,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
@@ -568,6 +576,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 
 type GasLimitJobType struct {
 	OCR    *uint32 `toml:",inline"`
+	OCR2   *uint32 `toml:",inline"`
 	DR     *uint32 `toml:",inline"`
 	VRF    *uint32 `toml:",inline"`
 	FM     *uint32 `toml:",inline"`
@@ -577,6 +586,9 @@ type GasLimitJobType struct {
 func (t *GasLimitJobType) setFrom(f *GasLimitJobType) {
 	if f.OCR != nil {
 		t.OCR = f.OCR
+	}
+	if f.OCR2 != nil {
+		t.OCR2 = f.OCR2
 	}
 	if f.DR != nil {
 		t.DR = f.DR

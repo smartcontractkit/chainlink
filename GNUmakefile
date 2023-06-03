@@ -61,6 +61,10 @@ install-solana: ## Build & install the chainlink-solana binary.
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
+.PHONY: install-starknet
+install-starknet: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
@@ -143,7 +147,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.22.1
+	go install github.com/vektra/mockery/v2@v2.28.1
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen

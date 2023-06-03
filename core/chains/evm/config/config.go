@@ -42,6 +42,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint32
 	EvmGasLimitOCRJobType() *uint32
+	EvmGasLimitOCR2JobType() *uint32
 	EvmGasLimitDRJobType() *uint32
 	EvmGasLimitVRFJobType() *uint32
 	EvmGasLimitFMJobType() *uint32

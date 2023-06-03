@@ -27,13 +27,13 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -78,7 +78,11 @@ func (o *GeneralConfigOpts) parseConfig(config string) error {
 	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
-	o.Config.SetFrom(&c)
+
+	// Overrides duplicate fields
+	if err4 := o.Config.SetFrom(&c); err4 != nil {
+		return fmt.Errorf("invalid configuration: %w", err4)
+	}
 	return nil
 }
 
@@ -453,44 +457,8 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
-}
-
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
-}
-
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
+func (g *generalConfig) Database() coreconfig.Database {
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
 func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
@@ -529,10 +497,6 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 	return *g.c.FluxMonitor.SimulateTransactions
 }
 
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	return g.c.Database.Dialect
-}
-
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
 	return g.c.WebServer.HTTPWriteTimeout.Duration()
 }
@@ -565,48 +529,8 @@ func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
 }
 
-func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return *g.c.Keeper.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
-	return *g.c.Keeper.GasPriceBufferPercent
-}
-
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
-	return *g.c.Keeper.GasTipCapBufferPercent
-}
-
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
-	return *g.c.Keeper.BaseFeeBufferPercent
-}
-
-func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaxGracePeriod
-}
-
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.CheckGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.PerformGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.Registry.MaxPerformDataSize
-}
-
-func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.Registry.SyncInterval.Duration()
-}
-
-func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
-}
-
-func (g *generalConfig) KeeperTurnLookBack() int64 {
-	return *g.c.Keeper.TurnLookBack
+func (g *generalConfig) Keeper() config.Keeper {
+	return &keeperConfig{c: g.c.Keeper}
 }
 
 func (g *generalConfig) KeyFile() string {
@@ -614,16 +538,6 @@ func (g *generalConfig) KeyFile() string {
 		return filepath.Join(g.TLSDir(), "server.key")
 	}
 	return g.TLSKeyPath()
-}
-
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
 }
 
 func (g *generalConfig) LogFileDir() string {
@@ -736,6 +650,14 @@ func (g *generalConfig) OCR2TraceLogging() bool {
 
 func (g *generalConfig) OCR2CaptureEATelemetry() bool {
 	return *g.c.OCR2.CaptureEATelemetry
+}
+
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
@@ -992,10 +914,6 @@ func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
 
 func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {

@@ -8,6 +8,14 @@ Port = 8081
 Path = "/node"
 HandshakeTimeoutMillis = 1000
 
+[ConnectionManagerConfig]
+AuthTimestampToleranceSec = 60
+AuthChallengeLen = 32
+
 [[Dons]]
-DonId = "example"
+DonId = "example_don"
 HandlerName = "dummy"
+
+[[Dons.Members]]
+Name = "example_node"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"

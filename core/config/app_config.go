@@ -27,18 +27,16 @@ type AppConfig interface {
 	LogConfiguration(log LogfFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
-	LogSQL() bool
 	SetPasswords(keystore, vrf *string)
 
 	AutoPprof
-	Database
+	DatabaseV1
 	Ethereum
 	Explorer
 	FeatureFlags
 	FluxMonitor
 	Insecure
 	JobPipeline
-	Keeper
 	Keystore
 	Logging
 	OCR1Config
@@ -53,6 +51,9 @@ type AppConfig interface {
 	TelemetryIngress
 	Web
 	audit.Config
+
+	Database() Database
+	Keeper() Keeper
 }
 type DatabaseBackupMode string
 

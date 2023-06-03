@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/builder"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -48,7 +47,7 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
-		txm, err = builder.NewTxm(
+		txm, err = txmgr.NewTxm(
 			db,
 			cfg,
 			client,
