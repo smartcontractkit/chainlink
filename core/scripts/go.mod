@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 require (
 	github.com/ava-labs/coreth v0.11.0-rc.4
-	github.com/docker/docker v23.0.1+incompatible
+	github.com/docker/docker v23.0.4+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/google/go-cmp v0.5.9
@@ -265,10 +265,10 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/pressly/goose/v3 v3.5.3 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect
-	github.com/prometheus/client_model v0.3.0 // indirect
+	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
-	github.com/prometheus/prometheus v0.43.1 // indirect
+	github.com/prometheus/prometheus v0.44.0 // indirect
 	github.com/pyroscope-io/client v0.7.1 // indirect
 	github.com/pyroscope-io/godeltaprof v0.1.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
@@ -340,7 +340,7 @@ require (
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.2 // indirect
-	gonum.org/v1/gonum v0.12.0 // indirect
+	gonum.org/v1/gonum v0.13.0 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 	google.golang.org/grpc v1.53.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
