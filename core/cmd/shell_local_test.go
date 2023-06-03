@@ -75,7 +75,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)
 
-			client := cmd.Client{
+			client := cmd.Shell{
 				Config:                 cfg,
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
@@ -161,7 +161,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)
 
-			client := cmd.Client{
+			client := cmd.Shell{
 				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{prompter},
@@ -252,7 +252,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	client := cmd.Client{
+	client := cmd.Shell{
 		Config:                 config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -327,7 +327,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			client := cmd.Client{
+			client := cmd.Shell{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
@@ -401,7 +401,7 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			client := cmd.Client{
+			client := cmd.Shell{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
