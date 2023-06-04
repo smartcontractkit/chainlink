@@ -86,7 +86,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   );
 
   error InsufficientBalance();
-  error InvalidConsumer(uint64 subscriptionId, address consumer);
   error InvalidSubscription();
   error UnauthorizedSender();
   error MustBeSubOwner(address owner);
@@ -268,7 +267,11 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
    * @dev Only callable by the Functions Router
    */
-  function startBilling(bytes memory data, RequestBilling memory billing) internal nonReentrant returns (bytes32) {
+  function startBilling(bytes memory data, RequestBilling memory billing)
+    internal
+    nonReentrant
+    returns (bytes32, uint96)
+  {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the gas and computation.
     if (billing.gasLimit > s_config.maxGasLimit) {
@@ -280,14 +283,15 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     uint96 adminFee = getAdminFee(data, billing);
     uint96 estimatedCost = calculateCostEstimate(billing.gasLimit, billing.gasPrice, donFee, adminFee);
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-    (uint96 balance, uint96 blockedBalance, , ) = subscriptions.getSubscription(billing.subscriptionId);
+    (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
+    (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
+
     uint96 effectiveBalance = balance - blockedBalance;
     if (effectiveBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 
-    (, uint64 nonce, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
-    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce + 1);
+    bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
     Commitment memory commitment = Commitment(
       billing.subscriptionId,
@@ -302,10 +306,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     );
     s_requestCommitments[requestId] = commitment;
 
-    subscriptions.blockBalance(billing.client, billing.subscriptionId, estimatedCost);
-
     emit BillingStart(requestId, commitment);
-    return requestId;
+    return (requestId, estimatedCost);
   }
 
   /**
@@ -316,7 +318,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     address client,
     uint64 subscriptionId,
     uint64 nonce
-  ) private pure returns (bytes32) {
+  ) private view returns (bytes32) {
     return keccak256(abi.encode(don, client, subscriptionId, nonce, block.number));
   }
 
@@ -419,7 +421,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       tx.gasprice
     );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-    (uint96 balance, , , ) = subscriptions.getSubscription(commitment.subscriptionId);
+    (uint96 balance, , , , ) = subscriptions.getSubscription(commitment.subscriptionId);
 
     if (balance < bill.totalCost) {
       revert InsufficientBalance();
@@ -491,7 +493,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
 
       // Check that the message sender is the subscription owner
       IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-      (, , address owner, ) = subscriptions.getSubscription(commitment.subscriptionId);
+      (, , address owner, , ) = subscriptions.getSubscription(commitment.subscriptionId);
       if (msg.sender != owner) {
         revert MustBeSubOwner(owner);
       }

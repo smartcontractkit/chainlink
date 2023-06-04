@@ -134,31 +134,15 @@ library Functions {
   /**
    * @notice Adds args for the user run function
    */
-  function encodeRequest(
-    uint64 subscriptionId,
-    uint32 gasLimit,
-    bytes memory requestCBOR
-  ) internal pure returns (bytes memory) {
-    return abi.encode(REQUEST_DATA_VERSION, subscriptionId, gasLimit, requestCBOR);
+  function encodeRequest(bytes memory requestCBOR) internal pure returns (bytes memory) {
+    return abi.encode(REQUEST_DATA_VERSION, requestCBOR);
   }
 
   /**
    * @notice Adds args for the user run function
    */
-  function decodeRequest(bytes memory requestData)
-    internal
-    pure
-    returns (
-      uint16,
-      uint64,
-      uint32,
-      bytes memory
-    )
-  {
-    (uint16 version, uint64 subscriptionId, uint32 gasLimit, bytes memory requestCBOR) = abi.decode(
-      requestData,
-      (uint16, uint64, uint32, bytes)
-    );
-    return (version, subscriptionId, gasLimit, requestCBOR);
+  function decodeRequest(bytes memory requestData) internal pure returns (uint16, bytes memory) {
+    (uint16 version, bytes memory requestCBOR) = abi.decode(requestData, (uint16, bytes));
+    return (version, requestCBOR);
   }
 }

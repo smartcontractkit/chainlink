@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.6;
 
 import {OCR2Abstract} from "./OCR2Abstract.sol";
 
@@ -177,7 +177,7 @@ abstract contract OCR2Base is OCR2Abstract {
     }
     s_configInfo.n = uint8(args.signers.length);
 
-    emit ConfigSet(
+    emit OCRConfigSet(
       previousConfigBlockNumber,
       s_configInfo.latestConfigDigest,
       s_configCount,

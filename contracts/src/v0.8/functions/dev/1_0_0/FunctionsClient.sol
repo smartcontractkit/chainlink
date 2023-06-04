@@ -64,7 +64,9 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint32 gasLimit
   ) internal returns (bytes32) {
     bytes32 requestId = s_router.sendRequest(
-      Functions.encodeRequest(subscriptionId, gasLimit, Functions.encodeCBOR(req))
+      subscriptionId,
+      Functions.encodeRequest(Functions.encodeCBOR(req)),
+      gasLimit
     );
     s_pendingRequests[requestId] = s_router.getRoute("FunctionsCoordinator");
     emit RequestSent(requestId);

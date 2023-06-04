@@ -5,12 +5,34 @@ pragma solidity ^0.8.6;
  * @title Chainlink Functions Subscription interface.
  */
 interface IFunctionsSubscriptions {
+  struct Subscription {
+    // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
+    uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
+    address owner; // Owner can fund/withdraw/cancel the sub.
+    address requestedOwner; // For safely transferring sub ownership.
+    // Maintains the list of keys in s_consumers.
+    // We do this for 2 reasons:
+    // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
+    // 2. To be able to return the list of all consumers in getSubscription.
+    // Note that we need the s_consumers map to be able to directly check if a
+    // consumer is valid without reading all the consumers from storage.
+    address[] consumers;
+  }
+
+  struct Consumer {
+    bool allowed; // Owner can fund/withdraw/cancel the sub.
+    uint64 initiatedRequests; // The number of requests that have been started
+    uint64 completedRequests; // The number of requests that have successfully completed or timed out
+  }
+
   /**
    * @notice Get details about a subscription.
    * @param subscriptionId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
    * @return blockedBalance - amount of LINK balance of the subscription in juels that is blocked for an in flight request.
    * @return owner - owner of the subscription.
+   * @return requestedOwner - proposed owner to move ownership of the subscription to.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(uint64 subscriptionId)
@@ -20,6 +42,7 @@ interface IFunctionsSubscriptions {
       uint96 balance,
       uint96 blockedBalance,
       address owner,
+      address requestedOwner,
       address[] memory consumers
     );
 
@@ -42,26 +65,13 @@ interface IFunctionsSubscriptions {
     );
 
   /**
-   * @notice Blocks funds on a subscription account to be used for an in flight request
-   * @dev Only callable by a route
-   * @param client - the consumer contract that initiated the request
-   * @param subscriptionId - The subscription ID to block funds for
-   * @param amount - The amount to transfer
-   */
-  function blockBalance(
-    address client,
-    uint64 subscriptionId,
-    uint96 amount
-  ) external;
-
-  /**
    * @notice Unblocks funds on a subscription account once a request has completed
    * @dev Only callable by a route
    * @param client - the consumer contract that initiated the request
    * @param subscriptionId - The subscription ID to block funds for
    * @param amount - The amount to transfer
    */
-    function unblockBalance(
+  function unblockBalance(
     address client,
     uint64 subscriptionId,
     uint96 amount
