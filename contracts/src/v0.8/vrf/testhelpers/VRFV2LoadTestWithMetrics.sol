@@ -66,10 +66,23 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
     uint16 _requestCount
   ) external onlyOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
-      uint256 requestId = COORDINATOR.requestRandomWords(_keyHash, _subId, _requestConfirmations, _callbackGasLimit, _numWords);
+      uint256 requestId = COORDINATOR.requestRandomWords(
+        _keyHash,
+        _subId,
+        _requestConfirmations,
+        _callbackGasLimit,
+        _numWords
+      );
       s_lastRequestId = requestId;
       uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
-      s_requests[requestId] = RequestStatus({randomWords: new uint256[](0), fulfilled: false, requestTimestamp: block.timestamp, fulfilmentTimestamp: 0, requestBlockNumber: requestBlockNumber, fulfilmentBlockNumber: 0});
+      s_requests[requestId] = RequestStatus({
+        randomWords: new uint256[](0),
+        fulfilled: false,
+        requestTimestamp: block.timestamp,
+        fulfilmentTimestamp: 0,
+        requestBlockNumber: requestBlockNumber,
+        fulfilmentBlockNumber: 0
+      });
       s_requestCount++;
       requestHeights[requestId] = requestBlockNumber;
     }
@@ -85,8 +98,26 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
 
   function getRequestStatus(
     uint256 _requestId
-  ) external view returns (bool fulfilled, uint256[] memory randomWords, uint requestTimestamp, uint fulfilmentTimestamp, uint256 requestBlockNumber, uint256 fulfilmentBlockNumber) {
+  )
+    external
+    view
+    returns (
+      bool fulfilled,
+      uint256[] memory randomWords,
+      uint requestTimestamp,
+      uint fulfilmentTimestamp,
+      uint256 requestBlockNumber,
+      uint256 fulfilmentBlockNumber
+    )
+  {
     RequestStatus memory request = s_requests[_requestId];
-    return (request.fulfilled, request.randomWords, request.requestTimestamp, request.fulfilmentTimestamp, request.requestBlockNumber, request.fulfilmentBlockNumber);
+    return (
+      request.fulfilled,
+      request.randomWords,
+      request.requestTimestamp,
+      request.fulfilmentTimestamp,
+      request.requestBlockNumber,
+      request.fulfilmentBlockNumber
+    );
   }
 }
