@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -20,12 +21,15 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -62,10 +66,29 @@ func TestConfigPoller(t *testing.T) {
 	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
+
+	relayConfig := types.RelayConfig{
+		FeedID: nil, // regular not Mercury
+	}
+	rc, err := json.Marshal(relayConfig)
+	require.NoError(t, err)
+	rargs := relaytypes.RelayArgs{
+		ContractID:  ocrAddress.String(),
+		RelayConfig: rc,
+	}
+	filters, err2 := FiltersFromRelayArgs(rargs)
+	require.NoError(t, err2)
+
 	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
 	require.NoError(t, err)
+	for _, filter := range filters {
+		err = lp.RegisterFilter(filter, db)
+		require.NoError(t, err)
+	}
+
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
