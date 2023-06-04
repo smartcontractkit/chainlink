@@ -15,12 +15,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// pollInterval is the maximum amount of time in addition to
-// EthTxResendAfterThreshold that we will wait before resending an attempt
-const DefaultResenderPollInterval = 5 * time.Second
+const (
+	// pollInterval is the maximum amount of time in addition to
+	// EthTxResendAfterThreshold that we will wait before resending an attempt
+	DefaultResenderPollInterval = 5 * time.Second
 
-// Alert interval for unconfirmed transaction attempts
-const unconfirmedTxAlertLogFrequency = 2 * time.Minute
+	// Alert interval for unconfirmed transaction attempts
+	unconfirmedTxAlertLogFrequency = 2 * time.Minute
+
+	// timeout value for batchSendTransactions
+	batchSendTransactionTimeout = 30 * time.Second
+)
 
 // EthResender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
@@ -52,18 +57,6 @@ type Resender[
 	ctx    context.Context
 	cancel context.CancelFunc
 	chDone chan struct{}
-}
-
-// NewEvnResender creates a new concrete EvmResender
-func NewEvmResender(
-	lggr logger.Logger,
-	txStore EvmTxStore,
-	evmClient EvmTxmClient,
-	ks EvmKeyStore,
-	pollInterval time.Duration,
-	config EvmResenderConfig,
-) *EvmResender {
-	return NewResender(lggr, txStore, evmClient, ks, pollInterval, config)
 }
 
 func NewResender[

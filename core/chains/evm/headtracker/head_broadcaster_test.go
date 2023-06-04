@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -49,7 +49,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
