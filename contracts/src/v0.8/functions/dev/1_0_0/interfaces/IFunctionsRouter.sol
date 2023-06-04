@@ -19,7 +19,11 @@ interface IFunctionsRouter is IRouterBase {
 
   // function isConsumerAllowed(address client, uint64 subscriptionId) external view;
 
-  function sendRequest(bytes calldata data) external returns (bytes32);
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external returns (bytes32);
 
   /**
    * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled

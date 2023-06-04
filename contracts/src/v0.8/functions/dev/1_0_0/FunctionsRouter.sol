@@ -7,7 +7,7 @@ import {IVersioned} from "./interfaces/IVersioned.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {AuthorizedOriginReceiver} from "./accessControl/AuthorizedOriginReceiver.sol";
-import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {IFunctionsSubscriptions, FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
   // ================================================================
@@ -72,19 +72,47 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   // |                      Request methods                         |
   // ================================================================
 
-  function _smoke(bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
-    address route = this.getRoute("FunctionsCoordinator", true);
+  function _sendRequest(
+    bool isProposed,
+    uint64 subscriptionId,
+    bytes memory data,
+    uint32 gasLimit
+  ) internal returns (bytes32) {
+    _isValidSubscription(subscriptionId);
+    _isValidConsumer(msg.sender, subscriptionId);
+
+    address route = this.getRoute("FunctionsCoordinator", isProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
-    return coordinator.sendRequest(msg.sender, data);
+
+    (, , address owner, , ) = this.getSubscription(subscriptionId);
+
+    (bytes32 requestId, uint96 estimatedCost) = coordinator.sendRequest(
+      subscriptionId,
+      data,
+      gasLimit,
+      msg.sender,
+      owner
+    );
+
+    _blockBalance(msg.sender, subscriptionId, estimatedCost, requestId, route);
+
+    return requestId;
+  }
+
+  function _smoke(bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
+    (uint64 subscriptionId, bytes memory reqData, uint32 gasLimit) = abi.decode(data, (uint64, bytes, uint32));
+    return _sendRequest(true, subscriptionId, reqData, gasLimit);
   }
 
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function sendRequest(bytes calldata data) external override onlyAuthorizedUsers returns (bytes32) {
-    address route = this.getRoute("FunctionsCoordinator", false);
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
-    return coordinator.sendRequest(msg.sender, data);
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit
+  ) external override onlyAuthorizedUsers returns (bytes32) {
+    return _sendRequest(false, subscriptionId, data, gasLimit);
   }
 
   /**
@@ -135,6 +163,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     }
     _;
   }
+
   modifier onlyRouterOwner() override {
     _validateOwnership();
     _;

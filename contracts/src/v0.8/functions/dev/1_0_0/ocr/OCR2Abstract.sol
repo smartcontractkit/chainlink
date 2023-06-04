@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.6;
 
 abstract contract OCR2Abstract {
   // Maximum number of oracles the offchain reporting protocol is designed for
@@ -17,7 +17,7 @@ abstract contract OCR2Abstract {
    * @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    */
-  event ConfigSet(
+  event OCRConfigSet(
     uint32 previousConfigBlockNumber,
     bytes32 configDigest,
     uint64 configCount,

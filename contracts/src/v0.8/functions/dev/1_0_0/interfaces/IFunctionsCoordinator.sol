@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import {IFunctionsSubscriptions} from "./IFunctionsSubscriptions.sol";
+
 /**
  * @title Chainlink Functions oracle interface.
  */
@@ -44,9 +46,18 @@ interface IFunctionsCoordinator {
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @dev Callable only by the Router
+   * @param subscriptionId Identifier of the subscription that will be charged for the request
+   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param caller The client contract that is sending the request
-   * @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+   * @param subscriptionOwner The owner of the subscription
    * @return requestId A unique request identifier (unique per DON)
+   * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
    */
-  function sendRequest(address caller, bytes calldata requestData) external returns (bytes32);
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit,
+    address caller,
+    address subscriptionOwner
+  ) external returns (bytes32, uint96);
 }

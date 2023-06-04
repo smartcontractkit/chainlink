@@ -14,7 +14,7 @@ import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
-  uint16 public constant REQUEST_DATA_VERSION = Functions.REQUEST_DATA_VERSION;
+  uint16 constant REQUEST_DATA_VERSION = Functions.REQUEST_DATA_VERSION;
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -112,42 +112,31 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /**
    * @inheritdoc IFunctionsCoordinator
    */
-  function sendRequest(address caller, bytes calldata requestData) external override onlyRouter returns (bytes32) {
-    if (requestData.length == 0) {
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit,
+    address caller,
+    address subscriptionOwner
+  ) external override onlyRouter returns (bytes32, uint96) {
+    if (data.length == 0) {
       revert EmptyRequestData();
     }
 
-    (uint16 version, uint64 subscriptionId, uint32 gasLimit, bytes memory requestCBOR) = Functions.decodeRequest(
-      requestData
-    );
+    (uint16 version, bytes memory requestCBOR) = Functions.decodeRequest(data);
 
     if (version != REQUEST_DATA_VERSION) {
       revert UnsupportedRequestDataVersion();
     }
 
-    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-    (, , address subscriptionOwner, ) = subscriptions.getSubscription(subscriptionId);
-    if (subscriptionOwner == address(0)) {
-      // TODO: gas optimize?
-      revert InvalidSubscription();
-    }
-
-    // It's important to ensure that the consumer is in fact who they say they
-    // are, otherwise they could use someone else's subscription balance.
-    (bool allowed, , ) = subscriptions.getConsumer(caller, subscriptionId);
-
-    if (allowed == false) {
-      revert InvalidConsumer(subscriptionId, caller);
-    }
-
-    bytes32 requestId = startBilling(
+    (bytes32 requestId, uint96 estimatedCost) = startBilling(
       requestCBOR,
       IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice)
     );
 
     emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
 
-    return requestId;
+    return (requestId, estimatedCost);
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
