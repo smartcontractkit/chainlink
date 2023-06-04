@@ -20,7 +20,5 @@ type VRFV2JobInfo struct {
 type VRFV2Contracts struct {
 	Coordinator      contracts.VRFCoordinatorV2
 	BHS              contracts.BlockHashStore
-	Consumer         contracts.VRFConsumerV2
-	AdvancedConsumer contracts.VRFv2Consumer
 	LoadTestConsumer contracts.VRFv2LoadTestConsumer
 }

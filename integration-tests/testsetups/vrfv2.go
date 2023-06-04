@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -36,14 +36,13 @@ type VRFV2SoakTest struct {
 	DefaultNetwork  blockchain.EVMClient
 
 	NumberOfRandRequests int
-	NumberOfFulfillments int
 
 	ErrorOccurred error
 	ErrorCount    int
 }
 
 // VRFV2SoakTestTestFunc function type for the request and validation you want done on each iteration
-type VRFV2SoakTestTestFunc func(t *VRFV2SoakTest, requestNumber int, wg *sync.WaitGroup) error
+type VRFV2SoakTestTestFunc func(t *VRFV2SoakTest, requestNumber int) error
 
 // VRFV2SoakTestInputs define required inputs to run a vrfv2 soak test
 type VRFV2SoakTestInputs struct {
@@ -53,8 +52,10 @@ type VRFV2SoakTestInputs struct {
 	SubscriptionFunding  *big.Int             `envconfig:"SUBSCRIPTION_FUNDING" default:"100"`  // Amount of Link to fund VRF Coordinator subscription
 	StopTestOnError      bool                 // Do we want the test to stop after any error or just continue on
 
-	RequestsPerMinute int                   `envconfig:"REQUESTS_PER_MINUTE" default:"10"` // Number of requests for randomness per minute
-	TestFunc          VRFV2SoakTestTestFunc // The function that makes the request and validations wanted
+	RequestsPerMinute                int `envconfig:"REQUESTS_PER_MINUTE" default:"10"` // Number of requests for randomness per minute
+	RandomnessRequestCountPerRequest int `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"`
+	ConsumerContract                 contracts.VRFv2LoadTestConsumer
+	TestFunc                         VRFV2SoakTestTestFunc // The function that makes the request and validations wanted
 }
 
 // NewVRFV2SoakTest creates a new vrfv2 soak test to setup and run
@@ -88,19 +89,17 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 	defer testCancel()
 
 	v.NumberOfRandRequests = 0
-	v.NumberOfFulfillments = 0
 
 	// variables dealing with how often to tick and how to stop the ticker
 	stop := false
 	startTime := time.Now()
 	ticker := time.NewTicker(time.Minute / time.Duration(v.Inputs.RequestsPerMinute))
-	var wg sync.WaitGroup
+
 	for {
 		// start the loop by checking to see if any of the TestFunc responses have returned an error
 		if v.Inputs.StopTestOnError {
 			require.NoError(t, v.ErrorOccurred, "Found error")
 		}
-
 		select {
 		case <-testContext.Done():
 			// stop making requests
@@ -110,25 +109,46 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 		case <-ticker.C:
 			// make the next request
 			v.NumberOfRandRequests++
-			go requestAndValidate(v, v.NumberOfRandRequests, &wg)
+			go requestAndValidate(v, v.NumberOfRandRequests)
 		}
-
 		if stop {
 			break // breaks the for loop and stops the test
 		}
 	}
-	wg.Wait()
-	l.Info().Int("Requests", v.NumberOfRandRequests).Msg("Total Completed Requests")
-	l.Info().Int("Fulfillments", v.NumberOfFulfillments).Msg("Total Fulfillments")
+
+	err := v.chainClient.WaitForEvents()
+	if err != nil {
+		log.Error().Err(err).Msg("Error Occurred waiting for On chain events")
+	}
+	//wait some buffer time for requests to be fulfilled
+	//todo - need to find better way for this
+	time.Sleep(1 * time.Minute)
+
+	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(nil)
+	if err != nil {
+		log.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
+	}
+
+	averageFulfillmentInBlockTime := new(big.Float).Quo(new(big.Float).SetInt(loadTestMetrics.AverageFulfillmentInMillions), big.NewFloat(1e6))
+
+	l.Info().Int("Requests", v.NumberOfRandRequests).Msg("Total Completed Requests calculated from Test")
+	l.Info().Uint64("Requests", loadTestMetrics.RequestCount.Uint64()).Msg("Total Completed Requests calculated from Contract")
+	l.Info().Uint64("Fulfilments", loadTestMetrics.FulfilmentCount.Uint64()).Msg("Total Completed Fulfilments")
+	l.Info().Uint64("Fastest Fulfilment", loadTestMetrics.FastestFulfillment.Uint64()).Msg("Fastest Fulfilment")
+	l.Info().Uint64("Slowest Fulfilment", loadTestMetrics.SlowestFulfillment.Uint64()).Msg("Slowest Fulfilment")
+	l.Info().Interface("Average Fulfillment", averageFulfillmentInBlockTime).Msg("Average Fulfillment In Block Time")
+
+	//todo - need to calculate 95th percentile response time in Block time and calculate how many requests breached 256 block time requirement
+
 	l.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
 	require.Equal(t, 0, v.ErrorCount, "Expected 0 errors")
-	require.Equal(t, v.NumberOfRandRequests, v.NumberOfFulfillments, "Number of Rand Requests should be equal to Number of Fulfillments")
+	require.Equal(t, loadTestMetrics.RequestCount.Uint64(), loadTestMetrics.FulfilmentCount.Uint64(), "Number of Rand Requests should be equal to Number of Fulfillments")
 }
 
-func requestAndValidate(t *VRFV2SoakTest, requestNumber int, wg *sync.WaitGroup) {
+func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 
 	log.Info().Int("Request Number", requestNumber).Msg("Making a Request")
-	err := t.Inputs.TestFunc(t, requestNumber, wg)
+	err := t.Inputs.TestFunc(t, requestNumber)
 
 	// only set the error to be checked if err is not nil so we avoid race conditions with passing requests
 	if err != nil {
@@ -168,6 +188,7 @@ func (i VRFV2SoakTestInputs) SetForRemoteRunner() {
 	os.Setenv("TEST_VRFV2_CHAINLINK_NODE_FUNDING", i.ChainlinkNodeFunding.String())
 	os.Setenv("TEST_VRFV2_SUBSCRIPTION_FUNDING", i.SubscriptionFunding.String())
 	os.Setenv("TEST_VRFV2_REQUESTS_PER_MINUTE", strconv.Itoa(i.RequestsPerMinute))
+	os.Setenv("TEST_VRFV2_RANDOMNESS_REQUEST_COUNT_PER_REQUEST", strconv.Itoa(i.RandomnessRequestCountPerRequest))
 
 	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
 	for _, networkPrefix := range selectedNetworks {

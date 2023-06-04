@@ -69,6 +69,8 @@ func TestVRFv2Basic(t *testing.T) {
 		time.Minute*20,
 	)
 
+	consumerContract := vrfV2Contracts.LoadTestConsumer
+
 	t.Cleanup(func() {
 		err := actions.TeardownSuite(
 			t,
@@ -82,12 +84,13 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	err = vrfV2Contracts.AdvancedConsumer.RequestRandomness(
+	err = consumerContract.RequestRandomness(
 		vrfV2jobs[0].KeyHash,
 		vrfv2_constants.SubID,
-		uint16(vrfv2_constants.MinimumConfirmations),
+		vrfv2_constants.MinimumConfirmations,
 		vrfv2_constants.CallbackGasLimit,
 		vrfv2_constants.NumberOfWords,
+		vrfv2_constants.RandomnessRequestCountPerRequest,
 	)
 	require.NoError(t, err)
 
@@ -98,11 +101,11 @@ func TestVRFv2Basic(t *testing.T) {
 		jobRuns, err := chainlinkNodesAfterRedeployment[0].MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-		lastRequestID, err = vrfV2Contracts.AdvancedConsumer.GetLastRequestId(context.Background())
+		lastRequestID, err = consumerContract.GetLastRequestId(context.Background())
 		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		status, err := vrfV2Contracts.AdvancedConsumer.GetRequestStatus(context.Background(), lastRequestID)
+		status, err := consumerContract.GetRequestStatus(context.Background(), lastRequestID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")

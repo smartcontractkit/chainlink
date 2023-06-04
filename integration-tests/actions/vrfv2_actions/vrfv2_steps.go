@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -39,17 +38,12 @@ func DeployVRFV2Contracts(
 	require.NoError(t, err, "Error deploying blockhash store")
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2(linkTokenContract.Address(), bhs.Address(), linkEthFeedContract.Address())
 	require.NoError(t, err, "Error deploying VRFv2 Coordinator")
-	consumer, err := contractDeployer.DeployVRFConsumerV2(linkTokenContract.Address(), coordinator.Address())
-	require.NoError(t, err, "Error deploying VRFv2 Consumer")
-	advancedConsumer, err := contractDeployer.DeployVRFv2Consumer(coordinator.Address())
-	require.NoError(t, err, "Error deploying VRFv2 Advanced Consumer")
 	loadTestConsumer, err := contractDeployer.DeployVRFv2LoadTestConsumer(coordinator.Address())
 	require.NoError(t, err, "Error deploying VRFv2 Advanced Consumer")
-
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	return VRFV2Contracts{coordinator, bhs, consumer, advancedConsumer, loadTestConsumer}
+	return VRFV2Contracts{coordinator, bhs, loadTestConsumer}
 }
 
 func CreateVRFV2Jobs(
@@ -57,7 +51,7 @@ func CreateVRFV2Jobs(
 	chainlinkNodes []*client.Chainlink,
 	coordinator contracts.VRFCoordinatorV2,
 	c blockchain.EVMClient,
-	minIncomingConfirmations int,
+	minIncomingConfirmations uint16,
 ) []VRFV2JobInfo {
 	l := utils.GetTestLogger(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
@@ -79,7 +73,7 @@ func CreateVRFV2Jobs(
 			CoordinatorAddress:       coordinator.Address(),
 			FromAddresses:            []string{nativeTokenPrimaryKeyAddress},
 			EVMChainID:               c.GetChainID().String(),
-			MinIncomingConfirmations: minIncomingConfirmations,
+			MinIncomingConfirmations: int(minIncomingConfirmations),
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
 			ObservationSource:        ost,
@@ -170,8 +164,8 @@ func SetupVRFV2Universe(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err)
 
-	err = vrfV2Contracts.Coordinator.AddConsumer(vrfv2_constants.SubID, vrfV2Contracts.AdvancedConsumer.Address())
-	require.NoError(t, err, "Error adding a Consumer to a subscription in VRFCoordinator contract")
+	err = vrfV2Contracts.Coordinator.AddConsumer(vrfv2_constants.SubID, vrfV2Contracts.LoadTestConsumer.Address())
+	require.NoError(t, err, "Error adding a Load Test Consumer to a subscription in VRFCoordinator contract")
 
 	FundVRFCoordinatorV2Subscription(
 		t,
@@ -218,12 +212,15 @@ PriceMax = '%d gwei'
 	err = testEnvironmentAfterRedeployment.RolloutStatefulSets()
 	require.NoError(t, err, "Error performing rollout restart for test environment")
 
-	conds := &env_client.ReadyCheckData{
-		ReadinessProbeCheckSelector: newEnvLabel,
-		Timeout:                     5 * time.Minute,
-	}
+	//conds := &env_client.ReadyCheckData{
+	//	ReadinessProbeCheckSelector: newEnvLabel,
+	//	Timeout:                     5 * time.Minute,
+	//}
+	//
+	//err = testEnvironmentAfterRedeployment.RunCustomReadyConditions(conds, 0)
+	//require.NoError(t, err, "Error running test environment")
 
-	err = testEnvironmentAfterRedeployment.RunCustomReadyConditions(conds, 0)
+	err = testEnvironmentAfterRedeployment.Run()
 	require.NoError(t, err, "Error running test environment")
 
 	//need to get node's urls again since port changed after redeployment

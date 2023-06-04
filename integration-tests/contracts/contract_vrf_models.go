@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
@@ -48,6 +47,7 @@ type VRFCoordinatorV2 interface {
 	CreateSubscription() error
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
+	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
 }
 
 type VRFConsumer interface {
@@ -75,17 +75,14 @@ type VRFv2Consumer interface {
 	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
-	ChangeEVMClient(newClient blockchain.EVMClient)
 }
 
 type VRFv2LoadTestConsumer interface {
 	Address() string
 	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
-	ChangeEVMClient(newClient blockchain.EVMClient)
-
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
-
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 }
 
 type DKG interface {
@@ -169,4 +166,12 @@ type LoadTestRequestStatus struct {
 	fulfilmentTimestamp   *big.Int
 	requestBlockNumber    *big.Int
 	fulfilmentBlockNumber *big.Int
+}
+
+type VRFLoadTestMetrics struct {
+	RequestCount                 *big.Int
+	FulfilmentCount              *big.Int
+	AverageFulfillmentInMillions *big.Int
+	SlowestFulfillment           *big.Int
+	FastestFulfillment           *big.Int
 }

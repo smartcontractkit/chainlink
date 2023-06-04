@@ -336,6 +336,18 @@ func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big
 	return hash, nil
 }
 
+func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	subscription, err := v.coordinator.GetSubscription(opts, subID)
+	if err != nil {
+		return vrf_coordinator_v2.GetSubscription{}, err
+	}
+	return subscription, nil
+}
+
 func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
@@ -460,14 +472,6 @@ type EthereumVRFv2LoadTestConsumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	consumer *vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics
-}
-
-func (v *EthereumVRFv2Consumer) ChangeEVMClient(newClient blockchain.EVMClient) {
-	v.client = newClient
-}
-
-func (v *EthereumVRFv2LoadTestConsumer) ChangeEVMClient(newClient blockchain.EVMClient) {
-	v.client = newClient
 }
 
 // CurrentSubscription get current VRFv2 subscription
@@ -615,6 +619,54 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLastRequestId(ctx context.Context) (*
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
+	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return &VRFLoadTestMetrics{}, err
+	}
+	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return &VRFLoadTestMetrics{}, err
+	}
+	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return &VRFLoadTestMetrics{}, err
+	}
+	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return &VRFLoadTestMetrics{}, err
+	}
+	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return &VRFLoadTestMetrics{}, err
+	}
+
+	return &VRFLoadTestMetrics{
+		requestCount,
+		fulfilmentCount,
+		averageFulfillmentInMillions,
+		slowestFulfillment,
+		fastestFulfillment,
+	}, nil
 }
 
 // GetAllRandomWords get all VRFv2 randomness output words

@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	LinkEthFeedResponse  = big.NewInt(1e18)
-	MinimumConfirmations = 3
+	LinkEthFeedResponse              = big.NewInt(1e18)
+	MinimumConfirmations             = uint16(3)
+	RandomnessRequestCountPerRequest = uint16(1)
 	//todo - get Sub id when creating subscription - need to listen for SubscriptionCreated Log
 	SubID                            = uint64(1)
 	VRFSubscriptionFundingAmountLink = big.NewInt(100)
