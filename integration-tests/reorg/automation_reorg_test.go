@@ -129,7 +129,8 @@ func TestAutomationReorg(t *testing.T) {
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
-			TTL:             time.Hour * 1}).
+			TTL:             time.Hour * 1,
+			Test:            t}).
 		AddHelm(reorg.New(defaultReorgEthereumSettings)).
 		AddHelm(chainlink.New(0, defaultAutomationSettings)).
 		AddChart(blockscout.New(&blockscout.Props{
@@ -138,6 +139,10 @@ func TestAutomationReorg(t *testing.T) {
 			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
+
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
