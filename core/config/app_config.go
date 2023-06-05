@@ -37,7 +37,6 @@ type AppConfig interface {
 	FluxMonitor
 	Insecure
 	JobPipeline
-	Keeper
 	Keystore
 	Logging
 	OCR1Config
@@ -49,12 +48,14 @@ type AppConfig interface {
 	Pyroscope
 	Secrets
 	Sentry
-	TelemetryIngress
 	Web
 	audit.Config
 
 	Database() Database
+	Keeper() Keeper
+	TelemetryIngress() TelemetryIngress
 }
+
 type DatabaseBackupMode string
 
 var (

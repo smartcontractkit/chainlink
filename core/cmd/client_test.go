@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
@@ -327,5 +329,61 @@ func TestNewUserCache(t *testing.T) {
 	}()
 
 	assert.DirExists(t, c.RootDir())
+
+}
+
+func TestSetupSolanaRelayer(t *testing.T) {
+	lggr := logger.TestLogger(t).Named("solana-test")
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	reg := plugins.NewLoopRegistry()
+	ks := mocks.NewSolana(t)
+
+	// not parallel; shared state
+	t.Run("no plugin", func(t *testing.T) {
+		relayer, err := cmd.SetupSolanaRelayer(lggr, db, cfg, reg, ks)
+		require.NoError(t, err)
+		require.NotNil(t, relayer)
+		// no using plugin, so registry should be empty
+		require.Len(t, reg.List(), 0)
+	})
+
+	t.Run("plugin", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+
+		relayer, err := cmd.SetupSolanaRelayer(lggr, db, cfg, reg, ks)
+		require.NoError(t, err)
+		require.NotNil(t, relayer)
+		// make sure registry has the plugin
+		require.Len(t, reg.List(), 1)
+	})
+
+}
+
+func TestSetupStarkNetRelayer(t *testing.T) {
+	lggr := logger.TestLogger(t).Named("starknet-test")
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	reg := plugins.NewLoopRegistry()
+	ks := mocks.NewStarkNet(t)
+
+	// not parallel; shared state
+	t.Run("no plugin", func(t *testing.T) {
+		relayer, err := cmd.SetupStarkNetRelayer(lggr, db, cfg, reg, ks)
+		require.NoError(t, err)
+		require.NotNil(t, relayer)
+		// no using plugin, so registry should be empty
+		require.Len(t, reg.List(), 0)
+	})
+
+	t.Run("plugin", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+
+		relayer, err := cmd.SetupStarkNetRelayer(lggr, db, cfg, reg, ks)
+		require.NoError(t, err)
+		require.NotNil(t, relayer)
+		// make sure registry has the plugin
+		require.Len(t, reg.List(), 1)
+	})
 
 }

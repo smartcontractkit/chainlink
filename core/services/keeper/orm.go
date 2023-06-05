@@ -17,12 +17,17 @@ import (
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
 	q      pg.Q
-	config Config
+	config ORMConfig
 	logger logger.Logger
 }
 
+type ORMConfig interface {
+	EvmEIP1559DynamicFees() bool
+	pg.QConfig
+}
+
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, config Config) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config ORMConfig) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
 		q:      pg.NewQ(db, lggr, config),

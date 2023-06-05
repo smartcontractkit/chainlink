@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -52,7 +53,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgr.EthTxUnstarted
+	tx3.State = txmgrcommon.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -100,7 +101,7 @@ func TestORM_EthTransactions(t *testing.T) {
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgr.EthTxUnstarted
+	tx3.State = txmgrcommon.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -157,7 +158,8 @@ func TestORM(t *testing.T) {
 	var r txmgr.EvmReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		err = orm.InsertEthReceipt(&r)
+		id, err := orm.InsertEthReceipt(&r.Receipt)
+		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
 		cltest.AssertCount(t, db, "eth_receipts", 1)
@@ -211,11 +213,12 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	require.NoError(t, orm.InsertEthReceipt(&r))
+	_, err := orm.InsertEthReceipt(&r.Receipt)
+	require.NoError(t, err)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgr.EthTxUnstarted
+	tx3.State = txmgrcommon.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -223,7 +226,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
 
 	var count int
-	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err = db.Get(&count, `SELECT count(*) FROM eth_txes`)
 	require.NoError(t, err)
 	require.Equal(t, 5, count)
 
@@ -362,7 +365,7 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 		time1 := time.Now()
 		etx := cltest.NewEthTx(t, fromAddress)
 		etx.Sequence = new(evmtypes.Nonce)
-		etx.State = txmgr.EthTxUnconfirmed
+		etx.State = txmgrcommon.EthTxUnconfirmed
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
 		err := orm.InsertEthTx(&etx)
@@ -480,12 +483,12 @@ func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
-	assert.Equal(t, etx0.State, txmgr.EthTxConfirmedMissingReceipt)
+	assert.Equal(t, etx0.State, txmgrcommon.EthTxConfirmedMissingReceipt)
 	require.NoError(t, txStore.UpdateEthTxsUnconfirmed([]int64{etx0.ID}))
 
 	etx0, err := txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
-	assert.Equal(t, etx0.State, txmgr.EthTxUnconfirmed)
+	assert.Equal(t, etx0.State, txmgrcommon.EthTxUnconfirmed)
 }
 
 func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
@@ -540,7 +543,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Len(t, etx0.TxAttempts, 1)
 	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
 	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].BlockHash)
-	require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
+	require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
 }
 
 func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
@@ -559,18 +562,18 @@ func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	etx0_attempt := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
 	etx0_attempt.BroadcastBeforeBlockNum = &etx0_blocknum
 	require.NoError(t, txStore.InsertEthTxAttempt(&etx0_attempt))
-	assert.Equal(t, txmgr.EthTxUnconfirmed, etx0.State)
+	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx0.State)
 
 	// create transaction 1 (nonce 1) that is confirmed (block 77)
 	etx1 := cltest.MustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ConfiguredChainID())
-	assert.Equal(t, etx1.State, txmgr.EthTxConfirmed)
+	assert.Equal(t, etx1.State, txmgrcommon.EthTxConfirmed)
 
 	// mark transaction 0 confirmed_missing_receipt
 	err := txStore.MarkAllConfirmedMissingReceipt(ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
-	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx0.State)
 }
 
 func TestORM_PreloadEthTxes(t *testing.T) {
@@ -715,7 +718,7 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		// assert tx state
-		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
 		// assert receipt
 		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
@@ -732,7 +735,7 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, resultTxAttempt.State)
 		assert.Nil(t, resultTxAttempt.BroadcastBeforeBlockNum)
 		// assert tx state
-		assert.Equal(t, txmgr.EthTxUnconfirmed, resultTx.State)
+		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, resultTx.State)
 		// assert receipt
 		assert.Len(t, resultTxAttempt.Receipts, 0)
 	})
@@ -843,7 +846,7 @@ func TestORM_SaveConfirmedMissingReceiptAttempt(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx.State)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[0].State)
 	})
 }
@@ -1032,7 +1035,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
 	})
 
 	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
@@ -1049,7 +1052,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		// must run other query outside of postgres transaction so changes are committed
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
 	})
 }
 
@@ -1173,7 +1176,7 @@ func TestORM_UpdateEthTxFatalError(t *testing.T) {
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 0)
-		assert.Equal(t, txmgr.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
 	})
 }
 
@@ -1231,7 +1234,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 	})
 
@@ -1270,7 +1273,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
-		err := txMgr.Abandon(fromAddress) // mark transaction as abandoned
+		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
 		etx2 := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
@@ -1291,7 +1294,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
 		require.Len(t, etx.TxAttempts, 1)
 
-		etx.State = txmgr.EthTxUnstarted
+		etx.State = txmgrcommon.EthTxUnstarted
 
 		// Should fail due to idx_eth_tx_attempt_hash constraint
 		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
@@ -1540,7 +1543,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -1553,7 +1556,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		var dbEthTx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, dbEthTx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, dbEthTx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, dbEthTx.GasLimit)
 		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
 		assert.Equal(t, toAddress, dbEthTx.ToAddress)
