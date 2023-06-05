@@ -31,7 +31,7 @@ jobs:
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
           # ISSUE: https://github.com/golang/go/issues/52690
-          zig-version: master # TODO: update action to v0.11.x once released
+          zig-version: 0.11.0-dev.3380+7e0a02ee2 # TODO: update action to v0.11.x once released
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
