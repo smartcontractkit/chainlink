@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -154,7 +154,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	dbListener := cfg.Database().Listener()
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -190,82 +190,28 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	if cfg.SolanaEnabled() {
-		solLggr := appLggr.Named("Solana")
-		cfgs := cfg.SolanaConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			c := c
-			ids = append(ids, *c.ChainID)
+		solanaRelayer, err := setupSolanaRelayer(appLggr, db, cfg, loopRegistry, keyStore.Solana())
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
-		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup Solana chains")
-			}
-		}
-
-		if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
-			tomls, err := toml.Marshal(struct {
-				Solana solana.SolanaConfigs
-			}{Solana: cfgs})
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to marshal Solana configs")
-			}
-
-			solLoop, err := loopRegistry.Register(solLggr.Name(), cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to register Solana LOOP plugin: %w", err)
-			}
-			chains.Solana = loop.NewRelayerService(solLggr, func() *exec.Cmd {
-				cmd := exec.Command(cmdName)
-				plugins.SetCmdEnvFromConfig(cmd, solLoop.EnvCfg)
-				return cmd
-			}, string(tomls), &keystore.SolanaSigner{keyStore.Solana()})
-		} else {
-			opts := solana.ChainSetOpts{
-				Logger:   solLggr,
-				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
-				Configs:  solana.NewConfigs(cfgs),
-			}
-			chainSet, err := solana.NewChainSet(opts, cfgs)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to load Solana chainset")
-			}
-			chains.Solana = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
-		}
+		chains.Solana = solanaRelayer
 	}
 
 	if cfg.StarkNetEnabled() {
-		starkLggr := appLggr.Named("StarkNet")
-		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-		}
-		cfgs := cfg.StarknetConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			c := c
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup StarkNet chains")
-			}
-		}
-		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+		starkRelayer, err := setupStarkNetRelayer(appLggr, db, cfg, loopRegistry, keyStore.StarkNet())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
+			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
+		chains.StarkNet = starkRelayer
 	}
 
 	// Configure and optionally start the audit log forwarder service
-	auditLogger, err := audit.NewAuditLogger(appLggr, cfg)
+	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
 		return nil, err
 	}
 
-	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
+	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr)
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -286,6 +232,114 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	})
 }
 
+func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.Solana) (loop.Relayer, error) {
+	var (
+		solanaRelayer loop.Relayer
+		ids           []string
+		solLggr       = appLggr.Named("Solana")
+		cfgs          = cfg.SolanaConfigs()
+		signer        = &keystore.SolanaSigner{ks}
+	)
+	for _, c := range cfgs {
+		c := c
+		ids = append(ids, *c.ChainID)
+	}
+	if len(ids) > 0 {
+		if err := solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
+		}
+	}
+
+	if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+		// setup the solana relayer to be a LOOP
+		tomls, err := toml.Marshal(struct {
+			Solana solana.SolanaConfigs
+		}{Solana: cfgs})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
+		}
+
+		solCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            solLggr.Name(),
+			Cmd:           cmdName,
+			LoggingConfig: cfg,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
+		}
+		solanaRelayer = loop.NewRelayerService(solLggr, solCmdFn, string(tomls), signer)
+	} else {
+		// fallback to embedded chainset
+		opts := solana.ChainSetOpts{
+			Logger:   solLggr,
+			KeyStore: signer,
+			Configs:  solana.NewConfigs(cfgs),
+		}
+		chainSet, err := solana.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
+		}
+		solanaRelayer = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
+	}
+	return solanaRelayer, nil
+}
+
+func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.StarkNet) (loop.Relayer, error) {
+	var (
+		starknetRelayer loop.Relayer
+		ids             []string
+		starkLggr       = appLggr.Named("StarkNet")
+		cfgs            = cfg.StarknetConfigs()
+		loopKs          = &keystore.StarknetLooppSigner{StarkNet: ks}
+	)
+	for _, c := range cfgs {
+		c := c
+		ids = append(ids, *c.ChainID)
+	}
+	if len(ids) > 0 {
+		if err := starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
+		}
+	}
+
+	if cmdName := v2.EnvStarknetPluginCmd.Get(); cmdName != "" {
+		// setup the starknet relayer to be a LOOP
+		tomls, err := toml.Marshal(struct {
+			Starknet starknet.StarknetConfigs
+		}{Starknet: cfgs})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
+		}
+
+		starknetCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+			ID:            starkLggr.Name(),
+			Cmd:           cmdName,
+			LoggingConfig: cfg,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
+		}
+		// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
+		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
+		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), loopKs)
+	} else {
+		// fallback to embedded chainset
+		opts := starknet.ChainSetOpts{
+			Logger:   starkLggr,
+			KeyStore: loopKs,
+			Configs:  starknet.NewConfigs(cfgs),
+			Config:   cfg,
+		}
+		chainSet, err := starknet.NewChainSet(opts, cfgs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
+		}
+		starknetRelayer = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+	}
+	return starknetRelayer, nil
+
+}
+
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
 func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database) error {
 	var err error
@@ -304,7 +358,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 		// Need to do this BEFORE migration
 		backupCfg := cfg.Backup()
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg.DatabaseURL(), rootDir, cfg.Backup(), appLggr, appv, dbv); err != nil {
+			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
@@ -377,7 +431,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	if err := sentryInit(config); err != nil {
+	if err := sentryInit(config.Sentry()); err != nil {
 		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
@@ -425,14 +479,14 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 }
 
 func sentryInit(cfg config.Sentry) error {
-	sentrydsn := cfg.SentryDSN()
+	sentrydsn := cfg.DSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
 		return nil
 	}
 
 	var sentryenv string
-	if env := cfg.SentryEnvironment(); env != "" {
+	if env := cfg.Environment(); env != "" {
 		sentryenv = env
 	} else if !build.IsProd() {
 		sentryenv = "dev"
@@ -441,7 +495,7 @@ func sentryInit(cfg config.Sentry) error {
 	}
 
 	var sentryrelease string
-	if release := cfg.SentryRelease(); release != "" {
+	if release := cfg.Release(); release != "" {
 		sentryrelease = release
 	} else {
 		sentryrelease = static.Version
@@ -453,7 +507,7 @@ func sentryInit(cfg config.Sentry) error {
 		Dsn:              sentrydsn,
 		Environment:      sentryenv,
 		Release:          sentryrelease,
-		Debug:            cfg.SentryDebug(),
+		Debug:            cfg.Debug(),
 	})
 }
 

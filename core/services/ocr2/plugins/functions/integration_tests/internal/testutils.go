@@ -307,7 +307,7 @@ func StartNewNode(
 func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress common.Address) job.Job {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
 		type                              = "bootstrap"
-		name                              = "dr-ocr-bootstrap"
+		name                              = "functions-bootstrap"
 		schemaVersion                     = 1
 		relay                             = "evm"
 		contractConfigConfirmations       = 1
@@ -333,7 +333,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 	}))
 	job, err := validate.ValidatedOracleSpecToml(app.Config, fmt.Sprintf(`
 		type               = "offchainreporting2"
-		name               = "dr-ocr-node"
+		name               = "functions-node"
 		schemaVersion      = 1
 		relay              = "evm"
 		contractID         = "%s"
@@ -341,16 +341,10 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		transmitterID      = "%s"
 		contractConfigConfirmations = 1
 		contractConfigTrackerPollInterval = "1s"
-		maxTaskDuration    = "30s"
 		pluginType         = "functions"
 		observationSource  = """
-			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
-			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
-			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
-			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
-			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
-			parse_domains      [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
-			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error -> parse_domains
+			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"note\\": \\"observationSource is unused but the bridge is required\\"}"]
+			run_computation
 		"""
 
 		[relayConfig]
@@ -380,7 +374,7 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		source := jsonMap["data"].(map[string]any)["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		_, err = res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write([]byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source)))
 		require.NoError(t, err)
 	}))
 }

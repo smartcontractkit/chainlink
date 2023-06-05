@@ -1,13 +1,19 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/caigo"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	adapters "github.com/smartcontractkit/chainlink-relay/pkg/loop/adapters/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
+//go:generate mockery --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
 type StarkNet interface {
 	Get(id string) (starkkey.Key, error)
 	GetAll() ([]starkkey.Key, error)
@@ -146,4 +152,45 @@ func (ks *starknet) getByID(id string) (starkkey.Key, error) {
 		return starkkey.Key{}, KeyNotFoundError{ID: id, KeyType: "StarkNet"}
 	}
 	return key, nil
+}
+
+// StarknetLooppSigner implements [github.com/smartcontractkit/chainlink-relay/pkg/loop.Keystore] interface and the requirements
+// of signature d/encoding of the [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
+type StarknetLooppSigner struct {
+	StarkNet
+}
+
+var _ loop.Keystore = &StarknetLooppSigner{}
+
+// Sign implements [loop.Keystore]
+// hash is expected to be the byte representation of big.Int
+// the returned []byte is an encoded [github.com/smartcontractkit/chainlink-relay/pkg/loop/adapters/starknet.Signature].
+// this enables compatibility with [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
+func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+
+	k, err := lk.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if hash == nil {
+		return nil, nil
+	}
+
+	starkHash := new(big.Int).SetBytes(hash)
+	x, y, err := caigo.Curve.Sign(starkHash, k.ToPrivKey())
+	if err != nil {
+		return nil, fmt.Errorf("error signing data with curve: %w", err)
+	}
+
+	sig, err := adapters.SignatureFromBigInts(x, y)
+	if err != nil {
+		return nil, err
+	}
+	return sig.Bytes()
+}
+
+// TODO what is this supposed to return for starknet?
+func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
+	return nil, fmt.Errorf("unimplemented")
 }

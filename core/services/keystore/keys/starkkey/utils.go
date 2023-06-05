@@ -6,7 +6,6 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/NethermindEth/juno/pkg/crypto/pedersen"
 	"github.com/smartcontractkit/caigo"
 )
 
@@ -14,20 +13,6 @@ import (
 var (
 	byteLen = 32
 )
-
-// PubKeyToContract implements the pubkey to deployed account given contract hash + salt
-func PubKeyToAccount(pubkey PublicKey, classHash, salt *big.Int) []byte {
-	hash := pedersen.ArrayDigest(
-		new(big.Int).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS")),
-		big.NewInt(0),
-		salt,      // salt
-		classHash, // classHash
-		pedersen.ArrayDigest(pubkey.X),
-	)
-
-	// pad big.Int to 32 bytes if needed
-	return padBytes(hash.Bytes(), byteLen)
-}
 
 // PubToStarkKey implements the pubkey to starkkey functionality: https://github.com/0xs34n/starknet.js/blob/cd61356974d355aa42f07a3d63f7ccefecbd913c/src/utils/ellipticCurve.ts#L49
 func PubKeyToStarkKey(pubkey PublicKey) []byte {
@@ -55,4 +40,15 @@ func GenerateKey(material io.Reader) (k Key, err error) {
 	}
 
 	return k, nil
+}
+
+// pad bytes to specific length
+func padBytes(a []byte, length int) []byte {
+	if len(a) < length {
+		pad := make([]byte, length-len(a))
+		return append(pad, a...)
+	}
+
+	// return original if length is >= to specified length
+	return a
 }

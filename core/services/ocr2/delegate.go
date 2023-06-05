@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -52,6 +53,7 @@ import (
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
+	bridgeORM             bridges.ORM
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -90,6 +92,7 @@ var _ job.Delegate = (*Delegate)(nil)
 func NewDelegate(
 	db *sqlx.DB,
 	jobORM job.ORM,
+	bridgeORM bridges.ORM,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -106,6 +109,7 @@ func NewDelegate(
 	return &Delegate{
 		db:                    db,
 		jobORM:                jobORM,
+		bridgeORM:             bridgeORM,
 		pipelineRunner:        pipelineRunner,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
@@ -357,21 +361,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			// FIXME: It looks like telemetry is uniquely keyed by contractID
-			// but mercury runs multiple feeds per contract.
-			// How can we scope this to a more granular level?
-			// https://smartcontract-it.atlassian.net/browse/MERC-227
-			MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Mercury),
-			OffchainConfigDigester: mercuryProvider.OffchainConfigDigester(),
-			OffchainKeyring:        kb,
-			OnchainKeyring:         kb,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR2Mercury),
+			OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem, chain)
 
 		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
-			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
 			mercuryServices = append(mercuryServices, enhancedTelemService)
 		}
 
@@ -515,9 +515,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "new onchain dkg client")
 		}
 
-		timeout := 1 * time.Second
+		timeout := 5 * time.Second
+		interval := 60 * time.Second
+		juelsLogger := lggr.Named("JuelsFeeCoin").With("contract", cfg.LinkEthFeedAddress, "timeout", timeout, "interval", interval)
 		juelsPerFeeCoin, err2 := juelsfeecoin.NewLinkEthPriceProvider(
-			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), timeout)
+			common.HexToAddress(cfg.LinkEthFeedAddress), chain.Client(), timeout, interval, juelsLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new link eth price provider")
 		}
@@ -742,8 +744,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		functionsServicesConfig := functions.FunctionsServicesConfig{
 			Job:             jb,
-			PipelineRunner:  d.pipelineRunner,
 			JobORM:          d.jobORM,
+			BridgeORM:       d.bridgeORM,
 			OCR2JobConfig:   d.cfg,
 			DB:              d.db,
 			Chain:           chain,

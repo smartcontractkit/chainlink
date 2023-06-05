@@ -177,7 +177,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
@@ -230,7 +230,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	// Use real clients here to actually test the local connection blocking
-	r := clhttp.NewRestrictedHTTPClient(config, logger.TestLogger(t))
+	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
 	u := clhttp.NewUnrestrictedHTTPClient()
 	task.HelperSetDependencies(config, r, u)
 
