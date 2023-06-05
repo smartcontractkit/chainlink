@@ -34,6 +34,7 @@ func main() {
 	lggr, closeLggr := plugins.NewLogger(loggerName, envCfg)
 	defer closeLggr()
 
+	lggr.Debug("Starting prometheus server for Starknet LOOPp Relayer")
 	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
 	err = promServer.Start()
 	if err != nil {
@@ -54,6 +55,7 @@ func main() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
+	lggr.Debug("Starting Starknet LOOPp Relayer server")
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
@@ -79,12 +81,14 @@ type pluginRelayer struct {
 // loopKs must be an implementation that can construct a starknet keystore adapter
 // [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs loop.Keystore) (loop.Relayer, error) {
+	c.lggr.Info("NewRelayer: starknet config %s", config)
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
 		Starknet starknet.StarknetConfigs
 	}
 	if err := d.Decode(&cfg); err != nil {
+		c.lggr.Errorw("failed to decode toml", "err", err)
 		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
@@ -94,6 +98,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		Configs:  starknet.NewConfigs(cfg.Starknet),
 	}, cfg.Starknet)
 	if err != nil {
+		c.lggr.Errorw("failed to create starknet chain", "err", err)
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
 	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.lggr, chainSet), chainSet)
@@ -102,6 +107,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	c.closers = append(c.closers, ra)
 	c.mu.Unlock()
 
+	c.lggr.Debug("NewRelayer created")
 	return ra, nil
 }
 
