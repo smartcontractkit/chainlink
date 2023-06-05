@@ -62,7 +62,6 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    # uncomment if using native libs / cgo enabled
     extra_files:
       - tmp/linux_amd64/libs
     build_flag_templates:
@@ -85,7 +84,6 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    # uncomment if using native libs / cgo enabled
     extra_files:
       - tmp/linux_arm64/libs
     build_flag_templates:
@@ -108,7 +106,6 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    # uncomment if using native libs / cgo enabled
     extra_files:
       - tmp/linux_amd64/libs
     build_flag_templates:
@@ -132,7 +129,6 @@ dockers:
     use: buildx
     goos: linux
     goarch: arm64
-    # uncomment if using native libs / cgo enabled
     extra_files:
       - tmp/linux_arm64/libs
     build_flag_templates:
@@ -176,8 +172,7 @@ docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
-archives: #[]
-  # uncomment if using native libs / cgo enabled
+archives:
   - rlcp: true
     files:
       - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
