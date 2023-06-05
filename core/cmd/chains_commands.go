@@ -35,16 +35,16 @@ type ChainClient interface {
 }
 
 type chainClient[P TableRenderer] struct {
-	*Client
+	*Shell
 	path string
 }
 
 // newChainClient returns a new ChainClient for a particular type of chains.Config.
 // P is a TableRenderer corresponding to R, and P2 is the slice variant (type P2 []P).
-func newChainClient[P TableRenderer](c *Client, name string) ChainClient {
+func newChainClient[P TableRenderer](s *Shell, name string) ChainClient {
 	return &chainClient[P]{
-		Client: c,
-		path:   "/v2/chains/" + name,
+		Shell: s,
+		path:  "/v2/chains/" + name,
 	}
 }
 

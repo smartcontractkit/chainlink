@@ -39,6 +39,6 @@ func (ps SolanaNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewSolanaNodeClient(c *Client) NodeClient {
-	return newNodeClient[SolanaNodePresenters](c, "solana")
+func NewSolanaNodeClient(s *Shell) NodeClient {
+	return newNodeClient[SolanaNodePresenters](s, "solana")
 }
