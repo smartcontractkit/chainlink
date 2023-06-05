@@ -49,9 +49,9 @@ type AppConfig interface {
 	Secrets
 	Sentry
 	Web
-	audit.Config
 
 	Database() Database
+	AuditLogger() audit.Config
 	Keeper() Keeper
 	TelemetryIngress() TelemetryIngress
 }
