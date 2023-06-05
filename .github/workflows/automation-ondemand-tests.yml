@@ -1,6 +1,5 @@
 name: Automation On Demand Tests
 on:
-  pull_request: #debug
   workflow_dispatch:
     inputs:
       chainlinkVersion:
@@ -33,7 +32,7 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     steps:
       - name: Collect Metrics
-        if: inputs.chainlinkImage != ''
+        if: inputs.chainlinkImage == ''
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
         with:
@@ -46,7 +45,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Check if image exists
-        if: inputs.chainlinkImage != ''
+        if: inputs.chainlinkImage == ''
         id: check-image
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         with:
@@ -55,7 +54,7 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
-        if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage != ''
+        if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@2c9f401149f6c25fb632067b7e6626aebeee5d69
         with:
           cl_repo: smartcontractkit/chainlink
