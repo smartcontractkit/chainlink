@@ -17,9 +17,10 @@ import (
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *functions.ReportCodec) {
+func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *encoding.ReportCodec) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
@@ -41,7 +42,7 @@ func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *func
 		OffchainConfig: pluginConfigBytes,
 	})
 	require.NoError(t, err)
-	codec, err := functions.NewReportCodec()
+	codec, err := encoding.NewReportCodec()
 	require.NoError(t, err)
 	return plugin, orm, codec
 }
@@ -71,7 +72,7 @@ func newRequestConfirmed() functions_srv.Request {
 }
 
 func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte {
-	queryProto := functions.Query{}
+	queryProto := encoding.Query{}
 	queryProto.RequestIDs = [][]byte{}
 	for _, id := range reqIDs {
 		id := id
@@ -82,16 +83,16 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 	return marshalled
 }
 
-func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *functions.ProcessedRequest {
-	return &functions.ProcessedRequest{
+func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *encoding.ProcessedRequest {
+	return &encoding.ProcessedRequest{
 		RequestID: requestId[:],
 		Result:    compResult,
 		Error:     compError,
 	}
 }
 
-func newObservation(t *testing.T, observerId uint8, requests ...*functions.ProcessedRequest) types.AttributedObservation {
-	observationProto := functions.Observation{ProcessedRequests: requests}
+func newObservation(t *testing.T, observerId uint8, requests ...*encoding.ProcessedRequest) types.AttributedObservation {
+	observationProto := encoding.Observation{ProcessedRequests: requests}
 	raw, err := proto.Marshal(&observationProto)
 	require.NoError(t, err)
 	return types.AttributedObservation{
@@ -110,7 +111,7 @@ func TestDRReporting_Query(t *testing.T) {
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
-	queryProto := &functions.Query{}
+	queryProto := &encoding.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(queryProto.RequestIDs))
@@ -143,7 +144,7 @@ func TestDRReporting_Observation(t *testing.T) {
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
-	observationProto := &functions.Observation{}
+	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
 	require.Equal(t, len(observationProto.ProcessedRequests), 2)
@@ -165,14 +166,14 @@ func TestDRReporting_Observation_IncorrectQuery(t *testing.T) {
 	// Query asking for 3 requests (with duplicates), out of which:
 	//   - two are invalid
 	//   - one is ready
-	queryProto := functions.Query{}
+	queryProto := encoding.Query{}
 	queryProto.RequestIDs = [][]byte{invalidId, req1.RequestID[:], invalidId}
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
 	require.NoError(t, err)
-	observationProto := &functions.Observation{}
+	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
 	require.Equal(t, len(observationProto.ProcessedRequests), 1)
@@ -263,11 +264,11 @@ func TestDRReporting_Report_IncorrectObservation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getReportBytes(t *testing.T, codec *functions.ReportCodec, reqs ...functions_srv.Request) []byte {
-	var report []*functions.ProcessedRequest
+func getReportBytes(t *testing.T, codec *encoding.ReportCodec, reqs ...functions_srv.Request) []byte {
+	var report []*encoding.ProcessedRequest
 	for _, req := range reqs {
 		req := req
-		report = append(report, &functions.ProcessedRequest{RequestID: req.RequestID[:], Result: req.Result})
+		report = append(report, &encoding.ProcessedRequest{RequestID: req.RequestID[:], Result: req.Result})
 	}
 	reportBytes, err := codec.EncodeReport(report)
 	require.NoError(t, err)
