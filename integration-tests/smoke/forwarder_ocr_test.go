@@ -76,7 +76,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, "ocr_forwarder", 5, mockServer)
+	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()

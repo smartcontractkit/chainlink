@@ -61,7 +61,7 @@ func TestOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, "ocr", 5, mockServer)
+	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 	require.NoError(t, err)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
