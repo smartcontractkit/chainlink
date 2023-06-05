@@ -206,7 +206,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	// Configure and optionally start the audit log forwarder service
-	auditLogger, err := audit.NewAuditLogger(appLggr, cfg)
+	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
 		return nil, err
 	}
