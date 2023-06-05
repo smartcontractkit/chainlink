@@ -877,6 +877,12 @@ func (g *generalConfig) TLSRedirect() bool {
 	return *g.c.WebServer.TLS.ForceRedirect
 }
 
+func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
+	return &telemetryIngressConfig{
+		c: g.c.TelemetryIngress,
+	}
+}
+
 func (g *generalConfig) TelemetryIngressLogging() bool {
 	return *g.c.TelemetryIngress.Logging
 }
