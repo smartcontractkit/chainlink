@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -140,7 +141,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EvmTx {
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
 		FeeLimit:       uint32(1000000000),
-		State:          txmgr.EthTxUnstarted,
+		State:          txmgrcommon.EthTxUnstarted,
 	}
 }
 
@@ -161,7 +162,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce in
 	etx.InitialBroadcastAt = &broadcastAt
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr.EthTxUnconfirmed
+	etx.State = txmgrcommon.EthTxUnconfirmed
 	etx.ChainID = chainID
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	return etx
@@ -234,7 +235,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore 
 	etx.InitialBroadcastAt = &timeNow
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr.EthTxUnconfirmed
+	etx.State = txmgrcommon.EthTxUnconfirmed
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -259,7 +260,7 @@ func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 	etx.InitialBroadcastAt = &broadcastAt
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr.EthTxConfirmedMissingReceipt
+	etx.State = txmgrcommon.EthTxConfirmedMissingReceipt
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
@@ -277,7 +278,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.EvmTx
 	etx.InitialBroadcastAt = &timeNow
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr.EthTxConfirmed
+	etx.State = txmgrcommon.EthTxConfirmed
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
@@ -291,7 +292,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.EvmTxStore
 	etx := NewEthTx(t, fromAddress)
 
 	etx.Sequence = &nonce
-	etx.State = txmgr.EthTxInProgress
+	etx.State = txmgrcommon.EthTxInProgress
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -314,7 +315,7 @@ func MustInsertUnstartedEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddres
 		}
 	}
 	etx := NewEthTx(t, fromAddress)
-	etx.State = txmgr.EthTxUnstarted
+	etx.State = txmgrcommon.EthTxUnstarted
 	etx.Subject = subject
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	return etx
@@ -413,7 +414,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.E
 func MustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddress common.Address) txmgr.EvmTx {
 	etx := NewEthTx(t, fromAddress)
 	etx.Error = null.StringFrom("something exploded")
-	etx.State = txmgr.EthTxFatalError
+	etx.State = txmgrcommon.EthTxFatalError
 
 	require.NoError(t, txStore.InsertEthTx(&etx))
 	return etx
@@ -589,7 +590,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, tlg, cfg)
+	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, tlg, cfg)
 	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)

@@ -12,6 +12,8 @@ import (
 
 	context "context"
 
+	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -26,7 +28,7 @@ import (
 
 	monitor "github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 )
@@ -283,15 +285,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList] {
+func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, evmtxmgr.EvmAccessList] {
 	ret := _m.Called()
 
-	var r0 txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList]
-	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList]); ok {
+	var r0 txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, evmtxmgr.EvmAccessList]
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, evmtxmgr.EvmAccessList]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, txmgr.EvmAccessList])
+			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, evmtxmgr.EvmAccessList])
 		}
 	}
 

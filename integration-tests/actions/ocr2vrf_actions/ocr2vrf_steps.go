@@ -12,9 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
