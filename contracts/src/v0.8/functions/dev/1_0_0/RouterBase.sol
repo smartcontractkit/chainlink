@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {IVersioned, Versioned} from "./Versioned.sol";
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {Pausable} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
-abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwnerWithProposal {
+abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, ConfirmedOwnerWithProposal {
   // ================================================================
   // |                         Version state                        |
   // ================================================================
@@ -86,20 +86,23 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   // |                       Initialization                         |
   // ================================================================
   constructor(
-    string memory id, // TODO
     address newOwner,
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
     bytes32[] memory initialJobIds,
     address[] memory initialAddresses,
     bytes memory config
-  ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() Versioned(id, s_majorVersion) {
+  ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() {
+    // Set initial timelock
     s_timelockBlocks = timelockBlocks;
     MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
-    bytes32 routerLabel = keccak256(abi.encodePacked(s_id));
+    // Use a hash of the Router's address to self-identify, since it does not have a jobId
+    bytes32 routerLabel = keccak256(abi.encodePacked(address(this)));
+    // Set the initial config
     s_route[routerLabel] = address(this);
     _setConfig(config);
     s_config_hash = keccak256(config);
+    // Fill initial routes, from empty addresses to current implementation contracts
     address[] memory emptyAddresses = new address[](initialJobIds.length);
     _validateProposal(initialJobIds, emptyAddresses, initialAddresses);
     s_proposalSet = ProposalSet(initialJobIds, emptyAddresses, initialAddresses, block.number);
@@ -198,7 +201,7 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
         revert InvalidProposal();
       }
       // The Router's id cannot be set
-      bytes32 routerLabel = keccak256(abi.encodePacked(s_id));
+      bytes32 routerLabel = keccak256(abi.encodePacked(address(this)));
       if (proposalSetJobIds[i] == routerLabel) {
         revert ReservedLabel(routerLabel);
       }
@@ -291,7 +294,7 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
     if (block.number < proposal.proposedAtBlock + s_timelockBlocks) {
       revert TimelockInEffect();
     }
-    if (jobId == keccak256(abi.encodePacked(s_id))) {
+    if (jobId == keccak256(abi.encodePacked(address(this)))) {
       _setConfig(proposal.to);
     } else {
       IConfigurable(implAddr).setConfig(proposal.to);

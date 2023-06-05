@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {Route} from "./Route.sol";
+import {Route, ITypeAndVersion} from "./Route.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
@@ -99,13 +99,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(
-    string memory id,
-    uint16 version,
-    address router,
-    bytes memory config,
-    address linkToNativeFeed
-  ) Route(id, version, router, config) {
+  constructor(address router, bytes memory config, address linkToNativeFeed) Route(router, config) {
     LINK_TO_NATIVE_FEED = AggregatorV3Interface(linkToNativeFeed);
   }
 
@@ -463,9 +457,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 *
-      weiPerUnitGas *
-      (gasAfterPaymentCalculation + startGas - gasleft())) / uint256(weiPerUnitLink);
+    uint256 paymentNoFee = (1e18 * weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())) /
+      uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(adminFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.

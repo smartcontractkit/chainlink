@@ -3,11 +3,11 @@
 pragma solidity ^0.8.6;
 
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
-import {Versioned} from "./Versioned.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
-abstract contract Route is Versioned, IConfigurable {
+abstract contract Route is ITypeAndVersion, IConfigurable {
   bytes32 internal s_config_hash;
 
   IRouterBase internal s_router;
@@ -19,12 +19,7 @@ abstract contract Route is Versioned, IConfigurable {
   /**
    * @dev Initializes the contract.
    */
-  constructor(
-    string memory id,
-    uint16 version,
-    address router,
-    bytes memory config
-  ) Versioned(id, version) {
+  constructor(address router, bytes memory config) {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
