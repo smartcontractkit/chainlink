@@ -31,15 +31,15 @@ var (
 )
 
 var VRFV2LoadTestWithMetricsMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"want\",\"type\":\"address\"}],\"name\":\"OnlyCoordinatorCanFulfill\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"COORDINATOR\",\"outputs\":[{\"internalType\":\"contractVRFCoordinatorV2Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"LINK\",\"outputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestId\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"_subId\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"_requestConfirmations\",\"type\":\"uint16\"},{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint16\",\"name\":\"_requestCount\",\"type\":\"uint16\"}],\"name\":\"requestRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_averageFulfillmentInMillions\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_fastestFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_requestCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_responseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_slowestFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60e0604052600060045560006005556103e760065534801561002057600080fd5b50604051610cb6380380610cb683398101604081905261003f916101be565b6001600160601b0319606083901b1660805233806000816100a75760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b03848116919091179091558116156100d7576100d7816100f8565b5050506001600160601b0319606092831b811660a052911b1660c0526101f1565b6001600160a01b0381163314156101515760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161009e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b80516001600160a01b03811681146101b957600080fd5b919050565b600080604083850312156101d157600080fd5b6101da836101a2565b91506101e8602084016101a2565b90509250929050565b60805160601c60a05160601c60c05160601c610a7f610237600039600061011a015260008181610179015261028e01526000818161037801526103e00152610a7f6000f3fe608060405234801561001057600080fd5b50600436106100df5760003560e01c8063737144bc1161008c5780638da5cb5b116100665780638da5cb5b146101be578063d826f88f146101dc578063dc1670db146101fb578063f2fde38b1461020457600080fd5b8063737144bc146101a457806374dba124146101ad57806379ba5097146101b657600080fd5b80631fe543e3116100bd5780631fe543e3146101615780633b2bcbf114610174578063557d2e921461019b57600080fd5b8063096cb17b146100e45780631757f11c146100f95780631b6b6d2314610115575b600080fd5b6100f76100f23660046108b6565b610217565b005b61010260055481565b6040519081526020015b60405180910390f35b61013c7f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200161010c565b6100f761016f3660046107c7565b610360565b61013c7f000000000000000000000000000000000000000000000000000000000000000081565b61010260035481565b61010260045481565b61010260065481565b6100f7610420565b60005473ffffffffffffffffffffffffffffffffffffffff1661013c565b6100f76000600481905560058190556103e76006556003819055600255565b61010260025481565b6100f7610212366004610771565b61051d565b61021f610531565b60005b8161ffff168161ffff161015610359576040517f5d3b1d300000000000000000000000000000000000000000000000000000000081526004810184905267ffffffffffffffff8616602482015261ffff85166044820152620493e06064820152600160848201526000907f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1690635d3b1d309060a401602060405180830381600087803b1580156102e757600080fd5b505af11580156102fb573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061031f91906107ae565b600380549192506000610331836109db565b9091555050600090815260076020526040902043905580610351816109b9565b915050610222565b5050505050565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610412576040517f1cf993f400000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001660248201526044015b60405180910390fd5b61041c82826105b4565b5050565b60015473ffffffffffffffffffffffffffffffffffffffff1633146104a1576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e6572000000000000000000006044820152606401610409565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b610525610531565b61052e81610664565b50565b60005473ffffffffffffffffffffffffffffffffffffffff1633146105b2576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610409565b565b6000828152600760205260408120546105cd90436109a2565b905060006105de82620f4240610965565b90506005548211156105f05760058290555b600654821061060157600654610603565b815b6006556002546106135780610646565b600254610621906001610912565b816002546004546106329190610965565b61063c9190610912565b610646919061092a565b60045560028054906000610659836109db565b919050555050505050565b73ffffffffffffffffffffffffffffffffffffffff81163314156106e4576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610409565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b803561ffff8116811461076c57600080fd5b919050565b60006020828403121561078357600080fd5b813573ffffffffffffffffffffffffffffffffffffffff811681146107a757600080fd5b9392505050565b6000602082840312156107c057600080fd5b5051919050565b600080604083850312156107da57600080fd5b8235915060208084013567ffffffffffffffff808211156107fa57600080fd5b818601915086601f83011261080e57600080fd5b81358181111561082057610820610a43565b8060051b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f8301168101818110858211171561086357610863610a43565b604052828152858101935084860182860187018b101561088257600080fd5b600095505b838610156108a5578035855260019590950194938601938601610887565b508096505050505050509250929050565b600080600080608085870312156108cc57600080fd5b843567ffffffffffffffff811681146108e457600080fd5b93506108f26020860161075a565b9250604085013591506109076060860161075a565b905092959194509250565b6000821982111561092557610925610a14565b500190565b600082610960577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048311821515161561099d5761099d610a14565b500290565b6000828210156109b4576109b4610a14565b500390565b600061ffff808316818114156109d1576109d1610a14565b6001019392505050565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff821415610a0d57610a0d610a14565b5060010190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"want\",\"type\":\"address\"}],\"name\":\"OnlyCoordinatorCanFulfill\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"COORDINATOR\",\"outputs\":[{\"internalType\":\"contractVRFCoordinatorV2Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_requestId\",\"type\":\"uint256\"}],\"name\":\"getRequestStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"fulfilled\",\"type\":\"bool\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"requestTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fulfilmentTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestBlockNumber\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fulfilmentBlockNumber\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestId\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"_subId\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"_requestConfirmations\",\"type\":\"uint16\"},{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"_callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_numWords\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_requestCount\",\"type\":\"uint16\"}],\"name\":\"requestRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_averageFulfillmentInMillions\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_fastestFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_lastRequestId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_requestCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_requests\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"fulfilled\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"requestTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fulfilmentTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestBlockNumber\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fulfilmentBlockNumber\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_responseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_slowestFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60c0604052600060045560006005556103e760065534801561002057600080fd5b506040516110f33803806110f383398101604081905261003f91610199565b6001600160601b0319606082901b1660805233806000816100a75760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b03848116919091179091558116156100d7576100d7816100ef565b50505060601b6001600160601b03191660a0526101c9565b6001600160a01b0381163314156101485760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161009e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b6000602082840312156101ab57600080fd5b81516001600160a01b03811681146101c257600080fd5b9392505050565b60805160601c60a05160601c610ef16102026000396000818161014301526103da0152600081816102b7015261031f0152610ef16000f3fe608060405234801561001057600080fd5b50600436106100f55760003560e01c806379ba509711610097578063d826f88f11610066578063d826f88f1461023f578063d8a4676f1461025e578063dc1670db14610283578063f2fde38b1461028c57600080fd5b806379ba5097146101a55780638da5cb5b146101ad578063a168fa89146101cb578063b1e217491461023657600080fd5b80633b2bcbf1116100d35780633b2bcbf11461013e578063557d2e921461018a578063737144bc1461019357806374dba1241461019c57600080fd5b80631757f11c146100fa5780631fe543e314610116578063271095ef1461012b575b600080fd5b61010360055481565b6040519081526020015b60405180910390f35b610129610124366004610bad565b61029f565b005b610129610139366004610c9c565b61035f565b6101657f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200161010d565b61010360035481565b61010360045481565b61010360065481565b610129610577565b60005473ffffffffffffffffffffffffffffffffffffffff16610165565b61020c6101d9366004610b7b565b6009602052600090815260409020805460028201546003830154600484015460059094015460ff90931693919290919085565b6040805195151586526020860194909452928401919091526060830152608082015260a00161010d565b61010360075481565b6101296000600481905560058190556103e76006556003819055600255565b61027161026c366004610b7b565b610674565b60405161010d96959493929190610d18565b61010360025481565b61012961029a366004610b3e565b610759565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610351576040517f1cf993f400000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001660248201526044015b60405180910390fd5b61035b828261076d565b5050565b610367610894565b60005b8161ffff168161ffff16101561056e576040517f5d3b1d300000000000000000000000000000000000000000000000000000000081526004810186905267ffffffffffffffff8816602482015261ffff8716604482015263ffffffff8086166064830152841660848201526000907f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1690635d3b1d309060a401602060405180830381600087803b15801561043357600080fd5b505af1158015610447573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061046b9190610b94565b60078190559050600061047c610917565b6040805160c08101825260008082528251818152602080820185528084019182524284860152606084018390526080840186905260a084018390528783526009815293909120825181547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016901515178155905180519495509193909261050a926001850192910190610ab3565b506040820151600282015560608201516003808301919091556080830151600483015560a090920151600590910155805490600061054783610e4d565b9091555050600091825260086020526040909120558061056681610e2b565b91505061036a565b50505050505050565b60015473ffffffffffffffffffffffffffffffffffffffff1633146105f8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e6572000000000000000000006044820152606401610348565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b6000818152600960209081526040808320815160c081018352815460ff16151581526001820180548451818702810187019095528085526060958795869586958695869591949293858401939092908301828280156106f257602002820191906000526020600020905b8154815260200190600101908083116106de575b505050505081526020016002820154815260200160038201548152602001600482015481526020016005820154815250509050806000015181602001518260400151836060015184608001518560a001519650965096509650965096505091939550919395565b610761610894565b61076a816109bd565b50565b6000610777610917565b600084815260086020526040812054919250906107949083610e14565b905060006107a582620f4240610dd7565b90506005548211156107b75760058290555b60065482106107c8576006546107ca565b815b6006556002546107da578061080d565b6002546107e8906001610d84565b816002546004546107f99190610dd7565b6108039190610d84565b61080d9190610d9c565b600455600085815260096020908152604090912080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660019081178255865161085f939290910191870190610ab3565b506000858152600960205260408120426003820155600501849055600280549161088883610e4d565b91905055505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff163314610915576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610348565b565b60004661a4b181148061092c575062066eed81145b156109b657606473ffffffffffffffffffffffffffffffffffffffff1663a3b1b31d6040518163ffffffff1660e01b815260040160206040518083038186803b15801561097857600080fd5b505afa15801561098c573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906109b09190610b94565b91505090565b4391505090565b73ffffffffffffffffffffffffffffffffffffffff8116331415610a3d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610348565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b828054828255906000526020600020908101928215610aee579160200282015b82811115610aee578251825591602001919060010190610ad3565b50610afa929150610afe565b5090565b5b80821115610afa5760008155600101610aff565b803561ffff81168114610b2557600080fd5b919050565b803563ffffffff81168114610b2557600080fd5b600060208284031215610b5057600080fd5b813573ffffffffffffffffffffffffffffffffffffffff81168114610b7457600080fd5b9392505050565b600060208284031215610b8d57600080fd5b5035919050565b600060208284031215610ba657600080fd5b5051919050565b60008060408385031215610bc057600080fd5b8235915060208084013567ffffffffffffffff80821115610be057600080fd5b818601915086601f830112610bf457600080fd5b813581811115610c0657610c06610eb5565b8060051b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f83011681018181108582111715610c4957610c49610eb5565b604052828152858101935084860182860187018b1015610c6857600080fd5b600095505b83861015610c8b578035855260019590950194938601938601610c6d565b508096505050505050509250929050565b60008060008060008060c08789031215610cb557600080fd5b863567ffffffffffffffff81168114610ccd57600080fd5b9550610cdb60208801610b13565b945060408701359350610cf060608801610b2a565b9250610cfe60808801610b2a565b9150610d0c60a08801610b13565b90509295509295509295565b600060c082018815158352602060c08185015281895180845260e086019150828b01935060005b81811015610d5b57845183529383019391830191600101610d3f565b505060408501989098525050506060810193909352608083019190915260a09091015292915050565b60008219821115610d9757610d97610e86565b500190565b600082610dd2577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610e0f57610e0f610e86565b500290565b600082821015610e2657610e26610e86565b500390565b600061ffff80831681811415610e4357610e43610e86565b6001019392505050565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff821415610e7f57610e7f610e86565b5060010190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c6343000806000a",
 }
 
 var VRFV2LoadTestWithMetricsABI = VRFV2LoadTestWithMetricsMetaData.ABI
 
 var VRFV2LoadTestWithMetricsBin = VRFV2LoadTestWithMetricsMetaData.Bin
 
-func DeployVRFV2LoadTestWithMetrics(auth *bind.TransactOpts, backend bind.ContractBackend, _vrfCoordinator common.Address, _link common.Address) (common.Address, *types.Transaction, *VRFV2LoadTestWithMetrics, error) {
+func DeployVRFV2LoadTestWithMetrics(auth *bind.TransactOpts, backend bind.ContractBackend, _vrfCoordinator common.Address) (common.Address, *types.Transaction, *VRFV2LoadTestWithMetrics, error) {
 	parsed, err := VRFV2LoadTestWithMetricsMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -48,7 +48,7 @@ func DeployVRFV2LoadTestWithMetrics(auth *bind.TransactOpts, backend bind.Contra
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(VRFV2LoadTestWithMetricsBin), backend, _vrfCoordinator, _link)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(VRFV2LoadTestWithMetricsBin), backend, _vrfCoordinator)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -193,26 +193,38 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) COORDINA
 	return _VRFV2LoadTestWithMetrics.Contract.COORDINATOR(&_VRFV2LoadTestWithMetrics.CallOpts)
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) LINK(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _VRFV2LoadTestWithMetrics.contract.Call(opts, &out, "LINK")
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) GetRequestStatus(opts *bind.CallOpts, _requestId *big.Int) (GetRequestStatus,
 
+	error) {
+	var out []interface{}
+	err := _VRFV2LoadTestWithMetrics.contract.Call(opts, &out, "getRequestStatus", _requestId)
+
+	outstruct := new(GetRequestStatus)
 	if err != nil {
-		return *new(common.Address), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.Fulfilled = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.RandomWords = *abi.ConvertType(out[1], new([]*big.Int)).(*[]*big.Int)
+	outstruct.RequestTimestamp = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.FulfilmentTimestamp = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.RequestBlockNumber = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.FulfilmentBlockNumber = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
 
-	return out0, err
+	return *outstruct, err
 
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) LINK() (common.Address, error) {
-	return _VRFV2LoadTestWithMetrics.Contract.LINK(&_VRFV2LoadTestWithMetrics.CallOpts)
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) GetRequestStatus(_requestId *big.Int) (GetRequestStatus,
+
+	error) {
+	return _VRFV2LoadTestWithMetrics.Contract.GetRequestStatus(&_VRFV2LoadTestWithMetrics.CallOpts, _requestId)
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) LINK() (common.Address, error) {
-	return _VRFV2LoadTestWithMetrics.Contract.LINK(&_VRFV2LoadTestWithMetrics.CallOpts)
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) GetRequestStatus(_requestId *big.Int) (GetRequestStatus,
+
+	error) {
+	return _VRFV2LoadTestWithMetrics.Contract.GetRequestStatus(&_VRFV2LoadTestWithMetrics.CallOpts, _requestId)
 }
 
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
@@ -281,6 +293,28 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) SFastest
 	return _VRFV2LoadTestWithMetrics.Contract.SFastestFulfillment(&_VRFV2LoadTestWithMetrics.CallOpts)
 }
 
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) SLastRequestId(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _VRFV2LoadTestWithMetrics.contract.Call(opts, &out, "s_lastRequestId")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) SLastRequestId() (*big.Int, error) {
+	return _VRFV2LoadTestWithMetrics.Contract.SLastRequestId(&_VRFV2LoadTestWithMetrics.CallOpts)
+}
+
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) SLastRequestId() (*big.Int, error) {
+	return _VRFV2LoadTestWithMetrics.Contract.SLastRequestId(&_VRFV2LoadTestWithMetrics.CallOpts)
+}
+
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) SRequestCount(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _VRFV2LoadTestWithMetrics.contract.Call(opts, &out, "s_requestCount")
@@ -301,6 +335,39 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) SRequestCount(
 
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) SRequestCount() (*big.Int, error) {
 	return _VRFV2LoadTestWithMetrics.Contract.SRequestCount(&_VRFV2LoadTestWithMetrics.CallOpts)
+}
+
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) SRequests(opts *bind.CallOpts, arg0 *big.Int) (SRequests,
+
+	error) {
+	var out []interface{}
+	err := _VRFV2LoadTestWithMetrics.contract.Call(opts, &out, "s_requests", arg0)
+
+	outstruct := new(SRequests)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Fulfilled = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.RequestTimestamp = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.FulfilmentTimestamp = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.RequestBlockNumber = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.FulfilmentBlockNumber = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) SRequests(arg0 *big.Int) (SRequests,
+
+	error) {
+	return _VRFV2LoadTestWithMetrics.Contract.SRequests(&_VRFV2LoadTestWithMetrics.CallOpts, arg0)
+}
+
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCallerSession) SRequests(arg0 *big.Int) (SRequests,
+
+	error) {
+	return _VRFV2LoadTestWithMetrics.Contract.SRequests(&_VRFV2LoadTestWithMetrics.CallOpts, arg0)
 }
 
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsCaller) SResponseCount(opts *bind.CallOpts) (*big.Int, error) {
@@ -371,16 +438,16 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactorSession) RawF
 	return _VRFV2LoadTestWithMetrics.Contract.RawFulfillRandomWords(&_VRFV2LoadTestWithMetrics.TransactOpts, requestId, randomWords)
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactor) RequestRandomWords(opts *bind.TransactOpts, _subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _requestCount uint16) (*types.Transaction, error) {
-	return _VRFV2LoadTestWithMetrics.contract.Transact(opts, "requestRandomWords", _subId, _requestConfirmations, _keyHash, _requestCount)
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactor) RequestRandomWords(opts *bind.TransactOpts, _subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _callbackGasLimit uint32, _numWords uint32, _requestCount uint16) (*types.Transaction, error) {
+	return _VRFV2LoadTestWithMetrics.contract.Transact(opts, "requestRandomWords", _subId, _requestConfirmations, _keyHash, _callbackGasLimit, _numWords, _requestCount)
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) RequestRandomWords(_subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _requestCount uint16) (*types.Transaction, error) {
-	return _VRFV2LoadTestWithMetrics.Contract.RequestRandomWords(&_VRFV2LoadTestWithMetrics.TransactOpts, _subId, _requestConfirmations, _keyHash, _requestCount)
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsSession) RequestRandomWords(_subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _callbackGasLimit uint32, _numWords uint32, _requestCount uint16) (*types.Transaction, error) {
+	return _VRFV2LoadTestWithMetrics.Contract.RequestRandomWords(&_VRFV2LoadTestWithMetrics.TransactOpts, _subId, _requestConfirmations, _keyHash, _callbackGasLimit, _numWords, _requestCount)
 }
 
-func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactorSession) RequestRandomWords(_subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _requestCount uint16) (*types.Transaction, error) {
-	return _VRFV2LoadTestWithMetrics.Contract.RequestRandomWords(&_VRFV2LoadTestWithMetrics.TransactOpts, _subId, _requestConfirmations, _keyHash, _requestCount)
+func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactorSession) RequestRandomWords(_subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _callbackGasLimit uint32, _numWords uint32, _requestCount uint16) (*types.Transaction, error) {
+	return _VRFV2LoadTestWithMetrics.Contract.RequestRandomWords(&_VRFV2LoadTestWithMetrics.TransactOpts, _subId, _requestConfirmations, _keyHash, _callbackGasLimit, _numWords, _requestCount)
 }
 
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsTransactor) Reset(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -679,6 +746,22 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetricsFilterer) ParseOwnershi
 	return event, nil
 }
 
+type GetRequestStatus struct {
+	Fulfilled             bool
+	RandomWords           []*big.Int
+	RequestTimestamp      *big.Int
+	FulfilmentTimestamp   *big.Int
+	RequestBlockNumber    *big.Int
+	FulfilmentBlockNumber *big.Int
+}
+type SRequests struct {
+	Fulfilled             bool
+	RequestTimestamp      *big.Int
+	FulfilmentTimestamp   *big.Int
+	RequestBlockNumber    *big.Int
+	FulfilmentBlockNumber *big.Int
+}
+
 func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetrics) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
 	case _VRFV2LoadTestWithMetrics.abi.Events["OwnershipTransferRequested"].ID:
@@ -706,7 +789,9 @@ func (_VRFV2LoadTestWithMetrics *VRFV2LoadTestWithMetrics) Address() common.Addr
 type VRFV2LoadTestWithMetricsInterface interface {
 	COORDINATOR(opts *bind.CallOpts) (common.Address, error)
 
-	LINK(opts *bind.CallOpts) (common.Address, error)
+	GetRequestStatus(opts *bind.CallOpts, _requestId *big.Int) (GetRequestStatus,
+
+		error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
@@ -714,7 +799,13 @@ type VRFV2LoadTestWithMetricsInterface interface {
 
 	SFastestFulfillment(opts *bind.CallOpts) (*big.Int, error)
 
+	SLastRequestId(opts *bind.CallOpts) (*big.Int, error)
+
 	SRequestCount(opts *bind.CallOpts) (*big.Int, error)
+
+	SRequests(opts *bind.CallOpts, arg0 *big.Int) (SRequests,
+
+		error)
 
 	SResponseCount(opts *bind.CallOpts) (*big.Int, error)
 
@@ -724,7 +815,7 @@ type VRFV2LoadTestWithMetricsInterface interface {
 
 	RawFulfillRandomWords(opts *bind.TransactOpts, requestId *big.Int, randomWords []*big.Int) (*types.Transaction, error)
 
-	RequestRandomWords(opts *bind.TransactOpts, _subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _requestCount uint16) (*types.Transaction, error)
+	RequestRandomWords(opts *bind.TransactOpts, _subId uint64, _requestConfirmations uint16, _keyHash [32]byte, _callbackGasLimit uint32, _numWords uint32, _requestCount uint16) (*types.Transaction, error)
 
 	Reset(opts *bind.TransactOpts) (*types.Transaction, error)
 
