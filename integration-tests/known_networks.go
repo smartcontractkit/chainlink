@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -16,6 +17,18 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
+	// To create replica of simulated EVM network, with different chain ids
+	AdditionalSimulatedChainIds = []int64{3337, 4337, 5337, 6337, 7337, 8337, 9337, 9338}
+	AdditionalSimulatedPvtKeys  = []string{
+		"5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+		"7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
+		"47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
+		"8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
+		"92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
+		"4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
+		"dbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
+		"2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
+	}
 	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
 	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
 	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
@@ -313,23 +326,25 @@ var (
 		"SIMULATED_2":      SimulatedEVMNonDev2,
 		"SIMULATED_NONDEV": SimulatedEVMNonDev,
 		// "GENERAL":         generalEVM, // See above
-		"ETHEREUM_MAINNET": EthereumMainnet,
-		"GOERLI":           GoerliTestnet,
-		"SEPOLIA":          SepoliaTestnet,
-		"KLAYTN_MAINNET":   KlaytnMainnet,
-		"KLAYTN_BAOBAB":    KlaytnBaobab,
-		"METIS_ANDROMEDA":  MetisAndromeda,
-		"METIS_STARDUST":   MetisStardust,
-		"ARBITRUM_MAINNET": ArbitrumMainnet,
-		"ARBITRUM_GOERLI":  ArbitrumGoerli,
-		"OPTIMISM_MAINNET": OptimismMainnet,
-		"OPTIMISM_GOERLI":  OptimismGoerli,
-		"BASE_GOERLI":      BaseGoerli,
-		"CELO_ALFAJORES":   CeloAlfajores,
-		"RSK":              RSKTestnet,
-		"MUMBAI":           PolygonMumbai,
-		"AVALANCHE_FUJI":   AvalancheFuji,
-		"QUORUM":           Quorum,
+		"ETHEREUM_MAINNET":  EthereumMainnet,
+		"GOERLI":            GoerliTestnet,
+		"SEPOLIA":           SepoliaTestnet,
+		"KLAYTN_MAINNET":    KlaytnMainnet,
+		"KLAYTN_BAOBAB":     KlaytnBaobab,
+		"METIS_ANDROMEDA":   MetisAndromeda,
+		"METIS_STARDUST":    MetisStardust,
+		"ARBITRUM_MAINNET":  ArbitrumMainnet,
+		"ARBITRUM_GOERLI":   ArbitrumGoerli,
+		"OPTIMISM_MAINNET":  OptimismMainnet,
+		"OPTIMISM_GOERLI":   OptimismGoerli,
+		"BASE_GOERLI":       BaseGoerli,
+		"CELO_ALFAJORES":    CeloAlfajores,
+		"RSK":               RSKTestnet,
+		"MUMBAI":            PolygonMumbai,
+		"POLYGON_MAINNET":   PolygonMainnet,
+		"AVALANCHE_FUJI":    AvalancheFuji,
+		"AVALANCHE_MAINNET": AvalancheMainnet,
+		"QUORUM":            Quorum,
 	}
 )
 
@@ -374,19 +389,36 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 
 	wsEnvVar := fmt.Sprintf("%s_URLS", prefix)
 	httpEnvVar := fmt.Sprintf("%s_HTTP_URLS", prefix)
-	if os.Getenv(wsEnvVar) == "" {
-		wsURLs := strings.Split(os.Getenv("EVM_URLS"), ",")
-		httpURLs := strings.Split(os.Getenv("EVM_HTTP_URLS"), ",")
+	wsEnvURLs, err := utils.GetEnv(wsEnvVar)
+	if err != nil {
+		log.Fatal().Err(err).Str("env var", wsEnvVar).Msg("Error getting env var")
+	}
+	httpEnvURLs, err := utils.GetEnv(httpEnvVar)
+	if err != nil {
+		log.Fatal().Err(err).Str("env var", httpEnvVar).Msg("Error getting env var")
+	}
+	if wsEnvURLs == "" {
+		evmUrls, err := utils.GetEnv("EVM_URLS")
+		if err != nil {
+			log.Fatal().Err(err).Str("env var", "EVM_URLS").Msg("Error getting env var")
+		}
+		evmhttpUrls, err := utils.GetEnv("EVM_HTTP_URLS")
+		if err != nil {
+			log.Fatal().Err(err).Str("env var", "EVM_HTTP_URLS").Msg("Error getting env var")
+		}
+		wsURLs := strings.Split(evmUrls, ",")
+		httpURLs := strings.Split(evmhttpUrls, ",")
 		log.Warn().
 			Interface("EVM_URLS", wsURLs).
 			Interface("EVM_HTTP_URLS", httpURLs).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar))
+			Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
 		network.URLs = wsURLs
 		network.HTTPURLs = httpURLs
 		return
 	}
-	wsURLs := strings.Split(os.Getenv(wsEnvVar), ",")
-	httpURLs := strings.Split(os.Getenv(httpEnvVar), ",")
+
+	wsURLs := strings.Split(wsEnvURLs, ",")
+	httpURLs := strings.Split(httpEnvURLs, ",")
 	network.URLs = wsURLs
 	network.HTTPURLs = httpURLs
 	log.Info().Interface(wsEnvVar, wsURLs).Interface(httpEnvVar, httpURLs).Msg("Read network URLs")
@@ -402,7 +434,11 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
-	if os.Getenv(envVar) == "" {
+	keysEnv, err := utils.GetEnv(envVar)
+	if err != nil {
+		log.Fatal().Err(err).Str("env var", envVar).Msg("Error getting env var")
+	}
+	if keysEnv == "" {
 		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
 		log.Warn().
 			Interface("EVM_KEYS", keys).
@@ -410,7 +446,7 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 		network.PrivateKeys = keys
 		return
 	}
-	keys := strings.Split(os.Getenv(envVar), ",")
+	keys := strings.Split(keysEnv, ",")
 	network.PrivateKeys = keys
 	log.Info().Interface(envVar, keys).Msg("Read network Keys")
 }
