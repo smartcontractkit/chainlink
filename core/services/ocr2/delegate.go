@@ -515,7 +515,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "new onchain dkg client")
 		}
 
-		timeout := 1 * time.Second
+		timeout := 5 * time.Second
 		interval := 60 * time.Second
 		juelsLogger := lggr.Named("JuelsFeeCoin").With("contract", cfg.LinkEthFeedAddress, "timeout", timeout, "interval", interval)
 		juelsPerFeeCoin, err2 := juelsfeecoin.NewLinkEthPriceProvider(

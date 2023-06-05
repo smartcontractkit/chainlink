@@ -26,7 +26,7 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 		// Start linkEthPriceProvider.
 		var p *linkEthPriceProvider
 		evmClient := evmclimocks.NewClient(t)
-		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second, time.Second, logger.TestLogger(t))
+		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second/2, time.Second, logger.TestLogger(t))
 		require.NoError(t, err)
 		p = pInterface.(*linkEthPriceProvider)
 
@@ -55,7 +55,7 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 		// Start linkEthPriceProvider.
 		var p *linkEthPriceProvider
 		evmClient := evmclimocks.NewClient(t)
-		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second, time.Second, logger.TestLogger(t))
+		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second/2, time.Second, logger.TestLogger(t))
 		require.NoError(t, err)
 		p = pInterface.(*linkEthPriceProvider)
 
@@ -75,5 +75,12 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 		price, err = p.JuelsPerFeeCoin()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), price.Int64())
+	})
+
+	t.Run("errors out for timeout >= interval", func(t *testing.T) {
+		evmClient := evmclimocks.NewClient(t)
+		_, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second, time.Second, logger.TestLogger(t))
+		require.Error(t, err)
+		require.Equal(t, "timeout must be less than interval", err.Error())
 	})
 }

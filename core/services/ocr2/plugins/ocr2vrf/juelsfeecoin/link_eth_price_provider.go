@@ -23,6 +23,7 @@ type linkEthPriceProvider struct {
 	timeout                time.Duration
 	interval               time.Duration
 	lock                   sync.RWMutex
+	aggregatorLock         sync.Mutex
 	stop                   chan struct{}
 	currentJuelsPerFeeCoin *big.Int
 	lggr                   logger.Logger
@@ -40,6 +41,10 @@ func NewLinkEthPriceProvider(
 	aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "new aggregator v3 interface")
+	}
+
+	if timeout >= interval {
+		return nil, errors.New("timeout must be less than interval")
 	}
 
 	p := &linkEthPriceProvider{
@@ -60,12 +65,13 @@ func NewLinkEthPriceProvider(
 }
 
 // Run updates the JuelsPerFeeCoin value at a regular interval, until stopped.
+// Do not block the main thread, such that updates are always timely.
 func (p *linkEthPriceProvider) run() {
 	ticker := time.NewTicker(p.interval)
 	for {
 		select {
 		case <-ticker.C:
-			p.updateJuelsPerFeeCoin()
+			go p.updateJuelsPerFeeCoin()
 		case <-p.stop:
 			ticker.Stop()
 			return
@@ -83,12 +89,14 @@ func (p *linkEthPriceProvider) JuelsPerFeeCoin() (*big.Int, error) {
 // Get current JuelsPerFeeCoin value from aggregator contract.
 // If the RPC call fails, log the error and return.
 func (p *linkEthPriceProvider) updateJuelsPerFeeCoin() {
-	// Fetch latest round data from aggregator contract.
+	// Fetch latest round data from aggregator contract, threadsafe.
+	p.aggregatorLock.Lock()
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
-	defer cancel()
 	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
+	cancel()
+	p.aggregatorLock.Unlock()
 
-	// Threadsafe.
+	// Ensure writes to currentJuelsPerFeeCoin are threadsafe.
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
