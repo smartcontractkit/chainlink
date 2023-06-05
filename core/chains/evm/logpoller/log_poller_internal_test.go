@@ -2,7 +2,6 @@ package logpoller
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"sync"
@@ -43,10 +42,9 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 		dbFilter := dbFilter
 		memFilter, ok := lp.filters[name]
 		require.True(t, ok)
-		assert.True(t, memFilter.Contains(&dbFilter),
-			fmt.Sprintf("in-memory Filter %s is missing some addresses or events from db Filter table", name))
-		assert.True(t, dbFilter.Contains(&memFilter),
-			fmt.Sprintf("db Filter table %s is missing some addresses or events from in-memory Filter", name))
+		assert.Truef(t, memFilter.Contains(&dbFilter),
+			"in-memory Filter %s is missing some addresses or events from db Filter table", name)
+		assert.Truef(t, dbFilter.Contains(&memFilter), "db Filter table %s is missing some addresses or events from in-memory Filter", name)
 	}
 }
 
@@ -397,7 +395,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, fmt.Sprintf("lp.run() got stuck--failed to respond to second replay event within %s", timeLeft))
+			assert.Failf(t, "lp.run() got stuck--failed to respond to second replay event within %s", timeLeft.String())
 		case <-pass:
 		}
 	})
@@ -439,7 +437,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		select {
 		case <-timeout:
-			assert.Fail(t, fmt.Sprintf("lp.run() failed to respond to shutdown event during replay within %s", timeLeft))
+			assert.Failf(t, "lp.run() failed to respond to shutdown event during replay within %s", timeLeft.String())
 		case <-pass:
 		}
 	})
@@ -479,7 +477,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
 		case <-lp.ctx.Done():
-			assert.Fail(t, fmt.Sprintf("failed to receive replayComplete signal within %s", timeLeft))
+			assert.Failf(t, "failed to receive replayComplete signal within %s", timeLeft.String())
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
