@@ -489,7 +489,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
 			}
 			receipt, err := c.b.TransactionReceipt(ctx, hash)
-			b[i].Result = evmtypes.FromGethReceipt(receipt)
+			if receipt != nil {
+				*(b[i].Result.(*evmtypes.Receipt)) = *evmtypes.FromGethReceipt(receipt)
+			}
 			b[i].Error = err
 		case "eth_getBlockByNumber":
 			switch v := elem.Result.(type) {
