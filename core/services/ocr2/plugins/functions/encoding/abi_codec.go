@@ -1,4 +1,4 @@
-package functions
+package encoding
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func NewReportCodec() (*ReportCodec, error) {
 	}, nil
 }
 
-func sliceToByte32(slice []byte) ([32]byte, error) {
+func SliceToByte32(slice []byte) ([32]byte, error) {
 	if len(slice) != 32 {
 		return [32]byte{}, fmt.Errorf("input length is not 32 bytes: %d", len(slice))
 	}
@@ -56,7 +56,7 @@ func (c *ReportCodec) EncodeReport(requests []*ProcessedRequest) ([]byte, error)
 	errors := make([][]byte, size)
 	for i := 0; i < size; i++ {
 		var err error
-		ids[i], err = sliceToByte32(requests[i].RequestID)
+		ids[i], err = SliceToByte32(requests[i].RequestID)
 		if err != nil {
 			return nil, err
 		}

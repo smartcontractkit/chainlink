@@ -17,7 +17,6 @@ import (
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -51,7 +50,7 @@ var (
 	}, []string{"evmChainID"})
 )
 
-var errEthTxRemoved = errors.New("eth_tx removed")
+var ErrEthTxRemoved = errors.New("eth_tx removed")
 
 type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
@@ -147,22 +146,6 @@ type Broadcaster[
 	utils.StartStopOnce
 
 	parseAddr func(string) (ADDR, error)
-}
-
-// NewEvmBroadcaster returns a new concrete EvmBroadcaster
-func NewEvmBroadcaster(
-	txStore EvmTxStore,
-	evmClient EvmTxmClient,
-	config txmgrtypes.BroadcasterConfig[*assets.Wei],
-	keystore EvmKeyStore,
-	eventBroadcaster pg.EventBroadcaster,
-	txAttemptBuilder EvmTxAttemptBuilder,
-	nonceSyncer EvmNonceSyncer,
-	logger logger.Logger,
-	checkerFactory EvmTransmitCheckerFactory,
-	autoSyncNonce bool,
-) *EvmBroadcaster {
-	return NewBroadcaster(txStore, evmClient, config, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress)
 }
 
 func NewBroadcaster[
@@ -494,7 +477,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 			return retryable, errors.Wrap(err, "processUnstartedTxs failed on NewAttempt")
 		}
 
-		if err := eb.txStore.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, errEthTxRemoved) {
+		if err := eb.txStore.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, ErrEthTxRemoved) {
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {

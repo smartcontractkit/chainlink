@@ -1,4 +1,4 @@
-package functions_test
+package encoding_test
 
 import (
 	"fmt"
@@ -6,15 +6,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
-func TestDRCodec_EncodeDecodeSuccess(t *testing.T) {
+func TestABICodec_EncodeDecodeSuccess(t *testing.T) {
 	t.Parallel()
-	codec, err := functions.NewReportCodec()
+	codec, err := encoding.NewReportCodec()
 	require.NoError(t, err)
 
-	var report = []*functions.ProcessedRequest{
+	var report = []*encoding.ProcessedRequest{
 		{
 			RequestID: []byte(fmt.Sprintf("%032d", 123)),
 			Result:    []byte("abcd"),
@@ -38,4 +38,21 @@ func TestDRCodec_EncodeDecodeSuccess(t *testing.T) {
 		require.Equal(t, report[i].Result, decoded[i].Result, "Results not equal at index %d", i)
 		require.Equal(t, report[i].Error, decoded[i].Error, "Errors not equal at index %d", i)
 	}
+}
+
+func TestABICodec_SliceToByte32(t *testing.T) {
+	t.Parallel()
+
+	_, err := encoding.SliceToByte32([]byte("abcd"))
+	require.Error(t, err)
+	_, err = encoding.SliceToByte32([]byte("0123456789012345678901234567890123456789"))
+	require.Error(t, err)
+
+	var expected [32]byte
+	for i := 0; i < 32; i++ {
+		expected[i] = byte(i)
+	}
+	res, err := encoding.SliceToByte32(expected[:])
+	require.NoError(t, err)
+	require.Equal(t, expected, res)
 }
