@@ -13,21 +13,13 @@ interface IFunctionsRouter is IRouterBase {
    */
   function getAdminFee() external view returns (uint96);
 
-  // function isAuthorizedOracle(address oracle) external view returns (bool);
-
-  // function getAuthorizedOracles() external view returns (address[] memory);
-
-  // function isConsumerAllowed(address client, uint64 subscriptionId) external view;
-
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint32 gasLimit
-  ) external returns (bytes32);
-
   /**
-   * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
-   * @param requestIdsToTimeout - A list of request IDs to time out
+   * @notice Sends a request (encoded as data) using the provided subscriptionId
+   * @param subscriptionId A unique subscription ID allocated by billing system,
+   * a client can make requests from different contracts referencing the same subscription
+   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+   * @param gasLimit Gas limit for the fulfillment callback
+   * @return requestId A unique request identifier (unique per DON)
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
+  function sendRequest(uint64 subscriptionId, bytes calldata data, uint32 gasLimit) external returns (bytes32);
 }

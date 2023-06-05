@@ -144,8 +144,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _validateReport(
-    bytes32, /* configDigest */
-    uint40, /* epochAndRound */
+    bytes32 /* configDigest */,
+    uint40 /* epochAndRound */,
     bytes memory /* report */
   ) internal pure override returns (bool) {
     // validate within _report to save gas
@@ -166,12 +166,13 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       requestIds,
       results,
       errors
-      /*metadata,*/
-    ) = abi.decode(report, (bytes32[], bytes[], bytes[])); // TODO: metadata through report
+      /*metadata, TODO: usage metadata through report*/
+    ) = abi.decode(report, (bytes32[], bytes[], bytes[]));
     if (requestIds.length == 0 || requestIds.length != results.length || requestIds.length != errors.length) {
       revert ReportInvalid();
     }
 
+    // The cost of validating the report is split across all request fulfillments within the report
     uint256 reportValidationGasShare = (initialGas - gasleft()) / requestIds.length;
 
     for (uint256 i = 0; i < requestIds.length; i++) {
@@ -183,8 +184,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         transmitter,
         signers,
         signerCount,
-        reportValidationGasShare,
-        gasleft()
+        reportValidationGasShare + gasleft()
       );
       if (result == IFunctionsBilling.FulfillResult.USER_SUCCESS) {
         emit OracleResponse(requestIds[i]);

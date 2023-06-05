@@ -12,14 +12,7 @@ interface IRouterBase {
    * @return minor The current minor version number
    * @return patch The current patch version number
    */
-  function version()
-    external
-    view
-    returns (
-      uint16 major,
-      uint16 minor,
-      uint16 patch
-    );
+  function version() external view returns (uint16 major, uint16 minor, uint16 patch);
 
   /**
    * @notice Get the latest contract given an identifying label
@@ -37,15 +30,7 @@ interface IRouterBase {
    * @return from The addresses of the contracts that will be updated from
    * @return to The addresses of the contracts that will be updated to
    */
-  function getProposalSet()
-    external
-    view
-    returns (
-      uint,
-      string[] memory,
-      address[] memory,
-      address[] memory
-    );
+  function getProposalSet() external view returns (uint, string[] memory, address[] memory, address[] memory);
 
   /**
    * @notice Proposes one or more updates to the contract routes

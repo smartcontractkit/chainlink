@@ -32,7 +32,7 @@ interface IFunctionsBilling {
    * @return gasOverhead average gas execution cost used in estimating total cost
    * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
-    function getConfig()
+  function getConfig()
     external
     view
     returns (
@@ -76,11 +76,11 @@ interface IFunctionsBilling {
   ) external view returns (uint96);
 
   /**
-   * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
-   * @param requestIdsToTimeout - A list of request IDs to time out
+   * @notice Time out an expired request: unlocks funds and removes the ability for the request to be fulfilled
+   * @dev Only callable by the Router
+   * @param requestId - The request ID to time out
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
+  function timeoutRequest(bytes32 requestId) external returns (bool);
 
   function isReentrancyLocked() external returns (bool);
-
 }
