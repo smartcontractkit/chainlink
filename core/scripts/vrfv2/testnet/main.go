@@ -703,13 +703,12 @@ func main() {
 	case "eoa-load-test-consumer-with-metrics-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
-		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
 		_, tx, _, err := vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress))
+		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-create-sub":
@@ -835,6 +834,8 @@ func main() {
 		subID := request.Uint64("sub-id", 0, "subscription ID")
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		keyHash := request.String("key-hash", "", "key hash")
+		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
+		numWords := request.Uint("num-words", 1, "num words to request")
 		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
@@ -845,8 +846,15 @@ func main() {
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations),
-				keyHashBytes, uint16(*requests))
+			tx, err := consumer.RequestRandomWords(
+				e.Owner,
+				*subID,
+				uint16(*requestConfirmations),
+				keyHashBytes,
+				uint32(*cbGasLimit),
+				uint32(*numWords),
+				uint16(*requests),
+			)
 			helpers.PanicErr(err)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
 			txes = append(txes, tx)
