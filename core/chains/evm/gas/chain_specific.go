@@ -7,7 +7,7 @@ import (
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
 // Config that determines whether a transaction should be used for gas estimation
-func chainSpecificIsUsable(tx evmtypes.Transaction, cfg Config) bool {
+func chainSpecificIsUsable(tx evmtypes.Transaction, block evmtypes.Block, cfg Config) bool {
 	if cfg.ChainType() == config.ChainXDai {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
 		// However, xDai reserves a special type of "bridge" transaction with 0 gas
@@ -26,6 +26,20 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, cfg Config) bool {
 		// https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md
 		if tx.Type == 0x7e {
 			return false
+		}
+	}
+	if cfg.ChainType() == config.ChainCelo {
+		// Celo specific transaction type that utilizes the feeCurrency field.
+		if tx.Type == 0x7c {
+			return false
+		}
+		// Celo has not yet fully migrated to the 0x7c type for special feeCurrency transactions
+		// and uses the standard 0x0, 0x2 types instead. We need to discard any invalid transactions
+		// and not throw an error since this can happen from time to time and it's an expected behavior
+		// until they fully migrate to 0x7c.
+		if tx.GasPrice.Cmp(block.BaseFeePerGas) < 0 {
+			return false
+
 		}
 	}
 	return true
