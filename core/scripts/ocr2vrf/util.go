@@ -557,7 +557,7 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	return
 }
 
-func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context, e helpers.Environment) *cmd.SetupOCR2VRFNodePayload {
+func setupOCR2VRFNodeFromClient(client *cmd.Shell, context *cli.Context, e helpers.Environment) *cmd.SetupOCR2VRFNodePayload {
 	payload, err := client.ConfigureOCR2VRFNode(context, e.Owner, e.Ec)
 	helpers.PanicErr(err)
 
@@ -575,13 +575,13 @@ func configureEnvironmentVariables(useForwarder bool, chainID int64, wsUrl strin
 	helpers.PanicErr(os.Unsetenv("ETH_CHAIN_ID"))
 }
 
-func resetDatabase(client *cmd.Client, context *cli.Context) {
+func resetDatabase(client *cmd.Shell, context *cli.Context) {
 	helpers.PanicErr(client.ResetDatabase(context))
 }
 
-func newSetupClient() *cmd.Client {
+func newSetupClient() *cmd.Shell {
 	prompter := cmd.NewTerminalPrompter()
-	return &cmd.Client{
+	return &cmd.Shell{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
