@@ -914,6 +914,10 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
+func (g *generalConfig) AuditLogger() audit.Config {
+	return auditLoggerConfig{C: g.c.AuditLogger}
+}
+
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
 	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&

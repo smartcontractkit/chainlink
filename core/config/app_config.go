@@ -48,9 +48,9 @@ type AppConfig interface {
 	Pyroscope
 	Secrets
 	Web
-	audit.Config
 
 	Database() Database
+	AuditLogger() audit.Config
 	Keeper() Keeper
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
