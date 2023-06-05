@@ -590,7 +590,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
+	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, tlg, cfg)
 	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)
