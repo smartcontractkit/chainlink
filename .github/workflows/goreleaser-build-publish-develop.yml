@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/re-1505
 
 jobs:
   push-chainlink-develop-goreleaser:
@@ -30,6 +31,7 @@ jobs:
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
+          zig-version: master
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
