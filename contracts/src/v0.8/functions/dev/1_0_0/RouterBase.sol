@@ -18,8 +18,8 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   // ================================================================
   // |                          Route state                         |
   // ================================================================
-  mapping(string => address) internal s_route;
-  error RouteNotFound(string label);
+  mapping(bytes32 => address) internal s_route; /* jobId => contract address */
+  error RouteNotFound(bytes32 jobId);
 
   // ================================================================
   // |                         Proposal state                       |
@@ -27,7 +27,7 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   uint8 internal constant MAX_PROPOSAL_SET_LENGTH = 8;
 
   struct ProposalSet {
-    string[] labels;
+    bytes32[] jobIds;
     address[] from;
     address[] to;
     uint proposedAtBlock;
@@ -35,13 +35,13 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   ProposalSet internal s_proposalSet;
 
   event Proposed(
-    string[] proposalSetLabels,
+    bytes32[] proposalSetJobIds,
     address[] proposalSetFromAddresses,
     address[] proposalSetToAddresses,
     uint block
   );
   event Upgraded(
-    string[] proposalSetLabels,
+    bytes32[] proposalSetJobIds,
     address[] proposalSetFromAddresses,
     address[] proposalSetToAddresses,
     uint block,
@@ -55,11 +55,11 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
     bytes to;
     uint proposedAtBlock;
   }
-  mapping(string => ConfigProposal) internal s_proposedConfig;
-  event ConfigProposed(string label, bytes32 from, bytes32 to);
-  event ConfigUpdated(string label, bytes32 from, bytes32 to);
+  mapping(bytes32 => ConfigProposal) internal s_proposedConfig; /* jobId => ConfigProposal */
+  event ConfigProposed(bytes32 jobId, bytes32 from, bytes32 to);
+  event ConfigUpdated(bytes32 jobId, bytes32 from, bytes32 to);
   error InvalidProposal();
-  error ReservedLabel(string label);
+  error ReservedLabel(bytes32 jobId);
 
   // ================================================================
   // |                          Timelock state                      |
@@ -86,24 +86,25 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   // |                       Initialization                         |
   // ================================================================
   constructor(
-    string memory id,
+    string memory id, // TODO
     address newOwner,
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
-    string[] memory initialLabels,
+    bytes32[] memory initialJobIds,
     address[] memory initialAddresses,
     bytes memory config
   ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() Versioned(id, s_majorVersion) {
     s_timelockBlocks = timelockBlocks;
     MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
-    s_route[id] = address(this);
+    bytes32 routerLabel = keccak256(abi.encodePacked(s_id));
+    s_route[routerLabel] = address(this);
     _setConfig(config);
     s_config_hash = keccak256(config);
-    address[] memory emptyAddresses = new address[](initialLabels.length);
-    _validateProposal(initialLabels, emptyAddresses, initialAddresses);
-    s_proposalSet = ProposalSet(initialLabels, emptyAddresses, initialAddresses, block.number);
-    for (uint8 i = 0; i < s_proposalSet.labels.length; i++) {
-      s_route[s_proposalSet.labels[i]] = s_proposalSet.to[i];
+    address[] memory emptyAddresses = new address[](initialJobIds.length);
+    _validateProposal(initialJobIds, emptyAddresses, initialAddresses);
+    s_proposalSet = ProposalSet(initialJobIds, emptyAddresses, initialAddresses, block.number);
+    for (uint8 i = 0; i < s_proposalSet.jobIds.length; i++) {
+      s_route[s_proposalSet.jobIds[i]] = s_proposalSet.to[i];
     }
   }
 
@@ -114,15 +115,7 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   /**
    * @inheritdoc IRouterBase
    */
-  function version()
-    external
-    view
-    returns (
-      uint16,
-      uint16,
-      uint16
-    )
-  {
+  function version() external view returns (uint16, uint16, uint16) {
     return (s_majorVersion, s_minorVersion, s_patchVersion);
   }
 
@@ -130,10 +123,10 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   // |                        Route methods                         |
   // ================================================================
 
-  function getLatestRoute(string calldata label) internal view returns (address) {
-    address currentImplementation = s_route[label];
+  function getLatestRoute(bytes32 jobId) internal view returns (address) {
+    address currentImplementation = s_route[jobId];
     if (currentImplementation == address(0)) {
-      revert RouteNotFound(label);
+      revert RouteNotFound(jobId);
     }
     return currentImplementation;
   }
@@ -141,17 +134,17 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   /**
    * @inheritdoc IRouterBase
    */
-  function getRoute(string calldata label) public view returns (address) {
-    return getLatestRoute(label);
+  function getRoute(bytes32 jobId) public view returns (address) {
+    return getLatestRoute(jobId);
   }
 
   /**
    * @inheritdoc IRouterBase
    */
-  function getRoute(string calldata label, bool useProposed) public view returns (address) {
+  function getRoute(bytes32 jobId, bool useProposed) public view returns (address) {
     if (useProposed == true) {
-      for (uint8 i = 0; i < s_proposalSet.labels.length; i++) {
-        if (keccak256(abi.encodePacked(label)) == keccak256(abi.encodePacked(s_proposalSet.labels[i]))) {
+      for (uint8 i = 0; i < s_proposalSet.jobIds.length; i++) {
+        if (jobId == s_proposalSet.jobIds[i]) {
           // NOTE: proposals can be used immediately
           // if (block.number < s_proposalSet.proposedAtBlock + s_timelockBlocks) {
           //   revert TimelockInEffect();
@@ -160,7 +153,7 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
         }
       }
     }
-    return getLatestRoute(label);
+    return getLatestRoute(jobId);
   }
 
   // ================================================================
@@ -170,52 +163,44 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   /**
    * @inheritdoc IRouterBase
    */
-  function getProposalSet()
-    external
-    view
-     returns (
-      uint,
-      string[] memory,
-      address[] memory,
-      address[] memory
-    )
-  {
-    return (s_proposalSet.proposedAtBlock, s_proposalSet.labels, s_proposalSet.from, s_proposalSet.to);
+  function getProposalSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory) {
+    return (s_proposalSet.proposedAtBlock, s_proposalSet.jobIds, s_proposalSet.from, s_proposalSet.to);
   }
 
   function _validateProposal(
-    string[] memory proposalSetLabels,
+    bytes32[] memory proposalSetJobIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
   ) internal view {
     // All arrays must be of equal length
     if (
-      proposalSetLabels.length != proposalSetFromAddresses.length ||
-      proposalSetLabels.length != proposalSetToAddresses.length
+      proposalSetJobIds.length != proposalSetFromAddresses.length ||
+      proposalSetJobIds.length != proposalSetToAddresses.length
     ) {
       revert InvalidProposal();
     }
     // The Proposal Set must not exceed the max length
-    if (proposalSetLabels.length > MAX_PROPOSAL_SET_LENGTH) {
+    if (proposalSetJobIds.length > MAX_PROPOSAL_SET_LENGTH) {
       revert InvalidProposal();
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < proposalSetLabels.length; i++) {
+    for (uint8 i = 0; i < proposalSetJobIds.length; i++) {
       // The Proposed address must be a valid address
       if (proposalSetToAddresses[i] == address(0)) {
         revert InvalidProposal();
       }
       // The Proposed address must point to a different address than what is currently set
-      if (s_route[proposalSetLabels[i]] == proposalSetToAddresses[i]) {
+      if (s_route[proposalSetJobIds[i]] == proposalSetToAddresses[i]) {
         revert InvalidProposal();
       }
       // The from address must match what is the currently set address
-      if (s_route[proposalSetLabels[i]] != proposalSetFromAddresses[i]) {
+      if (s_route[proposalSetJobIds[i]] != proposalSetFromAddresses[i]) {
         revert InvalidProposal();
       }
       // The Router's id cannot be set
-      if (keccak256(abi.encodePacked(proposalSetLabels[i])) == keccak256(abi.encodePacked(s_id))) {
-        revert ReservedLabel(s_id);
+      bytes32 routerLabel = keccak256(abi.encodePacked(s_id));
+      if (proposalSetJobIds[i] == routerLabel) {
+        revert ReservedLabel(routerLabel);
       }
     }
   }
@@ -224,14 +209,14 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
    * @inheritdoc IRouterBase
    */
   function propose(
-    string[] memory proposalSetLabels,
+    bytes32[] memory proposalSetJobIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
   ) external override onlyOwner {
-    _validateProposal(proposalSetLabels, proposalSetFromAddresses, proposalSetToAddresses);
+    _validateProposal(proposalSetJobIds, proposalSetFromAddresses, proposalSetToAddresses);
     uint currentBlock = block.number;
-    s_proposalSet = ProposalSet(proposalSetLabels, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
-    emit Proposed(proposalSetLabels, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
+    s_proposalSet = ProposalSet(proposalSetJobIds, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
+    emit Proposed(proposalSetJobIds, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
   }
 
   /**
@@ -254,13 +239,13 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
     if (block.number < s_proposalSet.proposedAtBlock + s_timelockBlocks) {
       revert TimelockInEffect();
     }
-    for (uint8 i = 0; i < s_proposalSet.labels.length; i++) {
-      s_route[s_proposalSet.labels[i]] = s_proposalSet.to[i];
+    for (uint8 i = 0; i < s_proposalSet.jobIds.length; i++) {
+      s_route[s_proposalSet.jobIds[i]] = s_proposalSet.to[i];
     }
     s_minorVersion = s_minorVersion + 1;
     if (s_patchVersion != 0) s_patchVersion = 0;
     emit Upgraded(
-      s_proposalSet.labels,
+      s_proposalSet.jobIds,
       s_proposalSet.from,
       s_proposalSet.to,
       block.number,
@@ -286,33 +271,33 @@ abstract contract RouterBase is IRouterBase, Pausable, Versioned, ConfirmedOwner
   /**
    * @inheritdoc IRouterBase
    */
-  function proposeConfig(string calldata label, bytes calldata config) external override onlyOwner {
-    address implAddr = s_route[label];
+  function proposeConfig(bytes32 jobId, bytes calldata config) external override onlyOwner {
+    address implAddr = s_route[jobId];
     bytes32 currentConfigHash = IConfigurable(implAddr).getConfigHash(); // TODO: Does this work on self?
     if (currentConfigHash == keccak256(config)) {
       revert InvalidProposal();
     }
-    s_proposedConfig[label] = ConfigProposal(currentConfigHash, config, block.number);
+    s_proposedConfig[jobId] = ConfigProposal(currentConfigHash, config, block.number);
     bytes32 proposedHash = keccak256(config);
-    emit ConfigProposed(label, currentConfigHash, proposedHash);
+    emit ConfigProposed(jobId, currentConfigHash, proposedHash);
   }
 
   /**
    * @inheritdoc IRouterBase
    */
-  function updateConfig(string calldata label) external override onlyOwner {
-    address implAddr = s_route[label];
-    ConfigProposal memory proposal = s_proposedConfig[label];
+  function updateConfig(bytes32 jobId) external override onlyOwner {
+    address implAddr = s_route[jobId];
+    ConfigProposal memory proposal = s_proposedConfig[jobId];
     if (block.number < proposal.proposedAtBlock + s_timelockBlocks) {
       revert TimelockInEffect();
     }
-    if (keccak256(abi.encodePacked(label)) == keccak256(abi.encodePacked(s_id))) {
+    if (jobId == keccak256(abi.encodePacked(s_id))) {
       _setConfig(proposal.to);
     } else {
       IConfigurable(implAddr).setConfig(proposal.to);
     }
     s_patchVersion = s_patchVersion + 1;
-    emit ConfigUpdated(label, proposal.from, keccak256(proposal.to));
+    emit ConfigUpdated(jobId, proposal.from, keccak256(proposal.to));
   }
 
   // ================================================================

@@ -29,7 +29,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     uint16 maximumTimelockBlocks,
     bool useAllowList,
     address linkToken,
-    string[] memory initialLabels,
+    bytes32[] memory initialJobIds,
     address[] memory initialAddresses,
     bytes memory config
   )
@@ -38,7 +38,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       msg.sender,
       timelockBlocks,
       maximumTimelockBlocks,
-      initialLabels,
+      initialJobIds,
       initialAddresses,
       config
     )
