@@ -52,6 +52,6 @@ func (ps SolanaKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewSolanaKeysClient(c *Client) KeysClient {
-	return newKeysClient[solkey.Key, SolanaKeyPresenter, SolanaKeyPresenters]("Solana", c)
+func NewSolanaKeysClient(s *Shell) KeysClient {
+	return newKeysClient[solkey.Key, SolanaKeyPresenter, SolanaKeyPresenters]("Solana", s)
 }
