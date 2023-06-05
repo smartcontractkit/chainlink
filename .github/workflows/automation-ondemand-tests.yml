@@ -11,6 +11,10 @@ on:
         required: false
         type: string
 
+env:
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+
 jobs:
   build-chainlink:
     environment: integration
@@ -134,7 +138,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ inputs.chainlinkImage }}" == "" ]]; then
-            echo "image=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink" >>$GITHUB_OUTPUT
+            echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
             echo "version=${{ github.head_ref || github.ref_name }}" >>$GITHUB_OUTPUT
           else
             echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
