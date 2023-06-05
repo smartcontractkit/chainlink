@@ -148,7 +148,7 @@ jobs:
         run: |
           if [[ "${{ inputs.chainlinkImage }}" == "" ]]; then
             echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-            echo "version=${{ github.head_ref || github.ref_name }}" >>$GITHUB_OUTPUT
+            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
           else
             echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
