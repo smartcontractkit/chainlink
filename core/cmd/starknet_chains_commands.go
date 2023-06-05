@@ -43,6 +43,6 @@ func (ps StarkNetChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func StarkNetChainClient(client *Client) ChainClient {
-	return newChainClient[StarkNetChainPresenters](client, "starknet")
+func StarkNetChainClient(s *Shell) ChainClient {
+	return newChainClient[StarkNetChainPresenters](s, "starknet")
 }
