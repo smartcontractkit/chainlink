@@ -1,10 +1,10 @@
 name: "Build publish Chainlink develop on private ECR"
 
 on:
+  pull_request:
   push:
     branches:
       - develop
-      - feat/re-1505
 
 jobs:
   push-chainlink-develop-goreleaser:
