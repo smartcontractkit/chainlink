@@ -130,7 +130,7 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-upgrade
-            network: SIMULATED_NONDEV
+            network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade$ ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation On Demand ${{ matrix.tests.name }} Test
