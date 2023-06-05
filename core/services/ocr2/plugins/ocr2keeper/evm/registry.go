@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -90,6 +91,10 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
+	keeperRegistryABI21, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
 
 	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
 	if err != nil {
@@ -104,17 +109,19 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr,
-		poller:   client.LogPoller(),
-		addr:     addr,
-		client:   client.Client(),
-		txHashes: make(map[string]bool),
-		registry: registry,
-		abi:      keeperRegistryABI,
-		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
+		lggr:      lggr,
+		poller:    client.LogPoller(),
+		addr:      addr,
+		client:    client.Client(),
+		txHashes:  make(map[string]bool),
+		registry:  registry,
+		abi:       keeperRegistryABI,
+		active:    make(map[string]activeUpkeep),
+		packer:    &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		abiV21:    keeperRegistryABI21,
+		packerV21: &evmRegistryPackerV21{abi: keeperRegistryABI21},
+		headFunc:  func(types.BlockKey) {},
+		chLog:     make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
 			abi:           mercuryLookupCompatibleABI,
@@ -122,8 +129,9 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
-		hc:  http.DefaultClient,
-		enc: EVMAutomationEncoder20{},
+		hc:         http.DefaultClient,
+		enc:        EVMAutomationEncoder20{},
+		logFilters: newLogFilterManager(client.LogPoller()),
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -190,6 +198,8 @@ type EvmRegistry struct {
 	registry      Registry
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
+	abiV21        abi.ABI
+	packerV21     *evmRegistryPackerV21
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
@@ -204,6 +214,7 @@ type EvmRegistry struct {
 	mercury       MercuryConfig
 	hc            HttpClient
 	enc           EVMAutomationEncoder20
+	logFilters    *logFilterManager
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
@@ -464,6 +475,9 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
+	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepTriggerConfigSet:
+		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.updateTriggerConfig(l.Id, l.TriggerConfig)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
@@ -825,4 +839,23 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	return results, multiErr
+}
+
+// updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
+func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) {
+	uid := id.String()
+	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(uid)) {
+	case logTrigger:
+		parsed, err := r.packerV21.UnpackLogTriggerConfig(string(cfg))
+		if err != nil {
+			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
+			return // TODO: handle?
+		}
+		if err := r.logFilters.Register(id, LogTriggerConfig(parsed)); err != nil {
+			r.lggr.Warnw("failed to register log filter", "upkeepID", uid)
+			return // TODO: handle?
+		}
+		r.lggr.Debugw("registered log filter", "upkeepID", uid)
+	default:
+	}
 }
