@@ -1,7 +1,6 @@
 name: "Build publish Chainlink develop on private ECR"
 
 on:
-  pull_request:
   push:
     branches:
       - develop
@@ -31,7 +30,8 @@ jobs:
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
-          zig-version: master
+          # ISSUE: https://github.com/golang/go/issues/52690
+          zig-version: master # TODO: update action to v0.11.x once released
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
