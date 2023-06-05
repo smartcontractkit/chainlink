@@ -38,7 +38,9 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 		// Mock its aggregator contract.
 		latestRoundData := aggregator_v3_interface.LatestRoundData{Answer: big.NewInt(10000)}
 		mockAggregator.On("LatestRoundData", mock.Anything).Return(latestRoundData, nil)
+		p.aggregatorLock.Lock()
 		p.aggregator = mockAggregator
+		p.aggregatorLock.Unlock()
 
 		// Wait until the price is updated.
 		time.Sleep(2 * time.Second)
@@ -66,7 +68,9 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 
 		// Mock its aggregator contract. Error out when fetching latest round data.
 		mockAggregator.On("LatestRoundData", mock.Anything).Return(*new(aggregator_v3_interface.LatestRoundData), errors.New("could not fetch"))
+		p.aggregatorLock.Lock()
 		p.aggregator = mockAggregator
+		p.aggregatorLock.Unlock()
 
 		// Wait until the price is updated.
 		time.Sleep(2 * time.Second)
