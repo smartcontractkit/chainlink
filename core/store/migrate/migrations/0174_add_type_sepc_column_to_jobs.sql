@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 ALTER TABLE jobs
     ADD COLUMN type_spec JSONB NOT NULL DEFAULT '{}',
-    DROP COLUMN  gateway_spec_id,
+    DROP COLUMN gateway_spec_id,
     DROP COLUMN block_header_feeder_spec_id,
     DROP COLUMN blockhash_store_spec_id,
     DROP COLUMN bootstrap_spec_id,

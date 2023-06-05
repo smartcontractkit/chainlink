@@ -303,12 +303,10 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "pipeline_specs", 1)
 
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, "ocr_oracle_specs", 0)
 		cltest.AssertCount(t, db, "pipeline_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
@@ -318,7 +316,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		scoped := evmtest.NewChainScopedConfig(t, config)
 		cltest.MustInsertUpkeepForRegistry(t, db, scoped, registry)
 
-		cltest.AssertCount(t, db, "keeper_specs", 1)
 		cltest.AssertCount(t, db, "keeper_registries", 1)
 		cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
@@ -339,11 +336,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, "vrf_specs", 1)
 		cltest.AssertCount(t, db, "jobs", 1)
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, "vrf_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
@@ -355,8 +350,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, "webhook_specs", 0)
-		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
@@ -561,7 +554,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 		_, err := db.ExecContext(testutils.Context(t),
-			"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jb.ID)
+			"UPDATE jobs j SET type_spec = jsonb_set(type_spec, '{evm_chain_id}', 'null') WHERE j.id=$1", jb.ID)
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)

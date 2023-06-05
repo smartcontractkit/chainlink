@@ -570,11 +570,8 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
-	require.NoError(t, err)
-
 	var pipelineSpec pipeline.Spec
-	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
+	err := korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
 
 	jb := job.Job{

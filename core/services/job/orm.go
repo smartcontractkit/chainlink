@@ -492,55 +492,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
-				pipeline_spec_id,
-				ocr_oracle_spec_id,
-				ocr2_oracle_spec_id,
-				keeper_spec_id,
-				cron_spec_id,
-				flux_monitor_spec_id,
-				vrf_spec_id,
-				webhook_spec_id,
-				direct_request_spec_id,
-				blockhash_store_spec_id,
-				bootstrap_spec_id,
-				block_header_feeder_spec_id,
-				gateway_spec_id
-		),
-		deleted_oracle_specs AS (
-			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
-		),
-		deleted_oracle2_specs AS (
-			DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)
-		),
-		deleted_keeper_specs AS (
-			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
-		),
-		deleted_cron_specs AS (
-			DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)
-		),
-		deleted_fm_specs AS (
-			DELETE FROM flux_monitor_specs WHERE id IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
-		),
-		deleted_vrf_specs AS (
-			DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)
-		),
-		deleted_webhook_specs AS (
-			DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)
-		),
-		deleted_dr_specs AS (
-			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
-		),
-		deleted_blockhash_store_specs AS (
-			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
-		),
-		deleted_bootstrap_specs AS (
-			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
-		),
-		deleted_block_header_feeder_specs AS (
-			DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)
-		),
-		deleted_gateway_specs AS (
-			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
+				pipeline_spec_id
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
 	res, cancel, err := q.ExecQIter(query, id)
