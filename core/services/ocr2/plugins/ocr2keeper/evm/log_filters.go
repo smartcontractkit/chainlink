@@ -33,7 +33,7 @@ func newLogFilterManager(poller logpoller.LogPoller) *logFilterManager {
 	}
 }
 
-// Register creates a filter from the given upkeep and calls log pollet to register it
+// Register creates a filter from the given upkeep and calls log poller to register it
 func (lfm *logFilterManager) Register(upkeepID *big.Int, cfg LogTriggerConfig) error {
 	if err := lfm.validateLogTriggerConfig(cfg); err != nil {
 		return errors.Wrap(err, "invalid log trigger config")
@@ -71,7 +71,6 @@ func (lfm *logFilterManager) validateLogTriggerConfig(cfg LogTriggerConfig) erro
 	if bytes.Equal(cfg.Topic0[:], zeroBytes[:]) {
 		return errors.New("invalid topic0: zeroed")
 	}
-	// TODO: TBD validate topic1, topic2, topic3
 	return nil
 }
 
