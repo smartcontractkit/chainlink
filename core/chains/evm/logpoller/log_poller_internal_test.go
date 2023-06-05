@@ -354,7 +354,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout := time.After(testutils.WaitTimeout(t))
+		timeLeft := testutils.WaitTimeout(t)
+		timeout := time.After(timeLeft)
 		ctx, cancel := context.WithCancel(tctx)
 
 		var wg sync.WaitGroup
@@ -396,7 +397,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within %s", testutils.WaitTimeout(t))
+			assert.Fail(t, fmt.Sprintf("lp.run() got stuck--failed to respond to second replay event within %s", timeLeft))
 		case <-pass:
 		}
 	})
@@ -423,7 +424,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		timeout := time.After(testutils.WaitTimeout(t))
+		timeLeft := testutils.WaitTimeout(t)
+		timeout := time.After(timeLeft)
 		require.NoError(t, lp.Start(tctx))
 
 		defer func() {
@@ -437,7 +439,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within %s", testutils.WaitTimeout(t))
+			assert.Fail(t, fmt.Sprintf("lp.run() failed to respond to shutdown event during replay within %s", timeLeft))
 		case <-pass:
 		}
 	})
@@ -461,7 +463,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, testutils.WaitTimeout(t))
+		timeLeft := testutils.WaitTimeout(t)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, timeLeft)
 		defer func() {
 			lp.cancel()
 			lp.wg.Wait()
@@ -476,7 +479,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
 		case <-lp.ctx.Done():
-			assert.Fail(t, "failed to receive replayComplete signal within %s", testutils.WaitTimeout(t))
+			assert.Fail(t, fmt.Sprintf("failed to receive replayComplete signal within %s", timeLeft))
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
