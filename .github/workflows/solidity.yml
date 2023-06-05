@@ -168,7 +168,7 @@ jobs:
       - run: echo 'Solidity tests finished!'
       - name: Check test results
         run: |
-          if [[ "${{ needs.changes.result }}" == "failure" || "${{ needs.solidity-splits.result }}" == "failure" ]]; then
+          if [[ "${{ needs.changes.result }}" = "failure" || "${{ needs.solidity-splits.result }}" = "failure" ]]; then
             echo "One or more changes / solidity-splits jobs failed"
             exit 1
           else
