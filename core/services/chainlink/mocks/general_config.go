@@ -2222,129 +2222,17 @@ func (_m *GeneralConfig) TLSRedirect() bool {
 	return r0
 }
 
-// TelemetryIngressBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressBufferSize() uint {
+// TelemetryIngress provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	ret := _m.Called()
 
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressLogging provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressMaxBatchSize provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressMaxBatchSize() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendInterval provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressSendInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressSendTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressServerPubKey provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressServerPubKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TelemetryIngressURL provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 config.TelemetryIngress
+	if rf, ok := ret.Get(0).(func() config.TelemetryIngress); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(config.TelemetryIngress)
 		}
-	}
-
-	return r0
-}
-
-// TelemetryIngressUniConn provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressUniConn() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressUseBatchSend provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
