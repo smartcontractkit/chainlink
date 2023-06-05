@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
-	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -29,12 +28,12 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initRemoteConfigSubCmds(client *Client) []cli.Command {
+func initRemoteConfigSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "show",
 			Usage:  "Show the application configuration",
-			Action: client.ConfigV2,
+			Action: s.ConfigV2,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "user-only",
@@ -45,7 +44,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "loglevel",
 			Usage:  "Set log level",
-			Action: client.SetLogLevel,
+			Action: s.SetLogLevel,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "level",
@@ -56,7 +55,7 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "logsql",
 			Usage:  "Enable/disable SQL statement logging",
-			Action: client.SetLogSQL,
+			Action: s.SetLogSQL,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "enable",
@@ -71,8 +70,8 @@ func initRemoteConfigSubCmds(client *Client) []cli.Command {
 		{
 			Name:  "validate",
 			Usage: "DEPRECATED. Use `chainlink node validate`",
-			Before: func(ctx *clipkg.Context) error {
-				return client.errorOut(fmt.Errorf("Deprecated, use `chainlink node validate`"))
+			Before: func(c *cli.Context) error {
+				return s.errorOut(fmt.Errorf("Deprecated, use `chainlink node validate`"))
 			},
 			Hidden: true,
 		},
@@ -86,9 +85,9 @@ var (
 )
 
 // CreateExternalInitiator adds an external initiator
-func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
+func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 	if c.NArg() != 1 && c.NArg() != 2 {
-		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
+		return s.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
 	var request bridges.ExternalInitiatorRequest
@@ -99,20 +98,20 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		var reqURL *url.URL
 		reqURL, err = url.ParseRequestURI(c.Args().Get(1))
 		if err != nil {
-			return cli.errorOut(err)
+			return s.errorOut(err)
 		}
 		request.URL = (*models.WebURL)(reqURL)
 	}
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Post("/v2/external_initiators", buf)
+	resp, err := s.HTTP.Post("/v2/external_initiators", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -121,30 +120,30 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 	}()
 
 	var ei webpresenters.ExternalInitiatorAuthentication
-	err = cli.renderAPIResponse(resp, &ei)
+	err = s.renderAPIResponse(resp, &ei)
 	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
-func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
+func (s *Shell) DeleteExternalInitiator(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the name of the external initiator to delete"))
+		return s.errorOut(errors.New("Must pass the name of the external initiator to delete"))
 	}
 
-	resp, err := cli.HTTP.Delete("/v2/external_initiators/" + c.Args().First())
+	resp, err := s.HTTP.Delete("/v2/external_initiators/" + c.Args().First())
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	_, err = cli.parseResponse(resp)
+	_, err = s.parseResponse(resp)
 	return err
 }
 
-func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
+func (s *Shell) getPage(requestURI string, page int, model interface{}) (err error) {
 	uri, err := url.Parse(requestURI)
 	if err != nil {
 		return err
@@ -155,9 +154,9 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 	}
 	uri.RawQuery = q.Encode()
 
-	resp, err := cli.HTTP.Get(uri.String())
+	resp, err := s.HTTP.Get(uri.String())
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -165,68 +164,68 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 		}
 	}()
 
-	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
+	err = s.deserializeAPIResponse(resp, model, &jsonapi.Links{})
 	if err != nil {
 		return err
 	}
-	err = cli.errorOut(cli.Render(model))
+	err = s.errorOut(s.Render(model))
 	return err
 }
 
 // RemoteLogin creates a cookie session to run remote commands.
-func (cli *Client) RemoteLogin(c *clipkg.Context) error {
-	lggr := cli.Logger.Named("RemoteLogin")
-	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
+func (s *Shell) RemoteLogin(c *cli.Context) error {
+	lggr := s.Logger.Named("RemoteLogin")
+	sessionRequest, err := s.buildSessionRequest(c.String("file"))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
-	_, err = cli.CookieAuthenticator.Authenticate(sessionRequest)
+	_, err = s.CookieAuthenticator.Authenticate(sessionRequest)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
-	err = cli.checkRemoteBuildCompatibility(lggr, c.Bool("bypass-version-check"), static.Version, static.Sha)
+	err = s.checkRemoteBuildCompatibility(lggr, c.Bool("bypass-version-check"), static.Version, static.Sha)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	fmt.Println("Successfully Logged In.")
 	return nil
 }
 
 // Logout removes local and remote session.
-func (cli *Client) Logout(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Delete("/sessions")
+func (s *Shell) Logout(_ *cli.Context) (err error) {
+	resp, err := s.HTTP.Delete("/sessions")
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	err = cli.CookieAuthenticator.Logout()
+	err = s.CookieAuthenticator.Logout()
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	return nil
 }
 
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
-func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
-	req, err := cli.ChangePasswordPrompter.Prompt()
+func (s *Shell) ChangePassword(_ *cli.Context) (err error) {
+	req, err := s.ChangePasswordPrompter.Prompt()
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	requestData, err := json.Marshal(req)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Patch("/v2/user/password", buf)
+	resp, err := s.HTTP.Patch("/v2/user/password", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -240,16 +239,16 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	case http.StatusConflict:
 		fmt.Println("Old password did not match.")
 	default:
-		return cli.printResponseBody(resp)
+		return s.printResponseBody(resp)
 	}
 	return nil
 }
 
-func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
+func (s *Shell) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
-		return cli.FileSessionRequestBuilder.Build(flag)
+		return s.FileSessionRequestBuilder.Build(flag)
 	}
-	return cli.PromptingSessionRequestBuilder.Build("")
+	return s.PromptingSessionRequestBuilder.Build("")
 }
 
 func getTOMLString(s string) (string, error) {
@@ -268,54 +267,54 @@ func getTOMLString(s string) (string, error) {
 	return buf.String(), nil
 }
 
-func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
+func (s *Shell) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if errors.Is(err, errUnauthorized) {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
+		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 
 	if errors.Is(err, errForbidden) {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
+		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
 	}
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 	return b, err
 }
 
-func (cli *Client) printResponseBody(resp *http.Response) error {
+func (s *Shell) printResponseBody(resp *http.Response) error {
 	b, err := parseResponse(resp)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	fmt.Println(string(b))
 	return nil
 }
 
-func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, headers ...string) error {
+func (s *Shell) renderAPIResponse(resp *http.Response, dst interface{}, headers ...string) error {
 	var links jsonapi.Links
-	if err := cli.deserializeAPIResponse(resp, dst, &links); err != nil {
-		return cli.errorOut(err)
+	if err := s.deserializeAPIResponse(resp, dst, &links); err != nil {
+		return s.errorOut(err)
 	}
 
-	return cli.errorOut(cli.Render(dst, headers...))
+	return s.errorOut(s.Render(dst, headers...))
 }
 
-func (cli *Client) ConfigV2(c *clipkg.Context) error {
+func (s *Shell) ConfigV2(c *cli.Context) error {
 	userOnly := c.Bool("user-only")
-	s, err := cli.configV2Str(userOnly)
+	str, err := s.configV2Str(userOnly)
 	if err != nil {
 		return err
 	}
-	fmt.Println(s)
+	fmt.Println(str)
 	return nil
 }
 
-func (cli *Client) configV2Str(userOnly bool) (string, error) {
-	resp, err := cli.HTTP.Get(fmt.Sprintf("/v2/config/v2?userOnly=%t", userOnly))
+func (s *Shell) configV2Str(userOnly bool) (string, error) {
+	resp, err := s.HTTP.Get(fmt.Sprintf("/v2/config/v2?userOnly=%t", userOnly))
 	if err != nil {
-		return "", cli.errorOut(err)
+		return "", s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -324,15 +323,15 @@ func (cli *Client) configV2Str(userOnly bool) (string, error) {
 	}()
 	respPayload, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", cli.errorOut(err)
+		return "", s.errorOut(err)
 	}
 	if resp.StatusCode != 200 {
-		return "", cli.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
+		return "", s.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
 	}
 	var configV2Resource web.ConfigV2Resource
 	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
 	if err != nil {
-		return "", cli.errorOut(err)
+		return "", s.errorOut(err)
 	}
 	return configV2Resource.Config, nil
 }
@@ -342,18 +341,18 @@ func normalizePassword(password string) string {
 }
 
 // SetLogLevel sets the log level on the node
-func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
+func (s *Shell) SetLogLevel(c *cli.Context) (err error) {
 	logLevel := c.String("level")
 	request := web.LogPatchRequest{Level: logLevel}
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	resp, err := s.HTTP.Patch("/v2/log", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -362,15 +361,15 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 	}()
 
 	var svcLogConfig webpresenters.ServiceLogConfigResource
-	err = cli.renderAPIResponse(resp, &svcLogConfig)
+	err = s.renderAPIResponse(resp, &svcLogConfig)
 	return err
 }
 
 // SetLogSQL enables or disables the log sql statements
-func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
+func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	// Enforces selection of --enable or --disable
 	if !c.Bool("enable") && !c.Bool("disable") {
-		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
+		return s.errorOut(errors.New("Must set logSql --enabled || --disable"))
 	}
 
 	// Sets logSql to true || false based on the --enabled flag
@@ -379,13 +378,13 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	resp, err := s.HTTP.Patch("/v2/log", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -394,7 +393,7 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	}()
 
 	var svcLogConfig webpresenters.ServiceLogConfigResource
-	err = cli.renderAPIResponse(resp, &svcLogConfig)
+	err = s.renderAPIResponse(resp, &svcLogConfig)
 	return err
 }
 
@@ -425,13 +424,13 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 }
 
 // deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
-func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
-	b, err := cli.parseResponse(resp)
+func (s *Shell) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
+	b, err := s.parseResponse(resp)
 	if err != nil {
 		return errors.Wrap(err, "parseResponse error")
 	}
 	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	return nil
 }
@@ -475,8 +474,8 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	return b, err
 }
 
-func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
-	resp, err := cli.HTTP.Get("/v2/build_info")
+func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
+	resp, err := s.HTTP.Get("/v2/build_info")
 	if err != nil {
 		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
 		return nil
@@ -504,8 +503,8 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
-		if err2 := cli.CookieAuthenticator.Logout(); err2 != nil {
-			cli.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
+		if err2 := s.CookieAuthenticator.Logout(); err2 != nil {
+			s.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
 		}
 		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
