@@ -81,93 +81,17 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 	return r0
 }
 
-// AuditLoggerEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLoggerEnabled() bool {
+// AuditLogger provides a mock function with given fields:
+func (_m *GeneralConfig) AuditLogger() audit.Config {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// AuditLoggerEnvironment provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLoggerEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// AuditLoggerForwardToUrl provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	ret := _m.Called()
-
-	var r0 models.URL
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (models.URL, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() models.URL); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.URL)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// AuditLoggerHeaders provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	ret := _m.Called()
-
-	var r0 audit.ServiceHeaders
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (audit.ServiceHeaders, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() audit.ServiceHeaders); ok {
+	var r0 audit.Config
+	if rf, ok := ret.Get(0).(func() audit.Config); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.ServiceHeaders)
+			r0 = ret.Get(0).(audit.Config)
 		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// AuditLoggerJsonWrapperKey provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLoggerJsonWrapperKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -955,155 +879,17 @@ func (_m *GeneralConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
-// KeeperBaseFeeBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint16 {
+// Keeper provides a mock function with given fields:
+func (_m *GeneralConfig) Keeper() config.Keeper {
 	ret := _m.Called()
 
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
+	var r0 config.Keeper
+	if rf, ok := ret.Get(0).(func() config.Keeper); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperGasPriceBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperGasPriceBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperGasTipCapBufferPercent provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperGasTipCapBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperMaximumGracePeriod provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperMaximumGracePeriod() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// KeeperRegistryCheckGasOverhead provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryMaxPerformDataSize provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryPerformGasOverhead provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncInterval provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistrySyncInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncUpkeepQueueSize provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperTurnLookBack provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperTurnLookBack() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Keeper)
+		}
 	}
 
 	return r0
@@ -2094,57 +1880,17 @@ func (_m *GeneralConfig) SecureCookies() bool {
 	return r0
 }
 
-// SentryDSN provides a mock function with given fields:
-func (_m *GeneralConfig) SentryDSN() string {
+// Sentry provides a mock function with given fields:
+func (_m *GeneralConfig) Sentry() config.Sentry {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Sentry
+	if rf, ok := ret.Get(0).(func() config.Sentry); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryDebug provides a mock function with given fields:
-func (_m *GeneralConfig) SentryDebug() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// SentryEnvironment provides a mock function with given fields:
-func (_m *GeneralConfig) SentryEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryRelease provides a mock function with given fields:
-func (_m *GeneralConfig) SentryRelease() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Sentry)
+		}
 	}
 
 	return r0
@@ -2360,129 +2106,17 @@ func (_m *GeneralConfig) TLSRedirect() bool {
 	return r0
 }
 
-// TelemetryIngressBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressBufferSize() uint {
+// TelemetryIngress provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	ret := _m.Called()
 
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressLogging provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressMaxBatchSize provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressMaxBatchSize() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendInterval provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressSendInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressSendTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressServerPubKey provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressServerPubKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TelemetryIngressURL provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 config.TelemetryIngress
+	if rf, ok := ret.Get(0).(func() config.TelemetryIngress); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(config.TelemetryIngress)
 		}
-	}
-
-	return r0
-}
-
-// TelemetryIngressUniConn provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressUniConn() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressUseBatchSend provides a mock function with given fields:
-func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

@@ -206,7 +206,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	// Configure and optionally start the audit log forwarder service
-	auditLogger, err := audit.NewAuditLogger(appLggr, cfg)
+	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +431,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	if err := sentryInit(config); err != nil {
+	if err := sentryInit(config.Sentry()); err != nil {
 		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
@@ -479,14 +479,14 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 }
 
 func sentryInit(cfg config.Sentry) error {
-	sentrydsn := cfg.SentryDSN()
+	sentrydsn := cfg.DSN()
 	if sentrydsn == "" {
 		// Do not initialize sentry at all if the DSN is missing
 		return nil
 	}
 
 	var sentryenv string
-	if env := cfg.SentryEnvironment(); env != "" {
+	if env := cfg.Environment(); env != "" {
 		sentryenv = env
 	} else if !build.IsProd() {
 		sentryenv = "dev"
@@ -495,7 +495,7 @@ func sentryInit(cfg config.Sentry) error {
 	}
 
 	var sentryrelease string
-	if release := cfg.SentryRelease(); release != "" {
+	if release := cfg.Release(); release != "" {
 		sentryrelease = release
 	} else {
 		sentryrelease = static.Version
@@ -507,7 +507,7 @@ func sentryInit(cfg config.Sentry) error {
 		Dsn:              sentrydsn,
 		Environment:      sentryenv,
 		Release:          sentryrelease,
-		Debug:            cfg.SentryDebug(),
+		Debug:            cfg.Debug(),
 	})
 }
 

@@ -85,7 +85,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns()), bridges.NewORM(db, lggr, config), keyStore, config)
 		a := utils.NewDependentAwaiter()
 		a.AddDependents(1)
 		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
@@ -108,7 +108,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobB := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns()), bridges.NewORM(db, lggr, config), keyStore, config)
 
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := mocks.NewServiceCtx(t)
@@ -173,7 +173,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns()), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
@@ -207,7 +207,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns()), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config, mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
@@ -269,7 +269,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, config, address, chain.ID(), 2)
 		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), bridges.NewORM(db, lggr, config), keyStore, config)
+		orm := NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns()), bridges.NewORM(db, lggr, config), keyStore, config)
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 		relayers := make(map[relay.Network]loop.Relayer)
@@ -279,7 +279,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		processConfig := plugins.NewRegistrarConfig(config, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, processConfig)
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
+		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 

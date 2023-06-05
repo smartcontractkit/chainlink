@@ -1,8 +1,8 @@
 package config
 
 type Sentry interface {
-	SentryDSN() string
-	SentryDebug() bool
-	SentryEnvironment() string
-	SentryRelease() string
+	DSN() string
+	Debug() bool
+	Environment() string
+	Release() string
 }

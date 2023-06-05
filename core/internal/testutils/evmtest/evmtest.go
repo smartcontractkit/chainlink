@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -300,7 +301,7 @@ type MockEth struct {
 	CheckFilterLogs func(int64, int64)
 
 	subsMu           sync.RWMutex
-	subs             []*evmclimocks.Subscription
+	subs             []*commonmocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
@@ -316,7 +317,7 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Add(1)
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh }).Maybe()
