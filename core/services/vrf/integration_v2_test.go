@@ -2263,14 +2263,14 @@ func TestStartingCountsV1(t *testing.T) {
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
 	reqID := utils.PadByteToHash(0x10)
-	m1 := txmgr.EthTxMeta{
+	m1 := txmgr.EvmTxMeta{
 		RequestID: &reqID,
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
 	reqID2 := utils.PadByteToHash(0x11)
-	m2 := txmgr.EthTxMeta{
+	m2 := txmgr.EvmTxMeta{
 		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
@@ -2331,7 +2331,7 @@ func TestStartingCountsV1(t *testing.T) {
 	unconfirmedTxes := []txmgr.EvmTx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
-		md, err := json.Marshal(&txmgr.EthTxMeta{
+		md, err := json.Marshal(&txmgr.EvmTxMeta{
 			RequestID: &reqID3,
 		})
 		require.NoError(t, err)

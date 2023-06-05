@@ -232,7 +232,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Earlier
 		tr := int32(99)
-		b, err := json.Marshal(txmgr.EthTxMeta{JobID: &tr})
+		b, err := json.Marshal(txmgr.EvmTxMeta{JobID: &tr})
 		require.NoError(t, err)
 		meta := datatypes.JSON(b)
 		earlierEthTx := txmgr.EvmTx{
@@ -303,7 +303,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.NotNil(t, earlierTransaction.InitialBroadcastAt)
 		assert.Len(t, earlierTransaction.TxAttempts, 1)
-		var m txmgr.EthTxMeta
+		var m txmgr.EvmTxMeta
 		err = json.Unmarshal(*earlierEthTx.Meta, &m)
 		require.NoError(t, err)
 		assert.NotNil(t, m.JobID)

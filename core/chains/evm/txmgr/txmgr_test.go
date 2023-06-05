@@ -262,7 +262,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
-		meta := &txmgr.EthTxMeta{
+		meta := &txmgr.EvmTxMeta{
 			JobID:         &jobID,
 			RequestID:     &requestID,
 			RequestTxHash: &requestTxHash,

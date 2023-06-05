@@ -141,7 +141,7 @@ type DbEthTx struct {
 	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
 	CreatedAt time.Time
 	State     txmgrtypes.TxState
-	// Marshalled EthTxMeta
+	// Marshalled EvmTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
 	Meta              *datatypes.JSON

@@ -823,7 +823,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					FeeLimit:       p.gasLimit,
-					Meta: &txmgr.EthTxMeta{
+					Meta: &txmgr.EvmTxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
 						SubID:         &p.req.req.SubId,

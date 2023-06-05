@@ -161,7 +161,7 @@ func TestTransmitCheckers(t *testing.T) {
 		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID:     &h,
 				MaxLink:       &testDefaultMaxLink, // 1 LINK
 				SubID:         &testDefaultSubID,
@@ -271,7 +271,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
