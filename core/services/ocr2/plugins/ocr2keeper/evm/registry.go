@@ -859,33 +859,3 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) {
 	default:
 	}
 }
-
-type upkeepType int32
-
-const (
-	conditionTrigger upkeepType = iota
-	logTrigger
-	cronTrigger
-	readyTrigger
-)
-
-const (
-	upkeepTypeStartIndex = 4
-	upkeepTypeByteIndex  = 15
-)
-
-// getUpkeepType returns the upkeep type from the given ID.
-// it follows the same logic as the contract, but performs it locally
-// TODO: check big indianness
-func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
-	if len(id) < upkeepTypeByteIndex+1 {
-		return conditionTrigger
-	}
-	for i := upkeepTypeStartIndex; i < upkeepTypeByteIndex; i++ {
-		if id[i] != 0 { // old id
-			return conditionTrigger
-		}
-	}
-	typeByte := id[upkeepTypeByteIndex]
-	return upkeepType(typeByte)
-}

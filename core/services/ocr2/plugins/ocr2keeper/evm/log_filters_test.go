@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 )
 
-func TestLogFiltersProvider_Sanity(t *testing.T) {
+func TestLogFilterManager_Sanity(t *testing.T) {
 	tests := []struct {
 		name       string
 		errored    bool
@@ -66,19 +67,17 @@ func TestLogFiltersProvider_Sanity(t *testing.T) {
 	}
 }
 
-func Test_AddFiltersBySelector(t *testing.T) {
+func TestLogFilterManager_GetFiltersBySelector(t *testing.T) {
 	var zeroBytes [32]byte
 	tests := []struct {
 		name           string
 		filterSelector uint8
-		sigs           []common.Hash
 		filters        [][]byte
 		expectedSigs   []common.Hash
 	}{
 		{
 			"invalid filters",
 			1,
-			[]common.Hash{},
 			[][]byte{
 				zeroBytes[:],
 			},
@@ -87,7 +86,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 000",
 			0,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 			},
@@ -96,7 +94,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 001",
 			1,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -109,7 +106,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 010",
 			2,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -122,7 +118,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 011",
 			3,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -136,7 +131,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 100",
 			4,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -149,7 +143,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 101",
 			5,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -163,7 +156,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 110",
 			6,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -177,7 +169,6 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		{
 			"selector 111",
 			7,
-			[]common.Hash{},
 			[][]byte{
 				{1},
 				{2},
@@ -191,9 +182,11 @@ func Test_AddFiltersBySelector(t *testing.T) {
 		},
 	}
 
+	lfm := newLogFilterManager(nil)
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			sigs := addFiltersBySelector(tc.filterSelector, tc.sigs, tc.filters...)
+			sigs := lfm.getFiltersBySelector(tc.filterSelector, tc.filters...)
 			if len(sigs) != len(tc.expectedSigs) {
 				t.Fatalf("expected %v, got %v", len(tc.expectedSigs), len(sigs))
 			}

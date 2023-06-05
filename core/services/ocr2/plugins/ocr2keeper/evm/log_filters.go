@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
@@ -19,7 +20,7 @@ const (
 )
 
 // LogTriggerConfig is an alias for log trigger config.
-type LogTriggerConfig i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+type LogTriggerConfig = i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 
 // logFilterManager manages log filters for upkeeps.
 type logFilterManager struct {
@@ -34,38 +35,34 @@ func newLogFilterManager(poller logpoller.LogPoller) *logFilterManager {
 
 // Register creates a filter from the given upkeep and calls log pollet to register it
 func (lfm *logFilterManager) Register(upkeepID *big.Int, cfg LogTriggerConfig) error {
-	err := validateLogTriggerConfig(cfg)
-	if err != nil {
+	if err := lfm.validateLogTriggerConfig(cfg); err != nil {
 		return errors.Wrap(err, "invalid log trigger config")
 	}
-	filter := newLogFilter(upkeepID, cfg)
+	filter := lfm.newLogFilter(upkeepID, cfg)
 	// TODO: TBD remove old filter (if exist) for this upkeep
 	// _ = lfp.poller.UnregisterFilter(filterName(upkeepID), nil)
-	err = lfm.poller.RegisterFilter(filter)
-	return errors.Wrap(err, "failed to register upkeep filter")
+	return errors.Wrap(lfm.poller.RegisterFilter(filter), "failed to register upkeep filter")
 }
 
 // Unregister removes the filter for the given upkeepID
 func (lfm *logFilterManager) Unregister(upkeepID *big.Int) error {
-	err := lfm.poller.UnregisterFilter(filterName(upkeepID), nil)
+	err := lfm.poller.UnregisterFilter(lfm.filterName(upkeepID), nil)
 	return errors.Wrap(err, "failed to unregister upkeep filter")
 }
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
-func newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	sigs := []common.Hash{
-		common.BytesToHash(cfg.Topic0[:]),
-	}
-	sigs = addFiltersBySelector(cfg.FilterSelector, sigs, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+func (lfm *logFilterManager) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
+	sigs := lfm.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+	sigs = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, sigs...)
 	return logpoller.Filter{
-		Name:      filterName(upkeepID),
+		Name:      lfm.filterName(upkeepID),
 		EventSigs: sigs,
 		Addresses: []common.Address{cfg.ContractAddress},
 		Retention: logRetention,
 	}
 }
 
-func validateLogTriggerConfig(cfg LogTriggerConfig) error {
+func (lfm *logFilterManager) validateLogTriggerConfig(cfg LogTriggerConfig) error {
 	var zeroAddr common.Address
 	var zeroBytes [32]byte
 	if bytes.Equal(cfg.ContractAddress[:], zeroAddr[:]) {
@@ -78,8 +75,9 @@ func validateLogTriggerConfig(cfg LogTriggerConfig) error {
 	return nil
 }
 
-// addFiltersBySelector adds the filters to the sigs slice based on the filterSelector
-func addFiltersBySelector(filterSelector uint8, sigs []common.Hash, filters ...[]byte) []common.Hash {
+// getFiltersBySelector the filters based on the filterSelector
+func (lfm *logFilterManager) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
+	var sigs []common.Hash
 	var zeroBytes [32]byte
 	for i, f := range filters {
 		// bitwise AND the filterSelector with the index to check if the filter is needed
@@ -97,6 +95,6 @@ func addFiltersBySelector(filterSelector uint8, sigs []common.Hash, filters ...[
 	return sigs
 }
 
-func filterName(upkeepID *big.Int) string {
+func (lfm *logFilterManager) filterName(upkeepID *big.Int) string {
 	return logpoller.FilterName(upkeepID.String())
 }
