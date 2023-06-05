@@ -15,28 +15,28 @@ interface IRouterBase {
   function version() external view returns (uint16 major, uint16 minor, uint16 patch);
 
   /**
-   * @notice Get the latest contract given an identifying label
-   * @param label A string identifier
+   * @notice Get the latest contract given an identifying jobId
+   * @param jobId A bytes32 job ID for the job running on a Chainlink Node within a DON
    * @return route The current contract address
    */
-  function getRoute(string calldata label) external view returns (address route);
+  function getRoute(bytes32 jobId) external view returns (address route);
 
-  function getRoute(string calldata label, bool useProposed) external view returns (address route);
+  function getRoute(bytes32 jobId, bool useProposed) external view returns (address route);
 
   /**
    * @notice Return the latest proprosal set
    * @return proposedAtBlock The block number that the proposal was created at
-   * @return labels The identifiers of the contracts to update
+   * @return jobIds The identifiers of the contracts to update
    * @return from The addresses of the contracts that will be updated from
    * @return to The addresses of the contracts that will be updated to
    */
-  function getProposalSet() external view returns (uint, string[] memory, address[] memory, address[] memory);
+  function getProposalSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory);
 
   /**
    * @notice Proposes one or more updates to the contract routes
    */
   function propose(
-    string[] memory proposalSetLabels,
+    bytes32[] memory proposalSetJobIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
   ) external;
@@ -54,12 +54,12 @@ interface IRouterBase {
   /**
    * @notice Proposes new configuration data that will be given to the contract route
    */
-  function proposeConfig(string calldata name, bytes calldata config) external;
+  function proposeConfig(bytes32 jobId, bytes calldata config) external;
 
   /**
    * @notice Sends new configuration data to the contract route once timelock has passed
    */
-  function updateConfig(string calldata name) external;
+  function updateConfig(bytes32 jobId) external;
 
   /**
    * @dev Propose a change to the amount of blocks required for a timelock
