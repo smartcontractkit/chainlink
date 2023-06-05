@@ -5,9 +5,8 @@ import {RouterBase} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IVersioned} from "./interfaces/IVersioned.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {AuthorizedOriginReceiver} from "./accessControl/AuthorizedOriginReceiver.sol";
-import {IFunctionsSubscriptions, FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
   // ================================================================
@@ -115,36 +114,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     return _sendRequest(false, subscriptionId, data, gasLimit);
   }
 
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external onlyAuthorizedUsers {
-    address route = this.getRoute("FunctionsCoordinator", false);
-    IFunctionsBilling coordinator = IFunctionsBilling(route);
-    coordinator.timeoutRequests(requestIdsToTimeout);
-  }
-
   // ================================================================
   // |                    Modifier Overrides                        |
   // ================================================================
-
-  modifier onlyRoute() override {
-    // Since Proposal Sets are not deleted, we can check the:
-    // - "current" and "next" version if the Proposal Set has not been applied
-    // - "current" and "previous" version if the Proposal Set has been applied
-    // This allows in-flight requests to still complete after an upgrade has taken effect
-    bool isRoute = false;
-    for (uint8 i = 0; i < s_proposalSet.labels.length; i++) {
-      if (msg.sender == s_proposalSet.from[i] || msg.sender == s_proposalSet.to[i]) {
-        isRoute = true;
-        break;
-      }
-    }
-    if (isRoute == false) {
-      revert OnlyCallableByRoute();
-    }
-    _;
-  }
 
   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
     return msg.sender == owner();

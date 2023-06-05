@@ -11,7 +11,6 @@ import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
 import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
 /**
  * @title Functions Billing contract
@@ -35,13 +34,16 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     uint96 estimatedCost;
     uint256 timestamp;
   }
-  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
-    private s_requestCommitments;
+  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
   event BillingStart(bytes32 indexed requestId, Commitment commitment);
   struct ItemizedBill {
     uint96 signerPayment;
     uint96 transmitterPayment;
     uint96 totalCost;
+  }
+  struct Payments {
+    address[] to;
+    uint96[] amount;
   }
   event BillingEnd(
     bytes32 indexed requestId,
@@ -186,7 +188,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getDONFee(
-    bytes memory, /* data */
+    bytes memory /* data */,
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -197,7 +199,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getAdminFee(
-    bytes memory, /* data */
+    bytes memory /* data */,
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -267,11 +269,10 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
    * @dev Only callable by the Functions Router
    */
-  function startBilling(bytes memory data, RequestBilling memory billing)
-    internal
-    nonReentrant
-    returns (bytes32, uint96)
-  {
+  function startBilling(
+    bytes memory data,
+    RequestBilling memory billing
+  ) internal nonReentrant returns (bytes32, uint96) {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the gas and computation.
     if (billing.gasLimit > s_config.maxGasLimit) {
@@ -326,11 +327,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
+  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -369,7 +366,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @param transmitter the Oracle who sent the report
    * @param signers the Oracles who had a part in generating the report
    * @param signerCount the number of signers on the report
-   * @param reportValidationGas the amount of gas used for the report validation. Cost is split by all fulfillments on the report.
    * @param initialGas the initial amount of gas that should be used as a baseline to charge the single fulfillment for execution cost
    * @return result fulfillment result
    * @dev Only callable by a node that has been approved on the Registry
@@ -383,7 +379,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     address transmitter,
     address[31] memory signers,
     uint8 signerCount,
-    uint256 reportValidationGas,
     uint256 initialGas
   ) internal nonReentrant returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
@@ -417,26 +412,27 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       commitment.donFee,
       signerCount,
       commitment.adminFee,
-      reportValidationGas,
       tx.gasprice
     );
-    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-    (uint96 balance, , , , ) = subscriptions.getSubscription(commitment.subscriptionId);
 
-    if (balance < bill.totalCost) {
-      revert InsufficientBalance();
-    }
-    balance -= bill.totalCost;
+    Payments memory payments;
     // Pay out signers their portion of the DON fee
-    for (uint256 i = 0; i < signerCount; i++) {
-      subscriptions.pay(commitment.subscriptionId, signers[i], bill.signerPayment);
+    for (uint8 i = 0; i < signerCount; i++) {
+      payments.to[i] = signers[i];
+      payments.amount[i] = bill.signerPayment;
     }
     // Pay out the administration fee
-    subscriptions.pay(commitment.subscriptionId, IOwnable(address(s_router)).owner(), commitment.adminFee);
+    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(s_router));
+    // address routerOwner = router.owner();
+    // payments.to[signerCount + 1] = routerOwner;
+    payments.amount[signerCount + 1] = commitment.adminFee;
     // Reimburse the transmitter for the execution gas cost + pay them their portion of the DON fee
-    subscriptions.pay(commitment.subscriptionId, transmitter, bill.transmitterPayment);
+    payments.to[signerCount + 2] = transmitter;
+    payments.amount[signerCount + 2] = bill.transmitterPayment;
     // Remove blocked balance and mark the request as complete
-    subscriptions.unblockBalance(commitment.client, commitment.subscriptionId, commitment.estimatedCost);
+    // IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
+    router.pay(requestId, payments.to, payments.amount);
+
     // Include payment in the event for tracking costs.
     emit BillingEnd(
       requestId,
@@ -446,6 +442,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       bill.totalCost,
       success
     );
+
     return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
@@ -458,7 +455,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     uint96 donFee,
     uint8 signerCount,
     uint96 adminFee,
-    uint256 reportValidationGas,
     uint256 weiPerUnitGas
   ) private view returns (ItemizedBill memory) {
     int256 weiPerUnitLink;
@@ -469,7 +465,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 *
       weiPerUnitGas *
-      (reportValidationGas + gasAfterPaymentCalculation + startGas - gasleft())) / uint256(weiPerUnitLink);
+      (gasAfterPaymentCalculation + startGas - gasleft())) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(adminFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
@@ -486,26 +482,15 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   /**
    * @inheritdoc IFunctionsBilling
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
-    for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
-      bytes32 requestId = requestIdsToTimeout[i];
-      Commitment memory commitment = s_requestCommitments[requestId];
+  function timeoutRequest(bytes32 requestId) external override onlyRouter returns (bool) {
+    Commitment memory commitment = s_requestCommitments[requestId];
 
-      // Check that the message sender is the subscription owner
-      IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-      (, , address owner, , ) = subscriptions.getSubscription(commitment.subscriptionId);
-      if (msg.sender != owner) {
-        revert MustBeSubOwner(owner);
-      }
-
-      if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
-        // Decrement blocked balance
-        subscriptions.unblockBalance(commitment.client, commitment.subscriptionId, commitment.estimatedCost);
-        // Delete commitment
-        delete s_requestCommitments[requestId];
-        emit RequestTimedOut(requestId);
-      }
-    }
+    if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
+      // Delete commitment
+      delete s_requestCommitments[requestId];
+      emit RequestTimedOut(requestId);
+      return true;
+    } else return false;
   }
 
   // ================================================================

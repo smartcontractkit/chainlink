@@ -35,16 +35,12 @@ interface IFunctionsSubscriptions {
    * @return requestedOwner - proposed owner to move ownership of the subscription to.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
-  function getSubscription(uint64 subscriptionId)
+  function getSubscription(
+    uint64 subscriptionId
+  )
     external
     view
-    returns (
-      uint96 balance,
-      uint96 blockedBalance,
-      address owner,
-      address requestedOwner,
-      address[] memory consumers
-    );
+    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers);
 
   /**
    * @notice Get details about a consumer of a subscription.
@@ -55,38 +51,23 @@ interface IFunctionsSubscriptions {
    * @return initiatedRequests - owner of the subscription.
    * @return completedRequests - list of consumer address which are able to use this subscription.
    */
-  function getConsumer(address client, uint64 subscriptionId)
-    external
-    view
-    returns (
-      bool allowed,
-      uint64 initiatedRequests,
-      uint64 completedRequests
-    );
-
-  /**
-   * @notice Unblocks funds on a subscription account once a request has completed
-   * @dev Only callable by a route
-   * @param client - the consumer contract that initiated the request
-   * @param subscriptionId - The subscription ID to block funds for
-   * @param amount - The amount to transfer
-   */
-  function unblockBalance(
+  function getConsumer(
     address client,
-    uint64 subscriptionId,
-    uint96 amount
-  ) external;
+    uint64 subscriptionId
+  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
 
   /**
    * @notice Moves funds from one subscription account to another.
    * @dev Only callable by a route
-   * @param from - The subscription ID to remove funds from
+   * @param requestId - The ID of the request
    * @param to - The address to pay funds to, allowing them to withdraw
    * @param amount - The amount to transfer
    */
-  function pay(
-    uint64 from,
-    address to,
-    uint96 amount
-  ) external;
+  function pay(bytes32 requestId, address[] memory to, uint96[] memory amount) external;
+
+  /**
+   * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
+   * @param requestIdsToTimeout - A list of request IDs to time out
+   */
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
 }
