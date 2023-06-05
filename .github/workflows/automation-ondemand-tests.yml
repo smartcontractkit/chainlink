@@ -126,6 +126,12 @@ jobs:
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED_NONDEV
             command: -run ^TestAutomationReorg$ ./reorg
+          - name: smoke
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED_NONDEV
+            command: -run ^TestAutomationNodeUpgrade$ ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation On Demand ${{ matrix.tests.name }} Test
     steps:
@@ -144,6 +150,10 @@ jobs:
             echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
           fi
+          if [[ "${{ matrix.tests.name }}" == "smoke" ]]; then
+            echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
+            echo "version=develop" >>$GITHUB_OUTPUT
+          fi
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
         env:
@@ -151,6 +161,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           SELECTED_NETWORKS: ${{ matrix.tests.network }}
+          TEST_SUITE: ${{ matrix.tests.name }}
+          TEST_UPGRADE_VERSION: ${{ steps.determine-build.outputs.version }}
+          TEST_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
