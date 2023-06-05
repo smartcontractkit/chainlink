@@ -39,6 +39,6 @@ func (ps EVMNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewEVMNodeClient(c *Client) NodeClient {
-	return newNodeClient[EVMNodePresenters](c, "evm")
+func NewEVMNodeClient(s *Shell) NodeClient {
+	return newNodeClient[EVMNodePresenters](s, "evm")
 }
