@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -1986,7 +1987,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].Tx.State == txmgr.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.EthTxConfirmed
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
@@ -2284,7 +2285,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &datatypes.JSON{},
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2296,7 +2297,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md1_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2308,7 +2309,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2320,7 +2321,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgr.EthTxConfirmed,
+			State:              txmgrcommon.EthTxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2341,7 +2342,7 @@ func TestStartingCountsV1(t *testing.T) {
 			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
-			State:              txmgr.EthTxUnconfirmed,
+			State:              txmgrcommon.EthTxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			Meta:               &md1,
@@ -2406,15 +2407,14 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
-			Receipt:          &evmtypes.Receipt{},
+			Receipt:          evmtypes.Receipt{},
 			CreatedAt:        time.Now(),
 		})
 	}
 	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		dbReceipt := txmgr.DbReceiptFromEvmReceipt(&r)
-		_, err := db.NamedExec(sql, &dbReceipt)
+		_, err := db.NamedExec(sql, &r)
 		require.NoError(t, err)
 	}
 

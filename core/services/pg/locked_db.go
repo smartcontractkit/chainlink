@@ -25,9 +25,9 @@ type LockedDB interface {
 
 type LockedDBConfig interface {
 	ConnectionConfig
-	DatabaseURL() url.URL
+	URL() url.URL
 	DatabaseDefaultQueryTimeout() time.Duration
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
+	Dialect() dialects.DialectName
 }
 
 type lockedDb struct {
@@ -140,9 +140,9 @@ func (l lockedDb) DB() *sqlx.DB {
 }
 
 func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	uri := cfg.DatabaseURL()
+	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
-	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	dialect := cfg.Dialect()
 	db, err = NewConnection(uri.String(), dialect, cfg)
 	return
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -702,13 +703,12 @@ func main() {
 	case "eoa-load-test-consumer-with-metrics-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
-		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
 		_, tx, _, err := vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress))
+		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-create-sub":
@@ -834,6 +834,8 @@ func main() {
 		subID := request.Uint64("sub-id", 0, "subscription ID")
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		keyHash := request.String("key-hash", "", "key hash")
+		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
+		numWords := request.Uint("num-words", 1, "num words to request")
 		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
@@ -844,8 +846,15 @@ func main() {
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations),
-				keyHashBytes, uint16(*requests))
+			tx, err := consumer.RequestRandomWords(
+				e.Owner,
+				*subID,
+				uint16(*requestConfirmations),
+				keyHashBytes,
+				uint32(*cbGasLimit),
+				uint32(*numWords),
+				uint16(*requests),
+			)
 			helpers.PanicErr(err)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
 			txes = append(txes, tx)
@@ -1059,6 +1068,30 @@ func main() {
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
+	case "wrapper-withdraw":
+		cmd := flag.NewFlagSet("wrapper-withdraw", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		recipientAddress := cmd.String("recipient-address", "", "address to withdraw to")
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "recipient-address", "link-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+		balance, err := link.BalanceOf(nil, common.HexToAddress(*wrapperAddress))
+		helpers.PanicErr(err)
+		tx, err := wrapper.Withdraw(e.Owner, common.HexToAddress(*recipientAddress), balance)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "withdrawing", balance.String(), "Juels from", *wrapperAddress, "to", *recipientAddress)
+	case "wrapper-get-subscription-id":
+		cmd := flag.NewFlagSet("wrapper-get-subscription-id", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		subID, err := wrapper.SUBSCRIPTIONID(nil)
+		helpers.PanicErr(err)
+		fmt.Println("subscription id of wrapper", *wrapperAddress, "is:", subID)
 	case "wrapper-configure":
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
@@ -1076,6 +1109,25 @@ func main() {
 			*wrapperPremiumPercentage,
 			*keyHash,
 			*maxNumWords)
+	case "wrapper-get-fulfillment-tx-size":
+		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		size, err := wrapper.SFulfillmentTxSizeBytes(nil)
+		helpers.PanicErr(err)
+		fmt.Println("fulfillment tx size of wrapper", *wrapperAddress, "is:", size)
+	case "wrapper-set-fulfillment-tx-size":
+		cmd := flag.NewFlagSet("wrapper-set-fulfillment-tx-size", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		size := cmd.Uint("size", 0, "size of the fulfillment transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "size")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		tx, err := wrapper.SetFulfillmentTxSize(e.Owner, uint32(*size))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set fulfillment tx size")
 	case "wrapper-consumer-deploy":
 		cmd := flag.NewFlagSet("wrapper-consumer-deploy", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "address of link token")
@@ -1100,6 +1152,54 @@ func main() {
 		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "wrapper-consumer-request-status":
+		cmd := flag.NewFlagSet("wrapper-consumer-request-status", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "address of wrapper consumer")
+		requestID := cmd.String("request-id", "", "request id of vrf request")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
+
+		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
+			common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		status, err := consumer.GetRequestStatus(nil, decimal.RequireFromString(*requestID).BigInt())
+		helpers.PanicErr(err)
+
+		statusStringer := func(status vrfv2_wrapper_consumer_example.GetRequestStatus) string {
+			return fmt.Sprint("paid (juels):", status.Paid.String(),
+				", fulfilled?:", status.Fulfilled,
+				", random words:", status.RandomWords)
+		}
+
+		fmt.Println("status for request", *requestID, "is:")
+		fmt.Println(statusStringer(status))
+	case "wrapper-consumer-withdraw-link":
+		cmd := flag.NewFlagSet("wrapper-consumer-withdraw-link", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "address of wrapper consumer")
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
+			common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+		balance, err := link.BalanceOf(nil, common.HexToAddress(*consumerAddress))
+		helpers.PanicErr(err)
+		tx, err := consumer.WithdrawLink(e.Owner, balance)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID,
+			"withdrawing", balance.String(), "juels from", *consumerAddress, "to", e.Owner.From.Hex())
+	case "transfer-link":
+		cmd := flag.NewFlagSet("transfer-link", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		amountJuels := cmd.String("amount-juels", "0", "amount in juels to fund")
+		receiverAddress := cmd.String("receiver-address", "", "address of receiver (contract or eoa)")
+		helpers.ParseArgs(cmd, os.Args[2:], "amount-juels", "link-address", "receiver-address")
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+		tx, err := link.Transfer(e.Owner, common.HexToAddress(*receiverAddress), decimal.RequireFromString(*amountJuels).BigInt())
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer", *amountJuels, "juels to", *receiverAddress)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
 	default:

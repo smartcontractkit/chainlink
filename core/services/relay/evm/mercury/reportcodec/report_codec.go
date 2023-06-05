@@ -89,16 +89,17 @@ func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObserva
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
-func (r *EVMReportCodec) MaxReportLength(n int) int {
+func (r *EVMReportCodec) MaxReportLength(n int) (int, error) {
 	return 8*32 + // feed ID
-		32 + // timestamp
-		192 + // benchmarkPrice
-		192 + // bid
-		192 + // ask
-		64 + //currentBlockNum
-		8*32 + // currentBlockHash
-		64 + // validFromBlockNum
-		64 // currentBlockTimestamp
+			32 + // timestamp
+			192 + // benchmarkPrice
+			192 + // bid
+			192 + // ask
+			64 + //currentBlockNum
+			8*32 + // currentBlockHash
+			64 + // validFromBlockNum
+			64, // currentBlockTimestamp
+		nil
 }
 
 func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
