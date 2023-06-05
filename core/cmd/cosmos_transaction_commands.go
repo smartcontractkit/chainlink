@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initCosmosTxSubCmd(client *Client) cli.Command {
+func initCosmosTxSubCmd(s *Shell) cli.Command {
 	return cli.Command{
 		Name:  "cosmos",
 		Usage: "Commands for handling Cosmos transactions",
@@ -22,7 +22,7 @@ func initCosmosTxSubCmd(client *Client) cli.Command {
 			{
 				Name:   "create",
 				Usage:  "Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.",
-				Action: client.CosmosSendAtom,
+				Action: s.CosmosSendAtom,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "force",
@@ -62,20 +62,20 @@ func (p *CosmosMsgPresenter) RenderTable(rt RendererTable) error {
 }
 
 // CosmosSendAtom transfers coins from the node's account to a specified address.
-func (cli *Client) CosmosSendAtom(c *cli.Context) (err error) {
+func (s *Shell) CosmosSendAtom(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return cli.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
 	}
 
 	amount, err := sdk.NewDecFromStr(c.Args().Get(0))
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("invalid coin: %w", err))
+		return s.errorOut(fmt.Errorf("invalid coin: %w", err))
 	}
 
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := sdk.AccAddressFromBech32(unparsedFromAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			fmt.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -83,14 +83,14 @@ func (cli *Client) CosmosSendAtom(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := sdk.AccAddressFromBech32(unparsedDestinationAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			fmt.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
 
 	chainID := c.String("id")
 	if chainID == "" {
-		return cli.errorOut(errors.New("missing id"))
+		return s.errorOut(errors.New("missing id"))
 	}
 
 	request := cosmos.SendRequest{
@@ -103,14 +103,14 @@ func (cli *Client) CosmosSendAtom(c *cli.Context) (err error) {
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/transfers/cosmos", buf)
+	resp, err := s.HTTP.Post("/v2/transfers/cosmos", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -118,6 +118,6 @@ func (cli *Client) CosmosSendAtom(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.renderAPIResponse(resp, &CosmosMsgPresenter{})
+	err = s.renderAPIResponse(resp, &CosmosMsgPresenter{})
 	return err
 }

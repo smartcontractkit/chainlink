@@ -2,27 +2,26 @@ package cmd
 
 import (
 	"github.com/urfave/cli"
-	clipkg "github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initInitiatorsSubCmds(client *Client) []cli.Command {
+func initInitiatorsSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "create",
 			Usage:  "Create an authentication key for a user of External Initiators",
-			Action: client.CreateExternalInitiator,
+			Action: s.CreateExternalInitiator,
 		},
 		{
 			Name:   "destroy",
 			Usage:  "Remove an external initiator by name",
-			Action: client.DeleteExternalInitiator,
+			Action: s.DeleteExternalInitiator,
 		},
 		{
 			Name:   "list",
 			Usage:  "List all external initiators",
-			Action: client.IndexExternalInitiators,
+			Action: s.IndexExternalInitiators,
 		},
 	}
 }
@@ -67,6 +66,6 @@ func (eips *ExternalInitiatorPresenters) RenderTable(rt RendererTable) error {
 }
 
 // IndexExternalInitiators lists external initiators
-func (cli *Client) IndexExternalInitiators(c *clipkg.Context) (err error) {
-	return cli.getPage("/v2/external_initiators", c.Int("page"), &ExternalInitiatorPresenters{})
+func (s *Shell) IndexExternalInitiators(c *cli.Context) (err error) {
+	return s.getPage("/v2/external_initiators", c.Int("page"), &ExternalInitiatorPresenters{})
 }
