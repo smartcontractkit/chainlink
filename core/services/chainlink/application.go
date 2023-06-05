@@ -423,6 +423,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
+			bridgeORM,
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,

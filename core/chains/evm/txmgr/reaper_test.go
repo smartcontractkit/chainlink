@@ -19,7 +19,7 @@ import (
 )
 
 func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, cid *big.Int) *txmgr.EvmReaper {
-	return txmgr.NewReaper(logger.TestLogger(t), db, cfg, cid)
+	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
 func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig) *txmgr.EvmReaper {
