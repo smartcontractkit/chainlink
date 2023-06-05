@@ -224,13 +224,17 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 }
 
 // SelectLogsCreatedAfter finds logs created after some timestamp.
-func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs, `
 		SELECT * FROM evm_logs 
-			WHERE evm_chain_id = $1 AND address = $2 AND event_sig = $3 AND created_at > $4
-			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig, after)
+			WHERE evm_chain_id = $1 
+			AND address = $2 
+			AND event_sig = $3 	
+			AND created_at > $4
+			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig, after, confs)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +457,7 @@ func validateTopicIndex(index int) error {
 	return nil
 }
 
-func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
 	var topicValuesBytes [][]byte
@@ -467,7 +471,8 @@ func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig com
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] = ANY($5)
 			AND created_at > $6
-			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes), after)
+			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes), after, confs)
 	if err != nil {
 		return nil, err
 	}

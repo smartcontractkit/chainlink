@@ -151,7 +151,7 @@ func (_m *LogPoller) IndexedLogsByBlockRange(start int64, end int64, eventSig co
 }
 
 // IndexedLogsCreatedAfter provides a mock function with given fields: eventSig, address, topicIndex, topicValues, after, qopts
-func (_m *LogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+func (_m *LogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -412,7 +412,7 @@ func (_m *LogPoller) Logs(start int64, end int64, eventSig common.Hash, address 
 }
 
 // LogsCreatedAfter provides a mock function with given fields: eventSig, address, _a2, qopts
-func (_m *LogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, _a2 time.Time, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+func (_m *LogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

@@ -55,9 +55,9 @@ func NewObservedLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod ti
 	}
 }
 
-func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "LogsCreatedAfter", address, func() ([]Log, error) {
-		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, qopts...)
+		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, confs, qopts...)
 	})
 }
 
@@ -85,9 +85,9 @@ func (o *ObservedLogPoller) IndexedLogsByBlockRange(start, end int64, eventSig c
 	})
 }
 
-func (o *ObservedLogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedLogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "IndexedLogsCreatedAfter", address, func() ([]Log, error) {
-		return o.LogPoller.IndexedLogsCreatedAfter(eventSig, address, topicIndex, topicValues, after, qopts...)
+		return o.LogPoller.IndexedLogsCreatedAfter(eventSig, address, topicIndex, topicValues, after, confs, qopts...)
 	})
 }
 
