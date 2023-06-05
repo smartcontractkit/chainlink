@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
@@ -214,22 +213,24 @@ PriceMax = '%d gwei'
 	err = testEnvironmentAfterRedeployment.RolloutStatefulSets()
 	require.NoError(t, err, "Error performing rollout restart for test environment")
 
-	selector := "app=chainlink-0"
-	// Wait until there is only one instance of the pod
-	// While restarting, the old instance is still there for few seconds
-	err = wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
-
-		podList, err := testEnvironmentAfterRedeployment.Client.ListPods(testEnvironmentAfterRedeployment.Cfg.Namespace, selector)
-		if err != nil {
-			return false, nil
-		}
-		if len(podList.Items) > 1 {
-			return false, nil
-		}
-		return true, nil
-	})
-
-	require.NoError(t, err, "more than 1 'app=chainlink-0' pod")
+	//wait for https://smartcontract-it.atlassian.net/browse/TT-356
+	time.Sleep(time.Second * 30)
+	//selector := "app=chainlink-0"
+	//// Wait until there is only one instance of the pod
+	//// While restarting, the old instance is still there for few seconds
+	//err = wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
+	//
+	//	podList, err := testEnvironmentAfterRedeployment.Client.ListPods(testEnvironmentAfterRedeployment.Cfg.Namespace, selector)
+	//	if err != nil {
+	//		return false, nil
+	//	}
+	//	if len(podList.Items) > 1 {
+	//		return false, nil
+	//	}
+	//	return true, nil
+	//})
+	//
+	//require.NoError(t, err, "more than 1 'app=chainlink-0' pod")
 
 	//conds := &env_client.ReadyCheckData{
 	//	ReadinessProbeCheckSelector: newEnvLabel,
