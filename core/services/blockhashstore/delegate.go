@@ -159,14 +159,14 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	}
 
 	lp := chain.LogPoller()
-	if jb.BlockhashStoreSpec.CoordinatorV1Address == nil {
+	if jb.BlockhashStoreSpec.CoordinatorV1Address != nil {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}
 	}
-	if jb.BlockhashStoreSpec.CoordinatorV2Address == nil {
+	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
@@ -192,14 +192,14 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	}
 
 	lp := chain.LogPoller()
-	if jb.BlockhashStoreSpec.CoordinatorV1Address == nil {
+	if jb.BlockhashStoreSpec.CoordinatorV1Address != nil {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
 		}
 	}
-	if jb.BlockhashStoreSpec.CoordinatorV2Address == nil {
+	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {

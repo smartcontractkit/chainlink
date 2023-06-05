@@ -194,14 +194,14 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	}
 
 	lp := chain.LogPoller()
-	if jb.BlockHeaderFeederSpec.CoordinatorV1Address == nil {
+	if jb.BlockHeaderFeederSpec.CoordinatorV1Address != nil {
 		filter := blockhashstore.NewV1LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}
 	}
-	if jb.BlockHeaderFeederSpec.CoordinatorV2Address == nil {
+	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		filter := blockhashstore.NewV2LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
@@ -225,14 +225,14 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	}
 
 	lp := chain.LogPoller()
-	if jb.BlockHeaderFeederSpec.CoordinatorV1Address == nil {
+	if jb.BlockHeaderFeederSpec.CoordinatorV1Address != nil {
 		filter := blockhashstore.NewV1LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV1Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
 		}
 	}
-	if jb.BlockHeaderFeederSpec.CoordinatorV2Address == nil {
+	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		filter := blockhashstore.NewV2LogFilter(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {
