@@ -1987,7 +1987,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.TxConfirmed
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
@@ -2285,7 +2285,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &datatypes.JSON{},
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2297,7 +2297,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md1_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2309,7 +2309,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2321,7 +2321,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2342,7 +2342,7 @@ func TestStartingCountsV1(t *testing.T) {
 			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxUnconfirmed,
+			State:              txmgrcommon.TxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			Meta:               &md1,

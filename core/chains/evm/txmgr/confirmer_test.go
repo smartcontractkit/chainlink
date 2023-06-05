@@ -48,7 +48,7 @@ func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
 
 func mustInsertUnstartedEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddress gethCommon.Address) {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = txmgrcommon.EthTxUnstarted
+	etx.State = txmgrcommon.TxUnstarted
 	require.NoError(t, txStore.InsertEthTx(&etx))
 }
 
@@ -90,7 +90,7 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 
 func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = txmgrcommon.EthTxInProgress
+	etx.State = txmgrcommon.TxInProgress
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	require.NoError(t, txStore.InsertEthTx(&etx))
@@ -100,7 +100,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce int
 
 func mustInsertConfirmedEthTx(t *testing.T, txStore txmgr.EvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = txmgrcommon.EthTxConfirmed
+	etx.State = txmgrcommon.TxConfirmed
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	now := time.Now()
@@ -331,7 +331,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt1_1 = etx.TxAttempts[0]
 		require.Len(t, attempt1_1.Receipts, 1)
@@ -394,7 +394,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		require.Len(t, etx.TxAttempts, 3)
 	})
 
@@ -422,7 +422,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt3_1 = etx.TxAttempts[0]
 		require.Len(t, attempt3_1.Receipts, 0)
@@ -449,7 +449,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt3_1 = etx.TxAttempts[0]
 		require.Len(t, attempt3_1.Receipts, 0)
@@ -478,7 +478,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt3_1 = etx.TxAttempts[0]
 		require.Len(t, attempt3_1.Receipts, 1)
@@ -843,9 +843,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 10))
 
-	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.EthTxUnconfirmed)
-	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.EthTxUnconfirmed)
-	mustTxBeInState(t, txStore, etx2_9, txmgrcommon.EthTxConfirmed)
+	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.TxUnconfirmed)
+	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.TxUnconfirmed)
+	mustTxBeInState(t, txStore, etx2_9, txmgrcommon.TxConfirmed)
 
 	// Now etx1_1 gets a receipt in block 11, which should mark etx1_0 as confirmed_missing_receipt
 	attempt1_1 := newBroadcastLegacyEthTxAttempt(t, etx1_1.ID, int64(2))
@@ -861,9 +861,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 11))
 
-	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.EthTxConfirmedMissingReceipt)
-	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.EthTxConfirmed)
-	mustTxBeInState(t, txStore, etx2_9, txmgrcommon.EthTxConfirmed)
+	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.TxConfirmedMissingReceipt)
+	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.TxConfirmed)
+	mustTxBeInState(t, txStore, etx2_9, txmgrcommon.TxConfirmed)
 }
 
 func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
@@ -967,21 +967,21 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// two below it "confirmed_missing_receipt" and the "bottom" eth_tx also confirmed
 		etx3, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 
 		ethReceipt := etx3.TxAttempts[0].Receipts[0]
 		require.Equal(t, txmReceipt3.BlockHash, ethReceipt.BlockHash)
 
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx2.State)
+		require.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx2.State)
 		etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx1.State)
 
 		etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 
 		require.Len(t, etx0.TxAttempts, 2)
 		require.Len(t, etx0.TxAttempts[0].Receipts, 1)
@@ -1027,20 +1027,20 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
 		etx3, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx2.State)
 
 		ethReceipt := etx2.TxAttempts[0].Receipts[0]
 		require.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
 
 		etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx1.State)
 		etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 	})
 
 	// STATE
@@ -1071,16 +1071,16 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
 		etx3, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx2.State)
 		etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx1.State)
 		etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 	})
 
 	// STATE
@@ -1111,16 +1111,16 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it marked as "fatal_error" and the bottom one remains confirmed
 		etx3, err := txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx2.State)
 		etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxFatalError, etx1.State)
+		require.Equal(t, txmgrcommon.TxFatalError, etx1.State)
 		etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 	})
 }
 
@@ -1188,19 +1188,19 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	// are marked as unconfirmed
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
 	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx1.State)
 	assert.Greater(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
 	assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx3.State)
+	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx3.State)
 	assert.Greater(t, etx3.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1256,15 +1256,15 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 	// Expected state is that all txes are marked as unconfirmed, since the batch call had failed
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx0.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
 	assert.Equal(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx1.State)
 	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
 	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1327,15 +1327,15 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 	// Expected state is that all transactions since failed batch will be unconfirmed
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
 	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = txStore.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx1.State)
 	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
 	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1438,7 +1438,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	now := time.Now()
 	etxWithoutAttempts.BroadcastAt = &now
 	etxWithoutAttempts.InitialBroadcastAt = &now
-	etxWithoutAttempts.State = txmgrcommon.EthTxUnconfirmed
+	etxWithoutAttempts.State = txmgrcommon.TxUnconfirmed
 	require.NoError(t, txStore.InsertEthTx(&etxWithoutAttempts))
 	nonce++
 
@@ -1775,7 +1775,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		require.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 
 		require.Len(t, etx.TxAttempts, 1)
 	})
@@ -1961,7 +1961,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx.State)
 
 		// Got the new attempt
 		attempt1_4 = etx.TxAttempts[0]
@@ -2015,7 +2015,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
 
 		// Old attempt is untouched
 		require.Len(t, etx2.TxAttempts, 2)
@@ -2041,7 +2041,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
 
 		// New in_progress attempt saved
 		require.Len(t, etx2.TxAttempts, 2)
@@ -2078,7 +2078,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 		etx2, err = txStore.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx2.State)
+		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx2.State)
 
 		// One new attempt saved
 		require.Len(t, etx2.TxAttempts, 3)
@@ -2120,7 +2120,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.TxAttempts, 2)
 		require.Equal(t, attempt3_1.ID, etx3.TxAttempts[1].ID)
@@ -2157,7 +2157,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.TxAttempts, 3)
 		attempt3_3 = etx3.TxAttempts[0]
@@ -2196,7 +2196,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.TxAttempts, 4)
 		attempt3_4 = etx3.TxAttempts[0]
@@ -2221,7 +2221,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		// No new tx attempts
 		require.Len(t, etx3.TxAttempts, 4)
@@ -2247,7 +2247,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = txStore.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		// No new tx attempts
 		require.Len(t, etx3.TxAttempts, 4)
@@ -2285,7 +2285,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = txStore.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx4.State)
 
 		// A new, bumped attempt
 		require.Len(t, etx4.TxAttempts, 2)
@@ -2312,7 +2312,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = txStore.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx4.State)
 
 		// No new tx attempts
 		require.Len(t, etx4.TxAttempts, 2)
@@ -2350,7 +2350,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = txStore.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx4.State)
 
 		require.Len(t, etx4.TxAttempts, 3)
 		require.Equal(t, attempt4_1.ID, etx4.TxAttempts[2].ID)
@@ -2661,7 +2661,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 	})
 
 	t.Run("does nothing to confirmed transactions with receipts within head height of the chain and included in the chain", func(t *testing.T) {
@@ -2673,7 +2673,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 	})
 
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
@@ -2686,7 +2686,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 	})
 
 	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the chain but not included in the chain", func(t *testing.T) {
@@ -2707,7 +2707,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		require.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
@@ -2730,7 +2730,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		require.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
@@ -2765,7 +2765,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		require.Len(t, etx.TxAttempts, 3)
 		attempt1 := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt1.State)
@@ -2785,7 +2785,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		require.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)

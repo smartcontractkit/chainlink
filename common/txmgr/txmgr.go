@@ -493,7 +493,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		EncodedPayload: []byte{},
 		Value:          value,
 		FeeLimit:       gasLimit,
-		State:          EthTxUnstarted,
+		State:          TxUnstarted,
 		ChainID:        chainID,
 	}
 	err = b.txStore.InsertEthTx(&etx)

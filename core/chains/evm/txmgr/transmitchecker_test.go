@@ -105,7 +105,7 @@ func TestTransmitCheckers(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(642)),
 			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
 			Tx:        tx,
@@ -183,7 +183,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -288,7 +288,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{

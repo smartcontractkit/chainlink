@@ -900,7 +900,7 @@ func updateEthTxAttemptUnbroadcast(q pg.Queryer, attempt EvmTxAttempt) error {
 }
 
 func updateEthTxUnconfirm(q pg.Queryer, etx EvmTx) error {
-	if etx.State != txmgr.EthTxConfirmed {
+	if etx.State != txmgr.TxConfirmed {
 		return errors.New("expected eth_tx state to be confirmed")
 	}
 	_, err := q.Exec(`UPDATE eth_txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
@@ -1231,10 +1231,10 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(etx *EvmTx, fromAdd
 	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }
 
-func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
+func (o *evmTxStore) UpdateTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 
-	if etx.State != txmgr.EthTxInProgress {
+	if etx.State != txmgr.TxInProgress {
 		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
@@ -1242,7 +1242,7 @@ func (o *evmTxStore) UpdateEthTxFatalError(etx *EvmTx, qopts ...pg.QOpt) error {
 	}
 
 	etx.Sequence = nil
-	etx.State = txmgr.EthTxFatalError
+	etx.State = txmgr.TxFatalError
 
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
@@ -1267,7 +1267,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if etx.InitialBroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
 	}
-	if etx.State != txmgr.EthTxInProgress {
+	if etx.State != txmgr.TxInProgress {
 		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
@@ -1276,7 +1276,7 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 	if NewAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return pkgerrors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
-	etx.State = txmgr.EthTxUnconfirmed
+	etx.State = txmgr.TxUnconfirmed
 	attempt.State = NewAttemptState
 	return qq.Transaction(func(tx pg.Queryer) error {
 		if err := incrNextNonceCallback(tx); err != nil {
@@ -1296,18 +1296,18 @@ func (o *evmTxStore) UpdateEthTxAttemptInProgressToBroadcast(etx *EvmTx, attempt
 }
 
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
-func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTxAttempt, qopts ...pg.QOpt) error {
+func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTxAttempt, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	if etx.Sequence == nil {
 		return errors.New("in_progress transaction must have nonce")
 	}
-	if etx.State != txmgr.EthTxUnstarted {
+	if etx.State != txmgr.TxUnstarted {
 		return pkgerrors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
-	etx.State = txmgr.EthTxInProgress
+	etx.State = txmgr.TxInProgress
 	return qq.Transaction(func(tx pg.Queryer) error {
 		// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
 		// In this case, we must remove the abandoned attempt from eth_tx_attempts before replacing it with a new one.  In any other
@@ -1318,7 +1318,7 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 		// can be abandoned.)
 		_, err := tx.Exec(`DELETE FROM eth_tx_attempts a USING eth_txes t
 			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
-			attempt.Hash, txmgr.EthTxFatalError,
+			attempt.Hash, txmgr.TxFatalError,
 		)
 		if err == nil {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
@@ -1342,22 +1342,22 @@ func (o *evmTxStore) UpdateEthTxUnstartedToInProgress(etx *EvmTx, attempt *EvmTx
 				}
 			}
 			if err != nil {
-				return pkgerrors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to create eth_tx_attempt")
+				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
 			}
 		}
 		DbEthTxAttemptToEthTxAttempt(dbAttempt, attempt)
 		dbEtx := DbEthTxFromEthTx(etx)
 		err = tx.Get(&dbEtx, `UPDATE eth_txes SET nonce=$1, state=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id=$5 RETURNING *`, etx.Sequence, etx.State, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID)
 		DbEthTxToEthTx(dbEtx, etx)
-		return pkgerrors.Wrap(err, "UpdateEthTxUnstartedToInProgress failed to update eth_tx")
+		return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to update eth_tx")
 	})
 }
 
-// GetEthTxInProgress returns either 0 or 1 transaction that was left in
+// GetTxInProgress returns either 0 or 1 transaction that was left in
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func (o *evmTxStore) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EvmTx, err error) {
+func (o *evmTxStore) GetTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *EvmTx, err error) {
 	qq := o.q.WithOpts(qopts...)
 	etx = new(EvmTx)
 	if err != nil {
@@ -1370,11 +1370,11 @@ func (o *evmTxStore) GetEthTxInProgress(fromAddress common.Address, qopts ...pg.
 			etx = nil
 			return nil
 		} else if err != nil {
-			return pkgerrors.Wrap(err, "GetEthTxInProgress failed while loading eth tx")
+			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading eth tx")
 		}
 		DbEthTxToEthTx(dbEtx, etx)
 		if err = o.LoadEthTxAttempts(etx, pg.WithQueryer(tx)); err != nil {
-			return pkgerrors.Wrap(err, "GetEthTxInProgress failed while loading EthTxAttempts")
+			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading EthTxAttempts")
 		}
 		if len(etx.TxAttempts) != 1 || etx.TxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
 			return pkgerrors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
@@ -1421,12 +1421,12 @@ func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, stat
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnconfirmed, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.TxUnconfirmed, chainID, qopts...)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
 func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, txmgr.EthTxUnstarted, chainID, qopts...)
+	return o.countTransactionsWithState(fromAddress, txmgr.TxUnstarted, chainID, qopts...)
 }
 
 func (o *evmTxStore) CheckEthTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int, qopts ...pg.QOpt) (err error) {

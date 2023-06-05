@@ -53,7 +53,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.EthTxUnstarted
+	tx3.State = txmgrcommon.TxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -101,7 +101,7 @@ func TestORM_EthTransactions(t *testing.T) {
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.EthTxUnstarted
+	tx3.State = txmgrcommon.TxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -218,7 +218,7 @@ func TestORM_FindEthTxAttemptConfirmedByEthTxIDs(t *testing.T) {
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.EthTxUnstarted
+	tx3.State = txmgrcommon.TxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -365,7 +365,7 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 		time1 := time.Now()
 		etx := cltest.NewEthTx(t, fromAddress)
 		etx.Sequence = new(evmtypes.Nonce)
-		etx.State = txmgrcommon.EthTxUnconfirmed
+		etx.State = txmgrcommon.TxUnconfirmed
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
 		err := orm.InsertEthTx(&etx)
@@ -483,12 +483,12 @@ func TestORM_UpdateEthTxsUnconfirmed(t *testing.T) {
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
-	assert.Equal(t, etx0.State, txmgrcommon.EthTxConfirmedMissingReceipt)
+	assert.Equal(t, etx0.State, txmgrcommon.TxConfirmedMissingReceipt)
 	require.NoError(t, txStore.UpdateEthTxsUnconfirmed([]int64{etx0.ID}))
 
 	etx0, err := txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
-	assert.Equal(t, etx0.State, txmgrcommon.EthTxUnconfirmed)
+	assert.Equal(t, etx0.State, txmgrcommon.TxUnconfirmed)
 }
 
 func TestORM_FindEthTxAttemptsRequiringReceiptFetch(t *testing.T) {
@@ -543,7 +543,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Len(t, etx0.TxAttempts, 1)
 	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
 	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].BlockHash)
-	require.Equal(t, txmgrcommon.EthTxConfirmed, etx0.State)
+	require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 }
 
 func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
@@ -562,18 +562,18 @@ func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	etx0_attempt := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
 	etx0_attempt.BroadcastBeforeBlockNum = &etx0_blocknum
 	require.NoError(t, txStore.InsertEthTxAttempt(&etx0_attempt))
-	assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx0.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
 
 	// create transaction 1 (nonce 1) that is confirmed (block 77)
 	etx1 := cltest.MustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ConfiguredChainID())
-	assert.Equal(t, etx1.State, txmgrcommon.EthTxConfirmed)
+	assert.Equal(t, etx1.State, txmgrcommon.TxConfirmed)
 
 	// mark transaction 0 confirmed_missing_receipt
 	err := txStore.MarkAllConfirmedMissingReceipt(ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	etx0, err = txStore.FindEthTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
-	assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
 }
 
 func TestORM_PreloadEthTxes(t *testing.T) {
@@ -718,7 +718,7 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		// assert tx state
-		assert.Equal(t, txmgrcommon.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		// assert receipt
 		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
@@ -735,7 +735,7 @@ func TestORM_UpdateEthTxForRebroadcast(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, resultTxAttempt.State)
 		assert.Nil(t, resultTxAttempt.BroadcastBeforeBlockNum)
 		// assert tx state
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, resultTx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, resultTx.State)
 		// assert receipt
 		assert.Len(t, resultTxAttempt.Receipts, 0)
 	})
@@ -846,7 +846,7 @@ func TestORM_SaveConfirmedMissingReceiptAttempt(t *testing.T) {
 
 		etx, err := txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxConfirmedMissingReceipt, etx.State)
+		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx.State)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[0].State)
 	})
 }
@@ -1035,7 +1035,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
 	})
 
 	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
@@ -1052,7 +1052,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		// must run other query outside of postgres transaction so changes are committed
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
 	})
 }
 
@@ -1156,7 +1156,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	})
 }
 
-func TestORM_UpdateEthTxFatalError(t *testing.T) {
+func TestORM_UpdateTxFatalError(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1171,12 +1171,12 @@ func TestORM_UpdateEthTxFatalError(t *testing.T) {
 		etxPretendError := null.StringFrom("no more toilet paper")
 		etx.Error = etxPretendError
 
-		err := txStore.UpdateEthTxFatalError(&etx)
+		err := txStore.UpdateTxFatalError(&etx)
 		require.NoError(t, err)
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 0)
-		assert.Equal(t, txmgrcommon.EthTxFatalError, etx.State)
+		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
 	})
 }
 
@@ -1213,7 +1213,7 @@ func TestORM_UpdateEthTxAttemptInProgressToBroadcast(t *testing.T) {
 	})
 }
 
-func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
+func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1229,12 +1229,12 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		etx.Sequence = &nonce
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
+		err := txStore.UpdateTxUnstartedToInProgress(&etx, &attempt)
 		require.NoError(t, err)
 
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 	})
 
@@ -1247,7 +1247,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		err := q.ExecQ("DELETE FROM eth_txes WHERE id = $1", etx.ID)
 		require.NoError(t, err)
 
-		err = txStore.UpdateEthTxUnstartedToInProgress(&etx, &attempt)
+		err = txStore.UpdateTxUnstartedToInProgress(&etx, &attempt)
 		require.ErrorContains(t, err, "eth_tx removed")
 	})
 
@@ -1283,7 +1283,7 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 
 		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
-		err = txStore.UpdateEthTxUnstartedToInProgress(&etx2, &attempt2)
+		err = txStore.UpdateTxUnstartedToInProgress(&etx2, &attempt2)
 		require.NoError(t, err)
 	})
 
@@ -1294,16 +1294,16 @@ func TestORM_UpdateEthTxUnstartedToInProgress(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
 		require.Len(t, etx.TxAttempts, 1)
 
-		etx.State = txmgrcommon.EthTxUnstarted
+		etx.State = txmgrcommon.TxUnstarted
 
 		// Should fail due to idx_eth_tx_attempt_hash constraint
-		err := txStore.UpdateEthTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
+		err := txStore.UpdateTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
 		assert.ErrorContains(t, err, "idx_eth_tx_attempts_hash")
 		txStore = cltest.NewTxStore(t, db, cfg) // current txStore is poisened now, next test will need fresh one
 	})
 }
 
-func TestORM_GetEthTxInProgress(t *testing.T) {
+func TestORM_GetTxInProgress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1313,7 +1313,7 @@ func TestORM_GetEthTxInProgress(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("gets 0 in progress eth transaction", func(t *testing.T) {
-		etxResult, err := txStore.GetEthTxInProgress(fromAddress)
+		etxResult, err := txStore.GetTxInProgress(fromAddress)
 		require.NoError(t, err)
 		require.Nil(t, etxResult)
 	})
@@ -1321,7 +1321,7 @@ func TestORM_GetEthTxInProgress(t *testing.T) {
 	t.Run("get 1 in progress eth transaction", func(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 
-		etxResult, err := txStore.GetEthTxInProgress(fromAddress)
+		etxResult, err := txStore.GetTxInProgress(fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, etxResult.ID, etx.ID)
 	})
@@ -1543,7 +1543,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -1556,7 +1556,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		var dbEthTx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, dbEthTx.State, txmgrcommon.EthTxUnstarted)
+		assert.Equal(t, dbEthTx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, dbEthTx.GasLimit)
 		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
 		assert.Equal(t, toAddress, dbEthTx.ToAddress)

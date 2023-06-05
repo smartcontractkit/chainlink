@@ -171,7 +171,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -194,7 +194,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			BroadcastAt:        &timeNow,
 			InitialBroadcastAt: &timeNow,
 			Error:              null.String{},
-			State:              txmgrcommon.EthTxUnconfirmed,
+			State:              txmgrcommon.TxUnconfirmed,
 		}
 		etxWithError := txmgr.EvmTx{
 			Sequence:       nil,
@@ -204,7 +204,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			Error:          null.StringFrom(errStr),
-			State:          txmgrcommon.EthTxFatalError,
+			State:          txmgrcommon.TxFatalError,
 		}
 
 		require.NoError(t, txStore.InsertEthTx(&etxUnconfirmed))
@@ -224,7 +224,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(242)),
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(2) && tx.Value().Cmp(big.NewInt(242)) == 0
@@ -242,7 +242,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 			Meta:           &meta,
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -266,7 +266,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(1, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(1) {
@@ -365,7 +365,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(142)),
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		eipTxWithAl := txmgr.EvmTx{
 			FromAddress:          fromAddress,
@@ -374,7 +374,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:                big.Int(assets.NewEthValue(242)),
 			FeeLimit:             gasLimit,
 			CreatedAt:            time.Unix(0, 1),
-			State:                txmgrcommon.EthTxUnstarted,
+			State:                txmgrcommon.TxUnstarted,
 			AdditionalParameters: txmgr.EvmAccessListFrom(gethTypes.AccessList{gethTypes.AccessTuple{Address: testutils.NewAddress(), StorageKeys: []gethCommon.Hash{utils.NewHash()}}}),
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -431,7 +431,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(442)),
 				FeeLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
@@ -465,7 +465,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			// Check ethtx was sent
 			ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 			require.NoError(t, err)
-			assert.Equal(t, txmgrcommon.EthTxUnconfirmed, ethTx.State)
+			assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 		})
 
 		t.Run("with unknown error, sends tx as normal", func(t *testing.T) {
@@ -476,7 +476,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(542)),
 				FeeLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
@@ -498,7 +498,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 			require.NoError(t, err)
-			assert.Equal(t, txmgrcommon.EthTxUnconfirmed, ethTx.State)
+			assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 		})
 
 		t.Run("on revert, marks tx as fatally errored and does not send", func(t *testing.T) {
@@ -509,7 +509,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				}),
@@ -534,7 +534,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 			require.NoError(t, err)
-			assert.Equal(t, txmgrcommon.EthTxFatalError, ethTx.State)
+			assert.Equal(t, txmgrcommon.TxFatalError, ethTx.State)
 			assert.True(t, ethTx.Error.Valid)
 			assert.Equal(t, "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }", ethTx.Error.String)
 		})
@@ -569,7 +569,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(442)),
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
@@ -588,7 +588,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Check ethtx was sent
 		ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, ethTx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 	})
 
 	t.Run("when transmit checking succeeds, sends tx as normal", func(t *testing.T) {
@@ -602,7 +602,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(442)),
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
@@ -621,7 +621,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Check ethtx was sent
 		ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, ethTx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 	})
 
 	t.Run("when transmit errors, fatally error transaction", func(t *testing.T) {
@@ -635,7 +635,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(442)),
 			FeeLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 			TransmitChecker: checkerToJson(t, txmgr.EvmTransmitCheckerSpec{
 				CheckerType: txmgr.TransmitCheckerTypeSimulate,
 			}),
@@ -651,7 +651,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		// Check ethtx was sent
 		ethTx, err := txStore.FindEthTxWithAttempts(ethTx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.EthTxFatalError, ethTx.State)
+		assert.Equal(t, txmgrcommon.TxFatalError, ethTx.State)
 		assert.True(t, ethTx.Error.Valid)
 		assert.Equal(t, "fatal checker error", ethTx.Error.String)
 	})
@@ -696,7 +696,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		EncodedPayload: []byte{42, 42, 0},
 		Value:          big.Int(*assets.NewEth(0)),
 		FeeLimit:       500000,
-		State:          txmgrcommon.EthTxUnstarted,
+		State:          txmgrcommon.TxUnstarted,
 	}
 	require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -752,7 +752,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 		Value:          big.Int(assets.NewEthValue(242)),
 		FeeLimit:       1231,
 		CreatedAt:      time.Unix(0, 0),
-		State:          txmgrcommon.EthTxUnstarted,
+		State:          txmgrcommon.TxUnstarted,
 	}
 	require.NoError(t, txStore.InsertEthTx(&tx))
 
@@ -790,7 +790,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			Error:          null.String{},
-			State:          txmgrcommon.EthTxInProgress,
+			State:          txmgrcommon.TxInProgress,
 		}
 
 		secondInProgress := txmgr.EvmTx{
@@ -801,7 +801,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			Error:          null.String{},
-			State:          txmgrcommon.EthTxInProgress,
+			State:          txmgrcommon.TxInProgress,
 		}
 
 		require.NoError(t, txStore.InsertEthTx(&firstInProgress))
@@ -1098,7 +1098,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1147,7 +1147,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				EncodedPayload: encodedPayload,
 				Value:          value,
 				FeeLimit:       gasLimit,
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 			}
 			require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1191,7 +1191,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				EncodedPayload:    encodedPayload,
 				Value:             value,
 				FeeLimit:          gasLimit,
-				State:             txmgrcommon.EthTxUnstarted,
+				State:             txmgrcommon.TxUnstarted,
 				PipelineTaskRunID: uuid.NullUUID{UUID: tr.ID, Valid: true},
 			}
 
@@ -1267,7 +1267,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1340,7 +1340,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1364,7 +1364,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
@@ -1388,7 +1388,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
@@ -1404,7 +1404,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1428,7 +1428,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
@@ -1452,7 +1452,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
@@ -1468,7 +1468,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1491,7 +1491,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
@@ -1510,7 +1510,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1555,7 +1555,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		EncodedPayload: encodedPayload,
 		Value:          value,
 		FeeLimit:       gasLimit,
-		State:          txmgrcommon.EthTxUnstarted,
+		State:          txmgrcommon.TxUnstarted,
 	}
 	require.NoError(t, txStore.InsertEthTx(&etxUnfinished))
 
@@ -1581,7 +1581,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.InitialBroadcastAt)
 		assert.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		assert.Len(t, etx.TxAttempts, 1)
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, etx.TxAttempts[0].State)
 	})
@@ -1640,7 +1640,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1668,7 +1668,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1689,7 +1689,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		require.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
@@ -1707,7 +1707,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1727,7 +1727,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
 		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.EthTxInProgress, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
 		require.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
@@ -1758,7 +1758,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1790,7 +1790,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		require.NoError(t, txStore.InsertEthTx(&etx))
 
@@ -1872,7 +1872,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 
 		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
@@ -1894,7 +1894,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		etx, err = txStore.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, txmgrcommon.EthTxUnstarted, etx.State)
+		assert.Equal(t, txmgrcommon.TxUnstarted, etx.State)
 		assert.Len(t, etx.TxAttempts, 0)
 
 		// Check that the key did not have its nonce incremented
