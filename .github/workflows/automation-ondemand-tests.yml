@@ -6,12 +6,10 @@ on:
         description: Chainlink image version to use
         required: false
         type: string
-        default: 2.0.0
       chainlinkImage:
-        description: Chainlink image repo to use (Skip to build from head/ref)
+        description: Chainlink image repo to use (Leave empty to build from head/ref)
         required: false
         type: string
-        default: public.ecr.aws/chainlink/chainlink
 
 jobs:
   build-chainlink:
