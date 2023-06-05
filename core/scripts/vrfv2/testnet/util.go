@@ -232,13 +232,14 @@ func wrapperDeploy(
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-	fmt.Printf("VRFV2Wrapper address: %s\n", address)
+	fmt.Println("VRFV2Wrapper address:", address)
 
 	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(address, e.Ec)
 	helpers.PanicErr(err)
 
 	subID, err := wrapper.SUBSCRIPTIONID(nil)
 	helpers.PanicErr(err)
+	fmt.Println("VRFV2Wrapper subscription id:", subID)
 
 	return address, subID
 }

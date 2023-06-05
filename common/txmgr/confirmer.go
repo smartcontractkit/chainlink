@@ -17,10 +17,8 @@ import (
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -41,10 +39,6 @@ const (
 )
 
 var (
-	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
-	// This most likely happened because an external wallet used the account for this nonce
-	ErrCouldNotGetReceipt = "could not get receipt"
-
 	promNumGasBumps = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_gas_bumps",
 		Help: "Number of gas bumps",
@@ -141,18 +135,6 @@ type Confirmer[
 
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
-}
-
-// NewEvmConfirmer instantiates a new EVM confirmer
-func NewEvmConfirmer(
-	txStore EvmTxStore,
-	evmClient EvmTxmClient,
-	config txmgrtypes.ConfirmerConfig[*assets.Wei],
-	keystore EvmKeyStore,
-	txAttemptBuilder EvmTxAttemptBuilder,
-	lggr logger.Logger,
-) *EvmConfirmer {
-	return NewConfirmer(txStore, evmClient, config, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
 }
 
 func NewConfirmer[

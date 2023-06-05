@@ -48,13 +48,14 @@ type AppConfig interface {
 	Pyroscope
 	Secrets
 	Sentry
-	TelemetryIngress
 	Web
 
 	Database() Database
 	AuditLogger() audit.Config
 	Keeper() Keeper
+	TelemetryIngress() TelemetryIngress
 }
+
 type DatabaseBackupMode string
 
 var (

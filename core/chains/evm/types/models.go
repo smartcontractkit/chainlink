@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
@@ -43,6 +44,7 @@ type Head struct {
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
+var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
 func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
@@ -151,6 +153,18 @@ func (h *Head) ChainHashes() []common.Hash {
 		}
 	}
 	return hashes
+}
+
+func (h *Head) ChainID() *big.Int {
+	return h.EVMChainID.ToInt()
+}
+
+func (h *Head) HasChainID() bool {
+	return h.EVMChainID != nil
+}
+
+func (h *Head) IsValid() bool {
+	return h != nil
 }
 
 func (h *Head) ChainString() string {

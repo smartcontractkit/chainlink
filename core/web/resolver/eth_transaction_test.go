@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -66,7 +67,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					FeeLimit:       100,
 					Value:          big.Int(assets.NewEthValue(100)),
@@ -123,7 +124,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					FeeLimit:       100,
 					Value:          big.Int(assets.NewEthValue(100)),
@@ -251,7 +252,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						ID:             1,
 						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          txmgr.EthTxInProgress,
+						State:          txmgrcommon.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
 						FeeLimit:       100,
 						Value:          big.Int(assets.NewEthValue(100)),
