@@ -4,7 +4,7 @@ pragma solidity ^0.8.6;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {IFunctionsBilling, FunctionsBilling, Route} from "./FunctionsBilling.sol";
+import {IFunctionsBilling, FunctionsBilling, Route, ITypeAndVersion} from "./FunctionsBilling.sol";
 import {Functions} from "./Functions.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
@@ -38,12 +38,17 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   mapping(address => bytes) private s_nodePublicKeys;
 
   constructor(
-    string memory id,
-    uint16 version,
     address router,
     bytes memory config,
     address linkToNativeFeed
-  ) OCR2Base(true) FunctionsBilling(id, version, router, config, linkToNativeFeed) {}
+  ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
+
+  /**
+   * @inheritdoc ITypeAndVersion
+   */
+  function typeAndVersion() public pure override returns (string memory) {
+    return "Functions Coordinator v1";
+  }
 
   /**
    * @inheritdoc IFunctionsCoordinator

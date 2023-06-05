@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {RouterBase} from "./RouterBase.sol";
+import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IVersioned} from "./interfaces/IVersioned.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
@@ -33,18 +33,17 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     address[] memory initialAddresses,
     bytes memory config
   )
-    RouterBase(
-      "FunctionsRouter",
-      msg.sender,
-      timelockBlocks,
-      maximumTimelockBlocks,
-      initialJobIds,
-      initialAddresses,
-      config
-    )
+    RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, initialJobIds, initialAddresses, config)
     AuthorizedOriginReceiver(useAllowList)
     FunctionsSubscriptions(linkToken)
   {}
+
+  /**
+   * @inheritdoc ITypeAndVersion
+   */
+  function typeAndVersion() public pure override returns (string memory) {
+    return "Functions Router v1";
+  }
 
   // ================================================================
   // |                 Configuration methods                        |
