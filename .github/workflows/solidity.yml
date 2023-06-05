@@ -163,8 +163,26 @@ jobs:
     needs: [changes, solidity-splits]
     name: Solidity
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - run: echo 'Solidity tests finished!'
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.changes.result }}" = "failure" || "${{ needs.solidity-splits.result }}" = "failure" ]]; then
+            echo "One or more changes / solidity-splits jobs failed"
+            exit 1
+          else
+            echo "All test jobs passed successfully"
+          fi
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true
 
   prepublish-test:
     needs: [changes]
