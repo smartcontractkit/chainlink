@@ -39,12 +39,8 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	simulatedEVMNonDevTOML = `
-[[EVM]]
-ChainID = 1337
-MinContractPayment = '0'
-Enabled = true
-FinalityDepth = 50
+	networkTOML = `Enabled = true
+FinalityDepth = 200
 LogPollInterval = '1s'
 
 [EVM.HeadTracker]
@@ -53,13 +49,9 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	networkTOML = `FinalityDepth = 200
-
-[EVM.HeadTracker]
-HistoryDepth = 400`
 	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(baseTOML+simulatedEVMNonDevTOML, networkTOML, activeEVMNetwork),
+		"toml":     client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": false,
