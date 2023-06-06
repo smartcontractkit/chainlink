@@ -73,8 +73,8 @@ func (c Config) ForwardToUrl() (models.URL, error) {
 	return *url, nil
 }
 
-func (c Config) Headers() (audit.ServiceHeaders, error) {
-	return make(audit.ServiceHeaders, 0), nil
+func (c Config) Headers() (models.ServiceHeaders, error) {
+	return make(models.ServiceHeaders, 0), nil
 }
 
 func (c Config) JsonWrapperKey() string {
