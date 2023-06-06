@@ -47,7 +47,7 @@ func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, key
 			pb.RegisterKeystoreServer(s, &keystoreServer{impl: keystore})
 		})
 		if err != nil {
-			return
+			return 0, nil, fmt.Errorf("Failed to create relayer client: failed to serve keystore: %w", err)
 		}
 		deps.Add(ksRes)
 
@@ -56,7 +56,7 @@ func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, key
 			KeystoreID: id,
 		})
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, fmt.Errorf("Failed to create relayer client: failed request: %w", err)
 		}
 		return reply.RelayerID, nil, nil
 	})
