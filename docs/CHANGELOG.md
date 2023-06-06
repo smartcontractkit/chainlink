@@ -10,7 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
+## 1.13.3 - 2023-06-05
+
+_This release (1.13.3) and 1.13.2 enable Solana compatibility on 1.13.x._
+
+### Fixed
+
+- The 1.13.2 release showed the 1.13.1 version in its VERSION file. This updates the VERSION file to now show 1.13.3.
+
 <!-- unreleasedstop -->
+
+## 1.13.2 - 2023-06-05
+
+### Fixed
+
+- Made logging level improvements for the Solana Transaction Manager to reduce excessive noise
+- Fixed race condition in Solana TXM for sanity check and preventing misfired errors
 
 ## 1.13.1 - 2023-04-06
 
