@@ -279,7 +279,7 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
 	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -1200,7 +1200,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			var (
-				orm = newORM(t, db, cfg, nil)
+				orm = newORM(t, db, cfg.Database(), nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1270,7 +1270,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			cfg := configtest.NewTestGeneralConfig(t)
 
 			var (
-				orm = newORM(t, db, cfg, nil)
+				orm = newORM(t, db, cfg.Database(), nil)
 			)
 
 			fm, tm := setup(t,
@@ -1334,7 +1334,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	var (
-		orm = newORM(t, db, cfg, nil)
+		orm = newORM(t, db, cfg.Database(), nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))

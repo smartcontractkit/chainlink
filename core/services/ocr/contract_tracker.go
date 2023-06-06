@@ -106,6 +106,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
+	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
@@ -119,7 +120,7 @@ func NewOCRContractTracker(
 		jobID:                jobID,
 		logger:               logger,
 		ocrDB:                ocrDB,
-		q:                    pg.NewQ(db, logger, cfg),
+		q:                    pg.NewQ(db, logger, q),
 		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg:                  cfg,
 		mailMon:              mailMon,
