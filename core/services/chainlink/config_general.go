@@ -31,7 +31,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -357,29 +356,6 @@ func (g *generalConfig) StarkNetEnabled() bool {
 
 func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
-}
-
-func (g *generalConfig) AuditLoggerEnabled() bool {
-	return *g.c.AuditLogger.Enabled
-}
-
-func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	return *g.c.AuditLogger.ForwardToUrl, nil
-}
-
-func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return *g.c.AuditLogger.Headers, nil
-}
-
-func (g *generalConfig) AuditLoggerEnvironment() string {
-	if !build.IsProd() {
-		return "develop"
-	}
-	return "production"
-}
-
-func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
-	return *g.c.AuditLogger.JsonWrapperKey
 }
 
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
@@ -914,8 +890,8 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
-func (g *generalConfig) AuditLogger() audit.Config {
-	return auditLoggerConfig{C: g.c.AuditLogger}
+func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
+	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
 // Insecure config
