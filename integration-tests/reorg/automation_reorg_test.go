@@ -49,7 +49,7 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.DetermineSelectedNetwork()
+	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
@@ -124,7 +124,7 @@ const (
  * normal pace after the event.
  */
 func TestAutomationReorg(t *testing.T) {
-	network := networks.DetermineSelectedNetwork()
+	network := networks.SelectedNetwork
 
 	testEnvironment := environment.
 		New(&environment.Config{

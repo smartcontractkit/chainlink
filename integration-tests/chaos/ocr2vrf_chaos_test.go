@@ -29,7 +29,7 @@ import (
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	loadedNetwork := networks.DetermineSelectedNetwork()
+	loadedNetwork := networks.SelectedNetwork
 
 	defaultOCR2VRFSettings := map[string]interface{}{
 		"replicas": "6",
@@ -117,7 +117,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.DetermineSelectedNetwork() // Need a new copy of the network for each test
+			testNetwork := networks.SelectedNetwork // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(

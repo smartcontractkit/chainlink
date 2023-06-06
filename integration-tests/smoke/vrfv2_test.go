@@ -27,7 +27,7 @@ func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
-	testNetwork := networks.DetermineSelectedNetwork()
+	testNetwork := networks.SelectedNetwork
 	testEnvironment := vrfv2_actions.SetupVRFV2Environment(
 		t,
 		testNetwork,

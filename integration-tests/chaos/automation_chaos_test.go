@@ -40,7 +40,7 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:8090"]
 ListenAddresses = ["0.0.0.0:8090"]`
 
-	settingNetwork = networks.DetermineSelectedNetwork()
+	settingNetwork = networks.SelectedNetwork
 
 	defaultAutomationSettings = map[string]interface{}{
 		"toml":     client.AddNetworksConfig(baseTOML, settingNetwork),
@@ -111,7 +111,7 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	loadedNetwork := networks.DetermineSelectedNetwork()
+	loadedNetwork := networks.SelectedNetwork
 
 	defaultAutomationSettings := map[string]interface{}{
 		"toml":     client.AddNetworksConfig(baseTOML, loadedNetwork),
@@ -215,7 +215,7 @@ func TestAutomationChaos(t *testing.T) {
 		testCase := tst
 		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
-			network := networks.DetermineSelectedNetwork() // Need a new copy of the network for each test
+			network := networks.SelectedNetwork // Need a new copy of the network for each test
 
 			testEnvironment := environment.
 				New(&environment.Config{

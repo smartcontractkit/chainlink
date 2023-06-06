@@ -54,7 +54,7 @@ var (
 
 func TestMain(m *testing.M) {
 	logging.Init()
-	defaultOCRSettings["toml"] = client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.DetermineSelectedNetwork())
+	defaultOCRSettings["toml"] = client.AddNetworksConfig(config.BaseOCRP2PV1Config, networks.SelectedNetwork)
 	os.Exit(m.Run())
 }
 

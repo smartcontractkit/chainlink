@@ -134,7 +134,7 @@ func setupKeeperTest(
 	contracts.ContractDeployer,
 	contracts.LinkToken,
 ) {
-	network := networks.DetermineSelectedNetwork()
+	network := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{

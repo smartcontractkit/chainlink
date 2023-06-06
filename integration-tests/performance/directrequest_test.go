@@ -128,7 +128,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 }
 
 func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environment) {
-	network := networks.DetermineSelectedNetwork()
+	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{

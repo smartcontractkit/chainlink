@@ -18,6 +18,25 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
+	// To create replica of simulated EVM network, with different chain ids
+	AdditionalSimulatedChainIds = []int64{3337, 4337, 5337, 6337, 7337, 8337, 9337, 9338}
+	AdditionalSimulatedPvtKeys  = []string{
+		"5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+		"7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
+		"47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
+		"8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
+		"92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
+		"4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
+		"dbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
+		"2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
+	}
+	// SelectedNetworks uses the SELECTED_NETWORKS env var to determine which network to run the test on.
+	// For use in tests that utilize multiple chains. For tests on one chain, see SelectedNetwork
+	// For CCIP use index 1 and 2 of SELECTED_NETWORKS to denote source and destination network respectively
+	SelectedNetworks []blockchain.EVMNetwork = determineSelectedNetworks()
+	// SelectedNetwork uses the first listed network in SELECTED_NETWORKS, for use in tests on only one chain
+	SelectedNetwork blockchain.EVMNetwork = SelectedNetworks[0]
+
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 	// generalEVM is a customizable network through environment variables
@@ -330,13 +349,9 @@ var (
 	}
 )
 
-func DetermineSelectedNetwork() blockchain.EVMNetwork {
-	return DetermineSelectedNetworks()[0]
-}
-
-// DetermineSelectedNetworks uses `SELECTED_NETWORKS` to determine which networks to run the tests on.
+// determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which networks to run the tests on.
 // Use DetermineSelectedNetwork for tests that only use one network
-func DetermineSelectedNetworks() []blockchain.EVMNetwork {
+func determineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
 	selectedNetworks := make([]blockchain.EVMNetwork, 0)
 	rawSelectedNetworks := strings.ToUpper(os.Getenv("SELECTED_NETWORKS"))

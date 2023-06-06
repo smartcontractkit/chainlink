@@ -90,9 +90,9 @@ ListenAddresses = ["0.0.0.0:8090"]`
 
 func TestMain(m *testing.M) {
 	logging.Init()
-	fmt.Printf("Running Smoke Test on %s\n", networks.DetermineSelectedNetwork().Name) // Print to get around disabled logging
-	fmt.Printf("Chainlink Image %s\n", os.Getenv("CHAINLINK_IMAGE"))                   // Print to get around disabled logging
-	fmt.Printf("Chainlink Version %s\n", os.Getenv("CHAINLINK_VERSION"))               // Print to get around disabled logging
+	fmt.Printf("Running Smoke Test on %s\n", networks.SelectedNetwork.Name) // Print to get around disabled logging
+	fmt.Printf("Chainlink Image %s\n", os.Getenv("CHAINLINK_IMAGE"))        // Print to get around disabled logging
+	fmt.Printf("Chainlink Version %s\n", os.Getenv("CHAINLINK_VERSION"))    // Print to get around disabled logging
 	os.Exit(m.Run())
 }
 
@@ -792,7 +792,7 @@ func setupAutomationTest(
 	onlyStartRunner bool,
 	testEnvironment *environment.Environment,
 ) {
-	network := networks.DetermineSelectedNetwork()
+	network := networks.SelectedNetwork
 	evmConfig := eth.New(nil)
 	if !network.Simulated {
 		evmConfig = eth.New(&eth.Props{

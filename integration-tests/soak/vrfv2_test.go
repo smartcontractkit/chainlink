@@ -34,7 +34,7 @@ func TestVRFV2Soak(t *testing.T) {
 	l := utils.GetTestLogger(t)
 
 	testInputs.SetForRemoteRunner()
-	testNetwork := networks.DetermineSelectedNetwork() // Environment currently being used to soak test on
+	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
 
 	testEnvironment := vrfv2_actions.SetupVRFV2Environment(
 		t,
