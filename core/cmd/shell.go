@@ -345,7 +345,6 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 			Logger:   starkLggr,
 			KeyStore: loopKs,
 			Configs:  starknet.NewConfigs(cfgs),
-			Config:   r.GeneralConfig,
 		}
 		chainSet, err := starknet.NewChainSet(opts, cfgs)
 		if err != nil {
