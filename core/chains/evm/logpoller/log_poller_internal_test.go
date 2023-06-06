@@ -2,7 +2,6 @@ package logpoller
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"sync"
@@ -43,10 +42,9 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 		dbFilter := dbFilter
 		memFilter, ok := lp.filters[name]
 		require.True(t, ok)
-		assert.True(t, memFilter.Contains(&dbFilter),
-			fmt.Sprintf("in-memory Filter %s is missing some addresses or events from db Filter table", name))
-		assert.True(t, dbFilter.Contains(&memFilter),
-			fmt.Sprintf("db Filter table %s is missing some addresses or events from in-memory Filter", name))
+		assert.Truef(t, memFilter.Contains(&dbFilter),
+			"in-memory Filter %s is missing some addresses or events from db Filter table", name)
+		assert.Truef(t, dbFilter.Contains(&memFilter), "db Filter table %s is missing some addresses or events from in-memory Filter", name)
 	}
 }
 
@@ -60,7 +58,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-	lp := NewLogPoller(orm, nil, lggr, 15*time.Second, 1, 1, 2, 1000)
+	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	filter := Filter{"test Filter", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0}
 	err := lp.RegisterFilter(filter)
@@ -76,7 +74,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
 	// Set up a test chain with a log emitting contract deployed.
 
-	lp = NewLogPoller(orm, nil, lggr, 15*time.Second, 1, 1, 2, 1000)
+	lp = NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -308,7 +306,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		var ctx context.Context
 		var cancel context.CancelFunc
 		if withTimeout {
-			ctx, cancel = context.WithTimeout(parentCtx, time.Second)
+			ctx, cancel = context.WithTimeout(parentCtx, testutils.WaitTimeout(t))
 		} else {
 			ctx, cancel = context.WithCancel(parentCtx)
 		}
@@ -354,13 +352,15 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		timeout := time.After(2 * time.Second)
+		timeLeft := testutils.WaitTimeout(t)
+		timeout := time.After(timeLeft)
 		ctx, cancel := context.WithCancel(tctx)
 
 		var wg sync.WaitGroup
-		wg.Add(2)
+		pass := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
@@ -368,9 +368,11 @@ func TestLogPoller_Replay(t *testing.T) {
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			cancel()
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				lp.replayStart <- 4
+				close(pass)
 			}()
 		})
 
@@ -393,8 +395,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		}()
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() got stuck--failed to respond to second replay event within 2s")
-		case <-utils.WaitGroupChan(&wg):
+			assert.Failf(t, "lp.run() got stuck--failed to respond to second replay event within %s", timeLeft.String())
+		case <-pass:
 		}
 	})
 
@@ -405,22 +407,23 @@ func TestLogPoller_Replay(t *testing.T) {
 	t.Run("shutdown during replay", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
 
-		var wg sync.WaitGroup
-		wg.Add(2)
+		safeToExit := make(chan struct{})
+		pass := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
-				defer wg.Done()
 				lp.replayStart <- 4
+				close(safeToExit)
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
-			defer wg.Done()
 			lp.cancel()
+			close(pass)
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		timeout := time.After(2 * time.Second)
+		timeLeft := testutils.WaitTimeout(t)
+		timeout := time.After(timeLeft)
 		require.NoError(t, lp.Start(tctx))
 
 		defer func() {
@@ -428,20 +431,20 @@ func TestLogPoller_Replay(t *testing.T) {
 			case <-lp.replayStart: // unblock replayStart<- goroutine if it's stuck
 			default:
 			}
-			wg.Wait()
+			<-safeToExit
 			lp.Close()
 		}()
 
 		select {
 		case <-timeout:
-			assert.Fail(t, "lp.run() failed to respond to shutdown event during replay within 2s")
-		case <-utils.WaitGroupChan(&wg):
+			assert.Failf(t, "lp.run() failed to respond to shutdown event during replay within %s", timeLeft.String())
+		case <-pass:
 		}
 	})
 
 	// ReplayAsync should return as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, testutils.WaitTimeout(t))
 		defer func() {
 			lp.replayComplete <- nil
 			lp.cancel()
@@ -458,7 +461,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
-		lp.ctx, lp.cancel = context.WithTimeout(tctx, 2*time.Second)
+		timeLeft := testutils.WaitTimeout(t)
+		lp.ctx, lp.cancel = context.WithTimeout(tctx, timeLeft)
 		defer func() {
 			lp.cancel()
 			lp.wg.Wait()
@@ -473,7 +477,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		case lp.replayComplete <- anyErr:
 			time.Sleep(2 * time.Second)
 		case <-lp.ctx.Done():
-			assert.Fail(t, "failed to receive replayComplete signal within 2s")
+			assert.Failf(t, "failed to receive replayComplete signal within %s", timeLeft.String())
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())

@@ -25,7 +25,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -74,8 +73,8 @@ var (
 	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
 )
 
-// Client is the shell for the node, local commands and remote commands.
-type Client struct {
+// Shell for the node, local commands and remote commands.
+type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
 	Logger                         logger.Logger           // initialized in Before
@@ -97,21 +96,21 @@ type Client struct {
 	secretsFileIsSet bool
 }
 
-func (cli *Client) errorOut(err error) cli.ExitCoder {
+func (s *Shell) errorOut(err error) cli.ExitCoder {
 	if err != nil {
-		return clipkg.NewExitError(err.Error(), 1)
+		return cli.NewExitError(err.Error(), 1)
 	}
 	return nil
 }
 
 // exitOnConfigError is helper that executes as validation func and
 // pretty-prints errors
-func (cli *Client) configExitErr(validateFn func() error) cli.ExitCoder {
+func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
-		return cli.errorOut(errors.New("invalid configuration"))
+		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
 }
@@ -446,7 +445,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.DefaultHTTPTimeout().Duration()
+	timeoutDuration := config.WebDefaultHTTPTimeout().Duration()
 	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
@@ -1093,7 +1092,7 @@ func (c passwordPrompter) Prompt() string {
 	return c.prompter.PasswordPrompt("Password:")
 }
 
-func confirmAction(c *clipkg.Context) bool {
+func confirmAction(c *cli.Context) bool {
 	if len(c.String("yes")) > 0 {
 		yes, err := strconv.ParseBool(c.String("yes"))
 		if err == nil && yes {

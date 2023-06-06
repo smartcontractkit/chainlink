@@ -17,8 +17,6 @@ import (
 type Config interface {
 	config.OCR2Config
 	pg.QConfig
-	JobPipelineMaxSuccessfulRuns() uint64
-	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
 	MercuryCredentials(credName string) *models.MercuryCredentials
 	ThresholdKeyShare() string

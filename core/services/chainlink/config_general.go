@@ -469,11 +469,11 @@ func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
 	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (g *generalConfig) DefaultHTTPLimit() int64 {
+func (g *generalConfig) WebDefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
+func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
 	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
@@ -509,24 +509,16 @@ func (g *generalConfig) JSONConsole() bool {
 	return *g.c.Log.JSONConsole
 }
 
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
-func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	return *g.c.JobPipeline.MaxSuccessfulRuns
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
 
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
-}
-
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
+}
+
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
 func (g *generalConfig) Keeper() config.Keeper {
