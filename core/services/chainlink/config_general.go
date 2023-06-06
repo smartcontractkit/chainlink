@@ -27,6 +27,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
@@ -468,11 +469,11 @@ func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
 	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (g *generalConfig) DefaultHTTPLimit() int64 {
+func (g *generalConfig) WebDefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
+func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
 	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
@@ -508,68 +509,20 @@ func (g *generalConfig) JSONConsole() bool {
 	return *g.c.Log.JSONConsole
 }
 
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
-func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	return *g.c.JobPipeline.MaxSuccessfulRuns
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
-}
-
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
 }
 
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
 }
 
-func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return *g.c.Keeper.DefaultTransactionQueueDepth
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
-	return *g.c.Keeper.GasPriceBufferPercent
-}
-
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
-	return *g.c.Keeper.GasTipCapBufferPercent
-}
-
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
-	return *g.c.Keeper.BaseFeeBufferPercent
-}
-
-func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaxGracePeriod
-}
-
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.CheckGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.PerformGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.Registry.MaxPerformDataSize
-}
-
-func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.Registry.SyncInterval.Duration()
-}
-
-func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
-}
-
-func (g *generalConfig) KeeperTurnLookBack() int64 {
-	return *g.c.Keeper.TurnLookBack
+func (g *generalConfig) Keeper() config.Keeper {
+	return &keeperConfig{c: g.c.Keeper}
 }
 
 func (g *generalConfig) KeyFile() string {
@@ -876,22 +829,6 @@ func (g *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
 }
 
-func (g *generalConfig) SentryDSN() string {
-	return *g.c.Sentry.DSN
-}
-
-func (g *generalConfig) SentryDebug() bool {
-	return *g.c.Sentry.Debug
-}
-
-func (g *generalConfig) SentryEnvironment() string {
-	return *g.c.Sentry.Environment
-}
-
-func (g *generalConfig) SentryRelease() string {
-	return *g.c.Sentry.Release
-}
-
 func (g *generalConfig) TLSCertPath() string {
 	return *g.c.WebServer.TLS.CertPath
 }
@@ -914,6 +851,12 @@ func (g *generalConfig) TLSPort() uint16 {
 
 func (g *generalConfig) TLSRedirect() bool {
 	return *g.c.WebServer.TLS.ForceRedirect
+}
+
+func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
+	return &telemetryIngressConfig{
+		c: g.c.TelemetryIngress,
+	}
 }
 
 func (g *generalConfig) TelemetryIngressLogging() bool {
@@ -963,6 +906,10 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
+func (g *generalConfig) AuditLogger() audit.Config {
+	return auditLoggerConfig{C: g.c.AuditLogger}
+}
+
 // Insecure config
 func (g *generalConfig) DevWebServer() bool {
 	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
@@ -983,6 +930,10 @@ func (g *generalConfig) DisableRateLimiting() bool {
 func (g *generalConfig) InfiniteDepthQueries() bool {
 	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
+}
+
+func (g *generalConfig) Sentry() coreconfig.Sentry {
+	return sentryConfig{g.c.Sentry}
 }
 
 var (

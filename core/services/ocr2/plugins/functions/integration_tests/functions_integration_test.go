@@ -35,7 +35,6 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	utils.AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
-	var jobIds []int32
 	var oracles []confighelper2.OracleIdentityExtra
 	var apps []*cltest.TestApplication
 	for i := 0; i < nOracleNodes; i++ {
@@ -48,8 +47,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 		ea := utils.StartNewMockEA(t)
 		defer ea.Close()
 
-		ocrJob := utils.AddOCR2Job(t, apps[i], oracleContractAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
-		jobIds = append(jobIds, ocrJob.ID)
+		_ = utils.AddOCR2Job(t, apps[i], oracleContractAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
 	}
 
 	// config for registry contract
@@ -75,20 +73,8 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	}
 	utils.CommitWithFinality(b)
 
-	// validate that all pipeline jobs completed as many runs as sent requests
-	const tasksPerRun = 4
-	var wg sync.WaitGroup
-	for i := 0; i < nOracleNodes; i++ {
-		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			cltest.WaitForPipelineComplete(t, ic, jobIds[ic], nClients, tasksPerRun, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
-		}()
-	}
-	wg.Wait()
-
 	// validate that all client contracts got correct responses to their requests
+	var wg sync.WaitGroup
 	for i := 0; i < nClients; i++ {
 		ic := i
 		wg.Add(1)

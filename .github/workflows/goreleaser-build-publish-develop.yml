@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@e1e17a757e536f70e52b5a12b2e8d1d1c60e04ef # v2.0.0
+        uses: aws-actions/configure-aws-credentials@5727f247b64f324ec403ac56ae05e220fd02b65f # v2.1.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
@@ -30,10 +30,12 @@ jobs:
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
+          # ISSUE: https://github.com/golang/go/issues/52690
+          zig-version: 0.11.0-dev.3380+7e0a02ee2 # TODO: update action to v0.11.x once released
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

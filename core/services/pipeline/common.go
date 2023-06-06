@@ -64,14 +64,16 @@ type (
 	}
 
 	Config interface {
-		BridgeResponseURL() *url.URL
-		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineReaperInterval() time.Duration
-		JobPipelineReaperThreshold() time.Duration
+		MaxRunDuration() time.Duration
+		ReaperInterval() time.Duration
+		ReaperThreshold() time.Duration
+	}
+
+	BridgeConfig interface {
+		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 	}
 )
 

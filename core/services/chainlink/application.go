@@ -251,7 +251,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
+	if cfg.ExplorerURL() != nil && cfg.TelemetryIngress().URL() != nil {
 		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
@@ -260,16 +260,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
+	ticfg := cfg.TelemetryIngress()
 	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		if cfg.TelemetryIngressUseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout(), cfg.TelemetryIngressUniConn())
+	if cfg.ExplorerURL() == nil && ticfg.URL() != nil {
+		if ticfg.UseBatchSend() {
+			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
+				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize())
+			telemetryIngressClient = synchronization.NewTelemetryIngressClient(ticfg.URL(),
+				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize())
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
@@ -279,7 +280,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.DatabaseURL(), cfg.RootDir(), backupCfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
@@ -294,10 +295,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	srvcs = append(srvcs, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
 	)
@@ -418,10 +419,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
+			bridgeORM,
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
@@ -451,7 +453,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chains.EVM.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -472,6 +474,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.JobPipeline(),
 			chains.EVM,
 			globalLogger,
 			opts.Version,

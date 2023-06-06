@@ -76,93 +76,17 @@ func (_m *ChainScopedConfig) AppID() uuid.UUID {
 	return r0
 }
 
-// AuditLoggerEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerEnabled() bool {
+// AuditLogger provides a mock function with given fields:
+func (_m *ChainScopedConfig) AuditLogger() audit.Config {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// AuditLoggerEnvironment provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// AuditLoggerForwardToUrl provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	ret := _m.Called()
-
-	var r0 models.URL
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (models.URL, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() models.URL); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.URL)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// AuditLoggerHeaders provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	ret := _m.Called()
-
-	var r0 audit.ServiceHeaders
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (audit.ServiceHeaders, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() audit.ServiceHeaders); ok {
+	var r0 audit.Config
+	if rf, ok := ret.Get(0).(func() audit.Config); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.ServiceHeaders)
+			r0 = ret.Get(0).(audit.Config)
 		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// AuditLoggerJsonWrapperKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLoggerJsonWrapperKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -650,20 +574,6 @@ func (_m *ChainScopedConfig) DatabaseDefaultQueryTimeout() time.Duration {
 	return r0
 }
 
-// DatabaseURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseURL() url.URL {
-	ret := _m.Called()
-
-	var r0 url.URL
-	if rf, ok := ret.Get(0).(func() url.URL); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(url.URL)
-	}
-
-	return r0
-}
-
 // DefaultChainID provides a mock function with given fields:
 func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	ret := _m.Called()
@@ -675,34 +585,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
-	}
-
-	return r0
-}
-
-// DefaultHTTPLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultHTTPLimit() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultHTTPTimeout() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0
@@ -1594,225 +1476,33 @@ func (_m *ChainScopedConfig) JSONConsole() bool {
 	return r0
 }
 
-// JobPipelineMaxRunDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineMaxRunDuration() time.Duration {
+// JobPipeline provides a mock function with given fields:
+func (_m *ChainScopedConfig) JobPipeline() coreconfig.JobPipeline {
 	ret := _m.Called()
 
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+	var r0 coreconfig.JobPipeline
+	if rf, ok := ret.Get(0).(func() coreconfig.JobPipeline); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(time.Duration)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.JobPipeline)
+		}
 	}
 
 	return r0
 }
 
-// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+// Keeper provides a mock function with given fields:
+func (_m *ChainScopedConfig) Keeper() coreconfig.Keeper {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 coreconfig.Keeper
+	if rf, ok := ret.Get(0).(func() coreconfig.Keeper); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineReaperInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineReaperThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineResultWriteQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// KeeperBaseFeeBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperBaseFeeBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperGasPriceBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperGasTipCapBufferPercent provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// KeeperMaximumGracePeriod provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// KeeperRegistryCheckGasOverhead provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryMaxPerformDataSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistryPerformGasOverhead provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistrySyncInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// KeeperRegistrySyncUpkeepQueueSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperTurnLookBack provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperTurnLookBack() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Keeper)
+		}
 	}
 
 	return r0
@@ -3017,57 +2707,17 @@ func (_m *ChainScopedConfig) SecureCookies() bool {
 	return r0
 }
 
-// SentryDSN provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryDSN() string {
+// Sentry provides a mock function with given fields:
+func (_m *ChainScopedConfig) Sentry() coreconfig.Sentry {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Sentry
+	if rf, ok := ret.Get(0).(func() coreconfig.Sentry); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryDebug provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryDebug() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// SentryEnvironment provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// SentryRelease provides a mock function with given fields:
-func (_m *ChainScopedConfig) SentryRelease() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Sentry)
+		}
 	}
 
 	return r0
@@ -3251,129 +2901,17 @@ func (_m *ChainScopedConfig) TLSRedirect() bool {
 	return r0
 }
 
-// TelemetryIngressBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressBufferSize() uint {
+// TelemetryIngress provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	ret := _m.Called()
 
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressLogging provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressMaxBatchSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressMaxBatchSize() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressSendInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressSendTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressSendTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// TelemetryIngressServerPubKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressServerPubKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TelemetryIngressURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 coreconfig.TelemetryIngress
+	if rf, ok := ret.Get(0).(func() coreconfig.TelemetryIngress); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(coreconfig.TelemetryIngress)
 		}
-	}
-
-	return r0
-}
-
-// TelemetryIngressUniConn provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressUniConn() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// TelemetryIngressUseBatchSend provides a mock function with given fields:
-func (_m *ChainScopedConfig) TelemetryIngressUseBatchSend() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -3458,6 +2996,34 @@ func (_m *ChainScopedConfig) ValidateDB() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebDefaultHTTPLimit() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebDefaultHTTPTimeout() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0

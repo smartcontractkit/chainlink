@@ -75,6 +75,7 @@ type ContractDeployer interface {
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
+	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployDKG() (DKG, error)

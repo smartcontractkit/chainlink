@@ -37,14 +37,10 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-	simulatedEVMNonDevTOML = `
-[[EVM]]
-ChainID = 1337
-MinContractPayment = '0'
-Enabled = true
-FinalityDepth = 50
+AnnounceAddresses = ["0.0.0.0:8090"]
+ListenAddresses = ["0.0.0.0:8090"]`
+	networkTOML = `Enabled = true
+FinalityDepth = 200
 LogPollInterval = '1s'
 
 [EVM.HeadTracker]
@@ -53,14 +49,9 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	networkTOML = `FinalityDepth = 200
-
-[EVM.HeadTracker]
-HistoryDepth = 400`
 	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(baseTOML+simulatedEVMNonDevTOML, networkTOML, activeEVMNetwork),
-		"replicas": "6",
+		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -113,6 +104,7 @@ const (
 	defaultLinkFunds      = int64(9e18)
 	numberOfUpkeeps       = 2
 	automationReorgBlocks = 50
+	numberOfNodes         = 6
 )
 
 /*
@@ -137,15 +129,22 @@ func TestAutomationReorg(t *testing.T) {
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
-			TTL:             time.Hour * 1}).
+			TTL:             time.Hour * 1,
+			Test:            t}).
 		AddHelm(reorg.New(defaultReorgEthereumSettings)).
-		AddHelm(chainlink.New(0, defaultAutomationSettings)).
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
 			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+	for i := 0; i < numberOfNodes; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, defaultAutomationSettings))
+	}
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
+
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
