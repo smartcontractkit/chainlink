@@ -13,10 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -80,15 +81,39 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	// fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 	replicas := 6
+	network.Name = "geth" // DEBUG: Edit network name
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
+		AddChart(blockscout.New(&blockscout.Props{
+			WsURL:   "ws://geth-ethereum-geth:8546",
+			HttpURL: "http://geth-ethereum-geth:8544",
+		})).
+		AddHelm(reorg.New(&reorg.Props{ // DEBUG: Bring up reorg chain
 			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
+			NetworkType: "geth-reorg",
+			Values: map[string]interface{}{
+				"geth": map[string]interface{}{
+					"genesis": map[string]interface{}{
+						"networkId": fmt.Sprint(network.ChainID),
+					},
+					"tx": map[string]interface{}{
+						"replicas": strconv.Itoa(2),
+						// "resources": gethResource,
+					},
+					"miner": map[string]interface{}{
+						"replicas": "1",
+						// "resources": gethResource,
+					},
+				},
+				"bootnode": map[string]interface{}{
+					"replicas": "1",
+				},
+			},
 		}))
 	for i := 0; i < replicas; i++ {
+		network.URLs = []string{"ws://geth-ethereum-geth:8546"}
+		network.HTTPURLs = []string{"http://geth-ethereum-geth:8544"}
 		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
 			"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network),
 			"db": map[string]any{
