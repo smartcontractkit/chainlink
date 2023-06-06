@@ -72,18 +72,30 @@ type Delegate struct {
 type DelegateConfig interface {
 	validate.Config
 	plugins.RegistrarConfig
+	JobPipeline() jobPipelineConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
 type delegateConfig struct {
 	validate.Config
 	plugins.RegistrarConfig
+	jobPipeline jobPipelineConfig
 }
 
-func NewDelegateConfig(vc validate.Config, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func (d *delegateConfig) JobPipeline() jobPipelineConfig {
+	return d.jobPipeline
+}
+
+type jobPipelineConfig interface {
+	MaxSuccessfulRuns() uint64
+	ResultWriteQueueDepth() uint64
+}
+
+func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
+		jobPipeline:     jp,
 	}
 }
 
@@ -324,7 +336,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	spec.CaptureEATelemetry = d.cfg.OCR2CaptureEATelemetry()
 
-	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
+	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 
 	ctx := ctxVals.ContextWithValues(context.Background())
 	switch spec.PluginType {
@@ -368,7 +380,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem, chain)
+		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain)
 
 		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
@@ -390,7 +402,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-		mConfig := median.NewMedianConfig(d.cfg.JobPipelineMaxSuccessfulRuns(), d.cfg)
+		mConfig := median.NewMedianConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg)
 
 		medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
@@ -619,7 +631,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
-			d.cfg.JobPipelineMaxSuccessfulRuns(),
+			d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		)
 
 		// NOTE: we return from here with the services because the OCR2VRF oracles are defined
@@ -683,7 +695,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
-			d.cfg.JobPipelineMaxSuccessfulRuns(),
+			d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		)
 
 		return []job.ServiceCtx{
@@ -769,7 +781,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
-			d.cfg.JobPipelineMaxSuccessfulRuns(),
+			d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		)
 
 		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil

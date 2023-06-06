@@ -13,10 +13,11 @@ type Config interface {
 	OCRDevelopmentMode() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
-	DefaultHTTPTimeout() models.Duration
-	JobPipelineResultWriteQueueDepth() uint64
-	JobPipelineMaxSuccessfulRuns() uint64
 	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 	// ThresholdKeyShare is unused in feeds, to be refactored to decouple from Secrets interface in core/config/secrets.go
 	ThresholdKeyShare() string
+}
+
+type JobConfig interface {
+	DefaultHTTPTimeout() models.Duration
 }
