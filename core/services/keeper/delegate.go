@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-	orm := NewORM(d.db, d.logger, chain.Config())
+	orm := NewORM(d.db, d.logger, chain.Config().Database())
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),

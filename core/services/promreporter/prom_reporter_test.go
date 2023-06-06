@@ -57,8 +57,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		borm := cltest.NewTxStore(t, db, cfg)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		borm := cltest.NewTxStore(t, db, cfg.Database())
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32

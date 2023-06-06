@@ -121,6 +121,7 @@ type Confirmer[
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	resumeCallback ResumeCallback
 	config         txmgrtypes.ConfirmerConfig[FEE_UNIT]
+	dbConfig       txmgrtypes.ConfirmerDatabaseConfig
 	chainID        CHAIN_ID
 
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -152,6 +153,7 @@ func NewConfirmer[
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	config txmgrtypes.ConfirmerConfig[FEE_UNIT],
+	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	lggr logger.Logger,
@@ -165,6 +167,7 @@ func NewConfirmer[
 		TxAttemptBuilder: txAttemptBuilder,
 		resumeCallback:   nil,
 		config:           config,
+		dbConfig:         dbConfig,
 		chainID:          client.ConfiguredChainID(),
 		ks:               keystore,
 		mb:               utils.NewSingleMailbox[HEAD](),
@@ -873,14 +876,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case clienttypes.InsufficientFunds:
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientEthAttempt(timeout, &attempt, now)
 	case clienttypes.Successful:
 		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
-		timeout := ec.config.DatabaseDefaultQueryTimeout()
+		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
 	case clienttypes.Unknown:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
