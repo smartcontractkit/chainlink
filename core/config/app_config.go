@@ -28,7 +28,6 @@ type AppConfig interface {
 	SetPasswords(keystore, vrf *string)
 
 	AutoPprof
-	DatabaseV1
 	Ethereum
 	Explorer
 	FeatureFlags
