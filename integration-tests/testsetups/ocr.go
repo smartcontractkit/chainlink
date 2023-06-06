@@ -45,6 +45,7 @@ type OCRSoakTest struct {
 	OperatorForwarderFlow bool
 
 	// DEBUG DON'T USE THIS. TEMP KLUDGE FOR L2s!!!!!!!
+	rpcDegradedChan      chan struct{}
 	seenEventBlockHashes map[string]struct{} // hash + address: exists
 }
 
@@ -74,6 +75,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 		mockPath:             "ocr",
 		ocrInstanceMap:       make(map[string]contracts.OffchainAggregator),
 		seenEventBlockHashes: make(map[string]struct{}),
+		rpcDegradedChan:      make(chan struct{}),
 	}
 }
 
@@ -363,7 +365,7 @@ func (o *OCRSoakTest) subscribeOCREvents(
 				if rpcDegraded && time.Since(rpcDegradedNotifyTime) >= time.Minute*5 {
 					l.Error().Err(err).Msg("Error filtering OCR logs, RPC still in degraded state")
 					rpcDegradedNotifyTime = time.Now()
-				} else {
+				} else if !rpcDegraded {
 					l.Error().Err(err).Msg("Error filtering OCR logs, RPC possibly down")
 					rpcDegraded, rpcDegradedTime, rpcDegradedNotifyTime = true, time.Now(), time.Now()
 				}
