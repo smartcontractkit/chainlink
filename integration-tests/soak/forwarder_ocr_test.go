@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -50,24 +51,17 @@ func TestForwarderOCRSoak(t *testing.T) {
 	})
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error when tearing down remote suite")
+			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
 	ocrSoakTest.OperatorForwarderFlow = true
 	ocrSoakTest.Setup(t, testEnvironment)
-	log.Info().Msg("Setup soak test")
+	l.Info().Msg("Setup soak test")
 	ocrSoakTest.Run(t)
 }
 
 func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
 	var (
-		ocrForwarderEnvVars = map[string]any{
-			"FEATURE_LOG_POLLER": "true",
-			"ETH_USE_FORWARDERS": "true",
-			"P2P_LISTEN_IP":      "0.0.0.0",
-			"P2P_LISTEN_PORT":    "6690",
-		}
-
 		ocrForwarderBaseTOML = `[OCR]
 	Enabled = true
 	
@@ -84,9 +78,6 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 	ForwardersEnabled = true`
 	)
 	network := networks.SelectedNetwork // Environment currently being used to soak test on
-	ocrForwarderEnvVars["ETH_URL"] = network.URLs[0]
-	ocrForwarderEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-	ocrForwarderEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL: time.Hour * 720, // 30 days,
@@ -108,16 +99,9 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 			WsURLs:      network.URLs,
 		}))
 	for i := 0; i < replicas; i++ {
-		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-		if useEnvVars == "true" {
-			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
-				"env": ocrForwarderEnvVars,
-			}))
-		} else {
-			testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
-				"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
-			}))
-		}
+		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
+			"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
+		}))
 	}
 
 	err := testEnvironment.Run()

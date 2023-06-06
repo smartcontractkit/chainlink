@@ -12,11 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -45,7 +44,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := new(htmocks.HeadTracker)
+			mht := htmocks.NewHeadTracker(t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{
@@ -53,10 +52,6 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				},
 				active: actives,
 			}
-
-			mht.On("LatestChain").Return(&evmtypes.Head{
-				Number: test.LatestHead,
-			})
 
 			keys, err := rg.GetActiveUpkeepIDs(context.Background())
 
@@ -192,7 +187,8 @@ func TestPollLogs(t *testing.T) {
 			mp := new(mocks.LogPoller)
 
 			if test.LatestBlock != nil {
-				mp.On("LatestBlock").Return(test.LatestBlock.OutputBlock, test.LatestBlock.OutputErr)
+				mp.On("LatestBlock", mock.Anything).
+					Return(test.LatestBlock.OutputBlock, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {

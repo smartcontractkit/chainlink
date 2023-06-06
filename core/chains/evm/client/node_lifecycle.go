@@ -10,8 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -241,7 +241,8 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin:
 		return num < highest-int64(threshold), ln
 	case NodeSelectionMode_TotalDifficulty:
-		return td.Cmp(greatest.Sub(threshold)) < 0, ln
+		bigThreshold := utils.NewBigI(int64(threshold))
+		return td.Cmp(greatest.Sub(bigThreshold)) < 0, ln
 	default:
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}

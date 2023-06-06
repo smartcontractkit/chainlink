@@ -5,8 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // HeadSaver maintains chains persisted in DB. All methods are thread-safe.
@@ -14,8 +15,8 @@ type HeadSaver interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head *evmtypes.Head) error
-	// LoadFromDB loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	LoadFromDB(ctx context.Context) (*evmtypes.Head, error)
+	// Load loads latest EvmHeadTrackerHistoryDepth heads from the DB, returns the latest chain.
+	Load(ctx context.Context) (*evmtypes.Head, error)
 	// LatestHeadFromDB returns the highest seen head from DB.
 	LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
@@ -38,11 +39,7 @@ type HeadTracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
-//
-//go:generate mockery --quiet --name HeadTrackable --output ../mocks/ --case=underscore
-type HeadTrackable interface {
-	OnNewLongestChain(ctx context.Context, head *evmtypes.Head)
-}
+type HeadTrackable = commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func())
@@ -56,18 +53,4 @@ type HeadBroadcaster interface {
 	services.ServiceCtx
 	BroadcastNewLongestChain(head *evmtypes.Head)
 	HeadBroadcasterRegistry
-}
-
-// NewHeadHandler is a callback that handles incoming heads
-type NewHeadHandler func(ctx context.Context, header *evmtypes.Head) error
-
-// HeadListener manages evmclient.Client connection that receives heads from the eth node
-type HeadListener interface {
-	// ListenForNewHeads kicks off the listen loop (not thread safe)
-	// done() must be executed upon leaving ListenForNewHeads()
-	ListenForNewHeads(handleNewHead NewHeadHandler, done func())
-	// ReceivingHeads returns true if the listener is receiving heads (thread safe)
-	ReceivingHeads() bool
-	// Connected returns true if the listener is connected (thread safe)
-	Connected() bool
 }

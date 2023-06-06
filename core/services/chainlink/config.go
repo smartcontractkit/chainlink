@@ -3,14 +3,20 @@ package chainlink
 import (
 	"fmt"
 
+	"errors"
+
+	"go.uber.org/multierr"
+
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Config is the root type used for TOML configuration.
@@ -27,6 +33,8 @@ type Config struct {
 	config.Core
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
+
+	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
 
 	Solana solana.SolanaConfigs `toml:",omitempty"`
 
@@ -63,6 +71,13 @@ func (c *Config) setDefaults() {
 		}
 	}
 
+	for i := range c.Cosmos {
+		if c.Cosmos[i] == nil {
+			c.Cosmos[i] = new(cosmos.CosmosConfig)
+		}
+		c.Cosmos[i].Chain.SetDefaults()
+	}
+
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
 			c.Solana[i] = new(solana.SolanaConfig)
@@ -78,11 +93,28 @@ func (c *Config) setDefaults() {
 	}
 }
 
-func (c *Config) SetFrom(f *Config) {
+func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
-	c.EVM.SetFrom(&f.EVM)
-	c.Solana.SetFrom(&f.Solana)
-	c.Starknet.SetFrom(&f.Starknet)
+
+	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err1, "EVM"))
+	}
+
+	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Cosmos"))
+	}
+
+	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Solana"))
+	}
+
+	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Starknet"))
+	}
+
+	_, err = utils.MultiErrorList(err)
+
+	return err
 }
 
 type Secrets struct {
@@ -98,9 +130,34 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
+var ErrInvalidSecrets = errors.New("invalid secrets")
+
+// Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := config.Validate(s); err != nil {
-		return fmt.Errorf("invalid secrets: %w", err)
+		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+	}
+	return nil
+}
+
+// ValidateDB only validates the encompassed DatabaseSecret
+func (s *Secrets) ValidateDB() error {
+	// This implementation was chosen so that error reporting is uniform
+	// when validating all the secret or only the db secrets,
+	// and so we could reuse config.Validate, which contains fearsome reflection logic.
+	// This meets the current needs, but if we ever wanted to compose secret
+	// validation we may need to rethink this approach and instead find a way to
+	// toggle on/off the validation of the embedded secrets.
+
+	type dbValidationType struct {
+		// choose field name to match that of Secrets.Database so we have
+		// consistent error messages.
+		Database config.DatabaseSecrets
+	}
+
+	v := &dbValidationType{s.Database}
+	if err := config.Validate(v); err != nil {
+		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil
 }
@@ -136,6 +193,9 @@ func (s *Secrets) setEnv() error {
 	}
 	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
+	}
+	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
+		s.Prometheus.AuthToken = &prometheusAuthToken
 	}
 	return nil
 }

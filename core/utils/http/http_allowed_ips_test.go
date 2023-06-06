@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type emptyDBURLcfg struct{}
 
-func (emptyDBURLcfg) DatabaseURL() url.URL {
+func (emptyDBURLcfg) URL() url.URL {
 	return url.URL{}
 }
 
@@ -23,7 +23,7 @@ type testDBURLcfg struct {
 	u url.URL
 }
 
-func (c testDBURLcfg) DatabaseURL() url.URL {
+func (c testDBURLcfg) URL() url.URL {
 	return c.u
 }
 

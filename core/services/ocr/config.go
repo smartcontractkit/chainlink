@@ -3,8 +3,8 @@ package ocr
 import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // Config contains OCR configurations for a job.
@@ -25,7 +25,7 @@ func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalC
 		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
 		DataSourceGracePeriod:                  concreteSpec.ObservationGracePeriod.Duration(),
 	}
-	if cfg.Dev() {
+	if cfg.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
 		// For example to lower contractConfigTrackerPollInterval to speed up tests.
 		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode

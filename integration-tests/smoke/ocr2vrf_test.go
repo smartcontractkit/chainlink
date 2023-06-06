@@ -6,28 +6,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/rs/zerolog/log"
 )
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -75,18 +74,20 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
 		subID,
 		ocr2vrf_constants.ConfirmationDelay,
+		ocr2vrf_constants.RandomnessRedeemTransmissionEventTimeout,
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 		require.NoError(t, err)
-		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 	}
 }
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -125,7 +126,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		testNetwork,
 	)
 
-	requestID := ocr2vrf_actions.RequestRandomnessFulfillment(
+	requestID := ocr2vrf_actions.RequestRandomnessFulfillmentAndWaitForFulfilment(
 		t,
 		consumerContract,
 		chainClient,
@@ -133,12 +134,13 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		ocr2vrf_constants.NumberOfRandomWordsToRequest,
 		subID,
 		ocr2vrf_constants.ConfirmationDelay,
+		ocr2vrf_constants.RandomnessFulfilmentTransmissionEventTimeout,
 	)
 
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 		require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
-		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
+		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
 	}
 }
@@ -162,7 +164,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		AddHelm(chainlink.New(0, map[string]interface{}{
 			"replicas": "6",
 			"toml": client.AddNetworkDetailedConfig(
-				config.BaseOCR2VRFTomlConfig,
+				config.BaseOCR2Config,
 				config.DefaultOCR2VRFNetworkDetailTomlConfig,
 				testNetwork,
 			),

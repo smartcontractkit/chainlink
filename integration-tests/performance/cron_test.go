@@ -7,7 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -17,16 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	uuid "github.com/satori/go.uuid"
 )
 
 func TestMain(m *testing.M) {
@@ -67,12 +67,12 @@ func TestCronPerformance(t *testing.T) {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
-		bta := client.BridgeTypeAttributes{
-			Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
+		bta := &client.BridgeTypeAttributes{
+			Name:        fmt.Sprintf("variable-%s", uuid.New().String()),
 			URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 			RequestData: "{}",
 		}
-		err = chainlinkNode.MustCreateBridge(&bta)
+		err = chainlinkNode.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
 		job, err := chainlinkNode.MustCreateJob(&client.CronJobSpec{

@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	feed "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/derived_price_feed_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	feed "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/derived_price_feed_wrapper"
 )
 
 // Feed is the price feeds commands handler

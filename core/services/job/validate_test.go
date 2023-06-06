@@ -57,7 +57,6 @@ schemaVersion=1
 			spec: `
 type="vrf"
 schemaVersion=1
-observationSource=""
 `,
 			assertion: func(t *testing.T, err error) {
 				require.True(t, errors.Is(errors.Cause(err), ErrNoPipelineSpec))

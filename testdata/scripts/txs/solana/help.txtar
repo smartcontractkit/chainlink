@@ -1,0 +1,16 @@
+exec chainlink txs solana --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs solana - Commands for handling Solana transactions
+
+USAGE:
+   chainlink txs solana command [command options] [arguments...]
+
+COMMANDS:
+   create  Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.
+
+OPTIONS:
+   --help, -h  show help
+   

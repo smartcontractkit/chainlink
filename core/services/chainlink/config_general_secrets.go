@@ -1,11 +1,9 @@
 package chainlink
 
 import (
-	"fmt"
 	"net/url"
-	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 func (g *generalConfig) DatabaseURL() url.URL {
@@ -39,28 +37,27 @@ func (g *generalConfig) PyroscopeAuthToken() string {
 	return string(*g.secrets.Pyroscope.AuthToken)
 }
 
-func (g *generalConfig) MercuryCredentials(url string) (username, password string, err error) {
-	if g.secrets.Mercury.Credentials == nil {
-		return "", "", errors.New("no Mercury credentials were specified in the config")
+func (g *generalConfig) PrometheusAuthToken() string {
+	if g.secrets.Prometheus.AuthToken == nil {
+		return ""
 	}
-	for _, creds := range g.secrets.Mercury.Credentials {
-		if creds.URL != nil && creds.URL.URL().String() == url {
-			if creds.Username == nil {
-				return "", "", errors.Errorf("no Mercury username specified for server URL: %q", url)
-			}
-			if creds.Password == nil {
-				return "", "", errors.Errorf("no Mercury password specified for server URL: %q", url)
-			}
-			return string(*creds.Username), string(*creds.Password), nil
+	return string(*g.secrets.Prometheus.AuthToken)
+}
+
+func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
+	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
+		return &models.MercuryCredentials{
+			URL:      mc.URL.URL().String(),
+			Username: string(*mc.Username),
+			Password: string(*mc.Password),
 		}
 	}
-	msg := fmt.Sprintf("no Mercury credentials specified for server URL: %q", url)
-	if len(g.secrets.Mercury.Credentials) > 0 {
-		urls := make([]string, len(g.secrets.Mercury.Credentials))
-		for i, creds := range g.secrets.Mercury.Credentials {
-			urls[i] = creds.URL.String()
-		}
-		msg += fmt.Sprintf(" (credentials available for these urls: %s)", strings.Join(urls, ","))
+	return nil
+}
+
+func (g *generalConfig) ThresholdKeyShare() string {
+	if g.secrets.Threshold.ThresholdKeyShare == nil {
+		return ""
 	}
-	return "", "", errors.New(msg)
+	return string(*g.secrets.Threshold.ThresholdKeyShare)
 }

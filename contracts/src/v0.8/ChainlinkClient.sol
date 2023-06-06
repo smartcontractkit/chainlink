@@ -17,7 +17,7 @@ import {ENSResolver as ENSResolver_Chainlink} from "./vendor/ENSResolver.sol";
 abstract contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
-  uint256 internal constant LINK_DIVISIBILITY = 10**18;
+  uint256 internal constant LINK_DIVISIBILITY = 10 ** 18;
   uint256 private constant AMOUNT_OVERRIDE = 0;
   address private constant SENDER_OVERRIDE = address(0);
   uint256 private constant ORACLE_ARGS_VERSION = 1;
@@ -59,11 +59,10 @@ abstract contract ChainlinkClient {
    * @param callbackFunctionSignature function signature to use for the callback
    * @return A Chainlink Request struct in memory
    */
-  function buildOperatorRequest(bytes32 specId, bytes4 callbackFunctionSignature)
-    internal
-    view
-    returns (Chainlink.Request memory)
-  {
+  function buildOperatorRequest(
+    bytes32 specId,
+    bytes4 callbackFunctionSignature
+  ) internal view returns (Chainlink.Request memory) {
     Chainlink.Request memory req;
     return req.initialize(specId, address(this), callbackFunctionSignature);
   }
@@ -284,13 +283,12 @@ abstract contract ChainlinkClient {
    * @dev Use if the contract developer prefers methods instead of modifiers for validation
    * @param requestId The request ID for fulfillment
    */
-  function validateChainlinkCallback(bytes32 requestId)
+  function validateChainlinkCallback(
+    bytes32 requestId
+  )
     internal
-    recordChainlinkFulfillment(requestId)
-  // solhint-disable-next-line no-empty-blocks
-  {
-
-  }
+    recordChainlinkFulfillment(requestId) // solhint-disable-next-line no-empty-blocks
+  {}
 
   /**
    * @dev Reverts if the sender is not the oracle of the request.

@@ -1,6 +1,6 @@
 package resolver
 
-import "github.com/smartcontractkit/chainlink/core/auth"
+import "github.com/smartcontractkit/chainlink/v2/core/auth"
 
 type APITokenResolver struct {
 	token auth.Token

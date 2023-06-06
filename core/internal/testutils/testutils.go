@@ -19,8 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
-	// anything from "github.com/smartcontractkit/chainlink/core"
+	// anything from "github.com/smartcontractkit/chainlink/v2/core"
 )
 
 const (
@@ -46,7 +46,7 @@ var SimulatedChainID = big.NewInt(1337)
 
 // MustNewSimTransactor returns a transactor for interacting with the
 // geth simulated backend.
-func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
+func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
@@ -91,7 +91,7 @@ func Random32Byte() (b [32]byte) {
 
 // RandomizeName appends a random UUID to the provided name
 func RandomizeName(n string) string {
-	id := uuid.NewV4().String()
+	id := uuid.New().String()
 	return n + id
 }
 

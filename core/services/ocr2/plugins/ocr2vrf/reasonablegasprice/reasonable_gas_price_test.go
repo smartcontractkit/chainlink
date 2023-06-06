@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 )
 
 func Test_ReasonableGasPrice(t *testing.T) {

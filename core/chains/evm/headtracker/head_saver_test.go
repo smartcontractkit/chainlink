@@ -5,14 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
@@ -49,7 +49,7 @@ func TestHeadSaver_Save(t *testing.T) {
 	require.Equal(t, int64(1), latest.Number)
 }
 
-func TestHeadSaver_LoadFromDB(t *testing.T) {
+func TestHeadSaver_Load(t *testing.T) {
 	t.Parallel()
 
 	saver, orm := configureSaver(t)
@@ -59,7 +59,7 @@ func TestHeadSaver_LoadFromDB(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	latestHead, err := saver.LoadFromDB(testutils.Context(t))
+	latestHead, err := saver.Load(testutils.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, latestHead)
 	require.Equal(t, int64(4), latestHead.Number)

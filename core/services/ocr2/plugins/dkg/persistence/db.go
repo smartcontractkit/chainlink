@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/types/hash"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var (
@@ -83,16 +83,17 @@ func (s *shareDB) WriteShareRecords(
 	defer func() {
 		duration := time.Since(start)
 		promWriteShareRecords.WithLabelValues(s.chainType, s.chainID.String()).Observe(float64(duration))
-		lggr.Debugw("Inserted DKG shares into DB", "duration", duration)
+		// lggr.Debugw("Inserted DKG shares into DB", "duration", duration) // see ocr2vrf code for logs
 	}()
 
 	var named []dkgShare
 	for _, record := range shareRecords {
 		if bytes.Equal(record.Hash[:], zeroHash[:]) {
-			lggr.Warnw("skipping record with zero hash",
-				"player", record.Dealer.String(),
-				"hash", hexutil.Encode(record.Hash[:]),
-			)
+			// see ocr2vrf for logging
+			// lggr.Warnw("skipping record with zero hash",
+			// 	"player", record.Dealer.String(),
+			// 	"hash", hexutil.Encode(record.Hash[:]),
+			// )
 			continue
 		}
 
@@ -124,10 +125,11 @@ func (s *shareDB) WriteShareRecords(
 		return nil
 	}
 
-	lggr.Infow("Inserting DKG shares into DB",
-		"shareHashes", shareHashes(shareRecords),
-		"numRecords", len(shareRecords),
-		"numNamed", len(named))
+	// see ocr2vrf for logging
+	// lggr.Infow("Inserting DKG shares into DB",
+	// 	"shareHashes", shareHashes(shareRecords),
+	// 	"numRecords", len(shareRecords),
+	// 	"numNamed", len(named))
 
 	// Always upsert because we want the number of rows in the table to match
 	// the number of members of the committee.

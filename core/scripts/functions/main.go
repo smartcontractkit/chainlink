@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	src "github.com/smartcontractkit/chainlink/core/scripts/functions/src"
+	"github.com/smartcontractkit/chainlink/core/scripts/functions/src"
 )
 
 type command interface {

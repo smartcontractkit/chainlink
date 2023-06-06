@@ -7,16 +7,16 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -108,7 +108,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	authorizer := webhook.NewAuthorizer(prc.App.GetSqlxDB().DB, user, ei)
 
 	// Is it a UUID? Then process it as a webhook job
-	jobUUID, err := uuid.FromString(idStr)
+	jobUUID, err := uuid.Parse(idStr)
 	if err == nil {
 		canRun, err2 := authorizer.CanRun(c.Request.Context(), prc.App.GetConfig(), jobUUID)
 		if err2 != nil {
@@ -155,7 +155,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 // Example:
 // "PATCH <application>/jobs/:ID/runs/:runID"
 func (prc *PipelineRunsController) Resume(c *gin.Context) {
-	taskID, err := uuid.FromString(c.Param("runID"))
+	taskID, err := uuid.Parse(c.Param("runID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
