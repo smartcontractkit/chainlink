@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -455,9 +456,22 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 
+		Uint256, _ := abi.NewType("uint256", "", nil)
+		Bytes, _ := abi.NewType("bytes", "", nil)
+		extraData := abi.Arguments{
+			{Name: "triggerType", Type: Uint256},
+			{Name: "triggerConfig", Type: Bytes},
+			{Name: "offchainConfig", Type: Bytes},
+		}
+		// 0 for conditional trigger type
+		bytes, err := extraData.Pack(0, "0x", "0x")
+		if err != nil {
+			log.Fatalf("failed to pack extra data: %v", err)
+		}
+
 		// Register
 		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData), []byte{},
+			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData), bytes,
 		)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)

@@ -44,7 +44,10 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     initialBlock = 0;
     counter = 0;
     feedLabel = "feedIDHex"; // feedIDStr is deprecated
-    feeds = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"];
+    feeds = [
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+    ];
     queryLabel = "blockNumber"; // timestamp not supported yet
     useL1BlockNumber = _useL1BlockNumber;
   }
