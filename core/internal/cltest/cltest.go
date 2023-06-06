@@ -220,7 +220,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ks, estimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), ks, txBuilder, lggr)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
 	return ec, nil
@@ -378,7 +378,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg.Database())
 			}
 
 		}
@@ -387,7 +387,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	var ids []utils.Big
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
@@ -395,7 +395,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if len(ids) > 0 {
 		o := chainCfgs
 		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -445,7 +445,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -471,7 +471,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}

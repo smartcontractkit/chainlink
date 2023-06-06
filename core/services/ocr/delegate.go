@@ -129,6 +129,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		d.db,
 		ocrDB,
 		chain.Config(),
+		chain.Config().Database(),
 		chain.HeadBroadcaster(),
 		d.mailMon,
 	)
@@ -215,7 +216,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		}
 
 		cfg := chain.Config()
-		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
+		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
 		var checker txmgr.EvmTransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {

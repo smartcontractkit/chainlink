@@ -955,7 +955,7 @@ func testEoa(t *testing.T, batchingEnabled bool) {
 	var broadcastsBeforeFinality []evmlogger.LogBroadcast
 	var broadcastsAfterFinality []evmlogger.LogBroadcast
 	query := `SELECT block_hash, consumed, log_index, job_id FROM log_broadcasts`
-	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
+	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
 
 	// Execute the query.
 	err = q.Select(&broadcastsBeforeFinality, query)
@@ -2038,7 +2038,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	chain, err := app.Chains.EVM.Get(big.NewInt(1337))
 	require.NoError(t, err)
 
-	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
+	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
 	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
@@ -2380,11 +2380,11 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
-	q := pg.NewQ(db, lggr, cfg)
+	q := pg.NewQ(db, lggr, cfg.Database())
 	finalityDepth := 3
 	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(1337))

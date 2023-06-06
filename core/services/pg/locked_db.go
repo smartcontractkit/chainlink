@@ -26,7 +26,7 @@ type LockedDB interface {
 type LockedDBConfig interface {
 	ConnectionConfig
 	URL() url.URL
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 	Dialect() dialects.DialectName
 }
 
@@ -92,7 +92,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	switch lockingMode {
 	case "lease":
 		cfg := LeaseLockConfig{
-			DefaultQueryTimeout:  l.cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  l.cfg.DefaultQueryTimeout(),
 			LeaseDuration:        l.lockCfg.LeaseDuration(),
 			LeaseRefreshInterval: l.lockCfg.LeaseRefreshInterval(),
 		}

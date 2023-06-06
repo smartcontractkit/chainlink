@@ -30,9 +30,7 @@ type PeerWrapperConfig interface {
 	config.P2PNetworking
 	config.P2PV1Networking
 	config.P2PV2Networking
-	pg.QConfig
 	OCRTraceLogging() bool
-	FeatureOffchainReporting() bool
 }
 
 type (
@@ -51,6 +49,7 @@ type (
 		utils.StartStopOnce
 		keyStore      keystore.Master
 		config        PeerWrapperConfig
+		dbConfig      pg.QConfig
 		db            *sqlx.DB
 		lggr          logger.Logger
 		PeerID        p2pkey.PeerID
@@ -89,10 +88,11 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config PeerWrapperConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, config PeerWrapperConfig, dbConfig pg.QConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		config:   config,
+		dbConfig: dbConfig,
 		db:       db,
 		lggr:     lggr.Named("SingletonPeerWrapper"),
 	}
@@ -148,7 +148,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	v1AnnounceIP, v1AnnouncePort := p.config.P2PAnnounceIP(), p.config.P2PAnnouncePort()
 	var peerStore p2ppeerstore.Peerstore
 	if ns == ocrnetworking.NetworkingStackV1 || ns == ocrnetworking.NetworkingStackV1V2 {
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.dbConfig)
 		if err != nil {
 			return ocrnetworking.PeerConfig{}, errors.Wrap(err, "could not make new pstorewrapper")
 		}
