@@ -5,8 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
+
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 )
 
 func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObservation {

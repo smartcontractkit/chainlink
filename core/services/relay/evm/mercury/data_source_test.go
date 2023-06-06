@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -25,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ relaymercury.Fetcher = &mockFetcher{}

@@ -9,8 +9,9 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
