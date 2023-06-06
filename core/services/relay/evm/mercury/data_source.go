@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 

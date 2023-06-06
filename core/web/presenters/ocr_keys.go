@@ -77,7 +77,6 @@ func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResour
 			return rs[i].ID < rs[j].ID
 		}
 		return rs[i].ChainType < rs[j].ChainType
-		
 	})
 
 	return rs

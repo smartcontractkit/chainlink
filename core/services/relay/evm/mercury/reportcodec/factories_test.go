@@ -3,10 +3,10 @@ package reportcodec
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/commontypes"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObservation {
