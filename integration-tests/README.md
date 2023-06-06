@@ -8,6 +8,14 @@ Prerequisites to run the tests.
 
 ### Install Dependencies
 
+Run the below command to install all dependencies.
+
+```sh
+make install_qa_tools
+```
+
+Or you can choose to do it manually.
+
 <details>
   <summary>Install Go</summary>
 

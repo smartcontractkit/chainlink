@@ -70,18 +70,18 @@ func setup(t *testing.T, estimator *txmgrmocks.FeeEstimator[*evmtypes.Head, gas.
 		}
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewMockEvmTxManager(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg, GasEstimator: estimator})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cfg.JobPipeline(), cfg.Database(), cc, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config())
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config().Database())
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 	lggr := logger.TestLogger(t)
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config(), job.KeeperSpec.FromAddress.Address())
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), job.KeeperSpec.FromAddress.Address())
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
 	err := executer.Start(testutils.Context(t))
 	t.Cleanup(func() { executer.Close() })
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
 
-		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateTransaction",
@@ -166,7 +166,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
 			})
 
-			gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
+			gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateTransaction",
@@ -251,9 +251,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
 		jb.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
-		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
+		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
 		lggr := logger.TestLogger(t)
-		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config(), jb.KeeperSpec.FromAddress.Address())
+		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), jb.KeeperSpec.FromAddress.Address())
 		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()
@@ -270,7 +270,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := 5_000_000 + config.KeeperRegistryPerformGasOverhead()
+		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
 		txm.On("CreateTransaction",
 			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool { return newTx.FeeLimit == gasLimit }),
 		).

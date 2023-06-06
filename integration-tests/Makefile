@@ -43,6 +43,7 @@ endif
 	asdf plugin-add golang || true
 	asdf plugin-add k3d || true
 	asdf plugin-add helm || true
+	asdf plugin-add kubectl || true
 	asdf install
 endif
 # Now install the helm charts that are needed (should be os agnostic)
@@ -176,3 +177,7 @@ test_soak_automation_simulated:
 .PHONY: test_benchmark_automation
 test_benchmark_automation: ## Run the automation benchmark tests
 	go test -timeout 30m -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
+
+.PHONY: test_reorg_automation
+test_reorg_automation: ## Run the automation reorg tests
+	go test -timeout 300m -v -run ^TestAutomationReorg$$ ./reorg -count=1 | tee automation_reorg_run_`date +"%Y%m%d-%H%M%S"`.log

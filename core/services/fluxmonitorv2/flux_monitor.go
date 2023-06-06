@@ -156,16 +156,18 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	jcfg JobPipelineConfig,
+	dbCfg pg.QConfig,
 	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
 	chainId := ethClient.ConfiguredChainID()
 
-	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(cfg), fmSpec.PollTimerPeriod) {
+	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(jcfg), fmSpec.PollTimerPeriod) {
 		return nil, fmt.Errorf(
 			"PollTimerPeriod (%s), must be equal or greater than JobPipeline.HTTPRequest.DefaultTimeout (%s) ",
 			fmSpec.PollTimerPeriod,
-			MinimumPollingInterval(cfg),
+			MinimumPollingInterval(jcfg),
 		)
 	}
 
@@ -245,7 +247,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		pg.NewQ(db, lggr, cfg),
+		pg.NewQ(db, lggr, dbCfg),
 		orm,
 		jobORM,
 		pipelineORM,

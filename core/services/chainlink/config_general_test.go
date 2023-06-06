@@ -52,7 +52,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
-		assert.True(t, config.AuditLoggerEnabled())
+		assert.True(t, config.AuditLogger().Enabled())
 
 		assert.False(t, config.DevWebServer())
 		assert.False(t, config.DisableRateLimiting())
@@ -126,10 +126,8 @@ func TestConfig_LogSQL(t *testing.T) {
 	require.NoError(t, err)
 
 	config.SetLogSQL(true)
-	assert.Equal(t, config.LogSQL(), true)
 	assert.Equal(t, config.Database().LogSQL(), true)
 
 	config.SetLogSQL(false)
-	assert.Equal(t, config.LogSQL(), false)
 	assert.Equal(t, config.Database().LogSQL(), false)
 }

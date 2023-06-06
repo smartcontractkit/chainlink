@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -102,27 +100,12 @@ var (
 	}, []string{"oracle"})
 )
 
-const (
-	ParseResultTaskName  string = "parse_result"
-	ParseErrorTaskName   string = "parse_error"
-	ParseDomainsTaskName string = "parse_domains"
-	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
-	PipelineObservationSource string = `
-		run_computation [type="bridge" name="ea_bridge" requestData="{\"requestId\": $(jobRun.meta.requestId), \"jobName\": $(jobSpec.name), \"subscriptionOwner\": $(jobRun.meta.subscriptionOwner), \"subscriptionId\": $(jobRun.meta.subscriptionId), \"data\": $(jobRun.meta.requestData)}"]
-		parse_result    [type=jsonparse data="$(run_computation)" path="data,result"]
-		parse_error     [type=jsonparse data="$(run_computation)" path="data,error"]
-		parse_domains   [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
-		run_computation -> parse_result -> parse_error -> parse_domains
-	`
-)
-
 type FunctionsListener struct {
 	utils.StartStopOnce
 	oracle            *ocr2dr_oracle.OCR2DROracle
 	oracleHexAddr     string
 	job               job.Job
-	pipelineRunner    pipeline.Runner
-	jobORM            job.ORM
+	eaClient          ExternalAdapterClient
 	logBroadcaster    log.Broadcaster
 	shutdownWaitGroup sync.WaitGroup
 	mbOracleEvents    *utils.Mailbox[log.Broadcast]
@@ -140,13 +123,12 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, eaClient ExternalAdapterClient, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
 		job:             job,
-		pipelineRunner:  runner,
-		jobORM:          jobORM,
+		eaClient:        eaClient,
 		logBroadcaster:  logBroadcaster,
 		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
 		chStop:          make(chan struct{}),
@@ -212,7 +194,7 @@ func (l *FunctionsListener) HandleLog(lb log.Broadcast) {
 	}
 
 	switch log := log.(type) {
-	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
+	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError, *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
 		wasOverCapacity := l.mbOracleEvents.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
@@ -285,33 +267,6 @@ func (l *FunctionsListener) processOracleEvents() {
 	}
 }
 
-// Process result from the EA saved by a jsonparse pipeline task.
-// That value is a valid JSON string so it contains double quote characters.
-// Allowed inputs are:
-//
-//  1. "" (2 characters) -> return empty byte array
-//  2. "0x<val>" where <val> is a non-empty, valid hex -> return hex-decoded <val>
-func ExtractRawBytes(input []byte) ([]byte, error) {
-	if bytes.Equal(input, []byte("null")) {
-		return nil, fmt.Errorf("null value")
-	}
-	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
-		return nil, fmt.Errorf("unable to decode input (expected quotes): %v", input)
-	}
-	input = input[1 : len(input)-1]
-	if len(input) == 0 {
-		return []byte{}, nil
-	}
-	if bytes.Equal(input, []byte("0x0")) {
-		// special case with odd number of digits
-		return []byte{0}, nil
-	}
-	if len(input) < 4 || len(input)%2 != 0 {
-		return nil, fmt.Errorf("input is not a valid, non-empty hex string of even length: %v", input)
-	}
-	return utils.TryParseHex(string(input))
-}
-
 func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
 	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
 	if timeoutSec == 0 {
@@ -367,79 +322,29 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    l.job.ID,
-			"externalJobID": l.job.ExternalJobID,
-			"name":          l.job.Name.ValueOrZero(),
-		},
-		"jobRun": map[string]interface{}{
-			"meta": map[string]interface{}{
-				"requestId":         formatRequestId(request.RequestId),
-				"subscriptionOwner": request.SubscriptionOwner,
-				"subscriptionId":    request.SubscriptionId,
-				"requestData":       requestData,
-			},
-		},
-	})
-
-	// TODO: Remove/reduce dependency on pipeline tasks (https://smartcontract-it.atlassian.net/browse/FUN-135)
-	spec := pipeline.Spec{
-		DotDagSource:      PipelineObservationSource,
-		ID:                l.job.PipelineSpec.ID,
-		JobID:             l.job.PipelineSpec.JobID,
-		JobName:           l.job.PipelineSpec.JobName,
-		JobType:           l.job.PipelineSpec.JobType,
-		CreatedAt:         l.job.CreatedAt,
-		MaxTaskDuration:   l.job.MaxTaskDuration,
-		ForwardingAllowed: l.job.ForwardingAllowed,
-	}
-
-	run := pipeline.NewRun(spec, vars)
-	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
+	jsonRequestData, err := json.Marshal(requestData)
 	if err != nil {
-		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
-		return
-	}
-	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
-
-	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
-	if errResult != nil {
-		// Internal problem: Can't find computation results
-		l.logger.Errorw("internal error: can't retrieve computation results field", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errResult.Error()))
-		return
-	}
-	computationResult, errResult = ExtractRawBytes(computationResult)
-	if errResult != nil {
-		l.logger.Errorw("failed to extract result", "requestID", formatRequestId(request.RequestId), "err", errResult)
+		l.logger.Errorw("failed to encode CBOR back to JSON", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR re-encoding error"))
 		return
 	}
 
-	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
-	if errErr != nil {
-		// Internal problem: Can't find computation errors
-		l.logger.Errorw("internal error: can't retrieve computation error field", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errErr.Error()))
-		return
-	}
-	computationError, errErr = ExtractRawBytes(computationError)
-	if errErr != nil {
-		l.logger.Errorw("failed to extract error", "requestID", formatRequestId(request.RequestId), "err", errErr)
+	computationResult, computationError, domains, err := l.eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
+
+	if err != nil {
+		l.logger.Errorw("internal adapter error", "requestID", formatRequestId(request.RequestId), "err", err)
+		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
 		return
 	}
 
-	reportedDomainsJson, errDomains := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseDomainsTaskName, pg.WithParentCtx(ctx))
-	if errDomains != nil {
-		l.logger.Errorw("failed to extract domains", "requestID", formatRequestId(request.RequestId), "err", errDomains)
-	} else if len(reportedDomainsJson) > 0 {
-		var reportedDomains []string
-		errJson := json.Unmarshal(reportedDomainsJson, &reportedDomains)
-		if errJson != nil {
-			l.logger.Warnw("failed to parse reported domains", "requestID", formatRequestId(request.RequestId), "err", errJson)
-		} else if len(reportedDomains) > 0 {
-			l.reportSourceCodeDomains(request.RequestId, reportedDomains)
-		}
+	if len(computationError) == 0 && len(computationResult) == 0 {
+		l.logger.Errorw("both result and error are empty - saving result", "requestID", formatRequestId(request.RequestId))
+		computationResult = []byte{}
+		computationError = []byte{}
+	}
+
+	if len(domains) > 0 {
+		l.reportSourceCodeDomains(request.RequestId, domains)
 	}
 
 	if len(computationError) != 0 {
@@ -447,13 +352,13 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
 		}
 		l.logger.Debugw("saving computation error", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, computationError)
 		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
 		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
 		l.logger.Debugw("saving computation result", "requestID", formatRequestId(request.RequestId))
-		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+		if err2 := l.pluginORM.SetResult(request.RequestId, 0, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
 		}
 	}

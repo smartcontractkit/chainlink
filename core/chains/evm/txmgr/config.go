@@ -8,7 +8,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // Config encompasses config used by txmgr package
@@ -17,7 +17,6 @@ import (
 //go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
 	gas.Config
-	pg.QConfig
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -30,7 +29,19 @@ type Config interface {
 	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	TriggerFallbackDBPollInterval() time.Duration
+
+	// Note: currently only TriggerFallbackDBPollInterval is needed
+	// from here.
+	Database() config.Database
+}
+
+type DatabaseConfig interface {
+	DefaultQueryTimeout() time.Duration
+	LogSQL() bool
+}
+
+type ListenerConfig interface {
+	FallbackPollInterval() time.Duration
 }
 
 type (

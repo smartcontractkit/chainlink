@@ -9,9 +9,10 @@ import (
 type JobPipeline interface {
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
-	JobPipelineMaxRunDuration() time.Duration
-	JobPipelineMaxSuccessfulRuns() uint64
-	JobPipelineReaperInterval() time.Duration
-	JobPipelineReaperThreshold() time.Duration
-	JobPipelineResultWriteQueueDepth() uint64
+	MaxRunDuration() time.Duration
+	MaxSuccessfulRuns() uint64
+	ReaperInterval() time.Duration
+	ReaperThreshold() time.Duration
+	ResultWriteQueueDepth() uint64
+	ExternalInitiatorsEnabled() bool
 }

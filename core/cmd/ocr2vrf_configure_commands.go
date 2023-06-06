@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	clipkg "github.com/urfave/cli"
+	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -123,8 +123,8 @@ chainID                            = %d
 
 const forwarderAdditionalEOACount = 4
 
-func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
-	lggr := logger.Sugared(cli.Logger.Named("ConfigureOCR2VRFNode"))
+func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
+	lggr := logger.Sugared(s.Logger.Named("ConfigureOCR2VRFNode"))
 	lggr.Infow(
 		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
 		"Version", static.Version, "SHA", static.Sha)
@@ -145,41 +145,41 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		vrfpwd = &p
 	}
 
-	cli.Config.SetPasswords(pwd, vrfpwd)
+	s.Config.SetPasswords(pwd, vrfpwd)
 
-	err := cli.Config.Validate()
+	err := s.Config.Validate()
 	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
+		return nil, s.errorOut(errors.Wrap(err, "config validation failed"))
 	}
 
-	cfg := cli.Config
+	cfg := s.Config
 	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err = ldb.Open(rootCtx); err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
+		return nil, s.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
-	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, lggr, ldb.DB())
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, lggr, ldb.DB())
 	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return nil, s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	chainID := c.Int64("chainID")
 
 	// Initialize keystore and generate keys.
 	keyStore := app.GetKeyStore()
-	err = setupKeystore(cli, app, keyStore)
+	err = setupKeystore(s, app, keyStore)
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 
 	// Start application.
 	err = app.Start(rootCtx)
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 
 	// Close application.
@@ -191,7 +191,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	useForwarder := c.Bool("use-forwarder")
 	ethKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(big.NewInt(chainID))
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 	transmitterID := ethKeys[0].Address.String()
 
@@ -241,7 +241,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		}
 
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, cli.Config)
+		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err
@@ -269,7 +269,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		}
 	}
 	if ocr2 == nil {
-		return nil, cli.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
+		return nil, s.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
 	}
 	offChainPublicKey := ocr2.OffchainPublicKey()
 	configPublicKey := ocr2.ConfigEncryptionPublicKey()
@@ -331,7 +331,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	}, nil
 }
 
-func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Master) error {
+func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
 	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
@@ -378,7 +378,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 	return nil
 }
 
-func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
+func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(BootstrapTemplate,
 		c.Int64("chainID"),
 		c.String("contractID"),

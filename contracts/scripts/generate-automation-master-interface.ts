@@ -4,10 +4,12 @@
  */
 
 const dest = 'src/v0.8/dev/automation/2_1/interfaces'
+const srcDest = `${dest}/IKeeperRegistryMaster.sol`
+const abiDest = `${dest}/temp.json`
 
 const cmd = `
-cat ${dest}/temp.json | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${dest}/IKeeperRegistryMaster.sol IKeeperRegistryMaster;
-rm ${dest}/temp.json;
+cat ${abiDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IKeeperRegistryMaster;
+rm ${abiDest};
 pnpm prettier --write src/v0.8/dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 `
 
@@ -36,7 +38,7 @@ for (const abi of abis) {
   }
 }
 
-fs.writeFileSync(`${dest}/temp.json`, JSON.stringify(combinedABI))
+fs.writeFileSync(`${abiDest}`, JSON.stringify(combinedABI))
 
 exec(cmd)
 

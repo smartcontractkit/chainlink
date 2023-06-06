@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	keys "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
+	starkkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,11 +13,11 @@ type StarkNet struct {
 }
 
 // Add provides a mock function with given fields: key
-func (_m *StarkNet) Add(key keys.Key) error {
+func (_m *StarkNet) Add(key starkkey.Key) error {
 	ret := _m.Called(key)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(keys.Key) error); ok {
+	if rf, ok := ret.Get(0).(func(starkkey.Key) error); ok {
 		r0 = rf(key)
 	} else {
 		r0 = ret.Error(0)
@@ -28,18 +27,18 @@ func (_m *StarkNet) Add(key keys.Key) error {
 }
 
 // Create provides a mock function with given fields:
-func (_m *StarkNet) Create() (keys.Key, error) {
+func (_m *StarkNet) Create() (starkkey.Key, error) {
 	ret := _m.Called()
 
-	var r0 keys.Key
+	var r0 starkkey.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (keys.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func() (starkkey.Key, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() keys.Key); ok {
+	if rf, ok := ret.Get(0).(func() starkkey.Key); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(keys.Key)
+		r0 = ret.Get(0).(starkkey.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -52,18 +51,18 @@ func (_m *StarkNet) Create() (keys.Key, error) {
 }
 
 // Delete provides a mock function with given fields: id
-func (_m *StarkNet) Delete(id string) (keys.Key, error) {
+func (_m *StarkNet) Delete(id string) (starkkey.Key, error) {
 	ret := _m.Called(id)
 
-	var r0 keys.Key
+	var r0 starkkey.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (keys.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (starkkey.Key, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) keys.Key); ok {
+	if rf, ok := ret.Get(0).(func(string) starkkey.Key); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(keys.Key)
+		r0 = ret.Get(0).(starkkey.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
@@ -116,18 +115,18 @@ func (_m *StarkNet) Export(id string, password string) ([]byte, error) {
 }
 
 // Get provides a mock function with given fields: id
-func (_m *StarkNet) Get(id string) (keys.Key, error) {
+func (_m *StarkNet) Get(id string) (starkkey.Key, error) {
 	ret := _m.Called(id)
 
-	var r0 keys.Key
+	var r0 starkkey.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (keys.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (starkkey.Key, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) keys.Key); ok {
+	if rf, ok := ret.Get(0).(func(string) starkkey.Key); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(keys.Key)
+		r0 = ret.Get(0).(starkkey.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
@@ -140,19 +139,19 @@ func (_m *StarkNet) Get(id string) (keys.Key, error) {
 }
 
 // GetAll provides a mock function with given fields:
-func (_m *StarkNet) GetAll() ([]keys.Key, error) {
+func (_m *StarkNet) GetAll() ([]starkkey.Key, error) {
 	ret := _m.Called()
 
-	var r0 []keys.Key
+	var r0 []starkkey.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func() ([]keys.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func() ([]starkkey.Key, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() []keys.Key); ok {
+	if rf, ok := ret.Get(0).(func() []starkkey.Key); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]keys.Key)
+			r0 = ret.Get(0).([]starkkey.Key)
 		}
 	}
 
@@ -166,18 +165,18 @@ func (_m *StarkNet) GetAll() ([]keys.Key, error) {
 }
 
 // Import provides a mock function with given fields: keyJSON, password
-func (_m *StarkNet) Import(keyJSON []byte, password string) (keys.Key, error) {
+func (_m *StarkNet) Import(keyJSON []byte, password string) (starkkey.Key, error) {
 	ret := _m.Called(keyJSON, password)
 
-	var r0 keys.Key
+	var r0 starkkey.Key
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte, string) (keys.Key, error)); ok {
+	if rf, ok := ret.Get(0).(func([]byte, string) (starkkey.Key, error)); ok {
 		return rf(keyJSON, password)
 	}
-	if rf, ok := ret.Get(0).(func([]byte, string) keys.Key); ok {
+	if rf, ok := ret.Get(0).(func([]byte, string) starkkey.Key); ok {
 		r0 = rf(keyJSON, password)
 	} else {
-		r0 = ret.Get(0).(keys.Key)
+		r0 = ret.Get(0).(starkkey.Key)
 	}
 
 	if rf, ok := ret.Get(1).(func([]byte, string) error); ok {
