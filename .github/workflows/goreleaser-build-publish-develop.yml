@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - develop
-  # TODO: DEBUG
-  pull_request:
 
 jobs:
   push-chainlink-develop-goreleaser:
@@ -58,11 +56,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      # TODO: DEBUG
-      - name: Debug goreleaser-artifacts
-        shell: bash
-        run: |
-          echo ${{ needs.push-chainlink-develop-goreleaser.outputs.goreleaser-artifacts }}
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@5727f247b64f324ec403ac56ae05e220fd02b65f # v2.1.0
         with:
