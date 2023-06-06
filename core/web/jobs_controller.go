@@ -233,7 +233,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, tomlString)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(tomlString)
 	case job.Cron:

@@ -10,7 +10,6 @@ import (
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	DefaultHTTPTimeout() models.Duration
 	FlagsContractAddress() string
 	MinimumContractPayment() *assets.Link
 	EvmGasLimitDefault() uint32
@@ -20,7 +19,11 @@ type Config interface {
 	pg.QConfig
 }
 
+type JobPipelineConfig interface {
+	DefaultHTTPTimeout() models.Duration
+}
+
 // MinimumPollingInterval returns the minimum duration between polling ticks
-func MinimumPollingInterval(c Config) time.Duration {
+func MinimumPollingInterval(c JobPipelineConfig) time.Duration {
 	return c.DefaultHTTPTimeout().Duration()
 }

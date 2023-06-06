@@ -194,15 +194,15 @@ type JobPipelineV2TestHelper struct {
 
 type JobPipelineConfig interface {
 	pipeline.Config
-	JobPipelineMaxSuccessfulRuns() uint64
+	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, dbCfg, cfg.JobPipelineMaxSuccessfulRuns())
+	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
 	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, dbCfg)
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -666,11 +666,11 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 }
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
-func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
+func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
 	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -686,10 +686,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
+func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -1661,7 +1661,7 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 // FlagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
 func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
-	cliApp := cmd.Client{}
+	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)
 
 	foundName := parentCommand == ""

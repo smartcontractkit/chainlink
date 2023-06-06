@@ -139,7 +139,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
 
