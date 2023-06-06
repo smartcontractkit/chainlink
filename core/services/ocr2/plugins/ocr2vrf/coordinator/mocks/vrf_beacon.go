@@ -404,25 +404,25 @@ func (_m *VRFBeaconInterface) FilterRandomWordsFulfilled(opts *bind.FilterOpts) 
 	return r0, r1
 }
 
-// FilterRandomnessFulfillmentRequested provides a mock function with given fields: opts, requestID, requester
-func (_m *VRFBeaconInterface) FilterRandomnessFulfillmentRequested(opts *bind.FilterOpts, requestID []*big.Int, requester []common.Address) (*vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator, error) {
-	ret := _m.Called(opts, requestID, requester)
+// FilterRandomnessFulfillmentRequested provides a mock function with given fields: opts, requestID
+func (_m *VRFBeaconInterface) FilterRandomnessFulfillmentRequested(opts *bind.FilterOpts, requestID []*big.Int) (*vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator, error) {
+	ret := _m.Called(opts, requestID)
 
 	var r0 *vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) (*vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator, error)); ok {
-		return rf(opts, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) (*vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator, error)); ok {
+		return rf(opts, requestID)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) *vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator); ok {
-		r0 = rf(opts, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) *vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator); ok {
+		r0 = rf(opts, requestID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconRandomnessFulfillmentRequestedIterator)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int, []common.Address) error); ok {
-		r1 = rf(opts, requestID, requester)
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int) error); ok {
+		r1 = rf(opts, requestID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -456,25 +456,25 @@ func (_m *VRFBeaconInterface) FilterRandomnessRedeemed(opts *bind.FilterOpts, re
 	return r0, r1
 }
 
-// FilterRandomnessRequested provides a mock function with given fields: opts, requestID, requester
-func (_m *VRFBeaconInterface) FilterRandomnessRequested(opts *bind.FilterOpts, requestID []*big.Int, requester []common.Address) (*vrf_beacon.VRFBeaconRandomnessRequestedIterator, error) {
-	ret := _m.Called(opts, requestID, requester)
+// FilterRandomnessRequested provides a mock function with given fields: opts, requestID
+func (_m *VRFBeaconInterface) FilterRandomnessRequested(opts *bind.FilterOpts, requestID []*big.Int) (*vrf_beacon.VRFBeaconRandomnessRequestedIterator, error) {
+	ret := _m.Called(opts, requestID)
 
 	var r0 *vrf_beacon.VRFBeaconRandomnessRequestedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) (*vrf_beacon.VRFBeaconRandomnessRequestedIterator, error)); ok {
-		return rf(opts, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) (*vrf_beacon.VRFBeaconRandomnessRequestedIterator, error)); ok {
+		return rf(opts, requestID)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) *vrf_beacon.VRFBeaconRandomnessRequestedIterator); ok {
-		r0 = rf(opts, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) *vrf_beacon.VRFBeaconRandomnessRequestedIterator); ok {
+		r0 = rf(opts, requestID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconRandomnessRequestedIterator)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int, []common.Address) error); ok {
-		r1 = rf(opts, requestID, requester)
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int) error); ok {
+		r1 = rf(opts, requestID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1770,25 +1770,25 @@ func (_m *VRFBeaconInterface) WatchRandomWordsFulfilled(opts *bind.WatchOpts, si
 	return r0, r1
 }
 
-// WatchRandomnessFulfillmentRequested provides a mock function with given fields: opts, sink, requestID, requester
-func (_m *VRFBeaconInterface) WatchRandomnessFulfillmentRequested(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, requestID []*big.Int, requester []common.Address) (event.Subscription, error) {
-	ret := _m.Called(opts, sink, requestID, requester)
+// WatchRandomnessFulfillmentRequested provides a mock function with given fields: opts, sink, requestID
+func (_m *VRFBeaconInterface) WatchRandomnessFulfillmentRequested(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, requestID []*big.Int) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, requestID)
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int, []common.Address) (event.Subscription, error)); ok {
-		return rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int) (event.Subscription, error)); ok {
+		return rf(opts, sink, requestID)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int, []common.Address) event.Subscription); ok {
-		r0 = rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int) event.Subscription); ok {
+		r0 = rf(opts, sink, requestID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(event.Subscription)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int, []common.Address) error); ok {
-		r1 = rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessFulfillmentRequested, []*big.Int) error); ok {
+		r1 = rf(opts, sink, requestID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1822,25 +1822,25 @@ func (_m *VRFBeaconInterface) WatchRandomnessRedeemed(opts *bind.WatchOpts, sink
 	return r0, r1
 }
 
-// WatchRandomnessRequested provides a mock function with given fields: opts, sink, requestID, requester
-func (_m *VRFBeaconInterface) WatchRandomnessRequested(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconRandomnessRequested, requestID []*big.Int, requester []common.Address) (event.Subscription, error) {
-	ret := _m.Called(opts, sink, requestID, requester)
+// WatchRandomnessRequested provides a mock function with given fields: opts, sink, requestID
+func (_m *VRFBeaconInterface) WatchRandomnessRequested(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconRandomnessRequested, requestID []*big.Int) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, requestID)
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int, []common.Address) (event.Subscription, error)); ok {
-		return rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int) (event.Subscription, error)); ok {
+		return rf(opts, sink, requestID)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int, []common.Address) event.Subscription); ok {
-		r0 = rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int) event.Subscription); ok {
+		r0 = rf(opts, sink, requestID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(event.Subscription)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int, []common.Address) error); ok {
-		r1 = rf(opts, sink, requestID, requester)
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconRandomnessRequested, []*big.Int) error); ok {
+		r1 = rf(opts, sink, requestID)
 	} else {
 		r1 = ret.Error(1)
 	}

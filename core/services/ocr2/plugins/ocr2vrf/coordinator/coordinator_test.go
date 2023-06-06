@@ -1468,13 +1468,10 @@ func newRandomnessRequestedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords, e.CostJuels, e.NewSubBalance)
+	nonIndexedData, err := unindexed.Pack(e.Requester, e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords, e.CostJuels, e.NewSubBalance)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)
-	require.NoError(t, err)
-
-	requesterType, err := abi.NewType("address", "", nil)
 	require.NoError(t, err)
 
 	requestIDArg := abi.Arguments{abi.Argument{
@@ -1482,15 +1479,8 @@ func newRandomnessRequestedLog(
 		Type:    requestIDType,
 		Indexed: true,
 	}}
-	requesterArg := abi.Arguments{abi.Argument{
-		Name:    "requester",
-		Type:    requesterType,
-		Indexed: true,
-	}}
 
 	topic1, err := requestIDArg.Pack(e.RequestID.Uint64())
-	require.NoError(t, err)
-	topic2, err := requesterArg.Pack(e.Requester)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorABI.Events[randomnessRequestedEvent].ID
@@ -1502,8 +1492,6 @@ func newRandomnessRequestedLog(
 			topic0.Bytes(),
 			// second topic is requestID since it's indexed
 			topic1,
-			// third topic is requester since it's indexed
-			topic2,
 		},
 		BlockNumber: int64(requestBlock),
 		EventSig:    topic0,
@@ -1555,14 +1543,11 @@ func newRandomnessFulfillmentRequestedLog(
 			unindexed = append(unindexed, a)
 		}
 	}
-	nonIndexedData, err := unindexed.Pack(e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords,
+	nonIndexedData, err := unindexed.Pack(e.Requester, e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.NumWords,
 		e.GasAllowance, e.GasPrice, e.WeiPerUnitLink, e.Arguments, e.CostJuels, e.NewSubBalance)
 	require.NoError(t, err)
 
 	requestIDType, err := abi.NewType("uint64", "", nil)
-	require.NoError(t, err)
-
-	requesterType, err := abi.NewType("address", "", nil)
 	require.NoError(t, err)
 
 	requestIDArg := abi.Arguments{abi.Argument{
@@ -1570,16 +1555,9 @@ func newRandomnessFulfillmentRequestedLog(
 		Type:    requestIDType,
 		Indexed: true,
 	}}
-	requesterArg := abi.Arguments{abi.Argument{
-		Name:    "requester",
-		Type:    requesterType,
-		Indexed: true,
-	}}
 
 	topic0 := vrfCoordinatorABI.Events[randomnessFulfillmentRequestedEvent].ID
 	topic1, err := requestIDArg.Pack(e.RequestID.Uint64())
-	require.NoError(t, err)
-	topic2, err := requesterArg.Pack(e.Requester)
 	require.NoError(t, err)
 	return logpoller.Log{
 		Address:  coordinatorAddress,
@@ -1588,7 +1566,6 @@ func newRandomnessFulfillmentRequestedLog(
 		Topics: [][]byte{
 			topic0.Bytes(),
 			topic1,
-			topic2,
 		},
 		BlockNumber: int64(requestBlock),
 	}
