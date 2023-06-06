@@ -36,7 +36,7 @@ func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-func (g *generalConfig) LogSQL() (sql bool) {
+func (g *generalConfig) logSQL() (sql bool) {
 	g.logMu.RLock()
 	sql = *g.c.Database.LogQueries
 	g.logMu.RUnlock()

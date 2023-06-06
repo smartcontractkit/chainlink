@@ -90,6 +90,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		db,
 		uni.db,
 		chain,
+		chain.Database(),
 	)
 
 	return uni

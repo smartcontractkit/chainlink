@@ -30,7 +30,7 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("on migrated database", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
@@ -71,7 +71,7 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
@@ -126,7 +126,7 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
@@ -159,7 +159,7 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("release lock with Release() func", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
@@ -178,7 +178,7 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
@@ -209,7 +209,7 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("on virgin database", func(t *testing.T) {
 		_, db := heavyweight.FullTestDBEmptyV2(t, "leaselock", nil)
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
