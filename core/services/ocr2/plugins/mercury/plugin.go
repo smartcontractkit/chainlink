@@ -19,7 +19,7 @@ import (
 )
 
 type Config interface {
-	JobPipelineMaxSuccessfulRuns() uint64
+	MaxSuccessfulRuns() uint64
 }
 
 func NewServices(
@@ -76,7 +76,7 @@ func NewServices(
 		pipelineRunner,
 		make(chan struct{}),
 		lggr,
-		cfg.JobPipelineMaxSuccessfulRuns(),
+		cfg.MaxSuccessfulRuns(),
 	),
 		job.NewServiceAdapter(oracle)}, nil
 }

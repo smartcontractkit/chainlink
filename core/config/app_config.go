@@ -34,7 +34,6 @@ type AppConfig interface {
 	FeatureFlags
 	FluxMonitor
 	Insecure
-	JobPipeline
 	Keystore
 	Logging
 	OCR1Config
@@ -52,6 +51,7 @@ type AppConfig interface {
 	Keeper() Keeper
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
+	JobPipeline() JobPipeline
 }
 
 type DatabaseBackupMode string

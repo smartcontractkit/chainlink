@@ -448,6 +448,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	bootstrapJobSpec := fmt.Sprintf(`
 type				= "bootstrap"
 name				= "bootstrap"
+contractConfigTrackerPollInterval = "15s"
 relay				= "evm"
 schemaVersion		= 1
 contractID			= "%s"
@@ -481,6 +482,7 @@ relay                	= "evm"
 pluginType           	= "ocr2vrf"
 transmitterID        	= "%s"
 forwardingAllowed       = %t
+contractConfigTrackerPollInterval = "15s"
 
 [relayConfig]
 chainID              	= 1337

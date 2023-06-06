@@ -1023,7 +1023,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, args.Input.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
 	case job.Cron:
