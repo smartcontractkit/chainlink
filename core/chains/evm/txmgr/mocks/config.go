@@ -146,20 +146,6 @@ func (_m *Config) Database() config.Database {
 	return r0
 }
 
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // EthTxReaperInterval provides a mock function with given fields:
 func (_m *Config) EthTxReaperInterval() time.Duration {
 	ret := _m.Called()
@@ -521,20 +507,6 @@ func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Wei)
 		}
-	}
-
-	return r0
-}
-
-// LogSQL provides a mock function with given fields:
-func (_m *Config) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

@@ -176,7 +176,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	orm := sessions.NewORM(db, time.Minute, lggr, cfg, audit.NoopLogger)
+	orm := sessions.NewORM(db, time.Minute, lggr, cfg.Database(), audit.NoopLogger)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -238,7 +238,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 	tests := []struct {
 		name      string

@@ -20,7 +20,7 @@ import (
 func Test_VRFKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg.Database())
 	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.VRF()
 	reset := func() {

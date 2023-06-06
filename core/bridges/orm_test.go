@@ -25,7 +25,7 @@ func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 
 	return db, orm
 }
@@ -137,7 +137,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 func TestORM_TestCachedResponse(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
