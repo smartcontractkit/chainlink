@@ -73,6 +73,7 @@ type DelegateConfig interface {
 	validate.Config
 	plugins.RegistrarConfig
 	JobPipeline() jobPipelineConfig
+	Database() pg.QConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -80,10 +81,15 @@ type delegateConfig struct {
 	validate.Config
 	plugins.RegistrarConfig
 	jobPipeline jobPipelineConfig
+	database    pg.QConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
 	return d.jobPipeline
+}
+
+func (d *delegateConfig) Database() pg.QConfig {
+	return d.database
 }
 
 type jobPipelineConfig interface {
@@ -91,11 +97,12 @@ type jobPipelineConfig interface {
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
+		database:        qconf,
 	}
 }
 
@@ -293,7 +300,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
 
-	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)
+	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg.Database())
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -462,7 +469,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Client(),
 			oracleArgsNoPlugin,
 			d.db,
-			d.cfg,
+			d.cfg.Database(),
 			big.NewInt(chainID),
 			spec.Relay,
 		)
@@ -617,7 +624,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			KeyID:                              keyID,
 			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-			DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg, big.NewInt(chainID), spec.Relay),
+			DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), big.NewInt(chainID), spec.Relay),
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -758,7 +765,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Job:             jb,
 			JobORM:          d.jobORM,
 			BridgeORM:       d.bridgeORM,
-			OCR2JobConfig:   d.cfg,
+			OCR2JobConfig:   d.cfg.Database(),
 			DB:              d.db,
 			Chain:           chain,
 			ContractID:      spec.ContractID,

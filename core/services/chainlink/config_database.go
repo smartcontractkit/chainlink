@@ -101,7 +101,7 @@ func (d *databaseConfig) DefaultLockTimeout() time.Duration {
 	return d.c.DefaultLockTimeout.Duration()
 }
 
-func (d *databaseConfig) DatabaseDefaultQueryTimeout() time.Duration {
+func (d *databaseConfig) DefaultQueryTimeout() time.Duration {
 	return d.c.DefaultQueryTimeout.Duration()
 }
 
