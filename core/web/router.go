@@ -292,6 +292,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
+		ethKeysGroup := authv2.Group("", auth.Authenticate(app.SessionORM(),
+			auth.AuthenticateByToken,
+			auth.AuthenticateBySession,
+		))
 		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
@@ -300,12 +304,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
 		// duplicated from above, with `evm` instead of `eth`
 		// legacy ones remain for backwards compatibility
+
+		ethKeysGroup.Use(ekc.formatETHKeyResponse())
 		authv2.GET("/keys/evm", ekc.Index)
-		authv2.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
-		authv2.DELETE("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Delete))
-		authv2.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
+		ethKeysGroup.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
+		ethKeysGroup.DELETE("/keys/evm/:address", auth.RequiresAdminRole(ekc.Delete))
+		ethKeysGroup.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/evm/export/:address", auth.RequiresAdminRole(ekc.Export))
-		authv2.POST("/keys/evm/chain", auth.RequiresAdminRole(ekc.Chain))
+		ethKeysGroup.POST("/keys/evm/chain", auth.RequiresAdminRole(ekc.Chain))
 
 		ocrkc := OCRKeysController{app}
 		authv2.GET("/keys/ocr", ocrkc.Index)

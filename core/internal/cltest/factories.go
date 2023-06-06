@@ -446,8 +446,8 @@ func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.
 func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
 	t.Helper()
 	ethKeyStore.XXXTestingOnlyAdd(key)
-	err := ethKeyStore.Enable(key.Address, chainID)
-	require.NoError(t, err)
+	require.NoError(t, ethKeyStore.Add(key.Address, chainID))
+	require.NoError(t, ethKeyStore.Enable(key.Address, chainID))
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
@@ -490,6 +490,7 @@ func MustInsertRandomKey(
 				t.Logf("ignoring unknown type in MustInsertRandomKey: %T, note: chain IDs are processed earlier", opt)
 			}
 		}
+		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
 		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
 		require.NoError(t, err)
