@@ -72,6 +72,8 @@ require (
 	github.com/smartcontractkit/ocr2keepers v0.6.15
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230510102715-c58be582bf19
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230526143804-20ea6fd3d0dc
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230523211009-fd9406f09967
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
@@ -84,7 +86,7 @@ require (
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.13
 	go.dedis.ch/fixbuf v1.0.3
-	go.dedis.ch/kyber/v3 v3.0.14
+	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.9.0

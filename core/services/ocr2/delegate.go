@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -716,19 +717,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
+
+		relayArgs := types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			New:           d.isNewlyCreatedJob,
+		}
+
+		pluginArgs := types.PluginArgs{
+			TransmitterID: transmitterID,
+			PluginConfig:  spec.PluginConfig.Bytes(),
+		}
+
 		functionsProvider, err2 := evmrelay.NewFunctionsProvider(
 			d.chainSet,
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-				New:           d.isNewlyCreatedJob,
-			},
-			types.PluginArgs{
-				TransmitterID: transmitterID,
-				PluginConfig:  spec.PluginConfig.Bytes(),
-			},
+			relayArgs,
+			pluginArgs,
 			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
 		)
@@ -778,6 +784,34 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
+		}
+
+		thresholdProvider, err2 := evmrelay.NewFunctionsThresholdProvider(
+			d.chainSet,
+			relayArgs,
+			pluginArgs,
+			lggr.Named("ThresholdRelayer"),
+			d.ethKs,
+		)
+		if err2 != nil {
+			return nil, err2
+		}
+
+		decryptionQueue := threshold.NewDecryptionQueue(
+			1000,
+			1_000_000,
+			100,
+			time.Duration(100)*time.Second,
+			lggr.Named("DecryptionQueue"),
+		)
+
+		encryptedThresholdPrivateKey := d.cfg.ThresholdKeyShare()
+		thresholdPrivateKey, err2 := kb.NaclBoxOpenAnonymous([]byte(encryptedThresholdPrivateKey))
+
+		thresholdServicesConfig := threshold.ThresholdServicesConfig{
+			DecryptionQueue: decryptionQueue,
+			PublicKey:       []byte(""),
+			PrivKeyShare:    thresholdPrivateKey,
 		}
 
 		// RunResultSaver needs to be started first, so it's available

@@ -7,18 +7,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	functions_config_types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/config"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-type FunctionsConfigPoller interface {
-	evm.ConfigPoller
+type ThresholdConfigPoller interface {
+	ocrtypes.ContractConfigTracker
+
+	Replay(ctx context.Context, fromBlock int64) error
 }
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -63,9 +63,14 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		signers = append(signers, addr[:])
 	}
 
-	functionsOffchainConfig, _, err := functions_config_types.DecodeMultiPluginOffchainConfig(unpacked.OffchainConfig)
+	thresholdOffchainConfig, err := DecodeThresholdReportingPluginConfig(unpacked.OffchainConfig)
 	if err != nil {
-		return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to decode Functions plugin offchain config: %v", unpacked.OffchainConfig)
+		return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to decode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
+	}
+
+	thresholdOffchainConfigBytes, err := EncodeThresholdPluginConfig(thresholdOffchainConfig)
+	if err != nil {
+		return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to encode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
 	}
 
 	return ocrtypes.ContractConfig{
@@ -76,7 +81,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		F:                     unpacked.F,
 		OnchainConfig:         unpacked.OnchainConfig,
 		OffchainConfigVersion: unpacked.OffchainConfigVersion,
-		OffchainConfig:        functionsOffchainConfig,
+		OffchainConfig:        thresholdOffchainConfigBytes,
 	}, nil
 }
 
@@ -92,7 +97,7 @@ func configPollerFilterName(addr common.Address) string {
 }
 
 // NewConfigPoller creates a new ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (FunctionsConfigPoller, error) {
+func NewThresholdConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ThresholdConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err

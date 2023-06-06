@@ -20,6 +20,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	functions "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -293,6 +294,44 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 			ContractAddress: contractAddress,
 		}
 	}
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+}
+
+func newFunctionsThresholdConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+	var relayConfig types.RelayConfig
+	err := json.Unmarshal(args.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+	if !common.IsHexAddress(args.ContractID) {
+		return nil, errors.Errorf("invalid contractID, expected hex address")
+	}
+
+	contractAddress := common.HexToAddress(args.ContractID)
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get contract ABI JSON")
+	}
+	var cp ConfigPoller
+
+	cp, err = functions.NewThresholdConfigPoller(lggr,
+		chain.LogPoller(),
+		contractAddress,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
+		ChainID:         chain.Config().ChainID().Uint64(),
+		ContractAddress: contractAddress,
+	}
+
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 
