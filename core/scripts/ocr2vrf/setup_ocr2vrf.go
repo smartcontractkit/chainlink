@@ -172,6 +172,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		flagSet.String("vrfpassword", *passwordFile, "vrf password file")
 		flagSet.String("bootstrapPort", fmt.Sprintf("%d", 8000), "port of bootstrap")
 		flagSet.Int64("chainID", e.ChainID, "the chain ID")
+		flagSet.Bool("applyInitServerConfig", true, "the chain ID")
 
 		flagSet.String("job-type", string(jobTypeOCR2VRF), "the job type")
 
