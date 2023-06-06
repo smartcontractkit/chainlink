@@ -22,9 +22,9 @@ func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
@@ -135,7 +135,7 @@ func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock()
 	require.NoError(t, err)
@@ -161,9 +161,9 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
@@ -260,7 +260,7 @@ func TestORM_Reinitialize(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, nil)
 			lggr := logger.TestLogger(t)
-			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+			orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
