@@ -262,7 +262,7 @@ func TestETHCallTask(t *testing.T) {
 				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}
 
-			task.HelperSetDependencies(cc, cfg, test.specGasLimit, pipeline.DirectRequestJobType)
+			task.HelperSetDependencies(cc, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
 
 			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)

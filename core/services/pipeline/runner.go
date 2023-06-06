@@ -54,6 +54,7 @@ type runner struct {
 	orm                    ORM
 	btORM                  bridges.ORM
 	config                 Config
+	bridgeConfig           BridgeConfig
 	chainSet               evm.ChainSet
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
@@ -100,11 +101,12 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
 		config:                 cfg,
+		bridgeConfig:           bridgeCfg,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
@@ -126,7 +128,7 @@ func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
-		if r.config.JobPipelineReaperInterval() != time.Duration(0) {
+		if r.config.ReaperInterval() != time.Duration(0) {
 			r.wgDone.Add(1)
 			go r.runReaperLoop()
 		}
@@ -160,11 +162,11 @@ func (r *runner) destroy() {
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
 	defer r.destroy()
-	if r.config.JobPipelineReaperInterval() == 0 {
+	if r.config.ReaperInterval() == 0 {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.ReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -172,7 +174,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
-			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
+			runReaperTicker.Reset(utils.WithJitter(r.config.ReaperInterval()))
 		}
 	}
 }
@@ -250,6 +252,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
+			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
 			task.(*BridgeTask).orm = r.btORM
 			task.(*BridgeTask).specId = run.PipelineSpec.ID
 			// URL is "safe" because it comes from the node's own database. We
@@ -304,7 +307,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	reportCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if pipelineTimeout := r.config.JobPipelineMaxRunDuration(); pipelineTimeout != 0 {
+	if pipelineTimeout := r.config.MaxRunDuration(); pipelineTimeout != 0 {
 		ctx, cancel = context.WithTimeout(ctx, pipelineTimeout)
 		defer cancel()
 	}
@@ -624,10 +627,10 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 
 func (r *runner) runReaper() {
 	r.lggr.Debugw("Pipeline run reaper starting")
-	ctx, cancel := r.chStop.CtxCancel(context.WithTimeout(context.Background(), r.config.JobPipelineReaperInterval()))
+	ctx, cancel := r.chStop.CtxCancel(context.WithTimeout(context.Background(), r.config.ReaperInterval()))
 	defer cancel()
 
-	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
+	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 		r.SvcErrBuffer.Append(err)
@@ -644,7 +647,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
-	if r.config.JobPipelineReaperInterval() > time.Duration(0) {
+	if r.config.ReaperInterval() > time.Duration(0) {
 		// immediately run reaper so we don't consider runs that are too old
 		r.runReaper()
 	}

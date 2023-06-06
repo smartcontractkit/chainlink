@@ -84,6 +84,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
 		chain.Config(),
+		chain.Config().JobPipeline(),
 		d.lggr,
 	)
 	if err != nil {

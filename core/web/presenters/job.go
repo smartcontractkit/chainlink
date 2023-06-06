@@ -300,6 +300,7 @@ type VRFSpec struct {
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
 	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
 	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
+	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {

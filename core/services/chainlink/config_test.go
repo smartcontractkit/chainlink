@@ -29,7 +29,6 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -46,10 +45,10 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-			AuditLogger: audit.AuditLoggerConfig{
+			AuditLogger: config.AuditLogger{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]audit.ServiceHeader{
+				Headers: ptr([]models.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -227,11 +226,11 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := []audit.ServiceHeader{
+	serviceHeaders := []models.ServiceHeader{
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
-	full.AuditLogger = audit.AuditLoggerConfig{
+	full.AuditLogger = config.AuditLogger{
 		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
@@ -1267,7 +1266,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
-	dbURL := c.DatabaseURL()
+	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 

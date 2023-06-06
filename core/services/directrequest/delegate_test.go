@@ -84,7 +84,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr, cfg)
+	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg)
 
 	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)

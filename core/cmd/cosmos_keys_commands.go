@@ -52,6 +52,6 @@ func (ps CosmosKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewCosmosKeysClient(c *Client) KeysClient {
-	return newKeysClient[cosmoskey.Key, CosmosKeyPresenter, CosmosKeyPresenters]("Cosmos", c)
+func NewCosmosKeysClient(s *Shell) KeysClient {
+	return newKeysClient[cosmoskey.Key, CosmosKeyPresenter, CosmosKeyPresenters]("Cosmos", s)
 }
