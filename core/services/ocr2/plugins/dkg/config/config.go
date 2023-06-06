@@ -3,7 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // PluginConfig contains custom arguments for the DKG plugin.

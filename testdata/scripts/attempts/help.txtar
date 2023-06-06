@@ -1,0 +1,16 @@
+exec chainlink attempts --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink attempts - Commands for managing Ethereum Transaction Attempts
+
+USAGE:
+   chainlink attempts command [command options] [arguments...]
+
+COMMANDS:
+   list  List the Transaction Attempts in descending order
+
+OPTIONS:
+   --help, -h  show help
+   

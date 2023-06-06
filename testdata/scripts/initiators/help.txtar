@@ -1,0 +1,18 @@
+exec chainlink initiators --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink initiators - Commands for managing External Initiators
+
+USAGE:
+   chainlink initiators command [command options] [arguments...]
+
+COMMANDS:
+   create   Create an authentication key for a user of External Initiators
+   destroy  Remove an external initiator by name
+   list     List all external initiators
+
+OPTIONS:
+   --help, -h  show help
+   

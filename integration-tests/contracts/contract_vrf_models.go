@@ -8,9 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
 
 type VRF interface {
@@ -35,14 +36,18 @@ type VRFCoordinatorV2 interface {
 		maxGasLimit uint32,
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
-		fallbackWeiPerUnitLink *big.Int, feeConfig ethereum.VRFCoordinatorV2FeeConfig,
+		fallbackWeiPerUnitLink *big.Int,
+		feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig,
 	) error
 	RegisterProvingKey(
 		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	CreateSubscription() error
+	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
+	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
 }
 
 type VRFConsumer interface {
@@ -50,7 +55,6 @@ type VRFConsumer interface {
 	RequestRandomness(hash [32]byte, fee *big.Int) error
 	CurrentRoundID(ctx context.Context) (*big.Int, error)
 	RandomnessOutput(ctx context.Context) (*big.Int, error)
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 	Fund(ethAmount *big.Float) error
 }
 
@@ -64,6 +68,21 @@ type VRFConsumerV2 interface {
 	GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error)
 	GasAvailable() (*big.Int, error)
 	Fund(ethAmount *big.Float) error
+}
+
+type VRFv2Consumer interface {
+	Address() string
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+}
+
+type VRFv2LoadTestConsumer interface {
+	Address() string
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 }
 
 type DKG interface {
@@ -92,6 +111,7 @@ type VRFCoordinatorV3 interface {
 	CreateSubscription() error
 	FindSubscriptionID() (*big.Int, error)
 	AddConsumer(subId *big.Int, consumerAddress string) error
+	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
 }
 
 type VRFBeacon interface {
@@ -121,6 +141,7 @@ type VRFBeaconConsumer interface {
 	RequestRandomnessFulfillment(
 		numWords uint16,
 		subID, confirmationDelayArg *big.Int,
+		requestGasLimit,
 		callbackGasLimit uint32,
 		arguments []byte,
 	) (*types.Receipt, error)
@@ -131,4 +152,26 @@ type VRFBeaconConsumer interface {
 
 type BatchBlockhashStore interface {
 	Address() string
+}
+
+type RequestStatus struct {
+	Fulfilled   bool
+	RandomWords []*big.Int
+}
+
+type LoadTestRequestStatus struct {
+	Fulfilled             bool
+	RandomWords           []*big.Int
+	requestTimestamp      *big.Int
+	fulfilmentTimestamp   *big.Int
+	requestBlockNumber    *big.Int
+	fulfilmentBlockNumber *big.Int
+}
+
+type VRFLoadTestMetrics struct {
+	RequestCount                 *big.Int
+	FulfilmentCount              *big.Int
+	AverageFulfillmentInMillions *big.Int
+	SlowestFulfillment           *big.Int
+	FastestFulfillment           *big.Int
 }

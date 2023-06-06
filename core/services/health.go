@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Checker --output ./mocks/ --case=underscore
@@ -35,17 +35,13 @@ type (
 		srvMutex   sync.RWMutex
 		services   map[string]Checkable
 		stateMutex sync.RWMutex
-		state      map[string]State
+		healthy    map[string]error
+		ready      map[string]error
 
 		chStop chan struct{}
 		chDone chan struct{}
 
 		utils.StartStopOnce
-	}
-
-	State struct {
-		ready   error
-		healthy error
 	}
 
 	Status string
@@ -86,7 +82,8 @@ var (
 func NewChecker() Checker {
 	c := &checker{
 		services: make(map[string]Checkable, 10),
-		state:    make(map[string]State, 10),
+		healthy:  make(map[string]error, 10),
+		ready:    make(map[string]error, 10),
 		chStop:   make(chan struct{}),
 		chDone:   make(chan struct{}),
 	}
@@ -132,7 +129,8 @@ func (c *checker) run() {
 }
 
 func (c *checker) update() {
-	state := make(map[string]State, len(c.services))
+	healthy := make(map[string]error)
+	ready := make(map[string]error)
 
 	c.srvMutex.RLock()
 	// copy services into a new map to avoid lock contention while doing checks
@@ -144,22 +142,27 @@ func (c *checker) update() {
 
 	// now, do all the checks
 	for name, s := range services {
-		ready := s.Ready()
-		healthy := s.Healthy()
+		ready[name] = s.Ready()
+		hr := s.HealthReport()
+		for n, err := range hr {
+			healthy[n] = err
+		}
 
-		state[name] = State{ready, healthy}
 	}
 
 	// we use a separate lock to avoid holding the lock over state while talking
 	// to services
 	c.stateMutex.Lock()
 	defer c.stateMutex.Unlock()
+	for name, r := range ready {
+		c.ready[name] = r
+	}
 
-	for name, state := range state {
-		c.state[name] = state
+	for name, h := range healthy {
+		c.healthy[name] = h
 
 		value := 0
-		if state.healthy == nil {
+		if h == nil {
 			value = 1
 		}
 
@@ -199,10 +202,10 @@ func (c *checker) IsReady() (ready bool, errors map[string]error) {
 	ready = true
 	errors = make(map[string]error, len(c.services))
 
-	for name, state := range c.state {
-		errors[name] = state.ready
+	for name, state := range c.ready {
+		errors[name] = state
 
-		if state.ready != nil {
+		if state != nil {
 			ready = false
 		}
 	}
@@ -217,10 +220,10 @@ func (c *checker) IsHealthy() (healthy bool, errors map[string]error) {
 	healthy = true
 	errors = make(map[string]error, len(c.services))
 
-	for name, state := range c.state {
-		errors[name] = state.healthy
+	for name, state := range c.healthy {
+		errors[name] = state
 
-		if state.healthy != nil {
+		if state != nil {
 			healthy = false
 		}
 	}

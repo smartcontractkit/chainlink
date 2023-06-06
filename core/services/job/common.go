@@ -3,12 +3,10 @@ package job
 import (
 	"context"
 	"net/url"
-	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
 //go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
 
 type Service interface {
@@ -23,8 +21,7 @@ type ServiceCtx interface {
 }
 
 type Config interface {
-	DatabaseURL() url.URL
-	TriggerFallbackDBPollInterval() time.Duration
+	URL() url.URL
 	pg.QConfig
 }
 

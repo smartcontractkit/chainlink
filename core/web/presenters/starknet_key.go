@@ -1,14 +1,13 @@
 package presenters
 
 import (
-	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
 // StarkNetKeyResource represents a StarkNet key JSONAPI resource.
 type StarkNetKeyResource struct {
 	JAID
-	AccountAddr string `json:"accountAddr"`
-	StarkKey    string `json:"starkPubKey"`
+	StarkKey string `json:"starkPubKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -16,17 +15,16 @@ func (StarkNetKeyResource) GetName() string {
 	return "encryptedStarkNetKeys"
 }
 
-func NewStarkNetKeyResource(key starknet.Key) *StarkNetKeyResource {
+func NewStarkNetKeyResource(key starkkey.Key) *StarkNetKeyResource {
 	r := &StarkNetKeyResource{
-		JAID:        JAID{ID: key.ID()},
-		AccountAddr: key.AccountAddressStr(),
-		StarkKey:    key.StarkKeyStr(),
+		JAID:     JAID{ID: key.ID()},
+		StarkKey: key.StarkKeyStr(),
 	}
 
 	return r
 }
 
-func NewStarkNetKeyResources(keys []starknet.Key) []StarkNetKeyResource {
+func NewStarkNetKeyResources(keys []starkkey.Key) []StarkNetKeyResource {
 	rs := []StarkNetKeyResource{}
 	for _, key := range keys {
 		rs = append(rs, *NewStarkNetKeyResource(key))

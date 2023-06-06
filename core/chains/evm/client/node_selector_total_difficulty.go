@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type totalDifficultyNodeSelector []Node

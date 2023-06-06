@@ -71,8 +71,7 @@ func TestPrometheusLogger_Counters(t *testing.T) {
 
 	l.Errorf("msg")
 	l.Errorf("msg")
-	l.ErrorIfClosing(&errorCloser{}, "foo")
-	assertCounterValue(t, errorCounter, 7)
+	assertCounterValue(t, errorCounter, 6)
 
 	l.Criticalf("msg")
 	l.Criticalw("msg")

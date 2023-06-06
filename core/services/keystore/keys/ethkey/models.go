@@ -3,7 +3,7 @@ package ethkey
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type State struct {

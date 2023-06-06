@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 const base10 = 10
@@ -172,16 +172,16 @@ func (b *Big) Int64() int64 {
 }
 
 // Add returns the sum of b and c
-func (b *Big) Add(c interface{}) *Big {
-	return NewBig(bigmath.Add(b, c))
+func (b *Big) Add(c *Big) *Big {
+	return NewBig(bigmath.Add(b.ToInt(), c.ToInt()))
 }
 
 // Sub returns the differencs between b and c
-func (b *Big) Sub(c interface{}) *Big {
-	return NewBig(bigmath.Sub(b, c))
+func (b *Big) Sub(c *Big) *Big {
+	return NewBig(bigmath.Sub(b.ToInt(), c.ToInt()))
 }
 
 // Sub returns b % c
-func (b *Big) Mod(c interface{}) *Big {
-	return NewBig(bigmath.Mod(b, c))
+func (b *Big) Mod(c *Big) *Big {
+	return NewBig(bigmath.Mod(b.ToInt(), c.ToInt()))
 }

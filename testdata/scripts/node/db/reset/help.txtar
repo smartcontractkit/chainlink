@@ -1,0 +1,14 @@
+exec chainlink node db reset --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db reset - Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+
+USAGE:
+   chainlink node db reset [command options] [arguments...]
+
+OPTIONS:
+   --dangerWillRobinson  set to true to enable dropping non-test databases
+   

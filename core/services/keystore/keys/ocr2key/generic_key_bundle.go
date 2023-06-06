@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type (
@@ -36,6 +36,7 @@ type (
 		// old chain specific format for migrating
 		EVMKeyring    []byte `json:",omitempty"`
 		SolanaKeyring []byte `json:",omitempty"`
+		CosmosKeyring []byte `json:",omitempty"`
 	}
 )
 
@@ -152,7 +153,7 @@ func (kb *keyBundle[K]) Raw() Raw {
 
 // migration code
 func (kbraw *keyBundleRawData) Migrate(b []byte) error {
-	// if key is not stored in Keyring param, use EVM, Solana as Keyring
+	// if key is not stored in Keyring param, use EVM or Solana as Keyring
 	// for migrating, key will only be marshalled into Keyring
 	if len(kbraw.Keyring) == 0 {
 		if len(kbraw.EVMKeyring) != 0 {

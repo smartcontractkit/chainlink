@@ -8,6 +8,10 @@
 - Make Functions Billing Registry and Functions Oracle upgradable using the transparent proxy pattern (#8371)
 - Update dependency hardhat from version 2.10.1 to 2.12.7 (#8464)
 - Fix Functions cost estimation not correctly using registry fee
+- Fix Functions transmitter NOP fee payment (#8557)
+- Functions library uses solidty-cborutils CBOR v2.0.0 and ENS Buffer v0.1.0(#8485)
+- Gas optimization to AuthorizedOriginReceiverUpgradable by using EnumberableSet .values()
+- Remove support for inline secrets in Functions requests
 
 ## 0.6.1 - 2023-02-06
 

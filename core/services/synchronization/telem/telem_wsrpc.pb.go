@@ -7,11 +7,11 @@ package telem
 
 import (
 	context "context"
+
 	wsrpc "github.com/smartcontractkit/wsrpc"
 )
 
 // TelemClient is the client API for Telem service.
-//
 type TelemClient interface {
 	Telem(ctx context.Context, in *TelemRequest) (*TelemResponse, error)
 	TelemBatch(ctx context.Context, in *TelemBatchRequest) (*TelemResponse, error)

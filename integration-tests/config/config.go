@@ -10,7 +10,7 @@ Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
 
-	BaseOCR2VRFTomlConfig = `[Feature]
+	BaseOCR2Config = `[Feature]
 LogPoller = true
 
 [OCR2]
@@ -21,6 +21,14 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+
+	BaseVRFV2NetworkDetailTomlConfig = `BlockBackfillDepth = 500
+MinIncomingConfirmations = 3
+[EVM.GasEstimator]
+LimitDefault = 3500000
+[EVM.Transactions]
+MaxQueued = 10000
+`
 
 	DefaultOCR2VRFNetworkDetailTomlConfig = `FinalityDepth = 5
 [EVM.GasEstimator]
@@ -57,4 +65,11 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']`
+
+	TelemetryIngressConfig = `[TelemetryIngress]
+UniConn = false 
+Logging = true 
+ServerPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+URL = 'oti:1337' 
+`
 )

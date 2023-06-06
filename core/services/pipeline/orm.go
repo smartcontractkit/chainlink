@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/sqlx"
 )
@@ -108,18 +108,13 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-type ORMConfig interface {
-	pg.QConfig
-	JobPipelineMaxSuccessfulRuns() uint64
-}
-
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg ORMConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, jobPipelineMaxSuccessfulRuns uint64) *orm {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &orm{
 		utils.StartStopOnce{},
 		pg.NewQ(db, lggr, cfg),
 		lggr.Named("PipelineORM"),
-		cfg.JobPipelineMaxSuccessfulRuns(),
+		jobPipelineMaxSuccessfulRuns,
 		sync.Map{},
 		sync.WaitGroup{},
 		ctx,

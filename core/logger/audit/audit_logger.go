@@ -16,11 +16,10 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
 )
@@ -155,21 +154,12 @@ func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	return []byte(serialized), nil
 }
 
-var AuditLoggerHeaders = envvar.New("AuditLoggerHeaders", func(s string) (ServiceHeaders, error) {
-	sh := make(ServiceHeaders, 0)
-	err := sh.UnmarshalText([]byte(s))
-	if err != nil {
-		return nil, err
-	}
-	return sh, nil
-})
-
 type Config interface {
-	AuditLoggerEnabled() bool
-	AuditLoggerForwardToUrl() (models.URL, error)
-	AuditLoggerEnvironment() string
-	AuditLoggerJsonWrapperKey() string
-	AuditLoggerHeaders() (ServiceHeaders, error)
+	Enabled() bool
+	ForwardToUrl() (models.URL, error)
+	Environment() string
+	JsonWrapperKey() string
+	Headers() (ServiceHeaders, error)
 }
 
 type HTTPAuditLoggerInterface interface {
@@ -188,7 +178,7 @@ type AuditLoggerService struct {
 	loggingClient   HTTPAuditLoggerInterface // Abstract type for sending logs onward
 
 	loggingChannel chan wrappedAuditLog
-	chStop         chan struct{}
+	chStop         utils.StopChan
 	chDone         chan struct{}
 }
 
@@ -207,7 +197,7 @@ var NoopLogger AuditLogger = &AuditLoggerService{}
 func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 	// If the unverified config is nil, then we assume this came from the
 	// configuration system and return a nil logger.
-	if config == nil || !config.AuditLoggerEnabled() {
+	if config == nil || !config.Enabled() {
 		return &AuditLoggerService{}, nil
 	}
 
@@ -216,12 +206,12 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		return nil, errors.Errorf("initialization error - unable to get hostname: %s", err)
 	}
 
-	forwardToUrl, err := config.AuditLoggerForwardToUrl()
+	forwardToUrl, err := config.ForwardToUrl()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
 
-	headers, err := config.AuditLoggerHeaders()
+	headers, err := config.Headers()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
@@ -234,8 +224,8 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		enabled:         true,
 		forwardToUrl:    forwardToUrl,
 		headers:         headers,
-		jsonWrapperKey:  config.AuditLoggerJsonWrapperKey(),
-		environmentName: config.AuditLoggerEnvironment(),
+		jsonWrapperKey:  config.JsonWrapperKey(),
+		environmentName: config.Environment(),
 		hostname:        hostname,
 		localIP:         getLocalIP(),
 		loggingClient:   &http.Client{Timeout: time.Second * webRequestTimeout},
@@ -297,24 +287,18 @@ func (l *AuditLoggerService) Close() error {
 	return nil
 }
 
-func (l *AuditLoggerService) Healthy() error {
-	if !l.enabled {
-		return errors.New("the audit logger is not enabled")
-	}
-
-	if len(l.loggingChannel) == bufferCapacity {
-		return errors.New("buffer is full")
-	}
-
-	return nil
-}
-
 func (l *AuditLoggerService) Name() string {
 	return l.logger.Name()
 }
 
 func (l *AuditLoggerService) HealthReport() map[string]error {
-	return map[string]error{l.logger.Name(): l.Healthy()}
+	var err error
+	if !l.enabled {
+		err = errors.New("the audit logger is not enabled")
+	} else if len(l.loggingChannel) == bufferCapacity {
+		err = errors.New("buffer is full")
+	}
+	return map[string]error{l.Name(): err}
 }
 
 func (l *AuditLoggerService) Ready() error {
@@ -369,7 +353,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		l.logger.Errorw("unable to serialize wrapped audit log item to JSON", "err", err, "logItem", logItem)
 		return
 	}
-	ctx, cancel := utils.ContextFromChan(l.chStop)
+	ctx, cancel := l.chStop.NewCtx()
 	defer cancel()
 
 	// Send to remote service

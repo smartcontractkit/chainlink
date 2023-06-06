@@ -1,0 +1,21 @@
+exec chainlink node --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink node - Commands can only be run from on the same machine as the Chainlink node.
+
+USAGE:
+   chainlink node command [command options] [arguments...]
+
+COMMANDS:
+   start, node, n            Run the Chainlink node
+   rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
+   validate                  Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
+   db                        Commands for managing the database.
+
+OPTIONS:
+   --config value, -c value   TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]
+   --secrets value, -s value  TOML configuration file for secrets. Must be set if and only if config is set.
+   --help, -h                 show help
+   

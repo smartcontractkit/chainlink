@@ -12,19 +12,19 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	clipkg "github.com/urfave/cli"
+	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type SetupOCR2VRFNodePayload struct {
@@ -56,6 +56,7 @@ type ocr2vrfTemplateArgs struct {
 	vrfBeaconAddress      string
 	vrfCoordinatorAddress string
 	linkEthFeedAddress    string
+	sendingKeys           []string
 }
 
 const DKGTemplate = `
@@ -96,6 +97,7 @@ forwardingAllowed    = %t
 
 [relayConfig]
 chainID              = %d
+sendingKeys          = [%s]
 
 [pluginConfig]
 dkgEncryptionPublicKey = "%s"
@@ -121,12 +123,8 @@ chainID                            = %d
 
 const forwarderAdditionalEOACount = 4
 
-func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
-	lggr := logger.Sugared(cli.Logger.Named("ConfigureOCR2VRFNode"))
-	err := cli.Config.Validate()
-	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
-	}
+func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
+	lggr := logger.Sugared(s.Logger.Named("ConfigureOCR2VRFNode"))
 	lggr.Infow(
 		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
 		"Version", static.Version, "SHA", static.Sha)
@@ -147,35 +145,41 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		vrfpwd = &p
 	}
 
-	cli.Config.SetPasswords(pwd, vrfpwd)
+	s.Config.SetPasswords(pwd, vrfpwd)
 
-	ldb := pg.NewLockedDB(cli.Config, lggr)
+	err := s.Config.Validate()
+	if err != nil {
+		return nil, s.errorOut(errors.Wrap(err, "config validation failed"))
+	}
+
+	cfg := s.Config
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err = ldb.Open(rootCtx); err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
+		return nil, s.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
-	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, lggr, ldb.DB())
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, lggr, ldb.DB())
 	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return nil, s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	chainID := c.Int64("chainID")
 
 	// Initialize keystore and generate keys.
 	keyStore := app.GetKeyStore()
-	err = setupKeystore(cli, app, keyStore)
+	err = setupKeystore(s, app, keyStore)
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 
 	// Start application.
 	err = app.Start(rootCtx)
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 
 	// Close application.
@@ -187,7 +191,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	useForwarder := c.Bool("use-forwarder")
 	ethKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(big.NewInt(chainID))
 	if err != nil {
-		return nil, cli.errorOut(err)
+		return nil, s.errorOut(err)
 	}
 	transmitterID := ethKeys[0].Address.String()
 
@@ -237,7 +241,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		}
 
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, cli.Config)
+		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config)
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err
@@ -265,7 +269,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 		}
 	}
 	if ocr2 == nil {
-		return nil, cli.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
+		return nil, s.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
 	}
 	offChainPublicKey := ocr2.OffchainPublicKey()
 	configPublicKey := ocr2.ConfigEncryptionPublicKey()
@@ -305,6 +309,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 			vrfBeaconAddress:      c.String("vrf-beacon-address"),
 			vrfCoordinatorAddress: c.String("vrf-coordinator-address"),
 			linkEthFeedAddress:    c.String("link-eth-feed-address"),
+			sendingKeys:           sendingKeys,
 		})
 	} else {
 		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
@@ -326,7 +331,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context, owner *bind.TransactO
 	}, nil
 }
 
-func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Master) error {
+func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
 	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
@@ -340,7 +345,21 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 		}
 	}
 
-	if err = keyStore.OCR2().EnsureKeys(); err != nil {
+	var enabledChains []chaintype.ChainType
+	if cli.Config.EVMEnabled() {
+		enabledChains = append(enabledChains, chaintype.EVM)
+	}
+	if cli.Config.CosmosEnabled() {
+		enabledChains = append(enabledChains, chaintype.Cosmos)
+	}
+	if cli.Config.SolanaEnabled() {
+		enabledChains = append(enabledChains, chaintype.Solana)
+	}
+	if cli.Config.StarkNetEnabled() {
+		enabledChains = append(enabledChains, chaintype.StarkNet)
+	}
+
+	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 
@@ -359,7 +378,7 @@ func setupKeystore(cli *Client, app chainlink.Application, keyStore keystore.Mas
 	return nil
 }
 
-func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
+func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(BootstrapTemplate,
 		c.Int64("chainID"),
 		c.String("contractID"),
@@ -424,6 +443,10 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 }
 
 func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+	var sendingKeysString = fmt.Sprintf(`"%s"`, args.sendingKeys[0])
+	for x := 1; x < len(args.sendingKeys); x++ {
+		sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, args.sendingKeys[x])
+	}
 	sp := fmt.Sprintf(OCR2VRFTemplate,
 		args.chainID,
 		args.vrfBeaconAddress,
@@ -432,6 +455,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 		args.useForwarder,
 		fmt.Sprintf(`p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]`, args.p2pv2BootstrapperPeerID, args.p2pv2BootstrapperPort),
 		args.chainID,
+		sendingKeysString,
 		args.encryptionPublicKey,
 		args.signingPublicKey,
 		args.keyID,

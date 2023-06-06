@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // batchFulfillment contains all the information needed in order to
@@ -25,11 +25,12 @@ type batchFulfillment struct {
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
-	maxLinks      []interface{}
+	maxLinks      []*big.Int
 	txHashes      []common.Hash
+	fromAddress   common.Address
 }
 
-func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
+func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address) *batchFulfillment {
 	return &batchFulfillment{
 		proofs: []batch_vrf_coordinator_v2.VRFTypesProof{
 			batch_vrf_coordinator_v2.VRFTypesProof(result.proof),
@@ -47,12 +48,13 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 		lbs: []log.Broadcast{
 			result.req.lb,
 		},
-		maxLinks: []interface{}{
+		maxLinks: []*big.Int{
 			result.maxLink,
 		},
 		txHashes: []common.Hash{
 			result.req.req.Raw.TxHash,
 		},
+		fromAddress: fromAddress,
 	}
 }
 
@@ -75,14 +77,14 @@ func newBatchFulfillments(batchGasLimit uint32) *batchFulfillments {
 
 // addRun adds the given run to an existing batch, or creates a new
 // batch if the batchGasLimit that has been configured was exceeded.
-func (b *batchFulfillments) addRun(result vrfPipelineResult) {
+func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.Address) {
 	if len(b.fulfillments) == 0 {
-		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result))
+		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress))
 	} else {
 		currBatch := b.fulfillments[b.currIndex]
 		if (currBatch.totalGasLimit + result.gasLimit) >= b.batchGasLimit {
 			// don't add to curr batch, add new batch and increment index
-			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result))
+			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress))
 			b.currIndex++
 		} else {
 			// we're okay on gas, add to current batch
@@ -104,6 +106,7 @@ func (lsn *listenerV2) processBatch(
 	startBalanceNoReserveLink *big.Int,
 	maxCallbackGasLimit uint32,
 	batch *batchFulfillment,
+	fromAddress common.Address,
 ) (processedRequestIDs []string) {
 	start := time.Now()
 
@@ -125,13 +128,6 @@ func (lsn *listenerV2) processBatch(
 		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
 
-	fromAddresses := lsn.fromAddresses()
-	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
-	if err != nil {
-		l.Errorw("Couldn't get next from address", "err", err)
-		return
-	}
-
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
 		"batchSumGasLimit", batch.totalGasLimit,
@@ -141,7 +137,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgr.EthTx
+	var ethTX txmgr.EvmTx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -158,11 +154,11 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+		ethTX, err = lsn.txm.CreateTransaction(txmgr.EvmNewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			GasLimit:       totalGasLimitBumped,
+			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
 				RequestIDs:      reqIDHashes,
@@ -178,7 +174,7 @@ func (lsn *listenerV2) processBatch(
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
 		return
 	}
-	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
+	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.GetID())
 
 	// mark requests as processed since the fulfillment has been successfully enqueued
 	// to the txm.

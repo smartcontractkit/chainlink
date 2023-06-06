@@ -1,0 +1,14 @@
+exec chainlink txs solana create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs solana create - Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.
+
+USAGE:
+   chainlink txs solana create [command options] [arguments...]
+
+OPTIONS:
+   --force     allows to send a higher amount than the account's balance
+   --id value  chain ID, options: [mainnet, testnet, devnet, localnet]
+   

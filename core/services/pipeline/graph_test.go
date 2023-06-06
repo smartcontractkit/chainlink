@@ -3,10 +3,11 @@ package pipeline_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestGraph_Decode(t *testing.T) {
@@ -248,4 +249,21 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 	require.True(t, g.HasEdgeFromTo(nodes["a"], nodes["b"]))
 	require.True(t, g.HasEdgeFromTo(nodes["b"], nodes["c"]))
 	require.True(t, g.HasEdgeFromTo(nodes["c"], nodes["d"]))
+}
+
+func TestParse(t *testing.T) {
+	for _, s := range []struct {
+		name     string
+		pipeline string
+	}{
+		{"empty", ""},
+		{"blank", " "},
+		{"foo", "foo"},
+	} {
+		t.Run(s.name, func(t *testing.T) {
+			_, err := pipeline.Parse(s.pipeline)
+			assert.Error(t, err)
+		})
+	}
+
 }

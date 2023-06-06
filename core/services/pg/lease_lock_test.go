@@ -5,34 +5,35 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-func newLeaseLock(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig) pg.LeaseLock {
-	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), cfg)
+func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLock {
+	return pg.NewLeaseLock(db, uuid.New(), logger.TestLogger(t), cfg)
 }
 
 func Test_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "leaselock", func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.Database.Lock.Enabled = &t
-		c.Database.Lock.LeaseDuration = models.MustNewDuration(15 * time.Second)
-		c.Database.Lock.LeaseRefreshInterval = models.MustNewDuration(100 * time.Millisecond)
 	})
 
 	t.Run("on migrated database", func(t *testing.T) {
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
 		err := leaseLock1.TakeAndHold(testutils.Context(t))
@@ -53,7 +54,7 @@ func Test_LeaseLock(t *testing.T) {
 		}()
 
 		// Give it plenty of time to have a few tries at getting the lease
-		time.Sleep(cfg.LeaseLockRefreshInterval() * 5)
+		time.Sleep(cfg.LeaseRefreshInterval * 5)
 
 		leaseLock1.Release()
 
@@ -69,9 +70,14 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		otherAppID := uuid.NewV4()
+		otherAppID := uuid.New()
 
 		// simulate another application holding lease to force it to retry
 		res, err := db.Exec(`UPDATE lease_lock SET client_id=$1,expires_at=NOW()+'1 day'::interval`, otherAppID)
@@ -96,7 +102,7 @@ func Test_LeaseLock(t *testing.T) {
 		}()
 
 		// Give it plenty of time to have a few tries at getting the lease
-		time.Sleep(cfg.LeaseLockRefreshInterval() * 5)
+		time.Sleep(cfg.LeaseRefreshInterval * 5)
 
 		// Release the dummy lease lock to allow the lease locker to take it now
 		_, err = db.Exec(`DELETE FROM lease_lock WHERE client_id=$1`, otherAppID)
@@ -119,6 +125,11 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock := newLeaseLock(t, db, cfg)
 
 		err := leaseLock.TakeAndHold(testutils.Context(t))
@@ -135,7 +146,7 @@ func Test_LeaseLock(t *testing.T) {
 		err = db.Get(&prevExpiresAt, `SELECT expires_at FROM lease_lock`)
 		require.NoError(t, err)
 
-		time.Sleep(cfg.LeaseLockRefreshInterval() + 1*time.Second)
+		time.Sleep(cfg.LeaseRefreshInterval + 1*time.Second)
 
 		var expiresAt time.Time
 
@@ -147,6 +158,11 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("release lock with Release() func", func(t *testing.T) {
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock := newLeaseLock(t, db, cfg)
 
 		err := leaseLock.TakeAndHold(testutils.Context(t))
@@ -161,6 +177,11 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock1 := newLeaseLock(t, db, cfg)
 		leaseLock2 := newLeaseLock(t, db, cfg)
 
@@ -187,7 +208,11 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("on virgin database", func(t *testing.T) {
 		_, db := heavyweight.FullTestDBEmptyV2(t, "leaselock", nil)
-
+		cfg := pg.LeaseLockConfig{
+			DefaultQueryTimeout:  cfg.DatabaseDefaultQueryTimeout(),
+			LeaseDuration:        15 * time.Second,
+			LeaseRefreshInterval: 100 * time.Millisecond,
+		}
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
 		err := leaseLock1.TakeAndHold(testutils.Context(t))

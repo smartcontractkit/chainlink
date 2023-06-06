@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -236,20 +235,6 @@ func (s *sentryLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	})
 	eid := hub.CaptureMessage(msg)
 	s.h.Fatalw(msg, append(keysAndValues, "sentryEventID", eid)...)
-}
-
-func (s *sentryLogger) ErrorIf(err error, msg string) {
-	if err != nil {
-		eid := sentry.CaptureException(err)
-		s.h.Errorw(msg, "err", err, "sentryEventID", eid)
-	}
-}
-
-func (s *sentryLogger) ErrorIfClosing(c io.Closer, name string) {
-	if err := c.Close(); err != nil {
-		eid := sentry.CaptureException(err)
-		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err, "sentryEventID", eid)
-	}
 }
 
 func (s *sentryLogger) Sync() error {

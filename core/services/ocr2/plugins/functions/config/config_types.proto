@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/functions/config";
+
+package config_types;
+
+enum AggregationMethod {
+    AGGREGATION_MODE = 0;
+    AGGREGATION_MEDIAN = 1;
+}
+
+message ReportingPluginConfig {
+    uint32 maxQueryLengthBytes = 1;
+    uint32 maxObservationLengthBytes = 2;
+    uint32 maxReportLengthBytes = 3;
+    uint32 maxRequestBatchSize = 4;
+    AggregationMethod defaultAggregationMethod = 5;
+    bool uniqueReports = 6;
+}

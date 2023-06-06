@@ -1,8 +1,8 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,10 +10,10 @@ import (
 	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // logsFile describes the logs file name
@@ -28,18 +28,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
-	// https://app.shortcut.com/chainlinklabs/story/33622/remove-legacy-config
-	var logColor string
-	if v1, v2 := os.Getenv("LOG_COLOR"), os.Getenv("CL_LOG_COLOR"); v1 != "" && v2 != "" {
-		if v1 != v2 {
-			panic("you may only set one of LOG_COLOR and CL_LOG_COLOR environment variables, not both")
-		}
-	} else if v1 == "" {
-		logColor = v2
-	} else if v2 == "" {
-		logColor = v1
-	}
-	if logColor != "true" {
+	if os.Getenv("CL_LOG_COLOR") != "true" {
 		InitColor(false)
 	}
 }
@@ -108,14 +97,6 @@ type Logger interface {
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 
-	// ErrorIf logs the error if present.
-	// Deprecated: use SugaredLogger.ErrorIf
-	ErrorIf(err error, msg string)
-
-	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
-	// Deprecated: use SugaredLogger.ErrorIfFn with c.Close
-	ErrorIfClosing(c io.Closer, name string)
-
 	// Sync flushes any buffered log entries.
 	// Some insignificant errors are suppressed.
 	Sync() error
@@ -149,78 +130,11 @@ func verShaNameStatic() string {
 	return fmt.Sprintf("%s@%s", ver, sha)
 }
 
-// NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
+// NewLogger returns a new Logger with default configuration.
 // Tests should use TestLogger.
-// Deprecated: This depends on legacy environment variables.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	var parseErrs []string
-	var warnings []string
-
-	var invalid string
-	c.LogLevel, invalid = envvar.LogLevel.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-	c.Dir = os.Getenv("LOG_FILE_DIR")
-	if c.Dir == "" {
-		var invalid2 string
-		c.Dir, invalid2 = envvar.RootDir.Parse()
-		if invalid2 != "" {
-			parseErrs = append(parseErrs, invalid2)
-		}
-	}
-
-	c.JsonConsole, invalid = envvar.JSONConsole.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-
-	var fileMaxSize utils.FileSize
-	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-	if fileMaxSize <= 0 {
-		c.FileMaxSizeMB = 0 // disabled
-	} else if fileMaxSize < utils.MB {
-		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
-		warnings = append(warnings, fmt.Sprintf("LogFileMaxSize %s is too small: using default %s", fileMaxSize, utils.FileSize(utils.MB)))
-	} else {
-		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
-	}
-
-	if c.DebugLogsToDisk() {
-		var (
-			fileMaxAge int64
-			maxBackups int64
-		)
-
-		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
-		c.FileMaxAgeDays = int(fileMaxAge)
-		if invalid != "" {
-			parseErrs = append(parseErrs, invalid)
-		}
-
-		maxBackups, invalid = envvar.LogFileMaxBackups.Parse()
-		c.FileMaxBackups = int(maxBackups)
-		if invalid != "" {
-			parseErrs = append(parseErrs, invalid)
-		}
-	}
-
-	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
-	if invalid != "" {
-		parseErrs = append(parseErrs, invalid)
-	}
-
 	l, closeLogger := c.New()
-	for _, msg := range parseErrs {
-		l.Error(msg)
-	}
-	for _, msg := range warnings {
-		l.Warn(msg)
-	}
 	return l.With("version", verShaNameStatic()), closeLogger
 }
 
@@ -232,18 +146,35 @@ type Config struct {
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
 	FileMaxBackups int // files
+
+	diskSpaceAvailableFn diskSpaceAvailableFn
+	diskPollConfig       zapDiskPollConfig
+	// This is for tests only
+	testDiskLogLvlChan chan zapcore.Level
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
+	}
+	if !c.diskPollConfig.isSet() {
+		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
+	}
+
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, closeLogger, err := zapDiskLoggerConfig{
-		local:          *c,
-		diskStats:      utils.NewDiskStatsProvider(),
-		diskPollConfig: newDiskPollConfig(diskPollInterval),
-	}.newLogger(cfg)
+	var (
+		l           Logger
+		closeLogger func() error
+		err         error
+	)
+	if !c.DebugLogsToDisk() {
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+	} else {
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -262,6 +193,14 @@ func (c Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
 }
 
+func (c *Config) DiskSpaceAvailable(path string) (utils.FileSize, error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
+	}
+
+	return c.diskSpaceAvailableFn(path)
+}
+
 func (c Config) LogsFile() string {
 	return filepath.Join(c.Dir, logsFile)
 }
@@ -278,4 +217,74 @@ func newZapConfigBase() zap.Config {
 	cfg.Sampling = nil
 	cfg.EncoderConfig.EncodeLevel = encodeLevel
 	return cfg
+}
+
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
+	if err != nil {
+		coreCloseFn()
+		return nil, nil, err
+	}
+
+	return l, func() error {
+		coreCloseFn()
+		loggerCloseFn()
+		return nil
+	}, nil
+}
+
+func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), error) {
+	errSink, closeFn, err := zap.Open(zcfg.ErrorOutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &zapLogger{
+		level:         zcfg.Level,
+		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
+	}, closeFn, nil
+}
+
+func newDefaultLoggingCore(zcfg zap.Config, unixTS bool) (zapcore.Core, func(), error) {
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(unixTS))
+
+	sink, closeOut, err := zap.Open(zcfg.OutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if zcfg.Level == (zap.AtomicLevel{}) {
+		return nil, nil, errors.New("missing Level")
+	}
+
+	filteredLogLevels := zap.LevelEnablerFunc(zcfg.Level.Enabled)
+
+	core := zapcore.NewCore(encoder, sink, filteredLogLevels)
+	return core, closeOut, nil
+}
+
+func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, error) {
+	diskUsage, err := local.DiskSpaceAvailable(local.Dir)
+	if err != nil || diskUsage < local.RequiredDiskSpace() {
+		diskLogLevel.SetLevel(disabledLevel)
+	}
+
+	var (
+		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(local.UnixTS))
+		sink    = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   local.logFileURI(),
+			MaxSize:    local.FileMaxSizeMB,
+			MaxAge:     local.FileMaxAgeDays,
+			MaxBackups: local.FileMaxBackups,
+			Compress:   true,
+		})
+		allLogLevels = zap.LevelEnablerFunc(diskLogLevel.Enabled)
+	)
+
+	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }

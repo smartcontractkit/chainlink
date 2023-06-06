@@ -1,17 +1,10 @@
 package presenters
 
-import (
-	"time"
-
-	"gopkg.in/guregu/null.v4"
-
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
-)
+import "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
-	chainResource[*evmtypes.ChainCfg]
+	ChainResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -20,26 +13,17 @@ func (r EVMChainResource) GetName() string {
 }
 
 // NewEVMChainResource returns a new EVMChainResource for chain.
-func NewEVMChainResource(chain evmtypes.DBChain) EVMChainResource {
-	return EVMChainResource{chainResource[*evmtypes.ChainCfg]{
-		JAID:      NewJAIDInt64(chain.ID.ToInt().Int64()),
-		Config:    chain.Cfg,
-		Enabled:   chain.Enabled,
-		CreatedAt: chain.CreatedAt,
-		UpdatedAt: chain.UpdatedAt,
+func NewEVMChainResource(chain types.ChainStatus) EVMChainResource {
+	return EVMChainResource{ChainResource{
+		JAID:    NewJAID(chain.ID),
+		Config:  chain.Config,
+		Enabled: chain.Enabled,
 	}}
 }
 
 // EVMNodeResource is an EVM node JSONAPI resource.
 type EVMNodeResource struct {
-	JAID
-	Name       string      `json:"name"`
-	EVMChainID utils.Big   `json:"evmChainID"`
-	WSURL      null.String `json:"wsURL"`
-	HTTPURL    null.String `json:"httpURL"`
-	State      string      `json:"state"`
-	CreatedAt  time.Time   `json:"createdAt"`
-	UpdatedAt  time.Time   `json:"updatedAt"`
+	NodeResource
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -48,15 +32,12 @@ func (r EVMNodeResource) GetName() string {
 }
 
 // NewEVMNodeResource returns a new EVMNodeResource for node.
-func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
-	return EVMNodeResource{
-		JAID:       NewJAIDInt32(node.ID),
-		Name:       node.Name,
-		EVMChainID: node.EVMChainID,
-		WSURL:      node.WSURL,
-		HTTPURL:    node.HTTPURL,
-		State:      node.State,
-		CreatedAt:  node.CreatedAt,
-		UpdatedAt:  node.UpdatedAt,
-	}
+func NewEVMNodeResource(node types.NodeStatus) EVMNodeResource {
+	return EVMNodeResource{NodeResource{
+		JAID:    NewJAID(node.Name),
+		ChainID: node.ChainID,
+		Name:    node.Name,
+		State:   node.State,
+		Config:  node.Config,
+	}}
 }

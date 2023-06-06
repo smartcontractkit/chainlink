@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {

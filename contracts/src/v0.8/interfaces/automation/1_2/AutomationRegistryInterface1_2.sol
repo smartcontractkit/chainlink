@@ -69,7 +69,9 @@ interface AutomationRegistryBaseInterface {
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
 
-  function getUpkeep(uint256 id)
+  function getUpkeep(
+    uint256 id
+  )
     external
     view
     returns (
@@ -85,23 +87,9 @@ interface AutomationRegistryBaseInterface {
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
-  function getKeeperInfo(address query)
-    external
-    view
-    returns (
-      address payee,
-      bool active,
-      uint96 balance
-    );
+  function getKeeperInfo(address query) external view returns (address payee, bool active, uint96 balance);
 
-  function getState()
-    external
-    view
-    returns (
-      State memory,
-      Config memory,
-      address[] memory
-    );
+  function getState() external view returns (State memory, Config memory, address[] memory);
 }
 
 /**
@@ -110,20 +98,20 @@ interface AutomationRegistryBaseInterface {
  * if we actually inherit from this interface, so we document it here.
  */
 interface AutomationRegistryInterface is AutomationRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(
+    uint256 upkeepId,
+    address from
+  )
     external
     view
-    returns (
-      bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      int256 gasWei,
-      int256 linkEth
-    );
+    returns (bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, int256 gasWei, int256 linkEth);
 }
 
 interface AutomationRegistryExecutableInterface is AutomationRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(
+    uint256 upkeepId,
+    address from
+  )
     external
     returns (
       bytes memory performData,

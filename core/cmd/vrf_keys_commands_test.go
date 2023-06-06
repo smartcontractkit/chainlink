@@ -8,14 +8,14 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func TestVRFKeyPresenter_RenderTable(t *testing.T) {
@@ -144,7 +144,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ExportVRFKey, set, "")
 
 	require.NoError(t, set.Parse([]string{k1.Compressed})) // Arguments
-	require.NoError(t, set.Set("newpassword", "../internal/fixtures/correct_password.txt"))
+	require.NoError(t, set.Set("new-password", "../internal/fixtures/correct_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
 	c := cli.NewContext(nil, set, nil)
@@ -160,7 +160,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.ImportVRFKey, importSet, "")
 
 	require.NoError(t, importSet.Parse([]string{keyName}))
-	require.NoError(t, importSet.Set("oldpassword", "../internal/fixtures/correct_password.txt"))
+	require.NoError(t, importSet.Set("old-password", "../internal/fixtures/correct_password.txt"))
 
 	importCli := cli.NewContext(nil, importSet, nil)
 	require.Error(t, client.ImportVRFKey(importCli))

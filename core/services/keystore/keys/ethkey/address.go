@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // EIP55Address is a new type for string which persists an ethereum address in
@@ -23,7 +23,6 @@ type EIP55Address string
 // 2) The length is wrong
 // 3) There are any non hexadecimal characters
 // 4) The checksum fails
-//
 func NewEIP55Address(s string) (EIP55Address, error) {
 	address := common.HexToAddress(s)
 	if s != address.Hex() {
