@@ -175,8 +175,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -216,8 +216,8 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -273,15 +273,15 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = models.MustNewDuration(30 * time.Second)
 	})
-	queryer := pg.NewQ(db, logger.TestLogger(t), cfg)
+	queryer := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -440,8 +440,8 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -617,8 +617,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -687,8 +687,8 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -740,8 +740,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+			orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -797,8 +797,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -836,8 +836,8 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -868,7 +868,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
@@ -928,8 +928,8 @@ func TestBridgeTask_Headers(t *testing.T) {
 	bridgeURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeURL.String()}, cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeURL.String()}, cfg.Database())
 
 	allHeaders := func(headers http.Header) (s []string) {
 		var keys []string

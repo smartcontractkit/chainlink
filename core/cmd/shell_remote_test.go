@@ -572,8 +572,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
@@ -730,7 +730,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
+	assert.Equal(t, sqlEnabled, app.Config.Database().LogSQL())
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
@@ -741,5 +741,5 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
+	assert.Equal(t, sqlEnabled, app.Config.Database().LogSQL())
 }

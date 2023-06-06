@@ -31,7 +31,7 @@ func TestChainSet(t *testing.T) {
 		c.EVM = append(c.EVM, &v2.EVMConfig{ChainID: utils.NewBig(newId), Enabled: &t, Chain: v2.Defaults(nil)})
 	})
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	opts := evmtest.NewChainSetOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
