@@ -93,7 +93,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -116,7 +116,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr,
+		lggr:     lggr.Named("EvmRegistry"),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
@@ -249,7 +249,6 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys
 		for i := range rs.ur {
 			result[i] = rs.ur[i]
 		}
-
 		return result, rs.err
 	case <-ctx.Done():
 		// safety on context done to provide an error on context cancellation
@@ -299,7 +298,6 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		{
 			go func(cx context.Context, lggr logger.Logger, f func() error) {
 				ticker := time.NewTicker(time.Second)
-
 				for {
 					select {
 					case <-ticker.C:
@@ -467,7 +465,6 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
-
 	hash := l.TxHash.String()
 	if _, ok := r.txHashes[hash]; ok {
 		return nil
@@ -479,6 +476,8 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	if err != nil {
 		return err
 	}
+
+	r.lggr.Debugf("abi upkeep state log: %+v", abilog)
 
 	switch l := abilog.(type) {
 	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPaused:
@@ -502,6 +501,8 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
+	default:
+		r.lggr.Debugf("Unknown log detected for log %+v in transaction %s", l, hash)
 	}
 
 	return nil
@@ -871,7 +872,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) {
 			r.lggr.Warnw("failed to register log filter", "upkeepID", uid)
 			return // TODO: handle?
 		}
-		r.lggr.Debugw("registered log filter", "upkeepID", uid)
+		r.lggr.Debugw("registered log filter", "upkeepID", uid, "cfg", parsed)
 	default:
 	}
 }
