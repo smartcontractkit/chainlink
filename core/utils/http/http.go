@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type httpClientConfig interface {
-	DatabaseURL() url.URL
+	URL() url.URL // DatabaseURL
 }
 
 // NewRestrictedHTTPClient returns a secure HTTP Client (queries to certain

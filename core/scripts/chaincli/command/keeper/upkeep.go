@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command

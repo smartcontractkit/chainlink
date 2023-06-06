@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -e
+
+SOLC_VERSION="0.8.6"
+# Optionally set optimize runs from arguments (default = 1000000)
+OPTIMIZE_RUNS="${2:-1000000}" 
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+ROOT="$(
+    cd "$(dirname "$0")" >/dev/null 2>&1
+    cd ../../ && pwd -P
+)"
+
+compileContract () {
+  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION \
+      --abi --bin \
+      --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/functions,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts-upgradeable@4.8.1/node_modules/@openzeppelin/contracts-upgradeable \
+      $ROOT/contracts/src/v0.8/$1
+}
+
+compileContract functions/dev/0_0_0/Functions.sol
+compileContract functions/dev/0_0_0/FunctionsBillingRegistry.sol
+compileContract functions/dev/0_0_0/FunctionsClient.sol
+compileContract functions/dev/0_0_0/FunctionsOracle.sol
+compileContract functions/dev/0_0_0/example/FunctionsClientExample.sol
+
+# Test helpers
+compileContract functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol
+compileContract functions/tests/testhelpers/FunctionsOracleWithInit.sol

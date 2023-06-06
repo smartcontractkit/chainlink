@@ -6,7 +6,12 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -142,6 +147,13 @@ var optimism = ClientErrors{
 	L2FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
+var celo = ClientErrors{
+	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
+	InsufficientEth:       regexp.MustCompile(`(: |^)insufficient funds for gas \* price \+ value \+ gatewayFee$`),
+	LimitReached:          regexp.MustCompile(`(: |^)txpool is full`),
+}
+
 var metis = ClientErrors{
 	L2FeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
 }
@@ -202,7 +214,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -219,8 +231,6 @@ func (s *SendError) is(errorType int) bool {
 	}
 	return false
 }
-
-var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
@@ -392,4 +402,73 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
+}
+
+func NewSendErrorReturnCode(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (clienttypes.SendTxReturnCode, error) {
+	sendError := NewSendError(err)
+	if sendError == nil {
+		return clienttypes.Successful, err
+	}
+	if sendError.Fatal() {
+		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return clienttypes.Fatal, err
+	}
+	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
+		// Nonce too low indicated that a transaction at this nonce was confirmed already.
+		// Mark it as TransactionAlreadyKnown.
+		return clienttypes.TransactionAlreadyKnown, err
+	}
+	if sendError.IsReplacementUnderpriced() {
+		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
+			"Eth node returned error: '%s'. "+
+			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
+			tx.Hash(), err), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap)
+
+		// Assume success and hand off to the next cycle.
+		return clienttypes.Successful, err
+	}
+	if sendError.IsTransactionAlreadyInMempool() {
+		lggr.Debugw("Transaction already in mempool", "txHash", tx.Hash, "nodeErr", sendError.Error())
+		return clienttypes.Successful, err
+	}
+	if sendError.IsTemporarilyUnderpriced() {
+		lggr.Infow("Transaction temporarily underpriced", "err", sendError.Error())
+		return clienttypes.Successful, err
+	}
+	if sendError.IsTerminallyUnderpriced() {
+		return clienttypes.Underpriced, err
+	}
+	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
+		if isL2 {
+			return clienttypes.FeeOutOfValidRange, err
+		}
+		return clienttypes.Unsupported, errors.Wrap(sendError, "this error type only handled for L2s")
+	}
+	if sendError.IsNonceTooHighError() {
+		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
+		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
+		// reached the client yet. The correct thing to do is to mark it as retryable.
+		lggr.Warnw("Transaction has a nonce gap.", "err", err)
+		return clienttypes.Retryable, err
+	}
+	if sendError.IsInsufficientEth() {
+		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
+			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
+			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
+		), "err", sendError)
+		return clienttypes.InsufficientFunds, err
+	}
+	if sendError.IsTimeout() {
+		return clienttypes.Retryable, errors.Wrapf(sendError, "timeout while sending transaction %s", tx.Hash().Hex())
+	}
+	if sendError.IsTxFeeExceedsCap() {
+		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+			"etx", tx,
+			"err", sendError,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		return clienttypes.ExceedsMaxFee, err
+	}
+	return clienttypes.Unknown, err
 }

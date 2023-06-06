@@ -8,14 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type MockedHTTPEvent struct {
@@ -56,15 +57,15 @@ func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 type Config struct{}
 
-func (c Config) AuditLoggerEnabled() bool {
+func (c Config) Enabled() bool {
 	return true
 }
 
-func (c Config) AuditLoggerEnvironment() string {
+func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
+func (c Config) ForwardToUrl() (models.URL, error) {
 	url, err := models.ParseURL("http://localhost:9898")
 	if err != nil {
 		return models.URL{}, err
@@ -72,11 +73,11 @@ func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
 	return *url, nil
 }
 
-func (c Config) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
+func (c Config) Headers() (audit.ServiceHeaders, error) {
 	return make(audit.ServiceHeaders, 0), nil
 }
 
-func (c Config) AuditLoggerJsonWrapperKey() string {
+func (c Config) JsonWrapperKey() string {
 	return ""
 }
 
@@ -98,7 +99,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger, &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
 	assert.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals

@@ -10,15 +10,5 @@ INSERT INTO users (email, hashed_password, token_hashed_secret, role, created_at
 
 INSERT INTO evm_chains (id, created_at, updated_at) VALUES (0, NOW(), NOW());
 
-INSERT INTO evm_nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES (
-    'eth-test-ws-only-0',
-    0,
-    'ws://example.invalid',
-    null,
-    false,
-    NOW(),
-    NOW()
-);
-
 -- This disabled chain is inserted to avoid foreign key errors for simulated blockchain tests using chain ID 1337
 INSERT INTO evm_chains (id, created_at, updated_at, enabled) VALUES (1337, NOW(), NOW(), false);

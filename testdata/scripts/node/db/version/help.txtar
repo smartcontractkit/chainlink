@@ -1,0 +1,10 @@
+exec chainlink node db version --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db version - Display the current database version.
+
+USAGE:
+   chainlink node db version [arguments...]

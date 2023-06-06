@@ -19,16 +19,16 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -71,7 +71,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          chan struct{}
+		chStop          utils.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -334,7 +334,7 @@ func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.Co
 // LatestConfigDetails queries the eth node
 func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	opts := bind.CallOpts{Context: ctx, Pending: false}
@@ -362,7 +362,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	logs, err := t.ethClient.FilterLogs(ctx, q)
@@ -403,7 +403,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	t.logger.Debugw("still waiting for first head, falling back to on-chain lookup")
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	h, err := t.ethClient.HeadByNumber(ctx, nil)
@@ -434,7 +434,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 // RoundRequested event has been emitted after the latest NewTransmission event.
 func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
 	// NOTE: This should be "good enough" 99% of the time.
-	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
+	// It guarantees validity up to `EVM.BlockBackfillDepth` blocks ago
 	// Some further improvements could be made:
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()

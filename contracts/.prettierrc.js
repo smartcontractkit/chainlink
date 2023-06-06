@@ -9,6 +9,7 @@ module.exports = {
     {
       files: '*.sol',
       options: {
+        parser: 'solidity-parse',
         printWidth: 120,
         tabWidth: 2,
         useTabs: false,

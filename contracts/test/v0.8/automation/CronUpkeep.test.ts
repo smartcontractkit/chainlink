@@ -17,7 +17,6 @@ const { utils } = ethers
 const { AddressZero } = ethers.constants
 
 const OWNABLE_ERR = 'Only callable by owner'
-const CALL_FAILED_ERR = 'CallFailed'
 const CRON_NOT_FOUND_ERR = 'CronJobIDNotFound'
 
 let cron: CronUpkeepTestHelper
@@ -99,7 +98,7 @@ describe('CronUpkeep', () => {
     ) // the typechain factory that creates the cron factory contract
     cronFactoryContract = await cronFactoryContractFactory.deploy()
     const fs = cronReceiver1.interface.functions
-    handler1Sig = utils.id(fs['handler1()'].format('sighash')).slice(0, 10) // TODO this seems like an ethers bug
+    handler1Sig = utils.id(fs['handler1()'].format('sighash')).slice(0, 10)
     handler2Sig = utils.id(fs['handler2()'].format('sighash')).slice(0, 10)
     revertHandlerSig = utils
       .id(fs['revertHandler()'].format('sighash'))
@@ -265,13 +264,12 @@ describe('CronUpkeep', () => {
           .connect(AddressZero)
           .callStatic.checkUpkeep('0x')
         assert.isTrue(needsUpkeep)
-        await expect(cron.performUpkeep(payload)).to.emit(
-          cron,
-          'CronJobExecuted',
-        )
+        await expect(cron.performUpkeep(payload))
+          .to.emit(cron, 'CronJobExecuted')
+          .withArgs(2, true)
       })
 
-      it('reverts if the call to the target fails', async () => {
+      it('succeeds even if the call to the target fails', async () => {
         await cron.deleteCronJob(2)
         await h.fastForward(moment.duration(21, 'minutes').asSeconds())
         const payload = encodePayload([
@@ -280,9 +278,9 @@ describe('CronUpkeep', () => {
           cronReceiver2.address,
           revertHandlerSig,
         ])
-        await expect(cron.performUpkeep(payload)).to.be.revertedWith(
-          CALL_FAILED_ERR,
-        )
+        await expect(cron.performUpkeep(payload))
+          .to.emit(cron, 'CronJobExecuted')
+          .withArgs(4, false)
       })
 
       it('is only callable by anyone', async () => {

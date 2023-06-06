@@ -22,32 +22,24 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	simplelogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/config/parse"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-type ConfigV2 interface {
-	// ConfigTOML returns both the user provided and effective configuration as TOML.
-	ConfigTOML() (user, effective string)
-}
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	lggr simplelogger.Logger
-
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 	secretsTOML   string // with env overdies includes, redacted
@@ -59,9 +51,6 @@ type generalConfig struct {
 
 	appIDOnce sync.Once
 
-	randomP2PPort     uint16
-	randomP2PPortOnce sync.Once
-
 	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
 
 	passwordMu sync.RWMutex // passwords are set after initialization
@@ -71,6 +60,9 @@ type generalConfig struct {
 //
 // See ParseTOML to initilialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
+	ConfigStrings []string
+	SecretsString string
+
 	Config
 	Secrets
 
@@ -80,68 +72,44 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
-// ParseTOML sets Config and Secrets from the given TOML strings.
-func (o *GeneralConfigOpts) ParseTOML(config, secrets string) (err error) {
-	return multierr.Combine(o.ParseConfig(config), o.ParseSecrets(secrets))
-}
-
-// ParseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
-func (o *GeneralConfigOpts) ParseConfig(config string) error {
+// parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
 	if err2 := v2.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
-	o.Config.SetFrom(&c)
+
+	// Overrides duplicate fields
+	if err4 := o.Config.SetFrom(&c); err4 != nil {
+		return fmt.Errorf("invalid configuration: %w", err4)
+	}
 	return nil
 }
 
-// ParseSecrets sets Secrets from the given TOML string.
-func (o *GeneralConfigOpts) ParseSecrets(secrets string) (err error) {
-	if err2 := v2.DecodeTOML(strings.NewReader(secrets), &o.Secrets); err2 != nil {
+// parseSecrets sets Secrets from the given TOML string.
+func (o *GeneralConfigOpts) parseSecrets() (err error) {
+	if err2 := v2.DecodeTOML(strings.NewReader(o.SecretsString), &o.Secrets); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
 	return nil
 }
 
 // New returns a coreconfig.GeneralConfig for the given options.
-func (o GeneralConfigOpts) New(lggr logger.Logger) (coreconfig.GeneralConfig, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, err
-	}
-	cfg.lggr = lggr
-	return cfg, nil
-}
-
-// NewAndLogger returns a coreconfig.GeneralConfig for the given options, and a logger.Logger (with close func).
-func (o GeneralConfigOpts) NewAndLogger() (coreconfig.GeneralConfig, logger.Logger, func() error, error) {
-	cfg, err := o.init()
-	if err != nil {
-		return nil, nil, nil, err
+func (o GeneralConfigOpts) New() (GeneralConfig, error) {
+	for _, c := range o.ConfigStrings {
+		err := o.parseConfig(c)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// placeholder so we can call config methods to bootstrap the real logger
-	cfg.lggr, err = simplelogger.New()
-	if err != nil {
-		return nil, nil, nil, err
+	if o.SecretsString != "" {
+		err := o.parseSecrets()
+		if err != nil {
+			return nil, err
+		}
 	}
-	lggrCfg := logger.Config{
-		LogLevel:       cfg.LogLevel(),
-		Dir:            cfg.LogFileDir(),
-		JsonConsole:    cfg.JSONConsole(),
-		UnixTS:         cfg.LogUnixTimestamps(),
-		FileMaxSizeMB:  int(cfg.LogFileMaxSize() / utils.MB),
-		FileMaxAgeDays: int(cfg.LogFileMaxAge()),
-		FileMaxBackups: int(cfg.LogFileMaxBackups()),
-	}
-	lggr, closeLggr := lggrCfg.New()
 
-	cfg.lggr = lggr
-	return cfg, lggr, closeLggr, nil
-}
-
-// new returns a new generalConfig, but with a nil lggr.
-func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	input, err := o.Config.TOMLString()
 	if err != nil {
 		return nil, err
@@ -149,8 +117,6 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		o.Config.DevMode = v2.EnvDev.IsTrue()
-
 		err = o.Secrets.setEnv()
 		if err != nil {
 			return nil, err
@@ -172,15 +138,14 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 	}
 
 	cfg := &generalConfig{
-		inputTOML: input, effectiveTOML: effective, secretsTOML: secrets,
-		c: &o.Config, secrets: &o.Secrets,
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
 	}
 	if lvl := o.Config.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
-	}
-
-	if err2 := utils.EnsureDirAndMaxPerms(cfg.RootDir(), os.FileMode(0700)); err2 != nil {
-		return nil, fmt.Errorf(`failed to create root directory %q: %w`, cfg.RootDir(), err2)
 	}
 
 	return cfg, nil
@@ -188,6 +153,10 @@ func (o *GeneralConfigOpts) init() (*generalConfig, error) {
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
+}
+
+func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
+	return g.c.Cosmos
 }
 
 func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
@@ -199,31 +168,26 @@ func (g *generalConfig) StarknetConfigs() starknet.StarknetConfigs {
 }
 
 func (g *generalConfig) Validate() error {
-	_, err := utils.MultiErrorList(multierr.Combine(
+	return g.validate(g.secrets.Validate)
+}
+
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
+	err := multierr.Combine(
 		validateEnv(),
 		g.c.Validate(),
-		g.secrets.Validate()))
-	return err
+		secretsValidationFn(),
+	)
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
 }
 
-//go:embed cfgtest/dump/empty-strings.env
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(g.secrets.ValidateDB)
+}
+
+//go:embed legacy.env
 var emptyStringsEnv string
-
-var legacyEnvToV2 = map[string]string{
-	"CHAINLINK_DEV": "CL_DEV",
-
-	"DATABASE_URL":                            "CL_DATABASE_URL",
-	"DATABASE_BACKUP_URL":                     "CL_DATABASE_BACKUP_URL",
-	"SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK": "CL_DATABASE_ALLOW_SIMPLE_PASSWORDS",
-
-	"EXPLORER_ACCESS_KEY": "CL_EXPLORER_ACCESS_KEY",
-	"EXPLORER_SECRET":     "CL_EXPLORER_SECRET",
-
-	"PYROSCOPE_AUTH_TOKEN": "CL_PYROSCOPE_AUTH_TOKEN",
-
-	"LOG_COLOR":          "CL_LOG_COLOR",
-	"LOG_SQL_MIGRATIONS": "CL_LOG_SQL_MIGRATIONS",
-}
 
 // validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
 func validateEnv() (err error) {
@@ -242,36 +206,23 @@ func validateEnv() (err error) {
 			return errors.Errorf("malformed .env file line: %s", kv)
 		}
 		k := kv[:i]
-		if k == "LOG_LEVEL" {
-			continue // exceptional case of permitting legacy env w/o equivalent v2
-		}
-		v, ok := os.LookupEnv(k)
+		_, ok := os.LookupEnv(k)
 		if ok {
-			if k2, ok2 := legacyEnvToV2[k]; ok2 {
-				if v2 := os.Getenv(k2); v != v2 {
-					err = multierr.Append(err, fmt.Errorf("environment variables %s and %s must be equal, or %s must not be set", k, k2, k2))
-				}
-			} else {
-				err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
-			}
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
 		}
 	}
 	return
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Secrets:\n", g.secretsTOML)
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
 }
 
 // ConfigTOML implements chainlink.ConfigV2
 func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
-}
-
-func (g *generalConfig) Dev() bool {
-	return g.c.DevMode
 }
 
 func (g *generalConfig) FeatureExternalInitiators() bool {
@@ -386,6 +337,15 @@ func (g *generalConfig) SolanaEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) CosmosEnabled() bool {
+	for _, c := range g.c.Cosmos {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *generalConfig) StarkNetEnabled() bool {
 	for _, c := range g.c.Starknet {
 		if c.IsEnabled() {
@@ -412,7 +372,7 @@ func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
 }
 
 func (g *generalConfig) AuditLoggerEnvironment() string {
-	if g.Dev() {
+	if !build.IsProd() {
 		return "develop"
 	}
 	return "production"
@@ -478,10 +438,6 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) BlockBackfillDepth() uint64 { panic(v2.ErrUnsupported) }
-
-func (g *generalConfig) BlockBackfillSkip() bool { panic(v2.ErrUnsupported) }
-
 func (g *generalConfig) BridgeResponseURL() *url.URL {
 	if g.c.WebServer.BridgeResponseURL.IsZero() {
 		return nil
@@ -501,44 +457,8 @@ func (g *generalConfig) CertFile() string {
 	return s
 }
 
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
-}
-
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.MaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.MaxOpenConns)
-}
-
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
+func (g *generalConfig) Database() coreconfig.Database {
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
 }
 
 func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
@@ -549,11 +469,11 @@ func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
 	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (g *generalConfig) DefaultHTTPLimit() int64 {
+func (g *generalConfig) WebDefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
+func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
 	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
@@ -577,10 +497,6 @@ func (g *generalConfig) FMSimulateTransactions() bool {
 	return *g.c.FluxMonitor.SimulateTransactions
 }
 
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	return g.c.Database.Dialect
-}
-
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
 	return g.c.WebServer.HTTPWriteTimeout.Duration()
 }
@@ -593,68 +509,20 @@ func (g *generalConfig) JSONConsole() bool {
 	return *g.c.Log.JSONConsole
 }
 
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
-func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	return *g.c.JobPipeline.MaxSuccessfulRuns
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
-}
-
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
 }
 
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
 }
 
-func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return *g.c.Keeper.DefaultTransactionQueueDepth
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
-	return *g.c.Keeper.GasPriceBufferPercent
-}
-
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
-	return *g.c.Keeper.GasTipCapBufferPercent
-}
-
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
-	return *g.c.Keeper.BaseFeeBufferPercent
-}
-
-func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaxGracePeriod
-}
-
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.CheckGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.PerformGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.Registry.MaxPerformDataSize
-}
-
-func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.Registry.SyncInterval.Duration()
-}
-
-func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
-}
-
-func (g *generalConfig) KeeperTurnLookBack() int64 {
-	return *g.c.Keeper.TurnLookBack
+func (g *generalConfig) Keeper() config.Keeper {
+	return &keeperConfig{c: g.c.Keeper}
 }
 
 func (g *generalConfig) KeyFile() string {
@@ -662,16 +530,6 @@ func (g *generalConfig) KeyFile() string {
 		return filepath.Join(g.TLSDir(), "server.key")
 	}
 	return g.TLSKeyPath()
-}
-
-func (g *generalConfig) DatabaseLockingMode() string { return g.c.Database.LockingMode() }
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
 }
 
 func (g *generalConfig) LogFileDir() string {
@@ -738,6 +596,10 @@ func (g *generalConfig) OCRTraceLogging() bool {
 	return *g.c.P2P.TraceLogging
 }
 
+func (g *generalConfig) OCRCaptureEATelemetry() bool {
+	return *g.c.OCR.CaptureEATelemetry
+}
+
 func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return *g.c.OCR.DefaultTransactionQueueDepth
 }
@@ -776,6 +638,18 @@ func (g *generalConfig) OCR2KeyBundleID() (string, error) {
 
 func (g *generalConfig) OCR2TraceLogging() bool {
 	return *g.c.P2P.TraceLogging
+}
+
+func (g *generalConfig) OCR2CaptureEATelemetry() bool {
+	return *g.c.OCR2.CaptureEATelemetry
+}
+
+func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
+	return *g.c.OCR2.DefaultTransactionQueueDepth
+}
+
+func (g *generalConfig) OCR2SimulateTransactions() bool {
+	return *g.c.OCR2.SimulateTransactions
 }
 
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
@@ -829,22 +703,6 @@ func (g *generalConfig) P2PListenIP() net.IP {
 func (g *generalConfig) P2PListenPort() uint16 {
 	v1 := g.c.P2P.V1
 	p := *v1.ListenPort
-	if p == 0 && *v1.Enabled {
-		g.randomP2PPortOnce.Do(func() {
-			addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-			if err != nil {
-				panic(fmt.Errorf("unexpected ResolveTCPAddr error generating random P2PListenPort: %w", err))
-			}
-			l, err := net.ListenTCP("tcp", addr)
-			if err != nil {
-				panic(fmt.Errorf("unexpected ListenTCP error generating random P2PListenPort: %w", err))
-			}
-			defer l.Close()
-			g.randomP2PPort = uint16(l.Addr().(*net.TCPAddr).Port)
-			g.lggr.Warnw(fmt.Sprintf("P2PListenPort was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2PListenPort to a fixed value in your environment", g.randomP2PPort), "p2pPort", g.randomP2PPort)
-		})
-		return g.randomP2PPort
-	}
 	return p
 }
 
@@ -949,8 +807,7 @@ func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
 	h, err := parse.HomeDir(d)
 	if err != nil {
-		g.lggr.Error("Failed to expand RootDir. You may need to set an explicit path", "err", err)
-		return d
+		panic(err) // never happens since we validate that the RootDir is expandable in config.Core.ValidateConfig().
 	}
 	return h
 }
@@ -970,22 +827,6 @@ func (g *generalConfig) SessionOptions() sessions.Options {
 
 func (g *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) SentryDSN() string {
-	return *g.c.Sentry.DSN
-}
-
-func (g *generalConfig) SentryDebug() bool {
-	return *g.c.Sentry.Debug
-}
-
-func (g *generalConfig) SentryEnvironment() string {
-	return *g.c.Sentry.Environment
-}
-
-func (g *generalConfig) SentryRelease() string {
-	return *g.c.Sentry.Release
 }
 
 func (g *generalConfig) TLSCertPath() string {
@@ -1010,6 +851,12 @@ func (g *generalConfig) TLSPort() uint16 {
 
 func (g *generalConfig) TLSRedirect() bool {
 	return *g.c.WebServer.TLS.ForceRedirect
+}
+
+func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
+	return &telemetryIngressConfig{
+		c: g.c.TelemetryIngress,
+	}
 }
 
 func (g *generalConfig) TelemetryIngressLogging() bool {
@@ -1051,16 +898,42 @@ func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return *g.c.TelemetryIngress.UseBatchSend
 }
 
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
-}
-
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 	return *g.c.WebServer.RateLimit.Unauthenticated
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+}
+
+func (g *generalConfig) AuditLogger() audit.Config {
+	return auditLoggerConfig{C: g.c.AuditLogger}
+}
+
+// Insecure config
+func (g *generalConfig) DevWebServer() bool {
+	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
+		*g.c.Insecure.DevWebServer
+}
+
+func (g *generalConfig) OCRDevelopmentMode() bool {
+	// OCRDevelopmentMode is allowed in TestBuilds as well
+	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
+		*g.c.Insecure.OCRDevelopmentMode
+}
+
+func (g *generalConfig) DisableRateLimiting() bool {
+	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
+		*g.c.Insecure.DisableRateLimiting
+}
+
+func (g *generalConfig) InfiniteDepthQueries() bool {
+	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
+		*g.c.Insecure.InfiniteDepthQueries
+}
+
+func (g *generalConfig) Sentry() coreconfig.Sentry {
+	return sentryConfig{g.c.Sentry}
 }
 
 var (

@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 func Test_FeedsManagers(t *testing.T) {
@@ -199,7 +199,6 @@ func Test_CreateFeedsManager(t *testing.T) {
 			"input": map[string]interface{}{
 				"name":            name,
 				"uri":             uri,
-				"jobTypes":        []interface{}{"FLUX_MONITOR", "OCR2"},
 				"publicKey":       pubKeyHex,
 				"isBootstrapPeer": false,
 			},

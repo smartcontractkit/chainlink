@@ -12,16 +12,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -44,14 +45,20 @@ var (
 	)
 )
 
+type UpkeepExecuterConfig interface {
+	MaxGracePeriod() int64
+	TurnLookBack() int64
+	Registry() config.Registry
+}
+
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
-	chStop                 chan struct{}
+	chStop                 utils.StopChan
 	ethClient              evmclient.Client
-	config                 Config
+	config                 UpkeepExecuterConfig
 	executionQueue         chan struct{}
 	headBroadcaster        httypes.HeadBroadcasterRegistry
-	gasEstimator           gas.Estimator
+	gasEstimator           gas.EvmFeeEstimator
 	job                    job.Job
 	mailbox                *utils.Mailbox[*evmtypes.Head]
 	orm                    ORM
@@ -69,9 +76,9 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	gasEstimator gas.Estimator,
+	gasEstimator gas.EvmFeeEstimator,
 	logger logger.Logger,
-	config Config,
+	config UpkeepExecuterConfig,
 	effectiveKeeperAddress common.Address,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
@@ -152,7 +159,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	var activeUpkeeps []UpkeepRegistration
-	turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+	turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.TurnLookBack())
 	if err2 != nil {
 		ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
 		return
@@ -160,7 +167,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	activeUpkeeps, err2 = ex.orm.EligibleUpkeepsForRegistry(
 		ex.job.KeeperSpec.ContractAddress,
 		head.Number,
-		ex.config.KeeperMaximumGracePeriod(),
+		ex.config.MaxGracePeriod(),
 		turnBinary)
 	if err2 != nil {
 		ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
@@ -199,7 +206,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
 	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
-	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
+	ctxService, cancel := ex.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Minute))
 	defer cancel()
 
 	evmChainID := ""
@@ -210,7 +217,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	var gasPrice, gasTipCap, gasFeeCap *assets.Wei
 	// effectiveKeeperAddress is always fromAddress when forwarding is not enabled.
 	// when forwarding is enabled, effectiveKeeperAddress is on-chain forwarder.
-	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, ex.effectiveKeeperAddress, upkeep, ex.orm.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, ex.effectiveKeeperAddress, upkeep, ex.config.Registry(), gasPrice, gasTipCap, gasFeeCap, evmChainID))
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
@@ -268,8 +275,8 @@ func buildJobSpec(
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: jb.ForwardingAllowed,
 			},
-			"performUpkeepGasLimit": maxUpkeepPerformGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"maxPerformDataSize":    ormConfig.KeeperRegistryMaxPerformDataSize(),
+			"performUpkeepGasLimit": maxUpkeepPerformGas + ormConfig.PerformGasOverhead(),
+			"maxPerformDataSize":    ormConfig.MaxPerformDataSize(),
 			"gasPrice":              gasPrice.ToInt(),
 			"gasTipCap":             gasTipCap.ToInt(),
 			"gasFeeCap":             gasFeeCap.ToInt(),

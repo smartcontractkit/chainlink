@@ -7,17 +7,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -28,7 +32,7 @@ var (
 
 	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_very_old_head",
-		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is EVM.FinalityDepth or greater below the highest seen head)",
 	}, []string{"evmChainID"})
 )
 
@@ -42,12 +46,12 @@ type headTracker struct {
 	mailMon         *utils.MailboxMonitor
 	ethClient       evmclient.Client
 	chainID         big.Int
-	config          Config
+	config          htrktypes.Config
 
 	backfillMB   *utils.Mailbox[*evmtypes.Head]
 	broadcastMB  *utils.Mailbox[*evmtypes.Head]
-	headListener httypes.HeadListener
-	chStop       chan struct{}
+	headListener commontypes.HeadListener[*evmtypes.Head, common.Hash]
+	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -63,17 +67,16 @@ func NewHeadTracker(
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
-	id := ethClient.ChainID()
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
-		chainID:         *id,
-		config:          config,
+		chainID:         *ethClient.ConfiguredChainID(),
+		config:          NewWrappedConfig(config),
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
+		headListener:    NewEvmHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 	}
@@ -83,7 +86,7 @@ func NewHeadTracker(
 func (ht *headTracker) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
-		latestChain, err := ht.headSaver.LoadFromDB(ctx)
+		latestChain, err := ht.headSaver.Load(ctx)
 		if err != nil {
 			return err
 		}
@@ -136,22 +139,16 @@ func (ht *headTracker) Close() error {
 	})
 }
 
-func (ht *headTracker) Healthy() error {
-	if !ht.headListener.ReceivingHeads() {
-		return errors.New("Listener is not receiving heads")
-	}
-	if !ht.headListener.Connected() {
-		return errors.New("Listener is not connected")
-	}
-	return nil
-}
-
 func (ht *headTracker) Name() string {
 	return ht.log.Name()
 }
 
 func (ht *headTracker) HealthReport() map[string]error {
-	return map[string]error{ht.Name(): ht.Healthy()}
+	report := map[string]error{
+		ht.Name(): ht.StartStopOnce.Healthy(),
+	}
+	maps.Copy(report, ht.headListener.HealthReport())
+	return report
 }
 
 func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
@@ -217,9 +214,10 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.FinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
 	return nil
@@ -228,7 +226,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 func (ht *headTracker) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	samplingInterval := ht.config.HeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
@@ -267,7 +265,7 @@ func (ht *headTracker) broadcastLoop() {
 func (ht *headTracker) backfillLoop() {
 	defer ht.wgDone.Done()
 
-	ctx, cancel := utils.ContextFromChan(ht.chStop)
+	ctx, cancel := ht.chStop.NewCtx()
 	defer cancel()
 
 	for {
@@ -281,7 +279,7 @@ func (ht *headTracker) backfillLoop() {
 					break
 				}
 				{
-					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
+					err := ht.Backfill(ctx, head, uint(ht.config.FinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -357,7 +355,6 @@ type nullTracker struct{}
 func (*nullTracker) Start(context.Context) error    { return nil }
 func (*nullTracker) Close() error                   { return nil }
 func (*nullTracker) Ready() error                   { return nil }
-func (*nullTracker) Healthy() error                 { return nil }
 func (*nullTracker) HealthReport() map[string]error { return map[string]error{} }
 func (*nullTracker) Name() string                   { return "" }
 func (*nullTracker) SetLogLevel(zapcore.Level)      {}

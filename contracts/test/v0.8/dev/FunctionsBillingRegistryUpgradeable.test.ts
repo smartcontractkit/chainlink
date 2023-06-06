@@ -53,17 +53,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/functions/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+    'src/v0.8/functions/tests/testhelpers/mocks/FunctionsBillingRegistryOriginal.sol:FunctionsBillingRegistryOriginal',
     roles.consumer,
   )
 
@@ -138,6 +138,47 @@ describe('FunctionsRegistryUpgradeable', () => {
     let subId: number
     let requestId: string
 
+    async function migrateAndCheck(factoryPath: string): Promise<Contract> {
+      // Upgrade the implementation contract a new version
+      const functionsBillingRegistryMigrationFactory =
+        await ethers.getContractFactory(factoryPath, roles.consumer)
+
+      const upgradedRegistry = await upgrades.upgradeProxy(
+        registry.address,
+        functionsBillingRegistryMigrationFactory.connect(roles.defaultAccount),
+      )
+
+      // Check config is the same
+      const currentConfig = await upgradedRegistry.getConfig()
+      expect(currentConfig.maxGasLimit).to.equal(config.maxGasLimit)
+      expect(currentConfig.stalenessSeconds).to.equal(config.stalenessSeconds)
+      expect(currentConfig.gasAfterPaymentCalculation).to.equal(
+        config.gasAfterPaymentCalculation,
+      )
+      expect(currentConfig.fallbackWeiPerUnitLink).to.equal(
+        config.weiPerUnitLink,
+      )
+      expect(currentConfig.gasOverhead).to.equal(config.gasOverhead)
+
+      // Check funds are the same
+      const subscription = await upgradedRegistry.getSubscription(subId)
+      expect(subscription.balance).to.equal(fundedLink)
+
+      // Check request fulfillment still works
+      const report = encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        stringToHex('hello world'),
+        stringToHex(''),
+      )
+      await expect(
+        oracle
+          .connect(roles.oracleNode)
+          .callReport(report, { gasLimit: 500_000 }),
+      ).to.emit(registry, 'BillingEnd')
+
+      return upgradedRegistry
+    }
+
     beforeEach(async () => {
       subId = await createSubscription(subOwner, [consumerAddress])
 
@@ -181,15 +222,8 @@ describe('FunctionsRegistryUpgradeable', () => {
     })
 
     it('can be upgraded to a new implementation', async () => {
-      // Upgrade the implementation contract
-      const functionsBillingRegistryMigrationFactory =
-        await ethers.getContractFactory(
-          'src/v0.8/tests/FunctionsBillingRegistryMigration.sol:FunctionsBillingRegistryMigration',
-          roles.consumer,
-        )
-      const upgradedRegistry = await upgrades.upgradeProxy(
-        registry.address,
-        functionsBillingRegistryMigrationFactory.connect(roles.defaultAccount),
+      const upgradedRegistry = await migrateAndCheck(
+        'src/v0.8/functions/tests/testhelpers/mocks/FunctionsBillingRegistryMigration.sol:FunctionsBillingRegistryMigration',
       )
 
       // Check that upgrade was successful
@@ -204,34 +238,12 @@ describe('FunctionsRegistryUpgradeable', () => {
       ]
       const registryFee = await upgradedRegistry.getRequiredFee(...dummyRequest)
       expect(registryFee).to.equal(1)
+    })
 
-      // Check config is the same
-      const currentConfig = await upgradedRegistry.getConfig()
-      expect(currentConfig.maxGasLimit).to.equal(config.maxGasLimit)
-      expect(currentConfig.stalenessSeconds).to.equal(config.stalenessSeconds)
-      expect(currentConfig.gasAfterPaymentCalculation).to.equal(
-        config.gasAfterPaymentCalculation,
+    it('can be upgraded to the latest implementation', async () => {
+      await migrateAndCheck(
+        'src/v0.8/functions/dev/0_0_0/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
       )
-      expect(currentConfig.fallbackWeiPerUnitLink).to.equal(
-        config.weiPerUnitLink,
-      )
-      expect(currentConfig.gasOverhead).to.equal(config.gasOverhead)
-
-      // Check funds are the same
-      const subscription = await upgradedRegistry.getSubscription(subId)
-      expect(subscription.balance).to.equal(fundedLink)
-
-      // Check request fulfillment still works
-      const report = encodeReport(
-        ethers.utils.hexZeroPad(requestId, 32),
-        stringToHex('hello world'),
-        stringToHex(''),
-      )
-      await expect(
-        oracle
-          .connect(roles.oracleNode)
-          .callReport(report, { gasLimit: 500_000 }),
-      ).to.emit(registry, 'BillingEnd')
     })
   })
 })

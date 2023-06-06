@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name SendOnlyNode --output ../mocks/ --case=underscore
@@ -68,7 +68,7 @@ type sendOnlyNode struct {
 	dialed      bool
 	name        string
 	chainID     *big.Int
-	chStop      chan struct{}
+	chStop      utils.StopChan
 	wg          sync.WaitGroup
 }
 
@@ -232,7 +232,7 @@ func (s *sendOnlyNode) String() string {
 // 3. Default timeout is reached (queryTimeout)
 func (s *sendOnlyNode) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = utils.WithCloseChan(ctx, s.chStop)
+	ctx, chCancel = s.chStop.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
 	cancel := func() {
 		chCancel()

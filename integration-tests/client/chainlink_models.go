@@ -6,9 +6,10 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -18,10 +19,12 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL      string
-	Email    string
-	Password string
-	RemoteIP string
+	URL        string
+	Email      string
+	Password   string
+	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName  string
+	PodName    string
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -373,9 +376,7 @@ type TxKeyData struct {
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
 
-	// starknet specific (uses contract model instead of EOA)
-	AccountAddr string `json:"accountAddr,omitempty"`
-	StarkKey    string `json:"starkPubKey,omitempty"`
+	StarkKey string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {
@@ -414,6 +415,49 @@ type EIKeyCreate struct {
 // EIKey is the model that represents the EI configs when read
 type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
+}
+
+type CosmosChainConfig struct {
+	BlockRate             null.String
+	BlocksUntilTxTimeout  null.Int
+	ConfirmPollPeriod     null.String
+	FallbackGasPriceULuna null.String
+	GasLimitMultiplier    null.Float
+	MaxMsgsPerBatch       null.Int
+}
+
+// CosmosChainAttributes is the model that represents the terra chain
+type CosmosChainAttributes struct {
+	ChainID string            `json:"chainID"`
+	Config  CosmosChainConfig `json:"config"`
+	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
+}
+
+// CosmosChain is the model that represents the terra chain when read
+type CosmosChain struct {
+	Attributes CosmosChainAttributes `json:"attributes"`
+}
+
+// CosmosChainCreate is the model that represents the terra chain when created
+type CosmosChainCreate struct {
+	Data CosmosChain `json:"data"`
+}
+
+// CosmosNodeAttributes is the model that represents the terra noded
+type CosmosNodeAttributes struct {
+	Name          string `json:"name"`
+	CosmosChainID string `json:"cosmosChainId"`
+	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
+}
+
+// CosmosNode is the model that represents the terra node when read
+type CosmosNode struct {
+	Attributes CosmosNodeAttributes `json:"attributes"`
+}
+
+// CosmosNodeCreate is the model that represents the terra node when created
+type CosmosNodeCreate struct {
+	Data CosmosNode `json:"data"`
 }
 
 type SolanaChainConfig struct {
@@ -825,16 +869,16 @@ type OCRTaskJobSpec struct {
 
 // P2PData holds the remote ip and the peer id and port
 type P2PData struct {
-	RemoteIP   string
-	RemotePort string
-	PeerID     string
+	InternalIP   string
+	InternalPort string
+	PeerID       string
 }
 
 func (p *P2PData) P2PV2Bootstrapper() string {
-	if p.RemotePort == "" {
-		p.RemotePort = "6690"
+	if p.InternalPort == "" {
+		p.InternalPort = "6690"
 	}
-	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemoteIP, p.RemotePort)
+	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.InternalIP, p.InternalPort)
 }
 
 // Type returns the type of the job
@@ -850,8 +894,8 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 			return "", err
 		}
 		peers = append(peers, P2PData{
-			RemoteIP: peer.RemoteIP(),
-			PeerID:   p2pKeys.Data[0].Attributes.PeerID,
+			InternalIP: peer.InternalIP(),
+			PeerID:     p2pKeys.Data[0].Attributes.PeerID,
 		})
 	}
 	specWrap := struct {
@@ -896,7 +940,7 @@ contractAddress                        = "{{.ContractAddress}}"
 {{if .P2PBootstrapPeers}}
 p2pBootstrapPeers                      = [
   {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.RemoteIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
+  "/dns4/{{$peer.InternalIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
   {{end}}
 ]
 {{else}}
@@ -921,6 +965,7 @@ type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
 	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
@@ -930,15 +975,20 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
+	var feedID string
+	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+		feedID = o.OCR2OracleSpec.FeedID.Hex()
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
 		MaxTaskDuration          string
+		ForwardingAllowed        bool
 		ContractID               string
+		FeedID                   string
 		Relay                    string
 		PluginType               string
 		RelayConfig              map[string]interface{}
-		RelayConfigMercuryConfig map[string]interface{}
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -950,27 +1000,28 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		ContractConfirmations    uint16
 		ObservationSource        string
 	}{
-		Name:                     o.Name,
-		JobType:                  o.JobType,
-		MaxTaskDuration:          o.MaxTaskDuration,
-		ContractID:               o.OCR2OracleSpec.ContractID,
-		Relay:                    string(o.OCR2OracleSpec.Relay),
-		PluginType:               string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:              o.OCR2OracleSpec.RelayConfig,
-		RelayConfigMercuryConfig: o.OCR2OracleSpec.RelayConfigMercuryConfig,
-		PluginConfig:             o.OCR2OracleSpec.PluginConfig,
-		P2PV2Bootstrappers:       o.OCR2OracleSpec.P2PV2Bootstrappers,
-		OCRKeyBundleID:           o.OCR2OracleSpec.OCRKeyBundleID.String,
-		MonitoringEndpoint:       o.OCR2OracleSpec.MonitoringEndpoint.String,
-		TransmitterID:            o.OCR2OracleSpec.TransmitterID.String,
-		BlockchainTimeout:        o.OCR2OracleSpec.BlockchainTimeout.Duration(),
-		ContractConfirmations:    o.OCR2OracleSpec.ContractConfigConfirmations,
-		TrackerPollInterval:      o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
-		ObservationSource:        o.ObservationSource,
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		MaxTaskDuration:       o.MaxTaskDuration,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		FeedID:                feedID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
 	}
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
+forwardingAllowed                      = {{.ForwardingAllowed}}
 {{if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
 {{if .PluginType}}
@@ -978,6 +1029,9 @@ pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
+{{if .FeedID}}
+feedID                                 = "{{.FeedID}}" 
+{{end}}
 {{if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}
@@ -1008,10 +1062,6 @@ observationSource                      = """
 {{end}}
 [relayConfig]{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}{{end}}
-{{if .RelayConfigMercuryConfig}}
-[relayConfig.MercuryConfig]{{range $key, $value := .RelayConfigMercuryConfig}}
-{{$key}} = "{{$value}}"{{end}}
-{{end}}
 `
 	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
@@ -1152,7 +1202,7 @@ func ObservationSourceSpecHTTP(url string) string {
 }
 
 // ObservationSourceSpecBridge creates a bridge task spec for json data
-func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
+func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`
 		fetch [type=bridge name="%s" requestData="%s"];
 		parse [type=jsonparse path="data,result"];

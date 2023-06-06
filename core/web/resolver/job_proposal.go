@@ -7,8 +7,8 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/web/loader"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 var notFoundErrorMessage = "spec not found"
@@ -20,6 +20,8 @@ const (
 	APPROVED  JobProposalStatus = "APPROVED"
 	REJECTED  JobProposalStatus = "REJECTED"
 	CANCELLED JobProposalStatus = "CANCELLED"
+	DELETED   JobProposalStatus = "DELETED"
+	REVOKED   JobProposalStatus = "REVOKED"
 )
 
 func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
@@ -32,6 +34,10 @@ func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
 		return REJECTED, nil
 	case feeds.JobProposalStatusCancelled:
 		return CANCELLED, nil
+	case feeds.JobProposalStatusDeleted:
+		return DELETED, nil
+	case feeds.JobProposalStatusRevoked:
+		return REVOKED, nil
 	default:
 		return "", errors.New("invalid job proposal status")
 	}

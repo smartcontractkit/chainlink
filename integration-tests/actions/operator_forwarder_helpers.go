@@ -9,12 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -91,14 +91,15 @@ func ProcessNewEvent(
 	contractABI *abi.ABI,
 	chainClient blockchain.EVMClient,
 ) {
+	l := utils.GetTestLogger(t)
 	errorChan := make(chan error)
 	eventConfirmed := make(chan bool)
 	err := chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
 	if err != nil {
-		log.Error().Err(err).Str("Hash", event.TxHash.Hex()).Str("Event", eventDetails.Name).Msg("Error trying to process event")
+		l.Error().Err(err).Str("Hash", event.TxHash.Hex()).Str("Event", eventDetails.Name).Msg("Error trying to process event")
 		return
 	}
-	log.Debug().
+	l.Debug().
 		Str("Event", eventDetails.Name).
 		Str("Address", event.Address.Hex()).
 		Str("Hash", event.TxHash.Hex()).
@@ -106,7 +107,7 @@ func ProcessNewEvent(
 	for {
 		select {
 		case err := <-errorChan:
-			log.Error().Err(err).Msg("Error while confirming event")
+			l.Error().Err(err).Msg("Error while confirming event")
 			return
 		case confirmed := <-eventConfirmed:
 			if confirmed {
@@ -137,6 +138,7 @@ func SubscribeOperatorFactoryEvents(
 	chainClient blockchain.EVMClient,
 	operatorFactoryInstance contracts.OperatorFactory,
 ) {
+	l := utils.GetTestLogger(t)
 	contractABI, err := operator_factory.OperatorFactoryMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OperatorFactory shouldn't fail")
 	latestBlockNum, err := chainClient.LatestBlockNumber(context.Background())
@@ -155,7 +157,7 @@ func SubscribeOperatorFactoryEvents(
 		for {
 			select {
 			case err := <-sub.Err():
-				log.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
+				l.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
 				sub.Unsubscribe()
 
 				sub, err = chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
@@ -184,10 +186,11 @@ func TrackForwarder(
 	authorizedForwarder common.Address,
 	node *client.Chainlink,
 ) {
+	l := utils.GetTestLogger(t)
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
-	log.Info().Str("NodeURL", node.Config.URL).
+	l.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")

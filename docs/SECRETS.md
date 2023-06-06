@@ -38,7 +38,7 @@ Environment variable: `CL_DATABASE_URL`
 ```toml
 BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
 ```
-BackupURL is where the automatic database backup will pull from, rather than the main DATABASE_URL. It is recommended
+BackupURL is where the automatic database backup will pull from, rather than the main CL_DATABASE_URL. It is recommended
 to set this value to a read replica if you have one to avoid excessive load on the main database.
 
 Environment variable: `CL_DATABASE_BACKUP_URL`
@@ -114,37 +114,58 @@ AuthToken is the API key for the Pyroscope server.
 
 Environment variable: `CL_PYROSCOPE_AUTH_TOKEN`
 
-## Mercury
+## Prometheus
 ```toml
-[Mercury]
-```
-Mercury credentials are needed if running OCR2 jobs in mercury mode. 0 or
-more Mercury credentials may be specified. URLs must be unique.
-
-## Mercury.Credentials
-```toml
-[[Mercury.Credentials]]
-URL = "http://example.com/reports" # Example
-Username = "exampleusername" # Example
-Password = "examplepassword" # Example
+[Prometheus]
+AuthToken = "prometheus-token" # Example
 ```
 
 
-### URL
+### AuthToken
 ```toml
-URL = "http://example.com/reports" # Example
+AuthToken = "prometheus-token" # Example
 ```
-URL is the URL of the mercury endpoint
+AuthToken is the authorization key for the Prometheus metrics endpoint.
+
+Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
+
+## Mercury.Credentials.Name
+```toml
+[Mercury.Credentials.Name]
+Username = "A-Mercury-Username" # Example
+Password = "A-Mercury-Password" # Example
+URL = "https://mercury.stage.link" # Example
+```
+
 
 ### Username
 ```toml
-Username = "exampleusername" # Example
+Username = "A-Mercury-Username" # Example
 ```
-Username is used for basic auth with the mercury endpoint
+Username is used for basic auth of the Mercury endpoint
 
 ### Password
 ```toml
-Password = "examplepassword" # Example
+Password = "A-Mercury-Password" # Example
 ```
-Password is used for basic auth with the mercury endpoint
+Password is used for basic auth of the Mercury endpoint
+
+### URL
+```toml
+URL = "https://mercury.stage.link" # Example
+```
+URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
+
+## Threshold
+```toml
+[Threshold]
+ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+
+
+### ThresholdDecryptionKeyShare
+```toml
+ThresholdDecryptionKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+ThresholdDecryptionKeyShare used by the threshold decryption OCR plugin
 

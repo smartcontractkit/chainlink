@@ -12,11 +12,11 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Return types:
@@ -43,8 +43,6 @@ type ETHTxTask struct {
 	chainSet          evm.ChainSet
 	jobType           string
 }
-
-//go:generate mockery --quiet --name ETHKeyStore --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
@@ -128,7 +126,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
 	strategy := txmgr.NewSendEveryStrategy()
 
-	forwarderAddress := common.Address{}
+	var forwarderAddress common.Address
 	if t.forwardingAllowed {
 		var fwderr error
 		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
@@ -137,11 +135,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	newTx := txmgr.NewTx{
+	newTx := txmgr.EvmNewTx{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
-		GasLimit:         uint32(gasLimit),
+		FeeLimit:         uint32(gasLimit),
 		Meta:             txMeta,
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
@@ -154,7 +152,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		newTx.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateEthTransaction(newTx)
+	_, err = txManager.CreateTransaction(newTx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
@@ -200,8 +198,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
-	var transmitChecker txmgr.TransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, error) {
+	var transmitChecker txmgr.EvmTransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,

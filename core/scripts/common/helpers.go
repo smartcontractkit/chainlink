@@ -22,8 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 )
 
 type Environment struct {
@@ -172,7 +172,9 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli-optimism.etherscan.io"
 
 	case ArbitrumGoerliChainID: // Arbitrum Goerli
-		prefix = "https://goerli-rollup-explorer.arbitrum.io"
+		prefix = "https://goerli.arbiscan.io"
+	case ArbitrumOneChainID: // Arbitrum mainnet
+		prefix = "https://arbiscan.io"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"

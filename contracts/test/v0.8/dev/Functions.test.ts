@@ -13,7 +13,7 @@ let roles: Roles
 before(async () => {
   roles = (await getUsers()).roles
   concreteFunctionsTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsTestHelper.sol:FunctionsTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsTestHelper.sol:FunctionsTestHelper',
     roles.defaultAccount,
   )
 })
@@ -52,11 +52,18 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: '',
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: '',
+        },
+      )
     })
   })
 
@@ -67,11 +74,18 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+        },
+      )
     })
   })
 
@@ -92,13 +106,21 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        secretsLocation: 0,
-        secrets: hexToBuf(secrets),
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+          secretsLocation: decoded.secretsLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+          secretsLocation: 1,
+          secrets: hexToBuf(secrets),
+        },
+      )
     })
   })
 
@@ -118,12 +140,19 @@ describe('FunctionsTestHelper', () => {
       const tx = await ctr.closeEvent()
       const [payload] = await parseRequestDataEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {
-        language: 0,
-        codeLocation: 0,
-        source: js,
-        args: ['arg1', 'arg2'],
-      })
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+          args: ['arg1', 'arg2'],
+        },
+      )
     })
   })
 

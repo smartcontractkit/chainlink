@@ -7,13 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,7 +59,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendEther(chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendNativeToken(chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return
@@ -93,15 +94,21 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
-	var gasPrice *assets.Wei
+	var fees gas.EvmFee
 
 	gasLimit := chain.Config().EvmGasLimitTransfer()
-	estimator := chain.TxManager().GetGasEstimator()
+	estimator := chain.GasEstimator()
 
-	gasPrice, gasLimit, err = estimator.GetLegacyGas(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
+	fees, gasLimit, err = estimator.GetFee(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
 	if err != nil {
 		return errors.Wrap(err, "failed to estimate gas")
 	}
+
+	// TODO: support EIP-1559 transactions
+	if fees.Legacy == nil {
+		return errors.New("estimator did not return legacy tx fee estimates")
+	}
+	gasPrice := fees.Legacy
 
 	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
 	amountAsBig := utils.NewBig(amount.ToInt())

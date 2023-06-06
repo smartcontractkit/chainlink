@@ -20,14 +20,14 @@ runs:
       - name: Get branch name
         if: ${{ inputs.only-modules == 'false' }}
         id: branch-name
-        uses: tj-actions/branch-names@09ab61130975078eb7cde103fe8d2ae1649a1853 #v6.1
+        uses: tj-actions/branch-names@2e5354c6733793113f416314375826df030ada23 #v6.5
 
       - name: Set go cache keys
         shell: bash
         id: go-cache-dir
-        run: |
-          echo "::set-output name=gomodcache::$(go env GOMODCACHE)" 
-          echo "::set-output name=gobuildcache::$(go env GOCACHE)" 
+        run: | 
+          echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT 
+          echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
         name: Cache Go Modules

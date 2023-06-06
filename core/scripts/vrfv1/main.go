@@ -11,17 +11,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
-	linktoken "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	vrfltoc "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_load_test_ownerless_consumer"
-	vrfoc "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_ownerless_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+	linktoken "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	vrfltoc "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_ownerless_consumer"
+	vrfoc "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_ownerless_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func main() {
@@ -153,8 +153,7 @@ func main() {
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
 
-		uid, err := uuid.FromString(*jobID)
-		helpers.PanicErr(err)
+		uid := uuid.MustParse(*jobID)
 		tx, err := coordinator.RegisterProvingKey(
 			e.Owner,
 			decimal.RequireFromString(*fee).BigInt(),

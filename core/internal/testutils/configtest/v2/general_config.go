@@ -6,24 +6,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// NewTestGeneralConfig returns a new config.GeneralConfig with default test overrides and one chain with evmclient.NullClientChainID.
-func NewTestGeneralConfig(t testing.TB) config.GeneralConfig { return NewGeneralConfig(t, nil) }
+// NewTestGeneralConfig returns a new chainlink.GeneralConfig with default test overrides and one chain with evmclient.NullClientChainID.
+func NewTestGeneralConfig(t testing.TB) chainlink.GeneralConfig { return NewGeneralConfig(t, nil) }
 
-// NewGeneralConfig returns a new config.GeneralConfig with overrides.
+// NewGeneralConfig returns a new chainlink.GeneralConfig with overrides.
 // The default test overrides are applied before overrideFn, and include one chain with evmclient.NullClientChainID.
-func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) config.GeneralConfig {
+func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	tempDir := t.TempDir()
 	g, err := chainlink.GeneralConfigOpts{
 		OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -33,7 +31,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 				fn(c, s)
 			}
 		},
-	}.New(logger.TestLogger(t))
+	}.New()
 	require.NoError(t, err)
 	return g
 }
@@ -42,7 +40,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
-	c.DevMode = true
+	c.Insecure.OCRDevelopmentMode = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
 	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
 
@@ -61,19 +59,17 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
-	enabled := true
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
-		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{{}},
+		Nodes:   evmcfg.EVMNodes{{Name: ptr("test")}},
 	})
 }
 
-// NewGeneralConfigSimulated returns a new config.GeneralConfig with overrides, including the simulated EVM chain.
+// NewGeneralConfigSimulated returns a new chainlink.GeneralConfig with overrides, including the simulated EVM chain.
 // The default test overrides are applied before overrideFn.
 // The simulated chain (testutils.SimulatedChainID) replaces the null chain (evmclient.NullClientChainID).
-func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) config.GeneralConfig {
+func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	return NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulated(c, s)
 		if fn := overrideFn; fn != nil {

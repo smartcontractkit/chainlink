@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var privateIPBlocks []*net.IPNet
@@ -63,7 +63,7 @@ func isRestrictedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 }
 
 func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
-	dbURL := cfg.DatabaseURL()
+	dbURL := cfg.URL()
 	if dbURL.String() == "" {
 		return false, nil
 	}
