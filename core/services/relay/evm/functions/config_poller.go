@@ -17,6 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+type FunctionsConfigPoller interface {
+	evm.ConfigPoller
+
+	LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error)
+}
+
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
 var ConfigSet common.Hash
 
