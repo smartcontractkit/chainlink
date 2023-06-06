@@ -75,9 +75,9 @@ func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResour
 	sort.SliceStable(rs, func(i, j int) bool {
 		if rs[i].ChainType == rs[j].ChainType {
 			return rs[i].ID < rs[j].ID
-		} else {
-			return rs[i].ChainType < rs[j].ChainType
 		}
+		return rs[i].ChainType < rs[j].ChainType
+		
 	})
 
 	return rs
