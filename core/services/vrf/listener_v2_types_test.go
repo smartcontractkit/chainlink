@@ -10,12 +10,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func Test_BatchFulfillments_AddRun(t *testing.T) {
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit)
+	fromAddress := testutils.NewAddress()
 	for i := 0; i < 4; i++ {
 		bfs.addRun(vrfPipelineResult{
 			gasLimit: 500,
@@ -29,7 +31,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 				lb: mocks.NewBroadcast(t),
 			},
 			run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),
-		})
+		}, fromAddress)
 		require.Len(t, bfs.fulfillments, 1)
 	}
 
@@ -48,6 +50,6 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 			lb: mocks.NewBroadcast(t),
 		},
 		run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),
-	})
+	}, fromAddress)
 	require.Len(t, bfs.fulfillments, 2)
 }

@@ -86,6 +86,7 @@ $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol 10000
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFOwner.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
