@@ -37,9 +37,9 @@ func Main() (code int) {
 }
 
 // newProductionClient configures an instance of the CLI to be used in production.
-func newProductionClient() *cmd.Client {
+func newProductionClient() *cmd.Shell {
 	prompter := cmd.NewTerminalPrompter()
-	return &cmd.Client{
+	return &cmd.Shell{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},

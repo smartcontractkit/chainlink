@@ -2,16 +2,20 @@ package config
 
 import "time"
 
+type Registry interface {
+	CheckGasOverhead() uint32
+	PerformGasOverhead() uint32
+	MaxPerformDataSize() uint32
+	SyncInterval() time.Duration
+	SyncUpkeepQueueSize() uint32
+}
+
 type Keeper interface {
-	KeeperDefaultTransactionQueueDepth() uint32
-	KeeperGasPriceBufferPercent() uint16
-	KeeperGasTipCapBufferPercent() uint16
-	KeeperBaseFeeBufferPercent() uint16
-	KeeperMaximumGracePeriod() int64
-	KeeperRegistryCheckGasOverhead() uint32
-	KeeperRegistryPerformGasOverhead() uint32
-	KeeperRegistryMaxPerformDataSize() uint32
-	KeeperRegistrySyncInterval() time.Duration
-	KeeperRegistrySyncUpkeepQueueSize() uint32
-	KeeperTurnLookBack() int64
+	DefaultTransactionQueueDepth() uint32
+	GasPriceBufferPercent() uint16
+	GasTipCapBufferPercent() uint16
+	BaseFeeBufferPercent() uint16
+	MaxGracePeriod() int64
+	TurnLookBack() int64
+	Registry() Registry
 }

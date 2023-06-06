@@ -155,11 +155,11 @@ func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 }
 
 type Config interface {
-	AuditLoggerEnabled() bool
-	AuditLoggerForwardToUrl() (models.URL, error)
-	AuditLoggerEnvironment() string
-	AuditLoggerJsonWrapperKey() string
-	AuditLoggerHeaders() (ServiceHeaders, error)
+	Enabled() bool
+	ForwardToUrl() (models.URL, error)
+	Environment() string
+	JsonWrapperKey() string
+	Headers() (ServiceHeaders, error)
 }
 
 type HTTPAuditLoggerInterface interface {
@@ -197,7 +197,7 @@ var NoopLogger AuditLogger = &AuditLoggerService{}
 func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 	// If the unverified config is nil, then we assume this came from the
 	// configuration system and return a nil logger.
-	if config == nil || !config.AuditLoggerEnabled() {
+	if config == nil || !config.Enabled() {
 		return &AuditLoggerService{}, nil
 	}
 
@@ -206,12 +206,12 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		return nil, errors.Errorf("initialization error - unable to get hostname: %s", err)
 	}
 
-	forwardToUrl, err := config.AuditLoggerForwardToUrl()
+	forwardToUrl, err := config.ForwardToUrl()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
 
-	headers, err := config.AuditLoggerHeaders()
+	headers, err := config.Headers()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
@@ -224,8 +224,8 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		enabled:         true,
 		forwardToUrl:    forwardToUrl,
 		headers:         headers,
-		jsonWrapperKey:  config.AuditLoggerJsonWrapperKey(),
-		environmentName: config.AuditLoggerEnvironment(),
+		jsonWrapperKey:  config.JsonWrapperKey(),
+		environmentName: config.Environment(),
 		hostname:        hostname,
 		localIP:         getLocalIP(),
 		loggingClient:   &http.Client{Timeout: time.Second * webRequestTimeout},

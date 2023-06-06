@@ -44,6 +44,8 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -191,16 +193,15 @@ type JobPipelineV2TestHelper struct {
 }
 
 type JobPipelineConfig interface {
-	pipeline.ORMConfig
-	pg.QConfig
 	pipeline.Config
+	JobPipelineMaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg JobPipelineConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, cfg)
-	btORM := bridges.NewORM(db, lggr, cfg)
-	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, cfg)
+	prm := pipeline.NewORM(db, lggr, dbCfg, cfg.JobPipelineMaxSuccessfulRuns())
+	btORM := bridges.NewORM(db, lggr, dbCfg)
+	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, dbCfg)
 	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
@@ -214,7 +215,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
 }
 
-func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmConfirmer, error) {
+func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) (*txmgr.EvmConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
@@ -356,7 +357,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
-	url := cfg.DatabaseURL()
+	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
@@ -665,11 +666,11 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 }
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
-func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
+func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
 	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -685,10 +686,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
+func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -1319,7 +1320,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmclimocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *commonmocks.Subscription) {
 	t.Helper()
 
 	// Start
@@ -1660,7 +1661,7 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 // FlagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
 func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
-	cliApp := cmd.Client{}
+	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)
 
 	foundName := parentCommand == ""

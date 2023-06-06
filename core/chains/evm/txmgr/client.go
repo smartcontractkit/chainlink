@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,15 +51,24 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxS
 	}
 
 	// for each batched tx convert response to standard error code
-	for i := range reqs {
-		// convert to tx for logging purposes - exits early if error occurs
-		tx, signedErr := GetGethSignedTx(attempts[i].SignedRawTx)
-		if signedErr != nil {
-			err = errors.Join(err, signedErr)
-			return
-		}
-		codes[i], txErrs[i] = evmclient.NewSendErrorReturnCode(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+	var wg sync.WaitGroup
+	wg.Add(len(reqs))
+	processingErr := make([]error, len(attempts))
+	for index := range reqs {
+		go func(i int) {
+			defer wg.Done()
+
+			// convert to tx for logging purposes - exits early if error occurs
+			tx, signedErr := GetGethSignedTx(attempts[i].SignedRawTx)
+			if signedErr != nil {
+				processingErr[i] = fmt.Errorf("failed to process tx (index %d): %w", i, signedErr)
+				return
+			}
+			codes[i], txErrs[i] = evmclient.NewSendErrorReturnCode(reqs[i].Error, lggr, tx, attempts[i].Tx.FromAddress, c.client.IsL2())
+		}(index)
 	}
+	wg.Wait()
+	err = errors.Join(err, errors.Join(processingErr...)) // merge errors together
 	return
 }
 
@@ -90,11 +100,13 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
+		res := &evmtypes.Receipt{}
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
-			Result: &evmtypes.Receipt{},
+			Result: res,
 		}
+		txReceipt = append(txReceipt, res)
 		reqs = append(reqs, req)
 	}
 
@@ -103,15 +115,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 	}
 
 	for _, req := range reqs {
-		result, err := req.Result, req.Error
-
-		receipt, ok := result.(*evmtypes.Receipt)
-		if !ok {
-			return nil, nil, fmt.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
-		}
-
-		txReceipt = append(txReceipt, receipt)
-		txErr = append(txErr, err)
+		txErr = append(txErr, req.Error)
 	}
 	return txReceipt, txErr, nil
 }
