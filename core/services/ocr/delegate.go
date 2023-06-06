@@ -269,7 +269,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
+		runResults := make(chan pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -331,7 +331,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
-			cfg.JobPipelineMaxSuccessfulRuns(),
+			cfg.JobPipeline().MaxSuccessfulRuns(),
 		)}, services...)
 	}
 

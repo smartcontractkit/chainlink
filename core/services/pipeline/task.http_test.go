@@ -49,7 +49,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -177,10 +177,10 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	// Use real clients here to actually test the local connection blocking
 	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
 	u := clhttp.NewUnrestrictedHTTPClient()
-	task.HelperSetDependencies(config, r, u)
+	task.HelperSetDependencies(config.JobPipeline(), r, u)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -279,7 +279,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -310,7 +310,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -358,7 +358,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar"]`,
 		}
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		task.HelperSetDependencies(config, c, c)
+		task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
@@ -404,7 +404,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "Content-Type", "footype", "X-Header-2", "bar"]`,
 		}
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		task.HelperSetDependencies(config, c, c)
+		task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
