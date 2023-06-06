@@ -125,6 +125,7 @@ func NewService(
 	keyStore keystore.Master,
 	cfg Config,
 	jobCfg JobConfig,
+	dbCfg pg.QConfig,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
 	version string,
@@ -133,7 +134,7 @@ func NewService(
 	svc := &service{
 		orm:          orm,
 		jobORM:       jobORM,
-		q:            pg.NewQ(db, lggr, cfg),
+		q:            pg.NewQ(db, lggr, dbCfg),
 		jobSpawner:   jobSpawner,
 		p2pKeyStore:  keyStore.P2P(),
 		csaKeyStore:  keyStore.CSA(),

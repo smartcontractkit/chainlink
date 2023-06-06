@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -82,15 +80,15 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 }
 
 // AuditLogger provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLogger() audit.Config {
+func (_m *GeneralConfig) AuditLogger() config.AuditLogger {
 	ret := _m.Called()
 
-	var r0 audit.Config
-	if rf, ok := ret.Get(0).(func() audit.Config); ok {
+	var r0 config.AuditLogger
+	if rf, ok := ret.Get(0).(func() config.AuditLogger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.Config)
+			r0 = ret.Get(0).(config.AuditLogger)
 		}
 	}
 
@@ -402,20 +400,6 @@ func (_m *GeneralConfig) Database() config.Database {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.Database)
 		}
-	}
-
-	return r0
-}
-
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -911,20 +895,6 @@ func (_m *GeneralConfig) LogLevel() zapcore.Level {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
-// LogSQL provides a mock function with given fields:
-func (_m *GeneralConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

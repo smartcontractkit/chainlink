@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -32,7 +32,7 @@ type FunctionsServicesConfig struct {
 	Job             job.Job
 	JobORM          job.ORM
 	BridgeORM       bridges.ORM
-	OCR2JobConfig   validate.Config
+	OCR2JobConfig   pg.QConfig
 	DB              *sqlx.DB
 	Chain           evm.Chain
 	ContractID      string

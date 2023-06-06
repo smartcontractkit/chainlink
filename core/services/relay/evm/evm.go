@@ -326,7 +326,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2SimulateTransactions() {
@@ -376,7 +376,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2SimulateTransactions() {
