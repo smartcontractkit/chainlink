@@ -1,8 +1,6 @@
 package chainlink
 
-import (
-	"github.com/smartcontractkit/chainlink/v2/core/config/v2"
-)
+import v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 
 type PyroscopeConfig struct {
 	c v2.Pyroscope
