@@ -21,6 +21,11 @@ WSURL = '...'
 HTTPURL = '...'
 Order = 5 
 ```
+- The config keys WebServer.StartTimeout and WebServer.HTTPMaxSize. These keys respectively set a timeout for the node server to
+  start and set the max request size for HTTP requests. Previously these attributes were set by
+  JobPipeline.DefaultHTTPLimit/JobPipeline.DefaultHTTPTimeout. To migrate to these new fields, set their values to be identical to
+  JobPipeline.DefaultHTTPLimit/JobPipeline.DefaultHTTPTimeout.
+
 ### Fixed
 
 ### Changed
