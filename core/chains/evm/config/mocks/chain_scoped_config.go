@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
 	big "math/big"
+
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
 	common "github.com/ethereum/go-ethereum/common"
 
@@ -77,15 +76,15 @@ func (_m *ChainScopedConfig) AppID() uuid.UUID {
 }
 
 // AuditLogger provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLogger() audit.Config {
+func (_m *ChainScopedConfig) AuditLogger() coreconfig.AuditLogger {
 	ret := _m.Called()
 
-	var r0 audit.Config
-	if rf, ok := ret.Get(0).(func() audit.Config); ok {
+	var r0 coreconfig.AuditLogger
+	if rf, ok := ret.Get(0).(func() coreconfig.AuditLogger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.Config)
+			r0 = ret.Get(0).(coreconfig.AuditLogger)
 		}
 	}
 
