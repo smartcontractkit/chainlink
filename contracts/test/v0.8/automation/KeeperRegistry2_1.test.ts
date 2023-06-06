@@ -679,7 +679,7 @@ describe('KeeperRegistry2_1', () => {
     const config = {
       numSigners: f + 1,
       performData: '0x',
-      executeGas: executeGas,
+      executeGas,
       checkBlockNum: latestBlock.number,
       checkBlockHash: latestBlock.hash,
       gasLimit: undefined,
