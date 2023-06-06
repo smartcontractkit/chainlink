@@ -1,0 +1,14 @@
+exec chainlink config logsql --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink config logsql - Enable/disable SQL statement logging
+
+USAGE:
+   chainlink config logsql [command options] [arguments...]
+
+OPTIONS:
+   --enable   enable SQL logging
+   --disable  disable SQL logging
+   

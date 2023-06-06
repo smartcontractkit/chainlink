@@ -6,7 +6,7 @@ package config
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.

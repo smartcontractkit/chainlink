@@ -10,10 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -21,7 +21,7 @@ type (
 		ethClient evmclient.Client
 		config    Config
 		logger    logger.Logger
-		chStop    chan struct{}
+		chStop    utils.StopChan
 	}
 )
 
@@ -46,7 +46,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		return ch, false
 	}
 
-	ctxParent, cancel := utils.ContextFromChan(sub.chStop)
+	ctxParent, cancel := sub.chStop.NewCtx()
 	defer cancel()
 
 	var latestHeight int64 = -1
@@ -118,7 +118,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 
 			var elapsedMessage string
 			if elapsed > time.Minute {
-				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
+				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the EVM.BlockBackfillSkip configuration variable to \"true\")"
 			}
 			if err != nil {
 				if ctx.Err() != nil {
@@ -198,7 +198,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		return newNoopSubscription(), false
 	}
 
-	ctx, cancel := utils.ContextFromChan(sub.chStop)
+	ctx, cancel := sub.chStop.NewCtx()
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() (retry bool) {

@@ -1,6 +1,6 @@
 package resolver
 
-import "github.com/smartcontractkit/chainlink/core/config"
+import "github.com/smartcontractkit/chainlink/v2/core/config"
 
 type FeaturesResolver struct {
 	cfg config.FeatureFlags

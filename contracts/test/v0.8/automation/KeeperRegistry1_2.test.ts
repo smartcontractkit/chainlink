@@ -9,13 +9,35 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry12__factory'
-import { KeeperRegistry12 as KeeperRegistry } from '../../../typechain/KeeperRegistry12'
+import { KeeperRegistry1_2__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry1_2__factory'
+import { KeeperRegistry1_2 as KeeperRegistry } from '../../../typechain/KeeperRegistry1_2'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { toWei } from '../../test-helpers/helpers'
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRY v1.2 IS FROZEN ************************************/
+
+// All tests are disabled for this contract, as we expect it to never change in the future.
+// Instead, we test that the bytecode for the contract has not changed.
+// If this test ever fails, you should remove it and then re-run the original test suite.
+
+const BYTECODE = KeeperRegistryFactory.bytecode
+const BYTECODE_CHECKSUM =
+  '0x78f52b8dae3338032ce48fff22cf97ba6542bc9dd231267b0248ce261a2d4c56'
+
+describe('KeeperRegistry1_2 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(ethers.utils.id(BYTECODE), BYTECODE_CHECKSUM)
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -58,7 +80,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe('KeeperRegistry1_2', () => {
+describe.skip('KeeperRegistry1_2', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')

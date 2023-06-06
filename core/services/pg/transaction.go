@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type TxOptions struct {
@@ -37,8 +37,8 @@ func OptReadOnlyTx() TxOptions {
 }
 
 func applyDefaults(optss []TxOptions) (lockTimeout, idleInTxSessionTimeout time.Duration, txOpts sql.TxOptions) {
-	lockTimeout = DefaultLockTimeout
-	idleInTxSessionTimeout = DefaultIdleInTxSessionTimeout
+	lockTimeout = defaultLockTimeout
+	idleInTxSessionTimeout = defaultIdleInTxSessionTimeout
 	txIsolation := DefaultIsolation
 	readOnly := false
 	if len(optss) > 0 {
@@ -123,13 +123,13 @@ func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn
 		}
 	}()
 
-	if lockTimeout != DefaultLockTimeout {
+	if lockTimeout != defaultLockTimeout {
 		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %d`, lockTimeout.Milliseconds()))
 		if err != nil {
 			return errors.Wrap(err, "error setting transaction local lock_timeout")
 		}
 	}
-	if idleInTxSessionTimeout != DefaultIdleInTxSessionTimeout {
+	if idleInTxSessionTimeout != defaultIdleInTxSessionTimeout {
 		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL idle_in_transaction_session_timeout = %d`, idleInTxSessionTimeout.Milliseconds()))
 		if err != nil {
 			return errors.Wrap(err, "error setting transaction local idle_in_transaction_session_timeout")

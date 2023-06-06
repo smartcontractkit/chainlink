@@ -10,9 +10,9 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 )
 
 //go:generate mockery --quiet --name ConnectionsManager --output ./mocks/ --case=underscore
@@ -103,6 +103,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		clientConn, err := wsrpc.DialWithContext(conn.ctx, opts.URI,
 			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
 			wsrpc.WithBlock(),
+			wsrpc.WithLogger(mgr.lggr),
 		)
 		if err != nil {
 			// We only want to log if there was an error that did not occur

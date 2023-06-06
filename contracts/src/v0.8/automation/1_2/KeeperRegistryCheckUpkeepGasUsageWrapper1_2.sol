@@ -29,14 +29,7 @@ contract KeeperRegistryCheckUpkeepGasUsageWrapper1_2 is ConfirmedOwner {
    * @param id identifier of the upkeep to check
    * @param from the address to simulate performing the upkeep from
    */
-  function measureCheckGas(uint256 id, address from)
-    external
-    returns (
-      bool,
-      bytes memory,
-      uint256
-    )
-  {
+  function measureCheckGas(uint256 id, address from) external returns (bool, bytes memory, uint256) {
     uint256 startGas = gasleft();
     try i_keeperRegistry.checkUpkeep(id, from) returns (
       bytes memory performData,

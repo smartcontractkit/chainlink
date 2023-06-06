@@ -28,17 +28,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
@@ -328,11 +328,11 @@ describe('FunctionsOracle', () => {
 
       await expect(oracle.callReport(report)).to.emit(
         oracle,
-        'UserCallbackRawError',
+        'InvalidRequestID',
       )
     })
 
-    it('#fulfillRequest emits OracleResponse', async () => {
+    it('#fulfillRequest emits OracleResponse and ResponseTransmitted', async () => {
       const requestId = await placeTestRequest()
 
       const report = encodeReport(
@@ -341,9 +341,13 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
@@ -363,9 +367,13 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
 
       const [subscriptionBalanceAfter] = await registry.getSubscription(
@@ -396,11 +404,15 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await client.setRevertFulfillRequest(true)
 
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId, anyValue)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#fulfillRequest emits UserCallbackError if callback does invalid op', async () => {
@@ -412,11 +424,15 @@ describe('FunctionsOracle', () => {
         stringToHex(''),
       )
 
+      const transmitter = await roles.oracleNode.getAddress()
+
       await client.setDoInvalidOperation(true)
 
       await expect(oracle.connect(roles.oracleNode).callReport(report))
         .to.emit(oracle, 'UserCallbackError')
         .withArgs(requestId, anyValue)
+        .to.emit(oracle, 'ResponseTransmitted')
+        .withArgs(requestId, transmitter)
     })
 
     it('#fulfillRequest invokes client fulfillRequest', async () => {
@@ -448,8 +464,8 @@ describe('FunctionsOracle', () => {
 
       // for second fulfill the requestId becomes invalid
       await expect(oracle.connect(roles.oracleNode).callReport(report))
-        .to.emit(oracle, 'UserCallbackRawError')
-        .withArgs(requestId, '0xda7aa3e1')
+        .to.emit(oracle, 'InvalidRequestID')
+        .withArgs(requestId)
     })
 
     it('#_report reverts for inconsistent encoding', async () => {

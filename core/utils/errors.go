@@ -30,3 +30,7 @@ func (m multiErrorList) Error() string {
 	}
 	return sb.String()
 }
+
+func (m multiErrorList) Unwrap() []error {
+	return m
+}

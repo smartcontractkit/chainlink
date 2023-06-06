@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"net/url"
 	"reflect"
@@ -14,34 +15,37 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
-	CronJobType               string = "cron"
-	DirectRequestJobType      string = "directrequest"
-	FluxMonitorJobType        string = "fluxmonitor"
-	OffchainReportingJobType  string = "offchainreporting"
-	OffchainReporting2JobType string = "offchainreporting2"
-	KeeperJobType             string = "keeper"
-	VRFJobType                string = "vrf"
-	BlockhashStoreJobType     string = "blockhashstore"
-	WebhookJobType            string = "webhook"
-	BootstrapJobType          string = "bootstrap"
+	CronJobType                    string = "cron"
+	DirectRequestJobType           string = "directrequest"
+	FluxMonitorJobType             string = "fluxmonitor"
+	OffchainReportingJobType       string = "offchainreporting"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	KeeperJobType                  string = "keeper"
+	VRFJobType                     string = "vrf"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	WebhookJobType                 string = "webhook"
+	BootstrapJobType               string = "bootstrap"
+	GatewayJobType                 string = "gateway"
+	LegacyGasStationServerJobType  string = "legacygasstationserver"
+	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -60,15 +64,16 @@ type (
 	}
 
 	Config interface {
-		BridgeResponseURL() *url.URL
-		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineReaperInterval() time.Duration
-		JobPipelineReaperThreshold() time.Duration
+		MaxRunDuration() time.Duration
+		ReaperInterval() time.Duration
+		ReaperThreshold() time.Duration
+	}
+
+	BridgeConfig interface {
+		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 	}
 )
 
@@ -172,10 +177,17 @@ func (result FinalResult) HasErrors() bool {
 	return false
 }
 
+func (result FinalResult) CombinedError() error {
+	if !result.HasErrors() {
+		return nil
+	}
+	return errors.Join(result.AllErrors...)
+}
+
 // SingularResult returns a single result if the FinalResult only has one set of outputs/errors
 func (result FinalResult) SingularResult() (Result, error) {
 	if len(result.FatalErrors) != 1 || len(result.Values) != 1 {
-		return Result{}, errors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
+		return Result{}, pkgerrors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
 	}
 	return Result{Error: result.FatalErrors[0], Value: result.Values[0]}, nil
 }
@@ -230,7 +242,7 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	return fr
 }
 
-// GetNextTaskOf returns the task with the next id
+// GetNextTaskOf returns the task with the next id or nil if it does not exist
 func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	nextID := task.Task.Base().id + 1
 
@@ -324,7 +336,7 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("JSONSerializable#Scan received a value of type %T", value)
+		return pkgerrors.Errorf("JSONSerializable#Scan received a value of type %T", value)
 	}
 	if js == nil {
 		*js = JSONSerializable{}
@@ -362,7 +374,6 @@ const (
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
 	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHGetBlock      TaskType = "ethgetblock"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
 	TaskTypeHTTP             TaskType = "http"
@@ -402,7 +413,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 
 	switch taskMap.(type) {
 	default:
-		return nil, errors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
+		return nil, pkgerrors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
 	case map[string]interface{}, map[string]string:
 	}
 
@@ -442,8 +453,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeETHGetBlock:
-		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
@@ -481,7 +490,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	case TaskTypeBase64Encode:
 		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
-		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
+		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
@@ -515,9 +524,9 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 
 func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
 	if minLen >= 0 && len(inputs) < minLen {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+		return nil, pkgerrors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	} else if maxLen >= 0 && len(inputs) > maxLen {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+		return nil, pkgerrors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
 	var vals []interface{}
 	var errs int
@@ -540,7 +549,7 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 	}
 	id, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
+		return nil, pkgerrors.Errorf("invalid EVM chain ID: %s", str)
 	}
 	return chainSet.Get(id)
 }
@@ -558,6 +567,8 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
 	case OffchainReportingJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+	case OffchainReporting2JobType:
+		jobTypeGasLimit = cfg.EvmGasLimitOCR2JobType()
 	case KeeperJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
 	case VRFJobType:
@@ -658,7 +669,7 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 		if err == nil {
 			result = f
 		} else {
-			return nil, errors.Errorf("failed to parse json.Value: %v", err)
+			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
 		}
 	}
 

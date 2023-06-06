@@ -13,15 +13,15 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/sqlx"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/persistence"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func NewDKGServices(

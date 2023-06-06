@@ -35,11 +35,7 @@ contract DerivedPriceFeed is AggregatorV3Interface {
   AggregatorV3Interface public immutable QUOTE;
   uint8 public immutable DECIMALS;
 
-  constructor(
-    address _base,
-    address _quote,
-    uint8 _decimals
-  ) {
+  constructor(address _base, address _quote, uint8 _decimals) {
     require(_decimals > uint8(0) && _decimals <= uint8(18), "Invalid _decimals");
     DECIMALS = _decimals;
     BASE = AggregatorV3Interface(_base);
@@ -50,18 +46,7 @@ contract DerivedPriceFeed is AggregatorV3Interface {
     return DECIMALS;
   }
 
-  function getRoundData(uint80)
-    external
-    pure
-    override
-    returns (
-      uint80,
-      int256,
-      uint256,
-      uint256,
-      uint80
-    )
-  {
+  function getRoundData(uint80) external pure override returns (uint80, int256, uint256, uint256, uint80) {
     revert("not implemented - use latestRoundData()");
   }
 
@@ -73,13 +58,7 @@ contract DerivedPriceFeed is AggregatorV3Interface {
     external
     view
     override
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     return (uint80(0), getDerivedPrice(), block.timestamp, block.timestamp, uint80(0));
   }
@@ -94,18 +73,14 @@ contract DerivedPriceFeed is AggregatorV3Interface {
     uint8 quoteDecimals = QUOTE.decimals();
     quotePrice = scalePrice(quotePrice, quoteDecimals, DECIMALS);
 
-    return (basePrice * int256(10**uint256(DECIMALS))) / quotePrice;
+    return (basePrice * int256(10 ** uint256(DECIMALS))) / quotePrice;
   }
 
-  function scalePrice(
-    int256 _price,
-    uint8 _priceDecimals,
-    uint8 _decimals
-  ) internal pure returns (int256) {
+  function scalePrice(int256 _price, uint8 _priceDecimals, uint8 _decimals) internal pure returns (int256) {
     if (_priceDecimals < _decimals) {
-      return _price * int256(10**uint256(_decimals - _priceDecimals));
+      return _price * int256(10 ** uint256(_decimals - _priceDecimals));
     } else if (_priceDecimals > _decimals) {
-      return _price / int256(10**uint256(_priceDecimals - _decimals));
+      return _price / int256(10 ** uint256(_priceDecimals - _decimals));
     }
     return _price;
   }

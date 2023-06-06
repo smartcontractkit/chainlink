@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TestNodeConfig struct {
@@ -51,7 +51,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID)
+	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID, "")
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil

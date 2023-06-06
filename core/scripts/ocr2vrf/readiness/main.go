@@ -11,14 +11,14 @@ import (
 
 	"github.com/urfave/cli"
 
-	clcmd "github.com/smartcontractkit/chainlink/core/cmd"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Client, *cli.App) {
+func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	prompter := clcmd.NewTerminalPrompter()
-	client := &clcmd.Client{
+	client := &clcmd.Shell{
 		Renderer:                       clcmd.RendererJSON{Writer: writer},
 		AppFactory:                     clcmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          clcmd.TerminalKeyStoreAuthenticator{Prompter: prompter},

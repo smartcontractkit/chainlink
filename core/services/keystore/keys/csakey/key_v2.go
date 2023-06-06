@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+
+	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
 type Raw []byte
@@ -36,6 +38,14 @@ type KeyV2 struct {
 	privateKey *ed25519.PrivateKey
 	PublicKey  ed25519.PublicKey
 	Version    int
+}
+
+func (k KeyV2) StaticSizedPublicKey() (sspk credentials.StaticSizedPublicKey) {
+	if len(k.PublicKey) != ed25519.PublicKeySize {
+		panic(fmt.Sprintf("expected ed25519.PublicKey to have len %d but got len %d", ed25519.PublicKeySize, len(k.PublicKey)))
+	}
+	copy(sspk[:], k.PublicKey)
+	return sspk
 }
 
 func NewV2() (KeyV2, error) {

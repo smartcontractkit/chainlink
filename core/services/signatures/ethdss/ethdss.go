@@ -1,7 +1,9 @@
 // Package ethdss implements the Distributed Schnorr Signature protocol from the
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // paper "Provably Secure Distributed Schnorr Signatures and a (t, n)
 // Threshold Scheme for Implicit Certificates".
 // https://dl.acm.org/citation.cfm?id=678297
@@ -23,8 +25,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/ethschnorr"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/ethschnorr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/share"

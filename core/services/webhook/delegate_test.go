@@ -3,7 +3,7 @@ package webhook_test
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/pkg/errors"
@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
 func TestWebhookDelegate(t *testing.T) {
@@ -27,7 +27,7 @@ func TestWebhookDelegate(t *testing.T) {
 			Type:          job.Webhook,
 			Name:          null.StringFrom("sergtoshi stevemoto"),
 			SchemaVersion: 1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: uuid.New(),
 			WebhookSpec:   &job.WebhookSpec{},
 			PipelineSpec:  &pipeline.Spec{},
 		}
@@ -45,7 +45,7 @@ func TestWebhookDelegate(t *testing.T) {
 				"meta":        meta.Val,
 			},
 		}
-		runner    = new(pipelinemocks.Runner)
+		runner    = pipelinemocks.NewRunner(t)
 		eiManager = new(webhookmocks.ExternalInitiatorManager)
 		delegate  = webhook.NewDelegate(runner, eiManager, logger.TestLogger(t))
 	)

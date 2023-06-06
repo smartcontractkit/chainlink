@@ -13,19 +13,20 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -38,7 +39,6 @@ type Delegate struct {
 	mailMon *utils.MailboxMonitor
 }
 
-//go:generate mockery --quiet --name GethKeyStore --output ./mocks/ --case=underscore
 type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
@@ -76,9 +76,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {}
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -93,6 +94,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+	chainId := chain.Client().ConfiguredChainID()
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
@@ -112,6 +114,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
+	var vrfOwner *vrf_owner.VRFOwner
+	if jb.VRFSpec.VRFOwnerAddress != nil {
+		vrfOwner, err = vrf_owner.NewVRFOwner(
+			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "create vrf owner wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -120,8 +132,20 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 
+	if vrfOwner == nil {
+		lV2.Infow("Running without VRFOwnerAddress set on the spec")
+	}
+
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
 				return nil, err
 			}
@@ -144,6 +168,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.q,
 				coordinatorV2,
 				batchCoordinatorV2,
+				vrfOwner,
 				aggregator,
 				chain.TxManager(),
 				d.pr,
@@ -152,7 +177,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				chain.HeadBroadcaster(),
 				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
 		}
@@ -175,7 +200,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
@@ -183,6 +208,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+// CheckFromAddressesExist returns an error if and only if one of the addresses
+// in the VRF spec's fromAddresses field does not exist in the keystore.
+func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+	for _, a := range jb.VRFSpec.FromAddresses {
+		_, err2 := gethks.Get(a.Hex())
+		err = multierr.Append(err, err2)
+	}
+	return
 }
 
 // CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
@@ -199,6 +234,19 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
 			}
 		}
+	}
+	return
+}
+
+// FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
+// addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
+// gas price.
+func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+	allEqual = true
+	for i := range jb.VRFSpec.FromAddresses {
+		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		)
 	}
 	return
 }

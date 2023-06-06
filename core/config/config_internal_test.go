@@ -4,67 +4,13 @@ import (
 	"math/big"
 	"net/url"
 	"testing"
-	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/config/parse"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 )
-
-func TestGeneralConfig_Defaults(t *testing.T) {
-	config := NewGeneralConfig(logger.TestLogger(t))
-	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
-	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
-	assert.Nil(t, config.DefaultChainID())
-	assert.True(t, config.EVMRPCEnabled())
-	assert.True(t, config.EVMEnabled())
-	assert.False(t, config.SolanaEnabled())
-	assert.False(t, config.StarkNetEnabled())
-	assert.Equal(t, false, config.FeatureExternalInitiators())
-	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
-}
-
-func TestGeneralConfig_GlobalOCRDatabaseTimeout(t *testing.T) {
-	t.Setenv(envvar.Name("OCRDatabaseTimeout"), "3s")
-	config := NewGeneralConfig(logger.TestLogger(t))
-
-	timeout, ok := config.GlobalOCRDatabaseTimeout()
-	require.True(t, ok)
-	require.Equal(t, 3*time.Second, timeout)
-}
-
-func TestGeneralConfig_GlobalOCRObservationGracePeriod(t *testing.T) {
-	t.Setenv(envvar.Name("OCRObservationGracePeriod"), "3s")
-	config := NewGeneralConfig(logger.TestLogger(t))
-
-	timeout, ok := config.GlobalOCRObservationGracePeriod()
-	require.True(t, ok)
-	require.Equal(t, 3*time.Second, timeout)
-}
-
-func TestGeneralConfig_GlobalOCRContractTransmitterTransmitTimeout(t *testing.T) {
-	t.Setenv(envvar.Name("OCRContractTransmitterTransmitTimeout"), "3s")
-	config := NewGeneralConfig(logger.TestLogger(t))
-
-	timeout, ok := config.GlobalOCRContractTransmitterTransmitTimeout()
-	require.True(t, ok)
-	require.Equal(t, 3*time.Second, timeout)
-}
-
-func TestConfig_readFromFile(t *testing.T) {
-	v := viper.New()
-	v.Set("ROOT", "../../tools/clroot/")
-
-	config := newGeneralConfigWithViper(v, logger.TestLogger(t))
-	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
-	assert.Equal(t, config.Dev(), true)
-	assert.Equal(t, config.TLSPort(), uint16(0))
-}
 
 func TestStore_bigIntParser(t *testing.T) {
 	val, err := parse.BigInt("0")

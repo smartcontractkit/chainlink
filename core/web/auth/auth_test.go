@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 func authError(*gin.Context, webauth.Authenticator) error {
@@ -206,9 +207,9 @@ var routesRolesMap = [...]routeRules{
 	{"DELETE", "/v2/bridge_types/MOCK", false, false, true},
 	{"POST", "/v2/transfers", false, false, false},
 	{"POST", "/v2/transfers/evm", false, false, false},
+	{"POST", "/v2/transfers/cosmos", false, false, false},
 	{"POST", "/v2/transfers/solana", false, false, false},
 	{"GET", "/v2/config", true, true, true},
-	{"PATCH", "/v2/config", false, false, false},
 	{"GET", "/v2/config/v2", true, true, true},
 	{"GET", "/v2/tx_attempts", true, true, true},
 	{"GET", "/v2/tx_attempts/evm", true, true, true},
@@ -223,7 +224,6 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/csa/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/eth", true, true, true},
 	{"POST", "/v2/keys/eth", false, false, true},
-	{"PUT", "/v2/keys/eth/MOCK", false, false, false},
 	{"DELETE", "/v2/keys/eth/MOCK", false, false, false},
 	{"POST", "/v2/keys/eth/import", false, false, false},
 	{"POST", "/v2/keys/eth/export/MOCK", false, false, false},
@@ -243,14 +243,19 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/p2p/import", false, false, false},
 	{"POST", "/v2/keys/p2p/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/solana", true, true, true},
+	{"GET", "/v2/keys/cosmos", true, true, true},
 	{"GET", "/v2/keys/dkgsign", true, true, true},
 	{"POST", "/v2/keys/solana", false, false, true},
+	{"POST", "/v2/keys/cosmos", false, false, true},
 	{"POST", "/v2/keys/dkgsign", false, false, true},
 	{"DELETE", "/v2/keys/solana/MOCK", false, false, false},
+	{"DELETE", "/v2/keys/cosmos/MOCK", false, false, false},
 	{"DELETE", "/v2/keys/dkgsign/MOCK", false, false, false},
 	{"POST", "/v2/keys/solana/import", false, false, false},
+	{"POST", "/v2/keys/cosmos/import", false, false, false},
 	{"POST", "/v2/keys/dkgsign/import", false, false, false},
 	{"POST", "/v2/keys/solana/export/MOCK", false, false, false},
+	{"POST", "/v2/keys/cosmos/export/MOCK", false, false, false},
 	{"POST", "/v2/keys/dkgsign/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/vrf", true, true, true},
 	{"POST", "/v2/keys/vrf", false, false, true},
@@ -270,23 +275,16 @@ var routesRolesMap = [...]routeRules{
 	{"PATCH", "/v2/log", false, false, false},
 	{"GET", "/v2/chains/evm", true, true, true},
 	{"GET", "/v2/chains/solana", true, true, true},
-	{"POST", "/v2/chains/evm", false, false, true},
-	{"POST", "/v2/chains/solana", false, false, true},
+	{"GET", "/v2/chains/cosmos", true, true, true},
 	{"GET", "/v2/chains/evm/MOCK", true, true, true},
-	{"GET", "/v2/chains/solana/MOCK", true, true, true},
-	{"PATCH", "/v2/chains/evm/MOCK", false, false, true},
-	{"PATCH", "/v2/chains/solana/MOCK", false, false, true},
-	{"DELETE", "/v2/chains/evm/MOCK", false, false, true},
-	{"DELETE", "/v2/chains/solana/MOCK", false, false, true},
+	{"GET", "/v2/chains/cosmos/MOCK", true, true, true},
 	{"GET", "/v2/nodes/", true, true, true},
 	{"GET", "/v2/nodes/evm", true, true, true},
 	{"GET", "/v2/nodes/solana", true, true, true},
+	{"GET", "/v2/nodes/cosmos", true, true, true},
 	{"GET", "/v2/chains/evm/MOCK/nodes", true, true, true},
 	{"GET", "/v2/chains/solana/MOCK/nodes", true, true, true},
-	{"POST", "/v2/nodes/evm", false, false, true},
-	{"POST", "/v2/nodes/solana", false, false, true},
-	{"DELETE", "/v2/nodes/evm/MOCK", false, false, true},
-	{"DELETE", "/v2/nodes/solana/MOCK", false, false, true},
+	{"GET", "/v2/chains/cosmos/MOCK/nodes", true, true, true},
 	{"GET", "/v2/nodes/evm/forwarders", true, true, true},
 	{"POST", "/v2/nodes/evm/forwarders/track", false, false, true},
 	{"DELETE", "/v2/nodes/evm/forwarders/MOCK", false, false, true},
@@ -447,8 +445,9 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	client := app.NewHTTPClient(testUser.Email)
 
 	// Assert all view only routes
-	for _, route := range routesRolesMap {
-		func() {
+	for i, route := range routesRolesMap {
+		route := route
+		t.Run(fmt.Sprintf("%d-%s-%s", i, route.verb, route.path), func(t *testing.T) {
 			var resp *http.Response
 			var cleanup func()
 
@@ -477,6 +476,6 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			} else {
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
-		}()
+		})
 	}
 }

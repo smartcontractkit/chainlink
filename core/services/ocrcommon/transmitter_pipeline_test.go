@@ -6,17 +6,16 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
@@ -34,9 +33,9 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	strategy := txmmocks.NewTxStrategy(t)
-	checker := txmgr.TransmitCheckerSpec{CheckerType: txmgr.TransmitCheckerTypeSimulate}
-	runner := new(pipelinemocks.Runner)
+	strategy := newMockTxStrategy(t)
+	checker := txmgr.EvmTransmitCheckerSpec{CheckerType: txmgr.TransmitCheckerTypeSimulate}
+	runner := pipelinemocks.NewRunner(t)
 
 	transmitter := ocrcommon.NewPipelineTransmitter(
 		lggr,
@@ -74,5 +73,5 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 			run.State = pipeline.RunStatusCompleted
 		}).Once()
 
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }

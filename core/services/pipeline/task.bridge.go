@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -13,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe
@@ -62,10 +63,11 @@ type BridgeTask struct {
 	CacheTTL          string `json:"cacheTTL"`
 	Headers           string `json:"headers"`
 
-	specId     int32
-	orm        bridges.ORM
-	config     Config
-	httpClient *http.Client
+	specId       int32
+	orm          bridges.ORM
+	config       Config
+	bridgeConfig BridgeConfig
+	httpClient   *http.Client
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -95,7 +97,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
-		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
 		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
@@ -133,7 +135,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if t.Async == "true" {
-		responseURL := t.config.BridgeResponseURL()
+		responseURL := t.bridgeConfig.BridgeResponseURL()
 		if responseURL != nil && *responseURL != *zeroURL {
 			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
@@ -175,10 +177,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			lggr.Errorw("Bridge task: cache fallback failed",
-				"err", cacheErr.Error(),
-				"url", url.String(),
-			)
+			if !errors.Is(cacheErr, sql.ErrNoRows) {
+				lggr.Warnw("Bridge task: cache fallback failed",
+					"err", cacheErr.Error(),
+					"url", url.String(),
+				)
+			}
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 		promBridgeCacheHits.WithLabelValues(t.Name).Inc()

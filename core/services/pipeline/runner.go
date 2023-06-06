@@ -8,20 +8,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/google/uuid"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
@@ -35,8 +35,8 @@ type Runner interface {
 	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error)
 	ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 
-	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
+	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
@@ -54,6 +54,7 @@ type runner struct {
 	orm                    ORM
 	btORM                  bridges.ORM
 	config                 Config
+	bridgeConfig           BridgeConfig
 	chainSet               evm.ChainSet
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
@@ -66,7 +67,7 @@ type runner struct {
 	runFinished func(*Run)
 
 	utils.StartStopOnce
-	chStop chan struct{}
+	chStop utils.StopChan
 	wgDone sync.WaitGroup
 }
 
@@ -100,11 +101,12 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
 		config:                 cfg,
+		bridgeConfig:           bridgeCfg,
 		chainSet:               chainSet,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
@@ -126,7 +128,7 @@ func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
-		if r.config.JobPipelineReaperInterval() != time.Duration(0) {
+		if r.config.ReaperInterval() != time.Duration(0) {
 			r.wgDone.Add(1)
 			go r.runReaperLoop()
 		}
@@ -147,7 +149,7 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	return map[string]error{r.Name(): r.StartStopOnce.Healthy()}
 }
 
 func (r *runner) destroy() {
@@ -160,11 +162,11 @@ func (r *runner) destroy() {
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
 	defer r.destroy()
-	if r.config.JobPipelineReaperInterval() == 0 {
+	if r.config.ReaperInterval() == 0 {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.ReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -172,7 +174,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
-			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
+			runReaperTicker.Reset(utils.WithJitter(r.config.ReaperInterval()))
 		}
 	}
 }
@@ -227,7 +229,7 @@ func (r *runner) ExecuteRun(
 	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
 
 	if run.Pending {
-		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+		return run, nil, pkgerrors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
 	return run, taskRunResults, nil
@@ -241,7 +243,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
-		task.Base().uuid = uuid.NewV4()
+		task.Base().uuid = uuid.New()
 
 		switch task.Type() {
 		case TaskTypeHTTP:
@@ -250,6 +252,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
+			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
 			task.(*BridgeTask).orm = r.btORM
 			task.(*BridgeTask).specId = run.PipelineSpec.ID
 			// URL is "safe" because it comes from the node's own database. We
@@ -261,9 +264,6 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
-		case TaskTypeETHGetBlock:
-			task.(*ETHGetBlockTask).chainSet = r.chainSet
-			task.(*ETHGetBlockTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -288,7 +288,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		if task != nil && task.Base() != nil {
 			task.Base().uuid = taskRun.ID
 		} else {
-			return nil, errors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+			return nil, pkgerrors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
 		}
 	}
 
@@ -307,7 +307,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	reportCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if pipelineTimeout := r.config.JobPipelineMaxRunDuration(); pipelineTimeout != 0 {
+	if pipelineTimeout := r.config.MaxRunDuration(); pipelineTimeout != 0 {
 		ctx, cancel = context.WithTimeout(ctx, pipelineTimeout)
 		defer cancel()
 	}
@@ -324,7 +324,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}, func(err interface{}) {
 			t := time.Now()
 			scheduler.report(reportCtx, TaskRunResult{
-				ID:         uuid.NewV4(),
+				ID:         uuid.New(),
 				Task:       taskRun.task,
 				Result:     Result{Error: ErrRunPanicked{err}},
 				FinishedAt: null.TimeFrom(t),
@@ -404,6 +404,18 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		taskRunResults = append(taskRunResults, result)
 	}
 
+	var idxs []int32
+	for i := range taskRunResults {
+		idxs = append(idxs, taskRunResults[i].Task.OutputIndex())
+	}
+	// Ensure that task run results are ordered by their output index
+	sort.SliceStable(taskRunResults, func(i, j int) bool {
+		return taskRunResults[i].Task.OutputIndex() < taskRunResults[j].Task.OutputIndex()
+	})
+	for i := range taskRunResults {
+		idxs[i] = taskRunResults[i].Task.OutputIndex()
+	}
+
 	return taskRunResults
 }
 
@@ -423,7 +435,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// below. It has already been changed several times trying to "fix" a bug,
 	// but actually introducing new ones. Please leave it as-is unless you have
 	// an extremely good reason to change it.
-	ctx, cancel := utils.WithCloseChan(ctx, r.chStop)
+	ctx, cancel := r.chStop.Ctx(ctx)
 	defer cancel()
 	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
@@ -480,7 +492,7 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, finalResult, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
 	finalResult = trrs.FinalResult(l)
@@ -491,7 +503,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	}
 
 	if err = r.orm.InsertFinishedRun(&run, saveSuccessfulTaskRuns); err != nil {
-		return 0, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return run.ID, finalResult, nil
 
@@ -546,7 +558,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
 			if run.FailSilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
-					return false, errors.Wrap(err, "Run")
+					return false, pkgerrors.Wrap(err, "Run")
 				}
 				return false, nil
 			}
@@ -554,7 +566,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			var restart bool
 			restart, err = r.orm.StoreRun(run)
 			if err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
+				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
 					run.PipelineSpec.ID, run.State, run.Outputs, run.FatalErrors, run.FinishedAt)
 			}
 
@@ -564,7 +576,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 		} else {
 			if run.Pending {
-				return false, errors.Wrapf(err, "a run without async returned as pending")
+				return false, pkgerrors.Wrapf(err, "a run without async returned as pending")
 			}
 			// don't insert if we exited early
 			if run.FailSilently {
@@ -572,7 +584,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 
 			if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, pg.WithParentCtx(ctx)); err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
 
@@ -615,12 +627,13 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 
 func (r *runner) runReaper() {
 	r.lggr.Debugw("Pipeline run reaper starting")
-	ctx, cancel := utils.ContextFromChanWithDeadline(r.chStop, r.config.JobPipelineReaperInterval())
+	ctx, cancel := r.chStop.CtxCancel(context.WithTimeout(context.Background(), r.config.ReaperInterval()))
 	defer cancel()
 
-	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
+	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+		r.SvcErrBuffer.Append(err)
 	} else {
 		r.lggr.Debugw("Pipeline run reaper completed successfully")
 	}
@@ -634,12 +647,12 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
-	if r.config.JobPipelineReaperInterval() > time.Duration(0) {
+	if r.config.ReaperInterval() > time.Duration(0) {
 		// immediately run reaper so we don't consider runs that are too old
 		r.runReaper()
 	}
 
-	ctx, cancel := utils.ContextFromChan(r.chStop)
+	ctx, cancel := r.chStop.NewCtx()
 	defer cancel()
 
 	var wgRunsDone sync.WaitGroup

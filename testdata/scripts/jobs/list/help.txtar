@@ -1,0 +1,13 @@
+exec chainlink jobs list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink jobs list - List all jobs
+
+USAGE:
+   chainlink jobs list [command options] [arguments...]
+
+OPTIONS:
+   --page value  page of results to display (default: 0)
+   

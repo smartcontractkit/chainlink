@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type DKGEncryptKeyPresenter struct {
@@ -55,6 +55,6 @@ func (ps DKGEncryptKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewDKGEncryptKeysClient(c *Client) KeysClient {
-	return newKeysClient[dkgsignkey.Key, DKGEncryptKeyPresenter, DKGEncryptKeyPresenters]("DKGEncrypt", c)
+func NewDKGEncryptKeysClient(s *Shell) KeysClient {
+	return newKeysClient[dkgsignkey.Key, DKGEncryptKeyPresenter, DKGEncryptKeyPresenters]("DKGEncrypt", s)
 }

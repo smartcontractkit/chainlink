@@ -10,16 +10,15 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//
 // Return types:
-//    map[string]interface{}{
-//        "results": []interface{} containing any other type other pipeline tasks can return
-//        "occurrences": (int64)
-//    }
 //
+//	map[string]interface{}{
+//	    "results": []interface{} containing any other type other pipeline tasks can return
+//	    "occurrences": (int64)
+//	}
 type ModeTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`

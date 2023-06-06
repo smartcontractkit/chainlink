@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -9,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 
 	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
@@ -84,6 +85,9 @@ func (c *config) BalancePollPeriod() time.Duration {
 
 type keystore []solkey.Key
 
-func (k keystore) GetAll() ([]solkey.Key, error) {
-	return k, nil
+func (k keystore) Accounts(ctx context.Context) (ks []string, err error) {
+	for _, acc := range k {
+		ks = append(ks, acc.PublicKeyStr())
+	}
+	return
 }

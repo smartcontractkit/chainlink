@@ -24,6 +24,7 @@ typechain
 src/v0.4
 src/v0.5
 src/v0.6
+src/v0.7
 **/vendor
 
 # Ignore TS definition and map files
@@ -37,3 +38,6 @@ venv/
 .github/**/*.yml
 .golangci.yml
 .solhint.json
+
+src/v0.8/mocks/FunctionsOracleEventsMock.sol
+src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol

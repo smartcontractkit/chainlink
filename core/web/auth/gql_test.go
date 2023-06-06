@@ -10,18 +10,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/sessions/mocks"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := &mocks.ORM{}
+	sessionORM := mocks.NewORM(t)
 	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
@@ -44,7 +44,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := &mocks.ORM{}
+	sessionORM := mocks.NewORM(t)
 	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 

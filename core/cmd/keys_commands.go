@@ -12,8 +12,8 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // KeysClient is a generic client interface for any type of key.
@@ -42,7 +42,7 @@ func keysCommand(typ string, c KeysClient) cli.Command {
 				Usage: fmt.Sprintf("Import %s key from keyfile", typ),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "oldpassword, p",
+						Name:  "old-password, oldpassword, p",
 						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 					},
 				},
@@ -53,7 +53,7 @@ func keysCommand(typ string, c KeysClient) cli.Command {
 				Usage: fmt.Sprintf("Export %s key to keyfile", typ),
 				Flags: []cli.Flag{
 					cli.StringFlag{
-						Name:  "newpassword, p",
+						Name:  "new-password, newpassword, p",
 						Usage: "`FILE` containing the password to encrypt the key (required)",
 					},
 					cli.StringFlag{
@@ -87,24 +87,24 @@ func keysCommand(typ string, c KeysClient) cli.Command {
 }
 
 type keysClient[K keystore.Key, P TableRenderer, P2 ~[]P] struct {
-	*Client
+	*Shell
 	typ  string
 	path string
 }
 
 // newKeysClient returns a new KeysClient for a particular type of keystore.Key.
 // P is a TableRenderer corresponding to K, and P2 is the slice variant.
-func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, c *Client) KeysClient {
+func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, s *Shell) KeysClient {
 	lower := strings.ToLower(typ)
 	return &keysClient[K, P, P2]{
-		Client: c,
-		typ:    typ,
-		path:   "/v2/keys/" + lower,
+		Shell: s,
+		typ:   typ,
+		path:  "/v2/keys/" + lower,
 	}
 }
 
 // ListKeys retrieves a list of all keys
-func (cli *keysClient[K, P, P2]) ListKeys(c *cli.Context) (err error) {
+func (cli *keysClient[K, P, P2]) ListKeys(_ *cli.Context) (err error) {
 	resp, err := cli.HTTP.Get(cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -120,7 +120,7 @@ func (cli *keysClient[K, P, P2]) ListKeys(c *cli.Context) (err error) {
 }
 
 // CreateKey creates a new key
-func (cli *keysClient[K, P, P2]) CreateKey(c *cli.Context) (err error) {
+func (cli *keysClient[K, P, P2]) CreateKey(_ *cli.Context) (err error) {
 	resp, err := cli.HTTP.Post(cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -173,9 +173,9 @@ func (cli *keysClient[K, P, P2]) ImportKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
-	oldPasswordFile := c.String("oldpassword")
+	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
@@ -210,9 +210,9 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
 
-	newPasswordFile := c.String("newpassword")
+	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
@@ -238,7 +238,7 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)

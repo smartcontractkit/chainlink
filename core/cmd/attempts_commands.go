@@ -2,12 +2,12 @@ package cmd
 
 import "github.com/urfave/cli"
 
-func initAttemptsSubCmds(client *Client) []cli.Command {
+func initAttemptsSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "list",
 			Usage:  "List the Transaction Attempts in descending order",
-			Action: client.IndexTxAttempts,
+			Action: s.IndexTxAttempts,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -20,6 +20,6 @@ func initAttemptsSubCmds(client *Client) []cli.Command {
 
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) IndexTxAttempts(c *cli.Context) error {
-	return cli.getPage("/v2/tx_attempts/evm", c.Int("page"), &EthTxPresenters{})
+func (s *Shell) IndexTxAttempts(c *cli.Context) error {
+	return s.getPage("/v2/tx_attempts/evm", c.Int("page"), &EthTxPresenters{})
 }

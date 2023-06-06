@@ -1,0 +1,13 @@
+exec chainlink config show --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink config show - Show the application configuration
+
+USAGE:
+   chainlink config show [command options] [arguments...]
+
+OPTIONS:
+   --user-only  If set, show only the user-provided TOML configuration, omitting application defaults
+   

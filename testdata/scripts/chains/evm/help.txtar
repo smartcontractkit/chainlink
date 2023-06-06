@@ -1,0 +1,16 @@
+exec chainlink chains evm --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains evm - Commands for handling EVM chains
+
+USAGE:
+   chainlink chains evm command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing EVM chains
+
+OPTIONS:
+   --help, -h  show help
+   

@@ -7,15 +7,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name EventBroadcaster --output ./mocks/ --case=underscore
@@ -116,8 +114,7 @@ func (b *eventBroadcaster) Close() error {
 		defer b.subscriptionsMu.RUnlock()
 		b.subscriptions = nil
 
-		err = multierr.Append(err, b.db.Close())
-		err = multierr.Append(err, b.listener.Close())
+		err = services.CloseAll(b.db, b.listener)
 		close(b.chStop)
 		<-b.chDone
 		return err
@@ -313,7 +310,7 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
-func (*NullEventBroadcaster) Name() string { return "" }
+func (*NullEventBroadcaster) Name() string { return "NullEventBroadcaster" }
 
 // Start does no-op.
 func (*NullEventBroadcaster) Start(context.Context) error { return nil }
@@ -323,9 +320,6 @@ func (*NullEventBroadcaster) Close() error { return nil }
 
 // Ready does no-op.
 func (*NullEventBroadcaster) Ready() error { return nil }
-
-// Healthy does no-op.
-func (*NullEventBroadcaster) Healthy() error { return nil }
 
 // HealthReport does no-op
 func (*NullEventBroadcaster) HealthReport() map[string]error { return map[string]error{} }

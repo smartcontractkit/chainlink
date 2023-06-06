@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -16,18 +18,19 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/stretchr/testify/require"
 
-	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func TestDirectRequestPerformance(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	testEnvironment := setupDirectRequestTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -59,7 +62,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 	err = mockServerClient.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	jobUUID := uuid.NewV4()
+	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
@@ -107,7 +110,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 			d, err := consumer.Data(context.Background())
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 			g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
-			log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
+			l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
 			g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
 		}, "2m", "1s").Should(gomega.Succeed())
 	}

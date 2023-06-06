@@ -1,0 +1,9 @@
+exec chainlink bridges destroy --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink bridges destroy - Destroys the Bridge for an External Adapter
+
+USAGE:
+   chainlink bridges destroy [arguments...]
