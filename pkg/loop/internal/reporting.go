@@ -60,7 +60,7 @@ func (r *reportingPluginFactoryClient) NewReportingPlugin(config libocr.Reportin
 			MaxReportLength:      int(reply.ReportingPluginInfo.ReportingPluginLimits.MaxReportLength),
 		},
 	}
-	cc, err := r.brokerExt.broker.Dial(reply.ReportingPluginID)
+	cc, err := r.brokerExt.dial(reply.ReportingPluginID)
 	if err != nil {
 		return nil, libocr.ReportingPluginInfo{}, err
 	}

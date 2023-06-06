@@ -16,7 +16,7 @@ import (
 // Broker is a subset of the methods exported by *plugin.GRPCBroker.
 type Broker interface {
 	Accept(id uint32) (net.Listener, error)
-	Dial(id uint32) (conn *grpc.ClientConn, err error)
+	DialWithOptions(id uint32, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error)
 	NextId() uint32
 }
 
@@ -34,28 +34,43 @@ func (a *atomicBroker) Accept(id uint32) (net.Listener, error) {
 	return a.load().Accept(id)
 }
 
-func (a *atomicBroker) Dial(id uint32) (conn *grpc.ClientConn, err error) {
-	return a.load().Dial(id)
+func (a *atomicBroker) DialWithOptions(id uint32, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+	return a.load().DialWithOptions(id, opts...)
 }
 
 func (a *atomicBroker) NextId() uint32 {
 	return a.load().NextId()
 }
 
+// GRPCOpts has GRPC client and server options.
+type GRPCOpts struct {
+	// Optionally include additional options when dialing a client.
+	// Normally aligned with [plugin.ClientConfig.GRPCDialOptions].
+	DialOpts []grpc.DialOption
+	// Optionally override the default *grpc.Server constructor.
+	// Normally aligned with [plugin.ServeConfig.GRPCServer].
+	NewServer func([]grpc.ServerOption) *grpc.Server
+}
+
+// BrokerConfig holds Broker configuration fields.
+type BrokerConfig struct {
+	StopCh <-chan struct{}
+	Logger logger.Logger
+
+	GRPCOpts // optional
+}
+
 // brokerExt extends a Broker with various helper methods.
 type brokerExt struct {
-	stopCh <-chan struct{}
-	lggr   logger.Logger
 	broker Broker
+	BrokerConfig
 }
 
 // named returns a new [*brokerExt] with name added to the logger.
 func (b *brokerExt) named(name string) *brokerExt {
-	return &brokerExt{
-		stopCh: b.stopCh,
-		lggr:   logger.Named(b.lggr, name),
-		broker: b.broker,
-	}
+	bn := *b
+	bn.Logger = logger.Named(b.Logger, name)
+	return &bn
 }
 
 // newClientConn return a new *clientConn backed by this *brokerExt.
@@ -68,31 +83,40 @@ func (b *brokerExt) newClientConn(name string, newClient newClientFn) *clientCon
 }
 
 func (b *brokerExt) ctx() (context.Context, context.CancelFunc) {
-	return utils.ContextFromChan(b.stopCh)
+	return utils.ContextFromChan(b.StopCh)
+}
+
+func (b *brokerExt) dial(id uint32) (conn *grpc.ClientConn, err error) {
+	return b.broker.DialWithOptions(id, b.DialOpts...)
 }
 
 func (b *brokerExt) serve(name string, register func(*grpc.Server), deps ...resource) (uint32, resource, error) {
 	id := b.broker.NextId()
-	b.lggr.Debugf("Serving %s on connection %d", name, id)
+	b.Logger.Debugf("Serving %s on connection %d", name, id)
 	lis, err := b.broker.Accept(id)
 	if err != nil {
 		b.closeAll(deps...)
 		return 0, resource{}, ErrConnAccept{Name: name, ID: id, Err: err}
 	}
 
-	server := grpc.NewServer()
+	var server *grpc.Server
+	if b.NewServer == nil {
+		server = grpc.NewServer()
+	} else {
+		server = b.NewServer(nil)
+	}
 	register(server)
 	go func() {
 		defer b.closeAll(deps...)
 		if err := server.Serve(lis); err != nil {
-			b.lggr.Errorw(fmt.Sprintf("Failed to serve %s on connection %d", name, id), "err", err)
+			b.Logger.Errorw(fmt.Sprintf("Failed to serve %s on connection %d", name, id), "err", err)
 		}
 	}()
 
 	done := make(chan struct{})
 	go func() {
 		select {
-		case <-b.stopCh:
+		case <-b.StopCh:
 			server.Stop()
 		case <-done:
 		}
@@ -107,7 +131,7 @@ func (b *brokerExt) serve(name string, register func(*grpc.Server), deps ...reso
 func (b *brokerExt) closeAll(deps ...resource) {
 	for _, d := range deps {
 		if err := d.Close(); err != nil {
-			b.lggr.Error(fmt.Sprintf("Error closing %s", d.name), "err", err)
+			b.Logger.Error(fmt.Sprintf("Error closing %s", d.name), "err", err)
 		}
 	}
 }

@@ -97,26 +97,26 @@ func (c *clientConn) refresh(ctx context.Context, orig *grpc.ClientConn) *grpc.C
 	}
 	if c.cc != nil {
 		if err := c.cc.Close(); err != nil {
-			c.lggr.Errorw("Client close failed", "err", err)
+			c.Logger.Errorw("Client close failed", "err", err)
 		}
 		c.closeAll(c.deps...)
 	}
 
 	try := func() bool {
-		c.lggr.Debug("Client refresh")
+		c.Logger.Debug("Client refresh")
 		id, deps, err := c.newClient(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
-				c.lggr.Errorw("Client refresh failed", "err", err)
+				c.Logger.Errorw("Client refresh failed", "err", err)
 			}
 			c.closeAll(deps...)
 			return false
 		}
 		c.deps = deps
 
-		lggr := logger.With(c.lggr, "id", id)
+		lggr := logger.With(c.Logger, "id", id)
 		lggr.Debug("Client dial")
-		c.cc, err = c.broker.Dial(id)
+		c.cc, err = c.dial(id)
 		if err != nil {
 			if ctx.Err() != nil {
 				lggr.Errorw("Client dial failed", "err", ErrConnDial{Name: c.name, ID: id, Err: err})
@@ -137,7 +137,7 @@ func (c *clientConn) refresh(ctx context.Context, orig *grpc.ClientConn) *grpc.C
 			return nil
 		}
 		wait := b.Duration()
-		c.lggr.Infow("Waiting to refresh", "wait", wait)
+		c.Logger.Infow("Waiting to refresh", "wait", wait)
 		select {
 		case <-ctx.Done():
 			return nil

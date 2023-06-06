@@ -34,9 +34,9 @@ type PluginRelayerClient struct {
 	grpc pb.PluginRelayerClient
 }
 
-func NewPluginRelayerClient(stopCh <-chan struct{}, lggr logger.Logger, broker Broker, conn *grpc.ClientConn) *PluginRelayerClient {
-	lggr = logger.Named(lggr, "PluginRelayerClient")
-	pc := newPluginClient(stopCh, lggr, broker, conn)
+func NewPluginRelayerClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *PluginRelayerClient {
+	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "PluginRelayerClient")
+	pc := newPluginClient(broker, brokerCfg, conn)
 	return &PluginRelayerClient{pluginClient: pc, grpc: pb.NewPluginRelayerClient(pc)}
 }
 
@@ -71,18 +71,18 @@ type pluginRelayerServer struct {
 	impl PluginRelayer
 }
 
-func RegisterPluginRelayerServer(server *grpc.Server, stopCh <-chan struct{}, lggr logger.Logger, broker Broker, impl PluginRelayer) error {
-	pb.RegisterPluginRelayerServer(server, newPluginRelayerServer(stopCh, lggr, broker, impl))
+func RegisterPluginRelayerServer(server *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl PluginRelayer) error {
+	pb.RegisterPluginRelayerServer(server, newPluginRelayerServer(broker, brokerCfg, impl))
 	return nil
 }
 
-func newPluginRelayerServer(stopCh <-chan struct{}, lggr logger.Logger, broker Broker, impl PluginRelayer) *pluginRelayerServer {
-	lggr = logger.Named(lggr, "RelayerPluginServer")
-	return &pluginRelayerServer{brokerExt: &brokerExt{stopCh, lggr, broker}, impl: impl}
+func newPluginRelayerServer(broker Broker, brokerCfg BrokerConfig, impl PluginRelayer) *pluginRelayerServer {
+	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "RelayerPluginServer")
+	return &pluginRelayerServer{brokerExt: &brokerExt{broker, brokerCfg}, impl: impl}
 }
 
 func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRelayerRequest) (*pb.NewRelayerReply, error) {
-	ksConn, err := p.broker.Dial(request.KeystoreID)
+	ksConn, err := p.dial(request.KeystoreID)
 	if err != nil {
 		return nil, ErrConnDial{Name: "Keystore", ID: request.KeystoreID, Err: err}
 	}

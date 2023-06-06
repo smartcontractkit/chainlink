@@ -130,7 +130,7 @@ func TestHelperProcess(t *testing.T) {
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginRelayerName: &loop.GRPCPluginRelayer{Logger: logger.Test(t), PluginServer: test.StaticPluginRelayer{}, StopCh: stopCh},
+				loop.PluginRelayerName: &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}},
 			},
 			GRPCServer: grpcServer,
 		})
@@ -140,7 +140,7 @@ func TestHelperProcess(t *testing.T) {
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginMedianHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginRelayerName: &loop.GRPCPluginMedian{Logger: logger.Test(t), PluginServer: test.StaticPluginMedian{}, StopCh: stopCh},
+				loop.PluginRelayerName: &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}},
 			},
 			GRPCServer: grpcServer,
 		})

@@ -36,9 +36,9 @@ type PluginMedianClient struct {
 	median pb.PluginMedianClient
 }
 
-func NewPluginMedianClient(stopCh <-chan struct{}, lggr logger.Logger, broker Broker, conn *grpc.ClientConn) *PluginMedianClient {
-	lggr = logger.Named(lggr, "PluginMedianClient")
-	pc := newPluginClient(stopCh, lggr, broker, conn)
+func NewPluginMedianClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *PluginMedianClient {
+	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "PluginMedianClient")
+	pc := newPluginClient(broker, brokerCfg, conn)
 	return &PluginMedianClient{pluginClient: pc, median: pb.NewPluginMedianClient(pc), serviceClient: newServiceClient(pc.brokerExt, pc)}
 }
 
@@ -105,8 +105,8 @@ type pluginMedianServer struct {
 	impl PluginMedian
 }
 
-func RegisterPluginMedianServer(server *grpc.Server, stopCh <-chan struct{}, lggr logger.Logger, broker Broker, impl PluginMedian) error {
-	pb.RegisterPluginMedianServer(server, newPluginMedianServer(&brokerExt{stopCh, lggr, broker}, impl))
+func RegisterPluginMedianServer(server *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl PluginMedian) error {
+	pb.RegisterPluginMedianServer(server, newPluginMedianServer(&brokerExt{broker, brokerCfg}, impl))
 	return nil
 }
 
@@ -115,14 +115,14 @@ func newPluginMedianServer(b *brokerExt, mp PluginMedian) *pluginMedianServer {
 }
 
 func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.NewMedianFactoryRequest) (*pb.NewMedianFactoryReply, error) {
-	dsConn, err := m.broker.Dial(request.DataSourceID)
+	dsConn, err := m.dial(request.DataSourceID)
 	if err != nil {
 		return nil, ErrConnDial{Name: "DataSource", ID: request.DataSourceID, Err: err}
 	}
 	dsRes := resource{dsConn, "DataSource"}
 	dataSource := newDataSourceClient(dsConn)
 
-	juelsConn, err := m.broker.Dial(request.JuelsPerFeeCoinDataSourceID)
+	juelsConn, err := m.dial(request.JuelsPerFeeCoinDataSourceID)
 	if err != nil {
 		m.closeAll(dsRes)
 		return nil, ErrConnDial{Name: "JuelsPerFeeCoinDataSource", ID: request.JuelsPerFeeCoinDataSourceID, Err: err}
@@ -130,7 +130,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 	juelsRes := resource{juelsConn, "JuelsPerFeeCoinDataSource"}
 	juelsPerFeeCoin := newDataSourceClient(juelsConn)
 
-	providerConn, err := m.broker.Dial(request.MedianProviderID)
+	providerConn, err := m.dial(request.MedianProviderID)
 	if err != nil {
 		m.closeAll(dsRes, juelsRes)
 		return nil, ErrConnDial{Name: "MedianProvider", ID: request.MedianProviderID, Err: err}
@@ -138,7 +138,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 	providerRes := resource{providerConn, "MedianProvider"}
 	provider := newMedianProviderClient(m.brokerExt, providerConn)
 
-	errorLogConn, err := m.broker.Dial(request.ErrorLogID)
+	errorLogConn, err := m.dial(request.ErrorLogID)
 	if err != nil {
 		m.closeAll(dsRes, juelsRes, providerRes)
 		return nil, ErrConnDial{Name: "ErrorLog", ID: request.ErrorLogID, Err: err}

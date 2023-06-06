@@ -2,7 +2,6 @@ package loop_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/stretchr/testify/require"
@@ -15,16 +14,14 @@ import (
 func TestPluginRelayer(t *testing.T) {
 	t.Parallel()
 
-	stopCh := make(chan struct{})
-	if d, ok := t.Deadline(); ok {
-		time.AfterFunc(time.Until(d), func() { close(stopCh) })
-	}
-	testPlugin(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{Logger: logger.Test(t), PluginServer: test.StaticPluginRelayer{}, StopCh: stopCh}, test.TestPluginRelayer)
+	stopCh := newStopCh(t)
+	testPlugin(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginRelayer)
 }
 
 func TestPluginRelayerExec(t *testing.T) {
 	t.Parallel()
-	relayer := loop.GRPCPluginRelayer{Logger: logger.Test(t)}
+	stopCh := newStopCh(t)
+	relayer := loop.GRPCPluginRelayer{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := relayer.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginRelayerName)
 	c := plugin.NewClient(cc)

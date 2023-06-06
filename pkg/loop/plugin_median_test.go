@@ -15,16 +15,14 @@ import (
 func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
-	stopCh := make(chan struct{})
-	if d, ok := t.Deadline(); ok {
-		time.AfterFunc(time.Until(d), func() { close(stopCh) })
-	}
-	testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{Logger: logger.Test(t), PluginServer: test.StaticPluginMedian{}, StopCh: stopCh}, test.TestPluginMedian)
+	stopCh := newStopCh(t)
+	testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginMedian)
 }
 
 func TestPluginMedianExec(t *testing.T) {
 	t.Parallel()
-	median := loop.GRPCPluginMedian{Logger: logger.Test(t)}
+	stopCh := newStopCh(t)
+	median := loop.GRPCPluginMedian{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := median.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginMedianName)
 	c := plugin.NewClient(cc)
@@ -36,4 +34,12 @@ func TestPluginMedianExec(t *testing.T) {
 	require.NoError(t, err)
 
 	test.TestPluginMedian(t, i.(loop.PluginMedian))
+}
+
+func newStopCh(t *testing.T) <-chan struct{} {
+	stopCh := make(chan struct{})
+	if d, ok := t.Deadline(); ok {
+		time.AfterFunc(time.Until(d), func() { close(stopCh) })
+	}
+	return stopCh
 }

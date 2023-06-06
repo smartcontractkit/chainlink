@@ -6,7 +6,6 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 )
 
@@ -29,8 +28,7 @@ type ReportingPluginFactory = internal.ReportingPluginFactory
 type GRPCPluginMedian struct {
 	plugin.NetRPCUnsupportedPlugin
 
-	StopCh <-chan struct{}
-	Logger logger.Logger
+	BrokerConfig
 
 	PluginServer PluginMedian
 
@@ -38,13 +36,13 @@ type GRPCPluginMedian struct {
 }
 
 func (p *GRPCPluginMedian) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	return internal.RegisterPluginMedianServer(server, p.StopCh, p.Logger, broker, p.PluginServer)
+	return internal.RegisterPluginMedianServer(server, broker, p.BrokerConfig, p.PluginServer)
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [PluginMedian], updated with the new broker and conn.
 func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
-		p.pluginClient = internal.NewPluginMedianClient(p.StopCh, p.Logger, broker, conn)
+		p.pluginClient = internal.NewPluginMedianClient(broker, p.BrokerConfig, conn)
 	} else {
 		p.pluginClient.Refresh(broker, conn)
 	}
@@ -57,5 +55,6 @@ func (p *GRPCPluginMedian) ClientConfig() *plugin.ClientConfig {
 		HandshakeConfig:  PluginMedianHandshakeConfig(),
 		Plugins:          map[string]plugin.Plugin{PluginMedianName: p},
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		GRPCDialOptions:  p.DialOpts,
 	}
 }

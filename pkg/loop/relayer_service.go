@@ -22,7 +22,7 @@ type RelayerService struct {
 
 // NewRelayerService returns a new [*RelayerService].
 // cmd must return a new exec.Cmd each time it is called.
-func NewRelayerService(lggr logger.Logger, cmd func() *exec.Cmd, config string, keystore Keystore) *RelayerService {
+func NewRelayerService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cmd, config string, keystore Keystore) *RelayerService {
 	newService := func(ctx context.Context, instance any) (Relayer, error) {
 		plug, ok := instance.(PluginRelayer)
 		if !ok {
@@ -37,7 +37,8 @@ func NewRelayerService(lggr logger.Logger, cmd func() *exec.Cmd, config string, 
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "RelayerService")
 	var rs RelayerService
-	rs.init(PluginRelayerName, &GRPCPluginRelayer{StopCh: stopCh, Logger: lggr}, newService, lggr, cmd, stopCh)
+	broker := BrokerConfig{StopCh: stopCh, Logger: lggr, GRPCOpts: grpcOpts}
+	rs.init(PluginRelayerName, &GRPCPluginRelayer{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
 	return &rs
 }
 

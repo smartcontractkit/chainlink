@@ -2,8 +2,6 @@ package internal
 
 import (
 	"google.golang.org/grpc"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type pluginClient struct {
@@ -12,9 +10,9 @@ type pluginClient struct {
 	*brokerExt
 }
 
-func newPluginClient(stopCh <-chan struct{}, lggr logger.Logger, broker Broker, conn *grpc.ClientConn) *pluginClient {
+func newPluginClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *pluginClient {
 	var pc pluginClient
-	pc.brokerExt = &brokerExt{stopCh: stopCh, lggr: lggr, broker: &pc.atomicBroker}
+	pc.brokerExt = &brokerExt{&pc.atomicBroker, brokerCfg}
 	pc.Refresh(broker, conn)
 	return &pc
 }
@@ -22,5 +20,5 @@ func newPluginClient(stopCh <-chan struct{}, lggr logger.Logger, broker Broker, 
 func (p *pluginClient) Refresh(broker Broker, conn *grpc.ClientConn) {
 	p.atomicBroker.store(broker)
 	p.atomicClient.store(conn)
-	p.lggr.Debugw("Refreshed pluginClient connection", "state", conn.GetState())
+	p.Logger.Debugw("Refreshed pluginClient connection", "state", conn.GetState())
 }

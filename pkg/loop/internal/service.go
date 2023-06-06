@@ -45,7 +45,7 @@ func (s *serviceClient) Ready() error {
 	return err
 }
 
-func (s *serviceClient) Name() string { return s.b.lggr.Name() }
+func (s *serviceClient) Name() string { return s.b.Logger.Name() }
 
 func (s *serviceClient) HealthReport() map[string]error {
 	ctx, cancel := s.b.ctx()
@@ -55,10 +55,10 @@ func (s *serviceClient) HealthReport() map[string]error {
 
 	reply, err := s.grpc.HealthReport(ctx, &emptypb.Empty{})
 	if err != nil {
-		return map[string]error{s.b.lggr.Name(): err}
+		return map[string]error{s.b.Logger.Name(): err}
 	}
 	hr := healthReport(reply.HealthReport)
-	hr[s.b.lggr.Name()] = nil
+	hr[s.b.Logger.Name()] = nil
 	return hr
 }
 

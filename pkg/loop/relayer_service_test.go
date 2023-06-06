@@ -18,7 +18,7 @@ import (
 
 func TestRelayerService(t *testing.T) {
 	t.Parallel()
-	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
+	relayer := loop.NewRelayerService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 		return helperProcess(loop.PluginRelayerName)
 	}, test.ConfigTOML, test.StaticKeystore{})
 	hook := relayer.TestHook()
@@ -51,7 +51,7 @@ func TestRelayerService(t *testing.T) {
 func TestRelayerService_recovery(t *testing.T) {
 	t.Parallel()
 	var limit atomic.Int32
-	relayer := loop.NewRelayerService(logger.Test(t), func() *exec.Cmd {
+	relayer := loop.NewRelayerService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 		return helperProcess(loop.PluginRelayerName, strconv.Itoa(int(limit.Add(1))))
 	}, test.ConfigTOML, test.StaticKeystore{})
 	require.NoError(t, relayer.Start(utils.Context(t)))
