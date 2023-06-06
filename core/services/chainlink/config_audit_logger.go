@@ -2,20 +2,20 @@ package chainlink
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type auditLoggerConfig struct {
-	C audit.AuditLoggerConfig
+	c v2.AuditLogger
 }
 
 func (a auditLoggerConfig) Enabled() bool {
-	return *a.C.Enabled
+	return *a.c.Enabled
 }
 
 func (a auditLoggerConfig) ForwardToUrl() (models.URL, error) {
-	return *a.C.ForwardToUrl, nil
+	return *a.c.ForwardToUrl, nil
 }
 
 func (a auditLoggerConfig) Environment() string {
@@ -26,9 +26,9 @@ func (a auditLoggerConfig) Environment() string {
 }
 
 func (a auditLoggerConfig) JsonWrapperKey() string {
-	return *a.C.JsonWrapperKey
+	return *a.c.JsonWrapperKey
 }
 
-func (a auditLoggerConfig) Headers() (audit.ServiceHeaders, error) {
-	return *a.C.Headers, nil
+func (a auditLoggerConfig) Headers() (models.ServiceHeaders, error) {
+	return *a.c.Headers, nil
 }
