@@ -61,7 +61,8 @@ func NewHeadListener[
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config htrktypes.Config, chStop chan struct{},
+	config htrktypes.Config,
+	chStop chan struct{},
 ) *headListener[HTH, S, ID, BLOCK_HASH] {
 	return &headListener[HTH, S, ID, BLOCK_HASH]{
 		config: config,
