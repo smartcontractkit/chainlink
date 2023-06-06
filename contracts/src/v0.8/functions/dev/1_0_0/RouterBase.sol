@@ -226,13 +226,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @dev Must be implemented by inheriting contract
    * Use to test an end to end request through the system
    */
-  function _smoke(bytes calldata data) internal virtual returns (bytes32);
+  function _smoke(bytes32 jobId, bytes calldata data) internal virtual returns (bytes32);
 
   /**
    * @inheritdoc IRouterBase
    */
-  function validateProposal(bytes calldata data) external override {
-    _smoke(data);
+  function validateProposal(bytes32 jobId, bytes calldata data) external override {
+    _smoke(jobId, data);
   }
 
   /**

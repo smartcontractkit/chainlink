@@ -29,8 +29,8 @@ abstract contract FunctionsClient is IFunctionsClient {
   /**
    * @inheritdoc IFunctionsClient
    */
-  function getDONPublicKey() external view override returns (bytes memory) {
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(s_router.getRoute("FunctionsCoordinator"));
+  function getDONPublicKey(bytes32 jobId) external view override returns (bytes memory) {
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(s_router.getRoute(jobId));
     return coordinator.getDONPublicKey();
   }
 
@@ -45,9 +45,10 @@ abstract contract FunctionsClient is IFunctionsClient {
     Functions.Request memory req,
     uint64 subscriptionId,
     uint32 gasLimit,
-    uint256 gasPrice
+    uint256 gasPrice,
+    bytes32 jobId
   ) public view returns (uint96) {
-    IFunctionsBilling coordinator = IFunctionsBilling(s_router.getRoute("FunctionsCoordinator"));
+    IFunctionsBilling coordinator = IFunctionsBilling(s_router.getRoute(jobId));
     return coordinator.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
   }
 
@@ -61,14 +62,16 @@ abstract contract FunctionsClient is IFunctionsClient {
   function sendRequest(
     Functions.Request memory req,
     uint64 subscriptionId,
-    uint32 gasLimit
+    uint32 gasLimit,
+    bytes32 jobId
   ) internal returns (bytes32) {
     bytes32 requestId = s_router.sendRequest(
       subscriptionId,
       Functions.encodeRequest(Functions.encodeCBOR(req)),
-      gasLimit
+      gasLimit,
+      jobId
     );
-    s_pendingRequests[requestId] = s_router.getRoute("FunctionsCoordinator");
+    s_pendingRequests[requestId] = s_router.getRoute(jobId);
     emit RequestSent(requestId);
     return requestId;
   }

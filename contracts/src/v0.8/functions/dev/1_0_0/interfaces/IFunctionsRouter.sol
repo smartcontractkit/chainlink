@@ -19,7 +19,13 @@ interface IFunctionsRouter is IRouterBase {
    * a client can make requests from different contracts referencing the same subscription
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param gasLimit Gas limit for the fulfillment callback
+   * @param jobId A jobId that identifies which route to send the request to
    * @return requestId A unique request identifier (unique per DON)
    */
-  function sendRequest(uint64 subscriptionId, bytes calldata data, uint32 gasLimit) external returns (bytes32);
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint32 gasLimit,
+    bytes32 jobId
+  ) external returns (bytes32);
 }
