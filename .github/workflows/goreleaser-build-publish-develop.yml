@@ -12,7 +12,8 @@ jobs:
     runs-on:
       labels: ubuntu20.04-16cores-64GB
     outputs:
-      goreleaser-metadata: ${{ fromJSON(steps.build-sign-publish.outputs.goreleaser-metadata).version }}
+      goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
+      goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
     environment: build-develop
     permissions:
       id-token: write
@@ -81,6 +82,6 @@ jobs:
             --repo ${{ secrets.MERCURY_SERVER_REPO }} \
             --ref "main" \
             --field chainlink-ecr-repo-account="prod"
-            --field chainlink-image-tag=${{ needs.push-chainlink-develop-goreleaser.outputs.goreleaser-metadata.version }}
+            --field chainlink-image-tag=${{ fromJSON(needs.push-chainlink-develop-goreleaser.outputs.goreleaser-metadata).version }}
         env:
           GH_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
