@@ -29,13 +29,6 @@ import (
 	"github.com/umbracle/ethgo/abi"
 )
 
-// Upkeep type
-const (
-	Conditional int = iota
-	Mercury
-	LogTrigger
-)
-
 var extraDataEncoder *abi.Type
 
 func init() {
@@ -457,7 +450,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		var extraData []byte
 		var err error
 		switch k.cfg.UpkeepType {
-		case Conditional:
+		case config.Conditional:
 			checkData = []byte(k.cfg.UpkeepCheckData)
 			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
@@ -478,7 +471,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					big.NewInt(k.cfg.UpkeepInterval),
 				)
 			}
-		case Mercury:
+		case config.Mercury:
 			checkData = []byte(k.cfg.UpkeepCheckData)
 			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
@@ -491,7 +484,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepInterval),
 				false,
 			)
-		case LogTrigger:
+		case config.LogTrigger:
 			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 				k.buildTxOpts(ctx),
 				k.client,
