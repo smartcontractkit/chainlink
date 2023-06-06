@@ -34,8 +34,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	})
 
@@ -43,7 +43,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		k, err := keyStore.P2P().Create()
 		require.NoError(t, err)
 
@@ -51,9 +51,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
-		keyStore = cltest.NewKeyStore(t, db, cfg)
+		keyStore = cltest.NewKeyStore(t, db, cfg.Database())
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k.PeerID(), pw.PeerID)
@@ -64,9 +64,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
@@ -75,7 +75,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V1.Enabled = ptr(true)
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		k2, err := keyStore.P2P().Create()
 		require.NoError(t, err)
 
@@ -83,9 +83,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(k2.PeerID())
 		})
-		keyStore = cltest.NewKeyStore(t, db, cfg)
+		keyStore = cltest.NewKeyStore(t, db, cfg.Database())
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k2.PeerID(), pw.PeerID)
@@ -96,9 +96,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
@@ -112,7 +112,7 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	k, err := keyStore.P2P().Create()
 	require.NoError(t, err)
 
@@ -130,9 +130,9 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)
 
 	})
-	keyStore = cltest.NewKeyStore(t, db, cfg)
+	keyStore = cltest.NewKeyStore(t, db, cfg.Database())
 
-	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 
 	require.NoError(t, pw.Start(testutils.Context(t)))
 	require.True(t, pw.IsStarted(), "Should have started successfully")
@@ -140,7 +140,7 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 
 	/* If peer is still stuck in listenLoop, we will get a bind error trying to start on the same port */
 	require.False(t, pw.IsStarted())
-	pw = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+	pw = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 	require.NoError(t, pw.Start(testutils.Context(t)), "Should have shut down gracefully, and be able to re-use same port")
 	require.True(t, pw.IsStarted(), "Should have started successfully")
 	pw.Close()
@@ -154,7 +154,7 @@ func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	k, err := keyStore.P2P().Create()
 	require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 		peerConfig, err := pw.PeerConfig()
 		require.NoError(t, err)
 
@@ -180,7 +180,7 @@ func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 		peerConfig, err := pw.PeerConfig()
 		require.NoError(t, err)
 
@@ -194,7 +194,7 @@ func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 		peerConfig, err := pw.PeerConfig()
 		require.NoError(t, err)
 
@@ -209,7 +209,7 @@ func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
 
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, logger.TestLogger(t))
 		peerConfig, err := pw.PeerConfig()
 		require.NoError(t, err)
 
