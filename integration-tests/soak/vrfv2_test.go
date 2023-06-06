@@ -6,23 +6,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
-
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -37,7 +34,7 @@ func TestVRFV2Soak(t *testing.T) {
 	l := utils.GetTestLogger(t)
 
 	testInputs.SetForRemoteRunner()
-	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
+	testNetwork := networks.DetermineSelectedNetwork() // Environment currently being used to soak test on
 
 	testEnvironment := vrfv2_actions.SetupVRFV2Environment(
 		t,
