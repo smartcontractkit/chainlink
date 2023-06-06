@@ -384,11 +384,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-		// <<<<<<< HEAD
 		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, mercuryProvider.ContractTransmitter())
-		// =======
-		//         mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg, chEnhancedTelem, chain, mercuryProvider.ContractTransmitter())
-		// >>>>>>> 97a1d57542 (Support libocr in-protocol block range guarantees)
 
 		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
