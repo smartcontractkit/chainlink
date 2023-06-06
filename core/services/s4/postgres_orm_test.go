@@ -20,7 +20,7 @@ func setupORM(t *testing.T) s4.ORM {
 
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	orm := s4.NewPostgresORM(db, lggr, pgtest.NewQConfig(true), "functions")
+	orm := s4.NewPostgresORM(db, lggr, pgtest.NewQConfig(true), s4.SharedTableName, "test")
 
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
