@@ -11,14 +11,15 @@ type Head[BLOCK_HASH Hashable] interface {
 	// ChainLength returns the length of the chain followed by recursively looking up parents
 	ChainLength() uint32
 
-	// EarliestInChain traverses through parents until it finds the earliest one
+	// EarliestHeadInChain traverses through parents until it finds the earliest one
 	EarliestHeadInChain() Head[BLOCK_HASH]
-
-	// Hash is the head's block hash
-	BlockHash() BLOCK_HASH
 
 	// Parent is the head's parent block
 	GetParent() Head[BLOCK_HASH]
+
+	// Hash is the head's block hash
+	BlockHash() BLOCK_HASH
+	GetParentHash() BLOCK_HASH
 
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
