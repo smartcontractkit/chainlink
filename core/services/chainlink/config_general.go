@@ -31,7 +31,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -359,29 +358,6 @@ func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
 }
 
-func (g *generalConfig) AuditLoggerEnabled() bool {
-	return *g.c.AuditLogger.Enabled
-}
-
-func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	return *g.c.AuditLogger.ForwardToUrl, nil
-}
-
-func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return *g.c.AuditLogger.Headers, nil
-}
-
-func (g *generalConfig) AuditLoggerEnvironment() string {
-	if !build.IsProd() {
-		return "develop"
-	}
-	return "production"
-}
-
-func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
-	return *g.c.AuditLogger.JsonWrapperKey
-}
-
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
 	return *g.c.WebServer.RateLimit.Authenticated
 }
@@ -469,11 +445,11 @@ func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
 	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
 }
 
-func (g *generalConfig) DefaultHTTPLimit() int64 {
+func (g *generalConfig) WebDefaultHTTPLimit() int64 {
 	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
 }
 
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
+func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
 	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
 }
 
@@ -509,24 +485,16 @@ func (g *generalConfig) JSONConsole() bool {
 	return *g.c.Log.JSONConsole
 }
 
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
-func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	return *g.c.JobPipeline.MaxSuccessfulRuns
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
 
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
-}
-
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
+}
+
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
 func (g *generalConfig) Keeper() config.Keeper {
@@ -914,8 +882,8 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
-func (g *generalConfig) AuditLogger() audit.Config {
-	return auditLoggerConfig{C: g.c.AuditLogger}
+func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
+	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
 // Insecure config

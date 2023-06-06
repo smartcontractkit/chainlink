@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -82,15 +80,15 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 }
 
 // AuditLogger provides a mock function with given fields:
-func (_m *GeneralConfig) AuditLogger() audit.Config {
+func (_m *GeneralConfig) AuditLogger() config.AuditLogger {
 	ret := _m.Called()
 
-	var r0 audit.Config
-	if rf, ok := ret.Get(0).(func() audit.Config); ok {
+	var r0 config.AuditLogger
+	if rf, ok := ret.Get(0).(func() config.AuditLogger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.Config)
+			r0 = ret.Get(0).(config.AuditLogger)
 		}
 	}
 
@@ -432,34 +430,6 @@ func (_m *GeneralConfig) DefaultChainID() *big.Int {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
-	}
-
-	return r0
-}
-
-// DefaultHTTPLimit provides a mock function with given fields:
-func (_m *GeneralConfig) DefaultHTTPLimit() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) DefaultHTTPTimeout() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0
@@ -809,71 +779,17 @@ func (_m *GeneralConfig) JSONConsole() bool {
 	return r0
 }
 
-// JobPipelineMaxRunDuration provides a mock function with given fields:
-func (_m *GeneralConfig) JobPipelineMaxRunDuration() time.Duration {
+// JobPipeline provides a mock function with given fields:
+func (_m *GeneralConfig) JobPipeline() config.JobPipeline {
 	ret := _m.Called()
 
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+	var r0 config.JobPipeline
+	if rf, ok := ret.Get(0).(func() config.JobPipeline); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
-func (_m *GeneralConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperInterval provides a mock function with given fields:
-func (_m *GeneralConfig) JobPipelineReaperInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperThreshold provides a mock function with given fields:
-func (_m *GeneralConfig) JobPipelineReaperThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineResultWriteQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) JobPipelineResultWriteQueueDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.JobPipeline)
+		}
 	}
 
 	return r0
@@ -2201,6 +2117,34 @@ func (_m *GeneralConfig) ValidateDB() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPLimit provides a mock function with given fields:
+func (_m *GeneralConfig) WebDefaultHTTPLimit() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) WebDefaultHTTPTimeout() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0

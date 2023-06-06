@@ -517,7 +517,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
@@ -618,7 +618,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipelineMaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
@@ -711,7 +711,7 @@ func Test_Prune(t *testing.T) {
 	})
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
-	porm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
+	porm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 

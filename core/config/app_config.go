@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // nolint
@@ -36,7 +34,6 @@ type AppConfig interface {
 	FeatureFlags
 	FluxMonitor
 	Insecure
-	JobPipeline
 	Keystore
 	Logging
 	OCR1Config
@@ -50,10 +47,11 @@ type AppConfig interface {
 	Web
 
 	Database() Database
-	AuditLogger() audit.Config
+	AuditLogger() AuditLogger
 	Keeper() Keeper
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
+	JobPipeline() JobPipeline
 }
 
 type DatabaseBackupMode string

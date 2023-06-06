@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
 	big "math/big"
+
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
 	common "github.com/ethereum/go-ethereum/common"
 
@@ -77,15 +76,15 @@ func (_m *ChainScopedConfig) AppID() uuid.UUID {
 }
 
 // AuditLogger provides a mock function with given fields:
-func (_m *ChainScopedConfig) AuditLogger() audit.Config {
+func (_m *ChainScopedConfig) AuditLogger() coreconfig.AuditLogger {
 	ret := _m.Called()
 
-	var r0 audit.Config
-	if rf, ok := ret.Get(0).(func() audit.Config); ok {
+	var r0 coreconfig.AuditLogger
+	if rf, ok := ret.Get(0).(func() coreconfig.AuditLogger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.Config)
+			r0 = ret.Get(0).(coreconfig.AuditLogger)
 		}
 	}
 
@@ -585,34 +584,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
-	}
-
-	return r0
-}
-
-// DefaultHTTPLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultHTTPLimit() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultHTTPTimeout() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0
@@ -1504,71 +1475,17 @@ func (_m *ChainScopedConfig) JSONConsole() bool {
 	return r0
 }
 
-// JobPipelineMaxRunDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineMaxRunDuration() time.Duration {
+// JobPipeline provides a mock function with given fields:
+func (_m *ChainScopedConfig) JobPipeline() coreconfig.JobPipeline {
 	ret := _m.Called()
 
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+	var r0 coreconfig.JobPipeline
+	if rf, ok := ret.Get(0).(func() coreconfig.JobPipeline); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineReaperInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineReaperThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineReaperThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineResultWriteQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.JobPipeline)
+		}
 	}
 
 	return r0
@@ -3078,6 +2995,34 @@ func (_m *ChainScopedConfig) ValidateDB() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebDefaultHTTPLimit() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+// WebDefaultHTTPTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebDefaultHTTPTimeout() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
 	}
 
 	return r0

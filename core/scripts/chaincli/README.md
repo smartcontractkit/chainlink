@@ -66,6 +66,12 @@ Once the bootstrap node is running, run the following command to launch the ocr2
 ./chaincli keeper launch-and-test
 ```
 
+You can also combine the `bootstrap` and `launch-and-test` commands into a single command:
+
+```shell
+./chaincli keeper launch-and-test --bootstrap
+```
+
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:
 
 ```shell
