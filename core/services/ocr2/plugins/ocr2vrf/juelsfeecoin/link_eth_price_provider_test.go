@@ -22,61 +22,62 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 
 	t.Run("returns juels per fee coin", func(t *testing.T) {
 		mockAggregator := mocks.NewAggregatorV3Interface(t)
-
-		// Start linkEthPriceProvider.
-		var p *linkEthPriceProvider
-		evmClient := evmclimocks.NewClient(t)
-		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second/2, time.Second, logger.TestLogger(t))
-		require.NoError(t, err)
-		p = pInterface.(*linkEthPriceProvider)
-
-		// Assert correct initial price.
-		price, err := p.JuelsPerFeeCoin()
-		require.NoError(t, err)
-		assert.Equal(t, int64(0), price.Int64())
-
-		// Mock its aggregator contract.
 		latestRoundData := aggregator_v3_interface.LatestRoundData{Answer: big.NewInt(10000)}
 		mockAggregator.On("LatestRoundData", mock.Anything).Return(latestRoundData, nil)
-		p.aggregatorLock.Lock()
-		p.aggregator = mockAggregator
-		p.aggregatorLock.Unlock()
+
+		// Start linkEthPriceProvider.
+		provider := &linkEthPriceProvider{
+			aggregator:             mockAggregator,
+			timeout:                time.Second / 2,
+			interval:               time.Second,
+			stop:                   make(chan struct{}),
+			currentJuelsPerFeeCoin: big.NewInt(0),
+			lggr:                   logger.TestLogger(t),
+		}
+		go provider.run()
+		t.Cleanup(func() { close(provider.stop) })
+
+		// Assert correct initial price.
+		price, err := provider.JuelsPerFeeCoin()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), price.Int64())
 
 		// Wait until the price is updated.
 		time.Sleep(2 * time.Second)
 
 		// Ensure the correct price is returned.
-		price, err = p.JuelsPerFeeCoin()
+		price, err = provider.JuelsPerFeeCoin()
 		require.NoError(t, err)
 		assert.Equal(t, int64(10000), price.Int64())
 	})
 
 	t.Run("returns juels per fee coin (error updating)", func(t *testing.T) {
 		mockAggregator := mocks.NewAggregatorV3Interface(t)
+		mockAggregator.On("LatestRoundData", mock.Anything).Return(aggregator_v3_interface.LatestRoundData{},
+			errors.New("could not fetch"))
 
 		// Start linkEthPriceProvider.
-		var p *linkEthPriceProvider
-		evmClient := evmclimocks.NewClient(t)
-		pInterface, err := NewLinkEthPriceProvider(common.Address{}, evmClient, time.Second/2, time.Second, logger.TestLogger(t))
-		require.NoError(t, err)
-		p = pInterface.(*linkEthPriceProvider)
+		provider := &linkEthPriceProvider{
+			aggregator:             mockAggregator,
+			timeout:                time.Second / 2,
+			interval:               time.Second,
+			stop:                   make(chan struct{}),
+			currentJuelsPerFeeCoin: big.NewInt(0),
+			lggr:                   logger.TestLogger(t),
+		}
+		go provider.run()
+		t.Cleanup(func() { close(provider.stop) })
 
 		// Assert correct initial price.
-		price, err := p.JuelsPerFeeCoin()
+		price, err := provider.JuelsPerFeeCoin()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), price.Int64())
-
-		// Mock its aggregator contract. Error out when fetching latest round data.
-		mockAggregator.On("LatestRoundData", mock.Anything).Return(*new(aggregator_v3_interface.LatestRoundData), errors.New("could not fetch"))
-		p.aggregatorLock.Lock()
-		p.aggregator = mockAggregator
-		p.aggregatorLock.Unlock()
 
 		// Wait until the price is updated.
 		time.Sleep(2 * time.Second)
 
 		// Ensure the correct price is returned.
-		price, err = p.JuelsPerFeeCoin()
+		price, err = provider.JuelsPerFeeCoin()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), price.Int64())
 	})
