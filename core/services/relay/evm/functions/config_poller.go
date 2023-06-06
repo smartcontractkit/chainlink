@@ -19,8 +19,6 @@ import (
 
 type FunctionsConfigPoller interface {
 	evm.ConfigPoller
-
-	LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error)
 }
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -94,7 +92,7 @@ func configPollerFilterName(addr common.Address) string {
 }
 
 // NewConfigPoller creates a new ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (evm.ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (FunctionsConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
