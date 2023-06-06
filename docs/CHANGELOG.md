@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
+## 1.13.2 - 2023-06-05
+
+### Fixed
+
+- Made logging level improvements for the Solana Transaction Manager to reduce excessive noise
+- Fixed race condition in Solana TXM for sanity check and preventing misfired errors
+
 ## 2.1.1 - 2023-05-22
 
 ### Updated
