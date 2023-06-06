@@ -96,17 +96,11 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		feedAddress = common.HexToAddress(*linkEthFeed)
 	}
 
-	fmt.Println("Deploying VRF Router...")
-	vrfRouterAddress := deployVRFRouter(e)
-
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
+	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
 
 	fmt.Println("Configuring VRF coordinator...")
 	configureVRFCoordinator(e, vrfCoordinator, uint32(*maxCallbackGasLimit), uint32(*maxCallbackArgumentsLength))
-
-	fmt.Println("Registering VRF coordinator...")
-	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -118,7 +112,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	setProducer(e, vrfCoordinatorAddress.String(), vrfBeaconAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Creating subscription...")
 	createSubscription(e, vrfCoordinatorAddress.String())
@@ -150,7 +144,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying batch beacon consumer...")
-	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), subID)
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
@@ -345,14 +339,8 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	fmt.Println("Deploying DKG contract...")
 	dkgAddress := deployDKG(e)
 
-	fmt.Println("Deploying VRF Router...")
-	vrfRouterAddress := deployVRFRouter(e)
-
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String(), vrfRouterAddress.String())
-
-	fmt.Println("Registering VRF coordinator...")
-	registerCoordinator(e, vrfRouterAddress.String(), vrfCoordinatorAddress.String())
+	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)
@@ -364,7 +352,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	setProducer(e, vrfCoordinatorAddress.String(), vrfBeaconAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Creating subscription...")
 	createSubscription(e, vrfCoordinatorAddress.String())
@@ -372,7 +360,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	subID := findSubscriptionID(e, vrfCoordinatorAddress.String())
 
 	fmt.Println("Adding consumer to subscription...")
-	addConsumer(e, vrfRouterAddress.String(), consumerAddress.String(), subID)
+	addConsumer(e, vrfCoordinatorAddress.String(), consumerAddress.String(), subID)
 
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
@@ -430,7 +418,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	helpers.FundNodes(e, nodesToFund, big.NewInt(*fundingAmount))
 
 	fmt.Println("Deploying batch beacon consumer...")
-	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfRouterAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	loadTestConsumerAddress := deployLoadTestVRFBeaconCoordinatorConsumer(e, vrfCoordinatorAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 	addConsumer(e, vrfCoordinatorAddress.String(), loadTestConsumerAddress.String(), subID)
 
 	for i := 0; i < *nodeCount; i++ {
