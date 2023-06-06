@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/stretchr/testify/assert"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/stretchr/testify/assert"
 )
 
 type staticConfigProvider struct{}

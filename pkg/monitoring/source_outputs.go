@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // Envelope contains data that is required from all the chain integrations.

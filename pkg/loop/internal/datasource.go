@@ -9,13 +9,13 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
-// github.com/smartcontractkit/libocr/offchainreporting2/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
 var datasourceOvertime = 100 * time.Millisecond
 
 func init() {
@@ -40,7 +40,9 @@ func newDataSourceClient(cc grpc.ClientConnInterface) *dataSourceClient {
 }
 
 func (d *dataSourceClient) Observe(ctx context.Context, timestamp types.ReportTimestamp) (*big.Int, error) {
-	reply, err := d.grpc.Observe(ctx, &pb.ObserveRequest{ReportTimestamp: pbReportTimestamp(timestamp)})
+	reply, err := d.grpc.Observe(ctx, &pb.ObserveRequest{
+		ReportTimestamp: pbReportTimestamp(timestamp),
+	})
 	if err != nil {
 		return nil, err
 	}

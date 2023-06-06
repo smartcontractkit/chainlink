@@ -5,18 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
-	"sync/atomic"
 	"time"
 
-	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/bigbigendian"
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
@@ -28,7 +26,7 @@ const onchainConfigVersion = 1
 
 var onchainConfigVersionBig = big.NewInt(onchainConfigVersion)
 
-const onchainConfigEncodedLength = 96 //TODO 1 + byteWidthInt192 + byteWidthInt192
+const onchainConfigEncodedLength = 96 // 3x 32bit evm words, version + min + max
 
 type OnchainConfig struct {
 	// applies to all values: price, bid and ask
@@ -123,6 +121,9 @@ type Observation struct {
 	CurrentBlockNum       ObsResult[int64]
 	CurrentBlockHash      ObsResult[[]byte]
 	CurrentBlockTimestamp ObsResult[uint64]
+	// MaxFinalizedBlockNumber comes from previous report when present and is
+	// only observed from mercury server when previous report is nil
+	MaxFinalizedBlockNumber ObsResult[int64]
 }
 
 // DataSource implementations must be thread-safe. Observe may be called by many
@@ -144,10 +145,10 @@ type DataSource interface {
 	//
 	// Important: Observe should not perform any potentially time-consuming
 	// actions like database access, once the context passed has expired.
-	Observe(context.Context, ocrtypes.ReportTimestamp) (Observation, error)
+	Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (Observation, error)
 }
 
-var _ ocrtypes.ReportingPluginFactory = Factory{}
+var _ ocr3types.MercuryPluginFactory = Factory{}
 
 const maxObservationLength = 32 + // feedID
 	4 + // timestamp
@@ -160,29 +161,21 @@ const maxObservationLength = 32 + // feedID
 	8 + // validFromBlockNum
 	16 /* overapprox. of protobuf overhead */
 
-// All functions on ReportCodec should be pure and thread-safe.
+// ReportCodec All functions on ReportCodec should be pure and thread-safe.
 // Be careful validating and parsing any data passed.
 type ReportCodec interface {
-	// Implementers may assume that there is at most one
+	// BuildReport Implementers may assume that there is at most one
 	// ParsedAttributedObservation per observer, and that all observers are
 	// valid. However, observation values, timestamps, etc... should all be
 	// treated as untrusted.
-	BuildReport(paos []ParsedAttributedObservation, f int) (ocrtypes.Report, error)
+	BuildReport(paos []ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error)
 
-	// Returns the maximum length of a report based on n, the number of oracles.
+	// MaxReportLength Returns the maximum length of a report based on n, the number of oracles.
 	// The output of BuildReport must respect this maximum length.
 	MaxReportLength(n int) (int, error)
 
 	// CurrentBlockNumFromReport returns the median current block number from a report
 	CurrentBlockNumFromReport(types.Report) (int64, error)
-}
-
-const unfetchedInitialMaxFinalizedBlockNumber int64 = -1
-
-func newInitialMaxFinalizedBlockNumber() (a *atomic.Int64) {
-	a = new(atomic.Int64)
-	a.Store(unfetchedInitialMaxFinalizedBlockNumber)
-	return
 }
 
 type Fetcher interface {
@@ -196,7 +189,7 @@ type Transmitter interface {
 	// NOTE: Mercury doesn't actually transmit on-chain, so there is no
 	// "contract" involved with the transmitter.
 	// - Transmit should be implemented and send to Mercury server
-	// - LatestConfigDigestAndEpoch should be implemented and fetch from Mercury server
+	// - LatestConfigDigestAndEpoch is a stub method, does not need to do anything
 	// - FromAccount() should return CSA public key
 	ocrtypes.ContractTransmitter
 }
@@ -206,32 +199,27 @@ type Factory struct {
 	logger             logger.Logger
 	onchainConfigCodec OnchainConfigCodec
 	reportCodec        ReportCodec
-	fetcher            Fetcher
 }
 
-func NewFactory(ds DataSource, lggr logger.Logger, occ OnchainConfigCodec, rc ReportCodec, f Fetcher) Factory {
-	return Factory{ds, lggr, occ, rc, f}
+func NewFactory(ds DataSource, lggr logger.Logger, occ OnchainConfigCodec, rc ReportCodec) Factory {
+	return Factory{ds, lggr, occ, rc}
 }
 
-func (fac Factory) NewReportingPlugin(configuration ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
+func (fac Factory) NewMercuryPlugin(configuration ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	offchainConfig, err := DecodeOffchainConfig(configuration.OffchainConfig)
 	if err != nil {
-		return nil, ocrtypes.ReportingPluginInfo{}, err
+		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
 
 	onchainConfig, err := fac.onchainConfigCodec.Decode(configuration.OnchainConfig)
 	if err != nil {
-		return nil, ocrtypes.ReportingPluginInfo{}, err
+		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
 
 	maxReportLength, err := fac.reportCodec.MaxReportLength(configuration.N)
 	if err != nil {
-		return nil, ocrtypes.ReportingPluginInfo{}, err
+		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	ctx, cancel := context.WithCancel(context.Background())
 
 	r := &reportingPlugin{
 		offchainConfig,
@@ -244,47 +232,18 @@ func (fac Factory) NewReportingPlugin(configuration ocrtypes.ReportingPluginConf
 		epochRound{},
 		new(big.Int),
 		maxReportLength,
-		newInitialMaxFinalizedBlockNumber(),
-		sync.WaitGroup{},
-		cancel,
-		sync.Once{},
 	}
 
-	go func() {
-		defer wg.Done()
-
-		b := backoff.Backoff{
-			Min: 1 * time.Second,
-			Max: 10 * time.Second,
-		}
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(b.Duration()):
-				initial, err := fac.fetcher.FetchInitialMaxFinalizedBlockNumber(ctx)
-				if err != nil {
-					fac.logger.Warnw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-					continue
-				}
-				r.maxFinalizedBlockNumber.CompareAndSwap(unfetchedInitialMaxFinalizedBlockNumber, initial)
-				return
-			}
-		}
-	}()
-
-	return r, ocrtypes.ReportingPluginInfo{
-		Name:          "Mercury",
-		UniqueReports: false,
-		Limits: ocrtypes.ReportingPluginLimits{
-			MaxQueryLength:       0,
+	return r, ocr3types.MercuryPluginInfo{
+		Name: "Mercury",
+		Limits: ocr3types.MercuryPluginLimits{
 			MaxObservationLength: maxObservationLength,
 			MaxReportLength:      maxReportLength,
 		},
 	}, nil
 }
 
-var _ ocrtypes.ReportingPlugin = (*reportingPlugin)(nil)
+var _ ocr3types.MercuryPlugin = (*reportingPlugin)(nil)
 
 type reportingPlugin struct {
 	offchainConfig OffchainConfig
@@ -298,24 +257,14 @@ type reportingPlugin struct {
 	latestAcceptedEpochRound epochRound
 	latestAcceptedMedian     *big.Int
 	maxReportLength          int
-	maxFinalizedBlockNumber  *atomic.Int64
-
-	// fetch initial finalized block number state management
-	wg         sync.WaitGroup
-	cancel     context.CancelFunc
-	cancelOnce sync.Once
 }
 
 func (rp *reportingPlugin) Query(ctx context.Context, repts ocrtypes.ReportTimestamp) (ocrtypes.Query, error) {
 	return nil, nil
 }
 
-func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.ReportTimestamp, query ocrtypes.Query) (ocrtypes.Observation, error) {
-	if len(query) != 0 {
-		return nil, errors.New("expected empty query")
-	}
-
-	obs, err := rp.dataSource.Observe(ctx, repts)
+func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.ReportTimestamp, previousReport types.Report) (ocrtypes.Observation, error) {
+	obs, err := rp.dataSource.Observe(ctx, repts, previousReport == nil)
 	if err != nil {
 		return nil, pkgerrors.Errorf("DataSource.Observe returned an error: %s", err)
 	}
@@ -323,16 +272,16 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	p := MercuryObservationProto{Timestamp: uint32(time.Now().Unix())}
 
 	var obsErrors []error
-	if maxFinalizedBlockNumber := rp.maxFinalizedBlockNumber.Load(); maxFinalizedBlockNumber == unfetchedInitialMaxFinalizedBlockNumber {
-		obsErrors = append(obsErrors, errors.New("failed to observe ValidFromBlockNum; initial maxFinalizedBlockNumber has not yet been fetched from the mercury server"))
-	} else if obs.CurrentBlockNum.Err == nil && obs.CurrentBlockNum.Val < maxFinalizedBlockNumber {
-		obsErrors = append(obsErrors, pkgerrors.Errorf("failed to observe ValidFromBlockNum; current block number %d (hash: 0x%x) < max finalized block number %d; ignoring observation for out-of-date RPC", obs.CurrentBlockNum, obs.CurrentBlockHash, maxFinalizedBlockNumber))
-	} else {
-		// NOTE: obs.CurrentBlockNum == maxFinalizedBlockNumber is ok here
-		// (multiple observations for the same block number) since it will be
-		// de-duplicated in the Report stage
-		p.ValidFromBlockNum = maxFinalizedBlockNumber + 1
-		p.ValidFromBlockNumValid = true
+	if previousReport == nil {
+		// if previousReport we fall back to the observed MaxFinalizedBlockNumber
+		if obs.MaxFinalizedBlockNumber.Err != nil {
+			obsErrors = append(obsErrors, err)
+		} else if obs.CurrentBlockNum.Err == nil && obs.CurrentBlockNum.Val < obs.MaxFinalizedBlockNumber.Val {
+			obsErrors = append(obsErrors, pkgerrors.Errorf("failed to observe ValidFromBlockNum; current block number %d (hash: 0x%x) < max finalized block number %d; ignoring observation for out-of-date RPC", obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val, obs.MaxFinalizedBlockNumber.Val))
+		} else {
+			p.MaxFinalizedBlockNumber = obs.MaxFinalizedBlockNumber.Val // MaxFinalizedBlockNumber comes as -1 if unset
+			p.MaxFinalizedBlockNumberValid = true
+		}
 	}
 
 	if obs.BenchmarkPrice.Err != nil {
@@ -341,7 +290,6 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe BenchmarkPrice; encoding failed"))
 	} else {
 		p.BenchmarkPrice = benchmarkPrice
-		p.BenchmarkPriceValid = true
 	}
 
 	if obs.Bid.Err != nil {
@@ -350,7 +298,6 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe Bid; encoding failed"))
 	} else {
 		p.Bid = bid
-		p.BidValid = true
 	}
 
 	if obs.Ask.Err != nil {
@@ -359,28 +306,32 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		obsErrors = append(obsErrors, pkgerrors.Wrap(err, "failed to observe Ask; encoding failed"))
 	} else {
 		p.Ask = bid
-		p.AskValid = true
+	}
+
+	if obs.BenchmarkPrice.Err == nil && obs.Bid.Err == nil && obs.Ask.Err == nil {
+		p.PricesValid = true
 	}
 
 	if obs.CurrentBlockNum.Err != nil {
 		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.CurrentBlockNum.Err, "failed to observe CurrentBlockNum"))
 	} else {
 		p.CurrentBlockNum = obs.CurrentBlockNum.Val
-		p.CurrentBlockNumValid = true
 	}
 
 	if obs.CurrentBlockHash.Err != nil {
 		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.CurrentBlockHash.Err, "failed to observe CurrentBlockHash"))
 	} else {
 		p.CurrentBlockHash = obs.CurrentBlockHash.Val
-		p.CurrentBlockHashValid = true
 	}
 
 	if obs.CurrentBlockTimestamp.Err != nil {
 		obsErrors = append(obsErrors, pkgerrors.Wrap(obs.CurrentBlockTimestamp.Err, "failed to observe CurrentBlockTimestamp"))
 	} else {
 		p.CurrentBlockTimestamp = obs.CurrentBlockTimestamp.Val
-		p.CurrentBlockTimestampValid = true
+	}
+
+	if obs.CurrentBlockNum.Err == nil && obs.CurrentBlockHash.Err == nil && obs.CurrentBlockTimestamp.Err == nil {
+		p.CurrentBlockValid = true
 	}
 
 	if len(obsErrors) > 0 {
@@ -391,49 +342,73 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 }
 
 type ParsedAttributedObservation struct {
-	Timestamp             uint32
-	BenchmarkPrice        *big.Int
-	Bid                   *big.Int
-	Ask                   *big.Int
+	Timestamp uint32
+	Observer  commontypes.OracleID
+
+	BenchmarkPrice *big.Int
+	Bid            *big.Int
+	Ask            *big.Int
+	// All three prices must be valid, or none are (they all should come from one API query and hold invariant bid <= bm <= ask)
+	PricesValid bool
+
 	CurrentBlockNum       int64 // inclusive; current block
 	CurrentBlockHash      []byte
 	CurrentBlockTimestamp uint64
-	ValidFromBlockNum     int64 // exclusive; one above previous upper block
-	Observer              commontypes.OracleID
+	// All three block observations must be valid, or none are (they all come from the same block)
+	CurrentBlockValid bool
+
+	// MaxFinalizedBlockNumber comes from previous report when present and is
+	// only observed from mercury server when previous report is nil
+	//
+	// MaxFinalizedBlockNumber will be -1 if there is none
+	MaxFinalizedBlockNumber      int64
+	MaxFinalizedBlockNumberValid bool
 }
 
-func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttributedObservation, error) {
+func parseAttributedObservation(ao ocrtypes.AttributedObservation) (pao ParsedAttributedObservation, err error) {
 	var obs MercuryObservationProto
-	if err := proto.Unmarshal(ao.Observation, &obs); err != nil {
+	if err = proto.Unmarshal(ao.Observation, &obs); err != nil {
 		return ParsedAttributedObservation{}, pkgerrors.Errorf("attributed observation cannot be unmarshaled: %s", err)
 	}
-	benchmarkPrice, err := DecodeValueInt192(obs.BenchmarkPrice)
-	if err != nil {
-		return ParsedAttributedObservation{}, pkgerrors.Errorf("benchmarkPrice cannot be converted to big.Int: %s", err)
-	}
-	bid, err := DecodeValueInt192(obs.Bid)
-	if err != nil {
-		return ParsedAttributedObservation{}, pkgerrors.Errorf("bid cannot be converted to big.Int: %s", err)
-	}
-	ask, err := DecodeValueInt192(obs.Ask)
-	if err != nil {
-		return ParsedAttributedObservation{}, pkgerrors.Errorf("ask cannot be converted to big.Int: %s", err)
-	}
-	if len(obs.CurrentBlockHash) == 0 {
-		return ParsedAttributedObservation{}, pkgerrors.Errorf("wrong len for hash: %d", len(obs.CurrentBlockHash))
+
+	pao.Timestamp = obs.Timestamp
+	pao.Observer = ao.Observer
+
+	if obs.PricesValid {
+		pao.BenchmarkPrice, err = DecodeValueInt192(obs.BenchmarkPrice)
+		if err != nil {
+			return ParsedAttributedObservation{}, pkgerrors.Errorf("benchmarkPrice cannot be converted to big.Int: %s", err)
+		}
+		pao.Bid, err = DecodeValueInt192(obs.Bid)
+		if err != nil {
+			return ParsedAttributedObservation{}, pkgerrors.Errorf("bid cannot be converted to big.Int: %s", err)
+		}
+		pao.Ask, err = DecodeValueInt192(obs.Ask)
+		if err != nil {
+			return ParsedAttributedObservation{}, pkgerrors.Errorf("ask cannot be converted to big.Int: %s", err)
+		}
+		pao.PricesValid = true
 	}
 
-	return ParsedAttributedObservation{
-		obs.Timestamp,
-		benchmarkPrice,
-		bid,
-		ask,
-		obs.CurrentBlockNum,
-		obs.CurrentBlockHash,
-		obs.CurrentBlockTimestamp,
-		obs.ValidFromBlockNum,
-		ao.Observer,
-	}, nil
+	if obs.CurrentBlockValid {
+		if len(obs.CurrentBlockHash) != evmHashLen {
+			return ParsedAttributedObservation{}, pkgerrors.Errorf("wrong len for hash: %d (expected: %d)", len(obs.CurrentBlockHash), evmHashLen)
+		}
+		pao.CurrentBlockHash = obs.CurrentBlockHash
+		if obs.CurrentBlockNum < 0 {
+			return ParsedAttributedObservation{}, pkgerrors.Errorf("negative block number: %d", obs.CurrentBlockNum)
+		}
+		pao.CurrentBlockNum = obs.CurrentBlockNum
+		pao.CurrentBlockTimestamp = obs.CurrentBlockTimestamp
+		pao.CurrentBlockValid = true
+	}
+
+	if obs.MaxFinalizedBlockNumberValid {
+		pao.MaxFinalizedBlockNumber = obs.MaxFinalizedBlockNumber
+		pao.MaxFinalizedBlockNumberValid = true
+	}
+
+	return pao, nil
 }
 
 func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedObservation) []ParsedAttributedObservation {
@@ -453,11 +428,7 @@ func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedOb
 	return paos
 }
 
-func (rp *reportingPlugin) Report(ctx context.Context, repts types.ReportTimestamp, query types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
-	if len(query) != 0 {
-		return false, nil, pkgerrors.Errorf("expected empty query")
-	}
-
+func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport types.Report, aos []types.AttributedObservation) (shouldReport bool, report types.Report, err error) {
 	paos := parseAttributedObservations(rp.logger, aos)
 
 	// By assumption, we have at most f malicious oracles, so there should be at least f+1 valid paos
@@ -465,25 +436,43 @@ func (rp *reportingPlugin) Report(ctx context.Context, repts types.ReportTimesta
 		return false, nil, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
-	should, err := rp.shouldReport(ctx, repts, paos)
+	var validFromBlockNum int64
+	if previousReport != nil {
+		var currentBlockNum int64
+		currentBlockNum, err = rp.reportCodec.CurrentBlockNumFromReport(previousReport)
+		if err != nil {
+			return false, nil, err
+		}
+		validFromBlockNum = currentBlockNum + 1
+	} else {
+		var maxFinalizedBlockNumber int64
+		maxFinalizedBlockNumber, err = GetConsensusMaxFinalizedBlockNum(paos, rp.f)
+		if err != nil {
+			return false, nil, err
+		}
+		validFromBlockNum = maxFinalizedBlockNumber + 1
+	}
+	should, err := rp.shouldReport(validFromBlockNum, repts, paos)
 	if err != nil {
 		return false, nil, err
 	}
 	if !should {
 		return false, nil, nil
 	}
-	report, err := rp.reportCodec.BuildReport(paos, rp.f)
+	report, err = rp.reportCodec.BuildReport(paos, rp.f, validFromBlockNum)
 	if err != nil {
 		return false, nil, err
 	}
 	if !(len(report) <= rp.maxReportLength) {
-		return false, nil, pkgerrors.Errorf("report violates MaxReportLength limit set by ReportCodec (%v vs %v)", len(report), rp.maxReportLength)
+		return false, nil, pkgerrors.Errorf("report with len %d violates MaxReportLength limit set by ReportCodec (%d)", len(report), rp.maxReportLength)
+	} else if len(report) == 0 {
+		return false, nil, errors.New("report may not have zero length (invariant violation)")
 	}
 
 	return true, report, nil
 }
 
-func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportTimestamp, paos []ParsedAttributedObservation) (bool, error) {
+func (rp *reportingPlugin) shouldReport(validFromBlockNum int64, repts types.ReportTimestamp, paos []ParsedAttributedObservation) (bool, error) {
 	if !(rp.f+1 <= len(paos)) {
 		return false, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
@@ -492,7 +481,7 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 		rp.checkBenchmarkPrice(paos),
 		rp.checkBid(paos),
 		rp.checkAsk(paos),
-		rp.checkBlockValues(paos),
+		rp.checkCurrentBlock(paos, validFromBlockNum),
 	); err != nil {
 		rp.logger.Debugw("shouldReport: no", "err", err)
 		return false, nil
@@ -505,19 +494,19 @@ func (rp *reportingPlugin) shouldReport(ctx context.Context, repts types.ReportT
 }
 
 func (rp *reportingPlugin) checkBenchmarkPrice(paos []ParsedAttributedObservation) error {
-	return ValidateBenchmarkPrice(paos, rp.onchainConfig.Min, rp.onchainConfig.Max)
+	return ValidateBenchmarkPrice(paos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
 }
 
 func (rp *reportingPlugin) checkBid(paos []ParsedAttributedObservation) error {
-	return ValidateBid(paos, rp.onchainConfig.Min, rp.onchainConfig.Max)
+	return ValidateBid(paos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
 }
 
 func (rp *reportingPlugin) checkAsk(paos []ParsedAttributedObservation) error {
-	return ValidateAsk(paos, rp.onchainConfig.Min, rp.onchainConfig.Max)
+	return ValidateAsk(paos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
 }
 
-func (rp *reportingPlugin) checkBlockValues(paos []ParsedAttributedObservation) error {
-	return ValidateBlockValues(paos, rp.f, rp.maxFinalizedBlockNumber.Load())
+func (rp *reportingPlugin) checkCurrentBlock(paos []ParsedAttributedObservation, validFromBlockNum int64) error {
+	return ValidateCurrentBlock(paos, rp.f, validFromBlockNum)
 }
 
 func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
@@ -539,20 +528,11 @@ func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, rept
 		return false, nil
 	}
 
-	currentBlockNum, err := rp.reportCodec.CurrentBlockNumFromReport(report)
-	if err != nil {
-		return false, pkgerrors.Wrap(err, "error during CurrentBlockNumFromReport")
-	}
-
 	rp.logger.Debugw("ShouldAcceptFinalizedReport() = true",
 		"reportEpochRound", reportEpochRound,
 		"latestAcceptedEpochRound", rp.latestAcceptedEpochRound,
 	)
 
-	if currentBlockNum > rp.maxFinalizedBlockNumber.Load() {
-		rp.cancelOnce.Do(rp.cancel) // abort fetch because we will store the value from the protocol instead
-		rp.maxFinalizedBlockNumber.Store(currentBlockNum)
-	}
 	rp.latestAcceptedEpochRound = reportEpochRound
 
 	return true, nil
@@ -563,7 +543,5 @@ func (rp *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, rep
 }
 
 func (rp *reportingPlugin) Close() error {
-	rp.cancelOnce.Do(rp.cancel)
-	rp.wg.Wait()
 	return nil
 }

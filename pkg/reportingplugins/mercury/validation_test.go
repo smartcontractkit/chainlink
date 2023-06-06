@@ -9,7 +9,7 @@ import (
 
 func TestValidation(t *testing.T) {
 	f := 1
-	paos := NewParsedAttributedObservations()
+	paos := NewValidParsedAttributedObservations()
 	min := big.NewInt(0)
 	max := big.NewInt(10_000)
 
@@ -17,88 +17,71 @@ func TestValidation(t *testing.T) {
 	badMax := big.NewInt(10)
 
 	t.Run("ValidateBenchmarkPrice", func(t *testing.T) {
-		err := ValidateBenchmarkPrice(paos, min, max)
+		err := ValidateBenchmarkPrice(paos, f, min, max)
 		assert.NoError(t, err)
 
-		err = ValidateBenchmarkPrice(paos, min, badMax)
+		err = ValidateBenchmarkPrice(paos, f, min, badMax)
 		assert.EqualError(t, err, "median benchmark price 346 is outside of allowable range (Min: 0, Max: 10)")
-		err = ValidateBenchmarkPrice(paos, badMin, max)
+		err = ValidateBenchmarkPrice(paos, f, badMin, max)
 		assert.EqualError(t, err, "median benchmark price 346 is outside of allowable range (Min: 9000, Max: 10000)")
 	})
 
 	t.Run("ValidateBid", func(t *testing.T) {
-		err := ValidateBid(paos, min, max)
+		err := ValidateBid(paos, f, min, max)
 		assert.NoError(t, err)
 
-		err = ValidateBid(paos, min, badMax)
+		err = ValidateBid(paos, f, min, badMax)
 		assert.EqualError(t, err, "median bid price 345 is outside of allowable range (Min: 0, Max: 10)")
-		err = ValidateBid(paos, badMin, max)
+		err = ValidateBid(paos, f, badMin, max)
 		assert.EqualError(t, err, "median bid price 345 is outside of allowable range (Min: 9000, Max: 10000)")
 	})
 	t.Run("ValidateAsk", func(t *testing.T) {
-		err := ValidateAsk(paos, min, max)
+		err := ValidateAsk(paos, f, min, max)
 		assert.NoError(t, err)
 
-		err = ValidateAsk(paos, min, badMax)
+		err = ValidateAsk(paos, f, min, badMax)
 		assert.EqualError(t, err, "median ask price 350 is outside of allowable range (Min: 0, Max: 10)")
-		err = ValidateAsk(paos, badMin, max)
+		err = ValidateAsk(paos, f, badMin, max)
 		assert.EqualError(t, err, "median ask price 350 is outside of allowable range (Min: 9000, Max: 10000)")
 	})
-	t.Run("ValidateBlockValues", func(t *testing.T) {
-		err := ValidateBlockValues(paos, f, 0)
-		assert.NoError(t, err)
+	t.Run("ValidateCurrentBlock", func(t *testing.T) {
+		t.Run("succeeds when validFromBlockNum < current block num and currentBlockNum has consensus", func(t *testing.T) {
+			err := ValidateCurrentBlock(paos, f, 16634364)
+			assert.NoError(t, err)
+		})
+		t.Run("succeeds when validFromBlockNum is equal to current block number", func(t *testing.T) {
+			err := ValidateCurrentBlock(paos, f, 16634365)
+			assert.NoError(t, err)
+		})
 
-		t.Run("errors when maxFinalizedBlockNumber is equal to or larger than current block number", func(t *testing.T) {
-			err := ValidateBlockValues(paos, f, 16634365)
-			assert.EqualError(t, err, "maxFinalizedBlockNumber (16634365) must be less than current block number (16634365)")
-		})
-		t.Run("errors when validFrom == block number", func(t *testing.T) {
-			for i := range paos {
-				paos[i].CurrentBlockNum = paos[i].ValidFromBlockNum
-			}
-			err = ValidateBlockValues(paos, f, 0)
-			assert.EqualError(t, err, "only 0/4 attributed observations have currentBlockNum > validFromBlockNum, need at least f+1 (2/4) to make a new report; this is most likely a duplicate report for the block range; consensusCurrentBlock=16634355, consensusValidFromBlock=16634355")
-		})
 		t.Run("errors when block number < 0", func(t *testing.T) {
 			for i := range paos {
 				paos[i].CurrentBlockNum = -1
 			}
-			err = ValidateBlockValues(paos, f, 0)
-			assert.EqualError(t, err, "only 0/4 attributed observations have currentBlockNum > validFromBlockNum, need at least f+1 (2/4) to make a new report; this is most likely a duplicate report for the block range; consensusCurrentBlock=-1, consensusValidFromBlock=16634355")
+			err := ValidateCurrentBlock(paos, f, 2)
+			assert.EqualError(t, err, "only 0/4 attributed observations have currentBlockNum >= validFromBlockNum, need at least f+1 (2/4) to make a new report; consensusCurrentBlock=-1, validFromBlockNum=2")
 		})
-		t.Run("when validFrom > block number", func(t *testing.T) {
+		t.Run("errors when validFrom > block number", func(t *testing.T) {
 			for i := range paos {
 				paos[i].CurrentBlockNum = 1
-				paos[i].ValidFromBlockNum = 2
 			}
-			err = ValidateBlockValues(paos, f, 0)
-			assert.EqualError(t, err, "only 0/4 attributed observations have currentBlockNum > validFromBlockNum, need at least f+1 (2/4) to make a new report; this is most likely a duplicate report for the block range; consensusCurrentBlock=1, consensusValidFromBlock=2")
+			err := ValidateCurrentBlock(paos, f, 16634366)
+			assert.EqualError(t, err, "only 0/4 attributed observations have currentBlockNum >= validFromBlockNum, need at least f+1 (2/4) to make a new report; consensusCurrentBlock=1, validFromBlockNum=16634366")
 		})
-		t.Run("when validFrom < 0", func(t *testing.T) {
+		t.Run("errors when validFrom < 0", func(t *testing.T) {
 			for i := range paos {
 				paos[i].CurrentBlockNum = 1
-				paos[i].ValidFromBlockNum = -1
 			}
-			err = ValidateBlockValues(paos, f, 0)
+			err := ValidateCurrentBlock(paos, f, -1)
 			assert.EqualError(t, err, "validFromBlockNum must be >= 0 (got: -1)")
 		})
 		t.Run("returns error if it cannot come to consensus about currentBlockNum", func(t *testing.T) {
-			paos := NewParsedAttributedObservations()
+			paos := NewValidParsedAttributedObservations()
 			for i := range paos {
 				paos[i].CurrentBlockNum = 500 + int64(i)
-				paos[i].ValidFromBlockNum = 499
 			}
-			err := ValidateBlockValues(paos, f, 0)
-			assert.EqualError(t, err, "GetConsensusCurrentBlock failed: coulnd't get consensus current block: no block number matching hash 0x40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e with at least f+1 votes")
-		})
-		t.Run("returns error if it cannot come to consensus about validFromBlockNum", func(t *testing.T) {
-			paos := NewParsedAttributedObservations()
-			for i := range paos {
-				paos[i].CurrentBlockNum = 500
-				paos[i].ValidFromBlockNum = 499 - int64(i)
-			}
-			err := ValidateBlockValues(paos, f, 0)
-			assert.EqualError(t, err, "GetConsensusValidFromBlock failed: no valid from block number with at least f+1 votes")
+			err := ValidateCurrentBlock(paos, f, 0)
+			assert.EqualError(t, err, "GetConsensusCurrentBlock failed: couldn't get consensus current block: no block number matching hash 0x40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e with at least f+1 votes")
 		})
 	})
 }

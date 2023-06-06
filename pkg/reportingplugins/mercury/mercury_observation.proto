@@ -6,18 +6,23 @@ option go_package = ".;mercury";
 // TODO: what about different report formats for different clients?
 message MercuryObservationProto {
     uint32 timestamp = 1;
+
+    // Prices
     bytes benchmarkPrice = 2;
     bytes bid = 3;
     bytes ask = 4;
-    int64 currentBlockNum = 5;
-    bytes currentBlockHash = 6;
-    uint64 currentBlockTimestamp = 7;
-    int64 validFromBlockNum = 8;
-    bool benchmarkPriceValid = 9;
-    bool bidValid = 10;
-    bool askValid = 11;
-    bool currentBlockNumValid = 12;
-    bool currentBlockHashValid = 13;
-    bool currentBlockTimestampValid = 14;
-    bool validFromBlockNumValid = 15;
+    // All three prices must be valid, or none are (they all should come from one API query and hold invariant bid <= bm <= ask)
+    bool pricesValid = 5;
+
+    // Current block
+    int64 currentBlockNum = 6;
+    bytes currentBlockHash = 7;
+    uint64 currentBlockTimestamp = 8;
+    // All three block observations must be valid, or none are (they all come from the same block)
+    bool currentBlockValid = 9;
+
+    // MaxFinalizedBlockNumber comes from previous report when present and is
+    // only observed from mercury server when previous report is nil
+    int64 maxFinalizedBlockNumber = 10;
+    bool maxFinalizedBlockNumberValid = 11;
 }

@@ -4,11 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // RawReportContext is a copy of evmutil.RawReportContext to avoid importing go-ethereum.
-// github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil#RawReportContext
+// github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil#RawReportContext
 func RawReportContext(repctx types.ReportContext) [3][32]byte {
 	rawRepctx := [3][32]byte{}
 	copy(rawRepctx[0][:], repctx.ConfigDigest[:])

@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 
@@ -19,64 +20,110 @@ func GetConsensusTimestamp(paos []ParsedAttributedObservation) uint32 {
 }
 
 // GetConsensusBenchmarkPrice gets the median benchmark price
-func GetConsensusBenchmarkPrice(paos []ParsedAttributedObservation) *big.Int {
-	sort.Slice(paos, func(i, j int) bool {
-		return paos[i].BenchmarkPrice.Cmp(paos[j].BenchmarkPrice) < 0
+func GetConsensusBenchmarkPrice(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+	var validBenchmarkPrices []*big.Int
+	for _, pao := range paos {
+		if pao.PricesValid {
+			validBenchmarkPrices = append(validBenchmarkPrices, pao.BenchmarkPrice)
+		}
+	}
+	if len(validBenchmarkPrices) < f+1 {
+		return nil, errors.New("fewer than f+1 observations have a valid price")
+	}
+	sort.Slice(validBenchmarkPrices, func(i, j int) bool {
+		return validBenchmarkPrices[i].Cmp(validBenchmarkPrices[j]) < 0
 	})
 
-	return paos[len(paos)/2].BenchmarkPrice
+	return validBenchmarkPrices[len(validBenchmarkPrices)/2], nil
 }
 
 // GetConsensusBid gets the median bid
-func GetConsensusBid(paos []ParsedAttributedObservation) *big.Int {
-	sort.Slice(paos, func(i, j int) bool {
-		return paos[i].Bid.Cmp(paos[j].Bid) < 0
+func GetConsensusBid(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+	var validBids []*big.Int
+	for _, pao := range paos {
+		if pao.PricesValid {
+			validBids = append(validBids, pao.Bid)
+		}
+	}
+	if len(validBids) < f+1 {
+		return nil, errors.New("fewer than f+1 observations have a valid price")
+	}
+	sort.Slice(validBids, func(i, j int) bool {
+		return validBids[i].Cmp(validBids[j]) < 0
 	})
 
-	return paos[len(paos)/2].Bid
+	return validBids[len(validBids)/2], nil
 }
 
 // GetConsensusAsk gets the median ask
-func GetConsensusAsk(paos []ParsedAttributedObservation) *big.Int {
-	sort.Slice(paos, func(i, j int) bool {
-		return paos[i].Ask.Cmp(paos[j].Ask) < 0
+func GetConsensusAsk(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+	var validAsks []*big.Int
+	for _, pao := range paos {
+		if pao.PricesValid {
+			validAsks = append(validAsks, pao.Ask)
+		}
+	}
+	if len(validAsks) < f+1 {
+		return nil, errors.New("fewer than f+1 observations have a valid price")
+	}
+	sort.Slice(validAsks, func(i, j int) bool {
+		return validAsks[i].Cmp(validAsks[j]) < 0
 	})
 
-	return paos[len(paos)/2].Ask
+	return validAsks[len(validAsks)/2], nil
 }
 
 // GetConsensusCurrentBlock gets the most common (mode) block hash/number/timestamps.
 // In the event of a tie, use the lowest numerical value
 func GetConsensusCurrentBlock(paos []ParsedAttributedObservation, f int) (hash []byte, num int64, ts uint64, err error) {
+	var validPaos []ParsedAttributedObservation
+	for _, pao := range paos {
+		if pao.CurrentBlockValid {
+			validPaos = append(validPaos, pao)
+		}
+	}
+	if len(validPaos) < f+1 {
+		return nil, 0, 0, fmt.Errorf("fewer than f+1 observations have a valid current block (got: %d/%d)", len(validPaos), len(paos))
+	}
 	// pick the most common blockhash with at least f+1 votes
-	hash, err = getConsensusCurrentBlockHash(paos, f+1)
+	hash, err = getConsensusCurrentBlockHash(validPaos, f+1)
 	if err != nil {
 		return hash, 0, 0, errors.Wrap(err, "couldn't get consensus current block")
 	}
 
 	// pick the most common block number with at least f+1 votes
-	num, err = getConsensusCurrentBlockNum(paos, string(hash), f+1)
+	num, err = getConsensusCurrentBlockNum(validPaos, string(hash), f+1)
 	if err != nil {
-		return hash, num, 0, errors.Wrap(err, "coulnd't get consensus current block")
+		return hash, num, 0, errors.Wrap(err, "couldn't get consensus current block")
 	}
 
 	// pick the most common block timestamp with at least f+1 votes
-	ts, err = getConsensusCurrentBlockTimestamp(paos, string(hash), num, f+1)
+	ts, err = getConsensusCurrentBlockTimestamp(validPaos, string(hash), num, f+1)
 	if err != nil {
-		return hash, num, ts, errors.Wrap(err, "coulnd't get consensus current block")
+		return hash, num, ts, errors.Wrap(err, "couldn't get consensus current block")
 	}
 
 	return hash, num, ts, nil
 }
 
-// GetConsensusValidFromBlock gets the most common (mode) ValidFromBlockNum
-// In the event of a tie, the lower number is chosen
-func GetConsensusValidFromBlock(paos []ParsedAttributedObservation, f int) (int64, error) {
+// GetConsensusMaxFinalizedBlockNum gets the most common (mode)
+// ConsensusMaxFinalizedBlockNum In the event of a tie, the lower number is
+// chosen
+func GetConsensusMaxFinalizedBlockNum(paos []ParsedAttributedObservation, f int) (int64, error) {
+	var validPaos []ParsedAttributedObservation
+	for _, pao := range paos {
+		if pao.MaxFinalizedBlockNumberValid {
+			validPaos = append(validPaos, pao)
+		}
+	}
+	if len(validPaos) < f+1 {
+		return 0, fmt.Errorf("fewer than f+1 observations have a valid maxFinalizedBlockNumber (got: %d/%d)", len(validPaos), len(paos))
+	}
 	// pick the most common block number with at least f+1 votes
 	m := map[int64]int{}
 	maxCnt := 0
-	for _, pao := range paos {
-		n := pao.ValidFromBlockNum
+	for _, pao := range validPaos {
+		n := pao.MaxFinalizedBlockNumber
 		m[n]++
 		if cnt := m[n]; cnt > maxCnt {
 			maxCnt = cnt
@@ -91,7 +138,7 @@ func GetConsensusValidFromBlock(paos []ParsedAttributedObservation, f int) (int6
 	}
 
 	if maxCnt < f+1 {
-		return 0, errors.New("no valid from block number with at least f+1 votes")
+		return 0, fmt.Errorf("no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: %v)", m)
 	}
 	// guaranteed to be at least one num after this
 

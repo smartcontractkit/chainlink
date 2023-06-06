@@ -177,7 +177,7 @@ service OffchainConfigDigester {
   rpc ConfigDigestPrefix (ConfigDigestPrefixRequest) returns (ConfigDigestPrefixReply) {}
 }
 
-// ContractConfig represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfig]
+// ContractConfig represents [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractConfig]
 message ContractConfig {
   bytes configDigest = 1; // [32]byte
   uint64 configCount = 2;
@@ -189,19 +189,19 @@ message ContractConfig {
   bytes offchainConfig = 8;
 }
 
-// ConfigDigestRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigest].
+// ConfigDigestRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.OffchainConfigDigester.ConfigDigest].
 message ConfigDigestRequest {
     ContractConfig contractConfig = 1;
 }
 
-// ConfigDigestReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigest].
+// ConfigDigestReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.OffchainConfigDigester.ConfigDigest].
 message ConfigDigestReply {
   bytes configDigest = 1; // [32]byte
 }
 
 message ConfigDigestPrefixRequest {}
 
-// ConfigDigestPrefixReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.OffchainConfigDigester.ConfigDigestPrefix].
+// ConfigDigestPrefixReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.OffchainConfigDigester.ConfigDigestPrefix].
 message ConfigDigestPrefixReply {
   uint32 configDigestPrefix = 1; // uint16
 }
@@ -214,25 +214,25 @@ service ContractConfigTracker {
 
 message LatestConfigDetailsRequest {}
 
-// LatestConfigDetailsReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfigDetails].
+// LatestConfigDetailsReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractConfigTracker.LatestConfigDetails].
 message LatestConfigDetailsReply {
   uint64 changedInBlock = 1;
   bytes configDigest = 2; // [32]byte
 }
 
-// LatestConfigRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfig].
+// LatestConfigRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractConfigTracker.LatestConfig].
 message LatestConfigRequest {
   uint64 changedInBlock = 1;
 }
 
-// LatestConfigReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestConfig].
+// LatestConfigReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractConfigTracker.LatestConfig].
 message LatestConfigReply {
   ContractConfig contractConfig = 1;
 }
 
 message LatestBlockHeightRequest {}
 
-// LatestBlockHeightReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractConfigTracker.LatestBlockHeightReply].
+// LatestBlockHeightReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractConfigTracker.LatestBlockHeightReply].
 message LatestBlockHeightReply {
   uint64 blockHeight = 1;
 }
@@ -243,26 +243,26 @@ service ContractTransmitter {
   rpc FromAccount (FromAccountRequest) returns (FromAccountReply) {}
 }
 
-// ReportTimestamp represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportTimestamp].
+// ReportTimestamp represents [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ReportTimestamp].
 message ReportTimestamp {
   bytes configDigest = 1; // [32]byte
   uint32 epoch = 2;
   uint32 round = 3; // uint8
 }
 
-// ReportContext represents [github.com/smartcontractkit/libocr/offchainreporting2/types.ReportContext].
+// ReportContext represents [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ReportContext].
 message ReportContext {
     ReportTimestamp reportTimestamp = 1;
     bytes extraHash = 2; // [32]byte
 }
 
-// AttributedOnchainSignature represents [github.com/smartcontractkit/libocr/offchainreporting2/types.AttributedOnchainSignature].
+// AttributedOnchainSignature represents [github.com/smartcontractkit/libocr/offchainreporting2plus/types.AttributedOnchainSignature].
 message AttributedOnchainSignature {
   bytes signature = 1;
   uint32 signer = 2; // uint8
 }
 
-// TransmitRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractTransmitter.Transmit].
+// TransmitRequest has arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractTransmitter.Transmit].
 message TransmitRequest {
   ReportContext reportContext = 1;
   bytes report = 2;
@@ -272,7 +272,7 @@ message TransmitReply {}
 
 message LatestConfigDigestAndEpochRequest {}
 
-// LatestConfigDigestAndEpochReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2/types.ContractTransmitter.LatestConfigDigestAndEpoch].
+// LatestConfigDigestAndEpochReply has return arguments for [github.com/smartcontractkit/libocr/offchainreporting2plus/types.ContractTransmitter.LatestConfigDigestAndEpoch].
 message LatestConfigDigestAndEpochReply {
   bytes configDigest = 1; // [32]byte
   uint32 epoch = 2;

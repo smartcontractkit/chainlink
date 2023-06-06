@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type staticReportingPlugin struct{}

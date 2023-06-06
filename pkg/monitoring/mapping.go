@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 )

@@ -18,3 +18,11 @@ func EncodeValueInt192(i *big.Int) ([]byte, error) {
 func DecodeValueInt192(s []byte) (*big.Int, error) {
 	return bigbigendian.DeserializeSigned(byteWidthInt192, s)
 }
+
+func MustEncodeValueInt192(i *big.Int) []byte {
+	val, err := EncodeValueInt192(i)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
