@@ -422,7 +422,7 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	lggr := logger.TestLogger(t)
-	db := ocr2.NewDB(sqlDB, 0, lggr, cfg)
+	db := ocr2.NewDB(sqlDB, 0, lggr, cfg.Database())
 	cd1 := testhelpers.MakeConfigDigest(t)
 	cd2 := testhelpers.MakeConfigDigest(t)
 	ctx := testutils.Context(t)
