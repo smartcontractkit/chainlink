@@ -17,7 +17,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20230605230752-50b5e5c6b65a
+	github.com/smartcontractkit/libocr v0.0.0-20230606165449-a80645346b30
 	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230606105550-2764ebe323ed
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230606105611-d6e09e9c35ff
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
@@ -285,7 +285,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230606105808-4f4ef0764181 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230606171220-7a0cfc835c3f // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
