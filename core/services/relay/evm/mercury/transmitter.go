@@ -173,17 +173,20 @@ func (mt *mercuryTransmitter) runloop() {
 				mt.lggr.Debugw("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
 				elems := map[string]interface{}{}
-				if err := PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					panic(err)
-				}
-				report := elems["report"].([]byte)
-				validFrom, err := (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
-				if err != nil {
-					panic(err)
-				}
-				currentBlock, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
-				if err != nil {
-					panic(err)
+				var validFrom int64
+				var currentBlock int64
+				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
+					mt.lggr.Errorw("failed to unpack report", "err", err)
+				} else {
+					report := elems["report"].([]byte)
+					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
+					if err != nil {
+						mt.lggr.Errorw("failed to unpack report", "err", err)
+					}
+					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
+					if err != nil {
+						mt.lggr.Errorw("failed to unpack report", "err", err)
+					}
 				}
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
