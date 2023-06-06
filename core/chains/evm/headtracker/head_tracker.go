@@ -74,10 +74,9 @@ func NewHeadTracker[
 	S commontypes.Subscription,
 	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
-	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH],
 ](
 	lggr logger.Logger,
-	client CLIENT,
+	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
 	config htrktypes.Config,
 	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver commontypes.HeadSaver[HTH, BLOCK_HASH],
@@ -95,7 +94,7 @@ func NewHeadTracker[
 		backfillMB:      utils.NewSingleMailbox[HTH](),
 		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH, CLIENT](lggr, client, config, chStop),
+		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 		getNilHead:      getNilHead,
@@ -207,7 +206,10 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 		baseHeight = 0
 	}
 
-	earliestHead := headWithChain.EarliestHeadInChain().(HTH)
+	earliestHead, ok := headWithChain.EarliestHeadInChain().(HTH)
+	if !ok {
+		return errors.New("could not cast earliestHead to HTH")
+	}
 
 	return ht.backfill(ctx, earliestHead, baseHeight)
 }
