@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
+## 1.13.3 - 2023-06-06
+
+### Fixed
+
+- The 1.13.2 release showed the 1.13.1 version in its VERSION file. This updates the VERSION file to now show 1.13.3.
+
 ## 1.13.2 - 2023-06-05
 
 ### Fixed
