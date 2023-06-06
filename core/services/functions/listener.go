@@ -98,6 +98,17 @@ var (
 			float64(60 * time.Second),
 		},
 	}, []string{"oracle"})
+
+	promPrunedRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_pruned",
+		Help: "Metric to track number of requests pruned from the DB",
+	}, []string{"oracle"})
+)
+
+const (
+	DefaultPruneMaxStoredRequests uint32 = 20_000
+	DefaultPruneCheckFrequencySec uint32 = 60 * 10
+	DefaultPruneBatchSize         uint32 = 500
 )
 
 type FunctionsListener struct {
@@ -159,9 +170,10 @@ func (l *FunctionsListener) Start(context.Context) error {
 		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
 			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
 		}
-		l.shutdownWaitGroup.Add(3)
+		l.shutdownWaitGroup.Add(4)
 		go l.processOracleEvents()
 		go l.timeoutRequests()
+		go l.pruneRequests()
 		go func() {
 			<-l.chStop
 			unsubscribeLogs()
@@ -414,6 +426,48 @@ func (l *FunctionsListener) timeoutRequests() {
 				l.logger.Debugw("timed out requests", "requestIDs", idStrs)
 			} else {
 				l.logger.Debug("no requests to time out")
+			}
+		}
+	}
+}
+
+func (l *FunctionsListener) pruneRequests() {
+	defer l.shutdownWaitGroup.Done()
+	maxStoredRequests, freqSec, batchSize := l.pluginConfig.PruneMaxStoredRequests, l.pluginConfig.PruneCheckFrequencySec, l.pluginConfig.PruneBatchSize
+	if maxStoredRequests == 0 {
+		l.logger.Warnw("pruneMaxStoredRequests not configured - using default", "DefaultPruneMaxStoredRequests", DefaultPruneMaxStoredRequests)
+		maxStoredRequests = DefaultPruneMaxStoredRequests
+	}
+	if freqSec == 0 {
+		l.logger.Warnw("pruneCheckFrequencySec not configured - using default", "DefaultPruneCheckFrequencySec", DefaultPruneCheckFrequencySec)
+		freqSec = DefaultPruneCheckFrequencySec
+	}
+	if batchSize == 0 {
+		l.logger.Warnw("pruneBatchSize not configured - using default", "DefaultPruneBatchSize", DefaultPruneBatchSize)
+		batchSize = DefaultPruneBatchSize
+	}
+
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			ctx, cancel := l.getNewHandlerContext()
+			startTime := time.Now()
+			nTotal, nPruned, err := l.pluginORM.PruneOldestRequests(maxStoredRequests, batchSize, pg.WithParentCtx(ctx))
+			cancel()
+			elapsedMillis := time.Since(startTime).Milliseconds()
+			if err != nil {
+				l.logger.Errorw("error when calling PruneOldestRequests", "err", err, "elapsedMillis", elapsedMillis)
+				break
+			}
+			if nPruned > 0 {
+				promPrunedRequests.WithLabelValues(l.oracleHexAddr).Add(float64(nPruned))
+				l.logger.Debugw("pruned requests from the DB", "nTotal", nTotal, "nPruned", nPruned, "elapsedMillis", elapsedMillis)
+			} else {
+				l.logger.Debug("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
 			}
 		}
 	}
