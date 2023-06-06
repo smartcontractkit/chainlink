@@ -71,6 +71,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   // ================================================================
 
   function _sendRequest(
+    bytes32 jobId,
     bool isProposed,
     uint64 subscriptionId,
     bytes memory data,
@@ -79,7 +80,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address route = this.getRoute("FunctionsCoordinator", isProposed);
+    address route = this.getRoute(jobId, isProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
@@ -97,9 +98,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     return requestId;
   }
 
-  function _smoke(bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
+  function _smoke(bytes32 jobId, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
     (uint64 subscriptionId, bytes memory reqData, uint32 gasLimit) = abi.decode(data, (uint64, bytes, uint32));
-    return _sendRequest(true, subscriptionId, reqData, gasLimit);
+    return _sendRequest(jobId, true, subscriptionId, reqData, gasLimit);
   }
 
   /**
@@ -108,9 +109,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit
+    uint32 gasLimit,
+    bytes32 jobId
   ) external override onlyAuthorizedUsers returns (bytes32) {
-    return _sendRequest(false, subscriptionId, data, gasLimit);
+    return _sendRequest(jobId, false, subscriptionId, data, gasLimit);
   }
 
   // ================================================================
@@ -127,11 +129,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   }
 
   modifier nonReentrant() override {
-    address route = this.getRoute("FunctionsCoordinator", true);
-    IFunctionsBilling coordinator = IFunctionsBilling(route);
-    if (coordinator.isReentrancyLocked()) {
-      revert Reentrant();
-    }
+    // TODO
+    // address route = this.getRoute("FunctionsCoordinator", true);
+    // IFunctionsBilling coordinator = IFunctionsBilling(route);
+    // if (coordinator.isReentrancyLocked()) {
+    //   revert Reentrant();
+    // }
     _;
   }
 

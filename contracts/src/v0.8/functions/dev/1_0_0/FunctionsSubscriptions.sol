@@ -441,7 +441,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override nonReentrant {
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
       Request memory request = s_requests[requestId];
