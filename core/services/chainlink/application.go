@@ -161,6 +161,7 @@ type ApplicationOpts struct {
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
 	LoopRegistry             *plugins.LoopRegistry
+	GRPCOpts                 loop.GRPCOpts
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -418,7 +419,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.StarkNetEnabled() {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
-		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
+		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.GRPCOpts, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,

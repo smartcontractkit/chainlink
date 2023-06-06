@@ -19,15 +19,15 @@ import (
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
-	limits "github.com/gin-contrib/size"
-
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
-
+	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/gin"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -55,7 +55,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
 	if prometheus != nil {
-		prometheus.Use(engine)
+		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
 	}
 
 	engine.Use(
@@ -631,4 +631,46 @@ func isBlacklisted(k string) bool {
 		return true
 	}
 	return false
+}
+
+// prometheusUse is adapted from ginprom.Prometheus.Use
+// until merged upstream: https://github.com/Depado/ginprom/pull/48
+func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.HandlerOpts) {
+	var (
+		r prometheus.Registerer = p.Registry
+		g prometheus.Gatherer   = p.Registry
+	)
+	if p.Registry == nil {
+		r = prometheus.DefaultRegisterer
+		g = prometheus.DefaultGatherer
+	}
+	h := promhttp.InstrumentMetricHandler(r, promhttp.HandlerFor(g, handlerOpts))
+	e.GET(p.MetricsPath, prometheusHandler(p.Token, h))
+	p.Engine = e
+}
+
+// use is adapted from ginprom.prometheusHandler to add support for custom http.Handler
+func prometheusHandler(token string, h http.Handler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if token == "" {
+			h.ServeHTTP(c.Writer, c.Request)
+			return
+		}
+
+		header := c.Request.Header.Get("Authorization")
+
+		if header == "" {
+			c.String(http.StatusUnauthorized, ginprom.ErrInvalidToken.Error())
+			return
+		}
+
+		bearer := fmt.Sprintf("Bearer %s", token)
+
+		if header != bearer {
+			c.String(http.StatusUnauthorized, ginprom.ErrInvalidToken.Error())
+			return
+		}
+
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }
