@@ -440,7 +440,7 @@ HTTPPort = 6688 # Default
 SecureCookies = true # Default
 SessionTimeout = '15m' # Default
 SessionReaperExpiration = '240h' # Default
-HTTPMaxSize = '32768' # Default
+HTTPMaxSize = '32768b' # Default
 StartTimeout = '15s' # Default
 ```
 
@@ -502,7 +502,7 @@ SessionReaperExpiration represents how long an API session lasts before expiring
 
 ### HTTPMaxSize
 ```toml
-HTTPMaxSize = '32768' # Default
+HTTPMaxSize = '32768b' # Default
 ```
 HTTPMaxSize defines the maximum size for HTTP requests and responses made by the node server.
 

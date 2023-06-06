@@ -177,7 +177,7 @@ SessionTimeout = '15m' # Default
 # SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
 SessionReaperExpiration = '240h' # Default
 # HTTPMaxSize defines the maximum size for HTTP requests and responses made by the node server.
-HTTPMaxSize = '32768' # Default
+HTTPMaxSize = '32768b' # Default
 # StartTimeout defines the maximum amount of time the node will wait for a server to start.
 StartTimeout = '15s' # Default
 
