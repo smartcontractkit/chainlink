@@ -126,7 +126,7 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.UpkeepType >= 3 {
+	if c.UpkeepType > 4 {
 		return fmt.Errorf("unknown upkeep type")
 	}
 

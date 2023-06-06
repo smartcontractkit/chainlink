@@ -471,6 +471,9 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					big.NewInt(k.cfg.UpkeepInterval),
 				)
 			}
+			if err != nil {
+				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
 		case config.Mercury:
 			checkData = []byte(k.cfg.UpkeepCheckData)
 			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
@@ -484,14 +487,20 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				big.NewInt(k.cfg.UpkeepInterval),
 				false,
 			)
+			if err != nil {
+				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
 		case config.LogTrigger:
 			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 				k.buildTxOpts(ctx),
 				k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
 			)
+			if err != nil {
+				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
 			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
-			logTriggerConfig, err1 := abi.Encode(map[string]interface{}{
+			logTriggerConfig, err := abi.Encode(map[string]interface{}{
 				"contractAddress": upkeepAddr,
 				"filterSelector":  0,                                                                    // no indexed topics filtered
 				"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()
@@ -499,17 +508,13 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				"topic2":          "0x",
 				"topic3":          "0x",
 			}, logTriggerConfigType)
-			if err1 != nil {
-				log.Fatal("error here 1", err1)
+			if err != nil {
+				log.Fatal("failed to encode log trigger config", err)
 			}
-			var err2 error
-			extraData, err2 = extraDataEncoder.Encode([]interface{}{1, logTriggerConfig, "0x"})
-			if err2 != nil {
-				log.Fatal(err2)
+			extraData, err = extraDataEncoder.Encode([]interface{}{1, logTriggerConfig, "0x"})
+			if err != nil {
+				log.Fatal("failed to encode extra data", err)
 			}
-		}
-		if err != nil {
-			log.Fatal(i, ": Deploy Upkeep failed - ", err)
 		}
 		k.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
@@ -532,24 +537,24 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 	var err error
 	var upkeepGetter activeUpkeepGetter
-	var endIdx *big.Int // second arg in getActiveUpkeepIds (breaking change in v2.1)
+	var endIdxOrMaxCount *big.Int // second arg in GetActiveUpkeepIds (on registry) - breaking change in v2.1 changes from "count" to "end index"
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
 		panic("not supported 1.1 registry")
 	case keeper.RegistryVersion_1_2:
-		endIdx = big.NewInt(k.cfg.UpkeepCount)
+		endIdxOrMaxCount = big.NewInt(k.cfg.UpkeepCount) // max count = same number we just registered
 		upkeepGetter, err = registry12.NewKeeperRegistry(
 			registryAddr,
 			k.client,
 		)
 	case keeper.RegistryVersion_2_0:
-		endIdx = big.NewInt(k.cfg.UpkeepCount)
+		endIdxOrMaxCount = big.NewInt(k.cfg.UpkeepCount) // max count = same number we just registered
 		upkeepGetter, err = registry20.NewKeeperRegistry(
 			registryAddr,
 			k.client,
 		)
 	case keeper.RegistryVersion_2_1:
-		endIdx = big.NewInt(0).Add(big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
+		endIdxOrMaxCount = big.NewInt(0).Add(big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount)) // end index = num existing + num we just registered
 		upkeepGetter, err = iregistry21.NewIKeeperRegistryMaster(
 			registryAddr,
 			k.client,
@@ -561,7 +566,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Fatal("Registry failed: ", err)
 	}
 
-	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), endIdx)
+	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), endIdxOrMaxCount)
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve
