@@ -59,21 +59,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       # TODO: DEBUG
-      - name: Debug goreleaser-metadata
+      - name: Debug goreleaser-artifacts
         shell: bash
         run: |
-          echo ${{ needs.push-chainlink-develop-goreleaser.outputs.goreleaser-metadata }}
-      - name: Parse GoReleaser Artifacts
-        id: goreleaser-parse-artifacts
-        shell: bash
-        env:
-          ARTIFACTS_JSON: ${{ needs.push-chainlink-develop-goreleaser.outputs.goreleaser-artifacts }}
-        run: |
-          # There will be multiple image tags returned and any of them should
-          # work, so let's grab the first one.
-          IMAGE_NAME_TAG=$(echo "${ARTIFACTS_JSON}" | jq -r 'first(.[] | select(.goos=="linux" and .goarch=="amd64" and .type=="Docker Image") | .name)')
-          echo "image-name-tag=${IMAGE_NAME_TAG}" | tee -a "$GITHUB_OUTPUT"
-
+          echo ${{ needs.push-chainlink-develop-goreleaser.outputs.goreleaser-artifacts }}
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@5727f247b64f324ec403ac56ae05e220fd02b65f # v2.1.0
         with:
@@ -92,7 +81,7 @@ jobs:
           gh workflow run "e2e-functional-tests.yml" \
             --repo ${{ secrets.MERCURY_SERVER_REPO }} \
             --ref "main" \
-            --field chainlink-ecr-repo-account="prod"
-            --field chainlink-image-tag=${{ steps.goreleaser-parse-artifacts.outputs.image-name-tag }}
+            --field chainlink-ecr-repo-account="prod" \
+            --field chainlink-image-tag="develop-amd64"
         env:
           GH_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
