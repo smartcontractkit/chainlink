@@ -601,7 +601,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return errors.New(fmt.Sprintf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue))
+				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			h := ServiceHeader{
 				Header: keyValue[0],
