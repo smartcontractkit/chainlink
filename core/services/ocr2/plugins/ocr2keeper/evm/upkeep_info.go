@@ -1,8 +1,10 @@
 package evm
 
-import ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+import (
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+)
 
-type upkeepType int32
+type upkeepType uint8
 
 const (
 	conditionTrigger upkeepType = iota

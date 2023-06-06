@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -29,7 +28,7 @@ func TestGetUpkeepType(t *testing.T) {
 		},
 		{
 			"condition trigger",
-			common.LeftPadBytes([]byte{1}, 16),
+			common.LeftPadBytes([]byte{0}, 16),
 			conditionTrigger,
 		},
 		{
@@ -45,13 +44,12 @@ func TestGetUpkeepType(t *testing.T) {
 		{
 			"ready trigger",
 			common.LeftPadBytes([]byte{3}, 16),
-			cronTrigger,
+			readyTrigger,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fmt.Println(len(tc.upkeepID))
 			assert.Equal(t, tc.upkeepType, getUpkeepType(tc.upkeepID))
 		})
 	}
