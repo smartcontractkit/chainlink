@@ -22,7 +22,7 @@ func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	htCfg := htmocks.NewConfig(t)
 	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(6))
 	htCfg.On("EvmFinalityDepth").Return(uint32(1))
-	orm := headtracker.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg)
 	return saver, orm
 }

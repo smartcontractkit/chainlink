@@ -241,7 +241,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		}
 
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config)
+		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err

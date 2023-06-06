@@ -98,7 +98,7 @@ var _ Queryer = Q{}
 
 type QConfig interface {
 	LogSQL() bool
-	DatabaseDefaultQueryTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
 }
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
@@ -139,7 +139,7 @@ func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q
 		q.ParentCtx = context.Background()
 	}
 	if q.QueryTimeout <= 0 {
-		q.QueryTimeout = q.config.DatabaseDefaultQueryTimeout()
+		q.QueryTimeout = q.config.DefaultQueryTimeout()
 	}
 	return
 }
