@@ -165,15 +165,10 @@ func (rp *evmRegistryPackerV21) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-// TODO: tests
-func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw string) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
+func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
 	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig
-	b, err := hexutil.Decode(raw)
-	if err != nil {
-		return cfg, err
-	}
 
-	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(b)
+	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(raw)
 	if err != nil {
 		return cfg, fmt.Errorf("%w: unpack getLogTriggerConfig return: %s", err, raw)
 	}

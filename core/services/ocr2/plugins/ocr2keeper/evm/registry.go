@@ -487,7 +487,8 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.updateTriggerConfig(l.Id, l.TriggerConfig)
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
-		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(l.Id.Bytes()))
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.addToActive(l.Id, false)
 	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
@@ -858,11 +859,11 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 // updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) {
 	uid := id.String()
-	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(uid)) {
+	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes())) {
 	case logTrigger:
-		parsed, err := r.packer.UnpackLogTriggerConfig(string(cfg))
+		parsed, err := r.packer.UnpackLogTriggerConfig(cfg)
 		if err != nil {
-			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
+			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid, "err", err)
 			return // TODO: handle?
 		}
 		if err := r.logFilters.Register(id, LogTriggerConfig(parsed)); err != nil {
