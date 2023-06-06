@@ -10,15 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 1.13.3 - 2023-06-05
+<!-- unreleasedstop -->
 
-_This release (1.13.3) and 1.13.2 enable Solana compatibility on 1.13.x._
+## 1.13.3 - 2023-06-06
 
 ### Fixed
 
 - The 1.13.2 release showed the 1.13.1 version in its VERSION file. This updates the VERSION file to now show 1.13.3.
-
-<!-- unreleasedstop -->
 
 ## 1.13.2 - 2023-06-05
 
