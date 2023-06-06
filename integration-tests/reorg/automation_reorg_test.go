@@ -51,8 +51,7 @@ Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
 	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
-		"replicas": "6",
+		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -105,6 +104,7 @@ const (
 	defaultLinkFunds      = int64(9e18)
 	numberOfUpkeeps       = 2
 	automationReorgBlocks = 50
+	numberOfNodes         = 6
 )
 
 /*
@@ -132,11 +132,13 @@ func TestAutomationReorg(t *testing.T) {
 			TTL:             time.Hour * 1,
 			Test:            t}).
 		AddHelm(reorg.New(defaultReorgEthereumSettings)).
-		AddHelm(chainlink.New(0, defaultAutomationSettings)).
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
 			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
+	for i := 0; i < numberOfNodes; i++ {
+		testEnvironment.AddHelm(chainlink.New(i, defaultAutomationSettings))
+	}
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
 
