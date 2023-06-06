@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
@@ -118,18 +118,18 @@ func (rp *evmRegistryPackerV21) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV21) UnpackUpkeepInfo(id *big.Int, raw string) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error) {
+func (rp *evmRegistryPackerV21) UnpackUpkeepInfo(id *big.Int, raw string) (iregistry21.UpkeepInfo, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return i_keeper_registry_master_wrapper_2_1.UpkeepInfo{}, err
+		return iregistry21.UpkeepInfo{}, err
 	}
 
 	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return i_keeper_registry_master_wrapper_2_1.UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+		return iregistry21.UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	info := *abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)).(*i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
+	info := *abi.ConvertType(out[0], new(iregistry21.UpkeepInfo)).(*iregistry21.UpkeepInfo)
 
 	return info, nil
 }
@@ -166,8 +166,8 @@ func (rp *evmRegistryPackerV21) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
 // TODO: tests
-func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw string) (i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig, error) {
-	var cfg i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw string) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return cfg, err
@@ -178,7 +178,7 @@ func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw string) (i_keeper_reg
 		return cfg, fmt.Errorf("%w: unpack getLogTriggerConfig return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)).(*i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(iregistry21.KeeperRegistryBase21LogTriggerConfig)).(*iregistry21.KeeperRegistryBase21LogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type")
 	}
