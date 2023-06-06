@@ -774,7 +774,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
 			Strategy:       txmgr.NewSendEveryStrategy(),
-			Meta: &txmgr.EthTxMeta{
+			Meta: &txmgr.EvmTxMeta{
 				RequestID:     &requestID,
 				SubID:         &p.req.req.SubId,
 				RequestTxHash: &p.req.req.Raw.TxHash,
