@@ -40,10 +40,8 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:8090"]
 ListenAddresses = ["0.0.0.0:8090"]`
 
-	settingNetwork = networks.SelectedNetwork
-
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, settingNetwork),
+		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -62,9 +60,9 @@ ListenAddresses = ["0.0.0.0:8090"]`
 	}
 
 	defaultEthereumSettings = &ethereum.Props{
-		NetworkName: settingNetwork.Name,
-		Simulated:   settingNetwork.Simulated,
-		WsURLs:      settingNetwork.URLs,
+		NetworkName: networks.SelectedNetwork.Name,
+		Simulated:   networks.SelectedNetwork.Simulated,
+		WsURLs:      networks.SelectedNetwork.URLs,
 		Values: map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -111,47 +109,6 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	loadedNetwork := networks.SelectedNetwork
-
-	defaultAutomationSettings := map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, loadedNetwork),
-		"replicas": "6",
-		"db": map[string]interface{}{
-			"stateful": true,
-			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-			},
-		},
-	}
-
-	defaultEthereumSettings := &ethereum.Props{
-		NetworkName: loadedNetwork.Name,
-		Simulated:   loadedNetwork.Simulated,
-		WsURLs:      loadedNetwork.URLs,
-		Values: map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
-				},
-			},
-			"geth": map[string]interface{}{
-				"blocktime": "1",
-			},
-		},
-	}
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
