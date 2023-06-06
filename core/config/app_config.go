@@ -42,7 +42,6 @@ type AppConfig interface {
 	P2PV1Networking
 	P2PV2Networking
 	Prometheus
-	Pyroscope
 	Secrets
 	Web
 
@@ -52,6 +51,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Pyroscope() Pyroscope
 }
 
 type DatabaseBackupMode string

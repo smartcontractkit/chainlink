@@ -221,7 +221,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var profiler *pyroscope.Profiler
-	if cfg.PyroscopeServerAddress() != "" {
+	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
 		profiler, err = logger.StartPyroscope(cfg)

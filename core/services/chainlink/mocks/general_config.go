@@ -1684,43 +1684,17 @@ func (_m *GeneralConfig) PrometheusAuthToken() string {
 	return r0
 }
 
-// PyroscopeAuthToken provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeAuthToken() string {
+// Pyroscope provides a mock function with given fields:
+func (_m *GeneralConfig) Pyroscope() config.Pyroscope {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Pyroscope
+	if rf, ok := ret.Get(0).(func() config.Pyroscope); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeEnvironment provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeServerAddress provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeServerAddress() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Pyroscope)
+		}
 	}
 
 	return r0

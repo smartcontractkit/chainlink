@@ -756,13 +756,10 @@ func (g *generalConfig) P2PV2ListenAddresses() []string {
 	return nil
 }
 
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return PyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
-}
 func (g *generalConfig) Port() uint16 {
 	return *g.c.WebServer.HTTPPort
 }
