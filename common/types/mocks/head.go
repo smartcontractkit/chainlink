@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	big "math/big"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/types"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -86,6 +88,20 @@ func (_m *Head[BLOCK_HASH]) GetParent() types.Head[BLOCK_HASH] {
 	return r0
 }
 
+// GetParentHash provides a mock function with given fields:
+func (_m *Head[BLOCK_HASH]) GetParentHash() BLOCK_HASH {
+	ret := _m.Called()
+
+	var r0 BLOCK_HASH
+	if rf, ok := ret.Get(0).(func() BLOCK_HASH); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(BLOCK_HASH)
+	}
+
+	return r0
+}
+
 // HashAtHeight provides a mock function with given fields: blockNum
 func (_m *Head[BLOCK_HASH]) HashAtHeight(blockNum int64) BLOCK_HASH {
 	ret := _m.Called(blockNum)
@@ -95,6 +111,22 @@ func (_m *Head[BLOCK_HASH]) HashAtHeight(blockNum int64) BLOCK_HASH {
 		r0 = rf(blockNum)
 	} else {
 		r0 = ret.Get(0).(BLOCK_HASH)
+	}
+
+	return r0
+}
+
+// ToInt provides a mock function with given fields:
+func (_m *Head[BLOCK_HASH]) ToInt() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
 	}
 
 	return r0
