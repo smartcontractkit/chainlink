@@ -295,10 +295,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	srvcs = append(srvcs, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
 	)
@@ -419,7 +419,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -474,6 +474,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.JobPipeline(),
 			chains.EVM,
 			globalLogger,
 			opts.Version,

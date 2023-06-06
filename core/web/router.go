@@ -59,7 +59,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	}
 
 	engine.Use(
-		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
+		limits.RequestSizeLimiter(config.WebDefaultHTTPLimit()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,

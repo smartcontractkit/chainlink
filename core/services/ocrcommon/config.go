@@ -16,7 +16,6 @@ import (
 type Config interface {
 	pg.QConfig
 	EvmGasLimitDefault() uint32
-	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
 	OCRContractPollInterval() time.Duration

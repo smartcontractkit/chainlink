@@ -23,7 +23,6 @@ type linkEthPriceProvider struct {
 	timeout                time.Duration
 	interval               time.Duration
 	lock                   sync.RWMutex
-	aggregatorLock         sync.Mutex
 	stop                   chan struct{}
 	currentJuelsPerFeeCoin *big.Int
 	lggr                   logger.Logger
@@ -89,21 +88,17 @@ func (p *linkEthPriceProvider) JuelsPerFeeCoin() (*big.Int, error) {
 // Get current JuelsPerFeeCoin value from aggregator contract.
 // If the RPC call fails, log the error and return.
 func (p *linkEthPriceProvider) updateJuelsPerFeeCoin() {
-	// Fetch latest round data from aggregator contract, threadsafe.
-	p.aggregatorLock.Lock()
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
-	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
-	cancel()
-	p.aggregatorLock.Unlock()
-
 	// Ensure writes to currentJuelsPerFeeCoin are threadsafe.
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
+
 	// For RPC issues, set the most recent price to 0. This way, stale prices will not be transmitted,
 	// and zero-observations can be ignored in OCR and on-chain.
 	if err != nil {
-		p.lggr.Warnw("Error fetching latest round data from aggregator contract, setting to zero-value", "err", err.Error())
 		p.currentJuelsPerFeeCoin = big.NewInt(0)
 		return
 	}
