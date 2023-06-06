@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -39,22 +38,22 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
-	Feature          Feature                 `toml:",omitempty"`
-	Database         Database                `toml:",omitempty"`
-	TelemetryIngress TelemetryIngress        `toml:",omitempty"`
-	AuditLogger      audit.AuditLoggerConfig `toml:",omitempty"`
-	Log              Log                     `toml:",omitempty"`
-	WebServer        WebServer               `toml:",omitempty"`
-	JobPipeline      JobPipeline             `toml:",omitempty"`
-	FluxMonitor      FluxMonitor             `toml:",omitempty"`
-	OCR2             OCR2                    `toml:",omitempty"`
-	OCR              OCR                     `toml:",omitempty"`
-	P2P              P2P                     `toml:",omitempty"`
-	Keeper           Keeper                  `toml:",omitempty"`
-	AutoPprof        AutoPprof               `toml:",omitempty"`
-	Pyroscope        Pyroscope               `toml:",omitempty"`
-	Sentry           Sentry                  `toml:",omitempty"`
-	Insecure         Insecure                `toml:",omitempty"`
+	Feature          Feature          `toml:",omitempty"`
+	Database         Database         `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress `toml:",omitempty"`
+	AuditLogger      AuditLogger      `toml:",omitempty"`
+	Log              Log              `toml:",omitempty"`
+	WebServer        WebServer        `toml:",omitempty"`
+	JobPipeline      JobPipeline      `toml:",omitempty"`
+	FluxMonitor      FluxMonitor      `toml:",omitempty"`
+	OCR2             OCR2             `toml:",omitempty"`
+	OCR              OCR              `toml:",omitempty"`
+	P2P              P2P              `toml:",omitempty"`
+	Keeper           Keeper           `toml:",omitempty"`
+	AutoPprof        AutoPprof        `toml:",omitempty"`
+	Pyroscope        Pyroscope        `toml:",omitempty"`
+	Sentry           Sentry           `toml:",omitempty"`
+	Insecure         Insecure         `toml:",omitempty"`
 }
 
 var (
@@ -387,6 +386,29 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 }
 
+type AuditLogger struct {
+	Enabled        *bool
+	ForwardToUrl   *models.URL
+	JsonWrapperKey *string
+	Headers        *[]models.ServiceHeader
+}
+
+func (p *AuditLogger) SetFrom(f *AuditLogger) {
+	if v := f.Enabled; v != nil {
+		p.Enabled = v
+	}
+	if v := f.ForwardToUrl; v != nil {
+		p.ForwardToUrl = v
+	}
+	if v := f.JsonWrapperKey; v != nil {
+		p.JsonWrapperKey = v
+	}
+	if v := f.Headers; v != nil {
+		p.Headers = v
+	}
+
+}
+
 // LogLevel replaces dpanic with crit/CRIT
 type LogLevel zapcore.Level
 
@@ -642,6 +664,8 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	DefaultTransactionQueueDepth       *uint32
+	SimulateTransactions               *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -671,6 +695,12 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.DefaultTransactionQueueDepth; v != nil {
+		o.DefaultTransactionQueueDepth = v
+	}
+	if v := f.SimulateTransactions; v != nil {
+		o.SimulateTransactions = v
 	}
 }
 

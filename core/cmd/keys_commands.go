@@ -87,24 +87,24 @@ func keysCommand(typ string, c KeysClient) cli.Command {
 }
 
 type keysClient[K keystore.Key, P TableRenderer, P2 ~[]P] struct {
-	*Client
+	*Shell
 	typ  string
 	path string
 }
 
 // newKeysClient returns a new KeysClient for a particular type of keystore.Key.
 // P is a TableRenderer corresponding to K, and P2 is the slice variant.
-func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, c *Client) KeysClient {
+func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, s *Shell) KeysClient {
 	lower := strings.ToLower(typ)
 	return &keysClient[K, P, P2]{
-		Client: c,
-		typ:    typ,
-		path:   "/v2/keys/" + lower,
+		Shell: s,
+		typ:   typ,
+		path:  "/v2/keys/" + lower,
 	}
 }
 
 // ListKeys retrieves a list of all keys
-func (cli *keysClient[K, P, P2]) ListKeys(c *cli.Context) (err error) {
+func (cli *keysClient[K, P, P2]) ListKeys(_ *cli.Context) (err error) {
 	resp, err := cli.HTTP.Get(cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -120,7 +120,7 @@ func (cli *keysClient[K, P, P2]) ListKeys(c *cli.Context) (err error) {
 }
 
 // CreateKey creates a new key
-func (cli *keysClient[K, P, P2]) CreateKey(c *cli.Context) (err error) {
+func (cli *keysClient[K, P, P2]) CreateKey(_ *cli.Context) (err error) {
 	resp, err := cli.HTTP.Post(cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)

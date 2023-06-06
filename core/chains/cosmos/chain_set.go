@@ -67,7 +67,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config.Database(), o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,6 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -46,10 +45,10 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-			AuditLogger: audit.AuditLoggerConfig{
+			AuditLogger: config.AuditLogger{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]audit.ServiceHeader{
+				Headers: ptr([]models.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -227,11 +226,11 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := []audit.ServiceHeader{
+	serviceHeaders := []models.ServiceHeader{
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
-	full.AuditLogger = audit.AuditLoggerConfig{
+	full.AuditLogger = config.AuditLogger{
 		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
@@ -343,6 +342,8 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
+		DefaultTransactionQueueDepth:       ptr[uint32](1),
+		SimulateTransactions:               ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -464,6 +465,7 @@ func TestConfig_Marshal(t *testing.T) {
 						VRF:    ptr[uint32](1003),
 						FM:     ptr[uint32](1004),
 						Keeper: ptr[uint32](1005),
+						OCR2:   ptr[uint32](1006),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -756,6 +758,8 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
@@ -875,6 +879,7 @@ TipCapMin = '1 wei'
 
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001
+OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
@@ -1261,7 +1266,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
 	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
-	dbURL := c.DatabaseURL()
+	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 

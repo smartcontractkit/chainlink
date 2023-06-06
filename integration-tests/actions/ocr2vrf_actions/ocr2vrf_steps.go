@@ -12,9 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -170,19 +171,14 @@ func FundVRFCoordinatorV3Subscription(t *testing.T, linkToken contracts.LinkToke
 	require.NoError(t, err, "Error waiting for TXs to complete")
 }
 
-func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFRouter, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
+func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDeployer, chainClient blockchain.EVMClient, linkToken contracts.LinkToken, mockETHLinkFeed contracts.MockETHLINKFeed, beaconPeriodBlocksCount *big.Int, keyID string) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer) {
 	dkg, err := contractDeployer.DeployDKG()
 	require.NoError(t, err, "Error deploying DKG Contract")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	router, err := contractDeployer.DeployVRFRouter()
-	require.NoError(t, err, "Error deploying VRF Router")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for TXs to complete")
-
-	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address(), router.Address())
+	coordinator, err := contractDeployer.DeployOCR2VRFCoordinator(beaconPeriodBlocksCount, linkToken.Address(), mockETHLinkFeed.Address())
 	require.NoError(t, err, "Error deploying OCR2VRFCoordinator Contract")
 
 	err = chainClient.WaitForEvents()
@@ -193,12 +189,12 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 
-	consumer, err := contractDeployer.DeployVRFBeaconConsumer(router.Address(), beaconPeriodBlocksCount)
+	consumer, err := contractDeployer.DeployVRFBeaconConsumer(coordinator.Address(), beaconPeriodBlocksCount)
 	require.NoError(t, err, "Error deploying VRFBeaconConsumer Contract")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
-	return dkg, router, coordinator, vrfBeacon, consumer
+	return dkg, coordinator, vrfBeacon, consumer
 }
 
 func RequestAndRedeemRandomness(
@@ -300,11 +296,10 @@ func SetupOCR2VRFUniverse(
 ) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer, *big.Int) {
 
 	// Deploy DKG contract
-	// Deploy VRFRouter
 	// Deploy VRFCoordinator(beaconPeriodBlocks, linkAddress, linkEthfeedAddress)
 	// Deploy VRFBeacon
 	// Deploy Consumer Contract
-	dkgContract, routerContract, coordinatorContract, vrfBeaconContract, consumerContract := DeployOCR2VRFContracts(
+	dkgContract, coordinatorContract, vrfBeaconContract, consumerContract := DeployOCR2VRFContracts(
 		t,
 		contractDeployer,
 		chainClient,
@@ -317,9 +312,6 @@ func SetupOCR2VRFUniverse(
 	// Add VRFBeacon as DKG client
 	err := dkgContract.AddClient(ocr2vrf_constants.KeyID, vrfBeaconContract.Address())
 	require.NoError(t, err, "Error adding client to DKG Contract")
-	// Register coordinator contract in the VRF router contract
-	err = routerContract.RegisterCoordinator(coordinatorContract.Address())
-	require.NoError(t, err, "Error registering coordinator contract to the router contract")
 	// Adding VRFBeacon as producer in VRFCoordinator
 	err = coordinatorContract.SetProducer(vrfBeaconContract.Address())
 	require.NoError(t, err, "Error setting Producer for VRFCoordinator contract")

@@ -57,15 +57,15 @@ func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 type Config struct{}
 
-func (c Config) AuditLoggerEnabled() bool {
+func (c Config) Enabled() bool {
 	return true
 }
 
-func (c Config) AuditLoggerEnvironment() string {
+func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
+func (c Config) ForwardToUrl() (models.URL, error) {
 	url, err := models.ParseURL("http://localhost:9898")
 	if err != nil {
 		return models.URL{}, err
@@ -73,11 +73,11 @@ func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
 	return *url, nil
 }
 
-func (c Config) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return make(audit.ServiceHeaders, 0), nil
+func (c Config) Headers() (models.ServiceHeaders, error) {
+	return make(models.ServiceHeaders, 0), nil
 }
 
-func (c Config) AuditLoggerJsonWrapperKey() string {
+func (c Config) JsonWrapperKey() string {
 	return ""
 }
 

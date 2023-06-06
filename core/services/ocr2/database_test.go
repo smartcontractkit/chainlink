@@ -57,13 +57,13 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 	configDigest := testhelpers.MakeConfigDigest(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -80,7 +80,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -97,7 +97,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -108,7 +108,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		require.NoError(t, err)
 
 		// odb with different spec
-		db = ocr2.NewDB(sqlDB, -1, lggr, cfg)
+		db = ocr2.NewDB(sqlDB, -1, lggr, cfg.Database())
 
 		readState, err := db.ReadState(testutils.Context(t), configDigest)
 		require.NoError(t, err)
@@ -117,7 +117,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -148,13 +148,13 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		OffchainConfig:        []byte{0x03, 0x04},
 	}
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 
 		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
@@ -166,7 +166,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
@@ -184,12 +184,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
+		db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
 
 		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
 
-		db = ocr2.NewDB(sqlDB, -1, lggr, cfg)
+		db = ocr2.NewDB(sqlDB, -1, lggr, cfg.Database())
 
 		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
@@ -211,14 +211,14 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	lggr := logger.TestLogger(t)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	spec2 := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
-	db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
-	db2 := ocr2.NewDB(sqlDB, spec2.ID, lggr, cfg)
+	db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg.Database())
+	db2 := ocr2.NewDB(sqlDB, spec2.ID, lggr, cfg.Database())
 	configDigest := testhelpers.MakeConfigDigest(t)
 
 	k := ocrtypes.ReportTimestamp{
@@ -408,7 +408,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = ocr2.NewDB(sqlDB, spec2.ID, lggr, cfg)
+		db = ocr2.NewDB(sqlDB, spec2.ID, lggr, cfg.Database())
 		m, err = db.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)

@@ -20,6 +20,21 @@ interface IFunctionsOracle {
   function setRegistry(address registryAddress) external;
 
   /**
+   * @notice Returns the DON's threshold encryption public key used to encrypt secrets
+   * @dev All nodes on the DON have separate key shares of the threshold decryption key
+   * and nodes must participate in a threshold decryption OCR round to decrypt secrets
+   * @return thresholdPublicKey the DON's threshold encryption public key
+   */
+  function getThresholdPublicKey() external view returns (bytes memory);
+
+  /**
+   * @notice Sets the DON's threshold encryption public key used to encrypt secrets
+   * @dev Used to rotate the key
+   * @param thresholdPublicKey The new public key
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external;
+
+  /**
    * @notice Returns the DON's secp256k1 public key that is used to encrypt secrets
    * @dev All nodes on the DON have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key

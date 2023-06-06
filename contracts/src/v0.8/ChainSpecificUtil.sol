@@ -41,4 +41,19 @@ library ChainSpecificUtil {
     }
     return 0;
   }
+
+  /**
+   * @notice Returns the gas cost in wei of calldataSizeBytes of calldata being posted
+   * @notice to L1.
+   */
+  function getL1CalldataGasCost(uint256 calldataSizeBytes) internal view returns (uint256) {
+    uint256 chainid = block.chainid;
+    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+      (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
+      // see https://developer.arbitrum.io/devs-how-tos/how-to-estimate-gas#where-do-we-get-all-this-information-from
+      // for the justification behind the 140 number.
+      return l1PricePerByte * (calldataSizeBytes + 140);
+    }
+    return 0;
+  }
 }

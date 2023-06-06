@@ -32,7 +32,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 
 	subject := uuid.New()
-	s := txmgr.NewDropOldestStrategy(subject, 1, cfg.DatabaseDefaultQueryTimeout())
+	s := txmgr.NewDropOldestStrategy(subject, 1, cfg.Database().DefaultQueryTimeout())
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -43,8 +43,8 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	subj1 := uuid.New()
 	subj2 := uuid.New()
@@ -69,7 +69,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.DatabaseDefaultQueryTimeout())
+		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.Database().DefaultQueryTimeout())
 
 		n, err := s.PruneQueue(txStore, pg.WithQueryer(db))
 		require.NoError(t, err)
