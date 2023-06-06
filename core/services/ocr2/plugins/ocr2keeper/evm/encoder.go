@@ -26,6 +26,7 @@ var (
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 )
 
+// TODO
 type EVMAutomationUpkeepResult20 struct {
 	// Block is the block number used to build an UpkeepKey for this result
 	Block uint32

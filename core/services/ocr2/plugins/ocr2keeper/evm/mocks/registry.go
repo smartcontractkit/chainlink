@@ -9,7 +9,7 @@ import (
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
-	keeper_registry_wrapper2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	i_keeper_registry_master_wrapper_2_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -47,19 +47,45 @@ func (_m *Registry) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int,
 	return r0, r1
 }
 
+// GetActiveUpkeepIDsByType provides a mock function with given fields: opts, startIndex, endIndex, trigger
+func (_m *Registry) GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error) {
+	ret := _m.Called(opts, startIndex, endIndex, trigger)
+
+	var r0 []*big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) ([]*big.Int, error)); ok {
+		return rf(opts, startIndex, endIndex, trigger)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) []*big.Int); ok {
+		r0 = rf(opts, startIndex, endIndex, trigger)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) error); ok {
+		r1 = rf(opts, startIndex, endIndex, trigger)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetState provides a mock function with given fields: opts
-func (_m *Registry) GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error) {
+func (_m *Registry) GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error) {
 	ret := _m.Called(opts)
 
-	var r0 keeper_registry_wrapper2_0.GetState
+	var r0 i_keeper_registry_master_wrapper_2_1.GetState
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) keeper_registry_wrapper2_0.GetState); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) i_keeper_registry_master_wrapper_2_1.GetState); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(keeper_registry_wrapper2_0.GetState)
+		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.GetState)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -72,22 +98,100 @@ func (_m *Registry) GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.Ge
 }
 
 // GetUpkeep provides a mock function with given fields: opts, id
-func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error) {
+func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error) {
 	ret := _m.Called(opts, id)
 
-	var r0 keeper_registry_wrapper2_0.UpkeepInfo
+	var r0 i_keeper_registry_master_wrapper_2_1.UpkeepInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error)); ok {
 		return rf(opts, id)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) keeper_registry_wrapper2_0.UpkeepInfo); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_keeper_registry_master_wrapper_2_1.UpkeepInfo); ok {
 		r0 = rf(opts, id)
 	} else {
-		r0 = ret.Get(0).(keeper_registry_wrapper2_0.UpkeepInfo)
+		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
 		r1 = rf(opts, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetUpkeepAdminOffchainConfig provides a mock function with given fields: opts, upkeepId
+func (_m *Registry) GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	ret := _m.Called(opts, upkeepId)
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) ([]byte, error)); ok {
+		return rf(opts, upkeepId)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) []byte); ok {
+		r0 = rf(opts, upkeepId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, upkeepId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetUpkeepTriggerConfig provides a mock function with given fields: opts, upkeepId
+func (_m *Registry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	ret := _m.Called(opts, upkeepId)
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) ([]byte, error)); ok {
+		return rf(opts, upkeepId)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) []byte); ok {
+		r0 = rf(opts, upkeepId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, upkeepId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MercuryCallback provides a mock function with given fields: opts, id, values, extraData
+func (_m *Registry) MercuryCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, id, values, extraData)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) (*types.Transaction, error)); ok {
+		return rf(opts, id, values, extraData)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) *types.Transaction); ok {
+		r0 = rf(opts, id, values, extraData)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) error); ok {
+		r1 = rf(opts, id, values, extraData)
 	} else {
 		r1 = ret.Error(1)
 	}

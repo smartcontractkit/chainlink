@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -67,10 +67,21 @@ var (
 
 //go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)
-	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error)
+	GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)
+	GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	MercuryCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
+}
+
+// UpkeepTriggerConfig represents the interface for the trigger config of an upkeep.
+// It is used to wrap existing structs:
+//   - i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+//   - i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21CronTriggerConfig
+type UpkeepTriggerConfig interface {
 }
 
 //go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
@@ -87,16 +98,12 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-	keeperRegistryABI21, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
+	registry, err := i_keeper_registry_master_wrapper_2_1.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
@@ -109,19 +116,17 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:      lggr,
-		poller:    client.LogPoller(),
-		addr:      addr,
-		client:    client.Client(),
-		txHashes:  make(map[string]bool),
-		registry:  registry,
-		abi:       keeperRegistryABI,
-		active:    make(map[string]activeUpkeep),
-		packer:    &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		abiV21:    keeperRegistryABI21,
-		packerV21: &evmRegistryPackerV21{abi: keeperRegistryABI21},
-		headFunc:  func(types.BlockKey) {},
-		chLog:     make(chan logpoller.Log, 1000),
+		lggr:     lggr,
+		poller:   client.LogPoller(),
+		addr:     addr,
+		client:   client.Client(),
+		txHashes: make(map[string]bool),
+		registry: registry,
+		active:   make(map[string]activeUpkeep),
+		abi:      keeperRegistryABI,
+		packer:   &evmRegistryPackerV21{abi: keeperRegistryABI},
+		headFunc: func(types.BlockKey) {},
+		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
 			abi:           mercuryLookupCompatibleABI,
@@ -156,17 +161,20 @@ func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiE
 }
 
 var upkeepStateEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(), // unpauses an upkeep
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),    // updates the gas limit for an upkeep
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepRegistered{}.Topic(),       // adds new upkeep id to registry
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepReceived{}.Topic(),         // adds new upkeep id to registry via migration
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepGasLimitSet{}.Topic(),      // unpauses an upkeep
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepUnpaused{}.Topic(),         // updates the gas limit for an upkeep
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPaused{}.Topic(),           // pauses an upkeep
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepCanceled{}.Topic(),         // cancels an upkeep
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
 
 var upkeepActiveEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
+	keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPerformed{}.Topic(),
+	keeper_registry_wrapper_2_1.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+	keeper_registry_wrapper_2_1.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+	keeper_registry_wrapper_2_1.KeeperRegistryStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
@@ -197,9 +205,7 @@ type EvmRegistry struct {
 	client        client.Client
 	registry      Registry
 	abi           abi.ABI
-	packer        *evmRegistryPackerV2_0
-	abiV21        abi.ABI
-	packerV21     *evmRegistryPackerV21
+	packer        *evmRegistryPackerV21
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
@@ -475,19 +481,25 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
-	case *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterUpkeepTriggerConfigSet:
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepPaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		// TODO
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepCanceled:
+		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		// TODO
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.updateTriggerConfig(l.Id, l.TriggerConfig)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepRegistered:
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
+	case *keeper_registry_wrapper_2_1.KeeperRegistryUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
 	}
@@ -830,10 +842,14 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			var err error
-			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
+			info, err := r.packer.UnpackUpkeepInfo(ids[i], *uResults[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %s", err)
+			}
+			results[i] = activeUpkeep{ // TODO
+				ID:              ids[i],
+				PerformGasLimit: info.ExecuteGas,
+				CheckData:       info.CheckData,
 			}
 		}
 	}
@@ -846,7 +862,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) {
 	uid := id.String()
 	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(uid)) {
 	case logTrigger:
-		parsed, err := r.packerV21.UnpackLogTriggerConfig(string(cfg))
+		parsed, err := r.packer.UnpackLogTriggerConfig(string(cfg))
 		if err != nil {
 			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", uid)
 			return // TODO: handle?
