@@ -33,9 +33,6 @@ type Web interface {
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
-
-	// Note(cedric): currently sources the value from JobPipeline.
-	// BCF-2300 will address this.
-	WebDefaultHTTPLimit() int64
-	WebDefaultHTTPTimeout() models.Duration
+	WebServerHTTPMaxSize() int64
+	WebServerStartTimeout() time.Duration
 }

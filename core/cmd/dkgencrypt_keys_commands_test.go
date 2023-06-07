@@ -54,7 +54,7 @@ func TestDKGEncryptKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_DKGEncryptKeys(t *testing.T) {
+func TestShell_DKGEncryptKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGEncrypt()
 	cleanup := func() {
@@ -68,7 +68,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 
 	t.Run("ListDKGEncryptKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGEncrypt().Create()
 		assert.NoError(tt, err)
 		requireDKGEncryptKeyCount(t, app, 1)
@@ -80,7 +80,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 
 	t.Run("CreateDKGEncryptKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		assert.NoError(tt, cmd.NewDKGEncryptKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().DKGEncrypt().GetAll()
 		assert.NoError(tt, err)
@@ -89,7 +89,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 
 	t.Run("DeleteDKGEncryptKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGEncrypt().Create()
 		assert.NoError(tt, err)
 		requireDKGEncryptKeyCount(tt, app, 1)
@@ -110,7 +110,7 @@ func TestClient_DKGEncryptKeys(t *testing.T) {
 	t.Run("ImportExportDKGEncryptKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(tt)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().DKGEncrypt().Create()
 		require.NoError(tt, err)

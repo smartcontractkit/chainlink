@@ -119,6 +119,7 @@ type Broadcaster[
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
 	config         txmgrtypes.BroadcasterConfig[FEE_UNIT]
+	listenerConfig txmgrtypes.BroadcasterListenerConfig
 
 	// autoSyncNonce, if set, will cause Broadcaster to fast-forward the nonce
 	// when Start is called
@@ -163,6 +164,7 @@ func NewBroadcaster[
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
 	config txmgrtypes.BroadcasterConfig[FEE_UNIT],
+	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	eventBroadcaster pg.EventBroadcaster,
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
@@ -181,6 +183,7 @@ func NewBroadcaster[
 		nonceSyncer:      nonceSyncer,
 		chainID:          client.ConfiguredChainID(),
 		config:           config,
+		listenerConfig:   listenerConfig,
 		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
 		checkerFactory:   checkerFactory,
@@ -350,7 +353,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	bf := eb.newResendBackoff()
 
 	for {
-		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.FallbackPollInterval()))
+		pollDBTimer := time.NewTimer(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
 
 		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
 		if err != nil {
@@ -359,7 +362,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		// On retryable errors we implement exponential backoff retries. This
 		// handles intermittent connectivity, remote RPC races, timing issues etc
 		if retryable {
-			pollDBTimer.Reset(utils.WithJitter(eb.config.FallbackPollInterval()))
+			pollDBTimer.Reset(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
 			errorRetryCh = time.After(bf.Duration())
 		} else {
 			bf = eb.newResendBackoff()

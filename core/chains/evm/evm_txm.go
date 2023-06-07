@@ -50,6 +50,8 @@ func newEvmTxm(
 		txm, err = txmgr.NewTxm(
 			db,
 			cfg,
+			cfg.Database(),
+			cfg.Database().Listener(),
 			client,
 			lggr,
 			logPoller,

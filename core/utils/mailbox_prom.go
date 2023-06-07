@@ -38,6 +38,7 @@ func (m *MailboxMonitor) Start(context.Context) error {
 	return m.StartOnce("MailboxMonitor", func() error {
 		t := time.NewTicker(WithJitter(mailboxPromInterval))
 		m.stop = t.Stop
+		// FIXME: monitorLoop never exits because t.Stop does not close the channel
 		go m.monitorLoop(t.C)
 		return nil
 	})
