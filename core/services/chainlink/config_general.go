@@ -437,12 +437,12 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
-func (g *generalConfig) WebDefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
+func (g *generalConfig) WebServerHTTPMaxSize() int64 {
+	return int64(*g.c.WebServer.HTTPMaxSize)
 }
 
-func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
+func (g *generalConfig) WebServerStartTimeout() time.Duration {
+	return g.c.WebServer.StartTimeout.Duration()
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -473,10 +473,6 @@ func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
-func (g *generalConfig) JSONConsole() bool {
-	return *g.c.Log.JSONConsole
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
@@ -500,28 +496,8 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.File.Dir
-	if s == "" {
-		s = g.RootDir()
-	}
-	return s
-}
-
-func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.File.MaxSize
-}
-
-func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.File.MaxAgeDays
-}
-
-func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.File.MaxBackups
-}
-
-func (g *generalConfig) LogUnixTimestamps() bool {
-	return *g.c.Log.UnixTS
+func (g *generalConfig) Log() config.Log {
+	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -825,45 +801,6 @@ func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return &telemetryIngressConfig{
 		c: g.c.TelemetryIngress,
 	}
-}
-
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	if g.c.TelemetryIngress.URL.IsZero() {
-		return nil
-	}
-	return g.c.TelemetryIngress.URL.URL()
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
 }
 
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
