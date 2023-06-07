@@ -46,10 +46,10 @@ var _ Transmitter = &mercuryTransmitter{}
 
 type mercuryTransmitter struct {
 	utils.StartStopOnce
-	lggr                        logger.Logger
-	rpcClient                   wsrpc.Client
-	cfgTracker                  ConfigTracker
-	initialValidFromBlockNumber int64
+	lggr               logger.Logger
+	rpcClient          wsrpc.Client
+	cfgTracker         ConfigTracker
+	initialBlockNumber int64
 
 	feedID      [32]byte
 	fromAccount string
@@ -78,13 +78,13 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialValidFromBlockNumber int64) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64) *mercuryTransmitter {
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", fmt.Sprintf("%x", feedID[:])),
 		rpcClient,
 		cfgTracker,
-		initialValidFromBlockNumber,
+		initialBlockNumber,
 		feedID,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
@@ -259,14 +259,14 @@ func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Co
 		return 0, err
 	}
 	if resp.Report == nil {
-		maxFinalizedBlockNumber := mt.initialValidFromBlockNumber - 1
-		mt.lggr.Infof("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so maxFinalizedBlockNumber=%d (initialValidFromBlockNumber=%d)", maxFinalizedBlockNumber, mt.initialValidFromBlockNumber)
+		maxFinalizedBlockNumber := mt.initialBlockNumber - 1
+		mt.lggr.Infof("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so maxFinalizedBlockNumber=%d (initialBlockNumber=%d)", maxFinalizedBlockNumber, mt.initialBlockNumber)
 		// NOTE: It's important to return -1 if the server is missing any past
 		// report (brand new feed) since we will add 1 to the
 		// maxFinalizedBlockNumber to get the first validFromBlockNum, which
 		// ought to be zero.
 		//
-		// If "initialValidFromBlockNumber" is unset, this will give a starting block of zero.
+		// If "initialBlockNumber" is unset, this will give a starting block of zero.
 		return maxFinalizedBlockNumber, nil
 	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
 		return 0, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)

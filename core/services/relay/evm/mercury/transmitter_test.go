@@ -93,7 +93,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 		assert.Equal(t, 42, int(bn))
 	})
 	t.Run("successful query returning nil report (new feed)", func(t *testing.T) {
-		t.Run("when initialValidFromBlockNumber is unset (0)", func(t *testing.T) {
+		t.Run("when initialBlockNumber is unset (0)", func(t *testing.T) {
 			c := MockWSRPCClient{
 				latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 					out = new(pb.LatestReportResponse)
@@ -107,7 +107,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 
 			assert.Equal(t, -1, int(bn))
 		})
-		t.Run("when initialValidFromBlockNumber is set to some non-zero value", func(t *testing.T) {
+		t.Run("when initialBlockNumber is set to some non-zero value", func(t *testing.T) {
 			c := MockWSRPCClient{
 				latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 					out = new(pb.LatestReportResponse)

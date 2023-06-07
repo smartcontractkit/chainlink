@@ -15,9 +15,13 @@ import (
 )
 
 type PluginConfig struct {
-	RawServerURL                string              `json:"serverURL" toml:"serverURL"`
-	ServerPubKey                utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
-	InitialValidFromBlockNumber int64               `json:"initialValidFromBlockNumber" toml:"initialValidFromBlockNumber"`
+	RawServerURL string              `json:"serverURL" toml:"serverURL"`
+	ServerPubKey utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
+	// InitialBlockNumber allows to set a custom "validFromBlockNumber" for
+	// the first ever report in the case of a brand new feed, where the mercury
+	// server does not have any previous reports. For a brand new feed, this
+	// effectively sets the "first" validFromBlockNumber.
+	InitialBlockNumber int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 }
 
 func ValidatePluginConfig(config PluginConfig) (merr error) {
