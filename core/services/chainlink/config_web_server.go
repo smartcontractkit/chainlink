@@ -115,7 +115,7 @@ func (w *webServerConfig) ServerStartTimeout() time.Duration {
 	return w.c.StartTimeout.Duration()
 }
 
-func (w *webServerConfig) HTTPServerWriteTimeout() time.Duration {
+func (w *webServerConfig) HTTPWriteTimeout() time.Duration {
 	return w.c.HTTPWriteTimeout.Duration()
 }
 

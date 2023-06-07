@@ -28,7 +28,6 @@ type RateLimit interface {
 }
 
 type WebServer interface {
-	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string
 	RPOrigin() string
@@ -42,13 +41,13 @@ type WebServer interface {
 	BridgeResponseURL() *url.URL
 	HTTPMaxSize() int64
 	ServerStartTimeout() time.Duration
+	HTTPWriteTimeout() time.Duration
 
 	TLS() TLS
 	RateLimit() RateLimit
 }
 
 type WebV1 interface {
-	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string
 	RPOrigin() string
