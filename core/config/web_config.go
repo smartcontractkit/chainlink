@@ -27,10 +27,13 @@ type RateLimit interface {
 	UnauthenticatedPeriod() time.Duration
 }
 
-type WebServer interface {
-	Port() uint16
+type MFA interface {
 	RPID() string
 	RPOrigin() string
+}
+
+type WebServer interface {
+	Port() uint16
 	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
@@ -45,12 +48,11 @@ type WebServer interface {
 
 	TLS() TLS
 	RateLimit() RateLimit
+	MFA() MFA
 }
 
 type WebV1 interface {
 	Port() uint16
-	RPID() string
-	RPOrigin() string
 	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options

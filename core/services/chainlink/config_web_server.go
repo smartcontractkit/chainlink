@@ -79,6 +79,18 @@ func (r *rateLimitConfig) UnauthenticatedPeriod() time.Duration {
 	return r.c.UnauthenticatedPeriod.Duration()
 }
 
+type mfaConfig struct {
+	c v2.WebServerMFA
+}
+
+func (m *mfaConfig) RPID() string {
+	return *m.c.RPID
+}
+
+func (m *mfaConfig) RPOrigin() string {
+	return *m.c.RPOrigin
+}
+
 type webServerConfig struct {
 	c       v2.WebServer
 	rootDir func() string
@@ -90,6 +102,10 @@ func (w *webServerConfig) TLS() config.TLS {
 
 func (w *webServerConfig) RateLimit() config.RateLimit {
 	return &rateLimitConfig{c: w.c.RateLimit}
+}
+
+func (w *webServerConfig) MFA() config.MFA {
+	return &mfaConfig{c: w.c.MFA}
 }
 
 func (w *webServerConfig) AllowOrigins() string {
@@ -121,14 +137,6 @@ func (w *webServerConfig) HTTPWriteTimeout() time.Duration {
 
 func (w *webServerConfig) Port() uint16 {
 	return *w.c.HTTPPort
-}
-
-func (w *webServerConfig) RPID() string {
-	return *w.c.MFA.RPID
-}
-
-func (w *webServerConfig) RPOrigin() string {
-	return *w.c.MFA.RPOrigin
 }
 
 func (w *webServerConfig) ReaperExpiration() models.Duration {

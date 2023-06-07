@@ -28,9 +28,6 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, *models.MustNewDuration(168 * time.Hour), ws.ReaperExpiration())
 	assert.Equal(t, int64(32770), ws.HTTPMaxSize())
 	assert.Equal(t, 15*time.Second, ws.ServerStartTimeout())
-	assert.Equal(t, "test-rpid", ws.RPID())
-	assert.Equal(t, "test-rp-origin", ws.RPOrigin())
-
 	tls := ws.TLS()
 	assert.Equal(t, "test/root/dir/tls", tls.Dir())
 	assert.Equal(t, "tls/cert/path", tls.CertPath())
@@ -44,5 +41,9 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, *models.MustNewDuration(1 * time.Second), rl.AuthenticatedPeriod())
 	assert.Equal(t, int64(7), rl.Unauthenticated())
 	assert.Equal(t, *models.MustNewDuration(1 * time.Minute), rl.UnauthenticatedPeriod())
+
+	mf := ws.MFA()
+	assert.Equal(t, "test-rpid", mf.RPID())
+	assert.Equal(t, "test-rp-origin", mf.RPOrigin())
 
 }

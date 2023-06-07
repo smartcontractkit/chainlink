@@ -842,8 +842,8 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
-	rpid := app.Config.RPID()
-	rporigin := app.Config.RPOrigin()
+	rpid := app.Config.WebServer().MFA().RPID()
+	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}
