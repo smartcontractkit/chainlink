@@ -49,20 +49,6 @@ type GeneralConfig struct {
 	mock.Mock
 }
 
-// AllowOrigins provides a mock function with given fields:
-func (_m *GeneralConfig) AllowOrigins() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // AppID provides a mock function with given fields:
 func (_m *GeneralConfig) AppID() uuid.UUID {
 	ret := _m.Called()
@@ -316,20 +302,6 @@ func (_m *GeneralConfig) BridgeResponseURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
-	}
-
-	return r0
-}
-
-// CertFile provides a mock function with given fields:
-func (_m *GeneralConfig) CertFile() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -752,20 +724,6 @@ func (_m *GeneralConfig) Keeper() config.Keeper {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.Keeper)
 		}
-	}
-
-	return r0
-}
-
-// KeyFile provides a mock function with given fields:
-func (_m *GeneralConfig) KeyFile() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1802,48 +1760,6 @@ func (_m *GeneralConfig) StarknetConfigs() starknet.StarknetConfigs {
 	return r0
 }
 
-// TLSCertPath provides a mock function with given fields:
-func (_m *GeneralConfig) TLSCertPath() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSDir provides a mock function with given fields:
-func (_m *GeneralConfig) TLSDir() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSHost provides a mock function with given fields:
-func (_m *GeneralConfig) TLSHost() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // TLSKeyPath provides a mock function with given fields:
 func (_m *GeneralConfig) TLSKeyPath() string {
 	ret := _m.Called()
@@ -1853,34 +1769,6 @@ func (_m *GeneralConfig) TLSKeyPath() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSPort provides a mock function with given fields:
-func (_m *GeneralConfig) TLSPort() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// TLSRedirect provides a mock function with given fields:
-func (_m *GeneralConfig) TLSRedirect() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -1981,6 +1869,22 @@ func (_m *GeneralConfig) ValidateDB() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WebServer provides a mock function with given fields:
+func (_m *GeneralConfig) WebServer() config.WebServer {
+	ret := _m.Called()
+
+	var r0 config.WebServer
+	if rf, ok := ret.Get(0).(func() config.WebServer); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.WebServer)
+		}
 	}
 
 	return r0
