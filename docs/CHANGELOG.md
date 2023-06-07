@@ -42,6 +42,7 @@ Order = 5
 
 ### Added
 
+- New prometheus metric for mercury transmit queue: `mercury_transmit_queue_load`. This is a gauge, scoped by feed ID, that measures how many pending transmissions are in the queue. This should generally speaking be small (< 10 or so). Nops may wish to add alerting if this exceeds some amount.
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 - New settings Evm.GasEstimator.LimitJobType.OCR2, OCR2.DefaultTransactionQueueDepth, OCR2.SimulateTransactions for OCR2

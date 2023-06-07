@@ -88,7 +88,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		feedID,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, MaxTransmitQueueSize),
+		NewTransmitQueue(lggr, fmt.Sprintf("0x%x", feedID[:]), MaxTransmitQueueSize),
 		sync.WaitGroup{},
 	}
 }
@@ -96,6 +96,9 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("MercuryTransmitter", func() error {
 		if err := mt.rpcClient.Start(ctx); err != nil {
+			return err
+		}
+		if err := mt.queue.Start(ctx); err != nil {
 			return err
 		}
 		mt.wg.Add(1)
