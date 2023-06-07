@@ -135,7 +135,7 @@ func (w *webServerConfig) HTTPWriteTimeout() time.Duration {
 	return w.c.HTTPWriteTimeout.Duration()
 }
 
-func (w *webServerConfig) Port() uint16 {
+func (w *webServerConfig) HTTPPort() uint16 {
 	return *w.c.HTTPPort
 }
 

@@ -451,7 +451,8 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
-	if config.Port() == 0 && config.WebServer().TLS().HTTPSPort() == 0 {
+	ws := config.WebServer()
+	if ws.HTTPPort() == 0 && ws.TLS().HTTPSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
 	}
 
@@ -463,9 +464,9 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 
 	g, gCtx := errgroup.WithContext(ctx)
 	timeoutDuration := config.WebServer().ServerStartTimeout()
-	if config.Port() != 0 {
+	if ws.HTTPPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
-			return server.run(config.Port(), config.WebServer().HTTPWriteTimeout())
+			return server.run(ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
 		})
 	}
 
