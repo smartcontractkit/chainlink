@@ -32,7 +32,7 @@ func (t *tlsConfig) Host() string {
 	return *t.c.Host
 }
 
-func (t *tlsConfig) TLSKeyPath() string {
+func (t *tlsConfig) KeyPath() string {
 	return *t.c.KeyPath
 }
 
@@ -53,10 +53,10 @@ func (t *tlsConfig) CertFile() string {
 }
 
 func (t *tlsConfig) KeyFile() string {
-	if t.TLSKeyPath() == "" {
+	if t.KeyPath() == "" {
 		return filepath.Join(t.Dir(), "server.key")
 	}
-	return t.TLSKeyPath()
+	return t.KeyPath()
 }
 
 type webServerConfig struct {
