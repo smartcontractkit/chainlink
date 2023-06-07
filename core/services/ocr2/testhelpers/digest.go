@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // MakeConfigDigest makes config digest

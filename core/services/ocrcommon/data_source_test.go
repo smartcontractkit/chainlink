@@ -6,7 +6,7 @@ import (
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
