@@ -354,6 +354,10 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) WebServer() config.WebServer {
+	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
+}
+
 func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
 }
