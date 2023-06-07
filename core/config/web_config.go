@@ -10,10 +10,10 @@ import (
 )
 
 type TLS interface {
-	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
 
+	Dir() string
 	Host() string
 	ForceRedirect() bool
 	CertPath() string
@@ -52,7 +52,6 @@ type WebV1 interface {
 	Port() uint16
 	RPID() string
 	RPOrigin() string
-	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
 	UnAuthenticatedRateLimit() int64

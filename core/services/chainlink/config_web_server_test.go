@@ -36,6 +36,7 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, *models.MustNewDuration(1 * time.Minute), ws.UnAuthenticatedRateLimitPeriod())
 
 	tls := ws.TLS()
+	assert.Equal(t, "test/root/dir/tls", tls.Dir())
 	assert.Equal(t, "tls/cert/path", tls.CertPath())
 	assert.True(t, tls.ForceRedirect())
 	assert.Equal(t, "tls-host", tls.Host())
