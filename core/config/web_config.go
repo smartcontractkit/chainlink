@@ -28,7 +28,6 @@ type RateLimit interface {
 }
 
 type WebServer interface {
-	AllowOrigins() string
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
@@ -41,6 +40,8 @@ type WebServer interface {
 	SessionTimeout() models.Duration
 	WebServerHTTPMaxSize() int64
 	WebServerStartTimeout() time.Duration
+
+	AllowOrigins() string
 
 	TLS() TLS
 	RateLimit() RateLimit
