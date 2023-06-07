@@ -719,7 +719,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err := client.SetLogLevel(c)
 	require.NoError(t, err)
-	assert.Equal(t, logLevel, app.Config.LogLevel().String())
+	assert.Equal(t, logLevel, app.Config.Log().Level().String())
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)

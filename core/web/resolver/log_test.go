@@ -96,6 +96,15 @@ func TestResolver_SQLLogging(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+type log struct {
+	config.Log
+	level zapcore.Level
+}
+
+func (l *log) Level() zapcore.Level {
+	return l.level
+}
+
 func TestResolver_GlobalLogLevel(t *testing.T) {
 	t.Parallel()
 
@@ -118,7 +127,7 @@ func TestResolver_GlobalLogLevel(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("LogLevel").Return(warnLvl)
+				f.Mocks.cfg.On("Log").Return(&log{level: warnLvl})
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
 			query: query,

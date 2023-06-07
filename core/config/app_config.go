@@ -34,7 +34,6 @@ type AppConfig interface {
 	FluxMonitor
 	Insecure
 	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
 	P2PNetworking
@@ -51,6 +50,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Log() Log
 }
 
 type DatabaseBackupMode string
