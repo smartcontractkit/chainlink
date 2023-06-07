@@ -14,62 +14,6 @@ type Config struct {
 	mock.Mock
 }
 
-// DatabaseDefaultQueryTimeout provides a mock function with given fields:
-func (_m *Config) DatabaseDefaultQueryTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// JobPipelineMaxSuccessfulRuns provides a mock function with given fields:
-func (_m *Config) JobPipelineMaxSuccessfulRuns() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// JobPipelineResultWriteQueueDepth provides a mock function with given fields:
-func (_m *Config) JobPipelineResultWriteQueueDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// LogSQL provides a mock function with given fields:
-func (_m *Config) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // MercuryCredentials provides a mock function with given fields: credName
 func (_m *Config) MercuryCredentials(credName string) *models.MercuryCredentials {
 	ret := _m.Called(credName)

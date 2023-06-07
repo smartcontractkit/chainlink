@@ -40,14 +40,14 @@ import (
 
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	lggr := logger.TestLogger(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, lggr, cfg)
+	q := pg.NewQ(db, lggr, cfg.Database())
 
 	orm.On("GetQ").Return(q).Maybe()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, bridgeORM, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
@@ -64,7 +64,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
 
 	btORM := bridgesMocks.NewORM(t)
 	btORM.On("FindBridge", bt.Name).Return(*bt, nil).Once()
@@ -247,7 +247,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 					},
 				},
 			},
-				cfg)
+				cfg.Database())
 			defer ds1.Close()
 
 			btORM.On("FindBridge", bridge.Name).Return(bridge, nil).Once()
@@ -265,7 +265,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg)
+			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg.Database())
 			defer submit.Close()
 
 			btORM.On("FindBridge", submitBt.Name).Return(submitBt, nil).Once()
@@ -416,7 +416,7 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 
 	orm.On("GetQ").Return(q).Maybe()
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -468,7 +468,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -476,10 +476,10 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		}).
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, btORM, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
@@ -581,7 +581,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -707,7 +707,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))

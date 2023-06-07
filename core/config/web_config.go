@@ -33,4 +33,6 @@ type Web interface {
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
+	WebServerHTTPMaxSize() int64
+	WebServerStartTimeout() time.Duration
 }

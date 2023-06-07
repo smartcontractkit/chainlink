@@ -17,7 +17,7 @@ import (
 
 func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(5, 1001, 1002, lggr)
+	dq := NewDecryptionQueue(5, 1001, 64, 1002, lggr)
 
 	assert.Equal(t, 5, dq.maxQueueLength)
 	assert.Equal(t, 1001, dq.maxCiphertextBytes)
@@ -26,7 +26,7 @@ func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(5, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	go func() {
 		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
@@ -43,9 +43,31 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 	}
 }
 
+func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(1, 1000, 16, testutils.WaitTimeout(t), lggr)
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte("largeCiphertextId"), []byte("ciphertext"))
+	assert.Equal(t, err.Error(), "ciphertextId too large")
+}
+
+func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte(""), []byte("ciphertext"))
+	assert.Equal(t, err.Error(), "ciphertextId is empty")
+}
+
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(1, 10, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(1, 10, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -54,9 +76,20 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	assert.Equal(t, err.Error(), "ciphertext too large")
 }
 
+func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, []byte("1"), []byte(""))
+	assert.Equal(t, err.Error(), "ciphertext is empty")
+}
+
 func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(1, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -74,7 +107,7 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(1, 1000, 100, lggr)
+	dq := NewDecryptionQueue(1, 1000, 64, 100, lggr)
 
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Duration(100)*time.Millisecond)
 	defer cancel()
@@ -85,7 +118,7 @@ func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(1, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -106,7 +139,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -141,7 +174,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 
 func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -162,7 +195,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 
 func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(3, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	_, err := dq.GetCiphertext([]byte("8"))
 	assert.Equal(t, err.Error(), "ciphertext not found")
@@ -170,7 +203,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(2, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	dq.ReturnResult([]byte("9"), []byte("decrypted"))
 
@@ -186,7 +219,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 
 func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(2, 1000, 100, lggr)
+	dq := NewDecryptionQueue(2, 1000, 64, 100, lggr)
 
 	dq.ReturnResult([]byte("9"), []byte("decrypted"))
 
@@ -201,7 +234,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(2, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	dq.ReturnResult([]byte("10"), []byte("decrypted"))
 
@@ -220,7 +253,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 
 func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(5, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	go func() {
 		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
@@ -236,7 +269,7 @@ func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t 
 
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -280,7 +313,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 10, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 10, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -324,7 +357,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 
 func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -347,7 +380,7 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 
 func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 
@@ -369,7 +402,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 
 func Test_decryptionQueue_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -381,7 +414,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 
 func Test_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(4, 1000, testutils.WaitTimeout(t), lggr)
+	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	dq.ReturnResult([]byte("14"), []byte("decrypted"))
 

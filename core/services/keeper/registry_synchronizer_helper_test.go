@@ -36,15 +36,15 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	scopedConfig := evmtest.NewChainScopedConfig(t, cfg)
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cfg.JobPipeline(), cfg.Database(), cc, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
 	switch version {
@@ -69,7 +69,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config())
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config().Database())
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		RegistryWrapper:          *registryWrapper,

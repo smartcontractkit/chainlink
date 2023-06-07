@@ -108,9 +108,9 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	lggr := logger.TestLogger(t)
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
+	orm := log.NewORM(c.db, lggr, config.Database(), cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, c.db, globalConfig)
+	kst := cltest.NewKeyStore(t, c.db, globalConfig.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
@@ -121,7 +121,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		MailMon:        mailMon,
 	})
 
-	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config, config.JobPipeline(), config.Database(), cc, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,
@@ -282,7 +282,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	return &simpleLogListener{
 		db:       db,
 		lggr:     logger.TestLogger(t),
-		cfg:      helper.config,
+		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
 		t:        t,

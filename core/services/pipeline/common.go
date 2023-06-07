@@ -29,18 +29,20 @@ import (
 )
 
 const (
-	CronJobType               string = "cron"
-	DirectRequestJobType      string = "directrequest"
-	FluxMonitorJobType        string = "fluxmonitor"
-	OffchainReportingJobType  string = "offchainreporting"
-	OffchainReporting2JobType string = "offchainreporting2"
-	KeeperJobType             string = "keeper"
-	VRFJobType                string = "vrf"
-	BlockhashStoreJobType     string = "blockhashstore"
-	BlockHeaderFeederJobType  string = "blockheaderfeeder"
-	WebhookJobType            string = "webhook"
-	BootstrapJobType          string = "bootstrap"
-	GatewayJobType            string = "gateway"
+	CronJobType                    string = "cron"
+	DirectRequestJobType           string = "directrequest"
+	FluxMonitorJobType             string = "fluxmonitor"
+	OffchainReportingJobType       string = "offchainreporting"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	KeeperJobType                  string = "keeper"
+	VRFJobType                     string = "vrf"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	WebhookJobType                 string = "webhook"
+	BootstrapJobType               string = "bootstrap"
+	GatewayJobType                 string = "gateway"
+	LegacyGasStationServerJobType  string = "legacygasstationserver"
+	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -62,14 +64,16 @@ type (
 	}
 
 	Config interface {
-		BridgeResponseURL() *url.URL
-		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineReaperInterval() time.Duration
-		JobPipelineReaperThreshold() time.Duration
+		MaxRunDuration() time.Duration
+		ReaperInterval() time.Duration
+		ReaperThreshold() time.Duration
+	}
+
+	BridgeConfig interface {
+		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 	}
 )
 

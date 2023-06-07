@@ -112,6 +112,7 @@ type VRFSpec {
     backoffInitialDelay: String!
     backoffMaxDelay: String!
     gasLanePrice: String
+    vrfOwnerAddress: String
 }
 
 type WebhookSpec {

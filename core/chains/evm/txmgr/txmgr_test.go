@@ -17,15 +17,16 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/builder"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -56,9 +57,11 @@ func makeTestEvmTxm(
 	// build estimator from factory
 	estimator := gas.NewEstimator(lggr, ethClient, cfg)
 
-	return builder.NewTxm(
+	return txmgr.NewTxm(
 		db,
 		cfg,
+		cfg.Database(),
+		cfg.Database().Listener(),
 		ethClient,
 		lggr,
 		lp,
@@ -80,7 +83,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 
-	keyStore := cltest.NewKeyStore(t, db, config).Eth()
+	keyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, keyStore, nil)
 	require.NoError(t, err)
@@ -95,8 +98,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
 	toAddress := testutils.NewAddress()
@@ -107,7 +110,6 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
@@ -129,7 +131,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -142,7 +144,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -306,7 +308,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
+		form := forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
 		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
@@ -339,6 +341,31 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 	return commontxmmocks.NewTxStrategy(t)
 }
 
+type databaseConfig struct {
+	config.Database
+	defaultQueryTimeout time.Duration
+}
+
+func (d *databaseConfig) DefaultQueryTimeout() time.Duration {
+	return d.defaultQueryTimeout
+}
+
+func (d *databaseConfig) LogSQL() bool {
+	return false
+}
+
+type listenerConfig struct {
+	config.Listener
+}
+
+func (l *listenerConfig) FallbackPollInterval() time.Duration {
+	return 1 * time.Minute
+}
+
+func (d *databaseConfig) Listener() config.Listener {
+	return &listenerConfig{}
+}
+
 func newMockConfig(t *testing.T) *txmmocks.Config {
 	// These are only used for logging, the exact value doesn't matter
 	// It can be overridden in the test that uses it
@@ -365,8 +392,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmUseForwarders").Return(true).Maybe()
-	cfg.On("LogSQL").Maybe().Return(false)
-	cfg.On("DatabaseDefaultQueryTimeout").Return(pg.DefaultQueryTimeout).Maybe()
+	cfg.On("Database").Return(&databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout})
 
 	return cfg
 }
@@ -374,8 +400,8 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg)
-	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
 	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -389,10 +415,9 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
 	require.NoError(t, err)
 
@@ -476,7 +501,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false).Maybe()
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil)
 
@@ -538,11 +562,11 @@ func TestTxm_Reset(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
 	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	txStore := cltest.NewTxStore(t, db, cfg)
+	txStore := cltest.NewTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)

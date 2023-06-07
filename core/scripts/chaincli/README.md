@@ -95,6 +95,12 @@ Other options include:
 - `--export-logs | -l`: default `false`, if container logs should be exported to ./ directory
 - `--force | -f`: default `false`, if existing containers should be forcefully removed
 
+You can also combine the `bootstrap` and `launch-and-test` commands into a single command:
+
+```shell
+./chaincli keeper launch-and-test --bootstrap
+```
+
 ### Logs
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:
 
