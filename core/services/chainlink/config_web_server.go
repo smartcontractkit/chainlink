@@ -107,11 +107,11 @@ func (w *webServerConfig) BridgeCacheTTL() time.Duration {
 	return w.c.BridgeCacheTTL.Duration()
 }
 
-func (w *webServerConfig) WebServerHTTPMaxSize() int64 {
+func (w *webServerConfig) HTTPMaxSize() int64 {
 	return int64(*w.c.HTTPMaxSize)
 }
 
-func (w *webServerConfig) WebServerStartTimeout() time.Duration {
+func (w *webServerConfig) ServerStartTimeout() time.Duration {
 	return w.c.StartTimeout.Duration()
 }
 

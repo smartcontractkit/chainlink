@@ -462,7 +462,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.WebServerStartTimeout()
+	timeoutDuration := config.WebServer().ServerStartTimeout()
 	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())

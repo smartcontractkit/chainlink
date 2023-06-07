@@ -26,8 +26,8 @@ func TestWebServerConfig(t *testing.T) {
 	assert.True(t, ws.SecureCookies())
 	assert.Equal(t, *models.MustNewDuration(1 * time.Hour), ws.SessionTimeout())
 	assert.Equal(t, *models.MustNewDuration(168 * time.Hour), ws.ReaperExpiration())
-	assert.Equal(t, int64(32770), ws.WebServerHTTPMaxSize())
-	assert.Equal(t, 15*time.Second, ws.WebServerStartTimeout())
+	assert.Equal(t, int64(32770), ws.HTTPMaxSize())
+	assert.Equal(t, 15*time.Second, ws.ServerStartTimeout())
 	assert.Equal(t, "test-rpid", ws.RPID())
 	assert.Equal(t, "test-rp-origin", ws.RPOrigin())
 

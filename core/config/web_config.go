@@ -36,12 +36,12 @@ type WebServer interface {
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
-	WebServerHTTPMaxSize() int64
-	WebServerStartTimeout() time.Duration
 
 	AllowOrigins() string
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
+	HTTPMaxSize() int64
+	ServerStartTimeout() time.Duration
 
 	TLS() TLS
 	RateLimit() RateLimit
@@ -56,6 +56,4 @@ type WebV1 interface {
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
-	WebServerHTTPMaxSize() int64
-	WebServerStartTimeout() time.Duration
 }

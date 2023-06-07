@@ -60,7 +60,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 
 	tls := config.WebServer().TLS()
 	engine.Use(
-		limits.RequestSizeLimiter(config.WebServerHTTPMaxSize()),
+		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
