@@ -73,10 +73,10 @@ jobs:
         run: |
           image_build_metadata=$(jq -n \
                                   --arg commit_sha "$GITHUB_SHA" \
-                                  --arg job_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}" \
+                                  --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
                                   '{
                                     commit_sha: $commit_sha,
-                                    originating_job_url: $job_url
+                                    originating_run_url: $run_url
                                   }')
           gh workflow run "e2e-functional-tests.yml" \
             --repo ${{ secrets.MERCURY_SERVER_REPO }} \
