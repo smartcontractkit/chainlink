@@ -53,6 +53,13 @@ type Relayer struct {
 	mercuryPool wsrpc.Pool
 }
 
+type FunctionsPluginType int
+
+const (
+	FunctionsPlugin FunctionsPluginType = iota
+	ThresholdPlugin
+)
+
 func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
 	return &Relayer{
 		db:          db,
@@ -297,7 +304,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 
-func newFunctionsThresholdConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+func newFunctionsConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs, functionsPluginType FunctionsPluginType) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -318,10 +325,19 @@ func newFunctionsThresholdConfigProvider(lggr logger.Logger, chainSet evm.ChainS
 	}
 	var cp ConfigPoller
 
-	cp, err = functions.NewThresholdConfigPoller(lggr,
-		chain.LogPoller(),
-		contractAddress,
-	)
+	if functionsPluginType == FunctionsPlugin {
+		cp, err = NewConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	} else if functionsPluginType == ThresholdPlugin {
+		cp, err = functions.NewThresholdConfigPoller(lggr,
+			chain.LogPoller(),
+			contractAddress,
+		)
+	} else {
+		return nil, errors.New("invalid Functions plugin type")
+	}
 
 	if err != nil {
 		return nil, err

@@ -24,7 +24,7 @@ func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 }
 
 func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
-	configWatcher, err := newConfigProvider(lggr, chainSet, rargs)
+	configWatcher, err := newFunctionsConfigProvider(lggr, chainSet, rargs, FunctionsPlugin)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 }
 
 func NewFunctionsThresholdProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
-	configWatcher, err := newFunctionsThresholdConfigProvider(lggr, chainSet, rargs)
+	configWatcher, err := newFunctionsConfigProvider(lggr, chainSet, rargs, ThresholdPlugin)
 	if err != nil {
 		return nil, err
 	}
