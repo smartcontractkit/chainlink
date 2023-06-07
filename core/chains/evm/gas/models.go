@@ -31,6 +31,9 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
+// EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
+//
+//go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
 	services.ServiceCtx
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
