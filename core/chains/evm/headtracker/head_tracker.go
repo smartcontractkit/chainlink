@@ -344,16 +344,16 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 
 // backfill fetches all missing heads up until the base height
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head commontypes.Head[BLOCK_HASH], baseHeight int64) (err error) {
-	blockNumberInt64 := head.BlockNumber().Int64()
-	if blockNumberInt64 <= baseHeight {
+	headNumberInt64 := head.BlockNumber().Int64()
+	if headNumberInt64 <= baseHeight {
 		return nil
 	}
 	mark := time.Now()
 	fetched := 0
-	l := ht.log.With("blockNumber", blockNumberInt64,
-		"n", blockNumberInt64-baseHeight,
+	l := ht.log.With("blockNumber", headNumberInt64,
+		"n", headNumberInt64-baseHeight,
 		"fromBlockHeight", baseHeight,
-		"toBlockHeight", blockNumberInt64-1)
+		"toBlockHeight", headNumberInt64-1)
 	l.Debug("Starting backfill")
 	defer func() {
 		if ctx.Err() != nil {
