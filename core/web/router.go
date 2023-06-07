@@ -53,7 +53,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	}
 	sessionStore := cookie.NewStore(secret)
 	sessionStore.Options(config.SessionOptions())
-	cors := uiCorsHandler(config)
+	cors := uiCorsHandler(config.WebServer().AllowOrigins())
 	if prometheus != nil {
 		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
 	}
@@ -132,8 +132,7 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
-type SecurityConfig interface {
-	AllowOrigins() string
+type securityConfig interface {
 	TLSRedirect() bool
 	TLSHost() string
 	DevWebServer() bool
@@ -141,19 +140,19 @@ type SecurityConfig interface {
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(cfg SecurityConfig) secure.Options {
+func secureOptions(tlsRedirect bool, tlsHost string, devWebServer bool) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
-		IsDevelopment: cfg.DevWebServer(),
-		SSLRedirect:   cfg.TLSRedirect(),
-		SSLHost:       cfg.TLSHost(),
+		IsDevelopment: devWebServer,
+		SSLRedirect:   tlsRedirect,
+		SSLHost:       tlsHost,
 	}
 }
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
-	secureMiddleware := secure.New(secureOptions(cfg))
+func secureMiddleware(cfg securityConfig) gin.HandlerFunc {
+	secureMiddleware := secure.New(secureOptions(cfg.TLSRedirect(), cfg.TLSHost(), cfg.DevWebServer()))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
 			err := secureMiddleware.Process(c.Writer, c.Request)
@@ -545,7 +544,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config SecurityConfig) gin.HandlerFunc {
+func uiCorsHandler(ao string) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
@@ -553,9 +552,9 @@ func uiCorsHandler(config SecurityConfig) gin.HandlerFunc {
 		AllowCredentials: true,
 		MaxAge:           math.MaxInt32,
 	}
-	if config.AllowOrigins() == "*" {
+	if ao == "*" {
 		c.AllowAllOrigins = true
-	} else if allowOrigins := strings.Split(config.AllowOrigins(), ","); len(allowOrigins) > 0 {
+	} else if allowOrigins := strings.Split(ao, ","); len(allowOrigins) > 0 {
 		c.AllowOrigins = allowOrigins
 	}
 	return cors.New(c)
