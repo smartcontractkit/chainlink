@@ -959,7 +959,7 @@ func hasReceiptInLongestChain[
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
-				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber() == head.BlockNumber() {
+				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Cmp(head.BlockNumber()) == 0 {
 					return true
 				}
 			}

@@ -256,7 +256,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
-	} else if head.BlockNumber() == prevHead.BlockNumber() {
+	} else if head.BlockNumber().Cmp(prevHead.BlockNumber()) == 0 {
 		if head.BlockHash() != prevHead.BlockHash() {
 			ht.log.Debugw("Got duplicate head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockHash())
 		} else {
