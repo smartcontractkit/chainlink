@@ -28,6 +28,23 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 	if err != nil {
 		return nil, err
 	}
+
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, ethKeystore)
+	if err != nil {
+		return nil, err
+	}
+	return &functionsProvider{
+		configWatcher:       configWatcher,
+		contractTransmitter: contractTransmitter,
+	}, nil
+}
+
+func NewFunctionsThresholdProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth) (relaytypes.Plugin, error) {
+	configWatcher, err := newFunctionsThresholdConfigProvider(lggr, chainSet, rargs)
+	if err != nil {
+		return nil, err
+	}
+
 	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, ethKeystore)
 	if err != nil {
 		return nil, err
