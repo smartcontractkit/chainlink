@@ -64,7 +64,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
-		secureMiddleware(tls.TLSRedirect(), tls.Host(), config.DevWebServer()),
+		secureMiddleware(tls.ForceRedirect(), tls.Host(), config.DevWebServer()),
 	)
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())

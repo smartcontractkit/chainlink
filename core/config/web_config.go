@@ -14,11 +14,11 @@ type TLS interface {
 	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
-	TLSRedirect() bool
 	KeyFile() string
 	CertFile() string
 
 	Host() string
+	ForceRedirect() bool
 }
 
 type WebServer interface {
@@ -58,7 +58,6 @@ type WebV1 interface {
 	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
-	TLSRedirect() bool
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	ReaperExpiration() models.Duration

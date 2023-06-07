@@ -40,7 +40,7 @@ func (t *tlsConfig) TLSPort() uint16 {
 	return *t.c.HTTPSPort
 }
 
-func (t *tlsConfig) TLSRedirect() bool {
+func (t *tlsConfig) ForceRedirect() bool {
 	return *t.c.ForceRedirect
 }
 
