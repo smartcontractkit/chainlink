@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - develop
-  # TODO: DEBUG
-  pull_request:
 
 jobs:
   push-chainlink-develop-goreleaser:
