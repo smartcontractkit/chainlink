@@ -45,20 +45,6 @@ type ChainScopedConfig struct {
 	mock.Mock
 }
 
-// AllowOrigins provides a mock function with given fields:
-func (_m *ChainScopedConfig) AllowOrigins() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // AppID provides a mock function with given fields:
 func (_m *ChainScopedConfig) AppID() uuid.UUID {
 	ret := _m.Called()
@@ -480,20 +466,6 @@ func (_m *ChainScopedConfig) BridgeResponseURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
-	}
-
-	return r0
-}
-
-// CertFile provides a mock function with given fields:
-func (_m *ChainScopedConfig) CertFile() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1448,20 +1420,6 @@ func (_m *ChainScopedConfig) Keeper() coreconfig.Keeper {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.Keeper)
 		}
-	}
-
-	return r0
-}
-
-// KeyFile provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeyFile() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -2680,48 +2638,6 @@ func (_m *ChainScopedConfig) StarkNetEnabled() bool {
 	return r0
 }
 
-// TLSCertPath provides a mock function with given fields:
-func (_m *ChainScopedConfig) TLSCertPath() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSDir provides a mock function with given fields:
-func (_m *ChainScopedConfig) TLSDir() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSHost provides a mock function with given fields:
-func (_m *ChainScopedConfig) TLSHost() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // TLSKeyPath provides a mock function with given fields:
 func (_m *ChainScopedConfig) TLSKeyPath() string {
 	ret := _m.Called()
@@ -2731,34 +2647,6 @@ func (_m *ChainScopedConfig) TLSKeyPath() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// TLSPort provides a mock function with given fields:
-func (_m *ChainScopedConfig) TLSPort() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// TLSRedirect provides a mock function with given fields:
-func (_m *ChainScopedConfig) TLSRedirect() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2859,6 +2747,22 @@ func (_m *ChainScopedConfig) ValidateDB() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WebServer provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebServer() coreconfig.WebServer {
+	ret := _m.Called()
+
+	var r0 coreconfig.WebServer
+	if rf, ok := ret.Get(0).(func() coreconfig.WebServer); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.WebServer)
+		}
 	}
 
 	return r0
