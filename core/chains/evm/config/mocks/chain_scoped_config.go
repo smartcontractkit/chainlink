@@ -575,20 +575,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	return r0
 }
 
-// DefaultLogLevel provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
-	ret := _m.Called()
-
-	var r0 zapcore.Level
-	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
 // DevWebServer provides a mock function with given fields:
 func (_m *ChainScopedConfig) DevWebServer() bool {
 	ret := _m.Called()
@@ -1265,34 +1251,6 @@ func (_m *ChainScopedConfig) ExplorerURL() *url.URL {
 	return r0
 }
 
-// FMDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// FMSimulateTransactions provides a mock function with given fields:
-func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
 	ret := _m.Called()
@@ -1391,6 +1349,22 @@ func (_m *ChainScopedConfig) FlagsContractAddress() string {
 	return r0
 }
 
+// FluxMonitor provides a mock function with given fields:
+func (_m *ChainScopedConfig) FluxMonitor() coreconfig.FluxMonitor {
+	ret := _m.Called()
+
+	var r0 coreconfig.FluxMonitor
+	if rf, ok := ret.Get(0).(func() coreconfig.FluxMonitor); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.FluxMonitor)
+		}
+	}
+
+	return r0
+}
+
 // GasEstimatorMode provides a mock function with given fields:
 func (_m *ChainScopedConfig) GasEstimatorMode() string {
 	ret := _m.Called()
@@ -1435,20 +1409,6 @@ func (_m *ChainScopedConfig) InfiniteDepthQueries() bool {
 
 // InsecureFastScrypt provides a mock function with given fields:
 func (_m *ChainScopedConfig) InsecureFastScrypt() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// JSONConsole provides a mock function with given fields:
-func (_m *ChainScopedConfig) JSONConsole() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1551,93 +1511,25 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// Log provides a mock function with given fields:
+func (_m *ChainScopedConfig) Log() coreconfig.Log {
+	ret := _m.Called()
+
+	var r0 coreconfig.Log
+	if rf, ok := ret.Get(0).(func() coreconfig.Log); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Log)
+		}
+	}
+
+	return r0
+}
+
 // LogConfiguration provides a mock function with given fields: log
 func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
 	_m.Called(log)
-}
-
-// LogFileDir provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileDir() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// LogFileMaxAge provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxAge() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// LogFileMaxBackups provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxBackups() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// LogFileMaxSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxSize() utils.FileSize {
-	ret := _m.Called()
-
-	var r0 utils.FileSize
-	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(utils.FileSize)
-	}
-
-	return r0
-}
-
-// LogLevel provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
-	ret := _m.Called()
-
-	var r0 zapcore.Level
-	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
-// LogUnixTimestamps provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
 }
 
 // MercuryCredentials provides a mock function with given fields: credName
@@ -2972,8 +2864,8 @@ func (_m *ChainScopedConfig) ValidateDB() error {
 	return r0
 }
 
-// WebDefaultHTTPLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) WebDefaultHTTPLimit() int64 {
+// WebServerHTTPMaxSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebServerHTTPMaxSize() int64 {
 	ret := _m.Called()
 
 	var r0 int64
@@ -2986,15 +2878,15 @@ func (_m *ChainScopedConfig) WebDefaultHTTPLimit() int64 {
 	return r0
 }
 
-// WebDefaultHTTPTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) WebDefaultHTTPTimeout() models.Duration {
+// WebServerStartTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) WebServerStartTimeout() time.Duration {
 	ret := _m.Called()
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 ### Added
+- Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
+- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:
+```
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+
+[[EVM.Nodes]]
+Name = '...'
+WSURL = '...'
+HTTPURL = '...'
+Order = 5 
+```
+- The config keys `WebServer.StartTimeout` and `WebServer.HTTPMaxSize`. These keys respectively set a timeout for the node server to
+  start and set the max request size for HTTP requests. Previously these attributes were set by
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`. To migrate to these new fields, set their values to be identical to
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`.
 
 ### Fixed
 

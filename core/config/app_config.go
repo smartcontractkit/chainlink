@@ -31,10 +31,8 @@ type AppConfig interface {
 	Ethereum
 	Explorer
 	FeatureFlags
-	FluxMonitor
 	Insecure
 	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
 	P2PNetworking
@@ -51,6 +49,8 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Log() Log
+	FluxMonitor() FluxMonitor
 }
 
 type DatabaseBackupMode string
