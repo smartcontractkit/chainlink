@@ -28,8 +28,6 @@ type RateLimit interface {
 }
 
 type WebServer interface {
-	BridgeCacheTTL() time.Duration
-	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string
@@ -42,14 +40,14 @@ type WebServer interface {
 	WebServerStartTimeout() time.Duration
 
 	AllowOrigins() string
+	BridgeCacheTTL() time.Duration
+	BridgeResponseURL() *url.URL
 
 	TLS() TLS
 	RateLimit() RateLimit
 }
 
 type WebV1 interface {
-	BridgeCacheTTL() time.Duration
-	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string

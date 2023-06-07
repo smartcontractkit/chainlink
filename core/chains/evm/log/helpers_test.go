@@ -121,7 +121,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		MailMon:        mailMon,
 	})
 
-	pipelineHelper := cltest.NewJobPipelineV2(t, config, config.JobPipeline(), config.Database(), cc, c.db, kst, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), cc, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,
