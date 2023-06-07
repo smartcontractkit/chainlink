@@ -41,7 +41,7 @@ type AppConfig interface {
 	Prometheus
 	Pyroscope
 	Secrets
-	Web
+	WebV1
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -51,6 +51,7 @@ type AppConfig interface {
 	JobPipeline() JobPipeline
 	Log() Log
 	FluxMonitor() FluxMonitor
+	WebServer() WebServer
 }
 
 type DatabaseBackupMode string
