@@ -15,9 +15,9 @@ import (
 // LoggingConfig controls static logging related configuration that is inherited from the chainlink application to the
 // given LOOP executable.
 type LoggingConfig interface {
-	LogLevel() zapcore.Level
+	Level() zapcore.Level
 	JSONConsole() bool
-	LogUnixTimestamps() bool
+	UnixTimestamps() bool
 }
 
 type loggingConfig struct {
@@ -34,7 +34,7 @@ func NewLoggingConfig(level zapcore.Level, jsonConsole bool, unixTimestamps bool
 	}
 }
 
-func (lc *loggingConfig) LogLevel() zapcore.Level {
+func (lc *loggingConfig) Level() zapcore.Level {
 	return lc.level
 }
 
@@ -42,7 +42,7 @@ func (lc *loggingConfig) JSONConsole() bool {
 	return lc.jsonConsole
 }
 
-func (lc *loggingConfig) LogUnixTimestamps() bool {
+func (lc *loggingConfig) UnixTimestamps() bool {
 	return lc.unixTimestamps
 }
 
@@ -100,9 +100,9 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 	forward("CL_LOG_SQL_MIGRATIONS")
 	forward("CL_LOG_COLOR")
 	cmd.Env = append(cmd.Env,
-		"CL_LOG_LEVEL="+cfg.LogLevel().String(),
+		"CL_LOG_LEVEL="+cfg.Level().String(),
 		"CL_JSON_CONSOLE="+strconv.FormatBool(cfg.JSONConsole()),
-		"CL_UNIX_TS="+strconv.FormatBool(cfg.LogUnixTimestamps()),
+		"CL_UNIX_TS="+strconv.FormatBool(cfg.UnixTimestamps()),
 		"CL_PROMETHEUS_PORT="+strconv.FormatInt(int64(cfg.PrometheusPort()), 10),
 	)
 }
@@ -138,14 +138,14 @@ type envConfig struct {
 func NewEnvConfig(lc LoggingConfig, prometheusPort int) EnvConfig {
 	//prometheusPort := prometheusPortFn(name)
 	return &envConfig{
-		logLevel:       lc.LogLevel(),
+		logLevel:       lc.Level(),
 		jsonConsole:    lc.JSONConsole(),
-		unixTimestamps: lc.LogUnixTimestamps(),
+		unixTimestamps: lc.UnixTimestamps(),
 		prometheusPort: prometheusPort,
 	}
 }
 
-func (e *envConfig) LogLevel() zapcore.Level {
+func (e *envConfig) Level() zapcore.Level {
 	return e.logLevel
 }
 
@@ -153,7 +153,7 @@ func (e *envConfig) JSONConsole() bool {
 	return e.jsonConsole
 }
 
-func (e *envConfig) LogUnixTimestamps() bool {
+func (e *envConfig) UnixTimestamps() bool {
 	return e.unixTimestamps
 }
 
