@@ -142,14 +142,14 @@ func TestUnpackPerformResult(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			packer := &evmRegistryPackerV21{abi: registryABI}
-			rs, err := packer.UnpackPerformResult(test.RawData)
+			rs, err := packer.UnpackSimulatePerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
 		})
 	}
 }
 
-func TestUnpackMercuryLookupResult(t *testing.T) {
+func TestUnpackMercuryCallbackResult(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		assert.Nil(t, err)
@@ -179,16 +179,16 @@ func TestUnpackMercuryLookupResult(t *testing.T) {
 			CallbackResp: []byte{0, 0, 0, 23, 4, 163, 66, 91, 228, 102, 200, 84, 144, 233, 218, 44, 168, 192, 191, 253, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			UpkeepNeeded: false,
 			PerformData:  nil,
-			ErrorString:  "callback output unpack error: abi: improperly encoded boolean value",
+			ErrorString:  "abi: improperly encoded boolean value: unpack checkUpkeep return: ",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			packer := &evmRegistryPackerV21{abi: registryABI}
-			needed, pd, err := packer.UnpackMercuryLookupResult(test.CallbackResp)
+			needed, pd, _, _, err := packer.UnpackMercuryCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
-				assert.EqualError(t, err, test.ErrorString)
+				assert.EqualError(t, err, test.ErrorString+hexutil.Encode(test.CallbackResp))
 			} else {
 				assert.Nil(t, err)
 			}

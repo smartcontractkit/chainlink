@@ -35,17 +35,10 @@ import (
 )
 
 const (
-	// DefaultUpkeepExpiration decides how long an upkeep info will be valid for. after it expires, a getUpkeepInfo
-	// call will be made to the registry to obtain the most recent upkeep info and refresh this cache.
-	DefaultUpkeepExpiration = 10 * time.Minute
-	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
-	// 10 minutes, subsequent failures will result in double amount of cool down period.
-	DefaultCooldownExpiration = 5 * time.Second
-	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
-	// to decide how long the cool down period will be.
-	DefaultApiErrExpiration = 10 * time.Minute
+	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
+	DefaultAllowListExpiration = 20 * time.Minute
 	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 15 * time.Minute
+	CleanupInterval = 25 * time.Minute
 )
 
 var (
@@ -107,7 +100,12 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
-	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
+	allowListCache := cache.New(DefaultAllowListExpiration, CleanupInterval)
+	mercuryCfg := &MercuryConfig{
+		cred:                  mc,
+		abi:                   mercuryLookupCompatibleABI,
+		mercuryAllowListCache: allowListCache,
+	}
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
@@ -115,24 +113,18 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr.Named("EvmRegistry"),
-		poller:   client.LogPoller(),
-		addr:     addr,
-		client:   client.Client(),
-		txHashes: make(map[string]bool),
-		registry: registry,
-		active:   make(map[string]activeUpkeep),
-		abi:      keeperRegistryABI,
-		packer:   &evmRegistryPackerV21{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
-		mercury: MercuryConfig{
-			cred:          mc,
-			abi:           mercuryLookupCompatibleABI,
-			upkeepCache:   upkeepInfoCache,
-			cooldownCache: cooldownCache,
-			apiErrCache:   apiErrCache,
-		},
+		lggr:       lggr.Named("EvmRegistry"),
+		poller:     client.LogPoller(),
+		addr:       addr,
+		client:     client.Client(),
+		txHashes:   make(map[string]bool),
+		registry:   registry,
+		active:     make(map[string]activeUpkeep),
+		abi:        keeperRegistryABI,
+		packer:     &evmRegistryPackerV21{abi: keeperRegistryABI},
+		headFunc:   func(types.BlockKey) {},
+		chLog:      make(chan logpoller.Log, 1000),
+		mercury:    mercuryCfg,
 		hc:         http.DefaultClient,
 		enc:        EVMAutomationEncoder20{},
 		logFilters: newLogFilterManager(client.LogPoller()),
@@ -143,20 +135,6 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 	}
 
 	return r, nil
-}
-
-func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
-	// cache that stores UpkeepInfo for callback during MercuryLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
-	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
-	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
-	// cache for Mercurylookup Upkeeps that are on ice due to errors
-	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
-
-	// cache for tracking errors for an Upkeep during MercuryLookup
-	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
-	return upkeepInfoCache, cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -188,11 +166,9 @@ type activeUpkeep struct {
 }
 
 type MercuryConfig struct {
-	cred          *models.MercuryCredentials
-	abi           abi.ABI
-	upkeepCache   *cache.Cache
-	cooldownCache *cache.Cache
-	apiErrCache   *cache.Cache
+	cred                  *models.MercuryCredentials
+	abi                   abi.ABI
+	mercuryAllowListCache *cache.Cache
 }
 
 type EvmRegistry struct {
@@ -216,7 +192,7 @@ type EvmRegistry struct {
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
-	mercury       MercuryConfig
+	mercury       *MercuryConfig
 	hc            HttpClient
 	enc           EVMAutomationEncoder20
 	logFilters    *logFilterManager
@@ -600,6 +576,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 			chResult <- checkResult{
 				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
 			}
+			return
 		}
 		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
 		if err != nil {
@@ -775,7 +752,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Block, checkResults[i].ID, req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
+			simulatePerformSuccess, err := r.packer.UnpackSimulatePerformResult(*performResults[i])
 			if err != nil {
 				return nil, err
 			}

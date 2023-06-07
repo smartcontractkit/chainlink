@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/patrickmn/go-cache"
 	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
@@ -26,25 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-)
-
-const (
-	// DefaultUpkeepExpiration decides how long an upkeep info will be valid for. after it expires, a getUpkeepInfo
-	// call will be made to the registry to obtain the most recent upkeep info and refresh this cache.
-	DefaultUpkeepExpiration = 10 * time.Minute
-	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
-	// 10 minutes, subsequent failures will result in double amount of cool down period.
-	DefaultCooldownExpiration = 5 * time.Second
-	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
-	// to decide how long the cool down period will be.
-	DefaultApiErrExpiration = 10 * time.Minute
-	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 15 * time.Minute
 )
 
 var (
@@ -80,11 +62,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
-	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
+func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -94,8 +72,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
-
-	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 
 	r := &EvmRegistry{
 		HeadProvider: HeadProvider{
@@ -114,14 +90,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
-		mercury: MercuryConfig{
-			cred:          mc,
-			abi:           mercuryLookupCompatibleABI,
-			upkeepCache:   upkeepInfoCache,
-			cooldownCache: cooldownCache,
-			apiErrCache:   apiErrCache,
-		},
-		hc: http.DefaultClient,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -129,20 +97,6 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 	}
 
 	return r, nil
-}
-
-func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
-	// cache that stores UpkeepInfo for callback during MercuryLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
-	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
-	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
-	// cache for Mercurylookup Upkeeps that are on ice due to errors
-	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
-
-	// cache for tracking errors for an Upkeep during MercuryLookup
-	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
-	return upkeepInfoCache, cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -170,14 +124,6 @@ type activeUpkeep struct {
 	CheckData       []byte
 }
 
-type MercuryConfig struct {
-	cred          *models.MercuryCredentials
-	abi           abi.ABI
-	upkeepCache   *cache.Cache
-	cooldownCache *cache.Cache
-	apiErrCache   *cache.Cache
-}
-
 type EvmRegistry struct {
 	HeadProvider
 	sync          utils.StartStopOnce
@@ -199,8 +145,6 @@ type EvmRegistry struct {
 	headFunc      func(types.BlockKey)
 	runState      int
 	runError      error
-	mercury       MercuryConfig
-	hc            HttpClient
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
@@ -562,7 +506,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []types.UpkeepKey, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, _ bool, keys []types.UpkeepKey, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -571,20 +515,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 		return
 	}
 
-	if mercuryEnabled {
-		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
-			chResult <- checkResult{
-				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
-			}
-		}
-		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
-		if err != nil {
-			chResult <- checkResult{
-				err: err,
-			}
-			return
-		}
-	}
+	// mercury lookup is not supported in 2.0
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {

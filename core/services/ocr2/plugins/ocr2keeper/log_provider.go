@@ -90,7 +90,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
+		packer:            pluginevm.NewEvmRegistryPackerV21(abi),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil

@@ -79,32 +79,6 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key types.UpkeepKey, raw stri
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
-	typBytes, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
-	}
-	boolTyp, err := abi.NewType("bool", "", nil)
-	if err != nil {
-		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
-	}
-	callbackOutput := abi.Arguments{
-		{Name: "upkeepNeeded", Type: boolTyp},
-		{Name: "performData", Type: typBytes},
-	}
-	unpack, err := callbackOutput.Unpack(callbackResp)
-	if err != nil {
-		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
-	}
-
-	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
-	if !upkeepNeeded {
-		return false, nil, nil
-	}
-	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
-	return true, performData, nil
-}
-
 func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
