@@ -117,7 +117,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
-	client := app.NewAuthenticatingClient(prompter)
+	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("bypass-version-check", true, "")
