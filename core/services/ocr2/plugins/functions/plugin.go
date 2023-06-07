@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
-	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -43,8 +42,8 @@ type FunctionsServicesConfig struct {
 }
 
 const (
-	FunctionsBridgeName     bridges.BridgeName = "ea_bridge"
-	MaxAdapterResponseBytes int64              = 1_000_000
+	FunctionsBridgeName     string = "ea_bridge"
+	MaxAdapterResponseBytes int64  = 1_000_000
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -68,12 +67,8 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
 	listenerLogger := conf.Lggr.Named("FunctionsListener")
-	bridge, err := conf.BridgeORM.FindBridge(FunctionsBridgeName)
-	if err != nil {
-		return nil, errors.Wrap(err, "Functions: unable to find bridge")
-	}
-	eaClient := functions.NewExternalAdapterClient(url.URL(bridge.URL), MaxAdapterResponseBytes)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, eaClient, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
 	allServices = append(allServices, functionsListener)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
