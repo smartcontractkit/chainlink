@@ -457,12 +457,8 @@ func (g *generalConfig) ExplorerURL() *url.URL {
 	return u
 }
 
-func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return *g.c.FluxMonitor.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) FMSimulateTransactions() bool {
-	return *g.c.FluxMonitor.SimulateTransactions
+func (g *generalConfig) FluxMonitor() config.FluxMonitor {
+	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {

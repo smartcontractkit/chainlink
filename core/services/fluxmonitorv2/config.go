@@ -9,12 +9,15 @@ import (
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	FlagsContractAddress() string           // Evm
-	MinimumContractPayment() *assets.Link   // Evm
-	EvmGasLimitDefault() uint32             // Evm
-	EvmGasLimitFMJobType() *uint32          // Evm
-	EvmMaxQueuedTransactions() uint64       // Evm
-	FMDefaultTransactionQueueDepth() uint32 // FluxMonitor
+	FlagsContractAddress() string         // Evm
+	MinimumContractPayment() *assets.Link // Evm
+	EvmGasLimitDefault() uint32           // Evm
+	EvmGasLimitFMJobType() *uint32        // Evm
+	EvmMaxQueuedTransactions() uint64     // Evm
+}
+
+type FluxMonitorConfig interface {
+	DefaultTransactionQueueDepth() uint32
 }
 
 type JobPipelineConfig interface {
