@@ -836,8 +836,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SaveIn
 	return r0
 }
 
-// SaveInsufficientAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SaveInsufficientAttempt(timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], broadcastAt time.Time) error {
+// SaveInsufficientFundsAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) SaveInsufficientFundsAttempt(timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], broadcastAt time.Time) error {
 	ret := _m.Called(timeout, attempt, broadcastAt)
 
 	var r0 error
@@ -1012,8 +1012,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Update
 	return r0
 }
 
-// UpdateKeyNextNonce provides a mock function with given fields: newNextNonce, currentNextNonce, address, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) UpdateKeyNextNonce(newNextNonce SEQ, currentNextNonce SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error {
+// UpdateKeyNextSequence provides a mock function with given fields: newNextNonce, currentNextNonce, address, chainID, qopts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) UpdateKeyNextSequence(newNextNonce SEQ, currentNextNonce SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

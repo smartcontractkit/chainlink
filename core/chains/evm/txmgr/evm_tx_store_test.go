@@ -792,7 +792,7 @@ func TestORM_SaveInsufficientEthAttempt(t *testing.T) {
 		etx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 1, fromAddress)
 		now := time.Now()
 
-		err = txStore.SaveInsufficientAttempt(defaultDuration, &etx.TxAttempts[0], now)
+		err = txStore.SaveInsufficientFundsAttempt(defaultDuration, &etx.TxAttempts[0], now)
 		require.NoError(t, err)
 
 		attempt, err := txStore.FindTxAttempt(etx.TxAttempts[0].Hash)
@@ -1364,7 +1364,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 
 	t.Run("update next nonce", func(t *testing.T) {
 		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := txStore.UpdateKeyNextNonce(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ConfiguredChainID())
+		err := txStore.UpdateKeyNextSequence(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ConfiguredChainID())
@@ -1373,7 +1373,7 @@ func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
 	})
 
 	t.Run("no rows found", func(t *testing.T) {
-		err := txStore.UpdateKeyNextNonce(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ConfiguredChainID())
+		err := txStore.UpdateKeyNextSequence(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ConfiguredChainID())
 		require.Error(t, err)
 	})
 }
