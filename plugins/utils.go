@@ -13,8 +13,8 @@ type CmdConfig struct {
 }
 
 // NewCmdFactory is helper to ensure synchronization between the loop registry and os cmd to exec the LOOP
-func NewCmdFactory(loopRegistry *LoopRegistry, lcfg CmdConfig) (func() *exec.Cmd, error) {
-	registeredLoop, err := loopRegistry.Register(lcfg.ID, lcfg.LoggingConfig)
+func NewCmdFactory(register func(id string, staticCfg LoggingConfig) (*RegisteredLoop, error), lcfg CmdConfig) (func() *exec.Cmd, error) {
+	registeredLoop, err := register(lcfg.ID, lcfg.LoggingConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register %s LOOP plugin: %w", lcfg.ID, err)
 	}

@@ -12,7 +12,4 @@ func (s *Shell) ConfigV2Str(userOnly bool) (string, error) {
 	return s.configV2Str(userOnly)
 }
 
-var (
-	SetupSolanaRelayer   = setupSolanaRelayer
-	SetupStarkNetRelayer = setupStarkNetRelayer
-)
+type RelayerFactory = relayerFactory

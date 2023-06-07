@@ -33,7 +33,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestClient_RunNodeWithPasswords(t *testing.T) {
+func TestShell_RunNodeWithPasswords(t *testing.T) {
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -112,7 +112,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	}
 }
 
-func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
+func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 	tests := []struct {
 		name       string
 		apiFile    string
@@ -189,7 +189,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
+func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	tests := []struct {
 		name            string
 		logFileSize     func(t *testing.T) utils.FileSize
@@ -226,7 +226,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
+func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -284,7 +284,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	assert.NoError(t, client.RebroadcastTransactions(c))
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
+func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -361,7 +361,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
+func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	tests := []struct {
 		name          string
 		enableAddress bool
