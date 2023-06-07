@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
@@ -53,12 +54,12 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations uint16,
 ) []VRFV2JobInfo {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		require.NoError(t, err, "Error creating VRF key")
-		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.New()
 		os := &client.VRFV2TxPipelineSpec{
@@ -275,16 +276,19 @@ func SetupVRFV2Environment(
 			TTL:             ttl,
 		})
 	}
+
+	cd, err := chainlink.NewDeployment(1, map[string]any{
+		"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
+		//need to restart the node with updated eth key config
+		"db": map[string]interface{}{
+			"stateful": "true",
+		},
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = testEnvironment.
 		AddHelm(gethChartConfig).
-		AddHelm(chainlink.New(0, map[string]any{
-			"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
-			//need to restart the node with updated eth key config
-			"db": map[string]interface{}{
-				"stateful": "true",
-			},
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment
 }

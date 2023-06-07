@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -41,8 +43,7 @@ AnnounceAddresses = ["0.0.0.0:8090"]
 ListenAddresses = ["0.0.0.0:8090"]`
 
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
-		"replicas": "6",
+		"toml": client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -108,18 +109,20 @@ const (
 
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
+	cd, err := chainlink.NewDeployment(6, defaultAutomationSettings)
+	require.NoError(t, err, "failed to create chainlink deployment")
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      environment.ConnectedChart
+		clChart      []environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
 		// see ocr_chaos.test.go for comments
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -128,7 +131,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -137,7 +140,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -147,7 +150,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -157,7 +160,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -181,7 +184,7 @@ func TestAutomationChaos(t *testing.T) {
 					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
-				AddHelm(testCase.clChart).
+				AddHelmCharts(testCase.clChart).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
 					WsURL:   network.URL,
@@ -255,7 +258,7 @@ func TestAutomationChaos(t *testing.T) {
 				defaultUpkeepGasLimit,
 			)
 
-			l.Info().Msg("Waiting for all upkeeps to be performed")
+			log.Info().Msg("Waiting for all upkeeps to be performed")
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -264,7 +267,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
-					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
@@ -279,7 +282,7 @@ func TestAutomationChaos(t *testing.T) {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10
-					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+					log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}

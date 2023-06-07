@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -25,7 +27,7 @@ import (
 func TestVRFv2Basic(t *testing.T) {
 
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 
 	testNetwork := networks.SelectedNetwork
 	testEnvironment := vrfv2_actions.SetupVRFV2Environment(
@@ -103,17 +105,17 @@ func TestVRFv2Basic(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
 		lastRequestID, err = consumerContract.GetLastRequestId(context.Background())
-		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
+		log.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		status, err := consumerContract.GetRequestStatus(context.Background(), lastRequestID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
-		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		log.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		for _, w := range status.RandomWords {
-			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+			log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
 			g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
 		}
 	}, timeout, "1s").Should(gomega.Succeed())

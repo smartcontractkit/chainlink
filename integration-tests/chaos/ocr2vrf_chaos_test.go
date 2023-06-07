@@ -6,11 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -28,11 +30,10 @@ import (
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	loadedNetwork := networks.SelectedNetwork
 
 	defaultOCR2VRFSettings := map[string]interface{}{
-		"replicas": "6",
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
@@ -45,10 +46,12 @@ func TestOCR2VRFChaos(t *testing.T) {
 		Simulated:   loadedNetwork.Simulated,
 		WsURLs:      loadedNetwork.URLs,
 	}
+	cd, err := chainlink.NewDeployment(6, defaultOCR2VRFSettings)
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      environment.ConnectedChart
+		clChart      []environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
@@ -63,7 +66,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//4. verify VRF request gets fulfilled
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultOCR2VRFEthereumSettings),
-			chainlink.New(0, defaultOCR2VRFSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -73,7 +76,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - currently failing, need to investigate deeper
 		//PodChaosFailMajorityNodes: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	cd,
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -83,7 +86,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - do we need these chaos tests?
 		//PodChaosFailMajorityDB: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	cd,
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -93,7 +96,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailMajorityNetwork: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	cd,
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -103,7 +106,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailBlockchainNode: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	chainlink.New(0, defaultOCR2VRFSettings),
+		//	cd,
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -126,7 +129,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 					Test: t,
 				}).
 				AddHelm(testCase.networkChart).
-				AddHelm(testCase.clChart)
+				AddHelmCharts(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error running test environment")
 			if testEnvironment.WillUseRemoteRunner() {
@@ -186,17 +189,17 @@ func TestOCR2VRFChaos(t *testing.T) {
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err)
-				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 
 			id, err := testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
 			require.NoError(t, err, "Error running Chaos Experiment")
-			l.Info().Msg("Chaos Applied")
+			log.Info().Msg("Chaos Applied")
 
 			err = testEnvironment.Chaos.WaitForAllRecovered(id)
 			require.NoError(t, err, "Error waiting for Chaos Experiment to end")
-			l.Info().Msg("Chaos Recovered")
+			log.Info().Msg("Chaos Recovered")
 
 			//Request and Redeem Randomness again to see that after Chaos Experiment whole process is still working
 			requestID = ocr2vrf_actions.RequestAndRedeemRandomness(
@@ -213,7 +216,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 				randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 				require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
-				l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+				log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 				require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 			}
 		})

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -26,12 +26,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logging.Init()
 	os.Exit(m.Run())
 }
 
 func TestForwarderOCRSoak(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, network := SetupForwarderOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -51,12 +50,12 @@ func TestForwarderOCRSoak(t *testing.T) {
 	})
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			l.Error().Err(err).Msg("Error when tearing down remote suite")
+			log.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
 	ocrSoakTest.OperatorForwarderFlow = true
 	ocrSoakTest.Setup(t, testEnvironment)
-	l.Info().Msg("Setup soak test")
+	log.Info().Msg("Setup soak test")
 	ocrSoakTest.Run(t)
 }
 
@@ -88,7 +87,10 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 		Test: t,
 	}
 
-	replicas := 6
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
@@ -97,15 +99,10 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 			NetworkName: network.Name,
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
-		}))
-	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
-			"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
-		}))
-	}
+		})).
+		AddHelmCharts(cd)
 
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, network
-
 }

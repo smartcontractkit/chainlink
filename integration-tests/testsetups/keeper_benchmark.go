@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -97,7 +97,7 @@ func NewKeeperBenchmarkTest(inputs KeeperBenchmarkTestInputs) *KeeperBenchmarkTe
 
 // Setup prepares contracts for the test
 func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues(t)
@@ -120,7 +120,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 	if len(inputs.RegistryVersions) > 1 && !inputs.ForceSingleTxnKey {
 		for nodeIndex, node := range k.chainlinkNodes {
 			for registryIndex := 1; registryIndex < len(inputs.RegistryVersions); registryIndex++ {
-				l.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
+				log.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
 				_, _, err := node.CreateTxKey("evm", k.Inputs.BlockchainClient.GetChainID().String())
 				require.NoError(t, err, "Creating transaction key shouldn't fail")
 			}
@@ -165,7 +165,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
 	for index := range inputs.RegistryVersions {
-		l.Info().Int("Index", index).Msg("Starting Test Setup")
+		log.Info().Int("Index", index).Msg("Starting Test Setup")
 
 		k.DeployBenchmarkKeeperContracts(
 			t,
@@ -188,16 +188,16 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 		require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
 	}
 
-	l.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
+	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
 	err = k.SendSlackNotification(nil)
 	if err != nil {
-		l.Warn().Msg("Sending test start slack notification failed")
+		log.Warn().Msg("Sending test start slack notification failed")
 	}
 }
 
 // Run runs the keeper benchmark test
 func (k *KeeperBenchmarkTest) Run(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	u := k.Inputs.Upkeeps
 	k.TestReporter.Summary.Load.TotalCheckGasPerBlock = int64(u.NumberOfUpkeeps) * u.CheckGasToBurn
 	k.TestReporter.Summary.Load.TotalPerformGasPerBlock = int64((float64(u.NumberOfUpkeeps) /
@@ -285,19 +285,19 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 	for _, chainlinkNode := range k.chainlinkNodes {
 		txData, err := chainlinkNode.MustReadTransactionAttempts()
 		if err != nil {
-			l.Error().Err(err).Msg("Error reading transaction attempts from Chainlink Node")
+			log.Error().Err(err).Msg("Error reading transaction attempts from Chainlink Node")
 		}
 		k.TestReporter.AttemptedChainlinkTransactions = append(k.TestReporter.AttemptedChainlinkTransactions, txData)
 	}
 
 	k.TestReporter.Summary.Config.Chainlink, err = k.env.ResourcesSummary("app=chainlink-0")
 	if err != nil {
-		l.Error().Err(err).Msg("Error getting resource summary of chainlink node")
+		log.Error().Err(err).Msg("Error getting resource summary of chainlink node")
 	}
 
 	k.TestReporter.Summary.Config.Geth, err = k.env.ResourcesSummary("app=geth")
 	if err != nil && k.Inputs.BlockchainClient.NetworkSimulated() {
-		l.Error().Err(err).Msg("Error getting resource summary of geth node")
+		log.Error().Err(err).Msg("Error getting resource summary of geth node")
 	}
 
 	endTime := time.Now()
@@ -310,7 +310,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 		}
 	}
 
-	l.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")
+	log.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")
 }
 
 // subscribeToUpkeepPerformedEvent subscribes to the event log for UpkeepPerformed event and
@@ -321,7 +321,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	rIndex int,
 ) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	require.NoError(t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
@@ -349,7 +349,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 		for {
 			select {
 			case err := <-sub.Err():
-				l.Error().Err(err).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
+				log.Error().Err(err).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 				sub.Unsubscribe()
 
 				sub, err = k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
@@ -365,7 +365,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 				require.NoError(t, err, "Parsing upkeep performed log shouldn't fail")
 
 				if parsedLog.Success {
-					l.Info().
+					log.Info().
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Bool("Success", parsedLog.Success).
 						Str("From", parsedLog.From.String()).
@@ -373,7 +373,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 						Msg("Got successful Upkeep Performed log on Registry")
 
 				} else {
-					l.Warn().
+					log.Warn().
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Bool("Success", parsedLog.Success).
 						Str("From", parsedLog.From.String()).
@@ -455,7 +455,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 	t *testing.T,
 	index int,
 ) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	registryVersion := k.Inputs.RegistryVersions[index]
 	upkeep := k.Inputs.Upkeeps
 	registry := actions.DeployKeeperRegistry(t, k.contractDeployer, k.chainClient,
@@ -525,7 +525,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 			big.NewInt(int64(i)), big.NewInt(upkeep.BlockInterval), big.NewInt(upkeep.BlockRange),
 			big.NewInt(upkeep.CheckGasToBurn), big.NewInt(upkeep.PerformGasToBurn), big.NewInt(upkeep.FirstEligibleBuffer))
 		require.NoError(t, err)
-		l.Debug().Str("checkData: ", hexutil.Encode(data)).Int("id", i).Msg("checkData computed")
+		log.Debug().Str("checkData: ", hexutil.Encode(data)).Int("id", i).Msg("checkData computed")
 		checkData = append(checkData, data)
 	}
 	linkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(upkeep.BlockRange/upkeep.BlockInterval))
@@ -555,22 +555,22 @@ func DeployKeeperConsumersBenchmark(
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 ) contracts.AutomationConsumerBenchmark {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 
 	// Deploy consumer
 	keeperConsumerInstance, err := contractDeployer.DeployKeeperConsumerBenchmark()
 	if err != nil {
-		l.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance %d shouldn't fail")
+		log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance %d shouldn't fail")
 		keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumerBenchmark()
 		require.NoError(t, err, "Error deploying AutomationConsumerBenchmark")
 	}
-	l.Debug().
+	log.Debug().
 		Str("Contract Address", keeperConsumerInstance.Address()).
 		Msg("Deployed Keeper Benchmark Contract")
 
 	err = client.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
-	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
+	log.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return keeperConsumerInstance
 }

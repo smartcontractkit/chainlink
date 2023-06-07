@@ -9,16 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	env_client "github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -142,17 +143,17 @@ type NetworkConfig struct {
 }
 
 func TestAutomationBenchmark(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkName, RegistryToTest)
-	l.Info().Str("Test Name", testName).Str("Test Inputs", os.Getenv("TEST_INPUTS")).Msg("Running Benchmark Test")
+	log.Info().Str("Test Name", testName).Str("Test Inputs", os.Getenv("TEST_INPUTS")).Msg("Running Benchmark Test")
 	benchmarkTestNetwork := networkConfig[networkName]
 
-	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
+	log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
 	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
@@ -200,7 +201,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	)
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
-			l.Error().Err(err).Msg("Error when tearing down remote suite")
+			log.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
 	keeperBenchmarkTest.Setup(t, testEnvironment)
@@ -292,7 +293,7 @@ func getEnv(key, fallback string) string {
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
@@ -408,16 +409,18 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			internalHttpURLs = append(internalHttpURLs, testNetwork.HTTPURLs[0])
 		}
 	}
-	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
+	log.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < NumberOfNodes; i++ {
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+		cd, err := chainlink.NewDeployment(1, map[string]any{
 			"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		}))
+		})
+		require.NoError(t, err, "Error creating chainlink deployment")
+		testEnvironment.AddHelmCharts(cd)
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

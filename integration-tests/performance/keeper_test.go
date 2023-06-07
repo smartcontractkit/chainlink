@@ -10,15 +10,16 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -44,7 +45,7 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -78,7 +79,7 @@ func TestKeeperPerformance(t *testing.T) {
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 					"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
-				l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 			}
 		}, "5m", "1s").Should(gomega.Succeed())
 
@@ -97,7 +98,7 @@ func TestKeeperPerformance(t *testing.T) {
 			// Obtain the amount of times the upkeep has been executed so far
 			countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
+			log.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 		}
 
 		gom.Consistently(func(g gomega.Gomega) {
@@ -153,6 +154,10 @@ TurnLookBack = 0
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
+	cd, err := chainlink.NewDeployment(5, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.New(
 		&environment.Config{
 			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
@@ -162,11 +167,8 @@ PerformGasOverhead = 150_000`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(baseTOML, network),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, nil, nil, nil, nil

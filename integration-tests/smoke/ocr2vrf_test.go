@@ -6,10 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -26,7 +28,7 @@ import (
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -80,14 +82,14 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 		require.NoError(t, err)
-		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
+		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness retrieved from Consumer contract give an answer other than 0")
 	}
 }
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -140,7 +142,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	for i := uint16(0); i < ocr2vrf_constants.NumberOfRandomWordsToRequest; i++ {
 		randomness, err := consumerContract.GetRandomnessByRequestId(nil, requestID, big.NewInt(int64(i)))
 		require.NoError(t, err, "Error getting Randomness result from Consumer Contract")
-		l.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
+		log.Info().Interface("Random Number", randomness).Interface("Randomness Number Index", i).Msg("Randomness Fulfillment retrieved from Consumer contract")
 		require.NotEqual(t, 0, randomness.Uint64(), "Randomness Fulfillment retrieved from Consumer contract give an answer other than 0")
 	}
 }
@@ -156,20 +158,21 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		})
 	}
 
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworkDetailedConfig(
+			config.BaseOCR2Config,
+			config.DefaultOCR2VRFNetworkDetailTomlConfig,
+			testNetwork,
+		),
+	})
+	require.NoError(t, err, "Error creating Chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "6",
-			"toml": client.AddNetworkDetailedConfig(
-				config.BaseOCR2Config,
-				config.DefaultOCR2VRFNetworkDetailTomlConfig,
-				testNetwork,
-			),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 
 	require.NoError(t, err, "Error running test environment")
 

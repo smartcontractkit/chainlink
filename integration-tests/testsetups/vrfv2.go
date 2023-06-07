@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -78,8 +78,8 @@ func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment) {
 
 // Run starts the VRFV2 soak test
 func (v *VRFV2SoakTest) Run(t *testing.T) {
-	l := utils.GetTestLogger(t)
-	l.Info().
+	logging.Init(t)
+	log.Info().
 		Str("Test Duration", v.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Max number of requests per minute wanted", v.Inputs.RequestsPerMinute).
 		Msg("Starting VRFV2 Soak Test")
@@ -131,16 +131,16 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 
 	averageFulfillmentInBlockTime := new(big.Float).Quo(new(big.Float).SetInt(loadTestMetrics.AverageFulfillmentInMillions), big.NewFloat(1e6))
 
-	l.Info().Int("Requests", v.NumberOfRandRequests).Msg("Total Completed Requests calculated from Test")
-	l.Info().Uint64("Requests", loadTestMetrics.RequestCount.Uint64()).Msg("Total Completed Requests calculated from Contract")
-	l.Info().Uint64("Fulfilments", loadTestMetrics.FulfilmentCount.Uint64()).Msg("Total Completed Fulfilments")
-	l.Info().Uint64("Fastest Fulfilment", loadTestMetrics.FastestFulfillment.Uint64()).Msg("Fastest Fulfilment")
-	l.Info().Uint64("Slowest Fulfilment", loadTestMetrics.SlowestFulfillment.Uint64()).Msg("Slowest Fulfilment")
-	l.Info().Interface("Average Fulfillment", averageFulfillmentInBlockTime).Msg("Average Fulfillment In Block Time")
+	log.Info().Int("Requests", v.NumberOfRandRequests).Msg("Total Completed Requests calculated from Test")
+	log.Info().Uint64("Requests", loadTestMetrics.RequestCount.Uint64()).Msg("Total Completed Requests calculated from Contract")
+	log.Info().Uint64("Fulfilments", loadTestMetrics.FulfilmentCount.Uint64()).Msg("Total Completed Fulfilments")
+	log.Info().Uint64("Fastest Fulfilment", loadTestMetrics.FastestFulfillment.Uint64()).Msg("Fastest Fulfilment")
+	log.Info().Uint64("Slowest Fulfilment", loadTestMetrics.SlowestFulfillment.Uint64()).Msg("Slowest Fulfilment")
+	log.Info().Interface("Average Fulfillment", averageFulfillmentInBlockTime).Msg("Average Fulfillment In Block Time")
 
 	//todo - need to calculate 95th percentile response time in Block time and calculate how many requests breached 256 block time requirement
 
-	l.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
+	log.Info().Str("Run Time", time.Since(startTime).String()).Msg("Finished VRFV2 Soak Test Requests")
 	require.Equal(t, 0, v.ErrorCount, "Expected 0 errors")
 	require.Equal(t, loadTestMetrics.RequestCount.Uint64(), loadTestMetrics.FulfilmentCount.Uint64(), "Number of Rand Requests should be equal to Number of Fulfillments")
 }

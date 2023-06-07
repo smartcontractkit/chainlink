@@ -9,10 +9,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -29,7 +31,7 @@ import (
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	testEnvironment, testNetwork := setupRunLogTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -108,7 +110,7 @@ func TestRunLogBasic(t *testing.T) {
 		d, err := consumer.Data(context.Background())
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
-		l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
+		log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
 		g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
 	}, "2m", "1s").Should(gomega.Succeed())
 }
@@ -123,6 +125,10 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
+		"toml": client.AddNetworksConfig("", testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -130,10 +136,8 @@ func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, te
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", testNetwork),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

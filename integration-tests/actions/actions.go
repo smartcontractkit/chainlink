@@ -16,10 +16,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -232,14 +232,14 @@ func TeardownSuite(
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	// Delete all jobs to stop depleting the funds
 	err := DeleteAllJobs(chainlinkNodes)
 	if err != nil {
-		l.Warn().Msgf("Error deleting jobs %+v", err)
+		log.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
 	for _, c := range clients {
@@ -248,12 +248,12 @@ func TeardownSuite(
 				// This printed line is required for tests that use real funds to propagate the failure
 				// out to the system running the test. Do not remove
 				fmt.Println(environment.FAILED_FUND_RETURN)
-				l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+				log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 						"Environment is left running so you can try manually!")
 			}
 		} else {
-			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+			log.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
 		// nolint
 		if c != nil {
@@ -276,19 +276,19 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	var err error
 	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
-		l.Warn().Err(err).Msg("Error writing test report")
+		log.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
 	err = DeleteAllJobs(chainlinkNodes)
 	if err != nil {
-		l.Warn().Msgf("Error deleting jobs %+v", err)
+		log.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
-		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}

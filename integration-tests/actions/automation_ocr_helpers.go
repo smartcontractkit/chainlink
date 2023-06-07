@@ -10,11 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -44,7 +45,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	deltaStage time.Duration,
 	keyIndex int,
 ) (contracts.OCRv2Config, error) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
@@ -98,7 +99,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		return contracts.OCRv2Config{}, err
 	}
 
-	l.Info().Msg("Done building OCR config")
+	log.Info().Msg("Done building OCR config")
 	return contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
@@ -117,7 +118,7 @@ func CreateOCRKeeperJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapNode.InternalIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -176,7 +177,7 @@ func CreateOCRKeeperJobs(
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 	}
-	l.Info().Msg("Done creating OCR automation jobs")
+	log.Info().Msg("Done creating OCR automation jobs")
 }
 
 // DeployAutoOCRRegistryAndRegistrar registry and registrar

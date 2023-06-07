@@ -8,10 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -24,9 +25,9 @@ import (
 )
 
 func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	ocr2VrfConfig := BuildOCR2VRFConfigVars(t, ocr2VRFPluginConfig)
-	l.Debug().Interface("OCR2 VRF Config", ocr2VrfConfig).Msg("OCR2 VRF Config prepared")
+	log.Debug().Interface("OCR2 VRF Config", ocr2VrfConfig).Msg("OCR2 VRF Config prepared")
 
 	err := vrfBeacon.SetConfig(
 		ocr2VrfConfig.Signers,
@@ -40,15 +41,15 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 
 	vrfConfigSetEvent, err := vrfBeacon.WaitForConfigSetEvent(time.Minute)
 	require.NoError(t, err, "Error waiting for ConfigSet Event for VRFBeacon contract")
-	l.Info().Interface("Event", vrfConfigSetEvent).Msg("OCR2 VRF Config was set")
+	log.Info().Interface("Event", vrfConfigSetEvent).Msg("OCR2 VRF Config was set")
 }
 
 func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, dkg contracts.DKG) {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	ocr2DkgConfig := BuildOCR2DKGConfigVars(t, ocr2VRFPluginConfig)
 
 	// set config for DKG OCR
-	l.Debug().Interface("OCR2 DKG Config", ocr2DkgConfig).Msg("OCR2 DKG Config prepared")
+	log.Debug().Interface("OCR2 DKG Config", ocr2DkgConfig).Msg("OCR2 DKG Config prepared")
 	err := dkg.SetConfig(
 		ocr2DkgConfig.Signers,
 		ocr2DkgConfig.Transmitters,
@@ -62,11 +63,11 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	// wait for the event ConfigSet from DKG contract
 	dkgConfigSetEvent, err := dkg.WaitForConfigSetEvent(time.Minute)
 	require.NoError(t, err, "Error waiting for ConfigSet Event for DKG contract")
-	l.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
+	log.Info().Interface("Event", dkgConfigSetEvent).Msg("OCR2 DKG Config Set")
 	// wait for the event Transmitted from DKG contract, meaning that OCR committee has sent out the Public key and Shares
 	dkgSharesTransmittedEvent, err := dkg.WaitForTransmittedEvent(time.Minute * 5)
 	require.NoError(t, err)
-	l.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
+	log.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
 }
 
 func SetAndGetOCR2VRFPluginConfig(
@@ -207,14 +208,14 @@ func RequestAndRedeemRandomness(
 	confirmationDelay *big.Int,
 	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	receipt, err := consumer.RequestRandomness(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
 		confirmationDelay,
 	)
 	require.NoError(t, err, "Error requesting randomness from Consumer Contract")
-	l.Info().Interface("TX Hash", receipt.TxHash).Msg("Randomness requested from Consumer contract")
+	log.Info().Interface("TX Hash", receipt.TxHash).Msg("Randomness requested from Consumer contract")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
@@ -223,7 +224,7 @@ func RequestAndRedeemRandomness(
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
-	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
+	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
 
 	err = consumer.RedeemRandomness(subscriptionID, requestID)
 	require.NoError(t, err, "Error redeeming randomness from Consumer Contract")
@@ -243,7 +244,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 	confirmationDelay *big.Int,
 	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
-	l := utils.GetTestLogger(t)
+	logging.Init(t)
 	receipt, err := consumer.RequestRandomnessFulfillment(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -253,7 +254,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 		nil,
 	)
 	require.NoError(t, err, "Error requesting Randomness Fulfillment")
-	l.Info().Interface("TX Hash", receipt.TxHash).Msg("Randomness Fulfillment requested from Consumer contract")
+	log.Info().Interface("TX Hash", receipt.TxHash).Msg("Randomness Fulfillment requested from Consumer contract")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
@@ -262,7 +263,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 
 	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
 	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
-	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
+	log.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness Fulfillment transmitted by DON")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")

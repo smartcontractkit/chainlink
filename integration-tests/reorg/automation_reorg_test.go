@@ -126,6 +126,8 @@ const (
 func TestAutomationReorg(t *testing.T) {
 	network := networks.SelectedNetwork
 
+	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
@@ -135,11 +137,9 @@ func TestAutomationReorg(t *testing.T) {
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
-			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
-	for i := 0; i < numberOfNodes; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, defaultAutomationSettings))
-	}
-	err := testEnvironment.Run()
+			HttpURL: activeEVMNetwork.HTTPURLs[0]})).
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
