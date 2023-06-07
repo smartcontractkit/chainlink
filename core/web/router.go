@@ -52,7 +52,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		return nil, err
 	}
 	sessionStore := cookie.NewStore(secret)
-	sessionStore.Options(config.SessionOptions())
+	sessionStore.Options(config.WebServer().SessionOptions())
 	cors := uiCorsHandler(config.WebServer().AllowOrigins())
 	if prometheus != nil {
 		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
