@@ -279,7 +279,7 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            solLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: r,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
@@ -331,7 +331,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            starkLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: r,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
@@ -439,7 +439,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.Log().Level() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)

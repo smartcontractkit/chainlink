@@ -575,20 +575,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	return r0
 }
 
-// DefaultLogLevel provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
-	ret := _m.Called()
-
-	var r0 zapcore.Level
-	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
 // DevWebServer provides a mock function with given fields:
 func (_m *ChainScopedConfig) DevWebServer() bool {
 	ret := _m.Called()
@@ -1447,20 +1433,6 @@ func (_m *ChainScopedConfig) InsecureFastScrypt() bool {
 	return r0
 }
 
-// JSONConsole provides a mock function with given fields:
-func (_m *ChainScopedConfig) JSONConsole() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // JobPipeline provides a mock function with given fields:
 func (_m *ChainScopedConfig) JobPipeline() coreconfig.JobPipeline {
 	ret := _m.Called()
@@ -1551,93 +1523,25 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// Log provides a mock function with given fields:
+func (_m *ChainScopedConfig) Log() coreconfig.Log {
+	ret := _m.Called()
+
+	var r0 coreconfig.Log
+	if rf, ok := ret.Get(0).(func() coreconfig.Log); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Log)
+		}
+	}
+
+	return r0
+}
+
 // LogConfiguration provides a mock function with given fields: log
 func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
 	_m.Called(log)
-}
-
-// LogFileDir provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileDir() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// LogFileMaxAge provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxAge() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// LogFileMaxBackups provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxBackups() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
-// LogFileMaxSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogFileMaxSize() utils.FileSize {
-	ret := _m.Called()
-
-	var r0 utils.FileSize
-	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(utils.FileSize)
-	}
-
-	return r0
-}
-
-// LogLevel provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
-	ret := _m.Called()
-
-	var r0 zapcore.Level
-	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(zapcore.Level)
-	}
-
-	return r0
-}
-
-// LogUnixTimestamps provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
 }
 
 // MercuryCredentials provides a mock function with given fields: credName
