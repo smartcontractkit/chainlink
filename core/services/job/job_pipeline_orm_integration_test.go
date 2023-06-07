@@ -151,7 +151,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
-		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg, cc, nil, nil, lggr, nil, nil)
+		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), cc, nil, nil, lggr, nil, nil)
 
 		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg.Database())
 
