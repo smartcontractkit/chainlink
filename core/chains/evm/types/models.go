@@ -57,7 +57,15 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
-func (h *Head) BlockNumber() int64 {
+func (h *Head) BlockNumber() *big.Int {
+	if h == nil {
+		return nil
+	}
+
+	return big.NewInt(h.Number)
+}
+
+func (h *Head) BlockNumberInt64() int64 {
 	return h.Number
 }
 
@@ -192,15 +200,7 @@ func (h *Head) ChainString() string {
 
 // String returns a string representation of this head
 func (h *Head) String() string {
-	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
-}
-
-// ToInt return the height as a *big.Int. Also handles nil by returning nil.
-func (h *Head) ToInt() *big.Int {
-	if h == nil {
-		return nil
-	}
-	return big.NewInt(h.Number)
+	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.BlockNumber(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
 // GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than
@@ -220,7 +220,7 @@ func (h *Head) NextInt() *big.Int {
 	if h == nil {
 		return nil
 	}
-	return new(big.Int).Add(h.ToInt(), big.NewInt(1))
+	return new(big.Int).Add(h.BlockNumber(), big.NewInt(1))
 }
 
 func (h *Head) UnmarshalJSON(bs []byte) error {

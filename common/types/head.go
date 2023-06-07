@@ -8,7 +8,7 @@ import "math/big"
 //go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
 type Head[BLOCK_HASH Hashable] interface {
 	// BlockNumber is the head's block number
-	BlockNumber() int64
+	BlockNumber() *big.Int
 
 	// ChainLength returns the length of the chain followed by recursively looking up parents
 	ChainLength() uint32
@@ -26,7 +26,4 @@ type Head[BLOCK_HASH Hashable] interface {
 	// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
-
-	// ToInt returns the block height as a big.Int
-	ToInt() *big.Int
 }

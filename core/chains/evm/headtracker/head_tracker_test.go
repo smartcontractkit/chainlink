@@ -86,10 +86,10 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 
 	h := cltest.Head(200)
 	require.NoError(t, ht.headSaver.Save(testutils.Context(t), h))
-	assert.Equal(t, big.NewInt(200), ht.headSaver.LatestChain().ToInt())
+	assert.Equal(t, big.NewInt(200), ht.headSaver.LatestChain().BlockNumber())
 
 	firstHead := firstHead(t, db)
-	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
+	assert.Equal(t, big.NewInt(101), firstHead.BlockNumber())
 
 	lastHead, err := orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.headSaver.LatestChain().ToInt())
+			assert.Equal(t, test.want, ht.headSaver.LatestChain().BlockNumber())
 		})
 	}
 }
