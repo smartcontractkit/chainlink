@@ -52,7 +52,7 @@ type headTracker[
 	headSaver       commontypes.HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *utils.MailboxMonitor
 	ethClient       htrktypes.Client[HTH, S, ID, BLOCK_HASH]
-	chainID         txmgrtypes.ID
+	chainID         ID
 	config          htrktypes.Config
 
 	backfillMB   *utils.Mailbox[HTH]
