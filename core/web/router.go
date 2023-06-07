@@ -71,11 +71,12 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	}
 	engine.Use(helmet.Default())
 
+	rl := config.WebServer().RateLimit()
 	api := engine.Group(
 		"/",
 		rateLimiter(
-			config.AuthenticatedRateLimitPeriod().Duration(),
-			config.AuthenticatedRateLimit(),
+			rl.AuthenticatedPeriod(),
+			rl.Authenticated(),
 		),
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
@@ -199,9 +200,10 @@ func ginHandlerFromHTTP(h http.HandlerFunc) gin.HandlerFunc {
 
 func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	config := app.GetConfig()
+	rl := config.WebServer().RateLimit()
 	unauth := r.Group("/", rateLimiter(
-		config.UnAuthenticatedRateLimitPeriod().Duration(),
-		config.UnAuthenticatedRateLimit(),
+		rl.UnauthenticatedPeriod(),
+		rl.Unauthenticated(),
 	))
 	sc := NewSessionsController(app)
 	unauth.POST("/sessions", sc.Create)

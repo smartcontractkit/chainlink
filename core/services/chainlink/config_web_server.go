@@ -59,6 +59,26 @@ func (t *tlsConfig) KeyFile() string {
 	return t.KeyPath()
 }
 
+type rateLimitConfig struct {
+	c v2.WebServerRateLimit
+}
+
+func (r *rateLimitConfig) Authenticated() int64 {
+	return *r.c.Authenticated
+}
+
+func (r *rateLimitConfig) AuthenticatedPeriod() time.Duration {
+	return r.c.AuthenticatedPeriod.Duration()
+}
+
+func (r *rateLimitConfig) Unauthenticated() int64 {
+	return *r.c.Unauthenticated
+}
+
+func (r *rateLimitConfig) UnauthenticatedPeriod() time.Duration {
+	return r.c.UnauthenticatedPeriod.Duration()
+}
+
 type webServerConfig struct {
 	c       v2.WebServer
 	rootDir func() string
@@ -68,16 +88,12 @@ func (w *webServerConfig) TLS() config.TLS {
 	return &tlsConfig{c: w.c.TLS, rootDir: w.rootDir}
 }
 
+func (w *webServerConfig) RateLimit() config.RateLimit {
+	return &rateLimitConfig{c: w.c.RateLimit}
+}
+
 func (w *webServerConfig) AllowOrigins() string {
 	return *w.c.AllowOrigins
-}
-
-func (w *webServerConfig) AuthenticatedRateLimit() int64 {
-	return *w.c.RateLimit.Authenticated
-}
-
-func (w *webServerConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return *w.c.RateLimit.AuthenticatedPeriod
 }
 
 func (w *webServerConfig) BridgeResponseURL() *url.URL {
@@ -134,12 +150,4 @@ func (w *webServerConfig) SessionOptions() sessions.Options {
 
 func (w *webServerConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(w.c.SessionTimeout.Duration())
-}
-
-func (w *webServerConfig) UnAuthenticatedRateLimit() int64 {
-	return *w.c.RateLimit.Unauthenticated
-}
-
-func (w *webServerConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *w.c.RateLimit.UnauthenticatedPeriod
 }
