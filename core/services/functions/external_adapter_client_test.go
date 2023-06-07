@@ -1,12 +1,14 @@
 package functions_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -61,7 +63,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	assert.Equal(t, expectedDomains, domains, "Unexpected domains")
 }
 
-func Test_FetchEncryptedSecrets_Success(t *testing.T) {
+func TestFetchEncryptedSecrets_Success(t *testing.T) {
 	runFetcherTest(t, `{
 			"result": "success",
 			"data": {
@@ -72,7 +74,7 @@ func Test_FetchEncryptedSecrets_Success(t *testing.T) {
 		}`, "abcdef", "", nil)
 }
 
-func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
+func TestFetchEncryptedSecrets_UserError(t *testing.T) {
 	runFetcherTest(t, `{
 			"result": "error",
 			"data": {
@@ -83,14 +85,14 @@ func Test_FetchEncryptedSecrets_UserError(t *testing.T) {
 		}`, "", "abcdef", nil)
 }
 
-func Test_FetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
+func TestFetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 	runFetcherTest(t, `{
 			"invalid": "invalid",
 			"statusCode": 200
 		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter response data was empty"))
 }
 
-func Test_FetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
+func TestFetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
 	runFetcherTest(t, `{
 			"result": "success",
 			"data": {
@@ -98,17 +100,17 @@ func Test_FetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
 				"error": "0x616263646566"
 			},
 			"statusCode": 400
-		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter responded with error code 400"))
+		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter invalid StatusCode 400"))
 }
 
-func Test_FetchEncryptedSecrets_MissingData(t *testing.T) {
+func TestFetchEncryptedSecrets_MissingData(t *testing.T) {
 	runFetcherTest(t, `{
 			"result": "success",
 			"statusCode": 200
 		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter response data was empty"))
 }
 
-func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
+func TestFetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 	runFetcherTest(t, `{
 				"result": "success",
 				"data": {
@@ -119,7 +121,7 @@ func Test_FetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 			}`, "", "", fmt.Errorf("error fetching encrypted secrets: error decoding result hex string: hex string must have 0x prefix"))
 }
 
-func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
+func TestFetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 	runFetcherTest(t, `{
 				"result": "error",
 				"data": {
@@ -130,7 +132,7 @@ func Test_FetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 			}`, "", "", fmt.Errorf("error fetching encrypted secrets: error decoding userError hex string: hex string must have 0x prefix"))
 }
 
-func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
+func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 	runFetcherTest(t, `{
 				"result": "unexpected",
 				"data": {
@@ -141,7 +143,7 @@ func Test_FetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 			}`, "", "", fmt.Errorf("error fetching encrypted secrets: unexpected result in response: 'unexpected'"))
 }
 
-func Test_RunComputation_Success(t *testing.T) {
+func TestRunComputation_Success(t *testing.T) {
 	runRequestTest(t, `{
 	    	"result": "success",
 				"data": {
@@ -153,14 +155,14 @@ func Test_RunComputation_Success(t *testing.T) {
 			}`, "abcdef", "", []string{"domain1", "domain2"}, nil)
 }
 
-func Test_RunComputation_MissingData(t *testing.T) {
+func TestRunComputation_MissingData(t *testing.T) {
 	runRequestTest(t, `{
 				"result": "success",
 				"statusCode": 200
 			}`, "", "", nil, fmt.Errorf("error running computation: external adapter response data was empty"))
 }
 
-func Test_RunComputation_CorrectAdapterRequest(t *testing.T) {
+func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
@@ -178,4 +180,36 @@ func Test_RunComputation_CorrectAdapterRequest(t *testing.T) {
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", []byte("{}"))
 	assert.Error(t, err)
+}
+
+func TestRunComputation_HTTP500(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err)
+
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", []byte("{}"))
+	assert.Error(t, err)
+}
+
+func TestRunComputation_ContextRespected(t *testing.T) {
+	done := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-done
+	}))
+	defer ts.Close()
+
+	adapterUrl, err := url.Parse(ts.URL)
+	assert.NoError(t, err)
+
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Millisecond)
+	defer cancel()
+	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, "secRETS", []byte("{}"))
+	assert.Error(t, err)
+	close(done)
 }

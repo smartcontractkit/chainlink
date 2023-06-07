@@ -9,10 +9,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
+// Upkeep type
+type UpkeepType int
+
+const (
+	Conditional UpkeepType = iota
+	Mercury
+	LogTrigger
+)
+
 // Config represents configuration fields
 type Config struct {
 	NodeURL              string   `mapstructure:"NODE_URL"`
 	NodeHttpURL          string   `mapstructure:"NODE_HTTP_URL"`
+	ExplorerAPIKey       string   `mapstructure:"EXPLORER_API_KEY"`
+	NetworkName          string   `mapstructure:"NETWORK_NAME"`
 	ChainID              int64    `mapstructure:"CHAIN_ID"`
 	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
 	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
@@ -61,7 +72,7 @@ type Config struct {
 	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
-	UpkeepMercury                   bool                   `mapstructure:"UPKEEP_MERCURY"`
+	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
@@ -105,7 +116,7 @@ func New() *Config {
 // Validate validates the given config
 func (c *Config) Validate() error {
 	// OCR2Keeper job could be ran only with the registry 2.0
-	if c.OCR2Keepers && c.RegistryVersion != keeper.RegistryVersion_2_0 {
+	if c.OCR2Keepers && c.RegistryVersion < keeper.RegistryVersion_2_0 {
 		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
 	}
 
@@ -117,12 +128,15 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if c.UpkeepType > 4 {
+		return fmt.Errorf("unknown upkeep type")
+	}
+
 	return nil
 }
 
 func init() {
-	// Represented in WEI, which is 1000 Ether
-	viper.SetDefault("APPROVE_AMOUNT", "100000000000000000000000")
+	viper.SetDefault("APPROVE_AMOUNT", "100000000000000000000000") // 1000 LINK
 	viper.SetDefault("GAS_LIMIT", 8000000)
 	viper.SetDefault("PAYMENT_PREMIUM_PBB", 200000000)
 	viper.SetDefault("FLAT_FEE_MICRO_LINK", 0)
@@ -135,20 +149,20 @@ func init() {
 	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.13.0-root")
 	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
 
-	// Represented in WEI, which is 100 Ether
-	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
+	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000") // 100 LINK
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
 	viper.SetDefault("UPKEEP_INTERVAL", 10)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
 	viper.SetDefault("UPKEEP_COUNT", 5)
+	viper.SetDefault("UPKEEP_TYPE", 0) // conditional upkeep
 	viper.SetDefault("KEEPERS_COUNT", 2)
 
 	viper.SetDefault("FEED_DECIMALS", 18)
 	viper.SetDefault("MUST_TAKE_TURNS", true)
 
 	viper.SetDefault("MIN_UPKEEP_SPEND", 0)
-	viper.SetDefault("MAX_PERFORM_GAS", 6500000)
+	viper.SetDefault("MAX_PERFORM_GAS", 5000000)
 	viper.SetDefault("TRANSCODER", "0x0000000000000000000000000000000000000000")
 	viper.SetDefault("REGISTRAR", "0x0000000000000000000000000000000000000000")
 	viper.SetDefault("KEEPER_REGISTRY_VERSION", 2)
