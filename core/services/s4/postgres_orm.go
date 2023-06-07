@@ -39,8 +39,8 @@ func (o orm) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error
 	q := o.q.WithOpts(qopts...)
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s 
-WHERE address=$1 AND slot_id=$2 AND namespace=$3;`, o.tableName)
-	if err := q.Get(row, stmt, address, slotId, o.namespace); err != nil {
+WHERE namespace=$1 AND address=$2 AND slot_id=$3;`, o.tableName)
+	if err := q.Get(row, stmt, o.namespace, address, slotId); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			err = ErrNotFound
 		}
@@ -54,7 +54,7 @@ func (o orm) Update(row *Row, qopts ...pg.QOpt) error {
 
 	stmt := fmt.Sprintf(`INSERT INTO %s as t (namespace, address, slot_id, version, expiration, confirmed, payload, signature, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-ON CONFLICT (address, slot_id)
+ON CONFLICT (namespace, address, slot_id)
 DO UPDATE SET version = EXCLUDED.version,
 namespace = EXCLUDED.namespace,
 expiration = EXCLUDED.expiration,
@@ -75,17 +75,17 @@ RETURNING id;`, o.tableName)
 func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 
-	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE expiration < $1 AND namespace = $2 LIMIT $3)`, o.tableName)
+	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE namespace = $1 AND expiration < $2 LIMIT $3)`, o.tableName)
 	stmt := fmt.Sprintf(`%s DELETE FROM %s WHERE id IN (SELECT id FROM rows);`, with, o.tableName)
-	return q.ExecQ(stmt, utcNow.UnixMilli(), o.namespace, limit)
+	return q.ExecQ(stmt, o.namespace, utcNow.UnixMilli(), limit)
 }
 
 func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version FROM %s WHERE address >= $1 AND address <= $2 AND namespace = $3;`, o.tableName)
-	if err := q.Select(&rows, stmt, addressRange.MinAddress, addressRange.MaxAddress, o.namespace); err != nil {
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
+	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func (o orm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
 	rows := make([]*Row, 0)
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s
-WHERE confirmed IS FALSE AND namespace = $1 ORDER BY updated_at LIMIT $2;`, o.tableName)
+WHERE namespace = $1 AND confirmed IS FALSE ORDER BY updated_at LIMIT $2;`, o.tableName)
 	if err := q.Select(&rows, stmt, o.namespace, limit); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
