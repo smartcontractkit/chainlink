@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -34,6 +35,7 @@ const (
 	NodeSelectionMode_HighestHead     = "HighestHead"
 	NodeSelectionMode_RoundRobin      = "RoundRobin"
 	NodeSelectionMode_TotalDifficulty = "TotalDifficulty"
+	NodeSelectionMode_PriorityLevel   = "PriorityLevel"
 )
 
 // NodeSelector represents a strategy to select the next node from the pool.
@@ -83,6 +85,8 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 			return NewRoundRobinSelector(nodes)
 		case NodeSelectionMode_TotalDifficulty:
 			return NewTotalDifficultyNodeSelector(nodes)
+		case NodeSelectionMode_PriorityLevel:
+			return NewPriorityLevelNodeSelector(nodes)
 		default:
 			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", cfg.NodeSelectionMode()))
 		}

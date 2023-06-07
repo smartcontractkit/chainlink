@@ -9,9 +9,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -50,7 +52,7 @@ type requestPayload struct {
 	RequestId           string       `json:"requestId"`
 	JobName             string       `json:"jobName"`
 	SubscriptionOwner   string       `json:"subscriptionOwner"`
-	SubscriptionId      string       `json:"subscriptionId"`
+	SubscriptionId      uint64       `json:"subscriptionId"`
 	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
 	Data                *requestData `json:"data"`
 }
@@ -89,7 +91,21 @@ type responseData struct {
 	Domains     []string `json:"domains"`
 }
 
-// TODO (FUN-135): consider re-using prom counters from Bridge task
+var (
+	promEAClientLatency = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_external_adapter_client_latency",
+		Help: "Functions EA client latency in seconds scoped by endpoint",
+	},
+		[]string{"name"},
+	)
+	promEAClientErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_external_adapter_client_errors_total",
+		Help: "Functions EA client error count scoped by endpoint",
+	},
+		[]string{"name"},
+	)
+)
+
 func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64) ExternalAdapterClient {
 	return &externalAdapterClient{
 		AdapterURL:       adapterURL,
@@ -117,12 +133,12 @@ func (ea *externalAdapterClient) RunComputation(
 		RequestId:           requestId,
 		JobName:             jobName,
 		SubscriptionOwner:   subscriptionOwner,
-		SubscriptionId:      strconv.FormatUint(subscriptionId, 10),
+		SubscriptionId:      subscriptionId,
 		NodeProvidedSecrets: nodeProvidedSecrets,
 		Data:                &data,
 	}
 
-	userResult, userError, domains, err = ea.request(ctx, payload, requestId, jobName)
+	userResult, userError, domains, err = ea.request(ctx, payload, requestId, jobName, "run_computation")
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error running computation")
 	}
@@ -145,7 +161,7 @@ func (ea *externalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 		Data:      data,
 	}
 
-	encryptedSecrets, userError, _, err = ea.request(ctx, payload, requestId, jobName)
+	encryptedSecrets, userError, _, err = ea.request(ctx, payload, requestId, jobName, "fetch_secrets")
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error fetching encrypted secrets")
 	}
@@ -158,6 +174,7 @@ func (ea *externalAdapterClient) request(
 	payload interface{},
 	requestId string,
 	jobName string,
+	label string,
 ) (userResult, userError []byte, domains []string, err error) {
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
@@ -170,16 +187,21 @@ func (ea *externalAdapterClient) request(
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		promEAClientErrors.WithLabelValues(label).Inc()
 		return nil, nil, nil, errors.Wrap(err, "error during external adapter request")
 	}
 	defer resp.Body.Close()
 
 	source := http.MaxBytesReader(nil, resp.Body, ea.MaxResponseBytes)
 	body, err := io.ReadAll(source)
+	elapsed := time.Since(start)
+	promEAClientLatency.WithLabelValues(label).Set(elapsed.Seconds())
 	if err != nil {
+		promEAClientErrors.WithLabelValues(label).Inc()
 		return nil, nil, nil, errors.Wrap(err, "error reading external adapter response")
 	}
 

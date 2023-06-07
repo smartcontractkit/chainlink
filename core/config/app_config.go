@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // nolint
@@ -30,14 +28,12 @@ type AppConfig interface {
 	SetPasswords(keystore, vrf *string)
 
 	AutoPprof
-	DatabaseV1
 	Ethereum
 	Explorer
 	FeatureFlags
 	FluxMonitor
 	Insecure
 	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
 	P2PNetworking
@@ -49,11 +45,12 @@ type AppConfig interface {
 	Web
 
 	Database() Database
-	AuditLogger() audit.Config
+	AuditLogger() AuditLogger
 	Keeper() Keeper
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Log() Log
 }
 
 type DatabaseBackupMode string

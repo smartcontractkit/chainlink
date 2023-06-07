@@ -536,7 +536,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
+	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -591,8 +591,8 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, tlg, cfg)
-	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg)
+	btORM := bridges.NewORM(db, tlg, cfg.Database())
+	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -621,7 +621,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	return registry, job
 }
 
-func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.ORMConfig, registry keeper.Registry) keeper.UpkeepRegistration {
+func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
 	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
 	mathrand.Seed(time.Now().UnixNano())
 	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))

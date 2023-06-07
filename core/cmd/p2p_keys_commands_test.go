@@ -58,7 +58,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_ListP2PKeys(t *testing.T) {
+func TestShell_ListP2PKeys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -67,7 +67,7 @@ func TestClient_ListP2PKeys(t *testing.T) {
 
 	requireP2PKeyCount(t, app, 1)
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	assert.Nil(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -75,11 +75,11 @@ func TestClient_ListP2PKeys(t *testing.T) {
 	assert.True(t, key.PublicKeyHex() == keys[0].PubKey)
 }
 
-func TestClient_CreateP2PKey(t *testing.T) {
+func TestShell_CreateP2PKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	require.NoError(t, client.CreateP2PKey(nilContext))
 
@@ -89,11 +89,11 @@ func TestClient_CreateP2PKey(t *testing.T) {
 	require.Len(t, keys, 1)
 }
 
-func TestClient_DeleteP2PKey(t *testing.T) {
+func TestShell_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	key, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)
@@ -115,13 +115,13 @@ func TestClient_DeleteP2PKey(t *testing.T) {
 	requireP2PKeyCount(t, app, 0)
 }
 
-func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
+func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	_, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)
 

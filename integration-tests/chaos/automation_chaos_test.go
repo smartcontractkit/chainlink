@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -16,14 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -38,6 +39,7 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:8090"]
 ListenAddresses = ["0.0.0.0:8090"]`
+
 	defaultAutomationSettings = map[string]interface{}{
 		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"replicas": "6",
@@ -107,6 +109,7 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -169,7 +172,7 @@ func TestAutomationChaos(t *testing.T) {
 		testCase := tst
 		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
-			network := networks.SelectedNetwork
+			network := networks.SelectedNetwork // Need a new copy of the network for each test
 
 			testEnvironment := environment.
 				New(&environment.Config{

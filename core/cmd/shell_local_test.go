@@ -33,7 +33,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestClient_RunNodeWithPasswords(t *testing.T) {
+func TestShell_RunNodeWithPasswords(t *testing.T) {
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -52,8 +52,8 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
+			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -112,7 +112,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	}
 }
 
-func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
+func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 	tests := []struct {
 		name       string
 		apiFile    string
@@ -133,14 +133,14 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg, audit.NoopLogger)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
-			keyStore := cltest.NewKeyStore(t, db, cfg)
+			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
+func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	tests := []struct {
 		name            string
 		logFileSize     func(t *testing.T) utils.FileSize
@@ -226,7 +226,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
+func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -236,10 +236,10 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 		// simplest to make it nil
 		c.EVM = nil
 	})
-	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
+	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-	txStore := cltest.NewTxStore(t, sqlxDB, config)
+	txStore := cltest.NewTxStore(t, sqlxDB, config.Database())
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
 	app := mocks.NewApplication(t)
@@ -284,7 +284,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	assert.NoError(t, client.RebroadcastTransactions(c))
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
+func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -310,11 +310,11 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				c.EVM = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
+			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-			txStore := cltest.NewTxStore(t, sqlxDB, config)
+			txStore := cltest.NewTxStore(t, sqlxDB, config.Database())
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
 			app := mocks.NewApplication(t)
@@ -361,7 +361,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
+func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	tests := []struct {
 		name          string
 		enableAddress bool
@@ -380,7 +380,7 @@ func TestClient_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				c.EVM = nil
 			})
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
+			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 

@@ -18,11 +18,7 @@ func (g *generalConfig) AppID() uuid.UUID {
 	return g.c.AppID
 }
 
-func (g *generalConfig) DefaultLogLevel() zapcore.Level {
-	return g.logLevelDefault
-}
-
-func (g *generalConfig) LogLevel() (ll zapcore.Level) {
+func (g *generalConfig) logLevel() (ll zapcore.Level) {
 	g.logMu.RLock()
 	ll = zapcore.Level(*g.c.Log.Level)
 	g.logMu.RUnlock()
@@ -36,7 +32,7 @@ func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-func (g *generalConfig) LogSQL() (sql bool) {
+func (g *generalConfig) logSQL() (sql bool) {
 	g.logMu.RLock()
 	sql = *g.c.Database.LogQueries
 	g.logMu.RUnlock()
