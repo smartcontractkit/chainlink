@@ -494,16 +494,19 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendEther(
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send ether to zero address")
 	}
-	etx = EthTx[ADDR, TX_HASH]{
+	newTx := txmgrtypes.NewTx[ADDR, TX_HASH]{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
-		GasLimit:       gasLimit,
-		State:          EthTxUnstarted,
-		EVMChainID:     *utils.NewBig(chainID),
+		FeeLimit:       gasLimit,
+		Meta: &txmgrtypes.TxMeta[ADDR, TX_HASH]{
+			FwdrDestAddress: &to,
+		},
+		Strategy: SendEveryStrategy{},
 	}
-	err = b.txStore.InsertEthTx(&etx)
+	tx, err := b.txStore.CreateEthTransaction(newTx, b.chainID)
+	etx = tx.(EthTx[ADDR, TX_HASH])
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 

@@ -7,6 +7,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -42,6 +43,7 @@ type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
+	Value            assets.Eth
 	FeeLimit         uint32
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
