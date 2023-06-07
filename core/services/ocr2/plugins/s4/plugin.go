@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type plugin struct {
