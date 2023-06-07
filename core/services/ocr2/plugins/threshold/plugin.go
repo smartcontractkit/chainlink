@@ -7,6 +7,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -18,11 +19,23 @@ type ThresholdServicesConfig struct {
 	OracleToKeyShare map[commontypes.OracleID]int
 }
 
-func NewThresholdService(sharedOracleArgs *libocr2.OracleArgs, conf *ThresholdServicesConfig) (job.ServiceCtx, error) {
+func NewThresholdServices(sharedOracleArgs *libocr2.OracleArgs, conf *ThresholdServicesConfig) (job.ServiceCtx, error) {
+	var publicKey *tdh2easy.PublicKey
+	err := publicKey.Unmarshal(conf.PublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal threshold encryption public key")
+	}
+
+	var privKeyShare *tdh2easy.PrivateShare
+	err = privKeyShare.Unmarshal(conf.PrivKeyShare)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal threshold decryption private key share")
+	}
+
 	sharedOracleArgs.ReportingPluginFactory = decryptionPlugin.DecryptionReportingPluginFactory{
 		DecryptionQueue:  conf.DecryptionQueue,
-		PublicKey:        conf.PublicKey,
-		PrivKeyShare:     conf.PrivKeyShare,
+		PublicKey:        publicKey,
+		PrivKeyShare:     privKeyShare,
 		OracleToKeyShare: conf.OracleToKeyShare,
 		Logger:           sharedOracleArgs.Logger,
 	}

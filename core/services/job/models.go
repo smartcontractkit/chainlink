@@ -143,6 +143,8 @@ type Job struct {
 	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
 	BootstrapSpec                 *BootstrapSpec
 	BootstrapSpecID               *int32
+	FunctionsSpecID               *int32
+	FunctionsSpec                 *FunctionsSpec
 	GatewaySpec                   *GatewaySpec
 	GatewaySpecID                 *int32
 	PipelineSpecID                int32
@@ -704,6 +706,26 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		UpdatedAt:                         s.UpdatedAt,
 		P2PV2Bootstrappers:                pq.StringArray{},
 	}
+}
+
+type FunctionsSpec struct {
+	ID              int32      `toml:"-"`
+	FunctionsConfig JSONConfig `toml:"functionsConfig"`
+	CreatedAt       time.Time  `toml:"-"`
+	UpdatedAt       time.Time  `toml:"-"`
+}
+
+func (s FunctionsSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *FunctionsSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
 }
 
 type GatewaySpec struct {

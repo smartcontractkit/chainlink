@@ -14,6 +14,9 @@ type PluginConfig struct {
 	RequestTimeoutBatchLookupSize   uint32                     `json:"requestTimeoutBatchLookupSize"`
 	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
+	MaxDecryptionQueueLength        uint32                     `json:"maxDecryptionQueueLength"`
+	MaxCiphertextBytes              uint32                     `json:"maxCiphertextBytes"`
+	CompletedDecryptionCacheTimeout uint32                     `json:"completedDecryptionCacheTimeout"`
 	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
 }
 

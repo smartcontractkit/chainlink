@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -798,6 +799,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		decryptionQueue := threshold.NewDecryptionQueue(
+			// TODO: pull these config values from jobspec
 			1000,
 			1_000_000,
 			100,
@@ -807,11 +809,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		encryptedThresholdPrivateKey := d.cfg.ThresholdKeyShare()
 		thresholdPrivateKey, err2 := kb.NaclBoxOpenAnonymous([]byte(encryptedThresholdPrivateKey))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "error decrypting threshold private key share")
+		}
 
 		thresholdServicesConfig := threshold.ThresholdServicesConfig{
 			DecryptionQueue: decryptionQueue,
-			PublicKey:       []byte(""),
-			PrivKeyShare:    thresholdPrivateKey,
+			// TODO: pull public key from jobspec
+			PublicKey:    []byte(""),
+			PrivKeyShare: thresholdPrivateKey,
+			// TODO: pull OracleToKeyShare from jobspec?
+			OracleToKeyShare: map[commontypes.OracleID]int{commontypes.OracleID(0): 0},
+		}
+
+		thresholdServices, err2 := threshold.NewThresholdServices(&sharedOracleArgs, &thresholdServicesConfig)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "error calling NewThresholdServices")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -825,7 +838,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		)
 
-		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
+		return append([]job.ServiceCtx{runResultSaver, functionsProvider, thresholdProvider}, append(functionsServices, thresholdServices)...), nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

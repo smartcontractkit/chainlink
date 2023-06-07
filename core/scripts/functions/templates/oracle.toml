@@ -25,3 +25,6 @@ requestTimeoutCheckFrequencySec = 10
 requestTimeoutBatchLookupSize = 20
 listenerEventHandlerTimeoutSec = 120
 maxRequestSizeBytes = 30720
+maxDecryptionQueueLength = 100
+maxCiphertextBytes = 10_000
+completedDecryptionCacheTimeoutMs = 300_000

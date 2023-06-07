@@ -358,6 +358,9 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		requestTimeoutBatchLookupSize = 20
 		listenerEventHandlerTimeoutSec = 120
 		maxRequestSizeBytes = 30720
+		maxDecryptionQueueLength = 100
+		maxCiphertextBytes = 10_000
+		completedDecryptionCacheTimeoutMs = 300_000
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
