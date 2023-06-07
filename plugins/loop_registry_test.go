@@ -18,8 +18,8 @@ func TestPluginPortManager(t *testing.T) {
 	require.Equal(t, "foo", pFoo.Name)
 	require.Greater(t, pFoo.EnvCfg.PrometheusPort(), 0)
 	require.Equal(t, lc.JSONConsole(), pFoo.EnvCfg.JSONConsole())
-	require.Equal(t, lc.LogLevel(), pFoo.EnvCfg.LogLevel())
-	require.Equal(t, lc.LogUnixTimestamps(), pFoo.EnvCfg.LogUnixTimestamps())
+	require.Equal(t, lc.Level(), pFoo.EnvCfg.Level())
+	require.Equal(t, lc.UnixTimestamps(), pFoo.EnvCfg.UnixTimestamps())
 	// test idempotent
 	pSame, err := m.Register("foo", lc)
 	require.NoError(t, err)
