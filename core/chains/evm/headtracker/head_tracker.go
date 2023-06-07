@@ -130,7 +130,7 @@ func NewEvmHeadTracker(
 // Start starts HeadTracker service.
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID)
+		ht.log.Debugw("Starting HeadTracker", "chainID", ht.chainID)
 		latestChain, err := ht.headSaver.Load(ctx)
 		if err != nil {
 			return err
@@ -206,12 +206,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 		baseHeight = 0
 	}
 
-	earliestHead, ok := headWithChain.EarliestHeadInChain().(HTH)
-	if !ok {
-		return errors.New("could not cast earliestHead to HTH")
-	}
-
-	return ht.backfill(ctx, earliestHead, baseHeight)
+	return ht.backfill(ctx, headWithChain.EarliestHeadInChain(), baseHeight)
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
@@ -342,7 +337,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head HTH, baseHeight int64) (err error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head commontypes.Head[BLOCK_HASH], baseHeight int64) (err error) {
 	if head.BlockNumber() <= baseHeight {
 		return nil
 	}
