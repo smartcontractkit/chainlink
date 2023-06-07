@@ -1986,8 +1986,8 @@ func (_m *GeneralConfig) ValidateDB() error {
 	return r0
 }
 
-// WebDefaultHTTPLimit provides a mock function with given fields:
-func (_m *GeneralConfig) WebDefaultHTTPLimit() int64 {
+// WebServerHTTPMaxSize provides a mock function with given fields:
+func (_m *GeneralConfig) WebServerHTTPMaxSize() int64 {
 	ret := _m.Called()
 
 	var r0 int64
@@ -2000,15 +2000,15 @@ func (_m *GeneralConfig) WebDefaultHTTPLimit() int64 {
 	return r0
 }
 
-// WebDefaultHTTPTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) WebDefaultHTTPTimeout() models.Duration {
+// WebServerStartTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) WebServerStartTimeout() time.Duration {
 	ret := _m.Called()
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

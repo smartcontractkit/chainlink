@@ -437,12 +437,12 @@ func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
-func (g *generalConfig) WebDefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
+func (g *generalConfig) WebServerHTTPMaxSize() int64 {
+	return int64(*g.c.WebServer.HTTPMaxSize)
 }
 
-func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
+func (g *generalConfig) WebServerStartTimeout() time.Duration {
+	return g.c.WebServer.StartTimeout.Duration()
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
