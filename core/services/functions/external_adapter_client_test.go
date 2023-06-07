@@ -1,4 +1,4 @@
-package functions
+package functions_test
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
 func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expectedUserError string, expectedError error) {
@@ -24,7 +25,7 @@ func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expected
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(testutils.Context(t), []byte("urls to secrets"), "requestID1234", "TestJob")
 
 	if expectedError != nil {
@@ -47,7 +48,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "", []byte("{}"))
 
 	if expectedError != nil {
@@ -164,7 +165,7 @@ func Test_RunComputation_CorrectAdapterRequest(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		expectedData := `{"source":"","language":0,"codeLocation":0,"secrets":"","secretsLocation":0,"args":null}`
-		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":"1","nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
+		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
 		assert.Equal(t, expectedBody, string(body))
 
 		fmt.Fprintln(w, "}}invalidJSON")
@@ -174,7 +175,7 @@ func Test_RunComputation_CorrectAdapterRequest(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", []byte("{}"))
 	assert.Error(t, err)
 }

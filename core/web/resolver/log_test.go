@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestResolver_SetSQLLogging(t *testing.T) {
@@ -53,6 +55,13 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+type databaseConfig struct {
+	config.Database
+	logSQL bool
+}
+
+func (d *databaseConfig) LogSQL() bool { return d.logSQL }
+
 func TestResolver_SQLLogging(t *testing.T) {
 	t.Parallel()
 
@@ -71,7 +80,7 @@ func TestResolver_SQLLogging(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("LogSQL").Return(false)
+				f.Mocks.cfg.On("Database").Return(&databaseConfig{logSQL: false})
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
 			query: query,

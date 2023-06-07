@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
@@ -109,19 +109,14 @@ func NewMedianServices(ctx context.Context,
 
 	if cmdName := v2.EnvMedianPluginCmd.Get(); cmdName != "" {
 		medianLggr := lggr.Named("Median")
-		var registeredLoop *plugins.RegisteredLoop
 		// use logger name to ensure unique naming
-		registeredLoop, err = cfg.RegisterLOOP(medianLggr.Name())
-		if err != nil {
-			err = fmt.Errorf("failed to register loop: %w", err)
+		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), cmdName)
+		if err2 != nil {
+			err = fmt.Errorf("failed to register loop: %w", err2)
 			abort()
 			return
 		}
-		median := loop.NewMedianService(lggr, func() *exec.Cmd {
-			cmd := exec.Command(cmdName)
-			plugins.SetCmdEnvFromConfig(cmd, registeredLoop.EnvCfg)
-			return cmd
-		}, provider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, provider, dataSource, juelsPerFeeCoinSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
@@ -154,18 +149,18 @@ func NewMedianServices(ctx context.Context,
 }
 
 type Plugin struct {
-	lggr logger.Logger
+	plugins.Base
 	stop utils.StopChan
 }
 
 func NewPlugin(lggr logger.Logger) *Plugin {
-	return &Plugin{lggr: lggr, stop: make(utils.StopChan)}
+	return &Plugin{Base: plugins.Base{Logger: lggr}, stop: make(utils.StopChan)}
 }
 
 func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {
 	var ctxVals loop.ContextValues
 	ctxVals.SetValues(ctx)
-	lggr := p.lggr.With(ctxVals.Args()...)
+	lggr := p.Logger.With(ctxVals.Args()...)
 	factory := median.NumericalMedianFactory{
 		ContractTransmitter:       provider.MedianContract(),
 		DataSource:                dataSource,
@@ -180,12 +175,11 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 		OnchainConfigCodec: provider.OnchainConfigCodec(),
 		ReportCodec:        provider.ReportCodec(),
 	}
-	return &reportingPluginFactoryService{lggr: p.lggr.Named("ReportingPluginFactory"), ReportingPluginFactory: factory}, nil
-}
+	s := &reportingPluginFactoryService{lggr: lggr.Named("ReportingPluginFactory"), ReportingPluginFactory: factory}
 
-func (p *Plugin) Close() (err error) {
-	close(p.stop)
-	return
+	p.SubService(s)
+
+	return s, nil
 }
 
 type reportingPluginFactoryService struct {
