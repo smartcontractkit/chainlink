@@ -41,5 +41,5 @@ func TestWebServerConfig(t *testing.T) {
 	assert.True(t, tls.ForceRedirect())
 	assert.Equal(t, "tls-host", tls.Host())
 	assert.Equal(t, uint16(6789), tls.HTTPSPort())
-	assert.Equal(t, "tls/key/path", tls.TLSKeyPath())
+	assert.Equal(t, "tls/key/path", tls.KeyPath())
 }
