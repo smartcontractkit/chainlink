@@ -151,7 +151,7 @@ type Job struct {
 	Type                          Type
 	// Type spec contains job type specific configuration that is customisable per job.
 	// Each job of one type can configure the same properties, but with different values.
-	TypeSpec          JSONConfig
+	TypeSpec          []byte
 	SchemaVersion     uint32
 	GasLimit          clnull.Uint32 `toml:"gasLimit"`
 	ForwardingAllowed bool          `toml:"forwardingAllowed"`

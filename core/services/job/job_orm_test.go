@@ -471,10 +471,9 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
-	cltest.AssertCount(t, db, "bootstrap_specs", 1)
 	cltest.AssertCount(t, db, "jobs", 1)
 	var relay string
-	require.NoError(t, db.Get(&relay, `SELECT relay FROM bootstrap_specs LIMIT 1`))
+	require.NoError(t, db.Get(&relay, `SELECT type_spec->>'Relay' FROM jobs WHERE id = $1`, jb.ID))
 	require.Equal(t, "evm", relay)
 
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
