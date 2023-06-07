@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -151,8 +152,8 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 
 	slowAwaiter := cltest.NewAwaiter()
 	fastAwaiter := cltest.NewAwaiter()
-	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: headtracker.TrackableCallbackTimeout * 2}
-	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: headtracker.TrackableCallbackTimeout / 2}
+	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: commonhtrk.TrackableCallbackTimeout * 2}
+	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: commonhtrk.TrackableCallbackTimeout / 2}
 	_, unsubscribe1 := broadcaster.Subscribe(slow)
 	_, unsubscribe2 := broadcaster.Subscribe(fast)
 
