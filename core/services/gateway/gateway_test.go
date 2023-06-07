@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gw_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/mocks"
 	net_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -109,7 +110,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *gw_mocks.Handler
 	handlers := map[string]gateway.Handler{
 		"testDON": handler,
 	}
-	gw := gateway.NewGateway(&gateway.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
+	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
 	return gw, handler
 }
 
@@ -140,7 +141,7 @@ func TestGateway_ProcessRequest_HandlerResponse(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		msg := args.Get(1).(*gateway.Message)
+		msg := args.Get(1).(*api.Message)
 		callbackCh := args.Get(2).(chan<- gateway.UserCallbackPayload)
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
