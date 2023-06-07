@@ -142,10 +142,20 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		t.Run("full range", func(t *testing.T) {
 			snapshot, err := orm.GetSnapshot(s4.NewFullAddressRange())
 			assert.NoError(t, err)
+			assert.Equal(t, len(rows), len(snapshot))
+
+			snapshotRowMap := make(map[string]*s4.SnapshotRow)
 			for i, sr := range snapshot {
-				assert.Equal(t, rows[i].Address, sr.Address)
-				assert.Equal(t, rows[i].SlotId, sr.SlotId)
-				assert.Equal(t, rows[i].Version, sr.Version)
+				// assuming unique addresses
+				snapshotRowMap[sr.Address.String()] = snapshot[i]
+			}
+
+			for _, sr := range rows {
+				snapshotRow, ok := snapshotRowMap[sr.Address.String()]
+				assert.True(t, ok)
+				assert.Equal(t, snapshotRow.Address, sr.Address)
+				assert.Equal(t, snapshotRow.SlotId, sr.SlotId)
+				assert.Equal(t, snapshotRow.Version, sr.Version)
 			}
 		})
 

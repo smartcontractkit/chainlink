@@ -58,7 +58,7 @@ var (
 	Domains           []string                    = []string{"github.com", "google.com"}
 )
 
-func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListenerUniverse {
+func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
@@ -79,6 +79,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 		"requestTimeoutCheckFrequencySec": 1,
 		"requestTimeoutBatchLookupSize":   1,
 		"listenerEventHandlerTimeoutSec":  1,
+		"pruneCheckFrequencySec":          pruneFrequencySec,
 	}
 	jb := job.Job{
 		Type:          job.OffchainReporting2,
@@ -114,7 +115,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 }
 
 func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsListenerUniverse, *log_mocks.Broadcast, chan struct{}) {
-	uni := NewFunctionsListenerUniverse(t, 0)
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -225,7 +226,7 @@ func TestFunctionsListener_RequestTimeout(t *testing.T) {
 
 	reqId := newRequestID()
 	doneCh := make(chan bool)
-	uni := NewFunctionsListenerUniverse(t, 1)
+	uni := NewFunctionsListenerUniverse(t, 1, 1_000_000)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
 		doneCh <- true
@@ -254,5 +255,22 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	uni.service.HandleLog(log)
 
 	ormCallExited.Wait() // should not freeze
+	uni.service.Close()
+}
+
+func TestFunctionsListener_PruneRequests(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	doneCh := make(chan bool)
+	uni := NewFunctionsListenerUniverse(t, 0, 1)
+	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	uni.pluginORM.On("PruneOldestRequests", functions_service.DefaultPruneMaxStoredRequests, functions_service.DefaultPruneBatchSize, mock.Anything).Return(uint32(0), uint32(0), nil).Run(func(args mock.Arguments) {
+		doneCh <- true
+	})
+
+	err := uni.service.Start(testutils.Context(t))
+	require.NoError(t, err)
+	<-doneCh
 	uni.service.Close()
 }
