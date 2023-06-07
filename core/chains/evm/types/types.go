@@ -27,6 +27,7 @@ type Node struct {
 	WSURL      null.String
 	HTTPURL    null.String
 	SendOnly   bool
+	Order      int32
 
 	State string
 }
