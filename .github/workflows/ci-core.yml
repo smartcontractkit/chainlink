@@ -227,6 +227,14 @@ jobs:
       - name: Check test results
         if: needs.core.result != 'success'
         run: exit 1
+      - name: Notify Slack
+        if: failure() && ${{ matrix.cmd }} == 'go_core_race_tests' && github.event.schedule != ''
+        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: '#topic-data-races'
+          slack-message: "Race tests failed: ${{ job.html_url }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
