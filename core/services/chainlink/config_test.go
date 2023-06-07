@@ -1035,6 +1035,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
 			}
+			if got.EVM[c].Nodes[n].Order == nil {
+				got.EVM[c].Nodes[n].Order = ptr(int32(100))
+			}
 		}
 	}
 
