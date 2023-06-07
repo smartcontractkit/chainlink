@@ -243,11 +243,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	effectiveTransmitterID := transmitterID
 
 	ctxVals := loop.ContextValues{
-		JobID:   jb.ID,
-		JobName: jb.Name.ValueOrZero(),
-
+		JobID:      jb.ID,
+		JobName:    jb.Name.ValueOrZero(),
 		ContractID: spec.ContractID,
-		FeedID:     spec.FeedID,
 	}
 	lggr := logger.Sugared(d.lggr.Named("OCR2").With(ctxVals.Args()...))
 	feedID := spec.FeedID
