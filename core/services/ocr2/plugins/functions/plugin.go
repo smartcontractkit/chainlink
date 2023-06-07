@@ -67,20 +67,13 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 	if err != nil {
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
-	svcLogger := conf.Lggr.Named("FunctionsListener").
-		With(
-			"contract", contractAddress,
-			"jobName", conf.Job.PipelineSpec.JobName,
-			"jobID", conf.Job.PipelineSpec.JobID,
-			"externalJobID", conf.Job.ExternalJobID,
-		)
-
+	listenerLogger := conf.Lggr.Named("FunctionsListener")
 	bridge, err := conf.BridgeORM.FindBridge(FunctionsBridgeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "Functions: unable to find bridge")
 	}
 	eaClient := functions.NewExternalAdapterClient(url.URL(bridge.URL), MaxAdapterResponseBytes)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, eaClient, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), svcLogger, conf.MailMon, conf.URLsMonEndpoint)
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, eaClient, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
 	allServices = append(allServices, functionsListener)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
