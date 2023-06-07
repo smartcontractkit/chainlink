@@ -8,9 +8,9 @@ import (
 
 func NewLogger(name string, cfg LoggingConfig) (logger.Logger, func()) {
 	lcfg := logger.Config{
-		LogLevel:    cfg.LogLevel(),
+		LogLevel:    cfg.Level(),
 		JsonConsole: cfg.JSONConsole(),
-		UnixTS:      cfg.LogUnixTimestamps(),
+		UnixTS:      cfg.UnixTimestamps(),
 	}
 	lggr, closeLggr := lcfg.New()
 	lggr = lggr.Named(name)
