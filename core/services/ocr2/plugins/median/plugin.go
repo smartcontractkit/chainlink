@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/plugins"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type MedianConfig interface {
@@ -54,7 +52,7 @@ func NewMedianServices(ctx context.Context,
 	pipelineRunner pipeline.Runner,
 	runResults chan pipeline.Run,
 	lggr logger.Logger,
-	argsNoPlugin libocr.OracleArgs,
+	argsNoPlugin libocr.OCR2OracleArgs,
 	cfg MedianConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,

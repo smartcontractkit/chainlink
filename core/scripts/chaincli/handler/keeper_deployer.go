@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/umbracle/ethgo/abi"
 
