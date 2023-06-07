@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
