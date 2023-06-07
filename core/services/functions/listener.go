@@ -467,7 +467,7 @@ func (l *FunctionsListener) pruneRequests() {
 				promPrunedRequests.WithLabelValues(l.oracleHexAddr).Add(float64(nPruned))
 				l.logger.Debugw("pruned requests from the DB", "nTotal", nTotal, "nPruned", nPruned, "elapsedMillis", elapsedMillis)
 			} else {
-				l.logger.Debug("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
+				l.logger.Debugw("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
 			}
 		}
 	}
