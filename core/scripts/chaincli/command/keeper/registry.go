@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -21,7 +23,24 @@ var deployRegistryCmd = &cobra.Command{
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
 
-		hdlr.DeployRegistry(cmd.Context())
+		verify, err := cmd.Flags().GetBool("verify")
+		if err != nil {
+			log.Fatal("failed to get verify flag: ", err)
+		}
+
+		hdlr.DeployRegistry(cmd.Context(), verify)
+	},
+}
+
+var verifyRegistryCmd = &cobra.Command{
+	Use:   "verify",
+	Short: "Verify keeper registry",
+	Long:  `This command verifys a keeper registry.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.New()
+		hdlr := handler.NewKeeper(cfg)
+
+		hdlr.VerifyContract(args...)
 	},
 }
 
@@ -51,7 +70,9 @@ var withdrawFromRegistryCmd = &cobra.Command{
 }
 
 func init() {
+	deployRegistryCmd.Flags().BoolP("verify", "v", true, "Specify if contracts should be verified on Etherscan")
 	registryCmd.AddCommand(deployRegistryCmd)
+	registryCmd.AddCommand(verifyRegistryCmd)
 	registryCmd.AddCommand(updateRegistryCmd)
 	registryCmd.AddCommand(withdrawFromRegistryCmd)
 }
