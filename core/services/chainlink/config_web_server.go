@@ -24,7 +24,7 @@ func (t *tlsConfig) CertPath() string {
 	return *t.c.CertPath
 }
 
-func (t *tlsConfig) TLSDir() string {
+func (t *tlsConfig) Dir() string {
 	return filepath.Join(t.rootDir(), "tls")
 }
 
@@ -47,14 +47,14 @@ func (t *tlsConfig) ForceRedirect() bool {
 func (t *tlsConfig) CertFile() string {
 	s := *t.c.CertPath
 	if s == "" {
-		s = filepath.Join(t.TLSDir(), "server.crt")
+		s = filepath.Join(t.Dir(), "server.crt")
 	}
 	return s
 }
 
 func (t *tlsConfig) KeyFile() string {
 	if t.TLSKeyPath() == "" {
-		return filepath.Join(t.TLSDir(), "server.key")
+		return filepath.Join(t.Dir(), "server.key")
 	}
 	return t.TLSKeyPath()
 }
