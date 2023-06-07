@@ -36,7 +36,7 @@ func (t *tlsConfig) TLSKeyPath() string {
 	return *t.c.KeyPath
 }
 
-func (t *tlsConfig) TLSPort() uint16 {
+func (t *tlsConfig) HTTPSPort() uint16 {
 	return *t.c.HTTPSPort
 }
 
