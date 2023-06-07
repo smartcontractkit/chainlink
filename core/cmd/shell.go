@@ -473,7 +473,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
 				config.TLSPort(),
-				config.CertFile(),
+				config.WebServer().TLS().CertFile(),
 				config.KeyFile(),
 				config.HTTPServerWriteTimeout())
 		})

@@ -10,15 +10,15 @@ import (
 )
 
 type TLS interface {
-	TLSCertPath() string
 	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
 	KeyFile() string
-	CertFile() string
 
 	Host() string
 	ForceRedirect() bool
+	CertPath() string
+	CertFile() string
 }
 
 type WebServer interface {
@@ -48,13 +48,11 @@ type WebV1 interface {
 	AuthenticatedRateLimitPeriod() models.Duration
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
-	CertFile() string
 	HTTPServerWriteTimeout() time.Duration
 	KeyFile() string
 	Port() uint16
 	RPID() string
 	RPOrigin() string
-	TLSCertPath() string
 	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16

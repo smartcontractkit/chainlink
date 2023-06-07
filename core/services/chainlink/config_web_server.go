@@ -20,7 +20,7 @@ type tlsConfig struct {
 	rootDir func() string
 }
 
-func (t *tlsConfig) TLSCertPath() string {
+func (t *tlsConfig) CertPath() string {
 	return *t.c.CertPath
 }
 
