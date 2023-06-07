@@ -32,7 +32,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-export default {
+let config = {
   abiExporter: {
     path: './abi',
   },
@@ -47,6 +47,9 @@ export default {
     target: 'ethers-v5',
   },
   networks: {
+    env: {
+      url: process.env.NODE_HTTP_URL || '',
+    },
     hardhat: {
       allowUnlimitedContractSize: Boolean(
         process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
@@ -113,3 +116,16 @@ export default {
   },
   warnings: !process.env.HIDE_WARNINGS,
 }
+
+if (process.env.NETWORK_NAME && process.env.EXPLORER_API_KEY) {
+  config = {
+    ...config,
+    etherscan: {
+      apiKey: {
+        [process.env.NETWORK_NAME]: process.env.EXPLORER_API_KEY,
+      },
+    },
+  }
+}
+
+export default config
