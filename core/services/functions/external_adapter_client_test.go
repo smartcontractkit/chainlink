@@ -165,7 +165,7 @@ func Test_RunComputation_CorrectAdapterRequest(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		expectedData := `{"source":"","language":0,"codeLocation":0,"secrets":"","secretsLocation":0,"args":null}`
-		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":"1","nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
+		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
 		assert.Equal(t, expectedBody, string(body))
 
 		fmt.Fprintln(w, "}}invalidJSON")
