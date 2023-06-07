@@ -13,12 +13,12 @@ type TLS interface {
 	TLSDir() string
 	TLSKeyPath() string
 	TLSPort() uint16
-	KeyFile() string
 
 	Host() string
 	ForceRedirect() bool
 	CertPath() string
 	CertFile() string
+	KeyFile() string
 }
 
 type WebServer interface {
@@ -49,7 +49,6 @@ type WebV1 interface {
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
-	KeyFile() string
 	Port() uint16
 	RPID() string
 	RPOrigin() string
