@@ -440,6 +440,8 @@ HTTPPort = 6688 # Default
 SecureCookies = true # Default
 SessionTimeout = '15m' # Default
 SessionReaperExpiration = '240h' # Default
+HTTPMaxSize = '32768b' # Default
+StartTimeout = '15s' # Default
 ```
 
 
@@ -497,6 +499,18 @@ SessionTimeout determines the amount of idle time to elapse before session cooki
 SessionReaperExpiration = '240h' # Default
 ```
 SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
+
+### HTTPMaxSize
+```toml
+HTTPMaxSize = '32768b' # Default
+```
+HTTPMaxSize defines the maximum size for HTTP requests and responses made by the node server.
+
+### StartTimeout
+```toml
+StartTimeout = '15s' # Default
+```
+StartTimeout defines the maximum amount of time the node will wait for a server to start.
 
 ## WebServer.RateLimit
 ```toml
