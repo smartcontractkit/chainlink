@@ -20,18 +20,21 @@ type TLS interface {
 	HTTPSPort() uint16
 }
 
+type RateLimit interface {
+	Authenticated() int64
+	AuthenticatedPeriod() time.Duration
+	Unauthenticated() int64
+	UnauthenticatedPeriod() time.Duration
+}
+
 type WebServer interface {
 	AllowOrigins() string
-	AuthenticatedRateLimit() int64
-	AuthenticatedRateLimitPeriod() models.Duration
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string
 	RPOrigin() string
-	UnAuthenticatedRateLimit() int64
-	UnAuthenticatedRateLimitPeriod() models.Duration
 	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
@@ -40,19 +43,16 @@ type WebServer interface {
 	WebServerStartTimeout() time.Duration
 
 	TLS() TLS
+	RateLimit() RateLimit
 }
 
 type WebV1 interface {
-	AuthenticatedRateLimit() int64
-	AuthenticatedRateLimitPeriod() models.Duration
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
 	HTTPServerWriteTimeout() time.Duration
 	Port() uint16
 	RPID() string
 	RPOrigin() string
-	UnAuthenticatedRateLimit() int64
-	UnAuthenticatedRateLimitPeriod() models.Duration
 	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options

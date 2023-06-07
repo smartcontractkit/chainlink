@@ -30,10 +30,6 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, 15*time.Second, ws.WebServerStartTimeout())
 	assert.Equal(t, "test-rpid", ws.RPID())
 	assert.Equal(t, "test-rp-origin", ws.RPOrigin())
-	assert.Equal(t, int64(42), ws.AuthenticatedRateLimit())
-	assert.Equal(t, *models.MustNewDuration(1 * time.Second), ws.AuthenticatedRateLimitPeriod())
-	assert.Equal(t, int64(7), ws.UnAuthenticatedRateLimit())
-	assert.Equal(t, *models.MustNewDuration(1 * time.Minute), ws.UnAuthenticatedRateLimitPeriod())
 
 	tls := ws.TLS()
 	assert.Equal(t, "test/root/dir/tls", tls.Dir())
@@ -42,4 +38,11 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, "tls-host", tls.Host())
 	assert.Equal(t, uint16(6789), tls.HTTPSPort())
 	assert.Equal(t, "tls/key/path", tls.KeyPath())
+
+	rl := ws.RateLimit()
+	assert.Equal(t, int64(42), rl.Authenticated())
+	assert.Equal(t, *models.MustNewDuration(1 * time.Second), rl.AuthenticatedPeriod())
+	assert.Equal(t, int64(7), rl.Unauthenticated())
+	assert.Equal(t, *models.MustNewDuration(1 * time.Minute), rl.UnauthenticatedPeriod())
+
 }
