@@ -452,7 +452,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmStorageService().FindEthTxByHash(hash)
+	etx, err := r.App.TxmStorageService().FindTxByHash(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -475,7 +475,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmStorageService().EthTransactions(offset, limit)
+	txs, count, err := r.App.TxmStorageService().Transactions(offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +494,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.TxmStorageService().EthTxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmStorageService().TxAttempts(offset, limit)
 	if err != nil {
 		return nil, err
 	}
