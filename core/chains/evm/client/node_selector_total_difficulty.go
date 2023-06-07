@@ -11,23 +11,32 @@ func NewTotalDifficultyNodeSelector(nodes []Node) NodeSelector {
 }
 
 func (s totalDifficultyNodeSelector) Select() Node {
-	var node Node
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
-	var maxTD *utils.Big
+	var highestTD *utils.Big
+	var nodes []Node
+	var aliveNodes []Node
 
 	for _, n := range s {
-		state, _, td := n.StateAndLatest()
+		state, _, currentTD := n.StateAndLatest()
 		if state != NodeStateAlive {
 			continue
 		}
-		// first, or td > max (which may be nil)
-		if node == nil || td != nil && (maxTD == nil || td.Cmp(maxTD) > 0) {
-			node = n
-			maxTD = td
+
+		aliveNodes = append(aliveNodes, n)
+		if currentTD != nil && (highestTD == nil || currentTD.Cmp(highestTD) >= 0) {
+			if highestTD == nil || currentTD.Cmp(highestTD) > 0 {
+				highestTD = currentTD
+				nodes = nil
+			}
+			nodes = append(nodes, n)
 		}
 	}
 
-	return node
+	//If all nodes have td == nil pick one from the nodes that are alive
+	if len(nodes) == 0 {
+		return firstOrHighestPriority(aliveNodes)
+	}
+	return firstOrHighestPriority(nodes)
 }
 
 func (s totalDifficultyNodeSelector) Name() string {

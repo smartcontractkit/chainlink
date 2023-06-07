@@ -73,8 +73,8 @@ func (c Config) ForwardToUrl() (models.URL, error) {
 	return *url, nil
 }
 
-func (c Config) Headers() (audit.ServiceHeaders, error) {
-	return make(audit.ServiceHeaders, 0), nil
+func (c Config) Headers() (models.ServiceHeaders, error) {
+	return make(models.ServiceHeaders, 0), nil
 }
 
 func (c Config) JsonWrapperKey() string {
@@ -117,7 +117,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
-	client := app.NewAuthenticatingClient(prompter)
+	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("bypass-version-check", true, "")

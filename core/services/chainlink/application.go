@@ -161,6 +161,7 @@ type ApplicationOpts struct {
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
 	LoopRegistry             *plugins.LoopRegistry
+	GRPCOpts                 loop.GRPCOpts
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -296,11 +297,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
 	srvcs = append(srvcs, pipelineORM)
@@ -332,7 +333,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				chains.EVM,
 				globalLogger,
-				cfg,
+				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -377,7 +378,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
@@ -393,7 +394,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			cfg.Database(),
 			mailMon,
 		)
 	} else {
@@ -418,8 +419,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.StarkNetEnabled() {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
-		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), registrarConfig)
+		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -466,7 +467,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var feedsService feeds.Service
 	if cfg.FeatureFeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -475,6 +476,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			cfg,
 			cfg.JobPipeline(),
+			cfg.Database(),
 			chains.EVM,
 			globalLogger,
 			opts.Version,

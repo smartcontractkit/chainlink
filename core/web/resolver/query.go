@@ -507,7 +507,7 @@ func (r *Resolver) GlobalLogLevel(ctx context.Context) (*GlobalLogLevelPayloadRe
 		return nil, err
 	}
 
-	logLevel := r.App.GetConfig().LogLevel().String()
+	logLevel := r.App.GetConfig().Log().Level().String()
 
 	return NewGlobalLogLevelPayload(logLevel), nil
 }
@@ -530,7 +530,7 @@ func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolve
 		return nil, err
 	}
 
-	enabled := r.App.GetConfig().LogSQL()
+	enabled := r.App.GetConfig().Database().LogSQL()
 
 	return NewGetSQLLoggingPayload(enabled), nil
 }

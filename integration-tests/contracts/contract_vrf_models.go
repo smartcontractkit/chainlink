@@ -100,11 +100,6 @@ type DKG interface {
 	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
 }
 
-type VRFRouter interface {
-	Address() string
-	RegisterCoordinator(coordinatorAddress string) error
-}
-
 type VRFCoordinatorV3 interface {
 	Address() string
 	SetProducer(producerAddress string) error
