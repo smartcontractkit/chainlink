@@ -493,6 +493,8 @@ type WebServer struct {
 	SecureCookies           *bool
 	SessionTimeout          *models.Duration
 	SessionReaperExpiration *models.Duration
+	HTTPMaxSize             *utils.FileSize
+	StartTimeout            *models.Duration
 
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
@@ -523,6 +525,12 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.SessionReaperExpiration; v != nil {
 		w.SessionReaperExpiration = v
+	}
+	if v := f.StartTimeout; v != nil {
+		w.StartTimeout = v
+	}
+	if v := f.HTTPMaxSize; v != nil {
+		w.HTTPMaxSize = v
 	}
 
 	w.MFA.setFrom(&f.MFA)

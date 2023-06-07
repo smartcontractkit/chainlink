@@ -17,11 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestClient_IndexTransactions(t *testing.T) {
+func TestShell_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
@@ -56,11 +56,11 @@ func TestClient_IndexTransactions(t *testing.T) {
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
-func TestClient_ShowTransaction(t *testing.T) {
+func TestShell_ShowTransaction(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	db := app.GetSqlxDB()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
@@ -81,11 +81,11 @@ func TestClient_ShowTransaction(t *testing.T) {
 	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
-func TestClient_IndexTxAttempts(t *testing.T) {
+func TestShell_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
@@ -119,7 +119,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
-func TestClient_SendEther_From_Txm(t *testing.T) {
+func TestShell_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -140,7 +140,7 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 		withKey(),
 		withMocks(ethMock, key),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
@@ -167,7 +167,7 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 }
 
-func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
+func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -188,7 +188,7 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 		withKey(),
 		withMocks(ethMock, key),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)

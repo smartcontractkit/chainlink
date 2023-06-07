@@ -10,12 +10,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type ChainSetOpts struct {
-	Config coreconfig.AppConfig
 	Logger logger.Logger
 	// the implementation used here needs to be co-ordinated with the starknet transaction manager keystore adapter
 	KeyStore loop.Keystore
@@ -29,9 +27,6 @@ func (o *ChainSetOpts) Name() string {
 func (o *ChainSetOpts) Validate() (err error) {
 	required := func(s string) error {
 		return errors.Errorf("%s is required", s)
-	}
-	if o.Config == nil {
-		err = multierr.Append(err, required("Config"))
 	}
 	if o.Logger == nil {
 		err = multierr.Append(err, required("Logger'"))

@@ -67,9 +67,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		return nil, err
 	}
 	cfg := chain.Config()
-	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FMDefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 	var checker txmgr.EvmTransmitCheckerSpec
-	if chain.Config().FMSimulateTransactions() {
+	if chain.Config().FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
@@ -84,6 +84,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
 		chain.Config(),
+		chain.Config().FluxMonitor(),
 		chain.Config().JobPipeline(),
 		chain.Config().Database(),
 		d.lggr,

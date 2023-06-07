@@ -159,6 +159,9 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	if n.SendOnly != nil {
 		v2.SendOnly = *n.SendOnly
 	}
+	if n.Order != nil {
+		v2.Order = *n.Order
+	}
 	return
 }
 
@@ -731,6 +734,7 @@ type Node struct {
 	WSURL    *models.URL
 	HTTPURL  *models.URL
 	SendOnly *bool
+	Order    *int32
 }
 
 func (n *Node) ValidateConfig() (err error) {
@@ -772,6 +776,13 @@ func (n *Node) ValidateConfig() (err error) {
 		}
 	}
 
+	if n.Order != nil && (*n.Order < 1 || *n.Order > 100) {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "Order", Value: *n.Order, Msg: "must be between 1 and 100"})
+	} else if n.Order == nil {
+		z := int32(100)
+		n.Order = &z
+	}
+
 	return
 }
 
@@ -787,5 +798,8 @@ func (n *Node) SetFrom(f *Node) {
 	}
 	if f.SendOnly != nil {
 		n.SendOnly = f.SendOnly
+	}
+	if f.Order != nil {
+		n.Order = f.Order
 	}
 }

@@ -29,11 +29,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -129,6 +129,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	initOnce.Do(func() {
 		initPrometheus(cfg)
 	})
+	grpcOpts := loop.SetupTelemetry(nil) // default prometheus.Registerer
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
@@ -188,20 +189,28 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 
+	rf := relayerFactory{
+		Logger:        appLggr,
+		DB:            db,
+		GeneralConfig: cfg,
+		LoopRegistry:  loopRegistry,
+		GRPCOpts:      grpcOpts,
+	}
+
 	if cfg.SolanaEnabled() {
-		solanaRelayer, err := setupSolanaRelayer(appLggr, db, cfg, loopRegistry, keyStore.Solana())
-		if err != nil {
-			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err)
+		var err2 error
+		chains.Solana, err2 = rf.NewSolana(keyStore.Solana())
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
 		}
-		chains.Solana = solanaRelayer
 	}
 
 	if cfg.StarkNetEnabled() {
-		starkRelayer, err := setupStarkNetRelayer(appLggr, db, cfg, loopRegistry, keyStore.StarkNet())
-		if err != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err)
+		var err2 error
+		chains.StarkNet, err2 = rf.NewStarkNet(keyStore.StarkNet())
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
 		}
-		chains.StarkNet = starkRelayer
 	}
 
 	// Configure and optionally start the audit log forwarder service
@@ -228,15 +237,24 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		LoopRegistry:             loopRegistry,
+		GRPCOpts:                 grpcOpts,
 	})
 }
 
-func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.Solana) (loop.Relayer, error) {
+type relayerFactory struct {
+	logger.Logger
+	*sqlx.DB
+	chainlink.GeneralConfig
+	*plugins.LoopRegistry
+	loop.GRPCOpts
+}
+
+func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 	var (
 		solanaRelayer loop.Relayer
 		ids           []string
-		solLggr       = appLggr.Named("Solana")
-		cfgs          = cfg.SolanaConfigs()
+		solLggr       = r.Logger.Named("Solana")
+		cfgs          = r.SolanaConfigs()
 		signer        = &keystore.SolanaSigner{ks}
 	)
 	for _, c := range cfgs {
@@ -244,7 +262,7 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		if err := solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
+		if err := solana.EnsureChains(r.DB, solLggr, r.Database(), ids); err != nil {
 			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
 		}
 	}
@@ -258,15 +276,15 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 		}
 
-		solCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            solLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: cfg,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 		}
-		solanaRelayer = loop.NewRelayerService(solLggr, solCmdFn, string(tomls), signer)
+		solanaRelayer = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
 	} else {
 		// fallback to embedded chainset
 		opts := solana.ChainSetOpts{
@@ -283,12 +301,12 @@ func setupSolanaRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Genera
 	return solanaRelayer, nil
 }
 
-func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.GeneralConfig, loopRegistry *plugins.LoopRegistry, ks keystore.StarkNet) (loop.Relayer, error) {
+func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) {
 	var (
 		starknetRelayer loop.Relayer
 		ids             []string
-		starkLggr       = appLggr.Named("StarkNet")
-		cfgs            = cfg.StarknetConfigs()
+		starkLggr       = r.Logger.Named("StarkNet")
+		cfgs            = r.StarknetConfigs()
 		loopKs          = &keystore.StarknetLooppSigner{StarkNet: ks}
 	)
 	for _, c := range cfgs {
@@ -296,7 +314,7 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		if err := starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
+		if err := starknet.EnsureChains(r.DB, starkLggr, r.Database(), ids); err != nil {
 			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
 		}
 	}
@@ -310,24 +328,23 @@ func setupStarkNetRelayer(appLggr logger.Logger, db *sqlx.DB, cfg chainlink.Gene
 			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 		}
 
-		starknetCmdFn, err := plugins.NewCmdFactory(loopRegistry, plugins.CmdConfig{
+		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            starkLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: cfg,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
 		}
 		// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
 		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-		starknetRelayer = loop.NewRelayerService(starkLggr, starknetCmdFn, string(tomls), loopKs)
+		starknetRelayer = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
 	} else {
 		// fallback to embedded chainset
 		opts := starknet.ChainSetOpts{
 			Logger:   starkLggr,
 			KeyStore: loopKs,
 			Configs:  starknet.NewConfigs(cfgs),
-			Config:   cfg,
 		}
 		chainSet, err := starknet.NewChainSet(opts, cfgs)
 		if err != nil {
@@ -422,7 +439,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.Log().Level() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -445,7 +462,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.WebDefaultHTTPTimeout().Duration()
+	timeoutDuration := config.WebServerStartTimeout()
 	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
