@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -30,7 +31,7 @@ type DONConnectionManager interface {
 	SetHandler(handler Handler)
 
 	// Thread-safe.
-	SendToNode(ctx context.Context, nodeAddress string, msg *Message) error
+	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
 }
 
 type connectionManager struct {
@@ -50,7 +51,7 @@ type donConnectionManager struct {
 	donConfig  *DONConfig
 	nodes      map[string]*nodeState
 	handler    Handler
-	codec      Codec
+	codec      api.Codec
 	closeWait  sync.WaitGroup
 	shutdownCh chan struct{}
 	lggr       logger.Logger
@@ -71,7 +72,7 @@ type connAttempt struct {
 }
 
 func NewConnectionManager(config *GatewayConfig, clock gw_common.Clock, lggr logger.Logger) (ConnectionManager, error) {
-	codec := &JsonRPCCodec{}
+	codec := &api.JsonRPCCodec{}
 	dons := make(map[string]*donConnectionManager)
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
@@ -187,7 +188,7 @@ func (m *connectionManager) parseAuthHeader(authHeader []byte) (nodeAddress stri
 		return "", nil, errors.New("unable to parse auth header")
 	}
 	signature := authHeader[n-network.HandshakeSignatureLen:]
-	signer, err := ValidateSignature(signature, authHeader[:n-network.HandshakeSignatureLen])
+	signer, err := api.ValidateSignature(signature, authHeader[:n-network.HandshakeSignatureLen])
 	nodeAddress = "0x" + hex.EncodeToString(signer)
 	return
 }
@@ -214,7 +215,7 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if !ok {
 		return errors.New("connection attempt not found")
 	}
-	signer, err := ValidateSignature(response, attempt.challenge)
+	signer, err := api.ValidateSignature(response, attempt.challenge)
 	if err != nil {
 		return errors.New("invalid challenge response")
 	}
@@ -242,7 +243,7 @@ func (m *donConnectionManager) SetHandler(handler Handler) {
 	m.handler = handler
 }
 
-func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, msg *Message) error {
+func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error {
 	data, err := m.codec.EncodeRequest(msg)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %v", nodeAddress, err)

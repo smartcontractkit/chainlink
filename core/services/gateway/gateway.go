@@ -7,6 +7,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -21,7 +22,7 @@ type Gateway interface {
 type gateway struct {
 	utils.StartStopOnce
 
-	codec      Codec
+	codec      api.Codec
 	httpServer gw_net.HttpServer
 	handlers   map[string]Handler
 	connMgr    ConnectionManager
@@ -29,7 +30,7 @@ type gateway struct {
 }
 
 func NewGatewayFromConfig(config *GatewayConfig, lggr logger.Logger) (Gateway, error) {
-	codec := &JsonRPCCodec{}
+	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
 	connMgr, err := NewConnectionManager(config, common.NewRealClock(), lggr)
 	if err != nil {
@@ -57,7 +58,7 @@ func NewGatewayFromConfig(config *GatewayConfig, lggr logger.Logger) (Gateway, e
 	return NewGateway(codec, httpServer, handlers, connMgr, lggr), nil
 }
 
-func NewGateway(codec Codec, httpServer gw_net.HttpServer, handlers map[string]Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:      codec,
 		httpServer: httpServer,
@@ -133,7 +134,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	return rawResponse, ToHttpErrorCode(NoError)
 }
 
-func newError(codec Codec, id string, errCode ErrorCode, errMsg string) ([]byte, int) {
+func newError(codec api.Codec, id string, errCode ErrorCode, errMsg string) ([]byte, int) {
 	rawResponse, err := codec.EncodeNewErrorResponse(id, ToJsonRPCErrorCode(errCode), errMsg, nil)
 	if err != nil {
 		// we're not even able to encode a valid JSON response
