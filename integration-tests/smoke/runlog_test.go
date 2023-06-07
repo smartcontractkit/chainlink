@@ -9,12 +9,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -31,7 +29,7 @@ import (
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupRunLogTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -110,7 +108,7 @@ func TestRunLogBasic(t *testing.T) {
 		d, err := consumer.Data(context.Background())
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
-		log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
+		l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
 		g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
 	}, "2m", "1s").Should(gomega.Succeed())
 }

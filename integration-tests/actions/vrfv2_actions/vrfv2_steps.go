@@ -8,9 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
@@ -23,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -54,12 +53,12 @@ func CreateVRFV2Jobs(
 	c blockchain.EVMClient,
 	minIncomingConfirmations uint16,
 ) []VRFV2JobInfo {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		require.NoError(t, err, "Error creating VRF key")
-		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.New()
 		os := &client.VRFV2TxPipelineSpec{

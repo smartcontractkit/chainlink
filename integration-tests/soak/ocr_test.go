@@ -10,16 +10,15 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -29,7 +28,7 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -50,11 +49,11 @@ func TestOCRSoak(t *testing.T) {
 	})
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error tearing down environment")
+			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
 	ocrSoakTest.Setup(t, testEnvironment)
-	log.Info().Msg("Set up soak test")
+	l.Info().Msg("Set up soak test")
 	ocrSoakTest.Run(t)
 }
 

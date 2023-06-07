@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
@@ -31,7 +31,7 @@ func TestVRFV2Soak(t *testing.T) {
 	chainlinkNodeFundingAmountEth := testInputs.ChainlinkNodeFunding
 	randomnessRequestCountPerRequest := testInputs.RandomnessRequestCountPerRequest
 
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 
 	testInputs.SetForRemoteRunner()
 	testNetwork := networks.SelectedNetwork // Environment currently being used to soak test on
@@ -102,12 +102,12 @@ func TestVRFV2Soak(t *testing.T) {
 				return fmt.Errorf("error occurred Requesting Randomness, error: %w", err)
 			}
 
-			log.Info().
+			l.Info().
 				Int("Request Number", requestNumber).
 				Int("Randomness Request Count Per Request", randomnessRequestCountPerRequest).
 				Msg("Randomness requested")
 
-			printDebugData(vrfV2Contracts, chainlinkNodesAfterRedeployment)
+			printDebugData(l, vrfV2Contracts, chainlinkNodesAfterRedeployment)
 
 			return nil
 		},
@@ -116,35 +116,35 @@ func TestVRFV2Soak(t *testing.T) {
 
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(vrfV2SoakTest.TearDownVals(t)); err != nil {
-			log.Error().Err(err).Msg("Error tearing down environment")
+			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
 	vrfV2SoakTest.Setup(t, testEnvironment)
-	log.Info().Msg("Set up soak test")
+	l.Info().Msg("Set up soak test")
 	vrfV2SoakTest.Run(t)
 }
 
-func printDebugData(vrfV2Contracts vrfv2_actions.VRFV2Contracts, chainlinkNodesAfterRedeployment []*client.Chainlink) {
+func printDebugData(l zerolog.Logger, vrfV2Contracts vrfv2_actions.VRFV2Contracts, chainlinkNodesAfterRedeployment []*client.Chainlink) {
 	subscription, err := vrfV2Contracts.Coordinator.GetSubscription(nil, vrfv2_constants.SubID)
 	if err != nil {
-		log.Error().Err(err).
+		l.Error().Err(err).
 			Uint64("Subscription ID", vrfv2_constants.SubID).
 			Interface("Coordinator Address", vrfV2Contracts.Coordinator.Address()).
 			Msg("error occurred Getting Subscription Data from a Coordinator Contract")
 	}
-	log.Debug().Interface("Data", subscription).Uint64("Subscription ID", vrfv2_constants.SubID).Msg("Subscription Data")
+	l.Debug().Interface("Data", subscription).Uint64("Subscription ID", vrfv2_constants.SubID).Msg("Subscription Data")
 	remainingSubBalanceInLink := new(big.Float).Quo(new(big.Float).SetInt(subscription.Balance), big.NewFloat(1e18))
-	log.Debug().Interface("Balance", remainingSubBalanceInLink).Msg("Remaining Balance in Link for a subscription")
+	l.Debug().Interface("Balance", remainingSubBalanceInLink).Msg("Remaining Balance in Link for a subscription")
 	nativeTokenPrimaryKey, err := chainlinkNodesAfterRedeployment[0].ReadPrimaryETHKey()
 	if err != nil {
-		log.Error().Err(err).Msg("error occurred reading Native Token Primary Key from Chainlink Node")
+		l.Error().Err(err).Msg("error occurred reading Native Token Primary Key from Chainlink Node")
 	}
 	ethBalance, ok := new(big.Int).SetString(nativeTokenPrimaryKey.Attributes.ETHBalance, 10)
 	if !ok {
-		log.Error().Interface("Balance", nativeTokenPrimaryKey.Attributes.ETHBalance).Msg("error occurred converting Native Token Primary Key from Chainlink Node")
+		l.Error().Interface("Balance", nativeTokenPrimaryKey.Attributes.ETHBalance).Msg("error occurred converting Native Token Primary Key from Chainlink Node")
 	}
 	remainingNativeTokenPrimaryKeyBalanceInETH := new(big.Float).Quo(new(big.Float).SetInt(ethBalance), big.NewFloat(1e18))
-	log.Debug().
+	l.Debug().
 		Interface("Balance", remainingNativeTokenPrimaryKeyBalanceInETH).
 		Interface("Key Address", nativeTokenPrimaryKey.Attributes.Address).
 		Msg("Remaining Balance for a Native Token Primary Key of Chainlink Node")

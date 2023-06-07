@@ -10,12 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -29,7 +27,7 @@ import (
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupVRFTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -71,7 +69,7 @@ func TestVRFBasic(t *testing.T) {
 	for _, n := range chainlinkNodes {
 		nodeKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
-		log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
+		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 		pubKeyCompressed := nodeKey.Data.ID
 		jobUUID := uuid.New()
 		os := &client.VRFTxPipelineSpec{
@@ -125,7 +123,7 @@ func TestVRFBasic(t *testing.T) {
 			// There's a better formula to ensure that VRF response is as expected, detailed under Technical Walkthrough.
 			// https://bl.chain.link/chainlink-vrf-on-chain-verifiable-randomness/
 			g.Expect(out.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
-			log.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
+			l.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
 		}, timeout, "1s").Should(gomega.Succeed())
 	}
 }

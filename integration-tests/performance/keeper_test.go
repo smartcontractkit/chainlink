@@ -10,16 +10,15 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -45,7 +44,7 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -79,7 +78,7 @@ func TestKeeperPerformance(t *testing.T) {
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 					"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
-				log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 			}
 		}, "5m", "1s").Should(gomega.Succeed())
 
@@ -98,7 +97,7 @@ func TestKeeperPerformance(t *testing.T) {
 			// Obtain the amount of times the upkeep has been executed so far
 			countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			log.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
+			l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 		}
 
 		gom.Consistently(func(g gomega.Gomega) {

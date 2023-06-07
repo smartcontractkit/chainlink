@@ -8,13 +8,11 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -33,7 +31,6 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
-		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -60,8 +57,8 @@ func TestMain(m *testing.M) {
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
-	logging.Init(t)
-	cd, err := chainlink.NewDeployment(1, defaultOCRSettings)
+	l := utils.GetTestLogger(t)
+	cd, err := chainlink.NewDeployment(6, defaultOCRSettings)
 	require.NoError(t, err)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
@@ -201,7 +198,7 @@ func TestOCRChaos(t *testing.T) {
 				}
 				round, err := ocrInstances[0].GetLatestRound(context.Background())
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				log.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
+				l.Info().Int64("RoundID", round.RoundId.Int64()).Msg("Latest OCR Round")
 				if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
 					chaosApplied = true
 					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))

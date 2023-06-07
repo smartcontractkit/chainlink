@@ -11,13 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -40,11 +39,11 @@ func CreateOCR2VRFJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	p2pV2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
 
 	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, p2pV2Bootstrapper)
-	log.Info().Msg("Done creating OCR automation jobs")
+	l.Info().Msg("Done creating OCR automation jobs")
 }
 
 func createNonBootstrapJobs(
@@ -121,7 +120,7 @@ func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRv2Config {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -193,7 +192,7 @@ func BuildOCR2DKGConfigVars(
 		)
 	require.NoError(t, err, "Shouldn't fail building OCR config")
 
-	log.Info().Msg("Done building DKG OCR config")
+	l.Info().Msg("Done building DKG OCR config")
 	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
@@ -273,7 +272,7 @@ func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRv2Config {
-	logging.Init(t)
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -324,7 +323,7 @@ func BuildOCR2VRFConfigVars(
 		)
 	require.NoError(t, err)
 
-	log.Info().Msg("Done building VRF OCR config")
+	l.Info().Msg("Done building VRF OCR config")
 	return contracts.OCRv2Config{
 		Signers:               onchainPublicKeys,
 		Transmitters:          transmitters,
