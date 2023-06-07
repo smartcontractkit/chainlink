@@ -28,7 +28,7 @@ func cosmosStartNewApplication(t *testing.T, cfgs ...*cosmos.CosmosConfig) *clte
 	})
 }
 
-func TestClient_IndexCosmosNodes(t *testing.T) {
+func TestShell_IndexCosmosNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
@@ -42,7 +42,7 @@ func TestClient_IndexCosmosNodes(t *testing.T) {
 		Nodes:   cosmos.CosmosNodes{&node},
 	}
 	app := cosmosStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewCosmosNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)

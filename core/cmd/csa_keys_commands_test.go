@@ -51,7 +51,7 @@ func TestCSAKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_ListCSAKeys(t *testing.T) {
+func TestShell_ListCSAKeys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -60,7 +60,7 @@ func TestClient_ListCSAKeys(t *testing.T) {
 
 	requireCSAKeyCount(t, app, 1)
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	assert.Nil(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -68,11 +68,11 @@ func TestClient_ListCSAKeys(t *testing.T) {
 	assert.Equal(t, key.PublicKeyString(), keys[0].PubKey)
 }
 
-func TestClient_CreateCSAKey(t *testing.T) {
+func TestShell_CreateCSAKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	requireCSAKeyCount(t, app, 0)
 
@@ -81,14 +81,14 @@ func TestClient_CreateCSAKey(t *testing.T) {
 	requireCSAKeyCount(t, app, 1)
 }
 
-func TestClient_ImportExportCsaKey(t *testing.T) {
+func TestShell_ImportExportCsaKey(t *testing.T) {
 	t.Parallel()
 
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplicationV2(t, nil)
 
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	_, err := app.GetKeyStore().CSA().Create()
 	require.NoError(t, err)
 
