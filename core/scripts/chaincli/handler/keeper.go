@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -100,16 +102,36 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 }
 
 // DeployRegistry deploys a new keeper registry.
-func (k *Keeper) DeployRegistry(ctx context.Context) {
+func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
+	if verify {
+		if k.cfg.RegistryVersion != keeper.RegistryVersion_2_1 && k.cfg.RegistryVersion != keeper.RegistryVersion_2_0 {
+			log.Fatal("keeper registry verification is only supported for version 2.0 and 2.1")
+		}
+		if k.cfg.ExplorerAPIKey == "" || k.cfg.ExplorerAPIKey == "<explorer-api-key>" || k.cfg.NetworkName == "" || k.cfg.NetworkName == "<network-name>" {
+			log.Fatal("please set your explore API key and network name in the .env file to verify the registry contract")
+		}
+
+		// Get the current working directory
+		currentDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal("failed to get current working directory: %w", err)
+		}
+
+		// Check if it is the root directory of chaincli
+		if !strings.HasSuffix(currentDir, "core/scripts/chaincli") {
+			log.Fatal("please run the command from the root directory of chaincli to verify the registry")
+		}
+	}
+
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
 		k.deployRegistry11(ctx)
 	case keeper.RegistryVersion_1_2:
 		k.deployRegistry12(ctx)
 	case keeper.RegistryVersion_2_0:
-		k.deployRegistry20(ctx)
+		k.deployRegistry20(ctx, verify)
 	case keeper.RegistryVersion_2_1:
-		k.deployRegistry21(ctx)
+		k.deployRegistry21(ctx, verify)
 	default:
 		panic("unsupported registry version")
 	}
@@ -176,7 +198,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			registryAddr, keeperRegistry12 = k.deployRegistry12(ctx)
 			deployer = &v12KeeperDeployer{keeperRegistry12}
 		case keeper.RegistryVersion_2_0:
-			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx)
+			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx, true)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		case keeper.RegistryVersion_2_1:
 			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx)
@@ -206,8 +228,33 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 }
 
+func (k *Keeper) VerifyContract(params ...string) {
+	// Change to the contracts directory where the hardhat.config.ts file is located
+	if err := k.changeToContractsDirectory(); err != nil {
+		log.Fatalf("failed to change to directory where the hardhat.config.ts file is located: %v", err)
+	}
+
+	// Append the address and params to the commandArgs slice
+	commandArgs := append([]string{}, params...)
+
+	// Format the command string with the commandArgs
+	command := fmt.Sprintf(
+		"NODE_HTTP_URL='%s' EXPLORER_API_KEY='%s' NETWORK_NAME='%s' pnpm hardhat verify --network env %s",
+		k.cfg.NodeHttpURL,
+		k.cfg.ExplorerAPIKey,
+		k.cfg.NetworkName,
+		strings.Join(commandArgs, " "),
+	)
+
+	fmt.Println("Running command to verify contract: ", command)
+	if err := k.runCommand(command); err != nil {
+		log.Println("Contract verification on Explorer failed: ", err)
+
+	}
+}
+
 // deployRegistry21 deploys a version 2.1 keeper registry
-func (k *Keeper) deployRegistry21(ctx context.Context) (common.Address, *iregistry21.IKeeperRegistryMaster) {
+func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Address, *iregistry21.IKeeperRegistryMaster) {
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -222,6 +269,12 @@ func (k *Keeper) deployRegistry21(ctx context.Context) (common.Address, *iregist
 	k.waitDeployment(ctx, tx)
 	log.Println("KeeperRegistryLogicB 2.1 Logic deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
 
+	// verify KeeperRegistryLogicB
+	if verify {
+		k.VerifyContract(registryLogicBAddr.String(), "0", k.cfg.LinkTokenAddr, k.cfg.LinkETHFeedAddr, k.cfg.FastGasFeedAddr)
+		log.Println("KeeperRegistry LogicB 2.1 verified successfully")
+	}
+
 	registryLogicAAddr, tx, _, err := registrylogica21.DeployKeeperRegistryLogicA(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -232,6 +285,12 @@ func (k *Keeper) deployRegistry21(ctx context.Context) (common.Address, *iregist
 	}
 	k.waitDeployment(ctx, tx)
 	log.Println("KeeperRegistryLogicA 2.1 Logic deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+
+	// verify KeeperRegistryLogicA
+	if verify {
+		k.VerifyContract(registryLogicAAddr.String(), registryLogicBAddr.String())
+		log.Println("KeeperRegistry LogicA 2.1 verified successfully")
+	}
 
 	registryAddr, deployKeeperRegistryTx, _, err := registry21.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
@@ -249,11 +308,17 @@ func (k *Keeper) deployRegistry21(ctx context.Context) (common.Address, *iregist
 		log.Fatal("Failed to attach to deployed contract: ", err)
 	}
 
+	// verify KeeperRegistry
+	if verify {
+		k.VerifyContract(registryAddr.String(), registryLogicAAddr.String())
+		log.Println("KeeperRegistry 2.1 verified successfully")
+	}
+
 	return registryAddr, registryInstance
 }
 
 // deployRegistry20 deploys a version 2.0 keeper registry
-func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registry20.KeeperRegistry) {
+func (k *Keeper) deployRegistry20(ctx context.Context, verify bool) (common.Address, *registry20.KeeperRegistry) {
 	registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -268,6 +333,12 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 	k.waitDeployment(ctx, deployKeeperRegistryLogicTx)
 	log.Println("KeeperRegistry2.0 Logic deployed:", registryLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryLogicTx.Hash()))
 
+	// verify KeeperRegistryLogic
+	if verify {
+		k.VerifyContract(registryLogicAddr.String(), "0", k.cfg.LinkTokenAddr, k.cfg.LinkETHFeedAddr, k.cfg.FastGasFeedAddr)
+		log.Println("KeeperRegistry Logic 2.0 verified successfully")
+	}
+
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry20.DeployKeeperRegistry(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -278,6 +349,13 @@ func (k *Keeper) deployRegistry20(ctx context.Context) (common.Address, *registr
 	}
 	k.waitDeployment(ctx, deployKeeperRegistryTx)
 	log.Println("KeeperRegistry2.0 deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
+
+	// verify KeeperRegistry
+	if verify {
+		k.VerifyContract(registryAddr.String(), registryLogicAddr.String())
+		log.Println("KeeperRegistry 2.0 verified successfully")
+	}
+
 	return registryAddr, registryInstance
 }
 
