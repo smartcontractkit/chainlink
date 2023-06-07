@@ -28,7 +28,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *clte
 }
 
 // TODO fix https://smartcontract-it.atlassian.net/browse/BCF-2114
-func TestClient_IndexSolanaNodes(t *testing.T) {
+func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
@@ -45,7 +45,7 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 		Nodes:   solana.SolanaNodes{&node1, &node2},
 	}
 	app := solanaStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewSolanaNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)

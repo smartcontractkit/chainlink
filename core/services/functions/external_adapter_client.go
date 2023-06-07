@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -53,7 +52,7 @@ type requestPayload struct {
 	RequestId           string       `json:"requestId"`
 	JobName             string       `json:"jobName"`
 	SubscriptionOwner   string       `json:"subscriptionOwner"`
-	SubscriptionId      string       `json:"subscriptionId"`
+	SubscriptionId      uint64       `json:"subscriptionId"`
 	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
 	Data                *requestData `json:"data"`
 }
@@ -134,7 +133,7 @@ func (ea *externalAdapterClient) RunComputation(
 		RequestId:           requestId,
 		JobName:             jobName,
 		SubscriptionOwner:   subscriptionOwner,
-		SubscriptionId:      strconv.FormatUint(subscriptionId, 10),
+		SubscriptionId:      subscriptionId,
 		NodeProvidedSecrets: nodeProvidedSecrets,
 		Data:                &data,
 	}

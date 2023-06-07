@@ -83,7 +83,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, maxGasPriceWei.String())
 }
 
-func TestClient_ListETHKeys(t *testing.T) {
+func TestShell_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -97,7 +97,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -107,7 +107,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 	assert.Equal(t, "13", balances[0].LinkBalance.String())
 }
 
-func TestClient_ListETHKeys_Error(t *testing.T) {
+func TestShell_ListETHKeys_Error(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -121,7 +121,7 @@ func TestClient_ListETHKeys_Error(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -131,7 +131,7 @@ func TestClient_ListETHKeys_Error(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 }
 
-func TestClient_ListETHKeys_Disabled(t *testing.T) {
+func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -141,7 +141,7 @@ func TestClient_ListETHKeys_Disabled(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
@@ -160,7 +160,7 @@ func TestClient_ListETHKeys_Disabled(t *testing.T) {
 	}, balances[0].ToRow())
 }
 
-func TestClient_CreateETHKey(t *testing.T) {
+func TestShell_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -175,7 +175,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 		withMocks(ethClient),
 	)
 	db := app.GetSqlxDB()
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	cltest.AssertCount(t, db, "evm_key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
@@ -206,7 +206,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.Equal(t, 3, len(keys))
 }
 
-func TestClient_DeleteETHKey(t *testing.T) {
+func TestShell_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -217,7 +217,7 @@ func TestClient_DeleteETHKey(t *testing.T) {
 		withKey(),
 	)
 	ethKeyStore := app.GetKeyStore().Eth()
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	// Create the key
 	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
@@ -238,7 +238,7 @@ func TestClient_DeleteETHKey(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
+func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	t.Parallel()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
@@ -253,7 +253,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	},
 		withMocks(ethClient),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	ethKeyStore := app.GetKeyStore().Eth()
 
 	set := flag.NewFlagSet("test", 0)
@@ -340,7 +340,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
-func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
+func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
@@ -353,7 +353,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	},
 		withMocks(ethClient),
 	)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	ethKeyStore := app.GetKeyStore().Eth()
 
 	ethClient.On("Dial", mock.Anything).Maybe()
