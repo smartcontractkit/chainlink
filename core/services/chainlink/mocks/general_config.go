@@ -583,34 +583,6 @@ func (_m *GeneralConfig) ExplorerURL() *url.URL {
 	return r0
 }
 
-// FMDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) FMDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// FMSimulateTransactions provides a mock function with given fields:
-func (_m *GeneralConfig) FMSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *GeneralConfig) FeatureExternalInitiators() bool {
 	ret := _m.Called()
@@ -690,6 +662,22 @@ func (_m *GeneralConfig) FeatureUICSAKeys() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// FluxMonitor provides a mock function with given fields:
+func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
+	ret := _m.Called()
+
+	var r0 config.FluxMonitor
+	if rf, ok := ret.Get(0).(func() config.FluxMonitor); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.FluxMonitor)
+		}
 	}
 
 	return r0

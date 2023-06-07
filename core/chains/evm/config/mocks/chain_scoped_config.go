@@ -1251,34 +1251,6 @@ func (_m *ChainScopedConfig) ExplorerURL() *url.URL {
 	return r0
 }
 
-// FMDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// FMSimulateTransactions provides a mock function with given fields:
-func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
 	ret := _m.Called()
@@ -1372,6 +1344,22 @@ func (_m *ChainScopedConfig) FlagsContractAddress() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// FluxMonitor provides a mock function with given fields:
+func (_m *ChainScopedConfig) FluxMonitor() coreconfig.FluxMonitor {
+	ret := _m.Called()
+
+	var r0 coreconfig.FluxMonitor
+	if rf, ok := ret.Get(0).(func() coreconfig.FluxMonitor); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.FluxMonitor)
+		}
 	}
 
 	return r0
