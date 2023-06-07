@@ -58,12 +58,13 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
 	}
 
+	tls := config.WebServer().TLS()
 	engine.Use(
 		limits.RequestSizeLimiter(config.WebServerHTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
-		secureMiddleware(config),
+		secureMiddleware(tls.TLSRedirect(), tls.Host(), config.DevWebServer()),
 	)
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())
@@ -132,12 +133,6 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
-type securityConfig interface {
-	TLSRedirect() bool
-	TLSHost() string
-	DevWebServer() bool
-}
-
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
 func secureOptions(tlsRedirect bool, tlsHost string, devWebServer bool) secure.Options {
@@ -151,8 +146,8 @@ func secureOptions(tlsRedirect bool, tlsHost string, devWebServer bool) secure.O
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(cfg securityConfig) gin.HandlerFunc {
-	secureMiddleware := secure.New(secureOptions(cfg.TLSRedirect(), cfg.TLSHost(), cfg.DevWebServer()))
+func secureMiddleware(tlsRedirect bool, tlsHost string, devWebServer bool) gin.HandlerFunc {
+	secureMiddleware := secure.New(secureOptions(tlsRedirect, tlsHost, devWebServer))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
 			err := secureMiddleware.Process(c.Writer, c.Request)

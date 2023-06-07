@@ -34,9 +34,11 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, *models.MustNewDuration(1 * time.Second), ws.AuthenticatedRateLimitPeriod())
 	assert.Equal(t, int64(7), ws.UnAuthenticatedRateLimit())
 	assert.Equal(t, *models.MustNewDuration(1 * time.Minute), ws.UnAuthenticatedRateLimitPeriod())
-	assert.Equal(t, "tls/cert/path", ws.TLSCertPath())
-	assert.True(t, ws.TLSRedirect())
-	assert.Equal(t, "tls-host", ws.TLSHost())
-	assert.Equal(t, uint16(6789), ws.TLSPort())
-	assert.Equal(t, "tls/key/path", ws.TLSKeyPath())
+
+	tls := ws.TLS()
+	assert.Equal(t, "tls/cert/path", tls.TLSCertPath())
+	assert.True(t, tls.TLSRedirect())
+	assert.Equal(t, "tls-host", tls.Host())
+	assert.Equal(t, uint16(6789), tls.TLSPort())
+	assert.Equal(t, "tls/key/path", tls.TLSKeyPath())
 }

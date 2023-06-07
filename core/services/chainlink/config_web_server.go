@@ -15,9 +15,57 @@ import (
 
 var _ config.WebServer = (*webServerConfig)(nil)
 
+type tlsConfig struct {
+	c       v2.WebServerTLS
+	rootDir func() string
+}
+
+func (t *tlsConfig) TLSCertPath() string {
+	return *t.c.CertPath
+}
+
+func (t *tlsConfig) TLSDir() string {
+	return filepath.Join(t.rootDir(), "tls")
+}
+
+func (t *tlsConfig) Host() string {
+	return *t.c.Host
+}
+
+func (t *tlsConfig) TLSKeyPath() string {
+	return *t.c.KeyPath
+}
+
+func (t *tlsConfig) TLSPort() uint16 {
+	return *t.c.HTTPSPort
+}
+
+func (t *tlsConfig) TLSRedirect() bool {
+	return *t.c.ForceRedirect
+}
+
+func (t *tlsConfig) CertFile() string {
+	s := *t.c.CertPath
+	if s == "" {
+		s = filepath.Join(t.TLSDir(), "server.crt")
+	}
+	return s
+}
+
+func (t *tlsConfig) KeyFile() string {
+	if t.TLSKeyPath() == "" {
+		return filepath.Join(t.TLSDir(), "server.key")
+	}
+	return t.TLSKeyPath()
+}
+
 type webServerConfig struct {
 	c       v2.WebServer
 	rootDir func() string
+}
+
+func (w *webServerConfig) TLS() config.TLS {
+	return &tlsConfig{c: w.c.TLS, rootDir: w.rootDir}
 }
 
 func (w *webServerConfig) AllowOrigins() string {
@@ -41,14 +89,6 @@ func (w *webServerConfig) BridgeResponseURL() *url.URL {
 
 func (w *webServerConfig) BridgeCacheTTL() time.Duration {
 	return w.c.BridgeCacheTTL.Duration()
-}
-
-func (w *webServerConfig) CertFile() string {
-	s := *w.c.TLS.CertPath
-	if s == "" {
-		s = filepath.Join(w.TLSDir(), "server.crt")
-	}
-	return s
 }
 
 func (w *webServerConfig) WebServerHTTPMaxSize() int64 {
@@ -96,41 +136,10 @@ func (w *webServerConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(w.c.SessionTimeout.Duration())
 }
 
-func (w *webServerConfig) TLSCertPath() string {
-	return *w.c.TLS.CertPath
-}
-
-func (w *webServerConfig) TLSDir() string {
-	return filepath.Join(w.rootDir(), "tls")
-}
-
-func (w *webServerConfig) TLSHost() string {
-	return *w.c.TLS.Host
-}
-
-func (w *webServerConfig) TLSKeyPath() string {
-	return *w.c.TLS.KeyPath
-}
-
-func (w *webServerConfig) TLSPort() uint16 {
-	return *w.c.TLS.HTTPSPort
-}
-
-func (w *webServerConfig) TLSRedirect() bool {
-	return *w.c.TLS.ForceRedirect
-}
-
 func (w *webServerConfig) UnAuthenticatedRateLimit() int64 {
 	return *w.c.RateLimit.Unauthenticated
 }
 
 func (w *webServerConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *w.c.RateLimit.UnauthenticatedPeriod
-}
-
-func (w *webServerConfig) KeyFile() string {
-	if w.TLSKeyPath() == "" {
-		return filepath.Join(w.TLSDir(), "server.key")
-	}
-	return w.TLSKeyPath()
 }
