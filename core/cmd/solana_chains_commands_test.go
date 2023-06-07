@@ -12,13 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 )
 
-func TestClient_IndexSolanaChains(t *testing.T) {
+func TestShell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
 	chain := solana.SolanaConfig{ChainID: &id}
 	app := solanaStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.SolanaChainPresenters)

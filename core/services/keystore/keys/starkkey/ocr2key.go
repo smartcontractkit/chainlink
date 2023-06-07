@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/caigo"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ types.OnchainKeyring = &OCR2Key{}

@@ -1,3 +1,4 @@
+// Package networks holds all known network information for the tests
 package networks
 
 import (
@@ -320,7 +321,7 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	mappedNetworks = map[string]blockchain.EVMNetwork{
+	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
 		"SIMULATED_2":      SimulatedEVMNonDev2,
@@ -348,7 +349,8 @@ var (
 	}
 )
 
-// determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which network(s) to run the tests on
+// determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which networks to run the tests on.
+// Use DetermineSelectedNetwork for tests that only use one network
 func determineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
 	selectedNetworks := make([]blockchain.EVMNetwork, 0)
@@ -356,7 +358,7 @@ func determineSelectedNetworks() []blockchain.EVMNetwork {
 	setNetworkNames := strings.Split(rawSelectedNetworks, ",")
 
 	for _, setNetworkName := range setNetworkNames {
-		if chosenNetwork, valid := mappedNetworks[setNetworkName]; valid {
+		if chosenNetwork, valid := MappedNetworks[setNetworkName]; valid {
 			log.Info().
 				Interface("SELECTED_NETWORKS", setNetworkNames).
 				Str("Network Name", chosenNetwork.Name).
@@ -366,7 +368,7 @@ func determineSelectedNetworks() []blockchain.EVMNetwork {
 			selectedNetworks = append(selectedNetworks, chosenNetwork)
 		} else {
 			validNetworks := make([]string, 0)
-			for validNetwork := range mappedNetworks {
+			for validNetwork := range MappedNetworks {
 				validNetworks = append(validNetworks, validNetwork)
 			}
 			log.Fatal().

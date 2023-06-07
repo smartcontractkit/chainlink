@@ -31,7 +31,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -359,29 +358,6 @@ func (g *generalConfig) AllowOrigins() string {
 	return *g.c.WebServer.AllowOrigins
 }
 
-func (g *generalConfig) AuditLoggerEnabled() bool {
-	return *g.c.AuditLogger.Enabled
-}
-
-func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	return *g.c.AuditLogger.ForwardToUrl, nil
-}
-
-func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return *g.c.AuditLogger.Headers, nil
-}
-
-func (g *generalConfig) AuditLoggerEnvironment() string {
-	if !build.IsProd() {
-		return "develop"
-	}
-	return "production"
-}
-
-func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
-	return *g.c.AuditLogger.JsonWrapperKey
-}
-
 func (g *generalConfig) AuthenticatedRateLimit() int64 {
 	return *g.c.WebServer.RateLimit.Authenticated
 }
@@ -458,23 +434,15 @@ func (g *generalConfig) CertFile() string {
 }
 
 func (g *generalConfig) Database() coreconfig.Database {
-	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
-func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	return g.c.Database.DefaultQueryTimeout.Duration()
+func (g *generalConfig) WebServerHTTPMaxSize() int64 {
+	return int64(*g.c.WebServer.HTTPMaxSize)
 }
 
-func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
-}
-
-func (g *generalConfig) WebDefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
-}
-
-func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
+func (g *generalConfig) WebServerStartTimeout() time.Duration {
+	return g.c.WebServer.StartTimeout.Duration()
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -489,12 +457,8 @@ func (g *generalConfig) ExplorerURL() *url.URL {
 	return u
 }
 
-func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return *g.c.FluxMonitor.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) FMSimulateTransactions() bool {
-	return *g.c.FluxMonitor.SimulateTransactions
+func (g *generalConfig) FluxMonitor() config.FluxMonitor {
+	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
@@ -503,10 +467,6 @@ func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
-}
-
-func (g *generalConfig) JSONConsole() bool {
-	return *g.c.Log.JSONConsole
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
@@ -532,28 +492,8 @@ func (g *generalConfig) KeyFile() string {
 	return g.TLSKeyPath()
 }
 
-func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.File.Dir
-	if s == "" {
-		s = g.RootDir()
-	}
-	return s
-}
-
-func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.File.MaxSize
-}
-
-func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.File.MaxAgeDays
-}
-
-func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.File.MaxBackups
-}
-
-func (g *generalConfig) LogUnixTimestamps() bool {
-	return *g.c.Log.UnixTS
+func (g *generalConfig) Log() config.Log {
+	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -859,45 +799,6 @@ func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	}
 }
 
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	if g.c.TelemetryIngress.URL.IsZero() {
-		return nil
-	}
-	return g.c.TelemetryIngress.URL.URL()
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
-}
-
 func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
 	return *g.c.WebServer.RateLimit.Unauthenticated
 }
@@ -906,8 +807,8 @@ func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
-func (g *generalConfig) AuditLogger() audit.Config {
-	return auditLoggerConfig{C: g.c.AuditLogger}
+func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
+	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
 // Insecure config

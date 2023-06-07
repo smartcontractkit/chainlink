@@ -137,7 +137,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
         // Actually perform the target upkeep
         (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
-          upkeepTransmitInfo[i].upkeep,
+          upkeepTransmitInfo[i].upkeep.forwarder,
+          report.gasLimits[i],
           report.performDatas[i]
         );
 
@@ -216,7 +217,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
-    return _performUpkeep(upkeep, performData);
+    return _performUpkeep(upkeep.forwarder, upkeep.executeGas, performData);
   }
 
   /**
@@ -400,10 +401,15 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       uint256 fastGasWei,
       uint256 linkNative,
       uint256[] memory upkeepIds,
+      uint256[] memory gasLimits,
       bytes[] memory triggers,
       bytes[] memory performDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], bytes[], bytes[]));
-    if (upkeepIds.length != triggers.length || upkeepIds.length != performDatas.length) {
+    ) = abi.decode(rawReport, (uint256, uint256, uint256[], uint256[], bytes[], bytes[]));
+    if (
+      upkeepIds.length != gasLimits.length ||
+      upkeepIds.length != triggers.length ||
+      upkeepIds.length != performDatas.length
+    ) {
       revert InvalidReport();
     }
     return
@@ -411,6 +417,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         fastGasWei: fastGasWei,
         linkNative: linkNative,
         upkeepIds: upkeepIds,
+        gasLimits: gasLimits,
         triggers: triggers,
         performDatas: performDatas
       });
@@ -528,12 +535,13 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * transmitter and the exact gas required by the Upkeep
    */
   function _performUpkeep(
-    Upkeep memory upkeep,
+    AutomationForwarder forwarder,
+    uint256 executeGas,
     bytes memory performData
   ) private nonReentrant returns (bool success, uint256 gasUsed) {
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    success = upkeep.forwarder.forward(upkeep.executeGas, callData);
+    success = forwarder.forward(executeGas, callData);
     gasUsed = gasUsed - gasleft();
     return (success, gasUsed);
   }

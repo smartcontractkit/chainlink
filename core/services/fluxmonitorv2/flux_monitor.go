@@ -156,7 +156,9 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	fmcfg FluxMonitorConfig,
 	jcfg JobPipelineConfig,
+	dbCfg pg.QConfig,
 	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
@@ -246,7 +248,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		pg.NewQ(db, lggr, cfg),
+		pg.NewQ(db, lggr, dbCfg),
 		orm,
 		jobORM,
 		pipelineORM,

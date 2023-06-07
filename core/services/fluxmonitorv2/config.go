@@ -4,19 +4,20 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	FlagsContractAddress() string
-	MinimumContractPayment() *assets.Link
-	EvmGasLimitDefault() uint32
-	EvmGasLimitFMJobType() *uint32
-	EvmMaxQueuedTransactions() uint64
-	FMDefaultTransactionQueueDepth() uint32
-	pg.QConfig
+	FlagsContractAddress() string         // Evm
+	MinimumContractPayment() *assets.Link // Evm
+	EvmGasLimitDefault() uint32           // Evm
+	EvmGasLimitFMJobType() *uint32        // Evm
+	EvmMaxQueuedTransactions() uint64     // Evm
+}
+
+type FluxMonitorConfig interface {
+	DefaultTransactionQueueDepth() uint32
 }
 
 type JobPipelineConfig interface {

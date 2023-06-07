@@ -238,7 +238,7 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	ln, highest, greatest := n.nLiveNodes()
 	mode := n.cfg.NodeSelectionMode()
 	switch mode {
-	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin:
+	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel:
 		return num < highest-int64(threshold), ln
 	case NodeSelectionMode_TotalDifficulty:
 		bigThreshold := utils.NewBigI(int64(threshold))

@@ -10,8 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -73,6 +75,7 @@ type DelegateConfig interface {
 	validate.Config
 	plugins.RegistrarConfig
 	JobPipeline() jobPipelineConfig
+	Database() pg.QConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -80,10 +83,15 @@ type delegateConfig struct {
 	validate.Config
 	plugins.RegistrarConfig
 	jobPipeline jobPipelineConfig
+	database    pg.QConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
 	return d.jobPipeline
+}
+
+func (d *delegateConfig) Database() pg.QConfig {
+	return d.database
 }
 
 type jobPipelineConfig interface {
@@ -91,11 +99,12 @@ type jobPipelineConfig interface {
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
+		database:        qconf,
 	}
 }
 
@@ -266,6 +275,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
 		}
+		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
@@ -292,8 +302,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
+	lggr = logger.Sugared(lggr.With("transmitterID", transmitterID))
 
-	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg)
+	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg.Database())
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -365,7 +376,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chain")
 		}
 
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          mercuryProvider.ContractTransmitter(),
@@ -380,7 +391,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain)
+		mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, mercuryProvider.ContractTransmitter())
 
 		if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
@@ -390,7 +401,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return mercuryServices, err2
 
 	case job.Median:
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			Database:                     ocrDB,
@@ -438,7 +449,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		noopMonitoringEndpoint := telemetry.NoopAgent{}
-		oracleArgsNoPlugin := libocr2.OracleArgs{
+		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          dkgProvider.ContractTransmitter(),
@@ -462,7 +473,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Client(),
 			oracleArgsNoPlugin,
 			d.db,
-			d.cfg,
+			d.cfg.Database(),
 			big.NewInt(chainID),
 			spec.Relay,
 		)
@@ -617,7 +628,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			KeyID:                              keyID,
 			DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 			VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-			DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg, big.NewInt(chainID), spec.Relay),
+			DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), big.NewInt(chainID), spec.Relay),
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -739,7 +750,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
-		sharedOracleArgs := libocr2.OracleArgs{
+		sharedOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),
@@ -758,7 +769,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Job:             jb,
 			JobORM:          d.jobORM,
 			BridgeORM:       d.bridgeORM,
-			OCR2JobConfig:   d.cfg,
+			OCR2JobConfig:   d.cfg.Database(),
 			DB:              d.db,
 			Chain:           chain,
 			ContractID:      spec.ContractID,
