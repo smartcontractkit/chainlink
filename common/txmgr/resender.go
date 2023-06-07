@@ -141,7 +141,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) resen
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	for _, k := range enabledAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-		attempts, err = er.txStore.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
