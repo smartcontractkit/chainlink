@@ -27,14 +27,16 @@ func (_m *Head[BLOCK_HASH]) BlockHash() BLOCK_HASH {
 }
 
 // BlockNumber provides a mock function with given fields:
-func (_m *Head[BLOCK_HASH]) BlockNumber() int64 {
+func (_m *Head[BLOCK_HASH]) BlockNumber() *big.Int {
 	ret := _m.Called()
 
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
 	}
 
 	return r0
