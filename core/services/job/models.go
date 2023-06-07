@@ -149,13 +149,16 @@ type Job struct {
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
 	Type                          Type
-	SchemaVersion                 uint32
-	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	Name                          null.String
-	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt                     time.Time
+	// Type spec contains job type specific configuration that is customisable per job.
+	// Each job of one type can configure the same properties, but with different values.
+	TypeSpec          JSONConfig
+	SchemaVersion     uint32
+	GasLimit          clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed bool          `toml:"forwardingAllowed"`
+	Name              null.String
+	MaxTaskDuration   models.Interval
+	Pipeline          pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt         time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
