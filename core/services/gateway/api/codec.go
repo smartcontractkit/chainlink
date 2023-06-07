@@ -1,4 +1,4 @@
-package gateway
+package api
 
 // Codec implements (de)serialization of Message objects.
 type Codec interface {
