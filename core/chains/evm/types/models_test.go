@@ -222,7 +222,7 @@ func TestHead_EarliestInChain(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, int64(1), head.EarliestInChain().BlockNumber())
+	assert.Equal(t, big.NewInt(1), head.EarliestInChain().BlockNumber())
 }
 
 func TestHead_IsInChain(t *testing.T) {
