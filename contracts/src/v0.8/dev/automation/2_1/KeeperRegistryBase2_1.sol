@@ -73,7 +73,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 75_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
@@ -279,11 +279,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   // Report transmitted by OCR to transmit function
-  // TODO - do we use this struct anywhere?
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
     uint256[] upkeepIds;
+    uint256[] gasLimits;
     bytes[] triggers;
     bytes[] performDatas;
   }
