@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -113,7 +112,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
+		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
@@ -198,7 +197,7 @@ type EvmRegistry struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	active        map[string]activeUpkeep
-	headFunc      func(types.BlockKey)
+	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
 	mercury       MercuryConfig

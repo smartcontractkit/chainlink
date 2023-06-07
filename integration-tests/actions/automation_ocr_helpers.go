@@ -2,6 +2,7 @@ package actions
 
 //revive:disable:dot-imports
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	types2 "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/smartcontractkit/ocr2keepers/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -50,6 +51,20 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		return contracts.OCRv2Config{}, err
 	}
 
+	offC, err := json.Marshal(config.OffchainConfig{
+		TargetProbability:    "0.999",
+		TargetInRounds:       1,
+		PerformLockoutWindow: 3600000, // Intentionally set to be higher than in prod for testing purpose
+		GasLimitPerReport:    5_300_000,
+		GasOverheadPerUpkeep: 300_000,
+		SamplingJobDuration:  3000,
+		MinConfirmations:     0,
+		MaxUpkeepBatchSize:   1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		10*time.Second,        // deltaProgress time.Duration,
 		15*time.Second,        // deltaResend time.Duration,
@@ -59,16 +74,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		24,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
-		types2.OffchainConfig{
-			TargetProbability:    "0.999",
-			TargetInRounds:       1,
-			PerformLockoutWindow: 3600000, // Intentionally set to be higher than in prod for testing purpose
-			GasLimitPerReport:    5_300_000,
-			GasOverheadPerUpkeep: 300_000,
-			SamplingJobDuration:  3000,
-			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   1,
-		}.Encode(), // reportingPluginConfig []byte,
+		offC,                  // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		20*time.Millisecond,   // maxDurationObservation time.Duration,
 		1200*time.Millisecond, // maxDurationReport time.Duration,
