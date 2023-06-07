@@ -33,8 +33,6 @@ type MFA interface {
 }
 
 type WebServer interface {
-	SessionTimeout() models.Duration
-
 	AllowOrigins() string
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
@@ -45,12 +43,9 @@ type WebServer interface {
 	SessionReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
+	SessionTimeout() models.Duration
 
 	TLS() TLS
 	RateLimit() RateLimit
 	MFA() MFA
-}
-
-type WebV1 interface {
-	SessionTimeout() models.Duration
 }

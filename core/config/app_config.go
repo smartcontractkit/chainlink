@@ -41,7 +41,6 @@ type AppConfig interface {
 	Prometheus
 	Pyroscope
 	Secrets
-	WebV1
 
 	Database() Database
 	AuditLogger() AuditLogger
