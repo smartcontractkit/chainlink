@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
@@ -24,7 +24,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 
 	t.Run("BuildReport errors if observations are empty", func(t *testing.T) {
 		paos := []relaymercury.ParsedAttributedObservation{}
-		_, err := r.BuildReport(paos, f)
+		_, err := r.BuildReport(paos, f, 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot build report from empty attributed observation")
 	})
@@ -36,51 +36,63 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 
 		paos := []relaymercury.ParsedAttributedObservation{
 			{
-				Timestamp:             uint32(42),
-				BenchmarkPrice:        big.NewInt(43),
-				Bid:                   big.NewInt(44),
-				Ask:                   big.NewInt(45),
+				Timestamp: uint32(42),
+				Observer:  commontypes.OracleID(49),
+
+				BenchmarkPrice: big.NewInt(43),
+				Bid:            big.NewInt(44),
+				Ask:            big.NewInt(45),
+				PricesValid:    true,
+
 				CurrentBlockNum:       48,
 				CurrentBlockHash:      hash,
 				CurrentBlockTimestamp: uint64(123),
-				ValidFromBlockNum:     46,
-				Observer:              commontypes.OracleID(49),
+				CurrentBlockValid:     true,
 			},
 			{
-				Timestamp:             uint32(142),
-				BenchmarkPrice:        big.NewInt(143),
-				Bid:                   big.NewInt(144),
-				Ask:                   big.NewInt(145),
+				Timestamp: uint32(142),
+				Observer:  commontypes.OracleID(149),
+
+				BenchmarkPrice: big.NewInt(143),
+				Bid:            big.NewInt(144),
+				Ask:            big.NewInt(145),
+				PricesValid:    true,
+
 				CurrentBlockNum:       48,
 				CurrentBlockHash:      hash,
 				CurrentBlockTimestamp: uint64(123),
-				ValidFromBlockNum:     46,
-				Observer:              commontypes.OracleID(149),
+				CurrentBlockValid:     true,
 			},
 			{
-				Timestamp:             uint32(242),
-				BenchmarkPrice:        big.NewInt(243),
-				Bid:                   big.NewInt(244),
-				Ask:                   big.NewInt(245),
+				Timestamp: uint32(242),
+				Observer:  commontypes.OracleID(249),
+
+				BenchmarkPrice: big.NewInt(243),
+				Bid:            big.NewInt(244),
+				Ask:            big.NewInt(245),
+				PricesValid:    true,
+
 				CurrentBlockNum:       248,
 				CurrentBlockHash:      hash,
 				CurrentBlockTimestamp: uint64(789),
-				ValidFromBlockNum:     246,
-				Observer:              commontypes.OracleID(249),
+				CurrentBlockValid:     true,
 			},
 			{
-				Timestamp:             uint32(342),
-				BenchmarkPrice:        big.NewInt(343),
-				Bid:                   big.NewInt(344),
-				Ask:                   big.NewInt(345),
+				Timestamp: uint32(342),
+				Observer:  commontypes.OracleID(250),
+
+				BenchmarkPrice: big.NewInt(343),
+				Bid:            big.NewInt(344),
+				Ask:            big.NewInt(345),
+				PricesValid:    true,
+
 				CurrentBlockNum:       348,
 				CurrentBlockHash:      hash,
 				CurrentBlockTimestamp: uint64(123456),
-				ValidFromBlockNum:     346,
-				Observer:              commontypes.OracleID(250),
+				CurrentBlockValid:     true,
 			},
 		}
-		report, err := r.BuildReport(paos, f)
+		report, err := r.BuildReport(paos, f, 46)
 		require.NoError(t, err)
 
 		reportElems := make(map[string]interface{})
