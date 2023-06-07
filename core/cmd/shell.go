@@ -474,7 +474,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 			return server.runTLS(
 				config.TLSPort(),
 				config.WebServer().TLS().CertFile(),
-				config.KeyFile(),
+				config.WebServer().TLS().KeyFile(),
 				config.HTTPServerWriteTimeout())
 		})
 	}
