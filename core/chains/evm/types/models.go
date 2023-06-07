@@ -65,10 +65,6 @@ func (h *Head) BlockNumber() *big.Int {
 	return big.NewInt(h.Number)
 }
 
-func (h *Head) BlockNumberInt64() int64 {
-	return h.Number
-}
-
 func (h *Head) BlockHash() common.Hash {
 	return h.Hash
 }
