@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -26,7 +27,7 @@ type TxStore[
 	// Represents the sequence type for a chain. For example, nonce for EVM.
 	SEQ Sequence,
 	// Represents the chain specific fee type
-	FEE Fee,
+	FEE feetypes.Fee,
 	// additional parameter inside of Tx, can be used for passing any additional information through the tx
 	ADD any,
 ] interface {
