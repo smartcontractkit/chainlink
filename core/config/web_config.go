@@ -11,7 +11,6 @@ import (
 
 type TLS interface {
 	TLSKeyPath() string
-	TLSPort() uint16
 
 	Dir() string
 	Host() string
@@ -19,6 +18,7 @@ type TLS interface {
 	CertPath() string
 	CertFile() string
 	KeyFile() string
+	HTTPSPort() uint16
 }
 
 type WebServer interface {
@@ -53,7 +53,6 @@ type WebV1 interface {
 	RPID() string
 	RPOrigin() string
 	TLSKeyPath() string
-	TLSPort() uint16
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	ReaperExpiration() models.Duration
