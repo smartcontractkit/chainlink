@@ -33,7 +33,6 @@ type MFA interface {
 }
 
 type WebServer interface {
-	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
@@ -45,6 +44,7 @@ type WebServer interface {
 	ServerStartTimeout() time.Duration
 	HTTPWriteTimeout() time.Duration
 	HTTPPort() uint16
+	SessionReaperExpiration() models.Duration
 
 	TLS() TLS
 	RateLimit() RateLimit
@@ -52,7 +52,6 @@ type WebServer interface {
 }
 
 type WebV1 interface {
-	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration

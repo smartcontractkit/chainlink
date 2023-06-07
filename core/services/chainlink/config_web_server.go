@@ -139,7 +139,7 @@ func (w *webServerConfig) HTTPPort() uint16 {
 	return *w.c.HTTPPort
 }
 
-func (w *webServerConfig) ReaperExpiration() models.Duration {
+func (w *webServerConfig) SessionReaperExpiration() models.Duration {
 	return *w.c.SessionReaperExpiration
 }
 

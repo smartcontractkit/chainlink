@@ -25,7 +25,7 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, uint16(56), ws.HTTPPort())
 	assert.True(t, ws.SecureCookies())
 	assert.Equal(t, *models.MustNewDuration(1 * time.Hour), ws.SessionTimeout())
-	assert.Equal(t, *models.MustNewDuration(168 * time.Hour), ws.ReaperExpiration())
+	assert.Equal(t, *models.MustNewDuration(168 * time.Hour), ws.SessionReaperExpiration())
 	assert.Equal(t, int64(32770), ws.HTTPMaxSize())
 	assert.Equal(t, 15*time.Second, ws.ServerStartTimeout())
 	tls := ws.TLS()
