@@ -38,7 +38,6 @@ type WebServer interface {
 }
 
 type WebV1 interface {
-	AllowOrigins() string
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	BridgeCacheTTL() time.Duration
