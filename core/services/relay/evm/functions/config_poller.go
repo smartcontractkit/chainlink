@@ -15,10 +15,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-type ThresholdConfigPoller interface {
+type ConfigPoller interface {
 	ocrtypes.ContractConfigTracker
 
 	Replay(ctx context.Context, fromBlock int64) error
+}
+
+type FunctionsPluginType int
+
+const (
+	FunctionsPlugin FunctionsPluginType = iota
+	ThresholdPlugin
+)
+
+type configPoller struct {
+	lggr               logger.Logger
+	filterName         string
+	destChainLogPoller logpoller.LogPoller
+	addr               common.Address
+	pluginType         FunctionsPluginType
 }
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -47,7 +62,7 @@ func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
+func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.ContractConfig, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -63,14 +78,22 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		signers = append(signers, addr[:])
 	}
 
-	thresholdOffchainConfig, err := DecodeThresholdReportingPluginConfig(unpacked.OffchainConfig)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to decode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
-	}
+	var offchainConfig []byte
 
-	thresholdOffchainConfigBytes, err := EncodeThresholdPluginConfig(thresholdOffchainConfig)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to encode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
+	if pluginType == ThresholdPlugin {
+		thresholdOffchainConfig, err := DecodeThresholdReportingPluginConfig(unpacked.OffchainConfig)
+		if err != nil {
+			return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to decode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
+		}
+
+		offchainConfig, err = EncodeThresholdPluginConfig(thresholdOffchainConfig)
+		if err != nil {
+			return ocrtypes.ContractConfig{}, errors.Wrapf(err, "failed to encode Threshold plugin offchain config: %v", unpacked.OffchainConfig)
+		}
+	} else if pluginType == FunctionsPlugin {
+		offchainConfig = unpacked.OffchainConfig
+	} else {
+		return ocrtypes.ContractConfig{}, errors.Errorf("unknown plugin type: %v", pluginType)
 	}
 
 	return ocrtypes.ContractConfig{
@@ -81,15 +104,8 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		F:                     unpacked.F,
 		OnchainConfig:         unpacked.OnchainConfig,
 		OffchainConfigVersion: unpacked.OffchainConfigVersion,
-		OffchainConfig:        thresholdOffchainConfigBytes,
+		OffchainConfig:        offchainConfig,
 	}, nil
-}
-
-type configPoller struct {
-	lggr               logger.Logger
-	filterName         string
-	destChainLogPoller logpoller.LogPoller
-	addr               common.Address
 }
 
 func configPollerFilterName(addr common.Address) string {
@@ -97,7 +113,7 @@ func configPollerFilterName(addr common.Address) string {
 }
 
 // NewConfigPoller creates a new ConfigPoller
-func NewThresholdConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ThresholdConfigPoller, error) {
+func NewFunctionsConfigPoller(pluginType FunctionsPluginType, lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
@@ -108,6 +124,7 @@ func NewThresholdConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogP
 		filterName:         configPollerFilterName(addr),
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
+		pluginType:         pluginType,
 	}
 
 	return cp, nil
@@ -133,7 +150,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
-	latestConfigSet, err := configFromLog(latest.Data)
+	latestConfigSet, err := configFromLog(latest.Data, cp.pluginType)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -146,7 +163,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
+	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data, cp.pluginType)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
