@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 // DummyHandler forwards each request/response without doing any checks.
@@ -25,7 +27,7 @@ func NewDummyHandler(donConfig *DONConfig, connMgr DONConnectionManager) (Handle
 	}, nil
 }
 
-func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *Message, callbackCh chan<- UserCallbackPayload) error {
+func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = callbackCh
 	connMgr := d.connMgr
@@ -38,7 +40,7 @@ func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *Message, call
 	return err
 }
 
-func (d *dummyHandler) HandleNodeMessage(ctx context.Context, msg *Message, nodeAddr string) error {
+func (d *dummyHandler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	d.mu.Lock()
 	callbackCh := d.savedCallbacks[msg.Body.MessageId]
 	delete(d.savedCallbacks, msg.Body.MessageId)
