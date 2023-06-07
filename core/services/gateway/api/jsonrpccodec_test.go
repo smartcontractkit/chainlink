@@ -1,18 +1,18 @@
-package gateway_test
+package api_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
-	codec := gateway.JsonRPCCodec{}
+	codec := api.JsonRPCCodec{}
 	msg, err := codec.DecodeRequest(input)
 	require.NoError(t, err)
 	require.Equal(t, "functions_local", msg.Body.DonId)
@@ -31,7 +31,7 @@ func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 		"incorrect rpc version": `{"jsonrpc": "5.1", "id": "abc", "method": "upload", "params": {}}`,
 	}
 
-	codec := gateway.JsonRPCCodec{}
+	codec := api.JsonRPCCodec{}
 	for _, input := range testCases {
 		_, err := codec.DecodeRequest([]byte(input))
 		require.Error(t, err)
@@ -41,13 +41,13 @@ func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 func TestJsonRPCRequest_Encode(t *testing.T) {
 	t.Parallel()
 
-	var msg gateway.Message
-	msg.Body = gateway.MessageBody{
+	var msg api.Message
+	msg.Body = api.MessageBody{
 		MessageId: "aA-bB",
 		Sender:    "0x1234",
 		Method:    "upload",
 	}
-	codec := gateway.JsonRPCCodec{}
+	codec := api.JsonRPCCodec{}
 	bytes, err := codec.EncodeRequest(&msg)
 	require.NoError(t, err)
 
@@ -62,7 +62,7 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "result": {"body": {"don_id": "functions_local", "payload": {"field": 123}}}}`)
-	codec := gateway.JsonRPCCodec{}
+	codec := api.JsonRPCCodec{}
 	msg, err := codec.DecodeResponse(input)
 	require.NoError(t, err)
 	require.Equal(t, "functions_local", msg.Body.DonId)
@@ -73,13 +73,13 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 func TestJsonRPCResponse_Encode(t *testing.T) {
 	t.Parallel()
 
-	var msg gateway.Message
-	msg.Body = gateway.MessageBody{
+	var msg api.Message
+	msg.Body = api.MessageBody{
 		MessageId: "aA-bB",
 		Sender:    "0x1234",
 		Method:    "upload",
 	}
-	codec := gateway.JsonRPCCodec{}
+	codec := api.JsonRPCCodec{}
 	bytes, err := codec.EncodeResponse(&msg)
 	require.NoError(t, err)
 
