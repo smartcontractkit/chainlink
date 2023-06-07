@@ -26,6 +26,11 @@ Order = 5
   `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`. To migrate to these new fields, set their values to be identical to
   `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`.
 
+- Low latency oracle jobs now support in-protocol block range guarantees. This
+  is necessary in order to produce reports with block number ranges that do not
+  overlap. It can now be guaranteed at the protocol level, so we can use local
+  state instead of relying on an unreliable round-trip to the Mercury server.
+
 ### Fixed
 
 ### Changed

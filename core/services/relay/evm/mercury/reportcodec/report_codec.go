@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
@@ -52,7 +52,7 @@ func NewEVMReportCodec(feedID [32]byte, lggr logger.Logger) *EVMReportCodec {
 	return &EVMReportCodec{lggr, feedID}
 }
 
-func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObservation, f int) (ocrtypes.Report, error) {
+func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
@@ -61,18 +61,22 @@ func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObserva
 	paos = append([]relaymercury.ParsedAttributedObservation{}, paos...)
 
 	timestamp := relaymercury.GetConsensusTimestamp(paos)
-	benchmarkPrice := relaymercury.GetConsensusBenchmarkPrice(paos)
-	bid := relaymercury.GetConsensusBid(paos)
-	ask := relaymercury.GetConsensusAsk(paos)
+	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
+	}
+	bid, err := relaymercury.GetConsensusBid(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusBid failed")
+	}
+	ask, err := relaymercury.GetConsensusAsk(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusAsk failed")
+	}
 
 	currentBlockHash, currentBlockNum, currentBlockTimestamp, err := relaymercury.GetConsensusCurrentBlock(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusCurrentBlock failed")
-	}
-
-	validFromBlockNum, err := relaymercury.GetConsensusValidFromBlock(paos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusValidFromBlock failed")
 	}
 
 	if validFromBlockNum > currentBlockNum {
@@ -111,6 +115,29 @@ func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int6
 	blockNumIface, ok := reportElems["currentBlockNum"]
 	if !ok {
 		return 0, errors.Errorf("unpacked report has no 'currentBlockNum' field")
+	}
+
+	blockNum, ok := blockNumIface.(uint64)
+	if !ok {
+		return 0, errors.Errorf("cannot cast blockNum to int64, type is %T", blockNumIface)
+	}
+
+	if blockNum > math.MaxInt64 {
+		return 0, errors.Errorf("blockNum overflows max int64, got: %d", blockNum)
+	}
+
+	return int64(blockNum), nil
+}
+
+func (r *EVMReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64, error) {
+	reportElems := map[string]interface{}{}
+	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
+		return 0, errors.Errorf("error during unpack: %v", err)
+	}
+
+	blockNumIface, ok := reportElems["validFromBlockNum"]
+	if !ok {
+		return 0, errors.Errorf("unpacked report has no 'validFromBlockNum' field")
 	}
 
 	blockNum, ok := blockNumIface.(uint64)
