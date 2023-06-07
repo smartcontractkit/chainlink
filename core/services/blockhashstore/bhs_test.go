@@ -26,13 +26,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	chain, err := chainSet.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	require.NoError(t, ks.Unlock("blah"))
 	k1, err := ks.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -46,6 +46,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	require.NoError(t, err)
 	bhs, err := blockhashstore.NewBulletproofBHS(
 		chain.Config(),
+		chain.Config().Database(),
 		fromAddresses,
 		txm,
 		store,

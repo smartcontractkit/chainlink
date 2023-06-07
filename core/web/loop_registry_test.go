@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -26,20 +27,21 @@ type mockLoopImpl struct {
 // test prom var to avoid collision with real chainlink metrics
 var (
 	testRegistry   = prometheus.NewRegistry()
+	testHandler    = promhttp.HandlerFor(testRegistry, promhttp.HandlerOpts{})
 	testMetricName = "super_great_counter"
 	testMetric     = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: testMetricName,
 	})
 )
 
-func configurePromRegistry(t *testing.T) {
+func configurePromRegistry() {
 	testRegistry.MustRegister(testMetric)
 }
 
 func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 	return &mockLoopImpl{
 		t:          t,
-		PromServer: plugins.NewPromServer(port, logger.TestLogger(t).Named("mock-loop"), plugins.WithRegistry(testRegistry)),
+		PromServer: plugins.NewPromServer(port, logger.TestLogger(t).Named("mock-loop"), plugins.WithHandler(testHandler)),
 	}
 }
 
@@ -79,7 +81,7 @@ func TestLoopRegistry(t *testing.T) {
 
 	// set up a test prometheus registry and test metric that is used by
 	// our mock loop impl and isolated from the default prom register
-	configurePromRegistry(t)
+	configurePromRegistry()
 	mockLoop := newMockLoopImpl(t, loop.EnvCfg.PrometheusPort())
 	mockLoop.start()
 	defer mockLoop.close()

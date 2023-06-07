@@ -5,6 +5,7 @@ package vrf_beacon_consumer
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
 var (
@@ -29,15 +31,15 @@ var (
 )
 
 var BeaconVRFConsumerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"router\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"shouldFail\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"beaconPeriodBlocks\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"MustBeRouter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"fail\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"i_beaconPeriodBlocks\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestID\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"arguments\",\"type\":\"bytes\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_ReceivedRandomnessByRequestID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_arguments\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_gasAvailable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_mostRecentRequestID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_myBeaconRequests\",\"outputs\":[{\"internalType\":\"VRFBeaconTypes.SlotNumber\",\"name\":\"slotNumber\",\"type\":\"uint32\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelay\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"address\",\"name\":\"requester\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_randomWords\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"\",\"type\":\"uint24\"}],\"name\":\"s_requestsIDs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_subId\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"shouldFail\",\"type\":\"bool\"}],\"name\":\"setFail\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"reqId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"delay\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"}],\"name\":\"storeBeaconRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestID\",\"type\":\"uint256\"}],\"name\":\"testRedeemRandomness\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelayArg\",\"type\":\"uint24\"}],\"name\":\"testRequestRandomness\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelayArg\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"arguments\",\"type\":\"bytes\"}],\"name\":\"testRequestRandomnessFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60a060405234801561001057600080fd5b506040516111a53803806111a583398101604081905261002f9161006c565b6001600160a01b03929092166080819052600680546001600160a01b03191690911790556009805460ff1916911515919091179055600a556100c0565b60008060006060848603121561008157600080fd5b83516001600160a01b038116811461009857600080fd5b602085015190935080151581146100ae57600080fd5b80925050604084015190509250925092565b6080516110ca6100db60003960006106b401526110ca6000f3fe608060405234801561001057600080fd5b50600436106101005760003560e01c8063c6d6130111610097578063ea7502ab11610066578063ea7502ab1461024e578063f08c5daa14610261578063f6eaffc81461026a578063ffe97ca41461027d57600080fd5b8063c6d613011461020c578063cd0593df1461021f578063d0705f0414610228578063d21ea8fd1461023b57600080fd5b8063706da1ca116100d3578063706da1ca146101745780637716cdaa146101b95780639d769402146101ce578063a9cc4718146101ef57600080fd5b8063341867a2146101055780635f15cccc1461011a578063689b77ab146101585780636df57cc314610161575b600080fd5b6101186101133660046109d5565b610316565b005b610145610128366004610a0f565b600160209081526000928352604080842090915290825290205481565b6040519081526020015b60405180910390f35b61014560055481565b61011861016f366004610a4d565b6103e0565b6007546101a09074010000000000000000000000000000000000000000900467ffffffffffffffff1681565b60405167ffffffffffffffff909116815260200161014f565b6101c16104f6565b60405161014f9190610ad9565b6101186101dc366004610af3565b6009805460ff1916911515919091179055565b6009546101fc9060ff1681565b604051901515815260200161014f565b61014561021a366004610b15565b610584565b610145600a5481565b6101456102363660046109d5565b610681565b610118610249366004610c2c565b6106b2565b61014561025c366004610cf5565b610724565b61014560085481565b610145610278366004610d79565b61082d565b6102d961028b366004610d79565b60026020526000908152604090205463ffffffff811690640100000000810462ffffff1690670100000000000000810461ffff1690690100000000000000000090046001600160a01b031684565b6040805163ffffffff909516855262ffffff909316602085015261ffff909116918301919091526001600160a01b0316606082015260800161014f565b60065460408051602081018252600080825291517facfc6cdd00000000000000000000000000000000000000000000000000000000815291926001600160a01b03169163acfc6cdd9161036f9187918791600401610d92565b6000604051808303816000875af115801561038e573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f191682016040526103b69190810190610dba565b600083815260036020908152604090912082519293506103da929091840190610975565b50505050565b600083815260016020908152604080832062ffffff861684529091528120859055600a5461040e9085610e77565b6040805160808101825263ffffffff928316815262ffffff958616602080830191825261ffff968716838501908152306060850190815260009b8c52600290925293909920915182549151935199516001600160a01b03166901000000000000000000027fffffff0000000000000000000000000000000000000000ffffffffffffffffff9a90971667010000000000000002999099167fffffff00000000000000000000000000000000000000000000ffffffffffffff939097166401000000000266ffffffffffffff199091169890931697909717919091171692909217179092555050565b6004805461050390610e8b565b80601f016020809104026020016040519081016040528092919081815260200182805461052f90610e8b565b801561057c5780601f106105515761010080835404028352916020019161057c565b820191906000526020600020905b81548152906001019060200180831161055f57829003601f168201915b505050505081565b600080600a5461059261084e565b61059c9190610ec5565b9050600081600a546105ac61084e565b6105b69190610ed9565b6105c09190610ef2565b60065460408051602081018252600080825291517f4ffac83a00000000000000000000000000000000000000000000000000000000815293945090926001600160a01b0390921691634ffac83a91610621918a918c918b9190600401610f05565b6020604051808303816000875af1158015610640573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906106649190610f3d565b90506106728183878a6103e0565b60058190559695505050505050565b6003602052816000526040600020818154811061069d57600080fd5b90600052602060002001600091509150505481565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03163314610714576040517ff74c318f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b61071f8383836108d8565b505050565b6000808490506000600a5461073761084e565b6107419190610ec5565b9050600081600a5461075161084e565b61075b9190610ed9565b6107659190610ef2565b60065460408051602081018252600080825291517fdb972c8b00000000000000000000000000000000000000000000000000000000815293945090926001600160a01b039092169163db972c8b916107ca918e918e918a918e918e9190600401610f56565b6020604051808303816000875af11580156107e9573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061080d9190610f3d565b905061081b81838a8c6103e0565b60058190559998505050505050505050565b6000818154811061083d57600080fd5b600091825260209091200154905081565b60004661a4b1811480610863575062066eed81145b156108d15760646001600160a01b031663a3b1b31d6040518163ffffffff1660e01b8152600401602060405180830381865afa1580156108a7573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108cb9190610f3d565b91505090565b4391505090565b60095460ff1615610949576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f206661696c656420696e2066756c66696c6c52616e646f6d576f726473000000604482015260640160405180910390fd5b6000838152600360209081526040909120835161096892850190610975565b5060046103da8282610ffd565b8280548282559060005260206000209081019282156109b0579160200282015b828111156109b0578251825591602001919060010190610995565b506109bc9291506109c0565b5090565b5b808211156109bc57600081556001016109c1565b600080604083850312156109e857600080fd5b50508035926020909101359150565b803562ffffff81168114610a0a57600080fd5b919050565b60008060408385031215610a2257600080fd5b82359150610a32602084016109f7565b90509250929050565b803561ffff81168114610a0a57600080fd5b60008060008060808587031215610a6357600080fd5b8435935060208501359250610a7a604086016109f7565b9150610a8860608601610a3b565b905092959194509250565b6000815180845260005b81811015610ab957602081850181015186830182015201610a9d565b506000602082860101526020601f19601f83011685010191505092915050565b602081526000610aec6020830184610a93565b9392505050565b600060208284031215610b0557600080fd5b81358015158114610aec57600080fd5b600080600060608486031215610b2a57600080fd5b610b3384610a3b565b925060208401359150610b48604085016109f7565b90509250925092565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f1916810167ffffffffffffffff81118282101715610b9057610b90610b51565b604052919050565b600067ffffffffffffffff821115610bb257610bb2610b51565b5060051b60200190565b600082601f830112610bcd57600080fd5b813567ffffffffffffffff811115610be757610be7610b51565b610bfa601f8201601f1916602001610b67565b818152846020838601011115610c0f57600080fd5b816020850160208301376000918101602001919091529392505050565b600080600060608486031215610c4157600080fd5b8335925060208085013567ffffffffffffffff80821115610c6157600080fd5b818701915087601f830112610c7557600080fd5b8135610c88610c8382610b98565b610b67565b81815260059190911b8301840190848101908a831115610ca757600080fd5b938501935b82851015610cc557843582529385019390850190610cac565b965050506040870135925080831115610cdd57600080fd5b5050610ceb86828701610bbc565b9150509250925092565b600080600080600060a08688031215610d0d57600080fd5b85359450610d1d60208701610a3b565b9350610d2b604087016109f7565b9250606086013563ffffffff81168114610d4457600080fd5b9150608086013567ffffffffffffffff811115610d6057600080fd5b610d6c88828901610bbc565b9150509295509295909350565b600060208284031215610d8b57600080fd5b5035919050565b838152826020820152606060408201526000610db16060830184610a93565b95945050505050565b60006020808385031215610dcd57600080fd5b825167ffffffffffffffff811115610de457600080fd5b8301601f81018513610df557600080fd5b8051610e03610c8382610b98565b81815260059190911b82018301908381019087831115610e2257600080fd5b928401925b82841015610e4057835182529284019290840190610e27565b979650505050505050565b634e487b7160e01b600052601260045260246000fd5b634e487b7160e01b600052601160045260246000fd5b600082610e8657610e86610e4b565b500490565b600181811c90821680610e9f57607f821691505b602082108103610ebf57634e487b7160e01b600052602260045260246000fd5b50919050565b600082610ed457610ed4610e4b565b500690565b80820180821115610eec57610eec610e61565b92915050565b81810381811115610eec57610eec610e61565b84815261ffff8416602082015262ffffff83166040820152608060608201526000610f336080830184610a93565b9695505050505050565b600060208284031215610f4f57600080fd5b5051919050565b86815261ffff8616602082015262ffffff8516604082015263ffffffff8416606082015260c060808201526000610f9060c0830185610a93565b82810360a0840152610fa28185610a93565b9998505050505050505050565b601f82111561071f57600081815260208120601f850160051c81016020861015610fd65750805b601f850160051c820191505b81811015610ff557828155600101610fe2565b505050505050565b815167ffffffffffffffff81111561101757611017610b51565b61102b816110258454610e8b565b84610faf565b602080601f83116001811461106057600084156110485750858301515b600019600386901b1c1916600185901b178555610ff5565b600085815260208120601f198616915b8281101561108f57888601518255948401946001909101908401611070565b50858210156110ad5787850151600019600388901b60f8161c191681555b5050505050600190811b0190555056fea164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"shouldFail\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"beaconPeriodBlocks\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"MustBeCoordinator\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MustBeOwnerOrCoordinator\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"}],\"name\":\"CoordinatorUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fail\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"i_beaconPeriodBlocks\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestID\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"arguments\",\"type\":\"bytes\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_ReceivedRandomnessByRequestID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_arguments\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_gasAvailable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_mostRecentRequestID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_myBeaconRequests\",\"outputs\":[{\"internalType\":\"VRFBeaconTypes.SlotNumber\",\"name\":\"slotNumber\",\"type\":\"uint32\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelay\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"address\",\"name\":\"requester\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_randomWords\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"\",\"type\":\"uint24\"}],\"name\":\"s_requestsIDs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_subId\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"shouldFail\",\"type\":\"bool\"}],\"name\":\"setFail\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"reqId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"delay\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"}],\"name\":\"storeBeaconRequest\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestID\",\"type\":\"uint256\"}],\"name\":\"testRedeemRandomness\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelayArg\",\"type\":\"uint24\"}],\"name\":\"testRequestRandomness\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"subID\",\"type\":\"uint256\"},{\"internalType\":\"uint16\",\"name\":\"numWords\",\"type\":\"uint16\"},{\"internalType\":\"VRFBeaconTypes.ConfirmationDelay\",\"name\":\"confirmationDelayArg\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"arguments\",\"type\":\"bytes\"}],\"name\":\"testRequestRandomnessFulfillment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60806040523480156200001157600080fd5b5060405162001602380380620016028339810160408190526200003491620001aa565b8233806000816200008c5760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000bf57620000bf81620000ff565b5050600280546001600160a01b0319166001600160a01b03939093169290921790915550600b805460ff191692151592909217909155600c555062000201565b336001600160a01b03821603620001595760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000083565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b600080600060608486031215620001c057600080fd5b83516001600160a01b0381168114620001d857600080fd5b60208501519093508015158114620001ef57600080fd5b80925050604084015190509250925092565b6113f180620002116000396000f3fe608060405234801561001057600080fd5b506004361061016c5760003560e01c8063a9cc4718116100cd578063ea7502ab11610081578063f2fde38b11610066578063f2fde38b146102f4578063f6eaffc814610307578063ffe97ca41461031a57600080fd5b8063ea7502ab146102d8578063f08c5daa146102eb57600080fd5b8063cd0593df116100b2578063cd0593df146102a9578063d0705f04146102b2578063d21ea8fd146102c557600080fd5b8063a9cc471814610279578063c6d613011461029657600080fd5b80637716cdaa116101245780638da5cb5b116101095780638da5cb5b1461022a5780638ea98117146102455780639d7694021461025857600080fd5b80637716cdaa1461020d57806379ba50971461022257600080fd5b8063689b77ab11610155578063689b77ab146101c45780636df57cc3146101cd578063706da1ca146101e057600080fd5b8063341867a2146101715780635f15cccc14610186575b600080fd5b61018461017f366004610cd3565b6103b3565b005b6101b1610194366004610d0d565b600460209081526000928352604080842090915290825290205481565b6040519081526020015b60405180910390f35b6101b160085481565b6101846101db366004610d4b565b61047d565b6009546101f49067ffffffffffffffff1681565b60405167ffffffffffffffff90911681526020016101bb565b610215610593565b6040516101bb9190610dd7565b610184610621565b6000546040516001600160a01b0390911681526020016101bb565b610184610253366004610df1565b6106e4565b610184610266366004610e1a565b600b805460ff1916911515919091179055565b600b546102869060ff1681565b60405190151581526020016101bb565b6101b16102a4366004610e3c565b610798565b6101b1600c5481565b6101b16102c0366004610cd3565b610895565b6101846102d3366004610f53565b6108c6565b6101b16102e636600461101c565b61091a565b6101b1600a5481565b610184610302366004610df1565b610a23565b6101b16103153660046110a0565b610a37565b6103766103283660046110a0565b60056020526000908152604090205463ffffffff811690640100000000810462ffffff1690670100000000000000810461ffff1690690100000000000000000090046001600160a01b031684565b6040805163ffffffff909516855262ffffff909316602085015261ffff909116918301919091526001600160a01b031660608201526080016101bb565b60025460408051602081018252600080825291517facfc6cdd00000000000000000000000000000000000000000000000000000000815291926001600160a01b03169163acfc6cdd9161040c91879187916004016110b9565b6000604051808303816000875af115801561042b573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f1916820160405261045391908101906110e1565b60008381526006602090815260409091208251929350610477929091840190610c73565b50505050565b600083815260046020908152604080832062ffffff861684529091528120859055600c546104ab908561119e565b6040805160808101825263ffffffff928316815262ffffff958616602080830191825261ffff968716838501908152306060850190815260009b8c52600590925293909920915182549151935199516001600160a01b03166901000000000000000000027fffffff0000000000000000000000000000000000000000ffffffffffffffffff9a90971667010000000000000002999099167fffffff00000000000000000000000000000000000000000000ffffffffffffff939097166401000000000266ffffffffffffff199091169890931697909717919091171692909217179092555050565b600780546105a0906111b2565b80601f01602080910402602001604051908101604052809291908181526020018280546105cc906111b2565b80156106195780601f106105ee57610100808354040283529160200191610619565b820191906000526020600020905b8154815290600101906020018083116105fc57829003601f168201915b505050505081565b6001546001600160a01b031633146106805760405162461bcd60e51b815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b600080543373ffffffffffffffffffffffffffffffffffffffff19808316821784556001805490911690556040516001600160a01b0390921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b6000546001600160a01b0316331480159061070a57506002546001600160a01b03163314155b15610741576040517fd4e06fd700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6002805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b0383169081179091556040517fc258faa9a17ddfdf4130b4acff63a289202e7d5f9e42f366add65368575486bc90600090a250565b600080600c546107a6610a58565b6107b091906111ec565b9050600081600c546107c0610a58565b6107ca9190611200565b6107d49190611219565b60025460408051602081018252600080825291517f4ffac83a00000000000000000000000000000000000000000000000000000000815293945090926001600160a01b0390921691634ffac83a91610835918a918c918b919060040161122c565b6020604051808303816000875af1158015610854573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108789190611264565b90506108868183878a61047d565b60088190559695505050505050565b600660205281600052604060002081815481106108b157600080fd5b90600052602060002001600091509150505481565b6002546001600160a01b0316331461090a576040517f66bf9c7200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610915838383610ae2565b505050565b6000808490506000600c5461092d610a58565b61093791906111ec565b9050600081600c54610947610a58565b6109519190611200565b61095b9190611219565b60025460408051602081018252600080825291517fdb972c8b00000000000000000000000000000000000000000000000000000000815293945090926001600160a01b039092169163db972c8b916109c0918e918e918a918e918e919060040161127d565b6020604051808303816000875af11580156109df573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610a039190611264565b9050610a1181838a8c61047d565b60088190559998505050505050505050565b610a2b610b61565b610a3481610bbd565b50565b60038181548110610a4757600080fd5b600091825260209091200154905081565b60004661a4b1811480610a6d575062066eed81145b15610adb5760646001600160a01b031663a3b1b31d6040518163ffffffff1660e01b8152600401602060405180830381865afa158015610ab1573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610ad59190611264565b91505090565b4391505090565b600b5460ff1615610b355760405162461bcd60e51b815260206004820152601d60248201527f206661696c656420696e2066756c66696c6c52616e646f6d576f7264730000006044820152606401610677565b60008381526006602090815260409091208351610b5492850190610c73565b5060076104778282611324565b6000546001600160a01b03163314610bbb5760405162461bcd60e51b815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610677565b565b336001600160a01b03821603610c155760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610677565b6001805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b828054828255906000526020600020908101928215610cae579160200282015b82811115610cae578251825591602001919060010190610c93565b50610cba929150610cbe565b5090565b5b80821115610cba5760008155600101610cbf565b60008060408385031215610ce657600080fd5b50508035926020909101359150565b803562ffffff81168114610d0857600080fd5b919050565b60008060408385031215610d2057600080fd5b82359150610d3060208401610cf5565b90509250929050565b803561ffff81168114610d0857600080fd5b60008060008060808587031215610d6157600080fd5b8435935060208501359250610d7860408601610cf5565b9150610d8660608601610d39565b905092959194509250565b6000815180845260005b81811015610db757602081850181015186830182015201610d9b565b506000602082860101526020601f19601f83011685010191505092915050565b602081526000610dea6020830184610d91565b9392505050565b600060208284031215610e0357600080fd5b81356001600160a01b0381168114610dea57600080fd5b600060208284031215610e2c57600080fd5b81358015158114610dea57600080fd5b600080600060608486031215610e5157600080fd5b610e5a84610d39565b925060208401359150610e6f60408501610cf5565b90509250925092565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f1916810167ffffffffffffffff81118282101715610eb757610eb7610e78565b604052919050565b600067ffffffffffffffff821115610ed957610ed9610e78565b5060051b60200190565b600082601f830112610ef457600080fd5b813567ffffffffffffffff811115610f0e57610f0e610e78565b610f21601f8201601f1916602001610e8e565b818152846020838601011115610f3657600080fd5b816020850160208301376000918101602001919091529392505050565b600080600060608486031215610f6857600080fd5b8335925060208085013567ffffffffffffffff80821115610f8857600080fd5b818701915087601f830112610f9c57600080fd5b8135610faf610faa82610ebf565b610e8e565b81815260059190911b8301840190848101908a831115610fce57600080fd5b938501935b82851015610fec57843582529385019390850190610fd3565b96505050604087013592508083111561100457600080fd5b505061101286828701610ee3565b9150509250925092565b600080600080600060a0868803121561103457600080fd5b8535945061104460208701610d39565b935061105260408701610cf5565b9250606086013563ffffffff8116811461106b57600080fd5b9150608086013567ffffffffffffffff81111561108757600080fd5b61109388828901610ee3565b9150509295509295909350565b6000602082840312156110b257600080fd5b5035919050565b8381528260208201526060604082015260006110d86060830184610d91565b95945050505050565b600060208083850312156110f457600080fd5b825167ffffffffffffffff81111561110b57600080fd5b8301601f8101851361111c57600080fd5b805161112a610faa82610ebf565b81815260059190911b8201830190838101908783111561114957600080fd5b928401925b828410156111675783518252928401929084019061114e565b979650505050505050565b634e487b7160e01b600052601260045260246000fd5b634e487b7160e01b600052601160045260246000fd5b6000826111ad576111ad611172565b500490565b600181811c908216806111c657607f821691505b6020821081036111e657634e487b7160e01b600052602260045260246000fd5b50919050565b6000826111fb576111fb611172565b500690565b8082018082111561121357611213611188565b92915050565b8181038181111561121357611213611188565b84815261ffff8416602082015262ffffff8316604082015260806060820152600061125a6080830184610d91565b9695505050505050565b60006020828403121561127657600080fd5b5051919050565b86815261ffff8616602082015262ffffff8516604082015263ffffffff8416606082015260c0608082015260006112b760c0830185610d91565b82810360a08401526112c98185610d91565b9998505050505050505050565b601f82111561091557600081815260208120601f850160051c810160208610156112fd5750805b601f850160051c820191505b8181101561131c57828155600101611309565b505050505050565b815167ffffffffffffffff81111561133e5761133e610e78565b6113528161134c84546111b2565b846112d6565b602080601f831160018114611387576000841561136f5750858301515b600019600386901b1c1916600185901b17855561131c565b600085815260208120601f198616915b828110156113b657888601518255948401946001909101908401611397565b50858210156113d45787850151600019600388901b60f8161c191681555b5050505050600190811b0190555056fea164736f6c6343000813000a",
 }
 
 var BeaconVRFConsumerABI = BeaconVRFConsumerMetaData.ABI
 
 var BeaconVRFConsumerBin = BeaconVRFConsumerMetaData.Bin
 
-func DeployBeaconVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, router common.Address, shouldFail bool, beaconPeriodBlocks *big.Int) (common.Address, *types.Transaction, *BeaconVRFConsumer, error) {
+func DeployBeaconVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, coordinator common.Address, shouldFail bool, beaconPeriodBlocks *big.Int) (common.Address, *types.Transaction, *BeaconVRFConsumer, error) {
 	parsed, err := BeaconVRFConsumerMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -46,7 +48,7 @@ func DeployBeaconVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBacke
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BeaconVRFConsumerBin), backend, router, shouldFail, beaconPeriodBlocks)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BeaconVRFConsumerBin), backend, coordinator, shouldFail, beaconPeriodBlocks)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -211,6 +213,28 @@ func (_BeaconVRFConsumer *BeaconVRFConsumerSession) IBeaconPeriodBlocks() (*big.
 
 func (_BeaconVRFConsumer *BeaconVRFConsumerCallerSession) IBeaconPeriodBlocks() (*big.Int, error) {
 	return _BeaconVRFConsumer.Contract.IBeaconPeriodBlocks(&_BeaconVRFConsumer.CallOpts)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BeaconVRFConsumer.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerSession) Owner() (common.Address, error) {
+	return _BeaconVRFConsumer.Contract.Owner(&_BeaconVRFConsumer.CallOpts)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerCallerSession) Owner() (common.Address, error) {
+	return _BeaconVRFConsumer.Contract.Owner(&_BeaconVRFConsumer.CallOpts)
 }
 
 func (_BeaconVRFConsumer *BeaconVRFConsumerCaller) SReceivedRandomnessByRequestID(opts *bind.CallOpts, arg0 *big.Int, arg1 *big.Int) (*big.Int, error) {
@@ -399,6 +423,18 @@ func (_BeaconVRFConsumer *BeaconVRFConsumerCallerSession) SSubId() (uint64, erro
 	return _BeaconVRFConsumer.Contract.SSubId(&_BeaconVRFConsumer.CallOpts)
 }
 
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.contract.Transact(opts, "acceptOwnership")
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerSession) AcceptOwnership() (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.AcceptOwnership(&_BeaconVRFConsumer.TransactOpts)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.AcceptOwnership(&_BeaconVRFConsumer.TransactOpts)
+}
+
 func (_BeaconVRFConsumer *BeaconVRFConsumerTransactor) RawFulfillRandomWords(opts *bind.TransactOpts, requestID *big.Int, randomWords []*big.Int, arguments []byte) (*types.Transaction, error) {
 	return _BeaconVRFConsumer.contract.Transact(opts, "rawFulfillRandomWords", requestID, randomWords, arguments)
 }
@@ -409,6 +445,18 @@ func (_BeaconVRFConsumer *BeaconVRFConsumerSession) RawFulfillRandomWords(reques
 
 func (_BeaconVRFConsumer *BeaconVRFConsumerTransactorSession) RawFulfillRandomWords(requestID *big.Int, randomWords []*big.Int, arguments []byte) (*types.Transaction, error) {
 	return _BeaconVRFConsumer.Contract.RawFulfillRandomWords(&_BeaconVRFConsumer.TransactOpts, requestID, randomWords, arguments)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactor) SetCoordinator(opts *bind.TransactOpts, coordinator common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.contract.Transact(opts, "setCoordinator", coordinator)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerSession) SetCoordinator(coordinator common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.SetCoordinator(&_BeaconVRFConsumer.TransactOpts, coordinator)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactorSession) SetCoordinator(coordinator common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.SetCoordinator(&_BeaconVRFConsumer.TransactOpts, coordinator)
 }
 
 func (_BeaconVRFConsumer *BeaconVRFConsumerTransactor) SetFail(opts *bind.TransactOpts, shouldFail bool) (*types.Transaction, error) {
@@ -471,11 +519,448 @@ func (_BeaconVRFConsumer *BeaconVRFConsumerTransactorSession) TestRequestRandomn
 	return _BeaconVRFConsumer.Contract.TestRequestRandomnessFulfillment(&_BeaconVRFConsumer.TransactOpts, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments)
 }
 
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.contract.Transact(opts, "transferOwnership", to)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.TransferOwnership(&_BeaconVRFConsumer.TransactOpts, to)
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _BeaconVRFConsumer.Contract.TransferOwnership(&_BeaconVRFConsumer.TransactOpts, to)
+}
+
+type BeaconVRFConsumerCoordinatorUpdatedIterator struct {
+	Event *BeaconVRFConsumerCoordinatorUpdated
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *BeaconVRFConsumerCoordinatorUpdatedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BeaconVRFConsumerCoordinatorUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(BeaconVRFConsumerCoordinatorUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *BeaconVRFConsumerCoordinatorUpdatedIterator) Error() error {
+	return it.fail
+}
+
+func (it *BeaconVRFConsumerCoordinatorUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type BeaconVRFConsumerCoordinatorUpdated struct {
+	Coordinator common.Address
+	Raw         types.Log
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) FilterCoordinatorUpdated(opts *bind.FilterOpts, coordinator []common.Address) (*BeaconVRFConsumerCoordinatorUpdatedIterator, error) {
+
+	var coordinatorRule []interface{}
+	for _, coordinatorItem := range coordinator {
+		coordinatorRule = append(coordinatorRule, coordinatorItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.FilterLogs(opts, "CoordinatorUpdated", coordinatorRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BeaconVRFConsumerCoordinatorUpdatedIterator{contract: _BeaconVRFConsumer.contract, event: "CoordinatorUpdated", logs: logs, sub: sub}, nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) WatchCoordinatorUpdated(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerCoordinatorUpdated, coordinator []common.Address) (event.Subscription, error) {
+
+	var coordinatorRule []interface{}
+	for _, coordinatorItem := range coordinator {
+		coordinatorRule = append(coordinatorRule, coordinatorItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.WatchLogs(opts, "CoordinatorUpdated", coordinatorRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(BeaconVRFConsumerCoordinatorUpdated)
+				if err := _BeaconVRFConsumer.contract.UnpackLog(event, "CoordinatorUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) ParseCoordinatorUpdated(log types.Log) (*BeaconVRFConsumerCoordinatorUpdated, error) {
+	event := new(BeaconVRFConsumerCoordinatorUpdated)
+	if err := _BeaconVRFConsumer.contract.UnpackLog(event, "CoordinatorUpdated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type BeaconVRFConsumerOwnershipTransferRequestedIterator struct {
+	Event *BeaconVRFConsumerOwnershipTransferRequested
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferRequestedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BeaconVRFConsumerOwnershipTransferRequested)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(BeaconVRFConsumerOwnershipTransferRequested)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferRequestedIterator) Error() error {
+	return it.fail
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferRequestedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type BeaconVRFConsumerOwnershipTransferRequested struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*BeaconVRFConsumerOwnershipTransferRequestedIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BeaconVRFConsumerOwnershipTransferRequestedIterator{contract: _BeaconVRFConsumer.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(BeaconVRFConsumerOwnershipTransferRequested)
+				if err := _BeaconVRFConsumer.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) ParseOwnershipTransferRequested(log types.Log) (*BeaconVRFConsumerOwnershipTransferRequested, error) {
+	event := new(BeaconVRFConsumerOwnershipTransferRequested)
+	if err := _BeaconVRFConsumer.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type BeaconVRFConsumerOwnershipTransferredIterator struct {
+	Event *BeaconVRFConsumerOwnershipTransferred
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BeaconVRFConsumerOwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(BeaconVRFConsumerOwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+func (it *BeaconVRFConsumerOwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type BeaconVRFConsumerOwnershipTransferred struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*BeaconVRFConsumerOwnershipTransferredIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BeaconVRFConsumerOwnershipTransferredIterator{contract: _BeaconVRFConsumer.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _BeaconVRFConsumer.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(BeaconVRFConsumerOwnershipTransferred)
+				if err := _BeaconVRFConsumer.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumerFilterer) ParseOwnershipTransferred(log types.Log) (*BeaconVRFConsumerOwnershipTransferred, error) {
+	event := new(BeaconVRFConsumerOwnershipTransferred)
+	if err := _BeaconVRFConsumer.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type SMyBeaconRequests struct {
 	SlotNumber        uint32
 	ConfirmationDelay *big.Int
 	NumWords          uint16
 	Requester         common.Address
+}
+
+func (_BeaconVRFConsumer *BeaconVRFConsumer) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	switch log.Topics[0] {
+	case _BeaconVRFConsumer.abi.Events["CoordinatorUpdated"].ID:
+		return _BeaconVRFConsumer.ParseCoordinatorUpdated(log)
+	case _BeaconVRFConsumer.abi.Events["OwnershipTransferRequested"].ID:
+		return _BeaconVRFConsumer.ParseOwnershipTransferRequested(log)
+	case _BeaconVRFConsumer.abi.Events["OwnershipTransferred"].ID:
+		return _BeaconVRFConsumer.ParseOwnershipTransferred(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
+func (BeaconVRFConsumerCoordinatorUpdated) Topic() common.Hash {
+	return common.HexToHash("0xc258faa9a17ddfdf4130b4acff63a289202e7d5f9e42f366add65368575486bc")
+}
+
+func (BeaconVRFConsumerOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (BeaconVRFConsumerOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
 func (_BeaconVRFConsumer *BeaconVRFConsumer) Address() common.Address {
@@ -486,6 +971,8 @@ type BeaconVRFConsumerInterface interface {
 	Fail(opts *bind.CallOpts) (bool, error)
 
 	IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error)
+
+	Owner(opts *bind.CallOpts) (common.Address, error)
 
 	SReceivedRandomnessByRequestID(opts *bind.CallOpts, arg0 *big.Int, arg1 *big.Int) (*big.Int, error)
 
@@ -505,7 +992,11 @@ type BeaconVRFConsumerInterface interface {
 
 	SSubId(opts *bind.CallOpts) (uint64, error)
 
+	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
+
 	RawFulfillRandomWords(opts *bind.TransactOpts, requestID *big.Int, randomWords []*big.Int, arguments []byte) (*types.Transaction, error)
+
+	SetCoordinator(opts *bind.TransactOpts, coordinator common.Address) (*types.Transaction, error)
 
 	SetFail(opts *bind.TransactOpts, shouldFail bool) (*types.Transaction, error)
 
@@ -516,6 +1007,28 @@ type BeaconVRFConsumerInterface interface {
 	TestRequestRandomness(opts *bind.TransactOpts, numWords uint16, subID *big.Int, confirmationDelayArg *big.Int) (*types.Transaction, error)
 
 	TestRequestRandomnessFulfillment(opts *bind.TransactOpts, subID *big.Int, numWords uint16, confirmationDelayArg *big.Int, callbackGasLimit uint32, arguments []byte) (*types.Transaction, error)
+
+	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
+	FilterCoordinatorUpdated(opts *bind.FilterOpts, coordinator []common.Address) (*BeaconVRFConsumerCoordinatorUpdatedIterator, error)
+
+	WatchCoordinatorUpdated(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerCoordinatorUpdated, coordinator []common.Address) (event.Subscription, error)
+
+	ParseCoordinatorUpdated(log types.Log) (*BeaconVRFConsumerCoordinatorUpdated, error)
+
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*BeaconVRFConsumerOwnershipTransferRequestedIterator, error)
+
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferRequested(log types.Log) (*BeaconVRFConsumerOwnershipTransferRequested, error)
+
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*BeaconVRFConsumerOwnershipTransferredIterator, error)
+
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *BeaconVRFConsumerOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferred(log types.Log) (*BeaconVRFConsumerOwnershipTransferred, error)
+
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

@@ -96,6 +96,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		db,
 		uni.db,
 		cfg,
+		cfg.Database(),
 		uni.hb,
 		mailMon,
 	)

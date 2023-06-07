@@ -116,6 +116,16 @@ func NewApp(s *Shell) *cli.App {
 		s.HTTP = NewAuthenticatedHTTPClient(s.Logger, clientOpts, cookieAuth, sr)
 		s.CookieAuthenticator = cookieAuth
 		s.FileSessionRequestBuilder = sessionRequestBuilder
+
+		// Allow for initServerConfig to be called if the flag is provided.
+		if c.Bool("applyInitServerConfig") {
+			cfg, err = initServerConfig(&opts, s.configFiles, s.secretsFile)
+			if err != nil {
+				return err
+			}
+			s.Config = cfg
+		}
+
 		return nil
 
 	}

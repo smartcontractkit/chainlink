@@ -104,6 +104,44 @@ func (_m *ORM) FindOldestEntriesByState(state functions.RequestState, limit uint
 	return r0, r1
 }
 
+// PruneOldestRequests provides a mock function with given fields: maxRequestsInDB, batchSize, qopts
+func (_m *ORM) PruneOldestRequests(maxRequestsInDB uint32, batchSize uint32, qopts ...pg.QOpt) (uint32, uint32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, maxRequestsInDB, batchSize)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 uint32
+	var r1 uint32
+	var r2 error
+	if rf, ok := ret.Get(0).(func(uint32, uint32, ...pg.QOpt) (uint32, uint32, error)); ok {
+		return rf(maxRequestsInDB, batchSize, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(uint32, uint32, ...pg.QOpt) uint32); ok {
+		r0 = rf(maxRequestsInDB, batchSize, qopts...)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	if rf, ok := ret.Get(1).(func(uint32, uint32, ...pg.QOpt) uint32); ok {
+		r1 = rf(maxRequestsInDB, batchSize, qopts...)
+	} else {
+		r1 = ret.Get(1).(uint32)
+	}
+
+	if rf, ok := ret.Get(2).(func(uint32, uint32, ...pg.QOpt) error); ok {
+		r2 = rf(maxRequestsInDB, batchSize, qopts...)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // SetConfirmed provides a mock function with given fields: requestID, qopts
 func (_m *ORM) SetConfirmed(requestID functions.RequestID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
