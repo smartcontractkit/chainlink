@@ -71,10 +71,18 @@ jobs:
         id: dispatch-workflow-e2e-functional-tests
         shell: bash
         run: |
+          image_build_metadata=$(jq -n \
+                                  --arg commit_sha "$GITHUB_SHA" \
+                                  --arg job_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}" \
+                                  '{
+                                    commit_sha: $commit_sha,
+                                    originating_job_url: $job_url
+                                  }')
           gh workflow run "e2e-functional-tests.yml" \
             --repo ${{ secrets.MERCURY_SERVER_REPO }} \
             --ref "main" \
             --field chainlink-ecr-repo-account="prod" \
+            --field chainlink-image-build-metadata="${image_build_metadata}" \
             --field chainlink-image-tag="develop-amd64"
         env:
           GH_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
