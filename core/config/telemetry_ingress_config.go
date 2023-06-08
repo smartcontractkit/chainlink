@@ -6,13 +6,13 @@ import (
 )
 
 type TelemetryIngress interface {
-	TelemetryIngressLogging() bool
-	TelemetryIngressUniConn() bool
-	TelemetryIngressServerPubKey() string
-	TelemetryIngressURL() *url.URL
-	TelemetryIngressBufferSize() uint
-	TelemetryIngressMaxBatchSize() uint
-	TelemetryIngressSendInterval() time.Duration
-	TelemetryIngressSendTimeout() time.Duration
-	TelemetryIngressUseBatchSend() bool
+	Logging() bool
+	UniConn() bool
+	ServerPubKey() string
+	URL() *url.URL
+	BufferSize() uint
+	MaxBatchSize() uint
+	SendInterval() time.Duration
+	SendTimeout() time.Duration
+	UseBatchSend() bool
 }

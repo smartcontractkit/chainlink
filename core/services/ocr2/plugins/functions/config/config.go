@@ -12,6 +12,9 @@ type PluginConfig struct {
 	RequestTimeoutSec               uint32                     `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec uint32                     `json:"requestTimeoutCheckFrequencySec"`
 	RequestTimeoutBatchLookupSize   uint32                     `json:"requestTimeoutBatchLookupSize"`
+	PruneMaxStoredRequests          uint32                     `json:"pruneMaxStoredRequests"`
+	PruneCheckFrequencySec          uint32                     `json:"pruneCheckFrequencySec"`
+	PruneBatchSize                  uint32                     `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
 	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`

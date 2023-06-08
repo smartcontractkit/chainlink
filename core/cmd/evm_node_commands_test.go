@@ -24,7 +24,7 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 	}
 }
 
-func TestClient_IndexEVMNodes(t *testing.T) {
+func TestShell_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := newRandChainID()
@@ -48,7 +48,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = evmcfg.EVMConfigs{&chain}
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewEVMNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)

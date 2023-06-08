@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -26,6 +27,8 @@ type ORM interface {
 
 	FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error)
 	FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error)
+
+	PruneOldestRequests(maxRequestsInDB uint32, batchSize uint32, qopts ...pg.QOpt) (total uint32, pruned uint32, err error)
 }
 
 type orm struct {
@@ -46,7 +49,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAddress com
 	}
 }
 
-func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+func (o *orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
 	stmt := `
 		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
 		VALUES ($1,$2,$3,$4,$5);
@@ -54,7 +57,7 @@ func (o orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxH
 	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
 }
 
-func (o orm) setWithStateTransitionCheck(requestID RequestID, newState RequestState, setter func(pg.Queryer) error, qopts ...pg.QOpt) error {
+func (o *orm) setWithStateTransitionCheck(requestID RequestID, newState RequestState, setter func(pg.Queryer) error, qopts ...pg.QOpt) error {
 	err := o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		prevState := IN_PROGRESS // default initial state
 		stmt := `SELECT state FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`
@@ -70,7 +73,7 @@ func (o orm) setWithStateTransitionCheck(requestID RequestID, newState RequestSt
 	return err
 }
 
-func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+func (o *orm) SetResult(requestID RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
 	newState := RESULT_READY
 	err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
 		stmt := `
@@ -84,7 +87,7 @@ func (o orm) SetResult(requestID RequestID, runID int64, computationResult []byt
 	return err
 }
 
-func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
+func (o *orm) SetError(requestID RequestID, runID int64, errorType ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
 	var newState RequestState
 	if readyForProcessing {
 		newState = RESULT_READY
@@ -103,7 +106,7 @@ func (o orm) SetError(requestID RequestID, runID int64, errorType ErrType, compu
 	return err
 }
 
-func (o orm) SetFinalized(requestID RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error {
+func (o *orm) SetFinalized(requestID RequestID, reportedResult []byte, reportedError []byte, qopts ...pg.QOpt) error {
 	newState := FINALIZED
 	err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
 		stmt := `
@@ -117,7 +120,7 @@ func (o orm) SetFinalized(requestID RequestID, reportedResult []byte, reportedEr
 	return err
 }
 
-func (o orm) SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error {
+func (o *orm) SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error {
 	newState := CONFIRMED
 	err := o.setWithStateTransitionCheck(requestID, newState, func(tx pg.Queryer) error {
 		stmt := `UPDATE ocr2dr_requests SET state=$3 WHERE request_id=$1 AND contract_address=$2;`
@@ -127,7 +130,7 @@ func (o orm) SetConfirmed(requestID RequestID, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o orm) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]RequestID, error) {
+func (o *orm) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.QOpt) ([]RequestID, error) {
 	var ids []RequestID
 	allowedPrevStates := []RequestState{IN_PROGRESS, RESULT_READY, FINALIZED}
 	nextState := TIMED_OUT
@@ -177,7 +180,7 @@ func (o orm) TimeoutExpiredResults(cutoff time.Time, limit uint32, qopts ...pg.Q
 	return ids, err
 }
 
-func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
+func (o *orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ...pg.QOpt) ([]Request, error) {
 	var requests []Request
 	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE state=$1 AND contract_address=$2 ORDER BY received_at LIMIT $3;`, requestFields)
 	if err := o.q.WithOpts(qopts...).Select(&requests, stmt, state, o.contractAddress, limit); err != nil {
@@ -186,11 +189,42 @@ func (o orm) FindOldestEntriesByState(state RequestState, limit uint32, qopts ..
 	return requests, nil
 }
 
-func (o orm) FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error) {
+func (o *orm) FindById(requestID RequestID, qopts ...pg.QOpt) (*Request, error) {
 	var request Request
 	stmt := fmt.Sprintf(`SELECT %s FROM ocr2dr_requests WHERE request_id=$1 AND contract_address=$2;`, requestFields)
 	if err := o.q.WithOpts(qopts...).Get(&request, stmt, requestID, o.contractAddress); err != nil {
 		return nil, err
 	}
 	return &request, nil
+}
+
+func (o *orm) PruneOldestRequests(maxStoredRequests uint32, batchSize uint32, qopts ...pg.QOpt) (total uint32, pruned uint32, err error) {
+	err = o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		if err2 := tx.Get(&total, "SELECT COUNT(*) FROM ocr2dr_requests WHERE contract_address=$1", o.contractAddress); err2 != nil {
+			return errors.Wrap(err, "failed to get request count")
+		}
+
+		if total <= maxStoredRequests {
+			pruned = 0
+			return nil
+		}
+
+		pruneLimit := total - maxStoredRequests
+		if pruneLimit > batchSize {
+			pruneLimit = batchSize
+		}
+
+		with := `WITH ids AS (SELECT request_id FROM ocr2dr_requests WHERE contract_address = $1 ORDER BY received_at LIMIT $2)`
+		deleteStmt := fmt.Sprintf(`%s DELETE FROM ocr2dr_requests WHERE contract_address = $1 AND request_id IN (SELECT request_id FROM ids);`, with)
+		res, err2 := tx.Exec(deleteStmt, o.contractAddress, pruneLimit)
+		if err2 != nil {
+			return err2
+		}
+		prunedInt64, err2 := res.RowsAffected()
+		if err2 == nil {
+			pruned = uint32(prunedInt64)
+		}
+		return err2
+	})
+	return
 }

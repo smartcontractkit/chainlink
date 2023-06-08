@@ -17,14 +17,18 @@ var (
 		float64(1 * time.Millisecond),
 		float64(5 * time.Millisecond),
 		float64(10 * time.Millisecond),
-		float64(20 * time.Millisecond),
+		float64(25 * time.Millisecond),
 		float64(50 * time.Millisecond),
+		float64(75 * time.Millisecond),
 		float64(100 * time.Millisecond),
-		float64(200 * time.Millisecond),
+		float64(250 * time.Millisecond),
 		float64(500 * time.Millisecond),
+		float64(750 * time.Millisecond),
 		float64(1 * time.Second),
 		float64(2 * time.Second),
 		float64(5 * time.Second),
+		float64(7 * time.Second),
+		float64(10 * time.Second),
 	}
 	lpQueryHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
@@ -51,6 +55,18 @@ func NewObservedLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod ti
 	}
 }
 
+func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQuery(o.histogram, "LogsCreatedAfter", address, func() ([]Log, error) {
+		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, confs, qopts...)
+	})
+}
+
+func (o *ObservedLogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	return withObservedQuery(o.histogram, "LatestLogByEventSigWithConfs", common.Address{}, func() (*Log, error) {
+		return o.LogPoller.LatestLogByEventSigWithConfs(eventSig, address, confs, qopts...)
+	})
+}
+
 func (o *ObservedLogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "LatestLogEventSigsAddrsWithConfs", common.Address{}, func() ([]Log, error) {
 		return o.LogPoller.LatestLogEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
@@ -66,6 +82,12 @@ func (o *ObservedLogPoller) IndexedLogs(eventSig common.Hash, address common.Add
 func (o *ObservedLogPoller) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "IndexedLogsByBlockRange", address, func() ([]Log, error) {
 		return o.LogPoller.IndexedLogsByBlockRange(start, end, eventSig, address, topicIndex, topicValues, qopts...)
+	})
+}
+
+func (o *ObservedLogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQuery(o.histogram, "IndexedLogsCreatedAfter", address, func() ([]Log, error) {
+		return o.LogPoller.IndexedLogsCreatedAfter(eventSig, address, topicIndex, topicValues, after, confs, qopts...)
 	})
 }
 

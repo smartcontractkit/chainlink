@@ -3,12 +3,11 @@ package validate
 import (
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
@@ -16,9 +15,6 @@ import (
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config
-	pg.QConfig
-	JobPipelineMaxSuccessfulRuns() uint64
-	JobPipelineResultWriteQueueDepth() uint64
 	OCRDevelopmentMode() bool
 	MercuryCredentials(credName string) *models.MercuryCredentials
 	ThresholdKeyShare() string

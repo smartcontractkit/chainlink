@@ -28,7 +28,6 @@ var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersCh
 
 type Config interface {
 	gas.Config
-	pg.QConfig
 }
 
 type FwdMgr struct {
@@ -54,13 +53,13 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
+func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config, dbConfig pg.QConfig) *FwdMgr {
 	lggr := logger.Sugared(l.Named("EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
-		ORM:          NewORM(db, lggr, cfg),
+		ORM:          NewORM(db, lggr, dbConfig),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 		cacheMu:      sync.RWMutex{},

@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -16,14 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -36,11 +37,11 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
+AnnounceAddresses = ["0.0.0.0:8090"]
+ListenAddresses = ["0.0.0.0:8090"]`
+
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
-		"replicas": "6",
+		"toml": client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -107,16 +108,19 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+	cd, err := chainlink.NewDeployment(6, defaultAutomationSettings)
+	require.NoError(t, err, "failed to create chainlink deployment")
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      environment.ConnectedChart
+		clChart      []environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
 		// see ocr_chaos.test.go for comments
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -125,7 +129,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -134,7 +138,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -144,7 +148,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -154,7 +158,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(defaultEthereumSettings),
-			chainlink.New(0, defaultAutomationSettings),
+			cd,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -169,7 +173,7 @@ func TestAutomationChaos(t *testing.T) {
 		testCase := tst
 		t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 			t.Parallel()
-			network := networks.SelectedNetwork
+			network := networks.SelectedNetwork // Need a new copy of the network for each test
 
 			testEnvironment := environment.
 				New(&environment.Config{
@@ -178,7 +182,7 @@ func TestAutomationChaos(t *testing.T) {
 					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
-				AddHelm(testCase.clChart).
+				AddHelmCharts(testCase.clChart).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
 					WsURL:   network.URL,
