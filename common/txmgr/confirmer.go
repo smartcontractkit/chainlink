@@ -1074,7 +1074,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 
-	receiptsPlus, err := ec.txStore.FindReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
+	receiptsPlus, err := ec.txStore.FindReceiptsPendingConfirmation(ctx, head.BlockNumber().Int64(), ec.chainID)
 
 	if err != nil {
 		return err
