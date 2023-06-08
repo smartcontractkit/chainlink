@@ -15,6 +15,7 @@ import (
 
 	evmconfigmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -52,6 +53,15 @@ import (
 )
 
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
+
+type insecureConfig struct {
+	config.Insecure
+	ocrDevMode bool
+}
+
+func (i *insecureConfig) OCRDevelopmentMode() bool {
+	return i.ocrDevMode
+}
 
 func TestRunner(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
@@ -190,7 +200,7 @@ func TestRunner(t *testing.T) {
 
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
-		cfg.On("OCRDevelopmentMode").Return(true)
+		cfg.On("Insecure").Return(&insecureConfig{ocrDevMode: true})
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		cfg.On("OCRCaptureEATelemetry").Return(false)
 		c := new(evmmocks.Chain)
@@ -230,8 +240,7 @@ func TestRunner(t *testing.T) {
 		cfg2 := ocr2mocks.NewConfig(t)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("OCRDevelopmentMode").Return(true)
-		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -267,8 +276,7 @@ answer1      [type=median index=0];
 		// Duplicate bridge names that exist is ok
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("OCRDevelopmentMode").Return(true)
-		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
