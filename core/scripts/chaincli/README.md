@@ -38,11 +38,18 @@ go build
 
 Create the `.env` file based on the example `.env.example`, adding the node endpoint URLs and the private key of your wallet
 
+### Keeper Registry
 Next, use chaincli to deploy the registry:
 
+Example:
 ```shell
 ./chaincli keeper registry deploy
 ```
+
+Other options include:
+- `./chaincli keeper registry update`: update existing keeper registry
+- `./chaincli keeper registry withdraw`: cancel upkeeps and withdraw funds from registry
+- `./chaincli keeper registry verify <contract-addr> <constructor-args>`: verify keeper registry contract
 
 As the `keeper registry deploy` command executes, _two_ address are written to the terminal:
 
@@ -51,20 +58,42 @@ As the `keeper registry deploy` command executes, _two_ address are written to t
 
 The second address, `KeeperRegistry2.0` is the address you need; in the `.env` file, set `KEEPER_REGISTRY_ADDRESS` variable to the `KeeperRegistry2.0` address.
 
+Note that this command runs contract verification by default, if you don't want to run verification, you can use the `--verify=false` flag.
+
+If you already have keeper registry contract deployed and want to run only contract verification, you can use the following command:
+
+```shell
+./chaincli keeper registry verify <contract-addr> <constructor-args>
+```
+
+### Bootstrap Nodes
 Run the following `bootstrap` command to start bootstrap nodes:
 
+Example:
 ```shell
 ./chaincli bootstrap
 ```
 
+Other options include:
+- `--ui-port`: default `5688`, the Chainlink node UI listen port
+- `--p2pv2-port`: default `8000`, the Chainlink node P2P listen port
+- `--force | -f`: default `false`, if existing containers should be forcefully removed
+
 The output of this command will show the tcp address of the deployed bootstrap node in the following format: `<p2p-key>@bootstrap:8000`.
 Copy this entire string, including the `@bootstrap:8000` suffix, and the set the `BOOTSTRAP_NODE_ADDR` variable to this address in the `.env` file.
 
+### Keeper launch and test
 Once the bootstrap node is running, run the following command to launch the ocr2keeper nodes:
 
+Example:
 ```shell
 ./chaincli keeper launch-and-test
 ```
+
+Other options include:
+- `--withdraw | -w`: default `true`, if funds should be withdrawn and upkeeps should be canceled after the test
+- `--export-logs | -l`: default `false`, if container logs should be exported to ./ directory
+- `--force | -f`: default `false`, if existing containers should be forcefully removed
 
 You can also combine the `bootstrap` and `launch-and-test` commands into a single command:
 
@@ -72,11 +101,19 @@ You can also combine the `bootstrap` and `launch-and-test` commands into a singl
 ./chaincli keeper launch-and-test --bootstrap
 ```
 
+### Logs
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:
 
+Example:
 ```shell
 ./chaincli keeper logs
 ```
+
+Other options include:
+- `--container-pattern`: default `^/keeper-\d+$`, regex pattern of container names to listen to for logs
+- `--grep [string terms]`: default `empty string`, comma separated list of terms logs must include
+- `--grepv [string terms]`: default `empty string`, comma separated list of terms logs must not include
+
 
 You can use the `grep` and `grepv` flags to filter log lines, e.g. to only show output of the ocr2keepers plugin across the nodes, run:
 

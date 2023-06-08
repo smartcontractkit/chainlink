@@ -20,10 +20,10 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestForwarderOCRBasic(t *testing.T) {
@@ -76,7 +76,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, "ocr_forwarder", 5, mockServer)
+	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
@@ -86,7 +86,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-	err = mockServer.SetValuePath("ocr_forwarder", 10)
+	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, mockServer)
 	require.NoError(t, err)
 	err = actions.StartNewRound(2, ocrInstances, chainClient)
 	require.NoError(t, err)

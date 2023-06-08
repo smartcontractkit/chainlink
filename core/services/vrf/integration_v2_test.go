@@ -2108,7 +2108,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	var attempts []txmgr.EvmTxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
-		attempts, _, err = app.TxmStorageService().EthTxAttempts(0, 1000)
+		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
@@ -2116,7 +2116,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.TxConfirmed
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
@@ -2392,14 +2392,14 @@ func TestStartingCountsV1(t *testing.T) {
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
 	reqID := utils.PadByteToHash(0x10)
-	m1 := txmgr.EthTxMeta{
+	m1 := txmgr.EvmTxMeta{
 		RequestID: &reqID,
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
 	reqID2 := utils.PadByteToHash(0x11)
-	m2 := txmgr.EthTxMeta{
+	m2 := txmgr.EvmTxMeta{
 		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
@@ -2414,7 +2414,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &datatypes.JSON{},
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2426,7 +2426,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md1_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2438,7 +2438,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2450,7 +2450,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxConfirmed,
+			State:              txmgrcommon.TxConfirmed,
 			Meta:               &md2_,
 			EncodedPayload:     []byte{},
 			ChainID:            chainID.ToInt(),
@@ -2460,7 +2460,7 @@ func TestStartingCountsV1(t *testing.T) {
 	unconfirmedTxes := []txmgr.EvmTx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
-		md, err := json.Marshal(&txmgr.EthTxMeta{
+		md, err := json.Marshal(&txmgr.EvmTxMeta{
 			RequestID: &reqID3,
 		})
 		require.NoError(t, err)
@@ -2471,7 +2471,7 @@ func TestStartingCountsV1(t *testing.T) {
 			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
-			State:              txmgrcommon.EthTxUnconfirmed,
+			State:              txmgrcommon.TxUnconfirmed,
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
 			Meta:               &md1,

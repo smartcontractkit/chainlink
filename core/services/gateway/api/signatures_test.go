@@ -1,4 +1,4 @@
-package gateway_test
+package api_test
 
 import (
 	"bytes"
@@ -7,15 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestSignatures_MessageSignAndValidate(t *testing.T) {
 	t.Parallel()
 
-	msg := &gateway.Message{
-		Body: gateway.MessageBody{
+	msg := &api.Message{
+		Body: api.MessageBody{
 			MessageId: "abcd",
 			Method:    "request",
 			DonId:     "donA",
@@ -27,13 +27,13 @@ func TestSignatures_MessageSignAndValidate(t *testing.T) {
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey).Bytes()
 
-	signature, err := gateway.SignMessage(&msg.Body, privateKey)
+	signature, err := api.SignMessage(&msg.Body, privateKey)
 	require.NoError(t, err)
 	require.Equal(t, 65, len(signature))
 
 	msg.Signature = utils.StringToHex(string(signature))
 	msg.Body.Sender = utils.StringToHex(string(address))
-	require.NoError(t, gateway.ValidateMessageSignature(msg))
+	require.NoError(t, api.ValidateMessageSignature(msg))
 }
 
 func TestSignatures_BytesSignAndValidate(t *testing.T) {
@@ -45,11 +45,11 @@ func TestSignatures_BytesSignAndValidate(t *testing.T) {
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey).Bytes()
 
-	signature, err := gateway.SignData(privateKey, data)
+	signature, err := api.SignData(privateKey, data)
 	require.NoError(t, err)
 	require.Equal(t, 65, len(signature))
 
-	signer, err := gateway.ValidateSignature(signature, data)
+	signer, err := api.ValidateSignature(signature, data)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(signer, address))
 }

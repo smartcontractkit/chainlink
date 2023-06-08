@@ -54,7 +54,7 @@ func TestCosmosKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_CosmosKeys(t *testing.T) {
+func TestShell_CosmosKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Cosmos()
 	cleanup := func() {
@@ -68,7 +68,7 @@ func TestClient_CosmosKeys(t *testing.T) {
 
 	t.Run("ListCosmosKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Cosmos().Create()
 		require.NoError(t, err)
 		requireCosmosKeyCount(t, app, 1)
@@ -81,7 +81,7 @@ func TestClient_CosmosKeys(t *testing.T) {
 
 	t.Run("CreateCosmosKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewCosmosKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().Cosmos().GetAll()
 		require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestClient_CosmosKeys(t *testing.T) {
 
 	t.Run("DeleteCosmosKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Cosmos().Create()
 		require.NoError(t, err)
 		requireCosmosKeyCount(t, app, 1)
@@ -110,7 +110,7 @@ func TestClient_CosmosKeys(t *testing.T) {
 	t.Run("ImportExportCosmosKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Cosmos().Create()
 		require.NoError(t, err)

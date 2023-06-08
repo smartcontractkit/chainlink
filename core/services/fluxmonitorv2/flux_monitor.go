@@ -156,6 +156,7 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	fmcfg FluxMonitorConfig,
 	jcfg JobPipelineConfig,
 	dbCfg pg.QConfig,
 	lggr logger.Logger,

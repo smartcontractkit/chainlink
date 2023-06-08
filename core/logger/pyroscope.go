@@ -5,7 +5,6 @@ import (
 
 	"github.com/pyroscope-io/client/pyroscope"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -13,14 +12,15 @@ import (
 type PyroscopeProfilerConfig interface {
 	Pyroscope() config.Pyroscope
 
-	AutoPprofBlockProfileRate() int
-	AutoPprofMutexProfileFraction() int
+type PprofConfig interface {
+	BlockProfileRate() int
+	MutexProfileFraction() int
 }
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
-func StartPyroscope(cfg PyroscopeProfilerConfig) (*pyroscope.Profiler, error) {
-	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
-	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
+func StartPyroscope(cfg PyroscopeProfilerConfig, pprofConfig PprofConfig) (*pyroscope.Profiler, error) {
+	runtime.SetBlockProfileRate(pprofConfig.BlockProfileRate())
+	runtime.SetMutexProfileFraction(pprofConfig.MutexProfileFraction())
 
 	sha, ver := static.Short()
 

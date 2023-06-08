@@ -27,14 +27,11 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	AutoPprof
 	Ethereum
 	Explorer
 	FeatureFlags
-	FluxMonitor
 	Insecure
 	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
 	P2PNetworking
@@ -42,7 +39,6 @@ type AppConfig interface {
 	P2PV2Networking
 	Prometheus
 	Secrets
-	Web
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -51,6 +47,10 @@ type AppConfig interface {
 	Sentry() Sentry
 	JobPipeline() JobPipeline
 	Pyroscope() Pyroscope
+	Log() Log
+	FluxMonitor() FluxMonitor
+	WebServer() WebServer
+	AutoPprof() AutoPprof
 }
 
 type DatabaseBackupMode string

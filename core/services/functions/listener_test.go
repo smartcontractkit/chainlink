@@ -40,6 +40,7 @@ import (
 
 type FunctionsListenerUniverse struct {
 	service        *functions_service.FunctionsListener
+	bridgeAccessor *functions_mocks.BridgeAccessor
 	eaClient       *functions_mocks.ExternalAdapterClient
 	pluginORM      *functions_mocks.ORM
 	logBroadcaster *log_mocks.Broadcaster
@@ -58,7 +59,7 @@ var (
 	Domains           []string                    = []string{"github.com", "google.com"}
 )
 
-func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListenerUniverse {
+func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
@@ -79,6 +80,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 		"requestTimeoutCheckFrequencySec": 1,
 		"requestTimeoutBatchLookupSize":   1,
 		"listenerEventHandlerTimeoutSec":  1,
+		"pruneCheckFrequencySec":          pruneFrequencySec,
 	}
 	jb := job.Job{
 		Type:          job.OffchainReporting2,
@@ -90,6 +92,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 		},
 	}
 	eaClient := functions_mocks.NewExternalAdapterClient(t)
+	bridgeAccessor := functions_mocks.NewBridgeAccessor(t)
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
@@ -102,10 +105,11 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, eaClient, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
+		bridgeAccessor: bridgeAccessor,
 		eaClient:       eaClient,
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
@@ -114,7 +118,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 }
 
 func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsListenerUniverse, *log_mocks.Broadcast, chan struct{}) {
-	uni := NewFunctionsListenerUniverse(t, 0)
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -143,6 +147,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -161,6 +166,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, Domains, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -192,6 +198,7 @@ func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(nil, ErrorBytes, nil, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, ErrorBytes, mock.Anything, true, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -225,7 +232,7 @@ func TestFunctionsListener_RequestTimeout(t *testing.T) {
 
 	reqId := newRequestID()
 	doneCh := make(chan bool)
-	uni := NewFunctionsListenerUniverse(t, 1)
+	uni := NewFunctionsListenerUniverse(t, 1, 1_000_000)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
 		doneCh <- true
@@ -254,5 +261,22 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	uni.service.HandleLog(log)
 
 	ormCallExited.Wait() // should not freeze
+	uni.service.Close()
+}
+
+func TestFunctionsListener_PruneRequests(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	doneCh := make(chan bool)
+	uni := NewFunctionsListenerUniverse(t, 0, 1)
+	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	uni.pluginORM.On("PruneOldestRequests", functions_service.DefaultPruneMaxStoredRequests, functions_service.DefaultPruneBatchSize, mock.Anything).Return(uint32(0), uint32(0), nil).Run(func(args mock.Arguments) {
+		doneCh <- true
+	})
+
+	err := uni.service.Start(testutils.Context(t))
+	require.NoError(t, err)
+	<-doneCh
 	uni.service.Close()
 }

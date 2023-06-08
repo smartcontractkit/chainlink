@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupORM(t *testing.T) s4.ORM {
+func setupORM(t *testing.T, namespace string) s4.ORM {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	orm := s4.NewPostgresORM(db, lggr, pgtest.NewQConfig(true), "functions")
+	orm := s4.NewPostgresORM(db, lggr, pgtest.NewQConfig(true), s4.SharedTableName, namespace)
 
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
@@ -60,14 +60,14 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 func TestNewPostgresOrm(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
+	orm := setupORM(t, "test")
 	assert.NotNil(t, orm)
 }
 
 func TestPostgresORM_UpdateAndGet(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
+	orm := setupORM(t, "test")
 	rows := generateTestRows(t, 10)
 
 	for _, row := range rows {
@@ -96,7 +96,7 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 func TestPostgresORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
+	orm := setupORM(t, "test")
 
 	const total = 10
 	const expired = 4
@@ -123,7 +123,7 @@ func TestPostgresORM_DeleteExpired(t *testing.T) {
 func TestPostgresORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
+	orm := setupORM(t, "test")
 
 	t.Run("no rows", func(t *testing.T) {
 		rows, err := orm.GetSnapshot(s4.NewFullAddressRange())
@@ -142,10 +142,20 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		t.Run("full range", func(t *testing.T) {
 			snapshot, err := orm.GetSnapshot(s4.NewFullAddressRange())
 			assert.NoError(t, err)
+			assert.Equal(t, len(rows), len(snapshot))
+
+			snapshotRowMap := make(map[string]*s4.SnapshotRow)
 			for i, sr := range snapshot {
-				assert.Equal(t, rows[i].Address, sr.Address)
-				assert.Equal(t, rows[i].SlotId, sr.SlotId)
-				assert.Equal(t, rows[i].Version, sr.Version)
+				// assuming unique addresses
+				snapshotRowMap[sr.Address.String()] = snapshot[i]
+			}
+
+			for _, sr := range rows {
+				snapshotRow, ok := snapshotRowMap[sr.Address.String()]
+				assert.True(t, ok)
+				assert.Equal(t, snapshotRow.Address, sr.Address)
+				assert.Equal(t, snapshotRow.SlotId, sr.SlotId)
+				assert.Equal(t, snapshotRow.Version, sr.Version)
 			}
 		})
 
@@ -164,7 +174,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
 
-	orm := setupORM(t)
+	orm := setupORM(t, "test")
 
 	t.Run("no rows", func(t *testing.T) {
 		rows, err := orm.GetUnconfirmedRows(5)
@@ -189,4 +199,37 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 			assert.False(t, row.Confirmed)
 		}
 	})
+}
+
+func TestPostgresORM_Namespace(t *testing.T) {
+	t.Parallel()
+
+	ormA := setupORM(t, "a")
+	ormB := setupORM(t, "b")
+
+	const n = 10
+	rowsA := generateTestRows(t, n)
+	rowsB := generateTestRows(t, n)
+	for i := 0; i < n; i++ {
+		err := ormA.Update(rowsA[i])
+		assert.NoError(t, err)
+
+		err = ormB.Update(rowsB[i])
+		assert.NoError(t, err)
+	}
+
+	urowsA, err := ormA.GetUnconfirmedRows(n)
+	assert.NoError(t, err)
+	assert.Len(t, urowsA, n/2)
+
+	urowsB, err := ormB.GetUnconfirmedRows(n)
+	assert.NoError(t, err)
+	assert.Len(t, urowsB, n/2)
+
+	err = ormB.DeleteExpired(n, time.Now().UTC())
+	assert.NoError(t, err)
+
+	snapshotA, err := ormA.GetSnapshot(s4.NewFullAddressRange())
+	assert.NoError(t, err)
+	assert.Len(t, snapshotA, n)
 }
