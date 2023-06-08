@@ -36,7 +36,7 @@ type (
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
 	EvmNewTx                  = txmgrtypes.NewTx[common.Address, common.Hash]
 	EvmTx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
-	EthTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash] // TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
+	EvmTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash]
 	EvmTxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmPriorAttempt           = txmgrtypes.PriorAttempt[gas.EvmFee, common.Hash]
 	EvmReceipt                = dbReceipt // EvmReceipt is the exported DB table model for receipts

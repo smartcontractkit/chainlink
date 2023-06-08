@@ -37,17 +37,17 @@ type Nurse struct {
 }
 
 type Config interface {
-	AutoPprofProfileRoot() string
-	AutoPprofPollInterval() models.Duration
-	AutoPprofGatherDuration() models.Duration
-	AutoPprofGatherTraceDuration() models.Duration
-	AutoPprofMaxProfileSize() utils.FileSize
-	AutoPprofCPUProfileRate() int
-	AutoPprofMemProfileRate() int
-	AutoPprofBlockProfileRate() int
-	AutoPprofMutexProfileFraction() int
-	AutoPprofMemThreshold() utils.FileSize
-	AutoPprofGoroutineThreshold() int
+	BlockProfileRate() int
+	CPUProfileRate() int
+	GatherDuration() models.Duration
+	GatherTraceDuration() models.Duration
+	GoroutineThreshold() int
+	MaxProfileSize() utils.FileSize
+	MemProfileRate() int
+	MemThreshold() utils.FileSize
+	MutexProfileFraction() int
+	PollInterval() models.Duration
+	ProfileRoot() string
 }
 
 type CheckFunc func() (unwell bool, meta Meta)
@@ -77,16 +77,16 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 func (n *Nurse) Start() error {
 	return n.StartOnce("nurse", func() error {
 		// This must be set *once*, and it must occur as early as possible
-		if n.cfg.AutoPprofMemProfileRate() != runtime.MemProfileRate {
-			runtime.MemProfileRate = n.cfg.AutoPprofBlockProfileRate()
+		if n.cfg.MemProfileRate() != runtime.MemProfileRate {
+			runtime.MemProfileRate = n.cfg.BlockProfileRate()
 		}
 
 		n.log.Debugf("Starting nurse with config %+v", n.cfg)
-		runtime.SetCPUProfileRate(n.cfg.AutoPprofCPUProfileRate())
-		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
-		runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
+		runtime.SetCPUProfileRate(n.cfg.CPUProfileRate())
+		runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
+		runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-		err := utils.EnsureDirAndMaxPerms(n.cfg.AutoPprofProfileRoot(), 0744)
+		err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
 		if err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func (n *Nurse) Start() error {
 				select {
 				case <-n.chStop:
 					return
-				case <-time.After(n.cfg.AutoPprofPollInterval().Duration()):
+				case <-time.After(n.cfg.PollInterval().Duration()):
 				}
 
 				func() {
@@ -163,25 +163,25 @@ func (n *Nurse) GatherVitals(reason string, meta Meta) {
 func (n *Nurse) checkMem() (bool, Meta) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	unwell := memStats.Alloc >= uint64(n.cfg.AutoPprofMemThreshold())
+	unwell := memStats.Alloc >= uint64(n.cfg.MemThreshold())
 	if !unwell {
 		return false, nil
 	}
 	return true, Meta{
 		"mem_alloc": utils.FileSize(memStats.Alloc),
-		"threshold": n.cfg.AutoPprofMemThreshold(),
+		"threshold": n.cfg.MemThreshold(),
 	}
 }
 
 func (n *Nurse) checkGoroutines() (bool, Meta) {
 	num := runtime.NumGoroutine()
-	unwell := num >= n.cfg.AutoPprofGoroutineThreshold()
+	unwell := num >= n.cfg.GoroutineThreshold()
 	if !unwell {
 		return false, nil
 	}
 	return true, Meta{
 		"num_goroutine": num,
-		"threshold":     n.cfg.AutoPprofGoroutineThreshold(),
+		"threshold":     n.cfg.GoroutineThreshold(),
 	}
 }
 
@@ -194,9 +194,9 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 	if err != nil {
 		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("error", err).Slice()...)
 		return
-	} else if size >= uint64(n.cfg.AutoPprofMaxProfileSize()) {
+	} else if size >= uint64(n.cfg.MaxProfileSize()) {
 		n.log.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
-			loggerFields.With("total", size, "max", n.cfg.AutoPprofMaxProfileSize()).Slice()...,
+			loggerFields.With("total", size, "max", n.cfg.MaxProfileSize()).Slice()...,
 		)
 		return
 	}
@@ -249,7 +249,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 }
 
 func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
-	filename := filepath.Join(n.cfg.AutoPprofProfileRoot(), "nurse.log")
+	filename := filepath.Join(n.cfg.ProfileRoot(), "nurse.log")
 
 	n.log.Debugf("creating nurse log %s", filename)
 	file, err := os.Create(filename)
@@ -306,8 +306,8 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	case <-n.chStop:
 		n.log.Debug("gather cpu received stop")
 
-	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
-		n.log.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.AutoPprofGatherDuration().Duration().String())
+	case <-time.After(n.cfg.GatherDuration().Duration()):
+		n.log.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
 	}
 
 	pprof.StopCPUProfile()
@@ -340,7 +340,7 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 
 	select {
 	case <-n.chStop:
-	case <-time.After(n.cfg.AutoPprofGatherTraceDuration().Duration()):
+	case <-time.After(n.cfg.GatherTraceDuration().Duration()):
 	}
 
 	trace.Stop()
@@ -370,7 +370,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 		return
 	}
 
-	t := time.NewTimer(n.cfg.AutoPprofGatherDuration().Duration())
+	t := time.NewTimer(n.cfg.GatherDuration().Duration())
 	defer t.Stop()
 
 	select {
@@ -436,7 +436,7 @@ func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.D
 	if shouldGzip {
 		filename += ".gz"
 	}
-	fullpath := filepath.Join(n.cfg.AutoPprofProfileRoot(), filename)
+	fullpath := filepath.Join(n.cfg.ProfileRoot(), filename)
 	n.log.Debugf("creating file %s", fullpath)
 
 	file, err := os.Create(fullpath)
@@ -465,7 +465,7 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 	out := make([]fs.FileInfo, 0)
-	entries, err := os.ReadDir(n.cfg.AutoPprofProfileRoot())
+	entries, err := os.ReadDir(n.cfg.ProfileRoot())
 
 	if err != nil {
 		return nil, err

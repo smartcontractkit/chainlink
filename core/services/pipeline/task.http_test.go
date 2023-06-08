@@ -180,7 +180,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)

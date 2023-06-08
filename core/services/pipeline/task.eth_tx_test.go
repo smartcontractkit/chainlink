@@ -74,7 +74,7 @@ func TestETHTxTask(t *testing.T) {
 				gasLimit := uint32(12345)
 				jobID := int32(321)
 				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jobID,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -121,7 +121,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -198,7 +198,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -243,7 +243,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -278,7 +278,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
-				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
+				txMeta := &txmgr.EvmTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", txmgr.EvmNewTx{
 					FromAddress:    from,
@@ -307,7 +307,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -341,7 +341,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
@@ -406,7 +406,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
-				txMeta := &txmgr.EthTxMeta{
+				txMeta := &txmgr.EvmTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
