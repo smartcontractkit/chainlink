@@ -41,5 +41,6 @@ func NewStarkNetNodeResource(node types.NodeStatus) StarkNetNodeResource {
 		Name:    node.Name,
 		State:   node.State,
 		Config:  node.Config,
+		Order:   node.Order,
 	}}
 }

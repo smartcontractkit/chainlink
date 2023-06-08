@@ -371,4 +371,5 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+	github.com/smartcontractkit/chainlink-relay => /Users/ionita/chainlink-relay
 )

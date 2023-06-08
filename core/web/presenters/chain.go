@@ -12,4 +12,5 @@ type NodeResource struct {
 	Name    string `json:"name"`
 	Config  string `json:"config"` // TOML
 	State   string `json:"state"`
+	Order   string `json:"order"`
 }

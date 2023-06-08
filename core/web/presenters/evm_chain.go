@@ -39,5 +39,6 @@ func NewEVMNodeResource(node types.NodeStatus) EVMNodeResource {
 		Name:    node.Name,
 		State:   node.State,
 		Config:  node.Config,
+		Order:   node.Order,
 	}}
 }

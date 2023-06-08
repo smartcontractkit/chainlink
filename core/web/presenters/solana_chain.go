@@ -41,5 +41,6 @@ func NewSolanaNodeResource(node types.NodeStatus) SolanaNodeResource {
 		Name:    node.Name,
 		State:   node.State,
 		Config:  node.Config,
+		Order:   node.Order,
 	}}
 }
