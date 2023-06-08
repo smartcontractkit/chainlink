@@ -21,7 +21,7 @@ type txManager interface {
 }
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EvmTxMeta) error
 	FromAddress() common.Address
 }
 
@@ -65,7 +65,7 @@ func NewTransmitter(
 	}, nil
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error {
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EvmTxMeta) error {
 
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 	if err != nil {

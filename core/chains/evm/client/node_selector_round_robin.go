@@ -33,6 +33,6 @@ func (s *roundRobinSelector) Select() Node {
 	return liveNodes[idx]
 }
 
-func (s roundRobinSelector) Name() string {
+func (s *roundRobinSelector) Name() string {
 	return NodeSelectionMode_RoundRobin
 }

@@ -976,7 +976,7 @@ describe('KeeperRegistry2_1', () => {
 
     it('returns early when invalid upkeepIds are included in report', async () => {
       const tx = await getTransmitTx(registry, keeper1, [
-        upkeepId.add(BigNumber.from('1')).toString(),
+        upkeepId.add(BigNumber.from('1')),
       ])
 
       const receipt = await tx.wait()
@@ -985,16 +985,17 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(cancelledUpkeepReportLogs.length, 1)
     })
 
-    it('reverts when duplicated upkeepIds are included in report', async () => {
+    it('returns early when duplicated upkeepIds are included in report', async () => {
       // Fund the upkeep so that pre-checks pass
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
-      await evmRevert(
-        getTransmitTx(registry, keeper1, [
-          upkeepId.toString(),
-          upkeepId.toString(),
-        ]),
-        'InvalidReport()',
-      )
+      const tx = await getTransmitTx(registry, keeper1, [upkeepId, upkeepId])
+
+      const receipt = await tx.wait()
+      const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
+      const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+      // exactly 1 CancelledUpkeepReport log should be emitted
+      assert.equal(staleUpkeepReport.length, 1)
+      assert.equal(upkeepPerformedLogs.length, 1)
     })
 
     it('returns early when upkeep has insufficient funds', async () => {
@@ -1019,17 +1020,11 @@ describe('KeeperRegistry2_1', () => {
         const tx = await getTransmitTx(registry, keeper1, [upkeepId])
         await tx.wait()
 
-        const lastPerformBlockNumber = (await registry.getUpkeep(upkeepId))
-          .lastPerformBlockNumber
-        const lastPerformBlock = await ethers.provider.getBlock(
-          lastPerformBlockNumber,
-        )
-        assert.equal(
-          lastPerformBlockNumber.toString(),
-          tx.blockNumber?.toString(),
-        )
+        const lastPerformed = (await registry.getUpkeep(upkeepId)).lastPerformed
+        const lastPerformBlock = await ethers.provider.getBlock(lastPerformed)
+        assert.equal(lastPerformed.toString(), tx.blockNumber?.toString())
 
-        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber-1, should result in stale report
+        // Try to transmit a report which has checkBlockNumber = lastPerformed-1, should result in stale report
         const transmitTx = await getTransmitTx(registry, keeper1, [upkeepId], {
           checkBlockNum: lastPerformBlock.number - 1,
           checkBlockHash: lastPerformBlock.parentHash,
@@ -1057,22 +1052,18 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('returns early when check block number is older than 256 blocks', async () => {
-        const latestBlockReport = await makeLatestBlockReport([upkeepId])
-
         for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
         }
 
-        // Try to transmit a report which is older than 256 blocks so block hash cannot be matched
-        const tx = await registry
-          .connect(keeper1)
-          .transmit(
-            [emptyBytes32, emptyBytes32, emptyBytes32],
-            latestBlockReport,
-            [],
-            [],
-            emptyBytes32,
-          )
+        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+        const latestBlock = await ethers.provider.getBlock('latest')
+        const old = await ethers.provider.getBlock(latestBlock.number - 256)
+        // Try to transmit a report which has incorrect checkBlockHash
+        const tx = await getTransmitTx(registry, keeper1, [upkeepId], {
+          checkBlockNum: old.number,
+          checkBlockHash: old.hash,
+        })
 
         const receipt = await tx.wait()
         const reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
@@ -1481,7 +1472,7 @@ describe('KeeperRegistry2_1', () => {
       )
 
       itMaybe(
-        'performs upkeep, deducts payment, updates lastPerformBlockNumber and emits events',
+        'performs upkeep, deducts payment, updates lastPerformed and emits events',
         async () => {
           await mock.setCanPerform(true)
 
@@ -1584,7 +1575,7 @@ describe('KeeperRegistry2_1', () => {
             )
             // Last perform block number should be updated
             assert.equal(
-              registrationAfter.lastPerformBlockNumber.toString(),
+              registrationAfter.lastPerformed.toString(),
               tx.blockNumber?.toString(),
             )
 
@@ -1770,14 +1761,14 @@ describe('KeeperRegistry2_1', () => {
                 const registrationPassingBefore = await Promise.all(
                   passingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(reg.lastPerformBlockNumber.toString(), '0')
+                    assert.equal(reg.lastPerformed.toString(), '0')
                     return reg
                   }),
                 )
                 const registrationFailingBefore = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(reg.lastPerformBlockNumber.toString(), '0')
+                    assert.equal(reg.lastPerformed.toString(), '0')
                     return reg
                   }),
                 )
@@ -1850,9 +1841,7 @@ describe('KeeperRegistry2_1', () => {
 
                   // Last perform block number should be updated
                   assert.equal(
-                    registrationPassingAfter[
-                      i
-                    ].lastPerformBlockNumber.toString(),
+                    registrationPassingAfter[i].lastPerformed.toString(),
                     tx.blockNumber?.toString(),
                   )
 
@@ -1876,9 +1865,7 @@ describe('KeeperRegistry2_1', () => {
 
                   // Last perform block number should not be updated
                   assert.equal(
-                    registrationFailingAfter[
-                      i
-                    ].lastPerformBlockNumber.toString(),
+                    registrationFailingAfter[i].lastPerformed.toString(),
                     '0',
                   )
                 }
@@ -3511,7 +3498,7 @@ describe('KeeperRegistry2_1', () => {
           assert.equal(await admin.getAddress(), registration.admin)
           assert.equal(0, registration.balance.toNumber())
           assert.equal(0, registration.amountSpent.toNumber())
-          assert.equal(0, registration.lastPerformBlockNumber)
+          assert.equal(0, registration.lastPerformed)
           assert.equal(checkData, registration.checkData)
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')

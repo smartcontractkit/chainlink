@@ -57,7 +57,7 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Error waiting for events")
 
 	profileFunction := func(chainlinkNode *client.Chainlink) {
-		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, "ocr", 5, mockServer)
+		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 		require.NoError(t, err)
 		err = actions.StartNewRound(1, ocrInstances, chainClient)
 		require.NoError(t, err)
@@ -105,6 +105,10 @@ Enabled = true
 Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -112,11 +116,8 @@ ListenPort = 6690`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
-			"replicas": 6,
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

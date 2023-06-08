@@ -479,7 +479,7 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	require.NoError(t, err)
 
 	// pick a value larger than the default http service write timeout
-	d := app.Config.HTTPServerWriteTimeout() + 2*time.Second
+	d := app.Config.WebServer().HTTPWriteTimeout() + 2*time.Second
 	set.Uint("seconds", uint(d.Seconds()), "")
 	tDir := t.TempDir()
 	set.String("output_dir", tDir, "")
