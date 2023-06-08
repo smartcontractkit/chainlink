@@ -25,6 +25,15 @@ type TopLevelConfigSource struct {
 	OracleConfig OracleConfigSource
 }
 
+type ThresholdOffchainConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	RequestCountLimit         uint32
+	RequestTotalBytesLimit    uint32
+	RequireLocalRequestCheck  bool
+}
+
 type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -32,6 +41,8 @@ type OracleConfigSource struct {
 	MaxRequestBatchSize       uint32
 	DefaultAggregationMethod  int32
 	UniqueReports             bool
+
+	ThresholdOffchainConfig ThresholdOffchainConfig
 
 	DeltaProgressMillis  uint32
 	DeltaResendMillis    uint32
@@ -191,6 +202,14 @@ func (g *generateOCR2Config) Run(args []string) {
 			MaxRequestBatchSize:       cfg.MaxRequestBatchSize,
 			DefaultAggregationMethod:  config.AggregationMethod(cfg.DefaultAggregationMethod),
 			UniqueReports:             cfg.UniqueReports,
+			ThresholdPluginConfig: &config.ThresholdReportingPluginConfig{
+				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
+				MaxObservationLengthBytes: cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
+				MaxReportLengthBytes:      cfg.ThresholdOffchainConfig.MaxReportLengthBytes,
+				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
+				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
+				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
+			},
 		},
 	})
 	if err != nil {
