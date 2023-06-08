@@ -61,7 +61,7 @@ func TestOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, "ocr", 5, mockServer)
+	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 	require.NoError(t, err)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-	err = mockServer.SetValuePath("ocr", 10)
+	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, mockServer)
 	require.NoError(t, err)
 	err = actions.StartNewRound(2, ocrInstances, chainClient)
 	require.NoError(t, err)
@@ -93,10 +93,10 @@ func setupOCRTest(t *testing.T) (
 			WsURLs:      testNetwork.URLs,
 		})
 	}
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
-		"replicas": 6,
+	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
 	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
@@ -105,8 +105,8 @@ func setupOCRTest(t *testing.T) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }
