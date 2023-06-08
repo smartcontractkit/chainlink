@@ -518,7 +518,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
-	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
 

@@ -47,7 +47,7 @@ func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.G
 
 	orm.On("GetQ").Return(q).Maybe()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
@@ -479,7 +479,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg, cc, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
