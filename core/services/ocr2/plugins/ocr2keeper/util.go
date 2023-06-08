@@ -85,7 +85,7 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 		return nil, nil, nil, nil, err
 	}
 
-	encoder := kevm.EVMAutomationEncoder20{}
+	encoder := kevm.EVMAutomationEncoder21{}
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases

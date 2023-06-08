@@ -176,7 +176,7 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (ireg
 
 func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	var (
-		enc     = EVMAutomationEncoder20{}
+		enc     = EVMAutomationEncoder21{}
 		decoded []ocr2keepers.UpkeepResult
 		out     []interface{}
 		err     error

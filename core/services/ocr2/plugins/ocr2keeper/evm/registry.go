@@ -134,7 +134,7 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 			apiErrCache:   apiErrCache,
 		},
 		hc:  http.DefaultClient,
-		enc: EVMAutomationEncoder20{},
+		enc: EVMAutomationEncoder21{},
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -217,7 +217,7 @@ type EvmRegistry struct {
 	runError      error
 	mercury       MercuryConfig
 	hc            HttpClient
-	enc           EVMAutomationEncoder20
+	enc           EVMAutomationEncoder21
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a

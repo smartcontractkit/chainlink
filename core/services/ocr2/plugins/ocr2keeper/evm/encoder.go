@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 )
 
-type EVMAutomationEncoder20 struct {
+type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
 }
 
@@ -44,7 +44,7 @@ type EVMAutomationUpkeepResult21 struct {
 	ExecuteGas       uint32
 }
 
-func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
+func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
 	if len(toReport) == 0 {
 		return nil, nil
 	}
@@ -93,7 +93,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 	return bts, nil
 }
 
-func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
+func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
 	mKeys := []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
 
 	reportArgs := abi.Arguments{
@@ -175,7 +175,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	return res, nil
 }
 
-func (enc EVMAutomationEncoder20) Eligible(result ocr2keepers.UpkeepResult) (bool, error) {
+func (enc EVMAutomationEncoder21) Eligible(result ocr2keepers.UpkeepResult) (bool, error) {
 	res, ok := result.(EVMAutomationUpkeepResult21)
 	if !ok {
 		tp := reflect.TypeOf(result)
@@ -185,7 +185,7 @@ func (enc EVMAutomationEncoder20) Eligible(result ocr2keepers.UpkeepResult) (boo
 	return res.Eligible, nil
 }
 
-func (enc EVMAutomationEncoder20) Detail(result ocr2keepers.UpkeepResult) (ocr2keepers.UpkeepKey, uint32, error) {
+func (enc EVMAutomationEncoder21) Detail(result ocr2keepers.UpkeepResult) (ocr2keepers.UpkeepKey, uint32, error) {
 	res, ok := result.(EVMAutomationUpkeepResult21)
 	if !ok {
 		return nil, 0, ErrUnexpectedResult
@@ -196,7 +196,7 @@ func (enc EVMAutomationEncoder20) Detail(result ocr2keepers.UpkeepResult) (ocr2k
 	return ocr2keepers.UpkeepKey([]byte(str)), res.ExecuteGas, nil
 }
 
-func (enc EVMAutomationEncoder20) KeysFromReport(b []byte) ([]ocr2keepers.UpkeepKey, error) {
+func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.UpkeepKey, error) {
 	results, err := enc.DecodeReport(b)
 	if err != nil {
 		return nil, err
