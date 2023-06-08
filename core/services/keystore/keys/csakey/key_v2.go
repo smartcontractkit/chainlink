@@ -71,24 +71,24 @@ func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 	}
 }
 
-func (key KeyV2) ID() string {
-	return key.PublicKeyString()
+func (k KeyV2) ID() string {
+	return k.PublicKeyString()
 }
 
-func (key KeyV2) PublicKeyString() string {
-	return hex.EncodeToString(key.PublicKey)
+func (k KeyV2) PublicKeyString() string {
+	return hex.EncodeToString(k.PublicKey)
 }
 
-func (key KeyV2) Raw() Raw {
-	return Raw(*key.privateKey)
+func (k KeyV2) Raw() Raw {
+	return Raw(*k.privateKey)
 }
 
-func (key KeyV2) String() string {
-	return fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", key.PublicKey)
+func (k KeyV2) String() string {
+	return fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", k.PublicKey)
 }
 
-func (key KeyV2) GoString() string {
-	return key.String()
+func (k KeyV2) GoString() string {
+	return k.String()
 }
 
 func ed25519PubKeyFromPrivKey(privKey ed25519.PrivateKey) ed25519.PublicKey {

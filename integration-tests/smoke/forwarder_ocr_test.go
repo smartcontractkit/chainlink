@@ -121,6 +121,10 @@ ListenIP = '0.0.0.0'
 ListenPort = 6690`
 	networkDetailTOML := `[EVM.Transactions]
 ForwardersEnabled = true`
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -128,11 +132,8 @@ ForwardersEnabled = true`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
-			"replicas": 6,
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }
