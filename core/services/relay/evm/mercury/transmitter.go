@@ -38,7 +38,13 @@ const (
 var (
 	transmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "mercury_transmit_success_count",
-		Help: "Number of successful transmissions",
+		Help: "Number of successful transmissions (duplicates are counted as success)",
+	},
+		[]string{"feedID"},
+	)
+	transmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_duplicate_count",
+		Help: "Number of transmissions where the server told us it was a duplicate",
 	},
 		[]string{"feedID"},
 	)
@@ -82,6 +88,7 @@ type mercuryTransmitter struct {
 	wg     sync.WaitGroup
 
 	transmitSuccessCount         prometheus.Counter
+	transmitDuplicateCount       prometheus.Counter
 	transmitConnectionErrorCount prometheus.Counter
 	transmitServerErrorCount     prometheus.Counter
 }
@@ -119,6 +126,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
 		sync.WaitGroup{},
 		transmitSuccessCount.WithLabelValues(feedIDHex),
+		transmitDuplicateCount.WithLabelValues(feedIDHex),
 		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
 		transmitServerErrorCount.WithLabelValues(feedIDHex),
 	}
@@ -207,6 +215,7 @@ func (mt *mercuryTransmitter) runloop() {
 			switch res.Code {
 			case DuplicateReport:
 				mt.transmitSuccessCount.Inc()
+				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Debugw("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
 				elems := map[string]interface{}{}
