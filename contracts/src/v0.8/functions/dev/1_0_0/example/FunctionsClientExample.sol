@@ -34,13 +34,14 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     string calldata source,
     bytes calldata secrets,
     string[] calldata args,
-    uint64 subscriptionId
+    uint64 subscriptionId,
+    bytes32 jobId
   ) external onlyOwner {
     Functions.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addRemoteSecrets(secrets);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = sendRequest(req, subscriptionId, MAX_CALLBACK_GAS);
+    lastRequestId = sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
   /**

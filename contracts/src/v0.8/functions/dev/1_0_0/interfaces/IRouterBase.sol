@@ -44,7 +44,7 @@ interface IRouterBase {
   /**
    * @notice Tests a proposal for the ability to make a successful upgrade
    */
-  function validateProposal(bytes calldata data) external;
+  function validateProposal(bytes32 jobId, bytes calldata data) external;
 
   /**
    * @notice Updates the current contract routes to the proposed contracts once timelock has passed
