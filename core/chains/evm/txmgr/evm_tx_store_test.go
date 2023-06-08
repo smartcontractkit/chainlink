@@ -1532,7 +1532,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
-		etx, err := txStore.CreateTransaction(txmgr.EvmNewTx{
+		etx, err := txStore.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -1567,7 +1567,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		id := uuid.New()
-		newTx := txmgr.EvmNewTx{
+		newTx := txmgr.EvmTxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},

@@ -34,7 +34,7 @@ type (
 	EvmTxManager              = txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	NullEvmTxManager          = txmgr.NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
-	EvmNewTx                  = txmgrtypes.NewTx[common.Address, common.Hash]
+	EvmTxRequest                  = txmgrtypes.TxRequest[common.Address, common.Hash]
 	EvmTx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash]
 	EvmTxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]

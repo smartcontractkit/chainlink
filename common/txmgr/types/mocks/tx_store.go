@@ -125,7 +125,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CountU
 }
 
 // CreateTransaction provides a mock function with given fields: newTx, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], chainID CHAIN_ID, qopts ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) CreateTransaction(newTx txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID, qopts ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -137,16 +137,16 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Create
 
 	var r0 txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error)); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], error)); ok {
 		return rf(newTx, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]); ok {
+	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]); ok {
 		r0 = rf(newTx, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD])
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) error); ok {
 		r1 = rf(newTx, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)

@@ -1447,7 +1447,7 @@ func (o *evmTxStore) CheckTxQueueCapacity(fromAddress common.Address, maxQueuedT
 	return
 }
 
-func (o *evmTxStore) CreateTransaction(newTx EvmNewTx, chainID *big.Int, qopts ...pg.QOpt) (tx EvmTx, err error) {
+func (o *evmTxStore) CreateTransaction(newTx EvmTxRequest, chainID *big.Int, qopts ...pg.QOpt) (tx EvmTx, err error) {
 	var dbEtx DbEthTx
 	qq := o.q.WithOpts(qopts...)
 	value := 0

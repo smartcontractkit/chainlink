@@ -300,7 +300,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
+			mock.MatchedBy(func(newTx txmgr.EvmTxRequest) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&

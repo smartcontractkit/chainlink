@@ -41,7 +41,7 @@ const (
 	TxAttemptBroadcast       = TxAttemptState("broadcast")
 )
 
-type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte

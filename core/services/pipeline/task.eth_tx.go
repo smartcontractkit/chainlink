@@ -135,7 +135,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	newTx := txmgr.EvmNewTx{
+	newTx := txmgr.EvmTxRequest{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
