@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 )
