@@ -81,8 +81,8 @@ jobs:
           gh workflow run "e2e-functional-tests.yml" \
             --repo ${{ secrets.MERCURY_SERVER_REPO }} \
             --ref "main" \
-            --field chainlink-ecr-repo-account="prod" \
+            --field chainlink-ecr-repo-account="sdlc" \
             --field chainlink-image-build-metadata="${image_build_metadata}" \
-            --field chainlink-image-tag="develop-amd64"
+            --field chainlink-image-tag="develop"
         env:
           GH_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
