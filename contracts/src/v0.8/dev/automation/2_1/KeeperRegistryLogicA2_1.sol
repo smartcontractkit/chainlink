@@ -124,26 +124,42 @@ contract KeeperRegistryLogicA2_1 is
   }
 
   /**
-   * @dev core node calls this function to call user contracts' mercury callback functions with proper gas limit
+   * @dev mercuryCallback is a helper function wrapped around the generic executeCallback
+   * it may be deprecated in the future
    */
   function mercuryCallback(
     uint256 id,
     bytes[] memory values,
-    bytes memory extraData
+    bytes calldata extraData
   )
     external
+    cannotExecute
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    bytes memory payload = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
+    return executeCallback(id, payload);
+  }
+
+  /**
+   * @dev this is a generic callback executor that forwards a call to a users contract with the configured
+   * gas limit
+   */
+  function executeCallback(
+    uint256 id,
+    bytes memory payload
+  )
+    public
     cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     Upkeep memory upkeep = s_upkeep[id];
 
     gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(payload);
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.MERCURY_CALLBACK_REVERTED;
+      upkeepFailureReason = UpkeepFailureReason.CALLBACK_REVERTED;
     } else {
       (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     }

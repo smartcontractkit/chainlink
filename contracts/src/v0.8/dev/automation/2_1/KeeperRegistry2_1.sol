@@ -488,7 +488,12 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       emit ReorgedUpkeepReport(upkeepId);
       return false;
     }
-    // TODO - dedup log processing
+    bytes32 logID = keccak256(abi.encodePacked(trigger.txHash, trigger.logIndex));
+    if (s_observedLogTriggers[logID]) {
+      emit StaleUpkeepReport(upkeepId);
+      return false;
+    }
+    s_observedLogTriggers[logID] = true;
     return true;
   }
 

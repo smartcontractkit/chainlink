@@ -100,6 +100,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
+  mapping(bytes32 => bool) internal s_observedLogTriggers;
   // Registry config and state
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
