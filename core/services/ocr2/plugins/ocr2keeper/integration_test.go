@@ -70,6 +70,16 @@ var (
 	payload2 = common.Hex2Bytes("ABCD")
 )
 
+var extraDataEncoder *abi.Type
+
+func init() {
+	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
+	if err != nil {
+		panic(err)
+	}
+	extraDataEncoder = method.Inputs
+}
+
 func deployKeeper21Registry(
 	t *testing.T,
 	auth *bind.TransactOpts,
@@ -374,9 +384,11 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	backend.Commit()
 
 	// Register new upkeep
+	extraData, err := extraDataEncoder.Encode([]interface{}{uint8(0), []byte{}, "0x"})
+	require.NoError(t, err)
 	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 	require.NoError(t, err)
-	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
+	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, extraData)
 	require.NoError(t, err)
 	backend.Commit()
 	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
@@ -640,7 +652,9 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Register new upkeep
 	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 	require.NoError(t, err)
-	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
+	extraData, err := extraDataEncoder.Encode([]interface{}{uint8(0), []byte{}, "0x"})
+	require.NoError(t, err)
+	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, extraData)
 	require.NoError(t, err)
 	backend.Commit()
 	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
