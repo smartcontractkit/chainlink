@@ -33,6 +33,9 @@ type ValidationConfig interface {
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PPeerID() p2pkey.PeerID
 	OCRCaptureEATelemetry() bool
+}
+
+type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
 
@@ -102,7 +105,7 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg, spec); err != nil {
+	if err := validateTimingParameters(cfg, cfg.Insecure(), spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -125,8 +128,8 @@ var (
 	}
 )
 
-func validateTimingParameters(cfg ValidationConfig, spec job.OCROracleSpec) error {
-	lc := toLocalConfig(cfg, spec)
+func validateTimingParameters(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec) error {
+	lc := toLocalConfig(cfg, insecureCfg, spec)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
