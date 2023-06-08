@@ -60,11 +60,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-var prometheus *ginprom.Prometheus
-var initOnce sync.Once
+var (
+	initGlobalsOnce sync.Once
+	prometheus      *ginprom.Prometheus
+	grpcOpts        loop.GRPCOpts
+)
 
-func initPrometheus(cfg config.Prometheus) {
-	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
+func initGlobals(cfg config.Prometheus) {
+	// Avoid double initializations.
+	initGlobalsOnce.Do(func() {
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
+		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+	})
 }
 
 var (
@@ -125,11 +132,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	// Avoid double initializations.
-	initOnce.Do(func() {
-		initPrometheus(cfg)
-	})
-	grpcOpts := loop.SetupTelemetry(nil) // default prometheus.Registerer
+	initGlobals(cfg)
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
