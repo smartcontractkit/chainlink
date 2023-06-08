@@ -31,8 +31,6 @@ import (
 
 	time "time"
 
-	url "net/url"
-
 	uuid "github.com/google/uuid"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -232,52 +230,6 @@ func (_m *GeneralConfig) EVMRPCEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// EthereumHTTPURL provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumHTTPURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumSecondaryURLs provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumSecondaryURLs() []url.URL {
-	ret := _m.Called()
-
-	var r0 []url.URL
-	if rf, ok := ret.Get(0).(func() []url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumURL provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumURL() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0

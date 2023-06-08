@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,7 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
+	DefaultChainID() *big.Int
 
 	Validate() error
 	ValidateDB() error
@@ -28,7 +30,6 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	Ethereum
 	FeatureFlags
 	Keystore
 	OCR1Config
