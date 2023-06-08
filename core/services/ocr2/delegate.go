@@ -707,7 +707,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			conf.ServiceQueueLength = cfg.ServiceQueueLength
 		}
 
-		runr, _ := runner.NewRunner(
+		runr, err2 := runner.NewRunner(
 			log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
 			rgstry,
 			encoder,
