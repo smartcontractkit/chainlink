@@ -103,10 +103,10 @@ func setupOCR2Test(t *testing.T) (
 			WsURLs:      testNetwork.URLs,
 		})
 	}
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
-		"replicas": 6,
+	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
 	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
@@ -115,8 +115,8 @@ func setupOCR2Test(t *testing.T) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }
