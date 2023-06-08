@@ -27,7 +27,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -38,7 +38,7 @@ import (
 func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.TestLogger(t)
 	addr := common.Address{}
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
@@ -64,7 +64,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		packer:   &evmRegistryPackerV21{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
@@ -177,7 +177,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 
 		upkeepCache   bool
 		mockGetUpkeep bool
-		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
+		upkeepInfo    i_keeper_registry_master_wrapper_2_1.UpkeepInfo
 		upkeepInfoErr error
 
 		want           []EVMAutomationUpkeepResult20
@@ -189,7 +189,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			name:         "success - cached upkeep",
 			input:        []EVMAutomationUpkeepResult20{upkeepResult},
 			callbackResp: callbackResp,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -204,7 +204,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			input:         []EVMAutomationUpkeepResult20{upkeepResult},
 			callbackResp:  callbackResp,
 			mockGetUpkeep: true,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -272,7 +272,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			input:         []EVMAutomationUpkeepResult20{upkeepResult},
 			mockGetUpkeep: true,
 			callbackResp:  upkeepNeededFalseResp,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:     target,
 				ExecuteGas: 5000000,
 			},
@@ -416,7 +416,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		mercuryLookup *MercuryLookup
 		values        [][]byte
 		statusCode    int
-		upkeepInfo    keeper_registry_wrapper2_0.UpkeepInfo
+		upkeepInfo    i_keeper_registry_master_wrapper_2_1.UpkeepInfo
 		opts          *bind.CallOpts
 
 		callbackMsg  ethereum.CallMsg
@@ -438,7 +438,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:         to,
 				ExecuteGas:     executeGas,
 				OffchainConfig: nil,
@@ -462,7 +462,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:         to,
 				ExecuteGas:     executeGas,
 				OffchainConfig: nil,
@@ -485,7 +485,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			},
 			values:     values,
 			statusCode: http.StatusOK,
-			upkeepInfo: keeper_registry_wrapper2_0.UpkeepInfo{
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
 				Target:         to,
 				ExecuteGas:     executeGas,
 				OffchainConfig: nil,

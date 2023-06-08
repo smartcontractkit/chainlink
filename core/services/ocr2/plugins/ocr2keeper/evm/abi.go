@@ -6,14 +6,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
-
-type evmRegistryPackerV2_0 struct {
-	abi abi.ABI
-}
 
 // enum UpkeepFailureReason
 // https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
@@ -27,11 +24,44 @@ const (
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
 )
 
-func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
-	return &evmRegistryPackerV2_0{abi: abi}
+var (
+	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
+	// function which returns this tuple in order to decode the bytes
+	pdataABI, _ = abi.JSON(strings.NewReader(`[{
+		"name":"check",
+		"type":"function",
+		"outputs":[{
+			"name":"ret",
+			"type":"tuple",
+			"components":[
+				{"type":"uint32","name":"checkBlockNumber"},
+				{"type":"bytes32","name":"checkBlockhash"},
+				{"type":"bytes","name":"performData"}
+				]
+			}]
+		}]`,
+	))
+)
+
+type performDataWrapper struct {
+	Result performDataStruct
+}
+type performDataStruct struct {
+	CheckBlockNumber uint32   `abi:"checkBlockNumber"`
+	CheckBlockhash   [32]byte `abi:"checkBlockhash"`
+	PerformData      []byte   `abi:"performData"`
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
+type evmRegistryPackerV21 struct {
+	abi abi.ABI
+}
+
+func NewEvmRegistryPackerV21(abi abi.ABI) *evmRegistryPackerV21 {
+	return &evmRegistryPackerV21{abi: abi}
+}
+
+// TODO: adjust to 2.1
+func (rp *evmRegistryPackerV21) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
 	var (
 		result EVMAutomationUpkeepResult20
 	)
@@ -88,7 +118,7 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
+func (rp *evmRegistryPackerV21) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
 	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
 		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
@@ -114,7 +144,7 @@ func (rp *evmRegistryPackerV2_0) UnpackMercuryLookupResult(callbackResp []byte) 
 	return true, performData, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV21) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err
@@ -129,41 +159,24 @@ func (rp *evmRegistryPackerV2_0) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (activeUpkeep, error) {
+func (rp *evmRegistryPackerV21) UnpackUpkeepInfo(id *big.Int, raw string) (iregistry21.UpkeepInfo, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return activeUpkeep{}, err
+		return iregistry21.UpkeepInfo{}, err
 	}
 
 	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return activeUpkeep{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+		return iregistry21.UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	type upkeepInfo struct {
-		Target                 common.Address
-		ExecuteGas             uint32
-		CheckData              []byte
-		Balance                *big.Int
-		Admin                  common.Address
-		MaxValidBlocknumber    uint64
-		LastPerformBlockNumber uint32
-		AmountSpent            *big.Int
-		Paused                 bool
-		OffchainConfig         []byte
-	}
-	temp := *abi.ConvertType(out[0], new(upkeepInfo)).(*upkeepInfo)
+	info := *abi.ConvertType(out[0], new(iregistry21.UpkeepInfo)).(*iregistry21.UpkeepInfo)
 
-	au := activeUpkeep{
-		ID:              id,
-		PerformGasLimit: temp.ExecuteGas,
-		CheckData:       temp.CheckData,
-	}
-
-	return au, nil
+	return info, nil
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+// TODO: adjust to 2.1 if needed
+func (rp *evmRegistryPackerV21) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	var (
 		enc     = EVMAutomationEncoder20{}
 		decoded []ocr2keepers.UpkeepResult
@@ -192,30 +205,18 @@ func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keeper
 	return decoded, nil
 }
 
-var (
-	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
-	// function which returns this tuple in order to decode the bytes
-	pdataABI, _ = abi.JSON(strings.NewReader(`[{
-		"name":"check",
-		"type":"function",
-		"outputs":[{
-			"name":"ret",
-			"type":"tuple",
-			"components":[
-				{"type":"uint32","name":"checkBlockNumber"},
-				{"type":"bytes32","name":"checkBlockhash"},
-				{"type":"bytes","name":"performData"}
-				]
-			}]
-		}]`,
-	))
-)
+// UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
+func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig
 
-type performDataWrapper struct {
-	Result performDataStruct
-}
-type performDataStruct struct {
-	CheckBlockNumber uint32   `abi:"checkBlockNumber"`
-	CheckBlockhash   [32]byte `abi:"checkBlockhash"`
-	PerformData      []byte   `abi:"performData"`
+	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(raw)
+	if err != nil {
+		return cfg, fmt.Errorf("%w: unpack getLogTriggerConfig return: %s", err, raw)
+	}
+
+	converted, ok := abi.ConvertType(out[0], new(iregistry21.KeeperRegistryBase21LogTriggerConfig)).(*iregistry21.KeeperRegistryBase21LogTriggerConfig)
+	if !ok {
+		return cfg, fmt.Errorf("failed to convert type")
+	}
+	return *converted, nil
 }

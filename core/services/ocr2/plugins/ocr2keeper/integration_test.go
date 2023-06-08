@@ -33,8 +33,10 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -68,35 +70,44 @@ var (
 	payload2 = common.Hex2Bytes("ABCD")
 )
 
-func deployKeeper20Registry(
+func deployKeeper21Registry(
 	t *testing.T,
 	auth *bind.TransactOpts,
 	backend *backends.SimulatedBackend,
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
-) *keeper_registry_wrapper2_0.KeeperRegistry {
-	logicAddr, _, _, err := keeper_registry_logic2_0.DeployKeeperRegistryLogic(
+) *iregistry21.IKeeperRegistryMaster {
+	registryLogicBAddr, _, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		auth,
 		backend,
 		0, // Payment model
 		linkAddr,
 		linkFeedAddr,
-		gasFeedAddr)
-	require.NoError(t, err)
-	backend.Commit()
-
-	regAddr, _, _, err := keeper_registry_wrapper2_0.DeployKeeperRegistry(
-		auth,
-		backend,
-		logicAddr,
+		gasFeedAddr,
 	)
 	require.NoError(t, err)
 	backend.Commit()
 
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(regAddr, backend)
+	registryLogicAAddr, _, _, err := registrylogica21.DeployKeeperRegistryLogicA(
+		auth,
+		backend,
+		registryLogicBAddr,
+	)
+	require.NoError(t, err)
+	backend.Commit()
+
+	registryAddr, _, _, err := registry21.DeployKeeperRegistry(
+		auth,
+		backend,
+		registryLogicAAddr,
+	)
+	require.NoError(t, err)
+	backend.Commit()
+
+	registryMaster, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, backend)
 	require.NoError(t, err)
 
-	return registry
+	return registryMaster
 }
 
 func setupNode(
@@ -186,7 +197,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -225,7 +236,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	require.NoError(t, err)
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
-	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19599)
@@ -477,7 +488,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	require.NoError(t, err)
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
-	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	effectiveTransmitters := make([]common.Address, 0)
 	// Setup bootstrap + oracle nodes
