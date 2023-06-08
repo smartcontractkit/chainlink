@@ -9,6 +9,9 @@ jobs:
   push-chainlink-develop-goreleaser:
     runs-on:
       labels: ubuntu20.04-16cores-64GB
+    outputs:
+      goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
+      goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
     environment: build-develop
     permissions:
       id-token: write
@@ -23,6 +26,7 @@ jobs:
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Build, sign, and publish image
+        id: build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           enable-docker-publish: "true"
@@ -41,3 +45,44 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: push-chainlink-develop-goreleaser
         continue-on-error: true
+  mercury-e2e-tests:
+    needs: [push-chainlink-develop-goreleaser]
+    runs-on:
+      labels: ubuntu-latest
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@5727f247b64f324ec403ac56ae05e220fd02b65f # v2.1.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
+        with:
+          url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
+      - name: 'Dispatch Workflow: E2E Functional Tests'
+        id: dispatch-workflow-e2e-functional-tests
+        shell: bash
+        run: |
+          image_build_metadata=$(jq -n \
+                                  --arg commit_sha "$GITHUB_SHA" \
+                                  --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+                                  '{
+                                    commit_sha: $commit_sha,
+                                    originating_run_url: $run_url
+                                  }')
+          gh workflow run "e2e-functional-tests.yml" \
+            --repo ${{ secrets.MERCURY_SERVER_REPO }} \
+            --ref "main" \
+            --field chainlink-ecr-repo-account="sdlc" \
+            --field chainlink-image-build-metadata="${image_build_metadata}" \
+            --field chainlink-image-tag="develop"
+        env:
+          GH_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}

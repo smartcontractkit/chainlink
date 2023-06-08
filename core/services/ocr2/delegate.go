@@ -81,6 +81,7 @@ type DelegateConfig interface {
 	plugins.RegistrarConfig
 	JobPipeline() jobPipelineConfig
 	Database() pg.QConfig
+	Insecure() insecureConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -89,6 +90,7 @@ type delegateConfig struct {
 	plugins.RegistrarConfig
 	jobPipeline jobPipelineConfig
 	database    pg.QConfig
+	insecure    insecureConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -99,17 +101,26 @@ func (d *delegateConfig) Database() pg.QConfig {
 	return d.database
 }
 
+func (d *delegateConfig) Insecure() insecureConfig {
+	return d.insecure
+}
+
+type insecureConfig interface {
+	OCRDevelopmentMode() bool
+}
+
 type jobPipelineConfig interface {
 	MaxSuccessfulRuns() uint64
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(vc validate.Config, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
 		database:        qconf,
+		insecure:        i,
 	}
 }
 
@@ -321,7 +332,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 
-	lc := validate.ToLocalConfig(d.cfg, *spec)
+	lc := validate.ToLocalConfig(d.cfg, d.cfg.Insecure(), *spec)
 	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
