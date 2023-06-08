@@ -413,20 +413,6 @@ func (_m *GeneralConfig) Keeper() config.Keeper {
 	return r0
 }
 
-// KeystorePassword provides a mock function with given fields:
-func (_m *GeneralConfig) KeystorePassword() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // Log provides a mock function with given fields:
 func (_m *GeneralConfig) Log() config.Log {
 	ret := _m.Called()
@@ -1148,15 +1134,33 @@ func (_m *GeneralConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
-// PrometheusAuthToken provides a mock function with given fields:
-func (_m *GeneralConfig) PrometheusAuthToken() string {
+// Password provides a mock function with given fields:
+func (_m *GeneralConfig) Password() config.Password {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Password
+	if rf, ok := ret.Get(0).(func() config.Password); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Password)
+		}
+	}
+
+	return r0
+}
+
+// Prometheus provides a mock function with given fields:
+func (_m *GeneralConfig) Prometheus() config.Prometheus {
+	ret := _m.Called()
+
+	var r0 config.Prometheus
+	if rf, ok := ret.Get(0).(func() config.Prometheus); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Prometheus)
+		}
 	}
 
 	return r0
@@ -1350,20 +1354,6 @@ func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 
 // ThresholdKeyShare provides a mock function with given fields:
 func (_m *GeneralConfig) ThresholdKeyShare() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// VRFPassword provides a mock function with given fields:
-func (_m *GeneralConfig) VRFPassword() string {
 	ret := _m.Called()
 
 	var r0 string
