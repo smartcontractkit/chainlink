@@ -10,7 +10,7 @@ import (
 )
 
 // PyroscopeConfig represents the expected configuration for Pyroscope to properly work
-type PyroscopeConfig interface {
+type PyroscopeProfilerConfig interface {
 	Pyroscope() config.Pyroscope
 
 	AutoPprofBlockProfileRate() int
@@ -18,7 +18,7 @@ type PyroscopeConfig interface {
 }
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
-func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
+func StartPyroscope(cfg PyroscopeProfilerConfig) (*pyroscope.Profiler, error) {
 	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
 	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
