@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -45,6 +46,7 @@ type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
+	Value            big.Int
 	FeeLimit         uint32
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
@@ -119,7 +121,7 @@ type TxAttempt[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ Sequence,
-	FEE Fee,
+	FEE feetypes.Fee,
 	ADD any, // additional parameter inside of Tx, can be used for passing any additional information through the tx
 ] struct {
 	ID    int64
@@ -141,33 +143,13 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Strin
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
 
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Fee() FEE {
-	return a.TxFee
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetBroadcastBeforeBlockNum() *int64 {
-	return a.BroadcastBeforeBlockNum
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetChainSpecificFeeLimit() uint32 {
-	return a.ChainSpecificFeeLimit
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetHash() TX_HASH {
-	return a.Hash
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetTxType() int {
-	return a.TxType
-}
-
 type Tx[
 	CHAIN_ID ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ Sequence,
-	FEE Fee,
+	FEE feetypes.Fee,
 	ADD any, // additional parameter can be used for passing any additional information through the tx, EVM passes an access list
 ] struct {
 	ID             int64
