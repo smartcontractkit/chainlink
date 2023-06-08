@@ -677,7 +677,7 @@ func (g *generalConfig) P2PV2ListenAddresses() []string {
 }
 
 func (g *generalConfig) Pyroscope() config.Pyroscope {
-	return &PyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
 func (g *generalConfig) RootDir() string {

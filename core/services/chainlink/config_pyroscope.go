@@ -2,22 +2,22 @@ package chainlink
 
 import v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 
-type PyroscopeConfig struct {
+type pyroscopeConfig struct {
 	c v2.Pyroscope
 	s v2.PyroscopeSecrets
 }
 
-func (p *PyroscopeConfig) AuthToken() string {
+func (p *pyroscopeConfig) AuthToken() string {
 	if p.s.AuthToken == nil {
 		return ""
 	}
 	return string(*p.s.AuthToken)
 }
 
-func (p *PyroscopeConfig) ServerAddress() string {
+func (p *pyroscopeConfig) ServerAddress() string {
 	return *p.c.ServerAddress
 }
 
-func (p *PyroscopeConfig) Environment() string {
+func (p *pyroscopeConfig) Environment() string {
 	return *p.c.Environment
 }
