@@ -42,6 +42,7 @@ type EVMAutomationUpkeepResult21 struct {
 	CheckBlockNumber uint32
 	CheckBlockHash   [32]byte
 	ExecuteGas       uint32
+	Retryable        bool
 }
 
 func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
