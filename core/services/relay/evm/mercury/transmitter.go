@@ -221,21 +221,22 @@ func (mt *mercuryTransmitter) runloop() {
 				elems := map[string]interface{}{}
 				var validFrom int64
 				var currentBlock int64
+				var unpackErr error
 				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					mt.lggr.Errorw("failed to unpack report", "err", err)
+					unpackErr = err
 				} else {
 					report := elems["report"].([]byte)
 					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
 					if err != nil {
-						mt.lggr.Errorw("failed to unpack report", "err", err)
+						unpackErr = err
 					}
 					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
 					if err != nil {
-						mt.lggr.Errorw("failed to unpack report", "err", err)
+						unpackErr = errors.Join(unpackErr, err)
 					}
 				}
 				mt.transmitServerErrorCount.Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 	}
