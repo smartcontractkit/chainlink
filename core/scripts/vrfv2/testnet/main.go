@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_subscription_balance_monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1250,6 +1251,40 @@ func main() {
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer", *amountJuels, "juels to", *receiverAddress)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "subscription-balance-monitor-deploy":
+		cmd := flag.NewFlagSet("subscription-balance-monitor-deploy", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of coordinator")
+		keeperRegistryAddress := cmd.String("keeper-registry-address", "", "address of keeper registry")
+		minWaitPeriodSeconds := cmd.Int64("min-wait-period-seconds", 0, "min wait period in seconds")
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"link-address", "coordinator-address", "keeper-registry-address", "min-wait-period-seconds")
+		_, tx, _, err := vrfv2_subscription_balance_monitor.DeployVRFSubscriptionBalanceMonitor(
+			e.Owner, e.Ec,
+			common.HexToAddress(*linkAddress),
+			common.HexToAddress(*coordinatorAddress),
+			common.HexToAddress(*keeperRegistryAddress),
+			big.NewInt(*minWaitPeriodSeconds))
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	case "subscription-balance-monitor-set-watchlist":
+		cmd := flag.NewFlagSet("subscription-balance-monitor-set-watchlist", flag.ExitOnError)
+		monitorAddress := cmd.String("monitor-address", "", "address of subscription balance monitor")
+		watchlistRaw := cmd.String("watchlist", "", "comma separated list of addresses to watch")
+		minBalancesJuelsRaw := cmd.String("min-balances-juels", "", "comma separated list of min balances in juels")
+		topUpAmountsJuelsRaw := cmd.String("top-up-amounts-juels", "", "comma separated list of top up amounts in juels")
+		helpers.ParseArgs(cmd, os.Args[2:], "monitor-address", "watchlist", "min-balances-juels", "top-up-amounts-juels")
+		monitor, err := vrfv2_subscription_balance_monitor.NewVRFSubscriptionBalanceMonitor(common.HexToAddress(*monitorAddress), e.Ec)
+		helpers.PanicErr(err)
+		watchlist := helpers.ParseUint64Slice(*watchlistRaw)
+		minBalancesJuels := helpers.ParseBigIntSlice(*minBalancesJuelsRaw)
+		topUpAmountsJuels := helpers.ParseBigIntSlice(*topUpAmountsJuelsRaw)
+		if len(watchlist) != len(minBalancesJuels) || len(watchlist) != len(topUpAmountsJuels) {
+			panic("watchlist, min balances, and top up amounts must all be the same length")
+		}
+		tx, err := monitor.SetWatchList(e.Owner, watchlist, minBalancesJuels, topUpAmountsJuels)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set watchlist on vrf subscription balance monitor")
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

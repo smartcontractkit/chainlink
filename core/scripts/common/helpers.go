@@ -295,6 +295,18 @@ func ParseIntSlice(arg string) (ret []int) {
 	return ret
 }
 
+// ParseUint64Slice parses the given comma-separated string of integers into a slice
+// of uint64.
+func ParseUint64Slice(arg string) (ret []uint64) {
+	parts := strings.Split(arg, ",")
+	for _, part := range parts {
+		num, err := strconv.ParseInt(part, 10, 64)
+		PanicErr(err)
+		ret = append(ret, uint64(num))
+	}
+	return ret
+}
+
 // ParseAddressSlice parses the given comma-separated string of addresses into a slice
 // of common.Address objects.
 func ParseAddressSlice(arg string) (ret []common.Address) {
