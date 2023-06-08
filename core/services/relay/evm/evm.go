@@ -142,7 +142,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 
 func (r *Relayer) RegisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
 	var relayConfig types.RelayConfig
-	filters, err := FiltersFromRelayArgs(args)
+	filters, err := filtersFromRelayArgs(args)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (r *Relayer) RegisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (e
 
 func (r *Relayer) UnregisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
 	var relayConfig types.RelayConfig
-	filters, err := FiltersFromRelayArgs(args)
+	filters, err := filtersFromRelayArgs(args)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (r *Relayer) UnregisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) 
 	return nil
 }
 
-func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter, err error) {
+func filtersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter, err error) {
 	var addr ethkey.EIP55Address
 	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err

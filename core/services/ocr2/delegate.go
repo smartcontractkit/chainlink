@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -195,12 +194,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 	d.isNewlyCreatedJob = true
 }
 
-func (d *Delegate) validateAndParseSpec(jb job.Job) evmlogpoller.LogPoller {
-	spec := jb.OCR2OracleSpec
-	if spec == nil {
-		d.lggr.Error(ErrNonOCR2JobType{jb})
-		return nil
-	}
+func (d *Delegate) logPollerFromSpec(spec *job.OCR2OracleSpec) evmlogpoller.LogPoller {
 	if spec.Relay != relay.EVM {
 		return nil
 	}
@@ -218,57 +212,57 @@ func (d *Delegate) validateAndParseSpec(jb job.Job) evmlogpoller.LogPoller {
 	return chain.LogPoller()
 }
 
-func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID) (filters []evmlogpoller.Filter) {
-	var err error
+func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec) (filters []evmlogpoller.Filter, err error) {
 	switch spec.PluginType {
 	case job.OCR2VRF:
 		filters, err = ocr2coordinator.FiltersFromSpec(spec)
 		if err != nil {
-			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+			return nil, errors.Wrapf(err, "failed to derive ocr2vrf filter names from spec: %v", spec)
 		}
 	case job.OCR2Keeper:
 		filters, err = ocr2keeper.FiltersFromSpec20(spec)
 		if err != nil {
-			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+			return nil, errors.Wrapf(err, "failed to derive ocr2keeper filter names from spec: %v", spec)
 		}
+	default:
 	}
 
-	rargs := types.RelayArgs{
-		ExternalJobID: extJobID,
-		JobID:         spec.ID,
-		ContractID:    spec.ContractID,
-		New:           true,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-	}
-
-	relayFilters, err := evmrelay.FiltersFromRelayArgs(rargs)
-	if err != nil {
-		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
-		return nil
-	}
-
-	filters = append(filters, relayFilters...)
-	return filters
+	return filters, nil
 }
 
 func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
-	lp := d.validateAndParseSpec(jb)
-	if lp == nil {
-		return nil
+	spec := jb.OCR2OracleSpec
+	if spec == nil {
+		return ErrNonOCR2JobType{jb}
 	}
+	if lp := d.logPollerFromSpec(spec); lp != nil {
+		filters, err := d.filtersFromSpec(jb.OCR2OracleSpec)
+		if err != nil {
+			return err
+		}
 
-	filters := d.filtersFromSpec(jb.OCR2OracleSpec, jb.ExternalJobID)
-	if filters == nil {
-		return nil
-	}
-
-	for _, filter := range filters {
-		d.lggr.Debugf("Registering new filter %s", filter)
-		if err := lp.RegisterFilter(filter, q); err != nil {
-			return errors.Wrapf(err, "Failed to register filter %s", filter)
+		for _, filter := range filters {
+			d.lggr.Debugf("Registering new filter %s", filter)
+			if err := lp.RegisterFilter(filter, q); err != nil {
+				return errors.Wrapf(err, "Failed to register filter %s", filter)
+			}
 		}
 	}
-	return nil
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	}
+	rargs := types.RelayArgs{
+		JobID:       spec.ID,
+		ContractID:  spec.ContractID,
+		RelayConfig: spec.RelayConfig.Bytes(),
+	}
+	r, ok := relayer.(relay.JobHooks)
+	if !ok {
+		return nil
+	}
+
+	return r.OnCreateJob(rargs, q)
 }
 
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
@@ -280,23 +274,41 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
 	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
 	//  at all (no rows deleted).
-
-	lp := d.validateAndParseSpec(jb)
-	if lp == nil {
+	spec := jb.OCR2OracleSpec
+	if spec == nil {
+		d.lggr.Error(ErrNonOCR2JobType{jb})
 		return nil
 	}
-	filters := d.filtersFromSpec(jb.OCR2OracleSpec, jb.ExternalJobID)
-	if filters == nil {
-		return nil
-	}
+	if lp := d.logPollerFromSpec(spec); lp != nil {
+		filters, err := d.filtersFromSpec(spec)
+		if err != nil {
+			d.lggr.Error(err)
+			return nil
+		}
 
-	for _, filter := range filters {
-		d.lggr.Debugf("Unregistering %s filter", filter)
-		if err := lp.UnregisterFilter(filter.Name, q); err != nil {
-			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
+		for _, filter := range filters {
+			d.lggr.Debugf("Unregistering %s filter", filter)
+			if err := lp.UnregisterFilter(filter.Name, q); err != nil {
+				return errors.Wrapf(err, "Failed to unregister filter %s", filter)
+			}
 		}
 	}
-	return nil
+
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		d.lggr.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		return nil
+	}
+	rargs := types.RelayArgs{
+		JobID:       spec.ID,
+		ContractID:  spec.ContractID,
+		RelayConfig: spec.RelayConfig.Bytes(),
+	}
+	r, ok := relayer.(relay.JobHooks)
+	if !ok {
+		return nil
+	}
+	return r.OnDeleteJob(rargs, q)
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job

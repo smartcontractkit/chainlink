@@ -146,15 +146,11 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 		ContractID:  spec.ContractID,
 		RelayConfig: spec.RelayConfig.Bytes(),
 	}
-	r, ok := relayer.(relay.LogPollerCapable)
+	r, ok := relayer.(relay.JobHooks)
 	if !ok {
 		return nil
 	}
-	err := r.RegisterLogFilters(rargs, q)
-	if err != nil && !errors.Is(err, relay.ErrLogFiltersNotSupported{}) {
-		return errors.Wrapf(err, "Failed to register required log filters for OCRBootstrap job, with relay args: %v", rargs)
-	}
-	return nil
+	return r.OnCreateJob(rargs, q)
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.
@@ -173,21 +169,17 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		d.lggr.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		return nil
 	}
-
 	rargs := types.RelayArgs{
 		JobID:       spec.ID,
 		ContractID:  spec.ContractID,
 		RelayConfig: spec.RelayConfig.Bytes(),
 	}
-	r, ok := relayer.(relay.LogPollerCapable)
+	r, ok := relayer.(relay.JobHooks)
 	if !ok {
 		return nil
 	}
-	err := r.UnregisterLogFilters(rargs, q)
-	if err != nil && !errors.Is(err, relay.ErrLogFiltersNotSupported{}) {
-		return errors.Wrapf(err, "Failed to unregister log filters for OCRBootstrap job, with relay args: %v", rargs)
-	}
-	return nil
+	return r.OnDeleteJob(rargs, q)
 }

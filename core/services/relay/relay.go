@@ -35,6 +35,11 @@ type LogPollerCapable interface {
 	UnregisterLogFilters(args types.RelayArgs, q pg.Queryer) (err error)
 }
 
+type JobHooks interface {
+	OnCreateJob(arg types.RelayArgs, q pg.Queryer) (err error)
+	OnDeleteJob(arg types.RelayArgs, q pg.Queryer) (err error)
+}
+
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {
 	services.ServiceCtx
@@ -52,6 +57,7 @@ var _ loop.Relayer = (*relayerAdapter)(nil)
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
+	JobHooks
 	RelayerExt
 }
 
@@ -104,19 +110,19 @@ func (e ErrLogFiltersNotSupported) Error() string {
 	return fmt.Sprintf("Log filtering is not supported by relay %s", e.relayName)
 }
 
-func (r *relayerAdapter) RegisterLogFilters(rargs types.RelayArgs, q pg.Queryer) (err error) {
+func (r *relayerAdapter) OnCreateJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
 	relay, ok := r.Relayer.(LogPollerCapable)
 	if !ok {
-		return ErrLogFiltersNotSupported{r.Relayer.Name()} // only supported for evm currently
+		return nil
 	}
 	return relay.RegisterLogFilters(rargs, q)
 
 }
 
-func (r *relayerAdapter) UnregisterLogFilters(rargs types.RelayArgs, q pg.Queryer) (err error) {
+func (r *relayerAdapter) OnDeleteJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
 	relay, ok := r.Relayer.(LogPollerCapable)
 	if !ok {
-		return ErrLogFiltersNotSupported{r.Relayer.Name()} // only supported for evm currently
+		return nil
 	}
 	return relay.UnregisterLogFilters(rargs, q)
 }

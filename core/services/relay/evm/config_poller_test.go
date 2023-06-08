@@ -79,7 +79,7 @@ func TestConfigPoller(t *testing.T) {
 		ContractID:  ocrAddress.String(),
 		RelayConfig: rc,
 	}
-	filters, err2 := FiltersFromRelayArgs(rargs)
+	filters, err2 := filtersFromRelayArgs(rargs)
 	require.NoError(t, err2)
 
 	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
