@@ -153,8 +153,8 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		}
 
 		requestToAdd := decryptionPlugin.DecryptionRequest{
-			requestId,
-			pendingRequest.ciphertext,
+			CiphertextId: requestId,
+			Ciphertext:   pendingRequest.ciphertext,
 		}
 
 		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
