@@ -19,6 +19,7 @@ type AppConfig interface {
 	AppID() uuid.UUID
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
+	InsecureFastScrypt() bool
 
 	Validate() error
 	ValidateDB() error
@@ -30,7 +31,6 @@ type AppConfig interface {
 	Ethereum
 	Explorer
 	FeatureFlags
-	Insecure
 	Keystore
 	OCR1Config
 	OCR2Config
@@ -51,6 +51,7 @@ type AppConfig interface {
 	FluxMonitor() FluxMonitor
 	WebServer() WebServer
 	AutoPprof() AutoPprof
+	Insecure() Insecure
 }
 
 type DatabaseBackupMode string

@@ -421,7 +421,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), cfg.Database(), registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -445,6 +445,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
+			cfg.Insecure(),
 			relayers,
 		)
 	} else {
@@ -476,6 +477,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.Database(),
 			chains.EVM,
