@@ -7,17 +7,17 @@ type PyroscopeConfig struct {
 	s v2.PyroscopeSecrets
 }
 
-func (p PyroscopeConfig) AuthToken() string {
+func (p *PyroscopeConfig) AuthToken() string {
 	if p.s.AuthToken == nil {
 		return ""
 	}
 	return string(*p.s.AuthToken)
 }
 
-func (p PyroscopeConfig) ServerAddress() string {
+func (p *PyroscopeConfig) ServerAddress() string {
 	return *p.c.ServerAddress
 }
 
-func (p PyroscopeConfig) Environment() string {
+func (p *PyroscopeConfig) Environment() string {
 	return *p.c.Environment
 }
