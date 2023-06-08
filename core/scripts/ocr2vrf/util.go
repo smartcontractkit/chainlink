@@ -85,14 +85,13 @@ func deployVRFCoordinator(e helpers.Environment, beaconPeriodBlocks *big.Int, li
 		e.Ec,
 		beaconPeriodBlocks,
 		common.HexToAddress(linkAddress),
-		common.HexToAddress(linkEthFeed),
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID), coordinator
 }
 
 func configureVRFCoordinator(e helpers.Environment, coordinator *vrf_coordinator.VRFCoordinator, maxCbGasLimit, maxCbArgsLen uint32) *gethtypes.Receipt {
-	tx, err := coordinator.SetConfig(e.Owner, vrf_coordinator.VRFCoordinatorConfig{
+	tx, err := coordinator.SetCallbackConfig(e.Owner, vrf_coordinator.VRFCoordinatorCallbackConfig{
 		MaxCallbackGasLimit:        maxCbGasLimit,
 		MaxCallbackArgumentsLength: maxCbArgsLen,
 	})
@@ -347,13 +346,13 @@ func setCoordinatorBilling(e helpers.Environment, vrfCoordinatorAddr string, use
 	fallbackWeiPerUnitLink *big.Int) {
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 
-	tx, err := coordinator.SetBillingConfig(e.Owner, vrf_coordinator.VRFBeaconTypesBillingConfig{
+	tx, err := coordinator.SetCoordinatorConfig(e.Owner, vrf_coordinator.VRFBeaconTypesCoordinatorConfig{
 		UseReasonableGasPrice:             useReasonableGasPrice,
 		UnusedGasPenaltyPercent:           unusedGasPenaltyPercent,
 		StalenessSeconds:                  stalenessSeconds,
 		RedeemableRequestGasOverhead:      redeemableRequestGasOverhead,
 		CallbackRequestGasOverhead:        callbackRequestGasOverhead,
-		PremiumPercentage:                 premiumPercentage,
+		PremiumPercentage:                 uint8(premiumPercentage),
 		ReasonableGasPriceStalenessBlocks: reasonableGasPriceStalenessBlocks,
 		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
 	})
