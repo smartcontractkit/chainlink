@@ -34,7 +34,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     uint96 estimatedCost;
     uint256 timestamp;
   }
-  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
+  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */
+    private s_requestCommitments;
   event BillingStart(bytes32 indexed requestId, Commitment commitment);
   struct ItemizedBill {
     uint96 signerPayment;
@@ -99,7 +100,11 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(address router, bytes memory config, address linkToNativeFeed) Route(router, config) {
+  constructor(
+    address router,
+    bytes memory config,
+    address linkToNativeFeed
+  ) Route(router, config) {
     LINK_TO_NATIVE_FEED = AggregatorV3Interface(linkToNativeFeed);
   }
 
@@ -182,7 +187,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getDONFee(
-    bytes memory /* data */,
+    bytes memory, /* data */
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -193,7 +198,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getAdminFee(
-    bytes memory /* data */,
+    bytes memory, /* data */
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -263,10 +268,15 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
    * @dev Only callable by the Functions Router
    */
-  function startBilling(
-    bytes memory data,
-    RequestBilling memory billing
-  ) internal nonReentrant returns (bytes32, uint96) {
+  function startBilling(bytes memory data, RequestBilling memory billing)
+    internal
+    nonReentrant
+    returns (
+      bytes32,
+      uint96,
+      uint256
+    )
+  {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the gas and computation.
     if (billing.gasLimit > s_config.maxGasLimit) {
@@ -302,7 +312,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     s_requestCommitments[requestId] = commitment;
 
     emit BillingStart(requestId, commitment);
-    return (requestId, estimatedCost);
+    return (requestId, estimatedCost, s_config.requestTimeoutSeconds);
   }
 
   /**
@@ -321,7 +331,11 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function callWithExactGas(
+    uint256 gasAmount,
+    address target,
+    bytes memory data
+  ) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -477,13 +491,14 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    */
   function timeoutRequest(bytes32 requestId) external override onlyRouter returns (bool) {
     Commitment memory commitment = s_requestCommitments[requestId];
-
-    if (commitment.timestamp + s_config.requestTimeoutSeconds > block.timestamp) {
-      // Delete commitment
-      delete s_requestCommitments[requestId];
-      emit RequestTimedOut(requestId);
-      return true;
-    } else return false;
+    // Ensure that commitment exists
+    if (commitment.don == address(0)) {
+      return false;
+    }
+    // Delete commitment
+    delete s_requestCommitments[requestId];
+    emit RequestTimedOut(requestId);
+    return true;
   }
 
   // ================================================================

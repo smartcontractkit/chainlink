@@ -62,17 +62,19 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
-  mapping(address => uint96) /* oracle node */ /* LINK balance */ private s_withdrawableTokens;
+  mapping(address => uint96) /* oracle node */ /* LINK balance */
+    private s_withdrawableTokens;
 
   struct Request {
     address coordinator;
     address client;
     uint64 subscriptionId;
     uint96 estimatedCost;
-    //timestamp?
+    uint256 timeoutTimestamp;
   }
 
-  mapping(bytes32 => Request) /* request ID */ /* Request data */ private s_requests;
+  mapping(bytes32 => Request) /* request ID */ /* Request data */
+    private s_requests;
 
   // ================================================================
   // |                       Initialization                         |
@@ -107,12 +109,16 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getSubscription(
-    uint64 subscriptionId
-  )
+  function getSubscription(uint64 subscriptionId)
     external
     view
-    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers)
+    returns (
+      uint96 balance,
+      uint96 blockedBalance,
+      address owner,
+      address requestedOwner,
+      address[] memory consumers
+    )
   {
     _isValidSubscription(subscriptionId);
     return (
@@ -127,10 +133,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getConsumer(
-    address client,
-    uint64 subscriptionId
-  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
+  function getConsumer(address client, uint64 subscriptionId)
+    external
+    view
+    returns (
+      bool allowed,
+      uint64 initiatedRequests,
+      uint64 completedRequests
+    )
+  {
     return (
       s_consumers[client][subscriptionId].allowed,
       s_consumers[client][subscriptionId].initiatedRequests,
@@ -153,17 +164,28 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint64 subscriptionId,
     uint96 amount,
     bytes32 requestId,
-    address coordinator
+    address coordinator,
+    uint256 requestTimeoutSeconds
   ) internal nonReentrant {
     s_subscriptions[subscriptionId].blockedBalance += amount;
     s_consumers[client][subscriptionId].initiatedRequests += 1;
-    s_requests[requestId] = Request(coordinator, client, subscriptionId, amount);
+    s_requests[requestId] = Request(
+      coordinator,
+      client,
+      subscriptionId,
+      amount,
+      block.timestamp + requestTimeoutSeconds
+    );
   }
 
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function pay(bytes32 requestId, address[] memory to, uint96[] memory amount) external nonReentrant {
+  function pay(
+    bytes32 requestId,
+    address[] memory to,
+    uint96[] memory amount
+  ) external nonReentrant {
     Request memory request = s_requests[requestId];
     if (msg.sender != request.coordinator) {
       revert OnlyCallableByCoordinator();
@@ -253,7 +275,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                   Deposit helper method                      |
   // ================================================================
-  function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
+  function onTokenTransfer(
+    address, /* sender */
+    uint256 amount,
+    bytes calldata data
+  ) external override nonReentrant {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
@@ -306,10 +332,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(
-    uint64 subscriptionId,
-    address newOwner
-  ) external onlySubOwner(subscriptionId) nonReentrant {
+  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner)
+    external
+    onlySubOwner(subscriptionId)
+    nonReentrant
+  {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptions[subscriptionId].requestedOwner != newOwner) {
       s_subscriptions[subscriptionId].requestedOwner = newOwner;
@@ -450,6 +477,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       (, , address owner, , ) = this.getSubscription(request.subscriptionId);
       if (msg.sender != owner) {
         revert MustBeSubOwner(owner);
+      }
+
+      // Check that request has exceeded allowed request time
+      if (block.timestamp < request.timeoutTimestamp) {
+        revert ConsumerRequestsInFlight();
       }
 
       IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
