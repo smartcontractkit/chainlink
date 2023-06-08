@@ -52,29 +52,31 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		return nil, err
 	}
 	sessionStore := cookie.NewStore(secret)
-	sessionStore.Options(config.SessionOptions())
-	cors := uiCorsHandler(config)
+	sessionStore.Options(config.WebServer().SessionOptions())
+	cors := uiCorsHandler(config.WebServer().AllowOrigins())
 	if prometheus != nil {
 		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
 	}
 
+	tls := config.WebServer().TLS()
 	engine.Use(
-		limits.RequestSizeLimiter(config.WebServerHTTPMaxSize()),
+		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
-		secureMiddleware(config),
+		secureMiddleware(tls.ForceRedirect(), tls.Host(), config.DevWebServer()),
 	)
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())
 	}
 	engine.Use(helmet.Default())
 
+	rl := config.WebServer().RateLimit()
 	api := engine.Group(
 		"/",
 		rateLimiter(
-			config.AuthenticatedRateLimitPeriod().Duration(),
-			config.AuthenticatedRateLimit(),
+			rl.AuthenticatedPeriod(),
+			rl.Authenticated(),
 		),
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
@@ -132,28 +134,21 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
-type SecurityConfig interface {
-	AllowOrigins() string
-	TLSRedirect() bool
-	TLSHost() string
-	DevWebServer() bool
-}
-
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(cfg SecurityConfig) secure.Options {
+func secureOptions(tlsRedirect bool, tlsHost string, devWebServer bool) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
-		IsDevelopment: cfg.DevWebServer(),
-		SSLRedirect:   cfg.TLSRedirect(),
-		SSLHost:       cfg.TLSHost(),
+		IsDevelopment: devWebServer,
+		SSLRedirect:   tlsRedirect,
+		SSLHost:       tlsHost,
 	}
 }
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(cfg SecurityConfig) gin.HandlerFunc {
-	secureMiddleware := secure.New(secureOptions(cfg))
+func secureMiddleware(tlsRedirect bool, tlsHost string, devWebServer bool) gin.HandlerFunc {
+	secureMiddleware := secure.New(secureOptions(tlsRedirect, tlsHost, devWebServer))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
 			err := secureMiddleware.Process(c.Writer, c.Request)
@@ -205,9 +200,10 @@ func ginHandlerFromHTTP(h http.HandlerFunc) gin.HandlerFunc {
 
 func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	config := app.GetConfig()
+	rl := config.WebServer().RateLimit()
 	unauth := r.Group("/", rateLimiter(
-		config.UnAuthenticatedRateLimitPeriod().Duration(),
-		config.UnAuthenticatedRateLimit(),
+		rl.UnauthenticatedPeriod(),
+		rl.Unauthenticated(),
 	))
 	sc := NewSessionsController(app)
 	unauth.POST("/sessions", sc.Create)
@@ -545,7 +541,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config SecurityConfig) gin.HandlerFunc {
+func uiCorsHandler(ao string) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
@@ -553,9 +549,9 @@ func uiCorsHandler(config SecurityConfig) gin.HandlerFunc {
 		AllowCredentials: true,
 		MaxAge:           math.MaxInt32,
 	}
-	if config.AllowOrigins() == "*" {
+	if ao == "*" {
 		c.AllowAllOrigins = true
-	} else if allowOrigins := strings.Split(config.AllowOrigins(), ","); len(allowOrigins) > 0 {
+	} else if allowOrigins := strings.Split(ao, ","); len(allowOrigins) > 0 {
 		c.AllowOrigins = allowOrigins
 	}
 	return cors.New(c)

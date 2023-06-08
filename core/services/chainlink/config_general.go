@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -248,6 +246,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) AutoPprof() config.AutoPprof {
+	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
+}
+
 func (g *generalConfig) AutoPprofEnabled() bool {
 	return *g.c.AutoPprof.Enabled
 }
@@ -354,16 +356,8 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) AllowOrigins() string {
-	return *g.c.WebServer.AllowOrigins
-}
-
-func (g *generalConfig) AuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Authenticated
-}
-
-func (g *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.AuthenticatedPeriod
+func (g *generalConfig) WebServer() config.WebServer {
+	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -414,35 +408,8 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) BridgeResponseURL() *url.URL {
-	if g.c.WebServer.BridgeResponseURL.IsZero() {
-		return nil
-	}
-	return g.c.WebServer.BridgeResponseURL.URL()
-}
-
-func (g *generalConfig) BridgeCacheTTL() time.Duration {
-	return g.c.WebServer.BridgeCacheTTL.Duration()
-}
-
-func (g *generalConfig) CertFile() string {
-	s := *g.c.WebServer.TLS.CertPath
-	if s == "" {
-		s = filepath.Join(g.TLSDir(), "server.crt")
-	}
-	return s
-}
-
 func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
-}
-
-func (g *generalConfig) WebServerHTTPMaxSize() int64 {
-	return int64(*g.c.WebServer.HTTPMaxSize)
-}
-
-func (g *generalConfig) WebServerStartTimeout() time.Duration {
-	return g.c.WebServer.StartTimeout.Duration()
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -459,10 +426,6 @@ func (g *generalConfig) ExplorerURL() *url.URL {
 
 func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 	return &fluxMonitorConfig{c: g.c.FluxMonitor}
-}
-
-func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return g.c.WebServer.HTTPWriteTimeout.Duration()
 }
 
 func (g *generalConfig) InsecureFastScrypt() bool {
@@ -483,13 +446,6 @@ func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
 
 func (g *generalConfig) Keeper() config.Keeper {
 	return &keeperConfig{c: g.c.Keeper}
-}
-
-func (g *generalConfig) KeyFile() string {
-	if g.TLSKeyPath() == "" {
-		return filepath.Join(g.TLSDir(), "server.key")
-	}
-	return g.TLSKeyPath()
 }
 
 func (g *generalConfig) Log() config.Log {
@@ -727,21 +683,6 @@ func (g *generalConfig) PyroscopeServerAddress() string {
 func (g *generalConfig) PyroscopeEnvironment() string {
 	return *g.c.Pyroscope.Environment
 }
-func (g *generalConfig) Port() uint16 {
-	return *g.c.WebServer.HTTPPort
-}
-
-func (g *generalConfig) RPID() string {
-	return *g.c.WebServer.MFA.RPID
-}
-
-func (g *generalConfig) RPOrigin() string {
-	return *g.c.WebServer.MFA.RPOrigin
-}
-
-func (g *generalConfig) ReaperExpiration() models.Duration {
-	return *g.c.WebServer.SessionReaperExpiration
-}
 
 func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
@@ -752,59 +693,10 @@ func (g *generalConfig) RootDir() string {
 	return h
 }
 
-func (g *generalConfig) SecureCookies() bool {
-	return *g.c.WebServer.SecureCookies
-}
-
-func (g *generalConfig) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   g.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-		SameSite: http.SameSiteStrictMode,
-	}
-}
-
-func (g *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) TLSCertPath() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) TLSDir() string {
-	return filepath.Join(g.RootDir(), "tls")
-}
-
-func (g *generalConfig) TLSHost() string {
-	return *g.c.WebServer.TLS.Host
-}
-
-func (g *generalConfig) TLSKeyPath() string {
-	return *g.c.WebServer.TLS.KeyPath
-}
-
-func (g *generalConfig) TLSPort() uint16 {
-	return *g.c.WebServer.TLS.HTTPSPort
-}
-
-func (g *generalConfig) TLSRedirect() bool {
-	return *g.c.WebServer.TLS.ForceRedirect
-}
-
 func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return &telemetryIngressConfig{
 		c: g.c.TelemetryIngress,
 	}
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Unauthenticated
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
 }
 
 func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {

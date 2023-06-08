@@ -40,6 +40,7 @@ import (
 
 type FunctionsListenerUniverse struct {
 	service        *functions_service.FunctionsListener
+	bridgeAccessor *functions_mocks.BridgeAccessor
 	eaClient       *functions_mocks.ExternalAdapterClient
 	pluginORM      *functions_mocks.ORM
 	logBroadcaster *log_mocks.Broadcaster
@@ -91,6 +92,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 		},
 	}
 	eaClient := functions_mocks.NewExternalAdapterClient(t)
+	bridgeAccessor := functions_mocks.NewBridgeAccessor(t)
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
@@ -103,10 +105,11 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, eaClient, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
+		bridgeAccessor: bridgeAccessor,
 		eaClient:       eaClient,
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
@@ -144,6 +147,7 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -162,6 +166,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, Domains, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
@@ -193,6 +198,7 @@ func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 
 	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(nil, ErrorBytes, nil, nil)
 	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, ErrorBytes, mock.Anything, true, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
