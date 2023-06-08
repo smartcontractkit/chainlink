@@ -18,7 +18,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
-	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230608121938-521a556120be
+	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230608174007-51c7c434bfa6
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230607140106-3de6d0aed120
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.0
