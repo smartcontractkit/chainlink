@@ -112,8 +112,6 @@ runs:
       id: meta-root
       uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       with:
-        flavor: |
-          onlatest=true
         # list of Docker images to use as base name for tags
         images: ${{ env.shared-images }}
         # XXX: DO NOT USE SHARED TAGS HERE
