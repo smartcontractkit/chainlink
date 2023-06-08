@@ -204,15 +204,19 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @notice simulates the upkeep with the perform data returned from checkUpkeep
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
+   * @return success whether the call reverted or not
+   * @return gasUsed the amount of gas the target contract consumed
+   * @return gasLimit the max amount of gas that the client contract is configured to use
    */
   function simulatePerformUpkeep(
     uint256 id,
     bytes calldata performData
-  ) external cannotExecute returns (bool success, uint256 gasUsed) {
+  ) external cannotExecute returns (bool success, uint256 gasUsed, uint256 gasLimit) {
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
-    return _performUpkeep(getTriggerType(id), upkeep.forwarder, upkeep.executeGas, performData);
+    (success, gasUsed) = _performUpkeep(getTriggerType(id), upkeep.forwarder, upkeep.executeGas, performData);
+    return (success, gasUsed, upkeep.executeGas);
   }
 
   /**

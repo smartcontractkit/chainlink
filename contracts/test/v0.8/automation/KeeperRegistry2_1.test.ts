@@ -2399,7 +2399,7 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it('returns false and gasUsed when perform fails', async () => {
+    it('returns false, gasUsed, and executeGas when perform fails', async () => {
       await mock.setCanPerform(false)
 
       const simulatePerformResult = await registry
@@ -2407,10 +2407,11 @@ describe('KeeperRegistry2_1', () => {
         .callStatic.simulatePerformUpkeep(upkeepId, '0x')
 
       assert.equal(simulatePerformResult.success, false)
+      expect(simulatePerformResult.gasLimit).to.equal(executeGas)
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
-    it('returns true and gasUsed when perform succeeds', async () => {
+    it('returns true, gasUsed, and executeGas when perform succeeds', async () => {
       await mock.setCanPerform(true)
 
       const simulatePerformResult = await registry
@@ -2418,6 +2419,7 @@ describe('KeeperRegistry2_1', () => {
         .callStatic.simulatePerformUpkeep(upkeepId, '0x')
 
       assert.equal(simulatePerformResult.success, true)
+      expect(simulatePerformResult.gasLimit).to.equal(executeGas)
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
