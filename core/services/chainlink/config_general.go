@@ -246,6 +246,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) AutoPprof() config.AutoPprof {
+	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
+}
+
 func (g *generalConfig) AutoPprofEnabled() bool {
 	return *g.c.AutoPprof.Enabled
 }

@@ -225,7 +225,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.PyroscopeServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg)
+		profiler, err = logger.StartPyroscope(cfg, cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -233,10 +233,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
+	ap := cfg.AutoPprof()
 	var nurse *services.Nurse
-	if cfg.AutoPprofEnabled() {
+	if ap.Enabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(ap, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
