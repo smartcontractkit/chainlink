@@ -299,7 +299,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		if attempt.BroadcastBeforeBlockNum == nil {
 			// this shouldn't happen; any broadcast attempt ought to have a
 			// BroadcastBeforeBlockNum otherwise its an assumption violation
-			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.Hash)
+			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.TxHash)
 		}
 		broadcastBeforeBlockNum := *attempt.BroadcastBeforeBlockNum
 		blocksSinceBroadcast := *latestBlockNum - broadcastBeforeBlockNum
@@ -309,7 +309,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 			continue
 		}
 		// has not been included for at least the required number of blocks
-		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.Hash, blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
+		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.TxHash, blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
 		// is the price in the right percentile for all of these blocks?
 		var blocks []evmtypes.Block
 		l := expectInclusionWithinBlocks
@@ -329,15 +329,15 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		case 0x2:
 			eip1559 = true
 		default:
-			return errors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.Hash, attempt.TxType)
+			return errors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.TxHash, attempt.TxType)
 		}
 		gasPrice, tipCap, err := b.calculatePercentilePrices(blocks, percentile, eip1559, nil, nil)
 		if err != nil {
 			if errors.Is(err, ErrNoSuitableTransactions) {
-				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.Hash, expectInclusionWithinBlocks)
+				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.TxHash, expectInclusionWithinBlocks)
 				return nil
 			}
-			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.Hash.String())
+			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.TxHash.String())
 			return nil
 		}
 		if eip1559 {
@@ -354,11 +354,11 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 				}
 			}
 			if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.Hash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return errors.Wrapf(ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 			}
 		} else {
 			if attempt.GasPrice.Cmp(gasPrice) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.Hash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return errors.Wrapf(ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 
 			}
 		}

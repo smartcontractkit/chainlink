@@ -89,7 +89,7 @@ type DynamicFee struct {
 type EvmPriorAttempt struct {
 	ChainSpecificFeeLimit   uint32
 	BroadcastBeforeBlockNum *int64
-	Hash                    common.Hash
+	TxHash                  common.Hash
 	TxType                  int
 	GasPrice                *assets.Wei
 	DynamicFee              DynamicFee

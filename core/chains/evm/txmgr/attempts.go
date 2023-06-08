@@ -305,7 +305,7 @@ func newEvmPriorAttempts(attempts []EvmTxAttempt) (prior []gas.EvmPriorAttempt) 
 		priorAttempt := gas.EvmPriorAttempt{
 			ChainSpecificFeeLimit:   attempts[i].ChainSpecificFeeLimit,
 			BroadcastBeforeBlockNum: attempts[i].BroadcastBeforeBlockNum,
-			Hash:                    attempts[i].Hash,
+			TxHash:                  attempts[i].Hash,
 			TxType:                  attempts[i].TxType,
 			GasPrice:                attempts[i].TxFee.Legacy,
 			DynamicFee: gas.DynamicFee{

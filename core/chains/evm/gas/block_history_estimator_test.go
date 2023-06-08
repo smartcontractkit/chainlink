@@ -1844,7 +1844,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	)
 
 	attempts := []gas.EvmPriorAttempt{
-		{TxType: 0x0, Hash: NewEvmHash()},
+		{TxType: 0x0, TxHash: NewEvmHash()},
 	}
 
 	t.Run("skips connectivity check if latest block is not present", func(t *testing.T) {
@@ -1903,13 +1903,13 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	t.Run("returns error if one of the supplied attempts is missing BroadcastBeforeBlockNum", func(t *testing.T) {
 		err := bhe.CheckConnectivity(attempts)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempts[0].Hash))
+		assert.Contains(t, err.Error(), fmt.Sprintf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempts[0].TxHash))
 	})
 
 	num := int64(0)
 	hash := utils.NewHash()
 	attempts = []gas.EvmPriorAttempt{
-		{TxType: 0x3, BroadcastBeforeBlockNum: &num, Hash: hash},
+		{TxType: 0x3, BroadcastBeforeBlockNum: &num, TxHash: hash},
 	}
 
 	t.Run("returns error if one of the supplied attempts has an unknown transaction type", func(t *testing.T) {
@@ -1919,7 +1919,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	})
 
 	attempts = []gas.EvmPriorAttempt{
-		{TxType: 0x0, BroadcastBeforeBlockNum: &num, Hash: hash},
+		{TxType: 0x0, BroadcastBeforeBlockNum: &num, TxHash: hash},
 	}
 
 	t.Run("skips connectivity check if no transactions are suitable", func(t *testing.T) {
@@ -1956,10 +1956,10 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(7), BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 		}
 
 		t.Run("passes check if all blocks have percentile price higher or exactly at the highest transaction gas price", func(t *testing.T) {
@@ -1975,7 +1975,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[3].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[3].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 
@@ -1985,14 +1985,14 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 5 wei, which is above percentile=30%% (percentile price: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 5 wei, which is above percentile=30%% (percentile price: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].TxHash))
 
 			cfg.BlockHistoryEstimatorCheckInclusionBlocksF = 3
 			cfg.BlockHistoryEstimatorCheckInclusionPercentileF = 5 // percentile price is 2 wei
 
 			err = bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 3 wei, which is above percentile=5%% (percentile price: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 3 wei, which is above percentile=5%% (percentile price: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 	})
@@ -2007,8 +2007,8 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0})
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(1), TipCap: assets.NewWeiI(3)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(1), TipCap: assets.NewWeiI(3)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(10), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		t.Run("passes check if both transactions are ok", func(t *testing.T) {
@@ -2024,13 +2024,13 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[1].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[1].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(11), TipCap: assets.NewWeiI(10)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(11), TipCap: assets.NewWeiI(10)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		t.Run("fails check if dynamic fee transaction fails", func(t *testing.T) {
@@ -2040,7 +2040,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[0].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[0].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 
@@ -2078,10 +2078,10 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(1000)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(3)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(5)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(1000)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(3)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(5)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 		}
 
 		t.Run("passes check if all blocks have 90th percentile price higher than highest transaction tip cap", func(t *testing.T) {
@@ -2098,7 +2098,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 
 			cfg.BlockHistoryEstimatorCheckInclusionBlocksF = 3
@@ -2106,7 +2106,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 
 			err = bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=5%% (percentile tip cap: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].Hash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=5%% (percentile tip cap: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
 			require.ErrorIs(t, err, gas.ErrConnectivity)
 		})
 
@@ -2115,7 +2115,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			cfg.BlockHistoryEstimatorCheckInclusionPercentileF = 5
 
 			attempts = []gas.EvmPriorAttempt{
-				{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(4), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
+				{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(4), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: testutils.Ptr(int64(1))},
 			}
 
 			err := bhe.CheckConnectivity(attempts)
@@ -2148,13 +2148,13 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		bhe.OnNewLongestChain(testutils.Context(t), head)
 
 		attempts := []gas.EvmPriorAttempt{
-			{TxType: 0x0, Hash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
+			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: testutils.Ptr(int64(0))},
 		}
 
 		_, _, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, attempts)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, gas.ErrConnectivity))
-		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].Hash))
+		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 
 	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly with proper current gas price", func(t *testing.T) {
@@ -2255,12 +2255,12 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		attempts := []gas.EvmPriorAttempt{
-			{TxType: 0x2, Hash: NewEvmHash(), DynamicFee: gas.DynamicFee{TipCap: originalFee.TipCap, FeeCap: originalFee.FeeCap}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))}}
+			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{TipCap: originalFee.TipCap, FeeCap: originalFee.FeeCap}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))}}
 
 		_, _, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, attempts)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, gas.ErrConnectivity))
-		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].Hash))
+		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 
 	t.Run("BumpDynamicFee bumps the fee", func(t *testing.T) {
