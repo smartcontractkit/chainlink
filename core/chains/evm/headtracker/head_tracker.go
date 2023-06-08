@@ -137,7 +137,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		}
 		if latestChain.IsValid() {
 			ht.log.Debugw(
-				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyBigInt(latestChain.ToInt()), latestChain.BlockHash()),
+				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyInt64(latestChain.BlockNumber()), latestChain.BlockHash()),
 				"blockNumber", latestChain.BlockNumber(),
 				"blockHash", latestChain.BlockHash(),
 			)
@@ -229,8 +229,8 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Contex
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
 	prevHead := ht.headSaver.LatestChain()
 
-	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
-		"blockHeight", head.ToInt(),
+	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyInt64(head.BlockNumber())),
+		"blockHeight", head,
 		"blockHash", head.BlockHash(),
 		"parentHeadHash", head.GetParentHash(),
 	)
