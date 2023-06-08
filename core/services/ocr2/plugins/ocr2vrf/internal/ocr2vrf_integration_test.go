@@ -129,20 +129,21 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress)
+		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress)
 	require.NoError(t, err)
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetCallbackConfig(owner, vrf_wrapper.VRFCoordinatorCallbackConfig{
+	require.NoError(t, utils.JustError(coordinator.SetConfig(owner, vrf_wrapper.VRFCoordinatorConfig{
 		MaxCallbackGasLimit:        2.5e6,
 		MaxCallbackArgumentsLength: 160, // 5 EVM words
 	})))
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetCoordinatorConfig(owner, vrf_wrapper.VRFBeaconTypesCoordinatorConfig{
+	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
+		PremiumPercentage:            0,
 		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
 	})))
 	b.Commit()

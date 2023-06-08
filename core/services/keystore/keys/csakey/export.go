@@ -21,11 +21,11 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
 	)
 }
 
-func (k KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	return keys.ToEncryptedJSON(
 		keyTypeIdentifier,
-		k.Raw(),
-		k,
+		key.Raw(),
+		key,
 		password,
 		scryptParams,
 		adulteratedPassword,

@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	functionsConfigPoller "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -721,6 +722,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
 		functionsProvider, err2 := evmrelay.NewFunctionsProvider(
+			functionsConfigPoller.FunctionsPlugin,
 			d.chainSet,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,

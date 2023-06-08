@@ -60,18 +60,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-var (
-	initGlobalsOnce sync.Once
-	prometheus      *ginprom.Prometheus
-	grpcOpts        loop.GRPCOpts
-)
+var prometheus *ginprom.Prometheus
+var initOnce sync.Once
 
-func initGlobals(cfg config.Prometheus) {
-	// Avoid double initializations.
-	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
-	})
+func initPrometheus(cfg config.Prometheus) {
+	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
 }
 
 var (
@@ -132,7 +125,11 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg)
+	// Avoid double initializations.
+	initOnce.Do(func() {
+		initPrometheus(cfg)
+	})
+	grpcOpts := loop.SetupTelemetry(nil) // default prometheus.Registerer
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
@@ -454,8 +451,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
-	ws := config.WebServer()
-	if ws.HTTPPort() == 0 && ws.TLS().HTTPSPort() == 0 {
+	if config.Port() == 0 && config.TLSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
 	}
 
@@ -466,21 +462,20 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.WebServer().StartTimeout()
-	if ws.HTTPPort() != 0 {
+	timeoutDuration := config.WebServerStartTimeout()
+	if config.Port() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
-			return server.run(ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
+			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
-	tls := config.WebServer().TLS()
-	if tls.HTTPSPort() != 0 {
+	if config.TLSPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
-				tls.HTTPSPort(),
-				tls.CertFile(),
-				tls.KeyFile(),
-				config.WebServer().HTTPWriteTimeout())
+				config.TLSPort(),
+				config.CertFile(),
+				config.KeyFile(),
+				config.HTTPServerWriteTimeout())
 		})
 	}
 

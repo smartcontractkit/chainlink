@@ -12,11 +12,12 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -146,17 +147,15 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
-	cd, err := chainlink.NewDeployment(0, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+		}))
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

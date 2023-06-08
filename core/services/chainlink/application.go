@@ -225,7 +225,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.PyroscopeServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg, cfg.AutoPprof())
+		profiler, err = logger.StartPyroscope(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -233,11 +233,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
-	ap := cfg.AutoPprof()
 	var nurse *services.Nurse
-	if ap.Enabled() {
+	if cfg.AutoPprofEnabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(ap, globalLogger)
+		nurse = services.NewNurse(cfg, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -299,8 +298,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
@@ -500,7 +499,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
+		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
 		ExternalInitiatorManager: externalInitiatorManager,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
@@ -843,8 +842,8 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
-	rpid := app.Config.WebServer().MFA().RPID()
-	rporigin := app.Config.WebServer().MFA().RPOrigin()
+	rpid := app.Config.RPID()
+	rporigin := app.Config.RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}

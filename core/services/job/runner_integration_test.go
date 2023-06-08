@@ -83,7 +83,7 @@ func TestRunner(t *testing.T) {
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), cc, nil, nil, logger.TestLogger(t), c, c)
+	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config, cc, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config.Database())
 
 	require.NoError(t, runner.Start(testutils.Context(t)))

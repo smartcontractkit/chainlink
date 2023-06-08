@@ -27,6 +27,7 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
+	AutoPprof
 	Ethereum
 	Explorer
 	FeatureFlags
@@ -40,6 +41,7 @@ type AppConfig interface {
 	Prometheus
 	Pyroscope
 	Secrets
+	Web
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -49,8 +51,6 @@ type AppConfig interface {
 	JobPipeline() JobPipeline
 	Log() Log
 	FluxMonitor() FluxMonitor
-	WebServer() WebServer
-	AutoPprof() AutoPprof
 }
 
 type DatabaseBackupMode string

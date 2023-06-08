@@ -459,12 +459,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		}
 	}
 
-	err = b.txStore.CheckTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStore.CheckEthTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateTransaction")
 	}
 
-	tx, err = b.txStore.CreateTransaction(newTx, b.chainID, qs...)
+	tx, err = b.txStore.CreateEthTransaction(newTx, b.chainID, qs...)
 	return
 }
 
@@ -493,10 +493,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 		EncodedPayload: []byte{},
 		Value:          value,
 		FeeLimit:       gasLimit,
-		State:          TxUnstarted,
+		State:          EthTxUnstarted,
 		ChainID:        chainID,
 	}
-	err = b.txStore.InsertTx(&etx)
+	err = b.txStore.InsertEthTx(&etx)
 	return etx, errors.Wrap(err, "SendNativeToken failed to insert eth_tx")
 }
 

@@ -30,13 +30,13 @@ type ContractTransmitter interface {
 var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EvmTxMeta) error
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
 	FromAddress() gethcommon.Address
 }
 
-type ReportToEthMetadata func([]byte) (*txmgr.EvmTxMeta, error)
+type ReportToEthMetadata func([]byte) (*txmgr.EthTxMeta, error)
 
-func reportToEvmTxMetaNoop([]byte) (*txmgr.EvmTxMeta, error) {
+func reportToEthTxMetaNoop([]byte) (*txmgr.EthTxMeta, error) {
 	return nil, nil
 }
 
@@ -48,7 +48,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
-	reportToEvmTxMeta   ReportToEthMetadata
+	reportToEthTxMeta   ReportToEthMetadata
 }
 
 func transmitterFilterName(addr common.Address) string {
@@ -62,7 +62,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	reportToEvmTxMeta ReportToEthMetadata,
+	reportToEthTxMeta ReportToEthMetadata,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
@@ -73,8 +73,8 @@ func NewOCRContractTransmitter(
 	if err != nil {
 		return nil, err
 	}
-	if reportToEvmTxMeta == nil {
-		reportToEvmTxMeta = reportToEvmTxMetaNoop
+	if reportToEthTxMeta == nil {
+		reportToEthTxMeta = reportToEthTxMetaNoop
 	}
 	return &contractTransmitter{
 		contractAddress:     address,
@@ -84,7 +84,7 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                lggr.Named("OCRContractTransmitter"),
-		reportToEvmTxMeta:   reportToEvmTxMeta,
+		reportToEthTxMeta:   reportToEthTxMeta,
 	}, nil
 }
 
@@ -104,7 +104,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	txMeta, err := oc.reportToEvmTxMeta(report)
+	txMeta, err := oc.reportToEthTxMeta(report)
 	if err != nil {
 		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
 	}

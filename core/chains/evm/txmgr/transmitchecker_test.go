@@ -105,7 +105,7 @@ func TestTransmitCheckers(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(642)),
 			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.TxUnstarted,
+			State:          txmgrcommon.EthTxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
 			Tx:        tx,
@@ -161,7 +161,7 @@ func TestTransmitCheckers(t *testing.T) {
 		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
-			meta := txmgr.EvmTxMeta{
+			meta := txmgr.EthTxMeta{
 				RequestID:     &h,
 				MaxLink:       &testDefaultMaxLink, // 1 LINK
 				SubID:         &testDefaultSubID,
@@ -183,7 +183,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.TxUnstarted,
+				State:          txmgrcommon.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -271,7 +271,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
-			meta := txmgr.EvmTxMeta{
+			meta := txmgr.EthTxMeta{
 				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
@@ -288,7 +288,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.TxUnstarted,
+				State:          txmgrcommon.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{

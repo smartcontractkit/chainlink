@@ -2,12 +2,11 @@ package actions
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math"
 	"math/big"
 	"strconv"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"

@@ -76,7 +76,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
+	actions.CreateOCRJobsWithForwarder(t, ocrInstances, bootstrapNode, workerNodes, "ocr_forwarder", 5, mockServer)
 	err = actions.StartNewRound(1, ocrInstances, chainClient)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
@@ -86,7 +86,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, mockServer)
+	err = mockServer.SetValuePath("ocr_forwarder", 10)
 	require.NoError(t, err)
 	err = actions.StartNewRound(2, ocrInstances, chainClient)
 	require.NoError(t, err)
@@ -121,10 +121,6 @@ ListenIP = '0.0.0.0'
 ListenPort = 6690`
 	networkDetailTOML := `[EVM.Transactions]
 ForwardersEnabled = true`
-	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr-forwarder-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -132,8 +128,11 @@ ForwardersEnabled = true`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"toml":     client.AddNetworkDetailedConfig(baseTOML, networkDetailTOML, testNetwork),
+			"replicas": 6,
+		}))
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

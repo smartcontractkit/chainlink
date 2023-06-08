@@ -17,7 +17,7 @@ import (
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
-	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
+	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
@@ -25,7 +25,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
-	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
+	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }
 
 func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {

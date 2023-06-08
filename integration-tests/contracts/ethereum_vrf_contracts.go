@@ -194,12 +194,12 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 }
 
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string) (VRFCoordinatorV3, error) {
+func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string) (VRFCoordinatorV3, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress))
+		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress))
 	})
 	if err != nil {
 		return nil, err
@@ -998,9 +998,9 @@ func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint3
 	if err != nil {
 		return err
 	}
-	tx, err := coordinator.vrfCoordinatorV3.SetCallbackConfig(
+	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
 		opts,
-		vrf_coordinator.VRFCoordinatorCallbackConfig{
+		vrf_coordinator.VRFCoordinatorConfig{
 			MaxCallbackGasLimit:        maxCallbackGasLimit,
 			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
 		},

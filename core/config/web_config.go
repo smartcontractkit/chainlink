@@ -9,41 +9,30 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-type TLS interface {
-	Dir() string
-	Host() string
-	ForceRedirect() bool
-	CertFile() string
-	KeyFile() string
-	HTTPSPort() uint16
-}
-
-type RateLimit interface {
-	Authenticated() int64
-	AuthenticatedPeriod() time.Duration
-	Unauthenticated() int64
-	UnauthenticatedPeriod() time.Duration
-}
-
-type MFA interface {
-	RPID() string
-	RPOrigin() string
-}
-
-type WebServer interface {
+type Web interface {
 	AllowOrigins() string
+	AuthenticatedRateLimit() int64
+	AuthenticatedRateLimitPeriod() models.Duration
 	BridgeCacheTTL() time.Duration
 	BridgeResponseURL() *url.URL
-	HTTPMaxSize() int64
-	StartTimeout() time.Duration
-	HTTPWriteTimeout() time.Duration
-	HTTPPort() uint16
-	SessionReaperExpiration() models.Duration
+	CertFile() string
+	HTTPServerWriteTimeout() time.Duration
+	KeyFile() string
+	Port() uint16
+	RPID() string
+	RPOrigin() string
+	TLSCertPath() string
+	TLSDir() string
+	TLSHost() string
+	TLSKeyPath() string
+	TLSPort() uint16
+	TLSRedirect() bool
+	UnAuthenticatedRateLimit() int64
+	UnAuthenticatedRateLimitPeriod() models.Duration
+	ReaperExpiration() models.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
-
-	TLS() TLS
-	RateLimit() RateLimit
-	MFA() MFA
+	WebServerHTTPMaxSize() int64
+	WebServerStartTimeout() time.Duration
 }

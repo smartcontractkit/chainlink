@@ -60,7 +60,7 @@ The second address, `KeeperRegistry2.0` is the address you need; in the `.env` f
 
 Note that this command runs contract verification by default, if you don't want to run verification, you can use the `--verify=false` flag.
 
-If you already have keeper registry contract deployed and want to run only contract verification, you can use the following command:
+If you have keeper registry contract deployed already and want to run only contract verification, you can use the following command:
 
 ```shell
 ./chaincli keeper registry verify <contract-addr> <constructor-args>

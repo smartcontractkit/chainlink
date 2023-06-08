@@ -26,7 +26,7 @@ func TestEthTxResource(t *testing.T) {
 		FromAddress:    common.HexToAddress("0x1"),
 		ToAddress:      common.HexToAddress("0x2"),
 		FeeLimit:       uint32(5000),
-		State:          txmgrcommon.TxConfirmed,
+		State:          txmgrcommon.EthTxConfirmed,
 		Value:          big.Int(assets.NewEthValue(1)),
 	}
 

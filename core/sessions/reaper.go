@@ -17,7 +17,7 @@ type sessionReaper struct {
 
 type SessionReaperConfig interface {
 	SessionTimeout() models.Duration
-	SessionReaperExpiration() models.Duration
+	ReaperExpiration() models.Duration
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
@@ -34,7 +34,7 @@ func (sr *sessionReaper) Name() string {
 }
 
 func (sr *sessionReaper) Work() {
-	recordCreationStaleThreshold := sr.config.SessionReaperExpiration().Before(
+	recordCreationStaleThreshold := sr.config.ReaperExpiration().Before(
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.deleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {

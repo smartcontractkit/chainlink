@@ -1387,7 +1387,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			for _, fs := range tt.from {
 				var f Config
 				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
-				require.NoError(t, c.SetFrom(&f))
+				c.SetFrom(&f)
 			}
 			ts, err := c.TOMLString()
 			require.NoError(t, err)

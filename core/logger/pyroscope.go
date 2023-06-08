@@ -13,17 +13,15 @@ type PyroscopeConfig interface {
 	PyroscopeServerAddress() string
 	PyroscopeAuthToken() string
 	PyroscopeEnvironment() string
-}
 
-type PprofConfig interface {
-	BlockProfileRate() int
-	MutexProfileFraction() int
+	AutoPprofBlockProfileRate() int
+	AutoPprofMutexProfileFraction() int
 }
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
-func StartPyroscope(cfg PyroscopeConfig, pprofConfig PprofConfig) (*pyroscope.Profiler, error) {
-	runtime.SetBlockProfileRate(pprofConfig.BlockProfileRate())
-	runtime.SetMutexProfileFraction(pprofConfig.MutexProfileFraction())
+func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
+	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
+	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
 	sha, ver := static.Short()
 

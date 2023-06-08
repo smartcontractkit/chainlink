@@ -116,7 +116,7 @@ type FunctionsListener struct {
 	oracle            *ocr2dr_oracle.OCR2DROracle
 	oracleHexAddr     string
 	job               job.Job
-	bridgeAccessor    BridgeAccessor
+	eaClient          ExternalAdapterClient
 	logBroadcaster    log.Broadcaster
 	shutdownWaitGroup sync.WaitGroup
 	mbOracleEvents    *utils.Mailbox[log.Broadcast]
@@ -134,12 +134,12 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, eaClient ExternalAdapterClient, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
 		job:             job,
-		bridgeAccessor:  bridgeAccessor,
+		eaClient:        eaClient,
 		logBroadcaster:  logBroadcaster,
 		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
 		chStop:          make(chan struct{}),
@@ -341,14 +341,7 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
-	if err != nil {
-		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", formatRequestId(request.RequestId), "err", err)
-		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
-		return
-	}
-
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
+	computationResult, computationError, domains, err := l.eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", formatRequestId(request.RequestId), "err", err)

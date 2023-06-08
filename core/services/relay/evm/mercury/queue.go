@@ -154,9 +154,7 @@ func (tq *TransmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{},
 }
 
 func (tq *TransmitQueue) report() {
-	tq.mu.RLock()
 	length := tq.pq.Len()
-	tq.mu.RUnlock()
 	transmitQueueLoad.WithLabelValues(tq.feedID, fmt.Sprintf("%d", tq.maxlen)).Set(float64(length))
 }
 
@@ -196,8 +194,6 @@ func (tq *TransmitQueue) pop() *Transmission {
 
 // HEAP
 // Adapted from https://pkg.go.dev/container/heap#example-package-PriorityQueue
-
-// WARNING: None of these methods are thread-safe, caller must synchronize
 
 var _ heap.Interface = &priorityQueue{}
 
