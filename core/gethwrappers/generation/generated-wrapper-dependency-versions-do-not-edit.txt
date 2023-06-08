@@ -35,7 +35,7 @@ log_emitter: ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin f53538fb7ec780a8d5e18f3a7c11b917ce9eba0020a60f5b113b6bf8b16ddf2f
 mercury_exposed_verifier: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 mercury_lookup_compatible_interface: ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.abi ../../contracts/solc/v0.8.15/MercuryLookupCompatibleInterface.bin 0af449d077047786c0dfc1fa30fa2a24604986bbec47f938597eef6ba5969ca3
-mercury_upkeep_wrapper: ../../contracts/solc/v0.8.15/MercuryUpkeep.abi ../../contracts/solc/v0.8.15/MercuryUpkeep.bin 912cf6189c4f3adf6480006ccafdcd1168a2653f88cacc54961675891d133693
+mercury_upkeep_wrapper: ../../contracts/solc/v0.8.15/MercuryUpkeep.abi ../../contracts/solc/v0.8.15/MercuryUpkeep.bin 7ec791b91cf0e8e3470ca9ef903fa4a18f188da2447dee4844fcc43b45c7592a
 mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin 24b2db0d5db8e0198bb7eae2ecde65f2596df4bcc7b17d604d25300546c1694e
 mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin 22ea93fc25a620183fc2a03664c1fbb631566d4667d1e6237846979f938bf29b
