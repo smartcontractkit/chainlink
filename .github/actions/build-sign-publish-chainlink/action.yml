@@ -175,7 +175,7 @@ runs:
         IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
         echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
-        echo '### Non-root Image' >> $GITHUB_STEP_SUMMARY
+        echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
         echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
