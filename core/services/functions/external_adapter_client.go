@@ -9,13 +9,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -42,18 +42,31 @@ type ExternalAdapterClient interface {
 }
 
 type externalAdapterClient struct {
-	AdapterURL       url.URL
-	MaxResponseBytes int64
+	adapterURL       url.URL
+	maxResponseBytes int64
 }
 
 var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
+
+//go:generate mockery --quiet --name BridgeAccessor --output ./mocks/ --case=underscore
+type BridgeAccessor interface {
+	NewExternalAdapterClient() (ExternalAdapterClient, error)
+}
+
+type bridgeAccessor struct {
+	bridgeORM        bridges.ORM
+	bridgeName       string
+	maxResponseBytes int64
+}
+
+var _ BridgeAccessor = (*bridgeAccessor)(nil)
 
 type requestPayload struct {
 	Endpoint            string       `json:"endpoint"`
 	RequestId           string       `json:"requestId"`
 	JobName             string       `json:"jobName"`
 	SubscriptionOwner   string       `json:"subscriptionOwner"`
-	SubscriptionId      string       `json:"subscriptionId"`
+	SubscriptionId      uint64       `json:"subscriptionId"`
 	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
 	Data                *requestData `json:"data"`
 }
@@ -109,8 +122,8 @@ var (
 
 func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64) ExternalAdapterClient {
 	return &externalAdapterClient{
-		AdapterURL:       adapterURL,
-		MaxResponseBytes: maxResponseBytes,
+		adapterURL:       adapterURL,
+		maxResponseBytes: maxResponseBytes,
 	}
 }
 
@@ -134,7 +147,7 @@ func (ea *externalAdapterClient) RunComputation(
 		RequestId:           requestId,
 		JobName:             jobName,
 		SubscriptionOwner:   subscriptionOwner,
-		SubscriptionId:      strconv.FormatUint(subscriptionId, 10),
+		SubscriptionId:      subscriptionId,
 		NodeProvidedSecrets: nodeProvidedSecrets,
 		Data:                &data,
 	}
@@ -182,7 +195,7 @@ func (ea *externalAdapterClient) request(
 		return nil, nil, nil, errors.Wrap(err, "error constructing external adapter request payload")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", ea.AdapterURL.String(), bytes.NewBuffer(jsonPayload))
+	req, err := http.NewRequestWithContext(ctx, "POST", ea.adapterURL.String(), bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error constructing external adapter request")
 	}
@@ -197,7 +210,7 @@ func (ea *externalAdapterClient) request(
 	}
 	defer resp.Body.Close()
 
-	source := http.MaxBytesReader(nil, resp.Body, ea.MaxResponseBytes)
+	source := http.MaxBytesReader(nil, resp.Body, ea.maxResponseBytes)
 	body, err := io.ReadAll(source)
 	elapsed := time.Since(start)
 	promEAClientLatency.WithLabelValues(label).Set(elapsed.Seconds())
@@ -206,14 +219,19 @@ func (ea *externalAdapterClient) request(
 		return nil, nil, nil, errors.Wrap(err, "error reading external adapter response")
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		promEAClientErrors.WithLabelValues(label).Inc()
+		return nil, nil, nil, fmt.Errorf("external adapter responded with HTTP %d, body: %s", resp.StatusCode, body)
+	}
+
 	var eaResp response
 	err = json.Unmarshal(body, &eaResp)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error parsing external adapter response %s", body))
 	}
 
-	if resp.StatusCode != http.StatusOK || eaResp.StatusCode != http.StatusOK {
-		return nil, nil, nil, fmt.Errorf("external adapter responded with error code %d", eaResp.StatusCode)
+	if eaResp.StatusCode != http.StatusOK {
+		return nil, nil, nil, fmt.Errorf("external adapter invalid StatusCode %d", eaResp.StatusCode)
 	}
 
 	if eaResp.Data == nil {
@@ -236,4 +254,20 @@ func (ea *externalAdapterClient) request(
 	default:
 		return nil, nil, nil, fmt.Errorf("unexpected result in response: '%+v'", eaResp.Result)
 	}
+}
+
+func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64) BridgeAccessor {
+	return &bridgeAccessor{
+		bridgeORM:        bridgeORM,
+		bridgeName:       bridgeName,
+		maxResponseBytes: maxResponseBytes,
+	}
+}
+
+func (b *bridgeAccessor) NewExternalAdapterClient() (ExternalAdapterClient, error) {
+	bridge, err := b.bridgeORM.FindBridge(bridges.BridgeName(b.bridgeName))
+	if err != nil {
+		return nil, err
+	}
+	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes), nil
 }

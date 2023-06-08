@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/smartcontractkit/libocr/commontypes"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -331,7 +331,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	job, err := validate.ValidatedOracleSpecToml(app.Config, fmt.Sprintf(`
+	job, err := validate.ValidatedOracleSpecToml(app.Config, app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
 		schemaVersion      = 1

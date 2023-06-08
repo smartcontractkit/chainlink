@@ -211,7 +211,7 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) error {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
-		log.Println("WaitDeployed failed: ", err)
+		log.Println("WaitTx failed: ", err)
 		return err
 	}
 

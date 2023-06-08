@@ -19,6 +19,7 @@ type AppConfig interface {
 	AppID() uuid.UUID
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
+	InsecureFastScrypt() bool
 
 	Validate() error
 	ValidateDB() error
@@ -27,14 +28,10 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	AutoPprof
 	Ethereum
 	Explorer
 	FeatureFlags
-	FluxMonitor
-	Insecure
 	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
 	P2PNetworking
@@ -43,7 +40,6 @@ type AppConfig interface {
 	Prometheus
 	Pyroscope
 	Secrets
-	Web
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -51,6 +47,11 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Log() Log
+	FluxMonitor() FluxMonitor
+	WebServer() WebServer
+	AutoPprof() AutoPprof
+	Insecure() Insecure
 }
 
 type DatabaseBackupMode string

@@ -5,11 +5,10 @@ import (
 )
 
 const (
-	// TODO: change Eth prefix: https://smartcontract-it.atlassian.net/browse/BCI-1198
-	EthTxUnstarted               = txmgrtypes.TxState("unstarted")
-	EthTxInProgress              = txmgrtypes.TxState("in_progress")
-	EthTxFatalError              = txmgrtypes.TxState("fatal_error")
-	EthTxUnconfirmed             = txmgrtypes.TxState("unconfirmed")
-	EthTxConfirmed               = txmgrtypes.TxState("confirmed")
-	EthTxConfirmedMissingReceipt = txmgrtypes.TxState("confirmed_missing_receipt")
+	TxUnstarted               = txmgrtypes.TxState("unstarted")
+	TxInProgress              = txmgrtypes.TxState("in_progress")
+	TxFatalError              = txmgrtypes.TxState("fatal_error")
+	TxUnconfirmed             = txmgrtypes.TxState("unconfirmed")
+	TxConfirmed               = txmgrtypes.TxState("confirmed")
+	TxConfirmedMissingReceipt = txmgrtypes.TxState("confirmed_missing_receipt")
 )

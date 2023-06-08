@@ -35,18 +35,21 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
   string[] public feeds;
   string public feedLabel;
   string public queryLabel;
-  bool public immutable integrationTest;
+  bool public immutable useL1BlockNumber;
 
-  constructor(uint256 _testRange, uint256 _interval, bool _integrationTest) {
+  constructor(uint256 _testRange, uint256 _interval, bool _useL1BlockNumber) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDStr"; // or feedIDHex
-    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
+    feedLabel = "feedIDHex"; // feedIDStr is deprecated
+    feeds = [
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+    ];
     queryLabel = "blockNumber"; // timestamp not supported yet
-    integrationTest = _integrationTest;
+    useL1BlockNumber = _useL1BlockNumber;
   }
 
   function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
@@ -60,7 +63,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
       return (false, data);
     }
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();
@@ -72,7 +75,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
 
   function performUpkeep(bytes calldata performData) external {
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();
@@ -94,7 +97,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     }
 
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();

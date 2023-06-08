@@ -230,9 +230,9 @@ func NewApp(s *Shell) *cli.App {
 				}
 				s.Config = cfg
 
-				logFileMaxSizeMB := s.Config.LogFileMaxSize() / utils.MB
+				logFileMaxSizeMB := s.Config.Log().File().MaxSize() / utils.MB
 				if logFileMaxSizeMB > 0 {
-					err = utils.EnsureDirAndMaxPerms(s.Config.LogFileDir(), os.FileMode(0700))
+					err = utils.EnsureDirAndMaxPerms(s.Config.Log().File().Dir(), os.FileMode(0700))
 					if err != nil {
 						return err
 					}
@@ -245,13 +245,13 @@ func NewApp(s *Shell) *cli.App {
 				}
 
 				lggrCfg := logger.Config{
-					LogLevel:       s.Config.LogLevel(),
-					Dir:            s.Config.LogFileDir(),
-					JsonConsole:    s.Config.JSONConsole(),
-					UnixTS:         s.Config.LogUnixTimestamps(),
+					LogLevel:       s.Config.Log().Level(),
+					Dir:            s.Config.Log().File().Dir(),
+					JsonConsole:    s.Config.Log().JSONConsole(),
+					UnixTS:         s.Config.Log().UnixTimestamps(),
 					FileMaxSizeMB:  int(logFileMaxSizeMB),
-					FileMaxAgeDays: int(s.Config.LogFileMaxAge()),
-					FileMaxBackups: int(s.Config.LogFileMaxBackups()),
+					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
+					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
 				}
 				l, closeFn := lggrCfg.New()
 

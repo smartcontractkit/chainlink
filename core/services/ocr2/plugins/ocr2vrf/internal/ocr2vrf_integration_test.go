@@ -22,8 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -143,7 +143,6 @@ func setupOCR2VRFContracts(
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
-		PremiumPercentage:            0,
 		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
 	})))
 	b.Commit()
@@ -499,7 +498,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)

@@ -1,10 +1,11 @@
 package functions
 
 import (
+	"context"
 	"crypto/ecdsa"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 )
 
@@ -31,9 +32,17 @@ func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConn
 }
 
 func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
-	return gateway.SignData(h.signerKey, data...)
+	return api.SignData(h.signerKey, data...)
 }
 
-func (h *functionsConnectorHandler) HandleGatewayMessage(gatewayId string, msg *gateway.Message) {
+func (h *functionsConnectorHandler) HandleGatewayMessage(gatewayId string, msg *api.Message) {
 	h.lggr.Debugw("functionsConnectorHandler: received message from gateway", "id", gatewayId)
+}
+
+func (h *functionsConnectorHandler) Start(ctx context.Context) error {
+	return nil
+}
+
+func (h *functionsConnectorHandler) Close() error {
+	return nil
 }

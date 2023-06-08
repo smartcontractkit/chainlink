@@ -194,7 +194,7 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 }
 
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string) (VRFCoordinatorV3, error) {
+func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string) (VRFCoordinatorV3, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,

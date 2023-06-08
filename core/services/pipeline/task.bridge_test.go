@@ -187,7 +187,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -229,7 +229,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
 			map[string]interface{}{
@@ -292,7 +292,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
 	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
@@ -339,7 +339,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	cfg2 := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = models.MustNewDuration(0 * time.Second)
 	})
-	task.HelperSetDependencies(cfg2.JobPipeline(), cfg2, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg2.JobPipeline(), cfg2.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Even though we have a cached value, this should fail since config now set to 0.
 	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
@@ -363,7 +363,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 		RequestData: btcUSDPairing,
 		CacheTTL:    "35m", // more than the stalenessCap 30m
 	}
-	task2.HelperSetDependencies(cfg2.JobPipeline(), cfg2, orm, specID, uuid.UUID{}, c)
+	task2.HelperSetDependencies(cfg2.JobPipeline(), cfg2.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 32m in the past, under cacheTTL of 35m but more than stalenessCap of 30m.
 	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
@@ -426,7 +426,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 
 		err = json.Unmarshal(payload, &reqBody)
 		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.BridgeResponseURL(), id.String()), reqBody.ResponseURL)
+		require.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.WebServer().BridgeResponseURL(), id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
 
 		// w.Header().Set("X-Chainlink-Pending", "true")
@@ -452,7 +452,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, id, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, id, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
@@ -630,7 +630,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -699,7 +699,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
 	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
@@ -753,7 +753,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -808,7 +808,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -847,7 +847,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -872,7 +872,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -962,7 +962,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 		require.NoError(t, err)
-		task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
@@ -984,7 +984,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 		require.NoError(t, err)
-		task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
@@ -1006,7 +1006,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
 		require.NoError(t, err)
-		task.HelperSetDependencies(cfg.JobPipeline(), cfg, orm, specID, uuid.UUID{}, c)
+		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)

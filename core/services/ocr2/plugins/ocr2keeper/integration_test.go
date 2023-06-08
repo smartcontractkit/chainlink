@@ -20,8 +20,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,7 +159,8 @@ type Node struct {
 }
 
 func (node *Node) AddJob(t *testing.T, spec string) {
-	job, err := validate.ValidatedOracleSpecToml(node.App.GetConfig(), spec)
+	c := node.App.GetConfig()
+	job, err := validate.ValidatedOracleSpecToml(c, c.Insecure(), spec)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(context.Background(), &job)
 	require.NoError(t, err)

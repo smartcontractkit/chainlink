@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/umbracle/ethgo/abi"
 
@@ -149,7 +149,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		ocr2keepers.OffchainConfig{
 			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 			MinConfirmations:     1,
-			MercuryLookup:        d.cfg.UpkeepMercury,
+			MercuryLookup:        true,
 		}.Encode(), // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,

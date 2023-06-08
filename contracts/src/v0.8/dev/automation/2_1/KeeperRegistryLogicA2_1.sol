@@ -99,8 +99,13 @@ contract KeeperRegistryLogicA2_1 is
     upkeepNeeded = true;
 
     if (triggerType == Trigger.CONDITION || triggerType == Trigger.LOG) {
+      bytes memory callData;
+      if (triggerType == Trigger.CONDITION) {
+        callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
+      } else {
+        callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
+      }
       gasUsed = gasleft();
-      bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
       (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
       gasUsed = gasUsed - gasleft();
       if (!upkeepNeeded) {
