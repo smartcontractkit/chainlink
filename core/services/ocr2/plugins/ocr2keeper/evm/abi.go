@@ -7,9 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 // enum UpkeepFailureReason

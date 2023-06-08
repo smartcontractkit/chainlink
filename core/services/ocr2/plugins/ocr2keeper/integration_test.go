@@ -716,4 +716,5 @@ func TestFilterNamesFromSpec(t *testing.T) {
 	}
 	names, err = ocr2keeper.FilterNamesFromSpec(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
+	require.Len(t, names, 0)
 }
