@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,7 +40,7 @@ func (f *fixedPriceEstimator) HealthReport() map[string]error                   
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()
 	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, f.config.EvmMaxGasPriceWei(), gasLimit, f.config.EvmGasLimitMultiplier())
 	return
