@@ -160,7 +160,7 @@ func (lsn *listenerV2) processBatch(
 			EncodedPayload: payload,
 			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgr.NewSendEveryStrategy(),
-			Meta: &txmgr.EthTxMeta{
+			Meta: &txmgr.EvmTxMeta{
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLinkStr,
 				SubID:           &subID,

@@ -5,7 +5,10 @@ package mocks
 import (
 	context "context"
 
+	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+
 	gateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -29,11 +32,11 @@ func (_m *Handler) Close() error {
 }
 
 // HandleNodeMessage provides a mock function with given fields: ctx, msg, nodeAddr
-func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *gateway.Message, nodeAddr string) error {
+func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	ret := _m.Called(ctx, msg, nodeAddr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *gateway.Message, string) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, string) error); ok {
 		r0 = rf(ctx, msg, nodeAddr)
 	} else {
 		r0 = ret.Error(0)
@@ -43,11 +46,11 @@ func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *gateway.Message, 
 }
 
 // HandleUserMessage provides a mock function with given fields: ctx, msg, callbackCh
-func (_m *Handler) HandleUserMessage(ctx context.Context, msg *gateway.Message, callbackCh chan<- gateway.UserCallbackPayload) error {
+func (_m *Handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gateway.UserCallbackPayload) error {
 	ret := _m.Called(ctx, msg, callbackCh)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *gateway.Message, chan<- gateway.UserCallbackPayload) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- gateway.UserCallbackPayload) error); ok {
 		r0 = rf(ctx, msg, callbackCh)
 	} else {
 		r0 = ret.Error(0)

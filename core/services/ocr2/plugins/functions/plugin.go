@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
-	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -11,7 +10,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/libocr/commontypes"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -43,12 +42,12 @@ type FunctionsServicesConfig struct {
 }
 
 const (
-	FunctionsBridgeName     bridges.BridgeName = "ea_bridge"
-	MaxAdapterResponseBytes int64              = 1_000_000
+	FunctionsBridgeName     string = "ea_bridge"
+	MaxAdapterResponseBytes int64  = 1_000_000
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
-func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
 
 	var pluginConfig config.PluginConfig
@@ -68,12 +67,8 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OracleArgs, conf *FunctionsS
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
 	listenerLogger := conf.Lggr.Named("FunctionsListener")
-	bridge, err := conf.BridgeORM.FindBridge(FunctionsBridgeName)
-	if err != nil {
-		return nil, errors.Wrap(err, "Functions: unable to find bridge")
-	}
-	eaClient := functions.NewExternalAdapterClient(url.URL(bridge.URL), MaxAdapterResponseBytes)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, eaClient, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
 	allServices = append(allServices, functionsListener)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{

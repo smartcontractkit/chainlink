@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
