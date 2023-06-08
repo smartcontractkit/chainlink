@@ -17,21 +17,19 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
+	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 
 	net "net"
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
-	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-
 	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+
+	storemodels "github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	time "time"
 
 	url "net/url"
-
-	utils "github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	uuid "github.com/google/uuid"
 
@@ -89,29 +87,17 @@ func (_m *ChainScopedConfig) AutoCreateKey() bool {
 	return r0
 }
 
-// AutoPprofBlockProfileRate provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofBlockProfileRate() int {
+// AutoPprof provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	ret := _m.Called()
 
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
+	var r0 coreconfig.AutoPprof
+	if rf, ok := ret.Get(0).(func() coreconfig.AutoPprof); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// AutoPprofCPUProfileRate provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofCPUProfileRate() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.AutoPprof)
+		}
 	}
 
 	return r0
@@ -126,132 +112,6 @@ func (_m *ChainScopedConfig) AutoPprofEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// AutoPprofGatherDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofGatherDuration() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// AutoPprofGatherTraceDuration provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofGatherTraceDuration() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// AutoPprofGoroutineThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofGoroutineThreshold() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// AutoPprofMaxProfileSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofMaxProfileSize() utils.FileSize {
-	ret := _m.Called()
-
-	var r0 utils.FileSize
-	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(utils.FileSize)
-	}
-
-	return r0
-}
-
-// AutoPprofMemProfileRate provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofMemProfileRate() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// AutoPprofMemThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofMemThreshold() utils.FileSize {
-	ret := _m.Called()
-
-	var r0 utils.FileSize
-	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(utils.FileSize)
-	}
-
-	return r0
-}
-
-// AutoPprofMutexProfileFraction provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofMutexProfileFraction() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// AutoPprofPollInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofPollInterval() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// AutoPprofProfileRoot provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofProfileRoot() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1417,15 +1277,15 @@ func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
 }
 
 // MercuryCredentials provides a mock function with given fields: credName
-func (_m *ChainScopedConfig) MercuryCredentials(credName string) *ocr2models.MercuryCredentials {
+func (_m *ChainScopedConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
 	ret := _m.Called(credName)
 
-	var r0 *ocr2models.MercuryCredentials
-	if rf, ok := ret.Get(0).(func(string) *ocr2models.MercuryCredentials); ok {
+	var r0 *models.MercuryCredentials
+	if rf, ok := ret.Get(0).(func(string) *models.MercuryCredentials); ok {
 		r0 = rf(credName)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ocr2models.MercuryCredentials)
+			r0 = ret.Get(0).(*models.MercuryCredentials)
 		}
 	}
 
@@ -2271,28 +2131,28 @@ func (_m *ChainScopedConfig) P2PV2BootstrappersRaw() []string {
 }
 
 // P2PV2DeltaDial provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2DeltaDial() models.Duration {
+func (_m *ChainScopedConfig) P2PV2DeltaDial() storemodels.Duration {
 	ret := _m.Called()
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 storemodels.Duration
+	if rf, ok := ret.Get(0).(func() storemodels.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(storemodels.Duration)
 	}
 
 	return r0
 }
 
 // P2PV2DeltaReconcile provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2DeltaReconcile() models.Duration {
+func (_m *ChainScopedConfig) P2PV2DeltaReconcile() storemodels.Duration {
 	ret := _m.Called()
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 storemodels.Duration
+	if rf, ok := ret.Get(0).(func() storemodels.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(storemodels.Duration)
 	}
 
 	return r0
