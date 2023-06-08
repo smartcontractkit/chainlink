@@ -11,7 +11,7 @@ interface IFunctionsClient {
    * needed to decrypt the secrets encrypted with the public key
    * @return publicKey DON's public key
    */
-  function getDONPublicKey() external view returns (bytes memory);
+  function getDONPublicKey(bytes32 jobId) external view returns (bytes memory);
 
   /**
    * @notice Chainlink Functions response handler called by the designated transmitter node in an OCR round.

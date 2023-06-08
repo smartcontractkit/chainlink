@@ -128,9 +128,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     override
     onlyRouter
     returns (
-      bytes32,
-      uint96,
-      uint256
+      bytes32 requestId,
+      uint96 estimatedCost,
+      uint256 requestTimeoutSeconds
     )
   {
     if (data.length == 0) {
@@ -143,14 +143,11 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert UnsupportedRequestDataVersion();
     }
 
-    (bytes32 requestId, uint96 estimatedCost, uint256 requestTimeoutSeconds) = startBilling(
-      requestCBOR,
-      IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice)
-    );
+    RequestBilling memory billing = IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice);
+
+    (requestId, estimatedCost, requestTimeoutSeconds) = startBilling(requestCBOR, billing);
 
     emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
-
-    return (requestId, estimatedCost, requestTimeoutSeconds);
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
