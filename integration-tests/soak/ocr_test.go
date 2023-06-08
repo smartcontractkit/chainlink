@@ -79,7 +79,13 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	// fmt.Println("Using Chainlink TOML\n---------------------")
 	// fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
-	replicas := 6
+	cd, err := chainlink.NewDeployment(6, map[string]any{
+		"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network),
+		"db": map[string]any{
+			"stateful": true, // stateful DB by default for soak tests
+		},
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -87,15 +93,8 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			NetworkName: network.Name,
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
-		}))
-	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-			"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network),
-			"db": map[string]any{
-				"stateful": true, // stateful DB by default for soak tests
-			},
-		}))
-	}
+		})).
+		AddHelmCharts(cd)
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, network, testInputs
