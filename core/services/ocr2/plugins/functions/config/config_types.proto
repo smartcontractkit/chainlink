@@ -9,11 +9,6 @@ enum AggregationMethod {
     AGGREGATION_MEDIAN = 1;
 }
 
-message OracleIDtoKeyShareIndex {
-  uint32 oracle_id = 1;
-  uint32 key_share_index = 2;
-}
-
 message ThresholdReportingPluginConfig {
   uint32 max_query_length_bytes = 1;
   uint32 max_observation_length_bytes = 2;

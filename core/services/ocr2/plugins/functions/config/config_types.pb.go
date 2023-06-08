@@ -66,61 +66,6 @@ func (AggregationMethod) EnumDescriptor() ([]byte, []int) {
 	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{0}
 }
 
-type OracleIDtoKeyShareIndex struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	OracleId      uint32 `protobuf:"varint,1,opt,name=oracle_id,json=oracleId,proto3" json:"oracle_id,omitempty"`
-	KeyShareIndex uint32 `protobuf:"varint,2,opt,name=key_share_index,json=keyShareIndex,proto3" json:"key_share_index,omitempty"`
-}
-
-func (x *OracleIDtoKeyShareIndex) Reset() {
-	*x = OracleIDtoKeyShareIndex{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[0]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *OracleIDtoKeyShareIndex) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OracleIDtoKeyShareIndex) ProtoMessage() {}
-
-func (x *OracleIDtoKeyShareIndex) ProtoReflect() protoreflect.Message {
-	mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[0]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OracleIDtoKeyShareIndex.ProtoReflect.Descriptor instead.
-func (*OracleIDtoKeyShareIndex) Descriptor() ([]byte, []int) {
-	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *OracleIDtoKeyShareIndex) GetOracleId() uint32 {
-	if x != nil {
-		return x.OracleId
-	}
-	return 0
-}
-
-func (x *OracleIDtoKeyShareIndex) GetKeyShareIndex() uint32 {
-	if x != nil {
-		return x.KeyShareIndex
-	}
-	return 0
-}
-
 type ThresholdReportingPluginConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -137,7 +82,7 @@ type ThresholdReportingPluginConfig struct {
 func (x *ThresholdReportingPluginConfig) Reset() {
 	*x = ThresholdReportingPluginConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1]
+		mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -150,7 +95,7 @@ func (x *ThresholdReportingPluginConfig) String() string {
 func (*ThresholdReportingPluginConfig) ProtoMessage() {}
 
 func (x *ThresholdReportingPluginConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1]
+	mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -163,7 +108,7 @@ func (x *ThresholdReportingPluginConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThresholdReportingPluginConfig.ProtoReflect.Descriptor instead.
 func (*ThresholdReportingPluginConfig) Descriptor() ([]byte, []int) {
-	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{1}
+	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ThresholdReportingPluginConfig) GetMaxQueryLengthBytes() uint32 {
@@ -225,7 +170,7 @@ type ReportingPluginConfig struct {
 func (x *ReportingPluginConfig) Reset() {
 	*x = ReportingPluginConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[2]
+		mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -238,7 +183,7 @@ func (x *ReportingPluginConfig) String() string {
 func (*ReportingPluginConfig) ProtoMessage() {}
 
 func (x *ReportingPluginConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[2]
+	mi := &file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +196,7 @@ func (x *ReportingPluginConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportingPluginConfig.ProtoReflect.Descriptor instead.
 func (*ReportingPluginConfig) Descriptor() ([]byte, []int) {
-	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{2}
+	return file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ReportingPluginConfig) GetMaxQueryLengthBytes() uint32 {
@@ -310,13 +255,7 @@ var file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDesc 
 	0x6f, 0x63, 0x72, 0x32, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x66, 0x75, 0x6e,
 	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2f, 0x63, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x12, 0x0c, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x22, 0x5e,
-	0x0a, 0x17, 0x4f, 0x72, 0x61, 0x63, 0x6c, 0x65, 0x49, 0x44, 0x74, 0x6f, 0x4b, 0x65, 0x79, 0x53,
-	0x68, 0x61, 0x72, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x1b, 0x0a, 0x09, 0x6f, 0x72, 0x61,
-	0x63, 0x6c, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x6f, 0x72,
-	0x61, 0x63, 0x6c, 0x65, 0x49, 0x64, 0x12, 0x26, 0x0a, 0x0f, 0x6b, 0x65, 0x79, 0x5f, 0x73, 0x68,
-	0x61, 0x72, 0x65, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52,
-	0x0d, 0x6b, 0x65, 0x79, 0x53, 0x68, 0x61, 0x72, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x22, 0xf7,
+	0x12, 0x0c, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x22, 0xf7,
 	0x02, 0x0a, 0x1e, 0x54, 0x68, 0x72, 0x65, 0x73, 0x68, 0x6f, 0x6c, 0x64, 0x52, 0x65, 0x70, 0x6f,
 	0x72, 0x74, 0x69, 0x6e, 0x67, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
 	0x67, 0x12, 0x33, 0x0a, 0x16, 0x6d, 0x61, 0x78, 0x5f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x5f, 0x6c,
@@ -393,16 +332,15 @@ func file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDesc
 }
 
 var file_core_services_ocr2_plugins_functions_config_config_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_services_ocr2_plugins_functions_config_config_types_proto_goTypes = []interface{}{
 	(AggregationMethod)(0),                 // 0: config_types.AggregationMethod
-	(*OracleIDtoKeyShareIndex)(nil),        // 1: config_types.OracleIDtoKeyShareIndex
-	(*ThresholdReportingPluginConfig)(nil), // 2: config_types.ThresholdReportingPluginConfig
-	(*ReportingPluginConfig)(nil),          // 3: config_types.ReportingPluginConfig
+	(*ThresholdReportingPluginConfig)(nil), // 1: config_types.ThresholdReportingPluginConfig
+	(*ReportingPluginConfig)(nil),          // 2: config_types.ReportingPluginConfig
 }
 var file_core_services_ocr2_plugins_functions_config_config_types_proto_depIdxs = []int32{
 	0, // 0: config_types.ReportingPluginConfig.defaultAggregationMethod:type_name -> config_types.AggregationMethod
-	2, // 1: config_types.ReportingPluginConfig.thresholdPluginConfig:type_name -> config_types.ThresholdReportingPluginConfig
+	1, // 1: config_types.ReportingPluginConfig.thresholdPluginConfig:type_name -> config_types.ThresholdReportingPluginConfig
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -417,18 +355,6 @@ func file_core_services_ocr2_plugins_functions_config_config_types_proto_init() 
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OracleIDtoKeyShareIndex); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ThresholdReportingPluginConfig); i {
 			case 0:
 				return &v.state
@@ -440,7 +366,7 @@ func file_core_services_ocr2_plugins_functions_config_config_types_proto_init() 
 				return nil
 			}
 		}
-		file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_core_services_ocr2_plugins_functions_config_config_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ReportingPluginConfig); i {
 			case 0:
 				return &v.state
@@ -459,7 +385,7 @@ func file_core_services_ocr2_plugins_functions_config_config_types_proto_init() 
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_core_services_ocr2_plugins_functions_config_config_types_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
