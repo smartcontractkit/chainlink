@@ -62,7 +62,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		MaxUpkeepBatchSize:   1,
 	})
 	if err != nil {
-		return nil, err
+		return contracts.OCRv2Config{}, err
 	}
 
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
