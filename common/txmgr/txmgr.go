@@ -488,16 +488,15 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send native token to zero address")
 	}
-	etx = txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]{
+	newTx := txmgrtypes.NewTx[ADDR, TX_HASH]{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
 		FeeLimit:       gasLimit,
-		State:          TxUnstarted,
-		ChainID:        chainID,
+		Strategy:       NewSendEveryStrategy(),
 	}
-	err = b.txStore.InsertTx(&etx)
+	etx, err = b.txStore.CreateTransaction(newTx, chainID)
 	return etx, errors.Wrap(err, "SendNativeToken failed to insert eth_tx")
 }
 
