@@ -7,26 +7,14 @@ import (
 	"sync"
 	"time"
 
+	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-type CiphertextId = []byte
-
 type Decryptor interface {
-	Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error)
-}
-
-// This interface will be replaced by the Threshold Decryption Plugin when it is ready
-type DecryptionQueuingService interface {
-	GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest
-	GetCiphertext(ciphertextId CiphertextId) ([]byte, error)
-	ReturnResult(ciphertextId CiphertextId, plaintext []byte)
-}
-
-type DecryptionRequest struct {
-	ciphertextId CiphertextId
-	ciphertext   []byte
+	Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error)
 }
 
 type pendingRequest struct {
@@ -44,7 +32,7 @@ type decryptionQueue struct {
 	maxCiphertextBytes            int
 	maxCiphertextIdLen            int
 	completedRequestsCacheTimeout time.Duration
-	pendingRequestQueue           []CiphertextId
+	pendingRequestQueue           []decryptionPlugin.CiphertextId
 	pendingRequests               map[string]pendingRequest
 	completedRequests             map[string]completedRequest
 	mu                            sync.RWMutex
@@ -52,9 +40,9 @@ type decryptionQueue struct {
 }
 
 var (
-	_ Decryptor                = &decryptionQueue{}
-	_ DecryptionQueuingService = &decryptionQueue{}
-	_ job.ServiceCtx           = &decryptionQueue{}
+	_ Decryptor                                 = &decryptionQueue{}
+	_ decryptionPlugin.DecryptionQueuingService = &decryptionQueue{}
+	_ job.ServiceCtx                            = &decryptionQueue{}
 )
 
 func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertextIdLen int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
@@ -63,7 +51,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertex
 		maxCiphertextBytes,
 		maxCiphertextIdLen,
 		completedRequestsCacheTimeout,
-		[]CiphertextId{},
+		[]decryptionPlugin.CiphertextId{},
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
@@ -72,7 +60,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertex
 	return &dq
 }
 
-func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error) {
+func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error) {
 	if len(ciphertextId) > dq.maxCiphertextIdLen {
 		return nil, errors.New("ciphertextId too large")
 	}
@@ -108,7 +96,7 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 	}
 }
 
-func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byte) (<-chan []byte, error) {
+func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) (<-chan []byte, error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
@@ -142,11 +130,11 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 	return chPlaintext, nil
 }
 
-func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest {
+func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit int) []decryptionPlugin.DecryptionRequest {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
-	requests := make([]DecryptionRequest, 0, requestCountLimit)
+	requests := make([]decryptionPlugin.DecryptionRequest, 0, requestCountLimit)
 	totalBytes := 0
 	indicesToRemove := make(map[int]struct{})
 
@@ -164,9 +152,9 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 			continue
 		}
 
-		requestToAdd := DecryptionRequest{
-			requestId,
-			pendingRequest.ciphertext,
+		requestToAdd := decryptionPlugin.DecryptionRequest{
+			CiphertextId: requestId,
+			Ciphertext:   pendingRequest.ciphertext,
 		}
 
 		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
@@ -199,7 +187,7 @@ func removeMultipleIndices[T any](data []T, indicesToRemove map[int]struct{}) []
 	return filtered
 }
 
-func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, error) {
+func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.CiphertextId) ([]byte, error) {
 	dq.mu.RLock()
 	defer dq.mu.RUnlock()
 
@@ -211,7 +199,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, err
 	return req.ciphertext, nil
 }
 
-func (dq *decryptionQueue) ReturnResult(ciphertextId CiphertextId, plaintext []byte) {
+func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
