@@ -1,7 +1,7 @@
 GETH_VERSION: 1.12.0
-dkg: ../../../contracts/solc/v0.8.19/DKG.abi ../../../contracts/solc/v0.8.19/DKG.bin f67f628c5af590c898d46789e5500f36d3b0eca442e66a334968776c6fc9b4ed
-load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.bin 7cf4a280c2b0a783588d792ba6bf486436cdedfed6c153b6daba8673586f4b3f
-vrf_beacon: ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin 8c07a09d18e8f742d2651ce0af7a97a883df2fbb7137f19124172616acda819e
-vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 08e4c7813be2e36acaf2972eed02395da7a68bfc362de6a22e86d0f5121aa2ba
+dkg: ../../../contracts/solc/v0.8.19/DKG.abi ../../../contracts/solc/v0.8.19/DKG.bin 02549733c46e50ba393c2521e39d4ec55b6a5d9a66baf4406b1a515b20470425
+load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFConsumer.bin 8f9e423f9ecd42543cc937e164a31d1a6ad6868307ea21a817f52711dcf221de
+vrf_beacon: ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin 851c5b5e4b23bc7d642e3c02bce2f374d824ae5611707374bb1266eebd286461
+vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 898571152c445f53637a0ea635cc859dd2c642d6f52d2d70d8f4f85138f8db74
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
-vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin 4b11e4a9fa17b2f174868eb89f72fc4e42676301faec8f6a8d094dbaa5b378fc
+vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin ccd2499ac1390278188035ebe4b242c35c64477ff5ba44800251c946830a129d

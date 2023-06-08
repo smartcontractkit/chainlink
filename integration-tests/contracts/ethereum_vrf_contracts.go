@@ -199,7 +199,7 @@ func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCo
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress))
+		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress))
 	})
 	if err != nil {
 		return nil, err
@@ -998,9 +998,9 @@ func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint3
 	if err != nil {
 		return err
 	}
-	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
+	tx, err := coordinator.vrfCoordinatorV3.SetCallbackConfig(
 		opts,
-		vrf_coordinator.VRFCoordinatorConfig{
+		vrf_coordinator.VRFCoordinatorCallbackConfig{
 			MaxCallbackGasLimit:        maxCallbackGasLimit,
 			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
 		},

@@ -440,6 +440,13 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "dkg-address", "coordinator-address", "beacon-address", "height", "conf-delay")
 
 		verifyBeaconRandomness(e, *dkgAddress, *beaconAddress, *coordinatorAddress, *height, *confDelay, *searchWindow)
+
+	case "coordinator-set-billing":
+		cmd := flag.NewFlagSet("coordinator-set-billing", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+
+		setCoordinatorBilling(e, *coordinatorAddress, false, 0, 4294967295, 0, 0, 0, 0, big.NewInt(10000000))
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":

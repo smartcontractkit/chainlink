@@ -86,7 +86,7 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	fmt.Println("Initial account balance:", bal, e.Owner.From.String(), "Funding amount:", amount.String())
 	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
 	helpers.PanicErr(err)
-	e.Owner.GasLimit = 500000
+	e.Owner.GasLimit = 500000000
 	tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
