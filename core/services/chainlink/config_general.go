@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -703,26 +702,8 @@ func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
 	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
-// Insecure config
-func (g *generalConfig) DevWebServer() bool {
-	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
-		*g.c.Insecure.DevWebServer
-}
-
-func (g *generalConfig) OCRDevelopmentMode() bool {
-	// OCRDevelopmentMode is allowed in TestBuilds as well
-	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
-		*g.c.Insecure.OCRDevelopmentMode
-}
-
-func (g *generalConfig) DisableRateLimiting() bool {
-	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
-		*g.c.Insecure.DisableRateLimiting
-}
-
-func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
-		*g.c.Insecure.InfiniteDepthQueries
+func (g *generalConfig) Insecure() config.Insecure {
+	return &insecureConfig{c: g.c.Insecure}
 }
 
 func (g *generalConfig) Sentry() coreconfig.Sentry {
