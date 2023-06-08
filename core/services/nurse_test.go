@@ -53,47 +53,47 @@ func newMockConfig(t *testing.T) *mockConfig {
 	}
 }
 
-func (c mockConfig) AutoPprofProfileRoot() string {
+func (c mockConfig) ProfileRoot() string {
 	return c.root
 }
 
-func (c mockConfig) AutoPprofPollInterval() models.Duration {
+func (c mockConfig) PollInterval() models.Duration {
 	return *c.pollInterval
 }
 
-func (c mockConfig) AutoPprofGatherDuration() models.Duration {
+func (c mockConfig) GatherDuration() models.Duration {
 	return *c.gatherDuration
 }
 
-func (c mockConfig) AutoPprofGatherTraceDuration() models.Duration {
+func (c mockConfig) GatherTraceDuration() models.Duration {
 	return *c.traceDuration
 }
 
-func (c mockConfig) AutoPprofMaxProfileSize() utils.FileSize {
+func (c mockConfig) MaxProfileSize() utils.FileSize {
 	return c.profileSize
 }
 
-func (c mockConfig) AutoPprofCPUProfileRate() int {
+func (c mockConfig) CPUProfileRate() int {
 	return c.cpuProfileRate
 }
 
-func (c mockConfig) AutoPprofMemProfileRate() int {
+func (c mockConfig) MemProfileRate() int {
 	return c.memProfileRate
 }
 
-func (c mockConfig) AutoPprofBlockProfileRate() int {
+func (c mockConfig) BlockProfileRate() int {
 	return c.blockProfileRate
 }
 
-func (c mockConfig) AutoPprofMutexProfileFraction() int {
+func (c mockConfig) MutexProfileFraction() int {
 	return c.mutexProfileFraction
 }
 
-func (c mockConfig) AutoPprofMemThreshold() utils.FileSize {
+func (c mockConfig) MemThreshold() utils.FileSize {
 	return c.memThreshold
 }
 
-func (c mockConfig) AutoPprofGoroutineThreshold() int {
+func (c mockConfig) GoroutineThreshold() int {
 	return c.goroutineThreshold
 }
 
