@@ -22,8 +22,6 @@ const (
 	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
-	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 )
 
 var (
@@ -119,26 +117,40 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
-	out, err := rp.abi.Methods["mercuryCallback"].Outputs.UnpackValues(callbackResp)
+func (rp *evmRegistryPackerV2_1) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
+	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
-		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
+	}
+	boolTyp, err := abi.NewType("bool", "", nil)
+	if err != nil {
+		return false, nil, fmt.Errorf("abi new bool type error: %w", err)
+	}
+	callbackOutput := abi.Arguments{
+		{Name: "upkeepNeeded", Type: boolTyp},
+		{Name: "performData", Type: typBytes},
+	}
+	unpack, err := callbackOutput.Unpack(callbackResp)
+	if err != nil {
+		return false, nil, fmt.Errorf("callback output unpack error: %w", err)
 	}
 
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
-	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+	upkeepNeeded := *abi.ConvertType(unpack[0], new(bool)).(*bool)
+	if !upkeepNeeded {
+		return false, nil, nil
+	}
+	performData := *abi.ConvertType(unpack[1], new([]byte)).(*[]byte)
+	return true, performData, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackSimulatePerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err
 	}
 
-	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
+	out, err := rp.abi.Methods["simulatePerformUpkeep"].
+		Outputs.UnpackValues(b)
 	if err != nil {
 		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
 	}

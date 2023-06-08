@@ -10,9 +10,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
@@ -40,6 +42,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
+	upkeepInfoCache, cooldownCache, apiErrCache := setupCaches(DefaultUpkeepExpiration, DefaultCooldownExpiration, DefaultApiErrExpiration, CleanupInterval)
 	var headTracker httypes.HeadTracker
 	var headBroadcaster httypes.HeadBroadcaster
 	var logPoller logpoller.LogPoller
@@ -64,14 +67,16 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
-		mercury: &MercuryConfig{
+		mercury: MercuryConfig{
 			cred: &models.MercuryCredentials{
 				URL:      "https://google.com",
 				Username: "FakeClientID",
 				Password: "FakeClientKey",
 			},
-			abi:            mercuryCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			abi:           mercuryCompatibleABI,
+			upkeepCache:   upkeepInfoCache,
+			cooldownCache: cooldownCache,
+			apiErrCache:   apiErrCache,
 		},
 		hc: mockHttpClient,
 	}
@@ -141,7 +146,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
 		ExecuteGas:       5000000,
 	}
-	//target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
+	target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	callbackResp := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	upkeepNeededFalseResp, err := setupRegistry.mercury.abi.Methods["mercuryCallback"].Outputs.Pack(false, []byte{})
 	assert.Nil(t, err, t.Name())
@@ -162,30 +167,47 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 		ExecuteGas:       5000000,
 	}
 	tests := []struct {
-		name           string
-		input          []EVMAutomationUpkeepResult21
-		callbackResp   []byte
-		callbackErr    error
+		name  string
+		input []EVMAutomationUpkeepResult21
+
+		inCooldown bool
+
+		callbackResp []byte
+		callbackErr  error
+
+		upkeepCache   bool
+		mockGetUpkeep bool
+		upkeepInfo    i_keeper_registry_master_wrapper_2_1.UpkeepInfo
+		upkeepInfoErr error
+
 		want           []EVMAutomationUpkeepResult21
 		wantErr        error
 		hasHttpCalls   bool
 		callbackNeeded bool
-		cachedAdminCfg bool
-		upkeepId       *big.Int
 	}{
 		{
 			name:         "success - cached upkeep",
 			input:        []EVMAutomationUpkeepResult21{upkeepResult},
 			callbackResp: callbackResp,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:     target,
+				ExecuteGas: 5000000,
+			},
 
 			want:           []EVMAutomationUpkeepResult21{wantUpkeepResult},
 			hasHttpCalls:   true,
 			callbackNeeded: true,
+			upkeepCache:    true,
 		},
 		{
-			name:         "success - no cached upkeep",
-			input:        []EVMAutomationUpkeepResult21{upkeepResult},
-			callbackResp: callbackResp,
+			name:          "success - no cached upkeep",
+			input:         []EVMAutomationUpkeepResult21{upkeepResult},
+			callbackResp:  callbackResp,
+			mockGetUpkeep: true,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:     target,
+				ExecuteGas: 5000000,
+			},
 
 			want:           []EVMAutomationUpkeepResult21{wantUpkeepResult},
 			hasHttpCalls:   true,
@@ -236,17 +258,24 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			},
 		},
 		{
-			name:         "skip - error - no upkeep",
-			input:        []EVMAutomationUpkeepResult21{upkeepResult},
-			callbackResp: callbackResp,
+			name:          "skip - error - no upkeep",
+			input:         []EVMAutomationUpkeepResult21{upkeepResult},
+			callbackResp:  callbackResp,
+			upkeepInfoErr: errors.New("ouch"),
 
-			want:    []EVMAutomationUpkeepResult21{upkeepResultReasonMercury},
-			wantErr: errors.New("ouch"),
+			want:          []EVMAutomationUpkeepResult21{upkeepResultReasonMercury},
+			mockGetUpkeep: true,
+			wantErr:       errors.New("ouch"),
 		},
 		{
-			name:         "skip - upkeep not needed",
-			input:        []EVMAutomationUpkeepResult21{upkeepResult},
-			callbackResp: upkeepNeededFalseResp,
+			name:          "skip - upkeep not needed",
+			input:         []EVMAutomationUpkeepResult21{upkeepResult},
+			mockGetUpkeep: true,
+			callbackResp:  upkeepNeededFalseResp,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:     target,
+				ExecuteGas: 5000000,
+			},
 
 			want: []EVMAutomationUpkeepResult21{{
 				Block:            block,
@@ -265,9 +294,10 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			callbackNeeded: true,
 		},
 		{
-			name:  "skip - cooldown cache",
-			input: []EVMAutomationUpkeepResult21{upkeepResult},
-			want:  []EVMAutomationUpkeepResult21{upkeepResult},
+			name:       "skip - cooldown cache",
+			input:      []EVMAutomationUpkeepResult21{upkeepResult},
+			inCooldown: true,
+			want:       []EVMAutomationUpkeepResult21{upkeepResult},
 		},
 	}
 
@@ -297,6 +327,20 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 					nil).Once()
 			}
 			r.hc = mockHttpClient
+
+			if tt.inCooldown {
+				r.mercury.cooldownCache.Set(upkeepId.String(), nil, DefaultCooldownExpiration)
+			}
+
+			// either set cache or mock getUpkeep
+			if tt.mockGetUpkeep {
+				mockReg := mocks.NewRegistry(t)
+				r.registry = mockReg
+				mockReg.On("GetUpkeep", mock.Anything, mock.Anything).Return(tt.upkeepInfo, tt.upkeepInfoErr)
+			}
+			if tt.upkeepCache {
+				r.mercury.upkeepCache.Set(upkeepId.String(), tt.upkeepInfo, cache.DefaultExpiration)
+			}
 
 			got, err := r.mercuryLookup(context.Background(), tt.input)
 			if tt.wantErr != nil {
@@ -336,7 +380,7 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(18952433),
-				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+				// this is the address of precompile contradt ArbSys(0x0000000000000000000000000000000000000064)
 				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 			},
 			wantErr: nil,
@@ -362,7 +406,7 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 }
 
 func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
-	//executeGas := uint32(100)
+	executeGas := uint32(100)
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -372,8 +416,8 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		mercuryLookup *MercuryLookup
 		values        [][]byte
 		statusCode    int
-		upkeepId      *big.Int
-		blockNumber   uint32
+		upkeepInfo    i_keeper_registry_master_wrapper_2_1.UpkeepInfo
+		opts          *bind.CallOpts
 
 		callbackMsg  ethereum.CallMsg
 		callbackResp []byte
@@ -392,10 +436,16 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 				query:      big.NewInt(100),
 				extraData:  []byte{48, 120, 48, 48},
 			},
-			values:       values,
-			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
+			values:     values,
+			statusCode: http.StatusOK,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:         to,
+				ExecuteGas:     executeGas,
+				OffchainConfig: nil,
+			},
+			opts: &bind.CallOpts{
+				BlockNumber: big.NewInt(999),
+			},
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			upkeepNeeded: true,
 			performData:  []byte{48, 120, 48, 48},
@@ -407,13 +457,19 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(18952430),
-				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+				// this is the address of precompile contradt ArbSys(0x0000000000000000000000000000000000000064)
 				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 			},
-			values:       values,
-			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
+			values:     values,
+			statusCode: http.StatusOK,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:         to,
+				ExecuteGas:     executeGas,
+				OffchainConfig: nil,
+			},
+			opts: &bind.CallOpts{
+				BlockNumber: big.NewInt(18952430),
+			},
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			upkeepNeeded: true,
 			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
@@ -427,12 +483,19 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 				query:      big.NewInt(100),
 				extraData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
-			values:       values,
-			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
+			values:     values,
+			statusCode: http.StatusOK,
+			upkeepInfo: i_keeper_registry_master_wrapper_2_1.UpkeepInfo{
+				Target:         to,
+				ExecuteGas:     executeGas,
+				OffchainConfig: nil,
+			},
+			opts: &bind.CallOpts{
+				BlockNumber: big.NewInt(999),
+			},
 			callbackResp: []byte{},
-			wantErr:      errors.New("callback output unpack error: abi: attempting to unmarshall an empty string while arguments are expected"),
+
+			wantErr: errors.New("callback output unpack error: abi: attempting to unmarshall an empty string while arguments are expected"),
 		},
 	}
 
@@ -448,15 +511,58 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 				To:   &to,
 				Data: payload,
 			}
-			client.On("CallContract", mock.Anything, callbackMsg, tt.blockNumber).Return(tt.callbackResp, tt.callbackErr)
+			client.On("CallContract", mock.Anything, callbackMsg, tt.opts.BlockNumber).Return(tt.callbackResp, tt.callbackErr)
 
-			upkeepNeeded, performData, _, _, err := r.mercuryCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
+			upkeepNeeded, performData, err := r.mercuryLookupCallback(context.Background(), tt.mercuryLookup, tt.values, tt.upkeepInfo, tt.opts)
 			assert.Equal(t, tt.upkeepNeeded, upkeepNeeded, tt.name)
 			assert.Equal(t, tt.performData, performData, tt.name)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
 			}
+		})
+	}
+}
+
+func TestEvmRegistry_setCachesOnAPIErr(t *testing.T) {
+	tests := []struct {
+		name     string
+		upkeepId *big.Int
+		rounds   int
+	}{
+		{
+			name:     "success - 1,round",
+			upkeepId: big.NewInt(100),
+			rounds:   1,
+		},
+		{
+			name:     "success - 2,rounds",
+			upkeepId: big.NewInt(100),
+			rounds:   2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			cacheKey := tt.upkeepId.String()
+			for i := 0; i < tt.rounds; i++ {
+				r.setCachesOnAPIErr(tt.upkeepId)
+			}
+			now := time.Now()
+
+			val, exp, b := r.mercury.apiErrCache.GetWithExpiration(cacheKey)
+			assert.True(t, b, "cache key found in apiErrCache")
+			assert.NotNil(t, exp, "expiration found in apiErrCache")
+			assert.GreaterOrEqual(t, exp, now.Add(DefaultApiErrExpiration-1*time.Minute), "expiration found in apiErrCache >= Default-1Minute")
+			assert.Equal(t, tt.rounds, val, "err count correct")
+			errCount := val.(int)
+
+			val, exp, b = r.mercury.cooldownCache.GetWithExpiration(cacheKey)
+			assert.True(t, b, "cache key found in cooldownCache")
+			assert.NotNil(t, exp, "expiration found in cooldownCache")
+			cooldown := time.Second * time.Duration(2^errCount)
+			assert.GreaterOrEqual(t, exp, now.Add(cooldown/2), "expiration found in cooldownCache >= cooldown/2")
+			assert.Equal(t, nil, val, "err count correct")
 		})
 	}
 }
