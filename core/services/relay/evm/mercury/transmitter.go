@@ -58,7 +58,7 @@ var (
 		Name: "mercury_transmit_server_error_count",
 		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
 	},
-		[]string{"feedID"},
+		[]string{"feedID", "code"},
 	)
 )
 
@@ -81,6 +81,7 @@ type mercuryTransmitter struct {
 	initialBlockNumber int64
 
 	feedID      [32]byte
+	feedIDHex   string
 	fromAccount string
 
 	stopCh utils.StopChan
@@ -90,7 +91,6 @@ type mercuryTransmitter struct {
 	transmitSuccessCount         prometheus.Counter
 	transmitDuplicateCount       prometheus.Counter
 	transmitConnectionErrorCount prometheus.Counter
-	transmitServerErrorCount     prometheus.Counter
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -121,6 +121,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		cfgTracker,
 		initialBlockNumber,
 		feedID,
+		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
 		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
@@ -128,7 +129,6 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
 		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
-		transmitServerErrorCount.WithLabelValues(feedIDHex),
 	}
 }
 
@@ -235,7 +235,7 @@ func (mt *mercuryTransmitter) runloop() {
 						unpackErr = errors.Join(unpackErr, err)
 					}
 				}
-				mt.transmitServerErrorCount.Inc()
+				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
