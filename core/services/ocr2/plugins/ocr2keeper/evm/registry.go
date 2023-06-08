@@ -436,16 +436,11 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	err := r.poller.RegisterFilter(logpoller.Filter{
+	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
-	if err != nil {
-		r.mu.Lock()
-		r.mu.Unlock()
-	}
-	return err
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
