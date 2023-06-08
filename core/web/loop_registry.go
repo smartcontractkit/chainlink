@@ -26,7 +26,7 @@ type LoopRegistryServer struct {
 
 func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 	return &LoopRegistryServer{
-		exposedPromPort: int(app.GetConfig().Port()),
+		exposedPromPort: int(app.GetConfig().WebServer().HTTPPort()),
 		registry:        app.GetLoopRegistry(),
 		logger:          app.GetLogger(),
 		jsonMarshalFn:   json.Marshal,
