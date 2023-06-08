@@ -63,11 +63,11 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 }
 
-func TestClient_ListOCRKeyBundles(t *testing.T) {
+func TestShell_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
 	require.NoError(t, err)
@@ -80,11 +80,11 @@ func TestClient_ListOCRKeyBundles(t *testing.T) {
 	require.Equal(t, key.ID(), output[0].ID)
 }
 
-func TestClient_CreateOCRKeyBundle(t *testing.T) {
+func TestShell_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	requireOCRKeyCount(t, app, 0)
 
@@ -99,11 +99,11 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	require.Equal(t, output.ID, keys[0].ID())
 }
 
-func TestClient_DeleteOCRKeyBundle(t *testing.T) {
+func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	key, err := app.GetKeyStore().OCR().Create()
 	require.NoError(t, err)
@@ -126,11 +126,11 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	assert.Equal(t, key.ID(), output.ID)
 }
 
-func TestClient_ImportExportOCRKey(t *testing.T) {
+func TestShell_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 

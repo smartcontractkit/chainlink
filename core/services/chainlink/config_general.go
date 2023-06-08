@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -27,13 +25,12 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -249,6 +246,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) AutoPprof() config.AutoPprof {
+	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
+}
+
 func (g *generalConfig) AutoPprofEnabled() bool {
 	return *g.c.AutoPprof.Enabled
 }
@@ -355,39 +356,8 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) AllowOrigins() string {
-	return *g.c.WebServer.AllowOrigins
-}
-
-func (g *generalConfig) AuditLoggerEnabled() bool {
-	return *g.c.AuditLogger.Enabled
-}
-
-func (g *generalConfig) AuditLoggerForwardToUrl() (models.URL, error) {
-	return *g.c.AuditLogger.ForwardToUrl, nil
-}
-
-func (g *generalConfig) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return *g.c.AuditLogger.Headers, nil
-}
-
-func (g *generalConfig) AuditLoggerEnvironment() string {
-	if !build.IsProd() {
-		return "develop"
-	}
-	return "production"
-}
-
-func (g *generalConfig) AuditLoggerJsonWrapperKey() string {
-	return *g.c.AuditLogger.JsonWrapperKey
-}
-
-func (g *generalConfig) AuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Authenticated
-}
-
-func (g *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.AuthenticatedPeriod
+func (g *generalConfig) WebServer() config.WebServer {
+	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -438,47 +408,8 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) BridgeResponseURL() *url.URL {
-	if g.c.WebServer.BridgeResponseURL.IsZero() {
-		return nil
-	}
-	return g.c.WebServer.BridgeResponseURL.URL()
-}
-
-func (g *generalConfig) BridgeCacheTTL() time.Duration {
-	return g.c.WebServer.BridgeCacheTTL.Duration()
-}
-
-func (g *generalConfig) CertFile() string {
-	s := *g.c.WebServer.TLS.CertPath
-	if s == "" {
-		s = filepath.Join(g.TLSDir(), "server.crt")
-	}
-	return s
-}
-
 func (g *generalConfig) Database() coreconfig.Database {
-	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.LogSQL}
-}
-
-func (g *generalConfig) DatabaseDefaultLockTimeout() time.Duration {
-	return g.c.Database.DefaultLockTimeout.Duration()
-}
-
-func (g *generalConfig) DatabaseDefaultQueryTimeout() time.Duration {
-	return g.c.Database.DefaultQueryTimeout.Duration()
-}
-
-func (g *generalConfig) DatabaseDefaultIdleInTxSessionTimeout() time.Duration {
-	return g.c.Database.DefaultIdleInTxSessionTimeout.Duration()
-}
-
-func (g *generalConfig) DefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
-}
-
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -493,123 +424,32 @@ func (g *generalConfig) ExplorerURL() *url.URL {
 	return u
 }
 
-func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return *g.c.FluxMonitor.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) FMSimulateTransactions() bool {
-	return *g.c.FluxMonitor.SimulateTransactions
-}
-
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	return g.c.Database.Dialect
-}
-
-func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return g.c.WebServer.HTTPWriteTimeout.Duration()
+func (g *generalConfig) FluxMonitor() config.FluxMonitor {
+	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
-func (g *generalConfig) JSONConsole() bool {
-	return *g.c.Log.JSONConsole
-}
-
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
-func (g *generalConfig) JobPipelineMaxSuccessfulRuns() uint64 {
-	return *g.c.JobPipeline.MaxSuccessfulRuns
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
-}
-
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
 }
 
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
 }
 
-func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return *g.c.Keeper.DefaultTransactionQueueDepth
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint16 {
-	return *g.c.Keeper.GasPriceBufferPercent
+func (g *generalConfig) Keeper() config.Keeper {
+	return &keeperConfig{c: g.c.Keeper}
 }
 
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint16 {
-	return *g.c.Keeper.GasTipCapBufferPercent
-}
-
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint16 {
-	return *g.c.Keeper.BaseFeeBufferPercent
-}
-
-func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaxGracePeriod
-}
-
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.CheckGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.Registry.PerformGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.Registry.MaxPerformDataSize
-}
-
-func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.Registry.SyncInterval.Duration()
-}
-
-func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.Registry.SyncUpkeepQueueSize
-}
-
-func (g *generalConfig) KeeperTurnLookBack() int64 {
-	return *g.c.Keeper.TurnLookBack
-}
-
-func (g *generalConfig) KeyFile() string {
-	if g.TLSKeyPath() == "" {
-		return filepath.Join(g.TLSDir(), "server.key")
-	}
-	return g.TLSKeyPath()
-}
-
-func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.File.Dir
-	if s == "" {
-		s = g.RootDir()
-	}
-	return s
-}
-
-func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.File.MaxSize
-}
-
-func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.File.MaxAgeDays
-}
-
-func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.File.MaxBackups
-}
-
-func (g *generalConfig) LogUnixTimestamps() bool {
-	return *g.c.Log.UnixTS
+func (g *generalConfig) Log() config.Log {
+	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -843,21 +683,6 @@ func (g *generalConfig) PyroscopeServerAddress() string {
 func (g *generalConfig) PyroscopeEnvironment() string {
 	return *g.c.Pyroscope.Environment
 }
-func (g *generalConfig) Port() uint16 {
-	return *g.c.WebServer.HTTPPort
-}
-
-func (g *generalConfig) RPID() string {
-	return *g.c.WebServer.MFA.RPID
-}
-
-func (g *generalConfig) RPOrigin() string {
-	return *g.c.WebServer.MFA.RPOrigin
-}
-
-func (g *generalConfig) ReaperExpiration() models.Duration {
-	return *g.c.WebServer.SessionReaperExpiration
-}
 
 func (g *generalConfig) RootDir() string {
 	d := *g.c.RootDir
@@ -868,108 +693,14 @@ func (g *generalConfig) RootDir() string {
 	return h
 }
 
-func (g *generalConfig) SecureCookies() bool {
-	return *g.c.WebServer.SecureCookies
-}
-
-func (g *generalConfig) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   g.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-		SameSite: http.SameSiteStrictMode,
+func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
+	return &telemetryIngressConfig{
+		c: g.c.TelemetryIngress,
 	}
 }
 
-func (g *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) SentryDSN() string {
-	return *g.c.Sentry.DSN
-}
-
-func (g *generalConfig) SentryDebug() bool {
-	return *g.c.Sentry.Debug
-}
-
-func (g *generalConfig) SentryEnvironment() string {
-	return *g.c.Sentry.Environment
-}
-
-func (g *generalConfig) SentryRelease() string {
-	return *g.c.Sentry.Release
-}
-
-func (g *generalConfig) TLSCertPath() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) TLSDir() string {
-	return filepath.Join(g.RootDir(), "tls")
-}
-
-func (g *generalConfig) TLSHost() string {
-	return *g.c.WebServer.TLS.Host
-}
-
-func (g *generalConfig) TLSKeyPath() string {
-	return *g.c.WebServer.TLS.KeyPath
-}
-
-func (g *generalConfig) TLSPort() uint16 {
-	return *g.c.WebServer.TLS.HTTPSPort
-}
-
-func (g *generalConfig) TLSRedirect() bool {
-	return *g.c.WebServer.TLS.ForceRedirect
-}
-
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	if g.c.TelemetryIngress.URL.IsZero() {
-		return nil
-	}
-	return g.c.TelemetryIngress.URL.URL()
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Unauthenticated
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
+func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
+	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
 // Insecure config
@@ -992,6 +723,10 @@ func (g *generalConfig) DisableRateLimiting() bool {
 func (g *generalConfig) InfiniteDepthQueries() bool {
 	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
 		*g.c.Insecure.InfiniteDepthQueries
+}
+
+func (g *generalConfig) Sentry() coreconfig.Sentry {
+	return sentryConfig{g.c.Sentry}
 }
 
 var (

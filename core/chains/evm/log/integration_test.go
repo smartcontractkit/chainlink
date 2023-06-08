@@ -266,7 +266,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 
-	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
 	helperCfg := broadcasterHelperCfg{db: db}
 	contract1 := newMockContract()

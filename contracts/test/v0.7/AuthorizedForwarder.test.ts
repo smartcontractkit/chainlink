@@ -103,6 +103,25 @@ describe('AuthorizedForwarder', () => {
     let newSenders: string[]
     let receipt: ContractReceipt
     describe('when called by the owner', () => {
+      describe('set authorized senders containing duplicate/s', () => {
+        beforeEach(async () => {
+          newSenders = [
+            await roles.oracleNode1.getAddress(),
+            await roles.oracleNode1.getAddress(),
+            await roles.oracleNode2.getAddress(),
+            await roles.oracleNode3.getAddress(),
+          ]
+        })
+        it('reverts with a must not have duplicate senders message', async () => {
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
+            'Must not have duplicate senders',
+          )
+        })
+      })
+
       describe('setting 3 authorized senders', () => {
         beforeEach(async () => {
           newSenders = [

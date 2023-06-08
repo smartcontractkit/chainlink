@@ -8,13 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 
 ## [dev]
+### Added
+- Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
+- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:
+```
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
 
+[[EVM.Nodes]]
+Name = '...'
+WSURL = '...'
+HTTPURL = '...'
+Order = 5 
+```
+- The config keys `WebServer.StartTimeout` and `WebServer.HTTPMaxSize`. These keys respectively set a timeout for the node server to
+  start and set the max request size for HTTP requests. Previously these attributes were set by
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`. To migrate to these new fields, set their values to be identical to
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`.
+
+- Low latency oracle jobs now support in-protocol block range guarantees. This
+  is necessary in order to produce reports with block number ranges that do not
+  overlap. It can now be guaranteed at the protocol level, so we can use local
+  state instead of relying on an unreliable round-trip to the Mercury server.
+
+### Fixed
+
+### Changed
+- Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
+- Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
 ...
 
 # 2.2.0 - UNRELEASED
 
 ### Added
 
+- New prometheus metric for mercury transmit queue: `mercury_transmit_queue_load`. This is a gauge, scoped by feed ID, that measures how many pending transmissions are in the queue. This should generally speaking be small (< 10 or so). Nops may wish to add alerting if this exceeds some amount.
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
 - New settings Evm.GasEstimator.LimitJobType.OCR2, OCR2.DefaultTransactionQueueDepth, OCR2.SimulateTransactions for OCR2
@@ -26,8 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
-- Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
-- Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
 - Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
 	- `LogBackfillBatchSize = 1000`
@@ -37,8 +63,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restricted scope of the Evm.GasEstimator.LimitJobType.OCR, OCR.DefaultTransactionQueueDepth, and OCR.SimulateTransactions settings so they
   apply only to OCR. Previously these settings would apply to OCR2 as well as OCR. You must use the OCR2 equivalents added above if you
   want your settings to apply to OCR2.
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
 
 <!-- unreleasedstop -->
+
+## 1.13.3 - 2023-06-06
+
+### Fixed
+
+- The 1.13.2 release showed the 1.13.1 version in its VERSION file. This updates the VERSION file to now show 1.13.3.
+
+## 1.13.2 - 2023-06-05
+
+### Fixed
+
+- Made logging level improvements for the Solana Transaction Manager to reduce excessive noise
+- Fixed race condition in Solana TXM for sanity check and preventing misfired errors
 
 ## 2.1.1 - 2023-05-22
 

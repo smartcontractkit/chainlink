@@ -17,7 +17,7 @@ import (
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
-	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
+	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
@@ -25,7 +25,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
-	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
+	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }
 
 func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
@@ -52,7 +52,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
-		assert.True(t, config.AuditLoggerEnabled())
+		assert.True(t, config.AuditLogger().Enabled())
 
 		assert.False(t, config.DevWebServer())
 		assert.False(t, config.DisableRateLimiting())
@@ -126,10 +126,8 @@ func TestConfig_LogSQL(t *testing.T) {
 	require.NoError(t, err)
 
 	config.SetLogSQL(true)
-	assert.Equal(t, config.LogSQL(), true)
 	assert.Equal(t, config.Database().LogSQL(), true)
 
 	config.SetLogSQL(false)
-	assert.Equal(t, config.LogSQL(), false)
 	assert.Equal(t, config.Database().LogSQL(), false)
 }

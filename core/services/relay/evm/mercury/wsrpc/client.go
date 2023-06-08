@@ -115,9 +115,6 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	if err != nil {
 		lggr.Errorw("Transmit failed", "err", err, "req", req, "resp", resp)
 		incRequestStatusMetric(statusFailed)
-	} else if resp.Error != "" {
-		lggr.Errorw("Transmit failed; mercury server returned error", "err", resp.Error, "req", req, "resp", resp)
-		incRequestStatusMetric(statusFailed)
 	} else {
 		lggr.Debugw("Transmit succeeded", "resp", resp)
 		incRequestStatusMetric(statusSuccess)

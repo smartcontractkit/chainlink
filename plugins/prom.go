@@ -26,9 +26,9 @@ type PromServer struct {
 
 type PromServerOpt func(*PromServer)
 
-func WithRegistry(r *prometheus.Registry) PromServerOpt {
+func WithHandler(h http.Handler) PromServerOpt {
 	return func(s *PromServer) {
-		s.handler = promhttp.HandlerFor(r, promhttp.HandlerOpts{})
+		s.handler = h
 	}
 }
 
@@ -43,7 +43,12 @@ func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromSer
 			ReadTimeout: 5 * time.Second,
 		},
 
-		handler: promhttp.Handler(),
+		handler: promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				EnableOpenMetrics: true,
+			},
+		),
 	}
 
 	for _, opt := range opts {

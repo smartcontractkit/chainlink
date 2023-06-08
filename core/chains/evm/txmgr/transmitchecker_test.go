@@ -20,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -104,7 +105,7 @@ func TestTransmitCheckers(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(642)),
 			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgr.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
 			Tx:        tx,
@@ -160,7 +161,7 @@ func TestTransmitCheckers(t *testing.T) {
 		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID:     &h,
 				MaxLink:       &testDefaultMaxLink, // 1 LINK
 				SubID:         &testDefaultSubID,
@@ -182,7 +183,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgr.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -270,7 +271,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
@@ -287,7 +288,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgr.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{

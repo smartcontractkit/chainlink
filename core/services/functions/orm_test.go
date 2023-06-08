@@ -287,3 +287,68 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 		require.Equal(t, req.State, expectedState, "incorrect state")
 	}
 }
+
+func TestORM_PruneOldestRequests(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	now := time.Now()
+	var ids []functions.RequestID
+	// store 5 requests
+	for offset := -50; offset <= -10; offset += 10 {
+		id, _ := createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
+		ids = append(ids, id)
+	}
+
+	// don't prune if max not hit
+	total, pruned, err := orm.PruneOldestRequests(6, 3)
+	require.NoError(t, err)
+	require.Equal(t, uint32(5), total)
+	require.Equal(t, uint32(0), pruned)
+
+	// prune up to max batch size
+	total, pruned, err = orm.PruneOldestRequests(1, 2)
+	require.NoError(t, err)
+	require.Equal(t, uint32(5), total)
+	require.Equal(t, uint32(2), pruned)
+
+	// prune all above the limit
+	total, pruned, err = orm.PruneOldestRequests(1, 20)
+	require.NoError(t, err)
+	require.Equal(t, uint32(3), total)
+	require.Equal(t, uint32(2), pruned)
+
+	// no pruning needed any more
+	total, pruned, err = orm.PruneOldestRequests(1, 20)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), total)
+	require.Equal(t, uint32(0), pruned)
+
+	// verify only the newest one is left after pruning
+	result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 20)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(result), "incorrect results length")
+	require.Equal(t, ids[4], result[0].RequestID, "incorrect results order")
+}
+
+func TestORM_PruneOldestRequests_Large(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	now := time.Now()
+	// store 1000 requests
+	for offset := -1000; offset <= -1; offset += 1 {
+		_, _ = createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
+	}
+
+	// prune 900/1000
+	total, pruned, err := orm.PruneOldestRequests(100, 1000)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1000), total)
+	require.Equal(t, uint32(900), pruned)
+
+	// verify there's 100 left
+	result, err := orm.FindOldestEntriesByState(functions.IN_PROGRESS, 200)
+	require.NoError(t, err)
+	require.Equal(t, 100, len(result), "incorrect results length")
+}
