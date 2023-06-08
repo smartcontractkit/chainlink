@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
@@ -26,7 +25,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logging.Init()
 	os.Exit(m.Run())
 }
 
@@ -88,7 +86,10 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 		Test: t,
 	}
 
-	replicas := 6
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
@@ -97,15 +98,10 @@ func SetupForwarderOCRSoakEnv(t *testing.T) (*environment.Environment, blockchai
 			NetworkName: network.Name,
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
-		}))
-	for i := 0; i < replicas; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, map[string]interface{}{
-			"toml": client.AddNetworkDetailedConfig(ocrForwarderBaseTOML, ocrForwarderNetworkDetailTOML, network),
-		}))
-	}
+		})).
+		AddHelmCharts(cd)
 
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, network
-
 }
