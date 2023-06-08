@@ -3775,81 +3775,13 @@ describe('KeeperRegistry2_1', () => {
   })
 
   describe('#setUpkeepTriggerConfig', () => {
-    const newConditionalConfig = '0x'
-    const newLogConfig = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
-      [
-        [
-          randomAddress(),
-          1,
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-        ],
-      ],
-    )
-    const invalidLogConfig1 = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
-      [
-        [
-          ethers.constants.AddressZero, // address can't be zero
-          7,
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-        ],
-      ],
-    )
-    const invalidLogConfig2 = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
-      [
-        [
-          randomAddress(),
-          8, // too high (would signify 1000 in binary, but must be <= 111)
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-        ],
-      ],
-    )
-    const invalidLogConfig3 = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
-      [
-        [
-          randomAddress(),
-          7,
-          emptyBytes32, // filter must be non-zero
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-          ethers.utils.randomBytes(32),
-        ],
-      ],
-    )
-    const newCronConfig = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(string,bytes)'],
-      [['0 0 0 0 0', ethers.utils.randomBytes(4)]],
-    )
-    const invalidCronConfig = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(string,bytes)'],
-      [['0 0 0 0 0', ethers.utils.randomBytes(5)]],
-    )
-    const newRWRConfig = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(bytes)'],
-      [[ethers.utils.randomBytes(4)]],
-    )
-    const invalidRWRConfig = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(bytes)'],
-      [[ethers.utils.randomBytes(5)]],
-    )
+    const newConfig = '0xdeadbeef'
 
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry
           .connect(admin)
-          .setUpkeepTriggerConfig(upkeepId.add(1), newConditionalConfig),
+          .setUpkeepTriggerConfig(upkeepId.add(1), newConfig),
         'OnlyCallableByAdmin()',
       )
     })
@@ -3857,135 +3789,25 @@ describe('KeeperRegistry2_1', () => {
     it('reverts if the upkeep is canceled', async () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
       await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(upkeepId, newConditionalConfig),
+        registry.connect(admin).setUpkeepTriggerConfig(upkeepId, newConfig),
         'UpkeepCancelled()',
       )
     })
 
     it('reverts if called by anyone but the admin', async () => {
       await evmRevert(
-        registry
-          .connect(owner)
-          .setUpkeepTriggerConfig(upkeepId, newConditionalConfig),
+        registry.connect(owner).setUpkeepTriggerConfig(upkeepId, newConfig),
         'OnlyCallableByAdmin()',
       )
-    })
-
-    it('validates the config for conditional upkeeps', async () => {
-      await evmRevert(
-        registry.connect(admin).setUpkeepTriggerConfig(upkeepId, randomBytes),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry.connect(admin).setUpkeepTriggerConfig(upkeepId, newLogConfig),
-        'InvalidTrigger()',
-      )
-      await registry
-        .connect(admin)
-        .setUpkeepTriggerConfig(upkeepId, newConditionalConfig)
-      const updatedConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
-      assert.equal(newConditionalConfig, updatedConfig)
-    })
-
-    it('validates the config for log triggered upkeeps', async () => {
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(logUpkeepId, randomBytes),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(logUpkeepId, newConditionalConfig),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(logUpkeepId, invalidLogConfig1),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(logUpkeepId, invalidLogConfig2),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(logUpkeepId, invalidLogConfig3),
-        'InvalidTrigger()',
-      )
-      await registry
-        .connect(admin)
-        .setUpkeepTriggerConfig(logUpkeepId, newLogConfig)
-      const updatedConfig = await registry.getUpkeepTriggerConfig(logUpkeepId)
-      assert.equal(newLogConfig, updatedConfig)
-    })
-
-    it('validates the config for cron triggered upkeeps', async () => {
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(cronUpkeepId, randomBytes),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(cronUpkeepId, newConditionalConfig),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(cronUpkeepId, invalidCronConfig),
-        'InvalidTrigger()',
-      )
-      await registry
-        .connect(admin)
-        .setUpkeepTriggerConfig(cronUpkeepId, newCronConfig)
-      const updatedConfig = await registry.getUpkeepTriggerConfig(cronUpkeepId)
-      assert.equal(newCronConfig, updatedConfig)
-    })
-
-    it('validates the config for run-when-ready upkeeps', async () => {
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(rwrUpkeepId, randomBytes),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(rwrUpkeepId, newConditionalConfig),
-        'InvalidTrigger()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepTriggerConfig(rwrUpkeepId, invalidRWRConfig),
-        'InvalidTrigger()',
-      )
-      await registry
-        .connect(admin)
-        .setUpkeepTriggerConfig(rwrUpkeepId, newRWRConfig)
-      const updatedConfig = await registry.getUpkeepTriggerConfig(rwrUpkeepId)
-      assert.equal(newRWRConfig, updatedConfig)
     })
 
     it('emits a log', async () => {
       const tx = await registry
         .connect(admin)
-        .setUpkeepTriggerConfig(upkeepId, newConditionalConfig)
+        .setUpkeepTriggerConfig(upkeepId, newConfig)
       await expect(tx)
         .to.emit(registry, 'UpkeepTriggerConfigSet')
-        .withArgs(upkeepId, newConditionalConfig)
+        .withArgs(upkeepId, newConfig)
     })
   })
 

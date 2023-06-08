@@ -283,9 +283,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
-  // TODO no custom types in 0.8.6
-  // type CronTrigger uint256; // timestamp
-
   // Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;

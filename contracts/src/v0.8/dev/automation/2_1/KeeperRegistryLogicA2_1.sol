@@ -178,7 +178,6 @@ contract KeeperRegistryLogicA2_1 is
       extraData,
       (Trigger, bytes, bytes)
     );
-    validateTriggerConfig(triggerType, triggerConfig);
     id = _createID(triggerType);
     AutomationForwarder forwarder = new AutomationForwarder(id, target);
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
@@ -223,38 +222,6 @@ contract KeeperRegistryLogicA2_1 is
     return uint256(bytes32(idBytes));
   }
 
-  function validateTriggerConfig(Trigger triggerType, bytes memory triggerConfig) public {
-    if (msg.sender == address(this)) {
-      // separate call stack, we can revert with any reason here
-      if (triggerType == Trigger.CONDITION) {
-        require(triggerConfig.length == 0);
-      } else if (triggerType == Trigger.LOG) {
-        // will revert if data isn't in the correct format
-        LogTriggerConfig memory trigger = abi.decode(triggerConfig, (LogTriggerConfig));
-        require(trigger.contractAddress != ZERO_ADDRESS);
-        require(trigger.topic0 != bytes32(0));
-        require(uint8(trigger.filterSelector) < 8); // 8 corresponds to 1000 in binary, max is 111
-      } else if (triggerType == Trigger.CRON) {
-        // will revert if data isn't in the correct format
-        CronTriggerConfig memory trigger = abi.decode(triggerConfig, (CronTriggerConfig));
-        require(trigger.payload.length % 32 == 4);
-        // TODO - gas analysis to see if it's feasible to validate cron string
-      } else if (triggerType == Trigger.READY) {
-        ReadyTriggerConfig memory trigger = abi.decode(triggerConfig, (ReadyTriggerConfig));
-        require(trigger.payload.length % 32 == 4);
-      } else {
-        revert();
-      }
-    } else {
-      // called directly, only revert with proper message
-      try KeeperRegistryLogicA2_1(address(this)).validateTriggerConfig(triggerType, triggerConfig) {
-        return;
-      } catch {
-        revert InvalidTrigger();
-      }
-    }
-  }
-
   /**
    * @dev Called through KeeperRegistry main contract
    */
@@ -291,8 +258,6 @@ contract KeeperRegistryLogicA2_1 is
 
   function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);
-    Trigger triggerType = getTriggerType(id);
-    validateTriggerConfig(triggerType, triggerConfig);
     s_upkeepTriggerConfig[id] = triggerConfig;
     emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
