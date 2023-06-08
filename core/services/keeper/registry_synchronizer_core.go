@@ -79,7 +79,6 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		go rs.run()
 
 		var upkeepPerformedFilter [][]log.Topic
-		upkeepPerformedFilter = nil
 
 		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations, upkeepPerformedFilter)
 		if err != nil {

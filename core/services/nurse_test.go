@@ -134,9 +134,7 @@ func TestNurse(t *testing.T) {
 func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
 	profiles, err := nrse.listProfiles()
 	require.Nil(t, err)
-	var names []string
 	for _, p := range profiles {
-		names = append(names, p.Name())
 		if strings.Contains(p.Name(), typ) {
 			return true
 		}
