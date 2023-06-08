@@ -141,7 +141,6 @@ runs:
       shell: sh
       run: |
         IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
         echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
 
