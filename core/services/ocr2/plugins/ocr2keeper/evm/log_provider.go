@@ -1,4 +1,4 @@
-package ocr2keeper
+package evm
 
 import (
 	"context"
@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
-	pluginevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -44,7 +42,7 @@ type LogProvider struct {
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
-func logProviderFilterName(addr common.Address) string {
+func LogProviderFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
 }
 
@@ -64,13 +62,13 @@ func NewLogProvider(
 
 	abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", pluginevm.ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: logProviderFilterName(contract.Address()),
+		Name: LogProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
@@ -90,7 +88,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            pluginevm.NewEvmRegistryPackerV2_1(abi),
+		packer:            NewEvmRegistryPackerV2_1(abi),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil
@@ -174,8 +172,8 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 		// broadcast log to subscribers
 		checkBlockNumber := uint32(p.Raw.BlockNumber) // TODO: check if this is correct
 		l := ocr2keepers.PerformLog{
-			Key:             evm.UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(checkBlockNumber, p.Id),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
+			Key:             UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(checkBlockNumber, p.Id),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
 		}
@@ -258,7 +256,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -273,7 +271,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -288,7 +286,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -443,7 +441,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2k
 
 	for _, upkeep := range decodedReport {
 		// TODO: the log provider should be in the evm package for isolation
-		res, ok := upkeep.(pluginevm.EVMAutomationUpkeepResult21)
+		res, ok := upkeep.(EVMAutomationUpkeepResult21)
 		if !ok {
 			return "", fmt.Errorf("unexpected type")
 		}
