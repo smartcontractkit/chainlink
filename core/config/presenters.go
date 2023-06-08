@@ -12,3 +12,7 @@ import (
 func FriendlyNumber[N constraints.Integer | *big.Int](n N) string {
 	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
 }
+
+func FriendlyInt64(n int64) string {
+	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
+}
