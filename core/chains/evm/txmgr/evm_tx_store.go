@@ -1469,7 +1469,7 @@ VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, newTx.Value, newTx.FeeLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, assets.Eth(newTx.Value), newTx.FeeLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
