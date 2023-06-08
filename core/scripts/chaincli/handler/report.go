@@ -352,11 +352,17 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 
 	keys := []string{}
 	chkBlocks := []string{}
+
 	for _, u := range upkeeps {
-		parts := strings.Split(u.Key.String(), "|")
-		keys = append(keys, parts[1])
-		chkBlocks = append(chkBlocks, fmt.Sprintf("%d", u.CheckBlockNumber))
+		val, ok := u.(evm.EVMAutomationUpkeepResult20)
+		if !ok {
+			panic("unrecognized upkeep result type")
+		}
+
+		keys = append(keys, val.ID.String())
+		chkBlocks = append(chkBlocks, fmt.Sprintf("%d", val.CheckBlockNumber))
 	}
+
 	elem.PerformKeys = strings.Join(keys, "\n")
 	elem.PerformBlockChecks = strings.Join(chkBlocks, "\n")
 }

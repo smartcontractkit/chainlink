@@ -142,7 +142,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	offC, err := json.Marshal(offchain.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
-		MercuryLookup:        d.cfg.UpkeepMercury,
+		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
 	})
 	if err != nil {
 		panic(err)
