@@ -39,7 +39,7 @@ func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggrega
 	return contract
 }
 
-func mustNewFilterer(t *testing.T, address gethCommon.Address) *offchainaggregator.OffchainAggregatorFilterer {
+func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFilterer {
 	filterer, err := offchainaggregator.NewOffchainAggregatorFilterer(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 	return filterer
@@ -73,7 +73,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		cfg = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
 	}
 	if filterer == nil {
-		filterer = mustNewFilterer(t, testutils.NewAddress())
+		filterer = mustNewFilterer(t)
 	}
 	if contract == nil {
 		contract = mustNewContract(t, testutils.NewAddress())
@@ -170,7 +170,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Parallel()
 
 	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
-	fixtureFilterer := mustNewFilterer(t, fixtureLogAddress)
+	fixtureFilterer := mustNewFilterer(t)
 	fixtureContract := mustNewContract(t, fixtureLogAddress)
 
 	t.Run("does not update if contract address doesn't match", func(t *testing.T) {
