@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -124,8 +123,11 @@ const (
  * normal pace after the event.
  */
 func TestAutomationReorg(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	network := networks.SelectedNetwork
 
+	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
@@ -135,11 +137,9 @@ func TestAutomationReorg(t *testing.T) {
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
-			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
-	for i := 0; i < numberOfNodes; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, defaultAutomationSettings))
-	}
-	err := testEnvironment.Run()
+			HttpURL: activeEVMNetwork.HTTPURLs[0]})).
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {
@@ -198,7 +198,7 @@ func TestAutomationReorg(t *testing.T) {
 		defaultUpkeepGasLimit,
 	)
 
-	log.Info().Msg("Waiting for all upkeeps to be performed")
+	l.Info().Msg("Waiting for all upkeeps to be performed")
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
@@ -207,13 +207,13 @@ func TestAutomationReorg(t *testing.T) {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 5
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
 	}, "7m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~3m for performing each upkeep 5 times, ~3m buffer
 
-	log.Info().Msg("All upkeeps performed under happy path. Starting reorg")
+	l.Info().Msg("All upkeeps performed under happy path. Starting reorg")
 
 	rc, err := NewReorgController(
 		&ReorgConfig{
@@ -230,7 +230,7 @@ func TestAutomationReorg(t *testing.T) {
 	rc.ReOrg(automationReorgBlocks)
 	rc.WaitReorgStarted()
 
-	log.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
+	l.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
 
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 10
@@ -238,23 +238,23 @@ func TestAutomationReorg(t *testing.T) {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 10
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
 	}, "5m", "1s").Should(gomega.Succeed())
 
-	log.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
+	l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
 	rc.WaitDepthReached()
 
-	log.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
+	l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
 		for i := 0; i < len(upkeepIDs); i++ {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 20
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}

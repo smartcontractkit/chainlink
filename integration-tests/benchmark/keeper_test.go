@@ -413,11 +413,13 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	for i := 0; i < NumberOfNodes; i++ {
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+		cd, err := chainlink.NewDeployment(1, map[string]any{
 			"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		}))
+		})
+		require.NoError(t, err, "Error creating chainlink deployment")
+		testEnvironment.AddHelmCharts(cd)
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

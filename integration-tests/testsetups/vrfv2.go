@@ -118,7 +118,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 
 	err := v.chainClient.WaitForEvents()
 	if err != nil {
-		log.Error().Err(err).Msg("Error Occurred waiting for On chain events")
+		l.Error().Err(err).Msg("Error Occurred waiting for On chain events")
 	}
 	//wait some buffer time for requests to be fulfilled
 	//todo - need to find better way for this
@@ -126,7 +126,7 @@ func (v *VRFV2SoakTest) Run(t *testing.T) {
 
 	loadTestMetrics, err := v.Inputs.ConsumerContract.GetLoadTestMetrics(nil)
 	if err != nil {
-		log.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
+		l.Error().Err(err).Msg("Error Occurred when getting Load Test Metrics from Consumer contract")
 	}
 
 	averageFulfillmentInBlockTime := new(big.Float).Quo(new(big.Float).SetInt(loadTestMetrics.AverageFulfillmentInMillions), big.NewFloat(1e6))
