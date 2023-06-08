@@ -123,7 +123,7 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 		registry: registry,
 		active:   make(map[string]activeUpkeep),
 		abi:      keeperRegistryABI,
-		packer:   &evmRegistryPackerV21{abi: keeperRegistryABI},
+		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
 		headFunc: func(types.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
@@ -176,7 +176,7 @@ var upkeepActiveEvents = []common.Hash{
 }
 
 type checkResult struct {
-	ur  []EVMAutomationUpkeepResult20
+	ur  []EVMAutomationUpkeepResult21
 	err error
 }
 
@@ -203,7 +203,7 @@ type EvmRegistry struct {
 	client        client.Client
 	registry      Registry
 	abi           abi.ABI
-	packer        *evmRegistryPackerV21
+	packer        *evmRegistryPackerV2_1
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
@@ -646,7 +646,7 @@ func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult20, error) {
+func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult21, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
 		checkResults = make([]*string, len(keys))
@@ -690,7 +690,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	var (
 		multiErr error
-		results  = make([]EVMAutomationUpkeepResult20, len(keys))
+		results  = make([]EVMAutomationUpkeepResult21, len(keys))
 	)
 
 	for i, req := range checkReqs {
@@ -711,7 +711,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
+func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
 		performResults  = make([]*string, 0, len(checkResults))

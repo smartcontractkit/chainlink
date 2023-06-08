@@ -52,18 +52,17 @@ type performDataStruct struct {
 	PerformData      []byte   `abi:"performData"`
 }
 
-type evmRegistryPackerV21 struct {
+type evmRegistryPackerV2_1 struct {
 	abi abi.ABI
 }
 
-func NewEvmRegistryPackerV21(abi abi.ABI) *evmRegistryPackerV21 {
-	return &evmRegistryPackerV21{abi: abi}
+func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
+	return &evmRegistryPackerV2_1{abi: abi}
 }
 
-// TODO: adjust to 2.1
-func (rp *evmRegistryPackerV21) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
 	var (
-		result EVMAutomationUpkeepResult20
+		result EVMAutomationUpkeepResult21
 	)
 
 	b, err := hexutil.Decode(raw)
@@ -81,7 +80,7 @@ func (rp *evmRegistryPackerV21) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw
 		return result, err
 	}
 
-	result = EVMAutomationUpkeepResult20{
+	result = EVMAutomationUpkeepResult21{
 		Block:    uint32(block.Uint64()),
 		ID:       id,
 		Eligible: true,
@@ -118,7 +117,7 @@ func (rp *evmRegistryPackerV21) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV21) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
+func (rp *evmRegistryPackerV2_1) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, error) {
 	typBytes, err := abi.NewType("bytes", "", nil)
 	if err != nil {
 		return false, nil, fmt.Errorf("abi new bytes type error: %w", err)
@@ -144,7 +143,7 @@ func (rp *evmRegistryPackerV21) UnpackMercuryLookupResult(callbackResp []byte) (
 	return true, performData, nil
 }
 
-func (rp *evmRegistryPackerV21) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err
@@ -159,7 +158,7 @@ func (rp *evmRegistryPackerV21) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV21) UnpackUpkeepInfo(id *big.Int, raw string) (iregistry21.UpkeepInfo, error) {
+func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (iregistry21.UpkeepInfo, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return iregistry21.UpkeepInfo{}, err
@@ -175,8 +174,7 @@ func (rp *evmRegistryPackerV21) UnpackUpkeepInfo(id *big.Int, raw string) (iregi
 	return info, nil
 }
 
-// TODO: adjust to 2.1 if needed
-func (rp *evmRegistryPackerV21) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	var (
 		enc     = EVMAutomationEncoder20{}
 		decoded []ocr2keepers.UpkeepResult
@@ -206,7 +204,7 @@ func (rp *evmRegistryPackerV21) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (rp *evmRegistryPackerV21) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
+func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
 	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig
 
 	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(raw)

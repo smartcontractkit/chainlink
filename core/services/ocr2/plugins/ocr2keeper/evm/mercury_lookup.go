@@ -50,7 +50,7 @@ const (
 )
 
 // mercuryLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
+func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
 	// return error only if there are errors which stops the process
 	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
 	// TODO (AUTO-2862): parallelize the mercury lookup work for all upkeeps

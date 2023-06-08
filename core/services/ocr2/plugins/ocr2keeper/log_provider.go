@@ -90,7 +90,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
+		packer:            pluginevm.NewEvmRegistryPackerV2_1(abi),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil
@@ -172,8 +172,9 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	vals := []ocr2keepers.PerformLog{}
 	for _, p := range performed {
 		// broadcast log to subscribers
+		checkBlockNumber := uint32(p.Raw.BlockNumber) // TODO: check if this is correct
 		l := ocr2keepers.PerformLog{
-			Key:             evm.UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(uint32(p.Raw.BlockNumber), p.Id),
+			Key:             evm.UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(checkBlockNumber, p.Id),
 			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
@@ -442,7 +443,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2k
 
 	for _, upkeep := range decodedReport {
 		// TODO: the log provider should be in the evm package for isolation
-		res, ok := upkeep.(pluginevm.EVMAutomationUpkeepResult20)
+		res, ok := upkeep.(pluginevm.EVMAutomationUpkeepResult21)
 		if !ok {
 			return "", fmt.Errorf("unexpected type")
 		}
