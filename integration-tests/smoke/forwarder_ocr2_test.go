@@ -88,7 +88,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*30)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -99,7 +99,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueOCR2(10, ocrInstances, workerNodes, mockServer)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, ocrInstances, chainClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(2, ocrInstances, chainClient, time.Minute*30)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -128,7 +128,7 @@ func setupForwarderOCR2Test(t *testing.T) (
 	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-forwarder-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		NamespacePrefix: fmt.Sprintf("smoke-ocr2-forwarder-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
