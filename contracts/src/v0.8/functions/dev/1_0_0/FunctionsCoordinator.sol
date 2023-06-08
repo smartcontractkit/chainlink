@@ -123,7 +123,16 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint32 gasLimit,
     address caller,
     address subscriptionOwner
-  ) external override onlyRouter returns (bytes32, uint96) {
+  )
+    external
+    override
+    onlyRouter
+    returns (
+      bytes32,
+      uint96,
+      uint256
+    )
+  {
     if (data.length == 0) {
       revert EmptyRequestData();
     }
@@ -134,14 +143,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert UnsupportedRequestDataVersion();
     }
 
-    (bytes32 requestId, uint96 estimatedCost) = startBilling(
+    (bytes32 requestId, uint96 estimatedCost, uint256 requestTimeoutSeconds) = startBilling(
       requestCBOR,
       IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice)
     );
 
     emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
 
-    return (requestId, estimatedCost);
+    return (requestId, estimatedCost, requestTimeoutSeconds);
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
@@ -149,8 +158,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _validateReport(
-    bytes32 /* configDigest */,
-    uint40 /* epochAndRound */,
+    bytes32, /* configDigest */
+    uint40, /* epochAndRound */
     bytes memory /* report */
   ) internal pure override returns (bool) {
     // validate within _report to save gas

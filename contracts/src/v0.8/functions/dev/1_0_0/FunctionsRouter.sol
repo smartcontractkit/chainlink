@@ -85,7 +85,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
 
-    (bytes32 requestId, uint96 estimatedCost) = coordinator.sendRequest(
+    (bytes32 requestId, uint96 estimatedCost, uint256 requestTimeoutSeconds) = coordinator.sendRequest(
       subscriptionId,
       data,
       gasLimit,
@@ -93,7 +93,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       owner
     );
 
-    _blockBalance(msg.sender, subscriptionId, estimatedCost, requestId, route);
+    _blockBalance(msg.sender, subscriptionId, estimatedCost, requestId, route, requestTimeoutSeconds);
 
     return requestId;
   }
