@@ -118,7 +118,6 @@ contract KeeperRegistryLogicA2_1 is
           return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
       }
     }
-    // TODO - consider doing cron validation
 
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }

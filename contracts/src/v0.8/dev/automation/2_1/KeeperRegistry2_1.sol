@@ -5,7 +5,6 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicA2_1.sol";
 import "./Chainable.sol";
-import {AutomationRegistryExecutableInterface, UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 import "../../../OCR2Abstract.sol";
 

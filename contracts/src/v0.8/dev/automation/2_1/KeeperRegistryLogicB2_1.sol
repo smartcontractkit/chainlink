@@ -2,7 +2,6 @@
 pragma solidity 0.8.16;
 
 import "./KeeperRegistryBase2_1.sol";
-import {UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
 
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   using Address for address;
