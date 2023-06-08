@@ -283,44 +283,16 @@ func (_m *GeneralConfig) EthereumURL() string {
 	return r0
 }
 
-// ExplorerAccessKey provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerAccessKey() string {
+// Explorer provides a mock function with given fields:
+func (_m *GeneralConfig) Explorer() config.Explorer {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerSecret provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerSecret() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerURL provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 config.Explorer
+	if rf, ok := ret.Get(0).(func() config.Explorer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(config.Explorer)
 		}
 	}
 

@@ -29,7 +29,6 @@ type AppConfig interface {
 	SetPasswords(keystore, vrf *string)
 
 	Ethereum
-	Explorer
 	FeatureFlags
 	Keystore
 	OCR1Config
@@ -52,6 +51,7 @@ type AppConfig interface {
 	WebServer() WebServer
 	AutoPprof() AutoPprof
 	Insecure() Insecure
+	Explorer() Explorer
 }
 
 type DatabaseBackupMode string
