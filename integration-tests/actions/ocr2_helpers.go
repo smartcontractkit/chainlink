@@ -90,7 +90,6 @@ func DeployOCRv2ContractsForwardersFlow(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	chainlinkWorkerNodes []*client.Chainlink,
 	forwarderAddresses []common.Address,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregatorV2, error) {
@@ -444,8 +443,9 @@ func CreateOCRv2JobsWithForwarder(
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
-			Name:    "ocr2 bootstrap node",
-			JobType: "bootstrap",
+			Name:              "ocr2 bootstrap node",
+			JobType:           "bootstrap",
+			ForwardingAllowed: true,
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
 				Relay:      "evm",
