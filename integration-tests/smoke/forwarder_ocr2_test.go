@@ -2,10 +2,7 @@ package smoke
 
 import (
 	"context"
-	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,11 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -25,12 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
-	testEnvironment, testNetwork := setupForwarderOCR2Test(t)
+	testEnvironment, testNetwork := setupOCR2Test(t, true)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -41,6 +32,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	contractLoader, err := contracts.NewContractLoader(chainClient)
 	require.NoError(t, err, "Loading contracts shouldn't fail")
+
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
@@ -48,7 +40,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
-
 	t.Cleanup(func() {
 		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
@@ -73,7 +64,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		err = chainClient.WaitForEvents()
 	}
 
-	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, workerNodes, authorizedForwarders, chainClient)
+	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
 	err = actions.CreateOCRv2JobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
@@ -107,35 +98,4 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 	require.NoError(t, err, "Error getting latest OCRv2 answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCRv2 contract to be 10 but got %d", answer.Int64())
-}
-
-func setupForwarderOCR2Test(t *testing.T) (
-	testEnvironment *environment.Environment,
-	testNetwork blockchain.EVMNetwork,
-) {
-	testNetwork = networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
-
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-ocr2-forwarder-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelmCharts(chainlinkChart)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
 }
