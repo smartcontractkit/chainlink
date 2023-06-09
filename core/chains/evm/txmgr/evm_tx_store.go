@@ -149,9 +149,6 @@ type DbEthTx struct {
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  null.Uint32
 	EVMChainID        utils.Big
-	// AccessList is optional and only has an effect on DynamicFee transactions
-	// on chains that support it (e.g. Ethereum Mainnet after London hard fork)
-	AccessList EvmAccessList
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker    *datatypes.JSON
@@ -174,7 +171,6 @@ func DbEthTxFromEthTx(ethTx *EvmTx) DbEthTx {
 		Subject:            ethTx.Subject,
 		PipelineTaskRunID:  ethTx.PipelineTaskRunID,
 		MinConfirmations:   ethTx.MinConfirmations,
-		AccessList:         ethTx.AdditionalParameters,
 		TransmitChecker:    ethTx.TransmitChecker,
 		InitialBroadcastAt: ethTx.InitialBroadcastAt,
 	}
@@ -210,7 +206,6 @@ func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *EvmTx) {
 	evmEthTx.PipelineTaskRunID = dbEthTx.PipelineTaskRunID
 	evmEthTx.MinConfirmations = dbEthTx.MinConfirmations
 	evmEthTx.ChainID = dbEthTx.EVMChainID.ToInt()
-	evmEthTx.AdditionalParameters = dbEthTx.AccessList
 	evmEthTx.TransmitChecker = dbEthTx.TransmitChecker
 	evmEthTx.InitialBroadcastAt = dbEthTx.InitialBroadcastAt
 }

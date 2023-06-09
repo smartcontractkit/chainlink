@@ -9,7 +9,7 @@ import (
 // TEST ONLY FUNCTIONS
 // these need to be exported for the txmgr tests to continue to work
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) XXXTestSetClient(client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) XXXTestSetClient(client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
 	ec.client = client
 }
 
@@ -33,7 +33,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD,
 	return ec.closeInternal()
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, R, FEE, ADD]) XXXTestResendUnconfirmed() error {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, R, FEE]) XXXTestResendUnconfirmed() error {
 	return er.resendUnconfirmed()
 }
 
