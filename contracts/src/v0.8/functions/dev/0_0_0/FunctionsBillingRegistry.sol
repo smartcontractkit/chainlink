@@ -67,6 +67,8 @@ contract FunctionsBillingRegistry is
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
   mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */ private s_consumers;
+  mapping(address => uint64) /* consumer */ /* consumer_id */ private s_consumerIds;
+  uint64 private lastConsumerId;
   mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */ private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */ private s_subscriptions;
   // We make the sub count public so that its possible to
@@ -342,7 +344,7 @@ contract FunctionsBillingRegistry is
     }
 
     uint64 nonce = currentNonce + 1;
-    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
+    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce, s_consumerIds[billing.client]);
 
     Commitment memory commitment = Commitment(
       billing.subscriptionId,
@@ -367,9 +369,10 @@ contract FunctionsBillingRegistry is
     address don,
     address client,
     uint64 subscriptionId,
-    uint64 nonce
+    uint64 nonce,
+    uint64 clientId
   ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
+    return keccak256(abi.encode(don, client, subscriptionId, nonce, clientId));
   }
 
   /**
@@ -711,6 +714,8 @@ contract FunctionsBillingRegistry is
     }
     // Initialize the nonce to 1, indicating the consumer is allocated.
     s_consumers[consumer][subscriptionId] = 1;
+    lastConsumerId++;
+    s_consumerIds[consumer] = lastConsumerId;
     s_subscriptionConfigs[subscriptionId].consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subscriptionId, consumer);
@@ -766,7 +771,8 @@ contract FunctionsBillingRegistry is
           authorizedSendersList[j],
           consumers[i],
           subscriptionId,
-          s_consumers[consumers[i]][subscriptionId]
+          s_consumers[consumers[i]][subscriptionId],
+          s_consumerIds[consumers[i]]
         );
         if (s_requestCommitments[requestId].don != address(0)) {
           return true;
