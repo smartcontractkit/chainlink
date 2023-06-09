@@ -1447,14 +1447,14 @@ func (o *evmTxStore) CheckTxQueueCapacity(fromAddress common.Address, maxQueuedT
 	return
 }
 
-func (o *evmTxStore) CreateTransaction(newTx EvmTxRequest, chainID *big.Int, qopts ...pg.QOpt) (tx EvmTx, err error) {
+func (o *evmTxStore) CreateTransaction(txRequest EvmTxRequest, chainID *big.Int, qopts ...pg.QOpt) (tx EvmTx, err error) {
 	var dbEtx DbEthTx
 	qq := o.q.WithOpts(qopts...)
 	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		if newTx.PipelineTaskRunID != nil {
+		if txRequest.PipelineTaskRunID != nil {
 
-			err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, chainID.String())
+			err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, txRequest.PipelineTaskRunID, chainID.String())
 			// If no eth_tx matches (the common case) then continue
 			if !errors.Is(err, sql.ErrNoRows) {
 				if err != nil {
@@ -1470,16 +1470,16 @@ VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.FeeLimit, newTx.Meta, newTx.Strategy.Subject(), chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, value, txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
-		pruned, err := newTx.Strategy.PruneQueue(o, pg.WithQueryer(tx))
+		pruned, err := txRequest.Strategy.PruneQueue(o, pg.WithQueryer(tx))
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
-			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", dbEtx.ID)
+			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", txRequest.FromAddress, "toAddress", txRequest.ToAddress, "meta", txRequest.Meta, "subject", txRequest.Strategy.Subject(), "replacementID", dbEtx.ID)
 		}
 		return nil
 	})

@@ -300,11 +300,11 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmTxRequest) bool {
-				meta := newTx.Meta
-				return newTx.FromAddress == vuni.submitter &&
-					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.FeeLimit == uint32(500000) &&
+			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool {
+				meta := txRequest.Meta
+				return txRequest.FromAddress == vuni.submitter &&
+					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					txRequest.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),

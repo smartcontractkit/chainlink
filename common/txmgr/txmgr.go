@@ -44,7 +44,7 @@ type TxManager[
 	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateTransaction(newTx txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
+	CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
 	SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error)
@@ -437,35 +437,35 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 }
 
 // CreateTransaction inserts a new transaction
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) CreateTransaction(newTx txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
-	if err = b.checkEnabled(newTx.FromAddress); err != nil {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error) {
+	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
 		return tx, err
 	}
 
-	if b.config.UseForwarders() && (!utils.IsZero(newTx.ForwarderAddress)) {
-		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(newTx.ToAddress, newTx.EncodedPayload)
+	if b.config.UseForwarders() && (!utils.IsZero(txRequest.ForwarderAddress)) {
+		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(txRequest.ToAddress, txRequest.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
-			if newTx.Meta != nil {
-				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
+			if txRequest.Meta != nil {
+				txRequest.Meta.FwdrDestAddress = &txRequest.ToAddress
 			} else {
-				newTx.Meta = &txmgrtypes.TxMeta[ADDR, TX_HASH]{
-					FwdrDestAddress: &newTx.ToAddress,
+				txRequest.Meta = &txmgrtypes.TxMeta[ADDR, TX_HASH]{
+					FwdrDestAddress: &txRequest.ToAddress,
 				}
 			}
-			newTx.ToAddress = newTx.ForwarderAddress
-			newTx.EncodedPayload = fwdPayload
+			txRequest.ToAddress = txRequest.ForwarderAddress
+			txRequest.EncodedPayload = fwdPayload
 		} else {
 			b.logger.Errorf("Failed to use forwarder set upstream: %s", fwdErr.Error())
 		}
 	}
 
-	err = b.txStore.CheckTxQueueCapacity(newTx.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStore.CheckTxQueueCapacity(txRequest.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateTransaction")
 	}
 
-	tx, err = b.txStore.CreateTransaction(newTx, b.chainID, qs...)
+	tx, err = b.txStore.CreateTransaction(txRequest, b.chainID, qs...)
 	return
 }
 

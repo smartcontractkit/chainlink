@@ -17,7 +17,7 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateTransaction(newTx txmgr.EvmTxRequest, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
+	CreateTransaction(txRequest txmgr.EvmTxRequest, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
 }
 
 type Transmitter interface {

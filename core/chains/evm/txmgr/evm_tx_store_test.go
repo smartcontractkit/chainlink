@@ -1567,7 +1567,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		id := uuid.New()
-		newTx := txmgr.EvmTxRequest{
+		txRequest := txmgr.EvmTxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -1575,10 +1575,10 @@ func TestORM_CreateTransaction(t *testing.T) {
 			PipelineTaskRunID: &id,
 			Strategy:          txmgr.SendEveryStrategy{},
 		}
-		tx1, err := txStore.CreateTransaction(newTx, ethClient.ConfiguredChainID())
+		tx1, err := txStore.CreateTransaction(txRequest, ethClient.ConfiguredChainID())
 		assert.NoError(t, err)
 
-		tx2, err := txStore.CreateTransaction(newTx, ethClient.ConfiguredChainID())
+		tx2, err := txStore.CreateTransaction(txRequest, ethClient.ConfiguredChainID())
 		assert.NoError(t, err)
 
 		assert.Equal(t, tx1.GetID(), tx2.GetID())
