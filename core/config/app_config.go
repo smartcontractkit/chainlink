@@ -33,9 +33,6 @@ type AppConfig interface {
 	FeatureFlags
 	OCR1Config
 	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
 	Pyroscope
 	Secrets
 
@@ -53,6 +50,7 @@ type AppConfig interface {
 	Explorer() Explorer
 	Password() Password
 	Prometheus() Prometheus
+	P2P() P2P
 }
 
 type DatabaseBackupMode string
