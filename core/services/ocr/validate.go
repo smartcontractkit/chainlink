@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -31,7 +30,6 @@ type ValidationConfig interface {
 	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	P2PPeerID() p2pkey.PeerID
 	OCRCaptureEATelemetry() bool
 }
 
