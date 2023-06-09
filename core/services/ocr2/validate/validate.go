@@ -20,7 +20,7 @@ import (
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(config Config, insConf InsecureConfig, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
@@ -59,7 +59,7 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if err = validateSpec(tree, jb); err != nil {
 		return jb, err
 	}
-	if err = validateTimingParameters(config, spec); err != nil {
+	if err = validateTimingParameters(config, insConf, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -82,8 +82,8 @@ var (
 	}
 )
 
-func validateTimingParameters(config Config, spec job.OCR2OracleSpec) error {
-	lc := ToLocalConfig(config, spec)
+func validateTimingParameters(config Config, insConf InsecureConfig, spec job.OCR2OracleSpec) error {
+	lc := ToLocalConfig(config, insConf, spec)
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
