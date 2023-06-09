@@ -62,8 +62,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   struct Config {
     // Maxiumum amount of gas that can be given to a request's client callback
     uint32 maxGasLimit;
-    // Reentrancy protection.
-    bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
@@ -95,7 +93,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
-  error Reentrant();
 
   // ================================================================
   // |                       Initialization                         |
@@ -139,7 +136,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      reentrancyLock: false,
       gasOverhead: gasOverhead,
       requestTimeoutSeconds: requestTimeoutSeconds,
       donFee: donFee
@@ -270,7 +266,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    */
   function startBilling(bytes memory data, RequestBilling memory billing)
     internal
-    nonReentrant
     returns (
       bytes32,
       uint96,
@@ -323,47 +318,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     address client,
     uint64 subscriptionId,
     uint64 nonce
-  ) private view returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce, block.number));
-  }
-
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available.
-   */
-  function callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      let g := gas()
-      // GAS_FOR_CALL_EXACT_CHECK = 5000
-      // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
-      // The gas actually passed to the callee is min(gasAmount, 63//64*gas available).
-      // We want to ensure that we revert if gasAmount >  63//64*gas available
-      // as we do not want to provide them with less, however that check itself costs
-      // gas.  GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able
-      // to revert if gasAmount >  63//64*gas available.
-      if lt(g, 5000) {
-        revert(0, 0)
-      }
-      g := sub(g, 5000)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
-        revert(0, 0)
-      }
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(target)) {
-        revert(0, 0)
-      }
-      // call and return whether we succeeded. ignore return data
-      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
-    }
-    return success;
+  ) private pure returns (bytes32) {
+    return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
   /**
@@ -388,28 +344,15 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     address[31] memory signers,
     uint8 signerCount,
     uint256 initialGas
-  ) internal nonReentrant returns (FulfillResult) {
+  ) internal returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
       return FulfillResult.INVALID_REQUEST_ID;
     }
     delete s_requestCommitments[requestId];
 
-    bytes memory callback = abi.encodeWithSelector(
-      IFunctionsClient.handleOracleFulfillment.selector,
-      requestId,
-      response,
-      err
-    );
-    // Call with explicitly the amount of callback gas requested
-    // Important to not let them exhaust the gas budget and avoid payment.
-    // Do not allow any non-view/non-pure coordinator functions to be called
-    // during the consumers callback code via reentrancyLock.
-    // NOTE: that callWithExactGas will revert if we do not have sufficient gas
-    // to give the callee their requested amount.
-    s_config.reentrancyLock = true;
-    bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
-    s_config.reentrancyLock = false;
+    IFunctionsRouter router = IFunctionsRouter(address(s_router));
+    bool success = router.callback(requestId, response, err);
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
@@ -430,7 +373,6 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       payments.amount[i] = bill.signerPayment;
     }
     // Pay out the administration fee
-    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(s_router));
     // address routerOwner = router.owner();
     // payments.to[signerCount + 1] = routerOwner;
     payments.amount[signerCount + 1] = commitment.adminFee;
@@ -439,7 +381,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     payments.amount[signerCount + 2] = bill.transmitterPayment;
     // Remove blocked balance and mark the request as complete
     // IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
-    router.pay(requestId, payments.to, payments.amount);
+    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
+    subscriptions.pay(requestId, payments.to, payments.amount);
 
     // Include payment in the event for tracking costs.
     emit BillingEnd(
@@ -499,22 +442,5 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     delete s_requestCommitments[requestId];
     emit RequestTimedOut(requestId);
     return true;
-  }
-
-  // ================================================================
-  // |                       Reetrancy Guard                        |
-  // ================================================================
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
-  function isReentrancyLocked() public view override returns (bool) {
-    return s_config.reentrancyLock;
-  }
-
-  modifier nonReentrant() {
-    if (s_config.reentrancyLock) {
-      revert Reentrant();
-    }
-    _;
   }
 }

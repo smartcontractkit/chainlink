@@ -15,9 +15,11 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   struct Config {
     // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
     uint96 adminFee;
+    // The function selector that is used when calling back to the Client contract
+    bytes4 handleOracleFulfillmentSelector;
   }
   Config private s_config;
-  event ConfigSet(uint96 adminFee);
+  event ConfigSet(uint96 adminFee, bytes4 handleOracleFulfillmentSelector);
 
   error OnlyCallableByRoute();
 
@@ -54,9 +56,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
    *  - adminFee: fee that will be paid to the Router owner for operating the network
    */
   function _setConfig(bytes memory config) internal override {
-    uint96 adminFee = abi.decode(config, (uint96));
-    s_config = Config({adminFee: adminFee});
-    emit ConfigSet(adminFee);
+    (uint96 adminFee, bytes4 handleOracleFulfillmentSelector) = abi.decode(config, (uint96, bytes4));
+    s_config = Config({adminFee: adminFee, handleOracleFulfillmentSelector: handleOracleFulfillmentSelector});
+    emit ConfigSet(adminFee, handleOracleFulfillmentSelector);
   }
 
   /**
@@ -93,7 +95,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       owner
     );
 
-    _blockBalance(msg.sender, subscriptionId, estimatedCost, requestId, route, requestTimeoutSeconds);
+    _blockBalance(msg.sender, subscriptionId, gasLimit, estimatedCost, requestId, route, requestTimeoutSeconds);
 
     return requestId;
   }
@@ -111,12 +113,77 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     bytes calldata data,
     uint32 gasLimit,
     bytes32 jobId
-  ) external override onlyAuthorizedUsers returns (bytes32) {
+  ) external override onlyAuthorizedUsers nonReentrant returns (bytes32) {
     return _sendRequest(jobId, false, subscriptionId, data, gasLimit);
   }
 
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function callback(
+    bytes32 requestId,
+    bytes memory response,
+    bytes memory err
+  ) external override onlyCoordinator(requestId) nonReentrant returns (bool success) {
+    Request memory request = s_requests[requestId];
+    bytes memory encodedCallback = abi.encodeWithSelector(
+      s_config.handleOracleFulfillmentSelector,
+      requestId,
+      response,
+      err
+    );
+    // Call with explicitly the amount of callback gas requested
+    // Important to not let them exhaust the gas budget and avoid payment.
+    // Do not allow any non-view/non-pure coordinator functions to be called
+    // during the consumers callback code via reentrancyLock.
+    // NOTE: that callWithExactGas will revert if we do not have sufficient gas
+    // to give the callee their requested amount.
+    s_reentrancyLock = true;
+    success = callWithExactGas(request.gasLimit, request.client, encodedCallback);
+    s_reentrancyLock = false;
+  }
+
+  /**
+   * @dev calls target address with exactly gasAmount gas and data as calldata
+   * or reverts if at least gasAmount gas is not available.
+   */
+  function callWithExactGas(
+    uint256 gasAmount,
+    address target,
+    bytes memory data
+  ) private returns (bool success) {
+    // solhint-disable-next-line no-inline-assembly
+    assembly {
+      let g := gas()
+      // GAS_FOR_CALL_EXACT_CHECK = 5000
+      // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
+      // The gas actually passed to the callee is min(gasAmount, 63//64*gas available).
+      // We want to ensure that we revert if gasAmount >  63//64*gas available
+      // as we do not want to provide them with less, however that check itself costs
+      // gas.  GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able
+      // to revert if gasAmount >  63//64*gas available.
+      if lt(g, 5000) {
+        revert(0, 0)
+      }
+      g := sub(g, 5000)
+      // if g - g//64 <= gasAmount, revert
+      // (we subtract g//64 because of EIP-150)
+      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
+        revert(0, 0)
+      }
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      if iszero(extcodesize(target)) {
+        revert(0, 0)
+      }
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
+    }
+    return success;
+  }
+
   // ================================================================
-  // |                    Modifier Overrides                        |
+  // |                           Modifiers                          |
   // ================================================================
 
   function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
@@ -125,16 +192,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
 
   modifier onlyAuthorizedUsers() override {
     _validateIsAuthorizedSender();
-    _;
-  }
-
-  modifier nonReentrant() override {
-    // TODO
-    // address route = this.getRoute("FunctionsCoordinator", true);
-    // IFunctionsBilling coordinator = IFunctionsBilling(route);
-    // if (coordinator.isReentrancyLocked()) {
-    //   revert Reentrant();
-    // }
     _;
   }
 
