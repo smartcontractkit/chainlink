@@ -4,11 +4,9 @@ import (
 	_ "embed"
 	"fmt"
 	"math/big"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +15,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -282,47 +279,6 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
-func (g *generalConfig) EthereumHTTPURL() *url.URL {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					return (*url.URL)(n.HTTPURL)
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.HTTPURL != nil {
-					us = append(us, (url.URL)(*n.HTTPURL))
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumURL() string {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					if n.WSURL != nil {
-						return n.WSURL.String()
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
@@ -413,6 +369,10 @@ func (g *generalConfig) Database() coreconfig.Database {
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
+}
+
+func (g *generalConfig) Explorer() config.Explorer {
+	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
 }
 
 func (g *generalConfig) ExplorerURL() *url.URL {
@@ -547,6 +507,10 @@ func (g *generalConfig) OCR2SimulateTransactions() bool {
 	return *g.c.OCR2.SimulateTransactions
 }
 
+func (g *generalConfig) P2P() config.P2P {
+	return &p2p{c: g.c.P2P}
+}
+
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	return g.c.P2P.NetworkStack()
 }
@@ -569,110 +533,6 @@ func (g *generalConfig) P2PIncomingMessageBufferSize() int {
 
 func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
-}
-
-func (g *generalConfig) P2PAnnounceIP() net.IP {
-	return *g.c.P2P.V1.AnnounceIP
-}
-
-func (g *generalConfig) P2PAnnouncePort() uint16 {
-	return *g.c.P2P.V1.AnnouncePort
-}
-
-func (g *generalConfig) P2PBootstrapPeers() ([]string, error) {
-	p := *g.c.P2P.V1.DefaultBootstrapPeers
-	if p == nil {
-		p = []string{}
-	}
-	return p, nil
-}
-
-func (g *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
-	return *g.c.P2P.V1.DHTAnnouncementCounterUserPrefix
-}
-
-func (g *generalConfig) P2PListenIP() net.IP {
-	return *g.c.P2P.V1.ListenIP
-}
-
-func (g *generalConfig) P2PListenPort() uint16 {
-	v1 := g.c.P2P.V1
-	p := *v1.ListenPort
-	return p
-}
-
-func (g *generalConfig) P2PListenPortRaw() string {
-	p := *g.c.P2P.V1.ListenPort
-	if p == 0 {
-		return ""
-	}
-	return strconv.Itoa(int(p))
-}
-
-func (g *generalConfig) P2PNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) P2PBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
-func (g *generalConfig) P2PDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
-	return g.c.P2P.V1.PeerstoreWriteInterval.Duration()
-}
-
-func (g *generalConfig) P2PV2AnnounceAddresses() []string {
-	if v := g.c.P2P.V2.AnnounceAddresses; v != nil {
-		return *v
-	}
-	return nil
-}
-
-func (g *generalConfig) P2PV2Bootstrappers() (locators []commontypes.BootstrapperLocator) {
-	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
-		return *v
-	}
-	return nil
-}
-
-func (g *generalConfig) P2PV2BootstrappersRaw() (s []string) {
-	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
-		for _, b := range *v {
-			t, err := b.MarshalText()
-			if err != nil {
-				// log panic matches old behavior - only called for UI presentation
-				panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
-			}
-			s = append(s, string(t))
-		}
-	}
-	return
-}
-
-func (g *generalConfig) P2PV2DeltaDial() models.Duration {
-	if v := g.c.P2P.V2.DeltaDial; v != nil {
-		return *v
-	}
-	return models.Duration{}
-}
-
-func (g *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	if v := g.c.P2P.V2.DeltaReconcile; v != nil {
-		return *v
-
-	}
-	return models.Duration{}
-}
-
-func (g *generalConfig) P2PV2ListenAddresses() []string {
-	if v := g.c.P2P.V2.ListenAddresses; v != nil {
-		return *v
-	}
-	return nil
 }
 
 func (g *generalConfig) PyroscopeServerAddress() string {
@@ -708,6 +568,14 @@ func (g *generalConfig) Insecure() config.Insecure {
 
 func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
+}
+
+func (g *generalConfig) Password() coreconfig.Password {
+	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
+}
+
+func (g *generalConfig) Prometheus() coreconfig.Prometheus {
+	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
 var (

@@ -5,5 +5,4 @@ import ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/m
 type Secrets interface {
 	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
 	ThresholdKeyShare() string
-	VRFPassword() string
 }

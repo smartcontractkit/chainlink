@@ -69,7 +69,7 @@ var (
 func initGlobals(cfg config.Prometheus) {
 	// Avoid double initializations.
 	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
 		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
 	})
 }
@@ -132,7 +132,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg)
+	initGlobals(cfg.Prometheus())
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
