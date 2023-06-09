@@ -219,7 +219,6 @@ func (c *chain) getClient() (client.ReaderWriter, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
-	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
 	for _, i := range index {

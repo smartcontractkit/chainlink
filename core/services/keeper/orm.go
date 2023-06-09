@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"math/rand"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -173,7 +172,6 @@ WHERE keeper_registries.contract_address = $1
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(upkeeps), func(i, j int) {
 		upkeeps[i], upkeeps[j] = upkeeps[j], upkeeps[i]
 	})
