@@ -1,4 +1,4 @@
-package ocr2keeper
+package evm
 
 import (
 	"context"
@@ -16,10 +16,8 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
-	pluginevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -37,14 +35,14 @@ type LogProvider struct {
 	logPoller         logpoller.LogPoller
 	registryAddress   common.Address
 	lookbackBlocks    int64
-	registry          *registry.KeeperRegistry
+	registry          *iregistry21.IKeeperRegistryMaster
 	client            evmclient.Client
 	packer            TransmitUnpacker
 	txCheckBlockCache *pluginutils.Cache[string]
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
-func logProviderFilterName(addr common.Address) string {
+func LogProviderFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
 }
 
@@ -57,25 +55,25 @@ func NewLogProvider(
 ) (*LogProvider, error) {
 	var err error
 
-	contract, err := registry.NewKeeperRegistry(common.HexToAddress("0x"), client)
+	contract, err := iregistry21.NewIKeeperRegistryMaster(common.HexToAddress("0x"), client)
 	if err != nil {
 		return nil, err
 	}
 
-	abi, err := abi.JSON(strings.NewReader(registry.KeeperRegistryABI))
+	abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", pluginevm.ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: logProviderFilterName(contract.Address()),
+		Name: LogProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
-			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
-			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
-			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
-			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
 	})
@@ -90,7 +88,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            pluginevm.NewEvmRegistryPackerV2_0(abi),
+		packer:            NewEvmRegistryPackerV2_1(abi),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil
@@ -155,7 +153,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 		end-c.lookbackBlocks,
 		end,
 		[]common.Hash{
-			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -172,9 +170,10 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	vals := []ocr2keepers.PerformLog{}
 	for _, p := range performed {
 		// broadcast log to subscribers
+		checkBlockNumber := uint32(p.Raw.BlockNumber) // TODO: check if this is correct
 		l := ocr2keepers.PerformLog{
-			Key:             evm.UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(p.CheckBlockNumber, p.Id),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
+			Key:             UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(checkBlockNumber, p.Id),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
 		}
@@ -198,7 +197,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		end-c.lookbackBlocks,
 		end,
 		[]common.Hash{
-			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -216,7 +215,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		end-c.lookbackBlocks,
 		end,
 		[]common.Hash{
-			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -234,7 +233,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		end-c.lookbackBlocks,
 		end,
 		[]common.Hash{
-			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -257,7 +256,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -272,7 +271,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -287,7 +286,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		}
 		l := ocr2keepers.StaleReportLog{
 			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -308,14 +307,14 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 		}
 
 		switch l := abilog.(type) {
-		case *registry.KeeperRegistryUpkeepPerformed:
+		case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
 			if l == nil {
 				continue
 			}
 
 			r := performed{
-				Log:                           log,
-				KeeperRegistryUpkeepPerformed: *l,
+				Log:                                  log,
+				IKeeperRegistryMasterUpkeepPerformed: *l,
 			}
 
 			results = append(results, r)
@@ -336,14 +335,14 @@ func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged,
 		}
 
 		switch l := abilog.(type) {
-		case *registry.KeeperRegistryReorgedUpkeepReport:
+		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
 			if l == nil {
 				continue
 			}
 
 			r := reorged{
-				Log:                               log,
-				KeeperRegistryReorgedUpkeepReport: *l,
+				Log:                                      log,
+				IKeeperRegistryMasterReorgedUpkeepReport: *l,
 			}
 
 			results = append(results, r)
@@ -364,14 +363,14 @@ func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpk
 		}
 
 		switch l := abilog.(type) {
-		case *registry.KeeperRegistryStaleUpkeepReport:
+		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
 			if l == nil {
 				continue
 			}
 
 			r := staleUpkeep{
-				Log:                             log,
-				KeeperRegistryStaleUpkeepReport: *l,
+				Log:                                    log,
+				IKeeperRegistryMasterStaleUpkeepReport: *l,
 			}
 
 			results = append(results, r)
@@ -392,14 +391,14 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 		}
 
 		switch l := abilog.(type) {
-		case *registry.KeeperRegistryInsufficientFundsUpkeepReport:
+		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
 			if l == nil {
 				continue
 			}
 
 			r := insufficientFunds{
 				Log: log,
-				KeeperRegistryInsufficientFundsUpkeepReport: *l,
+				IKeeperRegistryMasterInsufficientFundsUpkeepReport: *l,
 			}
 
 			results = append(results, r)
@@ -442,7 +441,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2k
 
 	for _, upkeep := range decodedReport {
 		// TODO: the log provider should be in the evm package for isolation
-		res, ok := upkeep.(pluginevm.EVMAutomationUpkeepResult20)
+		res, ok := upkeep.(EVMAutomationUpkeepResult21)
 		if !ok {
 			return "", fmt.Errorf("unexpected type")
 		}
@@ -461,20 +460,20 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2k
 
 type performed struct {
 	logpoller.Log
-	registry.KeeperRegistryUpkeepPerformed
+	iregistry21.IKeeperRegistryMasterUpkeepPerformed
 }
 
 type reorged struct {
 	logpoller.Log
-	registry.KeeperRegistryReorgedUpkeepReport
+	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
 }
 
 type staleUpkeep struct {
 	logpoller.Log
-	registry.KeeperRegistryStaleUpkeepReport
+	iregistry21.IKeeperRegistryMasterStaleUpkeepReport
 }
 
 type insufficientFunds struct {
 	logpoller.Log
-	registry.KeeperRegistryInsufficientFundsUpkeepReport
+	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
 }

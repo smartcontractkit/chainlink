@@ -7,18 +7,19 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
 func TestUnpackTransmitTxInput(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
 
-	packer := &evmRegistryPackerV2_0{abi: registryABI}
+	packer := &evmRegistryPackerV2_1{abi: registryABI}
 	decodedReport, err := packer.UnpackTransmitTxInput(hexutil.MustDecode("0x00011a04d404e571ead64b2f08cfae623a0d96b9beb326c20e322001cbbd344700000000000000000000000000000000000000000000000000000000000d580e35681c68a0426c30f4686e837c0cd7864200f48dbfe48c80c51f92aa5ac607b300000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002e00000000000000000000000000000000000000000000000000000000000000360000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000773594000000000000000000000000000000000000000000000000000010fb9cd2f34a00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000001de1256139081c6b165a3aee0432f605d3dee0e6087ea53b46ca9478c253ea9c8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000827075c4bacd41884f60c2ca7af3630400bedd92ad7ad0ba4e1f000e70297de0573e180000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000a8c0000000000000000000000000000000000000000000000000000000000086470000000000000000000000000000000000000000000000000000000000000000326e2b521089d44f1457ae51b3f8d76e8577e08c4af9374bdc62aebbfad081a78a13941ab209ad44a905ee0fd704a46b2ebc022dcb60659bed87342fd94dadb70827af523f59c7c9bb8dcc77e959b0476869612e8cf84e63a2e9a5617290633f70000000000000000000000000000000000000000000000000000000000000003723d77998618c5959396115fc61380215e0395f68c18a6cf0647c3e759ee013040c2967fdd369aac59b464f931dacd7b8863498757eda53a9f6a4b6150f2dbe640771f3c242c297265c36c5e78f4c660ae74dcd1f5bda8687b6afed3d3f27e0d"))
 	assert.Nil(t, err)
 
@@ -28,7 +29,7 @@ func TestUnpackTransmitTxInput(t *testing.T) {
 
 	assert.Equal(t, len(decodedReport), 1)
 
-	rpt, ok := decodedReport[0].(EVMAutomationUpkeepResult20)
+	rpt, ok := decodedReport[0].(EVMAutomationUpkeepResult21)
 	assert.True(t, ok)
 
 	assert.Equal(t, rpt.Block, expectedBlock)
@@ -52,10 +53,10 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+			abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 			assert.Nil(t, err)
 
-			packer := &evmRegistryPackerV2_0{abi: abi}
+			packer := &evmRegistryPackerV2_1{abi: abi}
 			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
 			assert.NotNil(t, err)
 		})
@@ -63,7 +64,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 }
 
 func TestUnpackCheckResults(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		assert.Nil(t, err)
 	}
@@ -74,13 +75,13 @@ func TestUnpackCheckResults(t *testing.T) {
 		Name           string
 		UpkeepKey      ocr2keepers.UpkeepKey
 		RawData        string
-		ExpectedResult EVMAutomationUpkeepResult20
+		ExpectedResult EVMAutomationUpkeepResult21
 	}{
 		{
 			Name:      "upkeep not needed",
 			UpkeepKey: ocr2keepers.UpkeepKey(fmt.Sprintf("19447615|%s", upkeepId)),
 			RawData:   "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000421c000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000000",
-			ExpectedResult: EVMAutomationUpkeepResult20{
+			ExpectedResult: EVMAutomationUpkeepResult21{
 				Block:            19447615,
 				ID:               upkeepId,
 				Eligible:         false,
@@ -98,7 +99,7 @@ func TestUnpackCheckResults(t *testing.T) {
 			Name:      "target check reverted",
 			UpkeepKey: ocr2keepers.UpkeepKey(fmt.Sprintf("19448272|%s", upkeepId)),
 			RawData:   "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000007531000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000008914039bf676e20aad43a5642485e666575ed0d927a4b5679745e947e7d125ee2687c10000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000024462e8a50d00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000128c1d000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000009666565644944537472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000184554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000000000184254432d5553442d415242495452554d2d544553544e45540000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d6265720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000000000000000000000",
-			ExpectedResult: EVMAutomationUpkeepResult20{
+			ExpectedResult: EVMAutomationUpkeepResult21{
 				Block:            19448272,
 				ID:               upkeepId,
 				Eligible:         false,
@@ -115,7 +116,7 @@ func TestUnpackCheckResults(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_0{abi: registryABI}
+			packer := &evmRegistryPackerV2_1{abi: registryABI}
 			rs, err := packer.UnpackCheckResult(test.UpkeepKey, test.RawData)
 			assert.Nil(t, err)
 			assert.Equal(t, test.ExpectedResult, rs)
@@ -124,7 +125,7 @@ func TestUnpackCheckResults(t *testing.T) {
 }
 
 func TestUnpackPerformResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		assert.Nil(t, err)
 	}
@@ -140,7 +141,7 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_0{abi: registryABI}
+			packer := &evmRegistryPackerV2_1{abi: registryABI}
 			rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -149,7 +150,7 @@ func TestUnpackPerformResult(t *testing.T) {
 }
 
 func TestUnpackMercuryLookupResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		assert.Nil(t, err)
 	}
@@ -183,7 +184,7 @@ func TestUnpackMercuryLookupResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_0{abi: registryABI}
+			packer := &evmRegistryPackerV2_1{abi: registryABI}
 			needed, pd, err := packer.UnpackMercuryLookupResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
@@ -193,6 +194,54 @@ func TestUnpackMercuryLookupResult(t *testing.T) {
 			}
 			assert.Equal(t, test.UpkeepNeeded, needed)
 			assert.Equal(t, test.PerformData, pd)
+		})
+	}
+}
+
+func TestUnpackLogTriggerConfig(t *testing.T) {
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	assert.NoError(t, err)
+	tests := []struct {
+		name    string
+		raw     []byte
+		res     iregistry21.KeeperRegistryBase21LogTriggerConfig
+		errored bool
+	}{
+		{
+			"happy flow",
+			func() []byte {
+				b, _ := hexutil.Decode("0x0000000000000000000000007456fadf415b7c34b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+				return b
+			}(),
+			iregistry21.KeeperRegistryBase21LogTriggerConfig{
+				ContractAddress: common.HexToAddress("0x7456FadF415b7c34B1182Bd20B0537977e945e3E"),
+				Topic0:          [32]uint8{0x3d, 0x53, 0xa3, 0x95, 0x50, 0xe0, 0x46, 0x88, 0x6, 0x58, 0x27, 0xf3, 0xbb, 0x86, 0x58, 0x4c, 0xb0, 0x7, 0xab, 0x9e, 0xbc, 0xa7, 0xeb, 0xd5, 0x28, 0xe7, 0x30, 0x1c, 0x9c, 0x31, 0xeb, 0x5d},
+			},
+			false,
+		},
+		{
+			"invalid",
+			func() []byte {
+				b, _ := hexutil.Decode("0x000000000000000000000000b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+				return b
+			}(),
+			iregistry21.KeeperRegistryBase21LogTriggerConfig{},
+			true,
+		},
+	}
+
+	packer := &evmRegistryPackerV2_1{abi: keeperRegistryABI}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+			res, err := packer.UnpackLogTriggerConfig(tc.raw)
+			if tc.errored {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.res, res)
+			}
 		})
 	}
 }
