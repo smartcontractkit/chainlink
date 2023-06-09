@@ -21,6 +21,7 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -326,7 +327,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	}
 
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2SimulateTransactions() {
@@ -376,7 +377,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.EvmTransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2SimulateTransactions() {

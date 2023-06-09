@@ -321,6 +321,20 @@ func MustInsertUnstartedEthTx(t *testing.T, txStore txmgr.EvmTxStore, fromAddres
 	return etx
 }
 
+func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int) (tx txmgr.EvmTx) {
+	etx := txmgr.EvmNewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          value,
+		FeeLimit:       gasLimit,
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+	}
+	tx, err := txStore.CreateTransaction(etx, chainID)
+	require.NoError(t, err)
+	return tx
+}
+
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.EvmTxAttempt {
 	gasPrice := assets.NewWeiI(1)
 	return txmgr.EvmTxAttempt{

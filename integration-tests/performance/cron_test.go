@@ -30,7 +30,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logging.Init()
 	os.Exit(m.Run())
 }
 
@@ -108,6 +107,7 @@ func TestCronPerformance(t *testing.T) {
 }
 
 func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
+	logging.Init()
 	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
@@ -119,6 +119,10 @@ func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
+	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 		Test:            t,
@@ -126,10 +130,8 @@ HTTPWriteTimout = '300s'`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig(baseTOML, network),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment
 }

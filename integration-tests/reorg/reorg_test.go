@@ -53,7 +53,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	logging.Init()
 	os.Exit(m.Run())
 }
 
@@ -71,6 +70,7 @@ func CleanupReorgTest(
 }
 
 func TestDirectRequestReorg(t *testing.T) {
+	logging.Init()
 	testEnvironment := environment.New(&environment.Config{
 		TTL:  1 * time.Hour,
 		Test: t,
@@ -102,7 +102,7 @@ func TestDirectRequestReorg(t *testing.T) {
 	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 	// node must work and reconnect even if network is not working
 	time.Sleep(90 * time.Second)
-	err = testEnvironment.AddHelm(chainlink.New(0, map[string]interface{}{
+	chainlinkDeployment, err := chainlink.NewDeployment(1, map[string]interface{}{
 		"env": map[string]interface{}{
 			"eth_url":                        "ws://geth-ethereum-geth:8546",
 			"eth_http_url":                   "http://geth-ethereum-geth:8544",
@@ -110,7 +110,9 @@ func TestDirectRequestReorg(t *testing.T) {
 			"ETH_FINALITY_DEPTH":             EVMFinalityDepth,
 			"ETH_HEAD_TRACKER_HISTORY_DEPTH": EVMTrackerHistoryDepth,
 		},
-	})).Run()
+	})
+	require.NoError(t, err, "Error building Chainlink deployment")
+	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
 	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment)
