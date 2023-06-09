@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
 )
 
@@ -89,26 +88,26 @@ func TestRouter_ParseLog(t *testing.T) {
 		assert.Equal(t, result, parsedLog)
 	})
 
-	t.Run("parse coordinator log", func(t *testing.T) {
-		addr := newAddress(t)
-		log := types.Log{
-			Address: addr,
-		}
-		parsedLog := vrf_coordinator.VRFCoordinatorRandomnessRequested{}
-		beacon := mocks.NewVRFBeaconInterface(t)
-		coordinator := mocks.NewVRFCoordinatorInterface(t)
-		router := vrfRouter{
-			beacon:      beacon,
-			coordinator: coordinator,
-		}
-		beacon.On("Address").Return(newAddress(t)).Once()
-		coordinator.On("Address").Return(addr).Once()
-		coordinator.On("ParseLog", log).Return(parsedLog, nil).Once()
-
-		result, err := router.ParseLog(log)
-		assert.NoError(t, err)
-		assert.Equal(t, result, parsedLog)
-	})
+	//t.Run("parse coordinator log", func(t *testing.T) {
+	//	addr := newAddress(t)
+	//	log := types.Log{
+	//		Address: addr,
+	//	}
+	//	parsedLog := vrf_coordinator.VRFCoordinatorRandomnessRequested{}
+	//	beacon := mocks.NewVRFBeaconInterface(t)
+	//	coordinator := mocks.NewVRFCoordinatorInterface(t)
+	//	router := vrfRouter{
+	//		beacon:      beacon,
+	//		coordinator: coordinator,
+	//	}
+	//	beacon.On("Address").Return(newAddress(t)).Once()
+	//	coordinator.On("Address").Return(addr).Once()
+	//	coordinator.On("ParseLog", log).Return(parsedLog, nil).Once()
+	//
+	//	result, err := router.ParseLog(log)
+	//	assert.NoError(t, err)
+	//	assert.Equal(t, result, parsedLog)
+	//})
 
 	t.Run("parse log unexpected log", func(t *testing.T) {
 		log := types.Log{

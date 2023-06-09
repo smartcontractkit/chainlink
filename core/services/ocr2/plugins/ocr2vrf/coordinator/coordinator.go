@@ -721,7 +721,7 @@ func (c *coordinator) unmarshalLogs(
 			outputsServedLogs = append(outputsServedLogs, nt)
 		default:
 			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
-			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessRequested) %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
+			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
 				hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
 				hexutil.Encode(c.randomWordsFulfilledTopic[:]),
 				hexutil.Encode(c.outputsServedTopic[:]),
