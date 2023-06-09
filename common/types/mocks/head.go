@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	big "math/big"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/types"
 	mock "github.com/stretchr/testify/mock"
 )
