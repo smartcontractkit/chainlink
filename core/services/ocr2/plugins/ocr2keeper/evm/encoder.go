@@ -15,23 +15,25 @@ type EVMAutomationEncoder21 struct {
 }
 
 var (
-	Uint256, _                = abi.NewType("uint256", "", nil)
-	Uint256Arr, _             = abi.NewType("uint256[]", "", nil)
-	PerformDataMarshalingArgs = []abi.ArgumentMarshaling{
-		{Name: "checkBlockNumber", Type: "uint32"},
-		{Name: "checkBlockhash", Type: "bytes32"},
-		{Name: "performData", Type: "bytes"},
+	Uint256, _            = abi.NewType("uint256", "", nil)
+	Uint256Arr, _         = abi.NewType("uint256[]", "", nil)
+	BytesArr, _           = abi.NewType("bytes[]", "", nil)
+	TriggerMarshalingArgs = []abi.ArgumentMarshaling{
+		{Name: "blockNumber", Type: "uint32"},
+		{Name: "blockHash", Type: "bytes32"},
 	}
-	PerformDataArr, _   = abi.NewType("tuple(uint32,bytes32,bytes)[]", "", PerformDataMarshalingArgs)
+	TriggerArr, _       = abi.NewType("tuple(uint32,bytes32)[]", "", TriggerMarshalingArgs)
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
-	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
+	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "gasLimits", "triggers", "performDatas"}
 	reportArgs          = abi.Arguments{
 		{Name: mKeys[0], Type: Uint256},
 		{Name: mKeys[1], Type: Uint256},
 		{Name: mKeys[2], Type: Uint256Arr},
-		{Name: mKeys[3], Type: PerformDataArr},
+		{Name: mKeys[3], Type: Uint256Arr},
+		{Name: mKeys[4], Type: TriggerArr},
+		{Name: mKeys[5], Type: BytesArr},
 	}
 )
 
@@ -64,7 +66,9 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 	)
 
 	ids := make([]*big.Int, len(toReport))
-	data := make([]wrappedPerform, len(toReport))
+	gasLimits := make([]*big.Int, len(toReport))
+	triggers := make([]wrappedTrigger, len(toReport))
+	performDatas := make([][]byte, len(toReport))
 
 	for i, result := range toReport {
 		res, ok := result.(EVMAutomationUpkeepResult21)
@@ -80,14 +84,15 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 		}
 
 		ids[i] = res.ID
-		data[i] = wrappedPerform{
-			CheckBlockNumber: res.CheckBlockNumber,
-			CheckBlockhash:   res.CheckBlockHash,
-			PerformData:      res.PerformData,
+		gasLimits[i] = res.GasUsed
+		triggers[i] = wrappedTrigger{
+			BlockNumber: res.CheckBlockNumber,
+			BlockHash:   res.CheckBlockHash,
 		}
+		performDatas[i] = res.PerformData
 	}
 
-	bts, err := packFn(fastGas, link, ids, data)
+	bts, err := packFn(fastGas, link, ids, gasLimits, triggers, performDatas)
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
 	}
@@ -112,8 +117,10 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	var (
 		ok        bool
 		upkeepIds []*big.Int
-		wei       *big.Int
-		link      *big.Int
+		performs  [][]byte
+		// gasLimits []*big.Int // TODO
+		wei  *big.Int
+		link *big.Int
 	)
 
 	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
@@ -126,18 +133,17 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	// ex:
 	// t := reflect.TypeOf(rawPerforms)
 	// fmt.Printf("%v\n", t)
-	performs, ok := m[mKeys[3]].([]struct {
-		CheckBlockNumber uint32   `json:"checkBlockNumber"`
-		CheckBlockhash   [32]byte `json:"checkBlockhash"`
-		PerformData      []byte   `json:"performData"`
+	triggers, ok := m[mKeys[3]].([]struct {
+		BlockNumber uint32   `json:"blockNumber"`
+		Blockhash   [32]byte `json:"blockHash"`
 	})
 
 	if !ok {
-		return res, fmt.Errorf("performs of incorrect structure in report")
+		return res, fmt.Errorf("triggers of incorrect structure in report")
 	}
 
-	if len(upkeepIds) != len(performs) {
-		return res, fmt.Errorf("upkeep ids and performs should have matching length")
+	if len(upkeepIds) != len(triggers) {
+		return res, fmt.Errorf("upkeep ids and triggers should have matching length")
 	}
 
 	if wei, ok = m[mKeys[0]].(*big.Int); !ok {
@@ -147,19 +153,26 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	if link, ok = m[mKeys[1]].(*big.Int); !ok {
 		return res, fmt.Errorf("link native as wrong type")
 	}
+	// if gasLimits, ok = m[mKeys[3]].([]*big.Int); !ok {
+	// 	return res, fmt.Errorf("gas limits as wrong type")
+	// }
+
+	if performs, ok = m[mKeys[5]].([][]byte); !ok {
+		return res, fmt.Errorf("perform datas as wrong type")
+	}
 
 	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
 
 	for i := 0; i < len(upkeepIds); i++ {
 		r := EVMAutomationUpkeepResult21{
-			Block:            performs[i].CheckBlockNumber,
+			Block:            triggers[i].BlockNumber,
 			ID:               upkeepIds[i],
 			Eligible:         true,
-			PerformData:      performs[i].PerformData,
+			PerformData:      performs[i],
 			FastGasWei:       wei,
 			LinkNative:       link,
-			CheckBlockNumber: performs[i].CheckBlockNumber,
-			CheckBlockHash:   performs[i].CheckBlockhash,
+			CheckBlockNumber: triggers[i].BlockNumber,
+			CheckBlockHash:   triggers[i].Blockhash,
 		}
 
 		res[i] = ocr2keepers.UpkeepResult(r)
@@ -209,10 +222,9 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	return keys, nil
 }
 
-type wrappedPerform struct {
-	CheckBlockNumber uint32   `abi:"checkBlockNumber"`
-	CheckBlockhash   [32]byte `abi:"checkBlockhash"`
-	PerformData      []byte   `abi:"performData"`
+type wrappedTrigger struct {
+	BlockNumber uint32   `abi:"blockNumber"`
+	BlockHash   [32]byte `abi:"blockHash"`
 }
 
 type BlockKeyHelper[T uint32 | int64] struct {
