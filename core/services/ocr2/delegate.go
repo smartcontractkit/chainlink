@@ -762,7 +762,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		encryptedThresholdPrivateKey := d.cfg.ThresholdKeyShare()
-		thresholdPrivateKey, err2 := kb.NaclBoxOpenAnonymous([]byte(encryptedThresholdPrivateKey))
+		encryptedThresholdPrivateKeyBytes, err2 := hex.DecodeString(encryptedThresholdPrivateKey)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "error decoding threshold private key share hex string")
+		}
+		fmt.Println("KeyBundleID: ", kbID)
+		thresholdPrivateKey, err2 := kb.NaclBoxOpenAnonymous(encryptedThresholdPrivateKeyBytes)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "error decrypting threshold private key share")
 		}

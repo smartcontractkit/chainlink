@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
@@ -57,7 +58,11 @@ func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig
 		return nil, errors.New("failed to decode Functions Threshold plugin config")
 	}
 
+	fmt.Printf("Reporting Plugin Config Wrapper %+v\n", reportingPluginConfigWrapper)
+
 	thresholdPluginConfig := reportingPluginConfigWrapper.Config.ThresholdPluginConfig
+
+	fmt.Printf("Threshold Plugin Config %+v\n", thresholdPluginConfig)
 
 	return &decryptionPluginConfig.ReportingPluginConfigWrapper{
 		Config: &decryptionPluginConfig.ReportingPluginConfig{
