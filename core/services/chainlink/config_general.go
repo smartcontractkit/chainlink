@@ -282,47 +282,6 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
-func (g *generalConfig) EthereumHTTPURL() *url.URL {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					return (*url.URL)(n.HTTPURL)
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.HTTPURL != nil {
-					us = append(us, (url.URL)(*n.HTTPURL))
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumURL() string {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					if n.WSURL != nil {
-						return n.WSURL.String()
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
@@ -413,6 +372,10 @@ func (g *generalConfig) Database() coreconfig.Database {
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
+}
+
+func (g *generalConfig) Explorer() config.Explorer {
+	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
 }
 
 func (g *generalConfig) ExplorerURL() *url.URL {
@@ -708,6 +671,14 @@ func (g *generalConfig) Insecure() config.Insecure {
 
 func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
+}
+
+func (g *generalConfig) Password() coreconfig.Password {
+	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
+}
+
+func (g *generalConfig) Prometheus() coreconfig.Prometheus {
+	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
 var (

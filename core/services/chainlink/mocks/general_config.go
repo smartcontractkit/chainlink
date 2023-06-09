@@ -31,8 +31,6 @@ import (
 
 	time "time"
 
-	url "net/url"
-
 	uuid "github.com/google/uuid"
 
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
@@ -237,90 +235,16 @@ func (_m *GeneralConfig) EVMRPCEnabled() bool {
 	return r0
 }
 
-// EthereumHTTPURL provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumHTTPURL() *url.URL {
+// Explorer provides a mock function with given fields:
+func (_m *GeneralConfig) Explorer() config.Explorer {
 	ret := _m.Called()
 
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 config.Explorer
+	if rf, ok := ret.Get(0).(func() config.Explorer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumSecondaryURLs provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumSecondaryURLs() []url.URL {
-	ret := _m.Called()
-
-	var r0 []url.URL
-	if rf, ok := ret.Get(0).(func() []url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumURL provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumURL() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerAccessKey provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerAccessKey() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerSecret provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerSecret() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerURL provides a mock function with given fields:
-func (_m *GeneralConfig) ExplorerURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(config.Explorer)
 		}
 	}
 
@@ -484,20 +408,6 @@ func (_m *GeneralConfig) Keeper() config.Keeper {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.Keeper)
 		}
-	}
-
-	return r0
-}
-
-// KeystorePassword provides a mock function with given fields:
-func (_m *GeneralConfig) KeystorePassword() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1224,15 +1134,33 @@ func (_m *GeneralConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
-// PrometheusAuthToken provides a mock function with given fields:
-func (_m *GeneralConfig) PrometheusAuthToken() string {
+// Password provides a mock function with given fields:
+func (_m *GeneralConfig) Password() config.Password {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Password
+	if rf, ok := ret.Get(0).(func() config.Password); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Password)
+		}
+	}
+
+	return r0
+}
+
+// Prometheus provides a mock function with given fields:
+func (_m *GeneralConfig) Prometheus() config.Prometheus {
+	ret := _m.Called()
+
+	var r0 config.Prometheus
+	if rf, ok := ret.Get(0).(func() config.Prometheus); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Prometheus)
+		}
 	}
 
 	return r0
@@ -1426,20 +1354,6 @@ func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 
 // ThresholdKeyShare provides a mock function with given fields:
 func (_m *GeneralConfig) ThresholdKeyShare() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// VRFPassword provides a mock function with given fields:
-func (_m *GeneralConfig) VRFPassword() string {
 	ret := _m.Called()
 
 	var r0 string
