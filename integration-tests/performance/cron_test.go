@@ -107,7 +107,7 @@ func TestCronPerformance(t *testing.T) {
 }
 
 func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
-	logging.Init(t)
+	logging.Init()
 	network := networks.SelectedNetwork
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {

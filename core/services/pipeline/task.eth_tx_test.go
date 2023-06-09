@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -87,7 +88,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &addr,
@@ -134,7 +135,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -211,7 +212,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -256,7 +257,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -286,7 +287,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -320,7 +321,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -354,7 +355,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       specGasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, nil)
 			},
 			nil, nil, "", pipeline.RunInfo{},
@@ -419,7 +420,7 @@ func TestETHTxTask(t *testing.T) {
 					EncodedPayload: data,
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
-					Strategy:       txmgr.SendEveryStrategy{},
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 				}).Return(txmgr.EvmTx{}, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while creating transaction", pipeline.RunInfo{IsRetryable: true},

@@ -46,6 +46,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
+	Value            big.Int
 	FeeLimit         uint32
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR

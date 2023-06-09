@@ -1573,7 +1573,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 			EncodedPayload:    []byte{1, 2, 3},
 			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
-			Strategy:          txmgr.SendEveryStrategy{},
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
 		}
 		tx1, err := txStore.CreateTransaction(txRequest, ethClient.ConfiguredChainID())
 		assert.NoError(t, err)

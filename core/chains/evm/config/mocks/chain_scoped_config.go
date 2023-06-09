@@ -9,8 +9,6 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	commontypes "github.com/smartcontractkit/libocr/commontypes"
-
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -19,17 +17,7 @@ import (
 
 	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 
-	net "net"
-
-	networking "github.com/smartcontractkit/libocr/networking"
-
-	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	storemodels "github.com/smartcontractkit/chainlink/v2/core/store/models"
-
 	time "time"
-
-	url "net/url"
 
 	uuid "github.com/google/uuid"
 
@@ -412,52 +400,6 @@ func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthereumHTTPURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumHTTPURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumSecondaryURLs provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumSecondaryURLs() []url.URL {
-	ret := _m.Called()
-
-	var r0 []url.URL
-	if rf, ok := ret.Get(0).(func() []url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumURL() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -951,44 +893,16 @@ func (_m *ChainScopedConfig) EvmUseForwarders() bool {
 	return r0
 }
 
-// ExplorerAccessKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerAccessKey() string {
+// Explorer provides a mock function with given fields:
+func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerSecret provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerSecret() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 coreconfig.Explorer
+	if rf, ok := ret.Get(0).(func() coreconfig.Explorer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(coreconfig.Explorer)
 		}
 	}
 
@@ -1196,20 +1110,6 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *ass
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Wei)
 		}
-	}
-
-	return r0
-}
-
-// KeystorePassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeystorePassword() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1774,99 +1674,17 @@ func (_m *ChainScopedConfig) OperatorFactoryAddress() string {
 	return r0
 }
 
-// P2PAnnounceIP provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PAnnounceIP() net.IP {
+// P2P provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2P() coreconfig.P2P {
 	ret := _m.Called()
 
-	var r0 net.IP
-	if rf, ok := ret.Get(0).(func() net.IP); ok {
+	var r0 coreconfig.P2P
+	if rf, ok := ret.Get(0).(func() coreconfig.P2P); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(net.IP)
+			r0 = ret.Get(0).(coreconfig.P2P)
 		}
-	}
-
-	return r0
-}
-
-// P2PAnnouncePort provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PAnnouncePort() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// P2PBootstrapCheckInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// P2PBootstrapPeers provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PBootstrapPeers() ([]string, error) {
-	ret := _m.Called()
-
-	var r0 []string
-	var r1 error
-	if rf, ok := ret.Get(0).(func() ([]string, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() []string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// P2PDHTAnnouncementCounterUserPrefix provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// P2PDHTLookupInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -1886,263 +1704,33 @@ func (_m *ChainScopedConfig) P2PEnabled() bool {
 	return r0
 }
 
-// P2PIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
+// Password provides a mock function with given fields:
+func (_m *ChainScopedConfig) Password() coreconfig.Password {
 	ret := _m.Called()
 
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// P2PListenIP provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PListenIP() net.IP {
-	ret := _m.Called()
-
-	var r0 net.IP
-	if rf, ok := ret.Get(0).(func() net.IP); ok {
+	var r0 coreconfig.Password
+	if rf, ok := ret.Get(0).(func() coreconfig.Password); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(net.IP)
+			r0 = ret.Get(0).(coreconfig.Password)
 		}
 	}
 
 	return r0
 }
 
-// P2PListenPort provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PListenPort() uint16 {
+// Prometheus provides a mock function with given fields:
+func (_m *ChainScopedConfig) Prometheus() coreconfig.Prometheus {
 	ret := _m.Called()
 
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// P2PListenPortRaw provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PListenPortRaw() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// P2PNetworkingStack provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PNetworkingStack() networking.NetworkingStack {
-	ret := _m.Called()
-
-	var r0 networking.NetworkingStack
-	if rf, ok := ret.Get(0).(func() networking.NetworkingStack); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(networking.NetworkingStack)
-	}
-
-	return r0
-}
-
-// P2PNetworkingStackRaw provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PNetworkingStackRaw() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// P2PNewStreamTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// P2POutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2POutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// P2PPeerID provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerID() p2pkey.PeerID {
-	ret := _m.Called()
-
-	var r0 p2pkey.PeerID
-	if rf, ok := ret.Get(0).(func() p2pkey.PeerID); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(p2pkey.PeerID)
-	}
-
-	return r0
-}
-
-// P2PPeerIDRaw provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerIDRaw() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// P2PPeerstoreWriteInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerstoreWriteInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// P2PV2AnnounceAddresses provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2AnnounceAddresses() []string {
-	ret := _m.Called()
-
-	var r0 []string
-	if rf, ok := ret.Get(0).(func() []string); ok {
+	var r0 coreconfig.Prometheus
+	if rf, ok := ret.Get(0).(func() coreconfig.Prometheus); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
+			r0 = ret.Get(0).(coreconfig.Prometheus)
 		}
-	}
-
-	return r0
-}
-
-// P2PV2Bootstrappers provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2Bootstrappers() []commontypes.BootstrapperLocator {
-	ret := _m.Called()
-
-	var r0 []commontypes.BootstrapperLocator
-	if rf, ok := ret.Get(0).(func() []commontypes.BootstrapperLocator); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]commontypes.BootstrapperLocator)
-		}
-	}
-
-	return r0
-}
-
-// P2PV2BootstrappersRaw provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2BootstrappersRaw() []string {
-	ret := _m.Called()
-
-	var r0 []string
-	if rf, ok := ret.Get(0).(func() []string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	return r0
-}
-
-// P2PV2DeltaDial provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2DeltaDial() storemodels.Duration {
-	ret := _m.Called()
-
-	var r0 storemodels.Duration
-	if rf, ok := ret.Get(0).(func() storemodels.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(storemodels.Duration)
-	}
-
-	return r0
-}
-
-// P2PV2DeltaReconcile provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2DeltaReconcile() storemodels.Duration {
-	ret := _m.Called()
-
-	var r0 storemodels.Duration
-	if rf, ok := ret.Get(0).(func() storemodels.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(storemodels.Duration)
-	}
-
-	return r0
-}
-
-// P2PV2ListenAddresses provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
-	ret := _m.Called()
-
-	var r0 []string
-	if rf, ok := ret.Get(0).(func() []string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	return r0
-}
-
-// PrometheusAuthToken provides a mock function with given fields:
-func (_m *ChainScopedConfig) PrometheusAuthToken() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -2304,20 +1892,6 @@ func (_m *ChainScopedConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 
 // ThresholdKeyShare provides a mock function with given fields:
 func (_m *ChainScopedConfig) ThresholdKeyShare() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// VRFPassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) VRFPassword() string {
 	ret := _m.Called()
 
 	var r0 string

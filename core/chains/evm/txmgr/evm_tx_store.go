@@ -1450,7 +1450,6 @@ func (o *evmTxStore) CheckTxQueueCapacity(fromAddress common.Address, maxQueuedT
 func (o *evmTxStore) CreateTransaction(txRequest EvmTxRequest, chainID *big.Int, qopts ...pg.QOpt) (tx EvmTx, err error) {
 	var dbEtx DbEthTx
 	qq := o.q.WithOpts(qopts...)
-	value := 0
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		if txRequest.PipelineTaskRunID != nil {
 
@@ -1470,7 +1469,7 @@ VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, value, txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
