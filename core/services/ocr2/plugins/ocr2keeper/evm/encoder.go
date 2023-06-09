@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 )
@@ -24,6 +24,15 @@ var (
 	}
 	PerformDataArr, _   = abi.NewType("tuple(uint32,bytes32,bytes)[]", "", PerformDataMarshalingArgs)
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
+	packFn              = reportArgs.Pack
+	unpackIntoMapFn     = reportArgs.UnpackIntoMap
+	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
+	reportArgs          = abi.Arguments{
+		{Name: mKeys[0], Type: Uint256},
+		{Name: mKeys[1], Type: Uint256},
+		{Name: mKeys[2], Type: Uint256Arr},
+		{Name: mKeys[3], Type: PerformDataArr},
+	}
 )
 
 type EVMAutomationUpkeepResult21 struct {
@@ -48,13 +57,6 @@ type EVMAutomationUpkeepResult21 struct {
 func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
 	if len(toReport) == 0 {
 		return nil, nil
-	}
-
-	reportArgs := abi.Arguments{
-		{Name: "fastGasWei", Type: Uint256},
-		{Name: "linkNative", Type: Uint256},
-		{Name: "upkeepIds", Type: Uint256Arr},
-		{Name: "wrappedPerformDatas", Type: PerformDataArr},
 	}
 
 	var (
@@ -86,7 +88,7 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 		}
 	}
 
-	bts, err := reportArgs.Pack(fastGas, link, ids, data)
+	bts, err := packFn(fastGas, link, ids, data)
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
 	}
@@ -95,17 +97,8 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 }
 
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
-	mKeys := []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
-
-	reportArgs := abi.Arguments{
-		{Name: mKeys[0], Type: Uint256},
-		{Name: mKeys[1], Type: Uint256},
-		{Name: mKeys[2], Type: Uint256Arr},
-		{Name: mKeys[3], Type: PerformDataArr},
-	}
-
 	m := make(map[string]interface{})
-	if err := reportArgs.UnpackIntoMap(m, report); err != nil {
+	if err := unpackIntoMapFn(m, report); err != nil {
 		return nil, err
 	}
 

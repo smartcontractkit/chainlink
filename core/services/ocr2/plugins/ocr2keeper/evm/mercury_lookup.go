@@ -211,7 +211,7 @@ func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, va
 
 	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", hexutil.Encode(b))
 	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", b)
-	return r.packer.UnpackMercuryLookupResult(b)
+	return r.packer.UnpackMercuryCallbackResult(b)
 }
 
 // doMercuryRequest

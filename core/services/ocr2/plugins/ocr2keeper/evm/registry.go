@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -27,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
+	mercurycompatible "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -86,7 +85,7 @@ type LatestBlockGetter interface {
 }
 
 func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
-	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
+	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercurycompatible.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -115,7 +114,7 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 		active:   make(map[string]activeUpkeep),
 		abi:      keeperRegistryABI,
 		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
+		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
@@ -199,7 +198,7 @@ type EvmRegistry struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	active        map[string]activeUpkeep
-	headFunc      func(types.BlockKey)
+	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
 	mercury       *MercuryConfig
@@ -436,16 +435,11 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	err := r.poller.RegisterFilter(logpoller.Filter{
+	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
-	if err != nil {
-		r.mu.Lock()
-		r.mu.Unlock()
-	}
-	return err
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
@@ -653,8 +647,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		if err != nil {
 			return nil, err
 		}
-
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
+		checkData := []byte{} // TODO
+		payload, err := r.abi.Pack("checkUpkeep", upkeepId, checkData)
 		if err != nil {
 			return nil, err
 		}

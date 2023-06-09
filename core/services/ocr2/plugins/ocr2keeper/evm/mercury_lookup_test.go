@@ -19,7 +19,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -65,7 +64,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
+		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred: &models.MercuryCredentials{

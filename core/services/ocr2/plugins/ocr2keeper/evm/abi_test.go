@@ -191,7 +191,7 @@ func TestUnpackMercuryCallbackResult(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			packer := &evmRegistryPackerV2_1{abi: registryABI}
-			needed, pd, failureReason, gasUsed, err := packer.UnpackMercuryLookupResult(test.CallbackResp)
+			needed, pd, failureReason, gasUsed, err := packer.UnpackMercuryCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
 				assert.EqualError(t, err, test.ErrorString+hexutil.Encode(test.CallbackResp))

@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -30,7 +32,7 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 
 	go func() {
 		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
-		dq.ReturnResult([]byte("1"), []byte("decrypted"))
+		dq.SetResult([]byte("1"), []byte("decrypted"))
 	}()
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -162,9 +164,9 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 	waitForPendingRequestToBeAdded(t, dq, []byte("6"))
 
 	requests := dq.GetRequests(2, 1000)
-	expected := []DecryptionRequest{
-		{[]byte("5"), []byte("encrypted")},
-		{[]byte("6"), []byte("encrypted")},
+	expected := []decryptionPlugin.DecryptionRequest{
+		{CiphertextId: []byte("5"), Ciphertext: []byte("encrypted")},
+		{CiphertextId: []byte("6"), Ciphertext: []byte("encrypted")},
 	}
 
 	if !reflect.DeepEqual(requests, expected) {
@@ -205,7 +207,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.ReturnResult([]byte("9"), []byte("decrypted"))
+	dq.SetResult([]byte("9"), []byte("decrypted"))
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -221,7 +223,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, 100, lggr)
 
-	dq.ReturnResult([]byte("9"), []byte("decrypted"))
+	dq.SetResult([]byte("9"), []byte("decrypted"))
 
 	waitForCompletedRequestToBeAdded(t, dq, []byte("9"))
 
@@ -236,7 +238,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.ReturnResult([]byte("10"), []byte("decrypted"))
+	dq.SetResult([]byte("10"), []byte("decrypted"))
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -302,9 +304,9 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
 
 	requests := dq.GetRequests(2, 1000)
-	expected := []DecryptionRequest{
-		{[]byte("11"), []byte("encrypted")},
-		{[]byte("12"), []byte("encrypted")},
+	expected := []decryptionPlugin.DecryptionRequest{
+		{CiphertextId: []byte("11"), Ciphertext: []byte("encrypted")},
+		{CiphertextId: []byte("12"), Ciphertext: []byte("encrypted")},
 	}
 	if !reflect.DeepEqual(requests, expected) {
 		t.Error("did not get expected requests")
@@ -346,9 +348,9 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
 
 	requests := dq.GetRequests(4, 30)
-	expected := []DecryptionRequest{
-		{[]byte("11"), []byte("encrypted")},
-		{[]byte("12"), []byte("encrypted")},
+	expected := []decryptionPlugin.DecryptionRequest{
+		{CiphertextId: []byte("11"), Ciphertext: []byte("encrypted")},
+		{CiphertextId: []byte("12"), Ciphertext: []byte("encrypted")},
 	}
 	if !reflect.DeepEqual(requests, expected) {
 		t.Error("did not get expected requests")
@@ -370,8 +372,8 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
 
 	requests := dq.GetRequests(2, 1000)
-	expected := []DecryptionRequest{
-		{[]byte("11"), []byte("encrypted")},
+	expected := []decryptionPlugin.DecryptionRequest{
+		{CiphertextId: []byte("11"), Ciphertext: []byte("encrypted")},
 	}
 	if !reflect.DeepEqual(requests, expected) {
 		t.Error("did not get expected requests")
@@ -394,7 +396,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 	waitForPendingRequestToBeRemoved(t, dq, []byte("11"))
 
 	requests := dq.GetRequests(2, 1000)
-	expected := []DecryptionRequest{}
+	expected := []decryptionPlugin.DecryptionRequest{}
 	if !reflect.DeepEqual(requests, expected) {
 		t.Error("did not get expected requests")
 	}
@@ -416,14 +418,14 @@ func Test_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.ReturnResult([]byte("14"), []byte("decrypted"))
+	dq.SetResult([]byte("14"), []byte("decrypted"))
 
 	err := dq.Close()
 
 	require.NoError(t, err)
 }
 
-func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
+func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
@@ -432,7 +434,7 @@ func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertex
 	}, testutils.WaitTimeout(t), "10ms").Should(BeTrue(), "pending request should be added")
 }
 
-func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
+func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
@@ -441,7 +443,7 @@ func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphert
 	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "pending request should be removed")
 }
 
-func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId CiphertextId) {
+func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
 	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.completedRequests[string(ciphertextId)]

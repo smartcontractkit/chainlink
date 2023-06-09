@@ -119,7 +119,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackMercuryLookupResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+func (rp *evmRegistryPackerV2_1) UnpackMercuryCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
 	out, err := rp.abi.Methods["mercuryCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
 		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
