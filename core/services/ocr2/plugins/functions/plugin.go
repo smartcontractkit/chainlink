@@ -3,6 +3,7 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -23,22 +24,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsServicesConfig struct {
-	Job             job.Job
-	JobORM          job.ORM
-	BridgeORM       bridges.ORM
-	OCR2JobConfig   pg.QConfig
-	DB              *sqlx.DB
-	Chain           evm.Chain
-	ContractID      string
-	Lggr            logger.Logger
-	MailMon         *utils.MailboxMonitor
-	URLsMonEndpoint commontypes.MonitoringEndpoint
-	EthKeystore     keystore.Eth
+	Job                      job.Job
+	JobORM                   job.ORM
+	BridgeORM                bridges.ORM
+	OCR2JobConfig            pg.QConfig
+	DB                       *sqlx.DB
+	Chain                    evm.Chain
+	ContractID               string
+	Lggr                     logger.Logger
+	MailMon                  *utils.MailboxMonitor
+	URLsMonEndpoint          commontypes.MonitoringEndpoint
+	EthKeystore              keystore.Eth
+	ThresholdPrivateKeyShare []byte
 }
 
 const (
@@ -68,7 +71,36 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	}
 	listenerLogger := conf.Lggr.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
+
+	// Threshold plugin
+	sharedThresholdOracleArgs := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: sharedOracleArgs.BinaryNetworkEndpointFactory,
+		V2Bootstrappers:              sharedOracleArgs.V2Bootstrappers,
+		ContractTransmitter:          sharedOracleArgs.ContractTransmitter,
+		ContractConfigTracker:        sharedOracleArgs.ContractConfigTracker,
+		Database:                     sharedOracleArgs.Database,
+		LocalConfig:                  sharedOracleArgs.LocalConfig,
+		Logger:                       sharedOracleArgs.Logger,
+		MonitoringEndpoint:           sharedOracleArgs.MonitoringEndpoint,
+		OffchainConfigDigester:       sharedOracleArgs.OffchainConfigDigester,
+		OffchainKeyring:              sharedOracleArgs.OffchainKeyring,
+		OnchainKeyring:               sharedOracleArgs.OnchainKeyring,
+		ReportingPluginFactory:       nil, // To be set by NewThresholdServices
+	}
+	// TODO: Get configuration values from JobSpec
+	decryptor := threshold.NewDecryptionQueue(100, 10_000, 100, time.Duration(300)*time.Second, conf.Lggr.Named("DecryptionQueue"))
+	thresholdServicesConfig := threshold.ThresholdServicesConfig{
+		DecryptionQueue:    decryptor,
+		KeyshareWithPubKey: conf.ThresholdPrivateKeyShare,
+		ConfigParser:       config.ThresholdConfigParser{},
+	}
+	thresholdService, err2 := threshold.NewThresholdService(&sharedThresholdOracleArgs, &thresholdServicesConfig)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "error calling NewThresholdServices")
+	}
+	allServices = append(allServices, thresholdService)
+
+	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint, decryptor)
 	allServices = append(allServices, functionsListener)
 
 	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{

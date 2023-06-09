@@ -1,6 +1,8 @@
 package threshold
 
 import (
+	"encoding/json"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -13,21 +15,31 @@ import (
 )
 
 type ThresholdServicesConfig struct {
-	DecryptionQueue decryptionPlugin.DecryptionQueuingService
-	PublicKey       []byte //*tdh2easy.PublicKey
-	PrivKeyShare    []byte //*tdh2easy.PrivateShare
-	ConfigParser    decryptionPlugin.ConfigParser
+	DecryptionQueue    decryptionPlugin.DecryptionQueuingService
+	KeyshareWithPubKey []byte
+	ConfigParser       decryptionPlugin.ConfigParser
+}
+
+type KeyshareWithPubKey struct {
+	PublicKey       string `json:"PublicKey"`  //*tdh2easy.PublicKey
+	PrivateKeyShare string `json:"PrivateKey"` //*tdh2easy.PrivateShare
 }
 
 func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *ThresholdServicesConfig) (job.ServiceCtx, error) {
+	kswpk, err := UnmarshalKeyshareWithPubKey(conf.KeyshareWithPubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal threshold key share with public key")
+	}
+
+	// TODO: This multi-step un-marshaling may not be necessary
 	var publicKey *tdh2easy.PublicKey
-	err := publicKey.Unmarshal(conf.PublicKey)
+	err = publicKey.Unmarshal([]byte(kswpk.PublicKey))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal threshold encryption public key")
 	}
 
 	var privKeyShare *tdh2easy.PrivateShare
-	err = privKeyShare.Unmarshal(conf.PrivKeyShare)
+	err = privKeyShare.Unmarshal([]byte(kswpk.PrivateKeyShare))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal threshold decryption private key share")
 	}
@@ -53,4 +65,13 @@ func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Thresho
 	}
 
 	return job.NewServiceAdapter(thresholdReportingPluginOracle), nil
+}
+
+func UnmarshalKeyshareWithPubKey(raw []byte) (*KeyshareWithPubKey, error) {
+	var kwpk KeyshareWithPubKey
+	err := json.Unmarshal(raw, &kwpk)
+	if err != nil {
+		return nil, err
+	}
+	return &kwpk, nil
 }

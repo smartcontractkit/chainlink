@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
-	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
@@ -40,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reasonablegasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -763,46 +761,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
-		sharedThresholdOracleArgs := libocr2.OCR2OracleArgs{
-			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          functionsProvider.ContractTransmitter(),
-			ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
-			LocalConfig:                  lc,
-			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
-			OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-			ReportingPluginFactory:       nil, // To be set by NewThresholdServices
-		}
-
-		// TODO: Get configuration values from JobSpec
-		decryptor := threshold.NewDecryptionQueue(100, 10_000, 100, time.Duration(300)*time.Second, lggr.Named("DecryptionQueue"))
-
 		encryptedThresholdPrivateKey := d.cfg.ThresholdKeyShare()
 		thresholdPrivateKey, err2 := kb.NaclBoxOpenAnonymous([]byte(encryptedThresholdPrivateKey))
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "error decrypting threshold private key share")
 		}
 
-		thresholdServicesConfig := threshold.ThresholdServicesConfig{
-			DecryptionQueue: decryptor,
-			// TODO: Corresponding public key should be included in the thresholdPrivateKey JSON to avoid needing another config var
-			// (plus, the corresponding public key will change if keys are re-delt).
-			// This requires a minor update to the threshold key generation tooling.
-			PublicKey:    []byte(""),
-			PrivKeyShare: thresholdPrivateKey,
-			ConfigParser: functionsConfig.ThresholdConfigParser{},
-		}
-
-		thresholdService, err2 := threshold.NewThresholdService(&sharedThresholdOracleArgs, &thresholdServicesConfig)
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "error calling NewThresholdServices")
-		}
-
-		sharedFunctionsOracleArgs := libocr2.OCR2OracleArgs{
+		sharedOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),
@@ -818,20 +783,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		functionsServicesConfig := functions.FunctionsServicesConfig{
-			Job:             jb,
-			JobORM:          d.jobORM,
-			BridgeORM:       d.bridgeORM,
-			OCR2JobConfig:   d.cfg.Database(),
-			DB:              d.db,
-			Chain:           chain,
-			ContractID:      spec.ContractID,
-			Lggr:            lggr,
-			MailMon:         d.mailMon,
-			URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
-			EthKeystore:     d.ethKs,
+			Job:                      jb,
+			JobORM:                   d.jobORM,
+			BridgeORM:                d.bridgeORM,
+			OCR2JobConfig:            d.cfg.Database(),
+			DB:                       d.db,
+			Chain:                    chain,
+			ContractID:               spec.ContractID,
+			Lggr:                     lggr,
+			MailMon:                  d.mailMon,
+			URLsMonEndpoint:          d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
+			EthKeystore:              d.ethKs,
+			ThresholdPrivateKeyShare: thresholdPrivateKey,
 		}
 
-		functionsServices, err := functions.NewFunctionsServices(&sharedFunctionsOracleArgs, &functionsServicesConfig)
+		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 		}
@@ -846,8 +812,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			lggr,
 			d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		)
-
-		functionsServices = append(functionsServices, thresholdService)
 
 		return append([]job.ServiceCtx{runResultSaver, functionsProvider}, functionsServices...), nil
 	default:
