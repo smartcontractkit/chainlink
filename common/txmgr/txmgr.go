@@ -488,7 +488,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send native token to zero address")
 	}
-	newTx := txmgrtypes.NewTx[ADDR, TX_HASH]{
+	newTx := txmgrtypes.TxRequest[ADDR, TX_HASH]{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
