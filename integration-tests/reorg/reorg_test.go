@@ -70,7 +70,7 @@ func CleanupReorgTest(
 }
 
 func TestDirectRequestReorg(t *testing.T) {
-	logging.Init(t)
+	logging.Init()
 	testEnvironment := environment.New(&environment.Config{
 		TTL:  1 * time.Hour,
 		Test: t,
