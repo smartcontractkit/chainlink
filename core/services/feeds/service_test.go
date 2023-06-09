@@ -1009,7 +1009,7 @@ answer1      [type=median index=0];
 				}, nil)
 			},
 			args:    args,
-			wantErr: "only pending job proposals can be revoked",
+			wantErr: "only pending job specs can be revoked",
 		},
 		{
 			name: "Revoke proposal error",
@@ -1469,10 +1469,15 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1 [type=median index=0];
 """
 `
-
-		jp = &feeds.JobProposal{
+		externalJobID = uuid.New()
+		jp            = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 100,
+		}
+		jp2 = &feeds.JobProposal{
+			ID:             1,
+			FeedsManagerID: 100,
+			ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
 		}
 		spec = &feeds.JobProposalSpec{
 			ID:            20,
@@ -1497,7 +1502,7 @@ answer1 [type=median index=0];
 		}
 		j = job.Job{
 			ID:            1,
-			ExternalJobID: uuid.New(),
+			ExternalJobID: externalJobID,
 		}
 	)
 
@@ -1510,7 +1515,7 @@ answer1 [type=median index=0];
 		wantErr     string
 	}{
 		{
-			name:        "pending job success",
+			name:        "pending job success for new proposals without external job id",
 			httpTimeout: models.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
@@ -1538,6 +1543,44 @@ answer1 [type=median index=0];
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					&proto.ApprovedJobRequest{
 						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
+			},
+			id:    spec.ID,
+			force: false,
+		},
+		{
+			name:        "pending job success for existing proposals with external job id but no jobs",
+			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.connMgr.On("GetClient", jp2.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.EXPECT().GetJobProposal(jp2.ID, mock.Anything).Return(jp2, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+						mock.Anything,
+					).
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					spec.ID,
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+					mock.Anything,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp2.RemoteUUID.String(),
 						Version: int64(spec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)

@@ -481,7 +481,7 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 	}
 
 	if canRevoke := s.isRevokable(proposal.Status, latest.Status); !canRevoke {
-		return 0, errors.New("only pending job proposals can be revoked")
+		return 0, errors.New("only pending job specs can be revoked")
 	}
 
 	pctx := pg.WithParentCtx(ctx)
@@ -704,23 +704,44 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var (
-			txerr error
+			txerr         error
+			existingJobID int32
 
 			pgOpts = pg.WithQueryer(tx)
 		)
 
-		// Remove the existing job, continuing if no job is found
-		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, evmChainID, pgOpts)
-		if txerr != nil {
-			// Return an error if the repository errors. If there is a not found
-			// error we want to continue with approving the job.
-			if !errors.Is(txerr, sql.ErrNoRows) {
-				return errors.Wrap(txerr, "FindJobIDByAddress failed")
+		// Check if a job already exist for the proposal
+		if proposal.ExternalJobID.Valid {
+			var j job.Job
+			j, txerr = s.jobORM.FindJobByExternalJobID(proposal.ExternalJobID.UUID, pg.WithQueryer(tx))
+			if txerr != nil {
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if !errors.Is(txerr, sql.ErrNoRows) {
+					return errors.Wrap(txerr, "FindJobByExternalJobID failed")
+				}
+			}
+
+			if txerr == nil {
+				existingJobID = j.ID
+			}
+		}
+
+		// If no job was found by external job id, check if a job exists by address
+		// TODO: this method should be updated to work for ocr2 jobs
+		if existingJobID == 0 {
+			existingJobID, txerr = s.jobORM.FindJobIDByAddress(address, evmChainID, pgOpts)
+			if txerr != nil {
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if !errors.Is(txerr, sql.ErrNoRows) {
+					return errors.Wrap(txerr, "FindJobIDByAddress failed")
+				}
 			}
 		}
 
 		// Remove the existing job since a job was found
-		if txerr == nil {
+		if existingJobID != 0 {
 			// Do not proceed to remove the running job unless the force flag is true
 			if !force {
 				return ErrJobAlreadyExists
@@ -1297,7 +1318,7 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 }
 
 func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatus) bool {
-	return propStatus == JobProposalStatusPending && specStatus == SpecStatusPending
+	return propStatus != JobProposalStatusDeleted && specStatus == SpecStatusPending
 }
 
 var _ Service = &NullService{}

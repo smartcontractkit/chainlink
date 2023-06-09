@@ -415,8 +415,8 @@ WHERE id = $2;
 // feeds manager id exists.
 func (o *orm) UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, external_job_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 ON CONFLICT (remote_uuid)
 DO
 	UPDATE SET
@@ -425,13 +425,15 @@ DO
 		status = (
 			CASE
 				WHEN job_proposals.status = 'deleted' THEN 'deleted'::job_proposal_status
+				WHEN job_proposals.status = 'approved' THEN 'approved'::job_proposal_status
 				ELSE EXCLUDED.status
 			END
 		),
 		external_job_id = (
 			CASE
 				WHEN job_proposals.status = 'deleted' THEN job_proposals.external_job_id
-				ELSE $6
+				WHEN job_proposals.status = 'approved' THEN job_proposals.external_job_id
+				ELSE EXCLUDED.external_job_id
 			END
 		),
 		multiaddrs = EXCLUDED.multiaddrs,
@@ -487,8 +489,9 @@ WHERE id = $3;
 	return nil
 }
 
-// CancelSpec cancels the spec and removes the external job id from the
-// associated job proposal.
+// CancelSpec cancels the spec and removes the external job id from the associated job proposal. It
+// sets the status of the spec and the proposal to cancelled, except in the case of deleted
+// proposals.
 func (o *orm) CancelSpec(id int64, qopts ...pg.QOpt) error {
 	// Update the status of the approval
 	stmt := `
@@ -564,7 +567,7 @@ SELECT exists (
 }
 
 // DeleteProposal performs a soft delete of the job proposal by setting the
-// status to deleted, remove the external job id, and update the status to
+// status to deleted and update the status to
 // deleted
 func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
