@@ -210,35 +210,8 @@ PriceMax = '%d gwei'
 		newEnvTTL,
 	)
 
-	err = testEnvironmentAfterRedeployment.RolloutStatefulSets()
+	err = testEnvironmentAfterRedeployment.Client.RolloutStatefulSets(testEnvironmentAfterRedeployment.Cfg.Namespace)
 	require.NoError(t, err, "Error performing rollout restart for test environment")
-
-	//wait for https://smartcontract-it.atlassian.net/browse/TT-356
-	time.Sleep(time.Second * 30)
-	//selector := "app=chainlink-0"
-	//// Wait until there is only one instance of the pod
-	//// While restarting, the old instance is still there for few seconds
-	//err = wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
-	//
-	//	podList, err := testEnvironmentAfterRedeployment.Client.ListPods(testEnvironmentAfterRedeployment.Cfg.Namespace, selector)
-	//	if err != nil {
-	//		return false, nil
-	//	}
-	//	if len(podList.Items) > 1 {
-	//		return false, nil
-	//	}
-	//	return true, nil
-	//})
-	//
-	//require.NoError(t, err, "more than 1 'app=chainlink-0' pod")
-
-	//conds := &env_client.ReadyCheckData{
-	//	ReadinessProbeCheckSelector: newEnvLabel,
-	//	Timeout:                     5 * time.Minute,
-	//}
-	//
-	//err = testEnvironmentAfterRedeployment.RunCustomReadyConditions(conds, 0)
-	//require.NoError(t, err, "Error running test environment")
 
 	err = testEnvironmentAfterRedeployment.Run()
 	require.NoError(t, err, "Error running test environment")
