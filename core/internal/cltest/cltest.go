@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -158,7 +159,6 @@ func init() {
 	// the same advisory locks when tested with `go test -p N` for N > 1
 	seed := time.Now().UTC().UnixNano()
 	fmt.Printf("cltest random seed: %v\n", seed)
-	rand.Seed(seed)
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
@@ -178,8 +178,7 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	t.Helper()
 
 	b = make([]byte, l)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1300,8 +1299,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1688,7 +1686,7 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 
 	for _, subcommand := range command.Subcommands {
 		if !foundName {
-			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
+			foundName = strings.EqualFold(subcommand.Name, parent)
 		}
 
 		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)

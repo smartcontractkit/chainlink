@@ -21,7 +21,6 @@ import (
 type mockLoopImpl struct {
 	t *testing.T
 	*plugins.PromServer
-	counter prometheus.Counter
 }
 
 // test prom var to avoid collision with real chainlink metrics
