@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -67,7 +68,7 @@ type TxmClient[
 	BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ Sequence,
-	FEE Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ] interface {
 	ConfiguredChainID() CHAIN_ID

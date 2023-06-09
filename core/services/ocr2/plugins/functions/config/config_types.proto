@@ -9,6 +9,15 @@ enum AggregationMethod {
     AGGREGATION_MEDIAN = 1;
 }
 
+message ThresholdReportingPluginConfig {
+  uint32 max_query_length_bytes = 1;
+  uint32 max_observation_length_bytes = 2;
+  uint32 max_report_length_bytes = 3;
+  uint32 request_count_limit = 4;
+  uint32 request_total_bytes_limit = 5;
+  bool require_local_request_check = 6;
+}
+
 message ReportingPluginConfig {
     uint32 maxQueryLengthBytes = 1;
     uint32 maxObservationLengthBytes = 2;
@@ -16,4 +25,5 @@ message ReportingPluginConfig {
     uint32 maxRequestBatchSize = 4;
     AggregationMethod defaultAggregationMethod = 5;
     bool uniqueReports = 6;
+    ThresholdReportingPluginConfig thresholdPluginConfig = 7;
 }

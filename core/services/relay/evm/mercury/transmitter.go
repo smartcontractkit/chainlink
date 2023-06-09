@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -33,6 +35,33 @@ const (
 	DuplicateReport = 2
 )
 
+var (
+	transmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_success_count",
+		Help: "Number of successful transmissions (duplicates are counted as success)",
+	},
+		[]string{"feedID"},
+	)
+	transmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_duplicate_count",
+		Help: "Number of transmissions where the server told us it was a duplicate",
+	},
+		[]string{"feedID"},
+	)
+	transmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_connection_error_count",
+		Help: "Number of errored transmissions that failed due to problem with the connection",
+	},
+		[]string{"feedID"},
+	)
+	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_server_error_count",
+		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
+	},
+		[]string{"feedID", "code"},
+	)
+)
+
 type Transmitter interface {
 	relaymercury.Transmitter
 	services.ServiceCtx
@@ -52,11 +81,16 @@ type mercuryTransmitter struct {
 	initialBlockNumber int64
 
 	feedID      [32]byte
+	feedIDHex   string
 	fromAccount string
 
 	stopCh utils.StopChan
 	queue  *TransmitQueue
 	wg     sync.WaitGroup
+
+	transmitSuccessCount         prometheus.Counter
+	transmitDuplicateCount       prometheus.Counter
+	transmitConnectionErrorCount prometheus.Counter
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -79,17 +113,22 @@ func getPayloadTypes() abi.Arguments {
 }
 
 func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64) *mercuryTransmitter {
+	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
-		lggr.Named("MercuryTransmitter").With("feedID", fmt.Sprintf("%x", feedID[:])),
+		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
 		initialBlockNumber,
 		feedID,
+		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, fmt.Sprintf("0x%x", feedID[:]), MaxTransmitQueueSize),
+		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
 		sync.WaitGroup{},
+		transmitSuccessCount.WithLabelValues(feedIDHex),
+		transmitDuplicateCount.WithLabelValues(feedIDHex),
+		transmitConnectionErrorCount.WithLabelValues(feedIDHex),
 	}
 }
 
@@ -149,6 +188,7 @@ func (mt *mercuryTransmitter) runloop() {
 			// the runloop here
 			return
 		} else if err != nil {
+			mt.transmitConnectionErrorCount.Inc()
 			mt.lggr.Errorw("Transmit report failed", "req", t.Req, "error", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
 				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
@@ -166,6 +206,7 @@ func (mt *mercuryTransmitter) runloop() {
 
 		b.Reset()
 		if res.Error == "" {
+			mt.transmitSuccessCount.Inc()
 			mt.lggr.Debugw("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
 		} else {
 			// We don't need to retry here because the mercury server
@@ -173,25 +214,29 @@ func (mt *mercuryTransmitter) runloop() {
 			// on networking/unknown errors
 			switch res.Code {
 			case DuplicateReport:
+				mt.transmitSuccessCount.Inc()
+				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Debugw("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
 				elems := map[string]interface{}{}
 				var validFrom int64
 				var currentBlock int64
+				var unpackErr error
 				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					mt.lggr.Errorw("failed to unpack report", "err", err)
+					unpackErr = err
 				} else {
 					report := elems["report"].([]byte)
 					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
 					if err != nil {
-						mt.lggr.Errorw("failed to unpack report", "err", err)
+						unpackErr = err
 					}
 					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
 					if err != nil {
-						mt.lggr.Errorw("failed to unpack report", "err", err)
+						unpackErr = errors.Join(unpackErr, err)
 					}
 				}
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 	}
