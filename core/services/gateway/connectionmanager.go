@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -24,20 +26,13 @@ type ConnectionManager interface {
 	job.ServiceCtx
 	network.ConnectionAcceptor
 
-	DONConnectionManager(donId string) DONConnectionManager
-}
-
-type DONConnectionManager interface {
-	SetHandler(handler Handler)
-
-	// Thread-safe.
-	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
+	DONConnectionManager(donId string) *donConnectionManager
 }
 
 type connectionManager struct {
 	utils.StartStopOnce
 
-	config             *ConnectionManagerConfig
+	config             *config.ConnectionManagerConfig
 	dons               map[string]*donConnectionManager
 	wsServer           network.WebSocketServer
 	clock              gw_common.Clock
@@ -48,9 +43,9 @@ type connectionManager struct {
 }
 
 type donConnectionManager struct {
-	donConfig  *DONConfig
+	donConfig  *config.DONConfig
 	nodes      map[string]*nodeState
-	handler    Handler
+	handler    handlers.Handler
 	codec      api.Codec
 	closeWait  sync.WaitGroup
 	shutdownCh chan struct{}
@@ -71,10 +66,10 @@ type connAttempt struct {
 	timestamp   uint32
 }
 
-func NewConnectionManager(config *GatewayConfig, clock gw_common.Clock, lggr logger.Logger) (ConnectionManager, error) {
+func NewConnectionManager(gwConfig *config.GatewayConfig, clock gw_common.Clock, lggr logger.Logger) (ConnectionManager, error) {
 	codec := &api.JsonRPCCodec{}
 	dons := make(map[string]*donConnectionManager)
-	for _, donConfig := range config.Dons {
+	for _, donConfig := range gwConfig.Dons {
 		donConfig := donConfig
 		if donConfig.DonId == "" {
 			return nil, errors.New("empty DON ID")
@@ -100,18 +95,18 @@ func NewConnectionManager(config *GatewayConfig, clock gw_common.Clock, lggr log
 		}
 	}
 	connMgr := &connectionManager{
-		config:       &config.ConnectionManagerConfig,
+		config:       &gwConfig.ConnectionManagerConfig,
 		dons:         dons,
 		connAttempts: make(map[string]*connAttempt),
 		clock:        clock,
 		lggr:         lggr.Named("ConnectionManager"),
 	}
-	wsServer := network.NewWebSocketServer(&config.NodeServerConfig, connMgr, lggr)
+	wsServer := network.NewWebSocketServer(&gwConfig.NodeServerConfig, connMgr, lggr)
 	connMgr.wsServer = wsServer
 	return connMgr, nil
 }
 
-func (m *connectionManager) DONConnectionManager(donId string) DONConnectionManager {
+func (m *connectionManager) DONConnectionManager(donId string) *donConnectionManager {
 	return m.dons[donId]
 }
 
@@ -239,7 +234,7 @@ func (m *connectionManager) AbortHandshake(attemptId string) {
 	delete(m.connAttempts, attemptId)
 }
 
-func (m *donConnectionManager) SetHandler(handler Handler) {
+func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 

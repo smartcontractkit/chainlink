@@ -1,4 +1,4 @@
-package gateway
+package api
 
 type ErrorCode int
 
