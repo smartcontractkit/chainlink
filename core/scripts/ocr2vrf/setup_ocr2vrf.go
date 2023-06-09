@@ -97,7 +97,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	}
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
+	vrfCoordinatorAddress, vrfCoordinator := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String())
 
 	fmt.Println("Configuring VRF coordinator...")
 	configureVRFCoordinator(e, vrfCoordinator, uint32(*maxCallbackGasLimit), uint32(*maxCallbackArgumentsLength))
@@ -332,7 +332,6 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	}
 
 	link := common.HexToAddress(*linkAddress)
-	feedAddress := common.HexToAddress(*linkEthFeed)
 
 	// Deploy DKG and VRF contracts, and add VRF
 	// as a consumer of DKG events.
@@ -340,7 +339,7 @@ func setupOCR2VRFNodesForInfraWithForwarder(e helpers.Environment) {
 	dkgAddress := deployDKG(e)
 
 	fmt.Println("Deploying VRF coordinator...")
-	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String(), feedAddress.String())
+	vrfCoordinatorAddress, _ := deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), link.String())
 
 	fmt.Println("Deploying VRF beacon...")
 	vrfBeaconAddress := deployVRFBeacon(e, vrfCoordinatorAddress.String(), link.String(), dkgAddress.String(), *keyID)

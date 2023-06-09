@@ -63,9 +63,8 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
-		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
+		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress)
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
@@ -232,30 +231,6 @@ func main() {
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-address")
 		setProducer(e, *coordinatorAddress, *beaconAddress)
-	case "coordinator-request-randomness":
-		cmd := flag.NewFlagSet("coordinator-request-randomness", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
-		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.String("sub-id", "", "subscription ID")
-		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
-		requestRandomness(
-			e,
-			*coordinatorAddress,
-			uint16(*numWords),
-			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(*confDelay))
-	case "coordinator-redeem-randomness":
-		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
-		subID := cmd.String("sub-id", "", "subscription ID")
-		requestID := cmd.Int64("request-id", 0, "request ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "request-id")
-		redeemRandomness(
-			e,
-			*coordinatorAddress,
-			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(*requestID))
 	case "beacon-info":
 		cmd := flag.NewFlagSet("beacon-info", flag.ExitOnError)
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
@@ -333,23 +308,6 @@ func main() {
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
 		deployVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, *shouldFail, big.NewInt(*beaconPeriodBlocks))
-	case "consumer-request-randomness":
-		cmd := flag.NewFlagSet("consumer-request-randomness", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
-		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.String("sub-id", "", "subscription ID")
-		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "sub-id")
-		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), decimal.RequireFromString(*subID).BigInt(), big.NewInt(*confDelay))
-	case "consumer-redeem-randomness":
-		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
-		subID := cmd.String("sub-id", "", "subscription ID")
-		requestID := cmd.String("request-id", "0", "request ID")
-		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
-		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		reqIdInt := decimal.RequireFromString(*requestID).BigInt()
-		redeemRandomnessFromConsumer(e, *consumerAddress, decimal.RequireFromString(*subID).BigInt(), reqIdInt, *numWords)
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF coordinator consumer address")
