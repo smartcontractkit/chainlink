@@ -345,7 +345,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txm.EvmTransmitCheckerSpec{},
+		checker,
 		configWatcher.chain.ID(),
 		ethKeystore,
 	)
