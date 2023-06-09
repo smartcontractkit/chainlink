@@ -1125,20 +1125,6 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *ass
 	return r0
 }
 
-// KeystorePassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeystorePassword() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // LinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) LinkContractAddress() string {
 	ret := _m.Called()
@@ -2058,15 +2044,33 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
-// PrometheusAuthToken provides a mock function with given fields:
-func (_m *ChainScopedConfig) PrometheusAuthToken() string {
+// Password provides a mock function with given fields:
+func (_m *ChainScopedConfig) Password() coreconfig.Password {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Password
+	if rf, ok := ret.Get(0).(func() coreconfig.Password); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Password)
+		}
+	}
+
+	return r0
+}
+
+// Prometheus provides a mock function with given fields:
+func (_m *ChainScopedConfig) Prometheus() coreconfig.Prometheus {
+	ret := _m.Called()
+
+	var r0 coreconfig.Prometheus
+	if rf, ok := ret.Get(0).(func() coreconfig.Prometheus); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Prometheus)
+		}
 	}
 
 	return r0
@@ -2228,20 +2232,6 @@ func (_m *ChainScopedConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 
 // ThresholdKeyShare provides a mock function with given fields:
 func (_m *ChainScopedConfig) ThresholdKeyShare() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// VRFPassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) VRFPassword() string {
 	ret := _m.Called()
 
 	var r0 string
