@@ -99,6 +99,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			continue
 		}
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d perform data: %v", upkeepId, block, upkeepResults[i].PerformData)
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d perform data: %s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
 
 		// if it doesn't decode to the mercury custom error continue/skip
 		mercuryLookup, err := r.decodeMercuryLookup(upkeepResults[i].PerformData)
@@ -106,6 +107,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d decodeMercuryLookup: %v", upkeepId, block, err)
 			continue
 		}
+		r.lggr.Infof("[MercuryLookup] upkeep %s block %d mercuryLookup=%v", upkeepId, block, mercuryLookup)
 
 		// do the mercury lookup request
 		values, retryable, err := r.doMercuryRequest(ctx, mercuryLookup, upkeepId)
@@ -118,13 +120,13 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d values: %v", values)
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d extraData: %v", mercuryLookup.extraData)
-		needed, performData, failureReason, _, err := r.mercuryCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
+		needed, performData, failureReason, gasUsed, err := r.mercuryCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
 		if err != nil {
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryLookupCallback err: %v", upkeepId, block, err)
 			continue
 		}
-		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d performData: %v", performData)
-		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d failureReason: %v", failureReason)
+
+		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d needed %v\nperformData: %v\nfailureReason: %d\ngasUsed: %s\nperformData: %s", upkeepId, block, needed, performData, failureReason, gasUsed.String(), hexutil.Encode(performData))
 
 		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
 			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
@@ -207,6 +209,8 @@ func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, va
 		return false, nil, 0, nil, err
 	}
 
+	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", hexutil.Encode(b))
+	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", b)
 	return r.packer.UnpackMercuryLookupResult(b)
 }
 

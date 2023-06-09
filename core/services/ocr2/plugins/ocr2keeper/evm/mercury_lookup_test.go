@@ -3,6 +3,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -28,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm/mocks"
 )
@@ -83,8 +86,8 @@ func (r *EvmRegistry) buildRevertBytesHelper() []byte {
 	mercuryErr := r.mercury.abi.Errors["MercuryLookup"]
 	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
 	ml := MercuryLookup{
-		feedLabel:  "feedIDStr",
-		feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+		feedLabel:  "feedIDHex",
+		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 		queryLabel: "blockNumber",
 		query:      big.NewInt(8586948),
 		extraData:  []byte{},
@@ -143,7 +146,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	}
 	//target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	callbackResp := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	upkeepNeededFalseResp, err := setupRegistry.mercury.abi.Methods["mercuryCallback"].Outputs.Pack(false, []byte{})
+	upkeepNeededFalseResp, err := setupRegistry.abi.Methods["mercuryCallback"].Outputs.Pack(false, []byte{})
 	assert.Nil(t, err, t.Name())
 
 	// desired outcomes
@@ -320,8 +323,8 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 			name: "success",
 			data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 20, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			want: &MercuryLookup{
-				feedLabel:  "feedIDStr",
-				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(18945237),
 				extraData:  []byte{48, 120, 48, 48},
@@ -332,8 +335,8 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 			name: "success - with extra data",
 			data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 48, 241, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			want: &MercuryLookup{
-				feedLabel:  "feedIDStr",
-				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(18952433),
 				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
@@ -361,7 +364,229 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
+func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	tests := []struct {
+		name         string
+		cached       bool
+		allowed      bool
+		errorMessage string
+	}{
+		{
+			name:    "success - allowed via cache",
+			cached:  true,
+			allowed: true,
+		},
+		{
+			name:    "success - allowed via fetching admin offchain config",
+			cached:  false,
+			allowed: true,
+		},
+		{
+			name:    "success - not allowed via cache",
+			cached:  true,
+			allowed: false,
+		},
+		{
+			name:    "success - not allowed via fetching admin offchain config",
+			cached:  false,
+			allowed: false,
+		},
+		{
+			name:         "failure - cannot unmarshal admin offchain config",
+			cached:       false,
+			errorMessage: "failed to unmarshal admin offchain config for upkeep ID 123456789: invalid character '\\x00' looking for beginning of value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+
+			if tt.errorMessage != "" {
+				mockRegistry := mocks.NewRegistry(t)
+				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
+				r.registry = mockRegistry
+			} else {
+				if tt.cached {
+					r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
+				} else {
+					mockRegistry := mocks.NewRegistry(t)
+					cfg := AdminOffchainConfig{MercuryEnabled: tt.allowed}
+					b, err := json.Marshal(cfg)
+					assert.Nil(t, err)
+					mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+					r.registry = mockRegistry
+				}
+			}
+
+			allowed, err := r.allowedToUseMercury(nil, upkeepId)
+			if tt.errorMessage != "" {
+				assert.NotNil(t, err)
+				assert.Equal(t, tt.errorMessage, err.Error())
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, tt.allowed, allowed)
+			}
+		})
+	}
+}
+
+func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	tests := []struct {
+		name         string
+		index        int
+		ml           *MercuryLookup
+		mv           job.MercuryVersion
+		blob         string
+		statusCode   int
+		retryNumber  int
+		retryable    bool
+		errorMessage string
+	}{
+		{
+			name:  "success - mercury responds in the first try",
+			index: 0,
+			ml: &MercuryLookup{
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(123456),
+				extraData:  nil,
+			},
+			mv:   job.MercuryV02,
+			blob: "0xab2123dc00000012",
+		},
+		{
+			name:  "success - retry for 404",
+			index: 0,
+			ml: &MercuryLookup{
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(123456),
+				extraData:  nil,
+			},
+			mv:          job.MercuryV02,
+			blob:        "0xab2123dcbabbad",
+			retryNumber: 1,
+			statusCode:  http.StatusNotFound,
+		},
+		{
+			name:  "success - retry for 500",
+			index: 0,
+			ml: &MercuryLookup{
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(123456),
+				extraData:  nil,
+			},
+			mv:          job.MercuryV02,
+			blob:        "0xab2123dcbbabad",
+			retryNumber: 2,
+			statusCode:  http.StatusInternalServerError,
+		},
+		{
+			name:  "failure - returns retryable",
+			index: 0,
+			ml: &MercuryLookup{
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(123456),
+				extraData:  nil,
+			},
+			mv:           job.MercuryV02,
+			blob:         "0xab2123dc",
+			retryNumber:  TotalAttempt,
+			statusCode:   http.StatusNotFound,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: retry\n#2: retry\n#3: retry",
+		},
+		{
+			name:  "failure - returns not retryable",
+			index: 0,
+			ml: &MercuryLookup{
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				queryLabel: "blockNumber",
+				query:      big.NewInt(123456),
+				extraData:  nil,
+			},
+			mv:           job.MercuryV02,
+			blob:         "0xab2123dc",
+			statusCode:   http.StatusBadGateway,
+			retryable:    false,
+			errorMessage: "All attempts fail:\n#1: MercuryLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			hc := mocks.NewHttpClient(t)
+
+			mr := MercuryResponse{ChainlinkBlob: tt.blob}
+			b, err := json.Marshal(mr)
+			assert.Nil(t, err)
+
+			if tt.retryNumber == 0 {
+				if tt.errorMessage != "" {
+					resp := &http.Response{
+						StatusCode: tt.statusCode,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				} else {
+					resp := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				}
+			} else if tt.retryNumber > 0 && tt.retryNumber < TotalAttempt {
+				retryResp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
+
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else {
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
+			}
+			r.hc = hc
+
+			ch := make(chan MercuryBytes, 1)
+			r.singleFeedRequest(context.Background(), ch, upkeepId, tt.index, tt.ml, tt.mv)
+
+			m := <-ch
+			assert.Equal(t, tt.index, m.Index)
+			assert.Equal(t, tt.retryable, m.Retryable)
+			if tt.retryNumber >= TotalAttempt || tt.errorMessage != "" {
+				assert.Equal(t, tt.errorMessage, m.Error.Error())
+				assert.Nil(t, m.Bytes)
+			} else {
+				blobBytes, err := hexutil.Decode(tt.blob)
+				assert.Nil(t, err)
+				assert.Nil(t, m.Error)
+				assert.Equal(t, blobBytes, m.Bytes)
+			}
+		})
+	}
+}
+
+func TestEvmRegistry_MercuryCallback(t *testing.T) {
 	//executeGas := uint32(100)
 	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
@@ -386,7 +611,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		{
 			name: "success - empty extra data",
 			mercuryLookup: &MercuryLookup{
-				feedLabel:  "feedIDStr",
+				feedLabel:  "feedIDHex",
 				feeds:      []string{"ETD-USD", "BTC-ETH"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(100),
@@ -403,8 +628,8 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		{
 			name: "success - with extra data",
 			mercuryLookup: &MercuryLookup{
-				feedLabel:  "feedIDStr",
-				feeds:      []string{"ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"},
+				feedLabel:  "feedIDHex",
+				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(18952430),
 				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
@@ -421,7 +646,7 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 		{
 			name: "failure - bad response",
 			mercuryLookup: &MercuryLookup{
-				feedLabel:  "feedIDStr",
+				feedLabel:  "feedIDHex",
 				feeds:      []string{"ETD-USD", "BTC-ETH"},
 				queryLabel: "blockNumber",
 				query:      big.NewInt(100),
@@ -442,12 +667,13 @@ func TestEvmRegistry_MercuryLookupCallback(t *testing.T) {
 			r := setupEVMRegistry(t)
 			r.addr = from
 			r.client = client
-			payload, err := r.mercury.abi.Pack("mercuryCallback", values, tt.mercuryLookup.extraData)
+			payload, err := r.abi.Pack("mercuryCallback", tt.upkeepId, values, tt.mercuryLookup.extraData)
 			require.Nil(t, err)
 			callbackMsg := ethereum.CallMsg{
 				To:   &to,
 				Data: payload,
 			}
+			// if args don't match, just use mock.Anything
 			client.On("CallContract", mock.Anything, callbackMsg, tt.blockNumber).Return(tt.callbackResp, tt.callbackErr)
 
 			upkeepNeeded, performData, _, _, err := r.mercuryCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)

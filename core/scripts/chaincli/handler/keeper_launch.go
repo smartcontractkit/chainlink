@@ -153,6 +153,36 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 
 	log.Println("All nodes successfully launched, now running. Use Ctrl+C to terminate")
 
+	registry21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
+	if err != nil {
+		log.Fatalf("cannot create registry 2.1: %v", err)
+	}
+	v, err := registry21.TypeAndVersion(nil)
+	if err != nil {
+		log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
+	}
+	log.Printf("Version is %s", v)
+
+	upkeepIds, err := registry21.GetActiveUpkeepIDs(nil, big.NewInt(0), big.NewInt(5))
+	if err != nil {
+		log.Fatalf("failed to fetch active upkeep ids from registry 2.1: %v", err)
+	}
+	log.Printf("active upkeep ids: %v", upkeepIds)
+
+	for _, id := range upkeepIds {
+		info, err := registry21.GetUpkeep(nil, id)
+		if err != nil {
+			log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err)
+		}
+
+		log.Printf("Target: %s", info.Target.String())
+		log.Printf("ExecuteGas: %d", info.ExecuteGas)
+		log.Printf("Admin: %s", info.Admin.String())
+		min, err := registry21.GetMinBalanceForUpkeep(nil, id)
+		log.Printf("    Balance: %s", info.Balance)
+		log.Printf("Min Balance: %s", min.String())
+	}
+
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-termChan // Blocks here until either SIGINT or SIGTERM is received.
