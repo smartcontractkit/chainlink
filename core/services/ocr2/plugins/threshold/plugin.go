@@ -85,5 +85,15 @@ func UnmarshalKeys(raw []byte) (publicKey tdh2easy.PublicKey, privateShare tdh2e
 		return publicKey, privateShare, err
 	}
 
+	checkPubKey, err := publicKey.Marshal()
+	if err != nil {
+		return publicKey, privateShare, err
+	}
+	checkPrivKey, err := privateShare.Marshal()
+	if err != nil {
+		return publicKey, privateShare, err
+	}
+	fmt.Printf("Threshold Public Key: %+v\nThreshold Private Share: %+v\n", string(checkPubKey), string(checkPrivKey))
+
 	return publicKey, privateShare, nil
 }

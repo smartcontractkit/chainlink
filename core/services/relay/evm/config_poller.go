@@ -3,6 +3,8 @@ package evm
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,6 +58,9 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		addr := addr
 		signers = append(signers, addr[:])
 	}
+
+	// Print OffchainConfig as hex string
+	fmt.Println("OffchainConfig: ", hex.EncodeToString(unpacked.OffchainConfig))
 
 	return ocrtypes.ContractConfig{
 		ConfigDigest:          unpacked.ConfigDigest,

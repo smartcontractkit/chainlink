@@ -36,6 +36,8 @@ type ReportingPluginConfigWrapper struct {
 }
 
 func DecodeReportingPluginConfig(raw []byte) (*ReportingPluginConfigWrapper, error) {
+	fmt.Printf("DecodeReportingPluginConfig Bytes: %x\n", raw)
+
 	configProto := &ReportingPluginConfig{}
 	err := proto.Unmarshal(raw, configProto)
 	if err != nil {
@@ -53,8 +55,9 @@ var _ decryptionPlugin.ConfigParser = &ThresholdConfigParser{}
 type ThresholdConfigParser struct{}
 
 func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig.ReportingPluginConfigWrapper, error) {
+	fmt.Printf("DecodeReportingPluginConfig ParseConfig Caller: %x\n", config)
 	// Print config bytes as hex string
-	fmt.Printf("Config Bytes: %x\n", config)
+	fmt.Printf("DecodeReportingPluginConfig ParseConfig Bytes: %x\n", config)
 
 	reportingPluginConfigWrapper, err := DecodeReportingPluginConfig(config)
 	if err != nil {
@@ -64,6 +67,10 @@ func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig
 	fmt.Printf("Reporting Plugin Config Wrapper %+v\n", reportingPluginConfigWrapper)
 
 	thresholdPluginConfig := reportingPluginConfigWrapper.Config.ThresholdPluginConfig
+
+	if thresholdPluginConfig == nil {
+		return nil, fmt.Errorf("PluginConfig bytes %x did not contain threshold plugin config", config)
+	}
 
 	fmt.Printf("Threshold Plugin Config %+v\n", thresholdPluginConfig)
 
