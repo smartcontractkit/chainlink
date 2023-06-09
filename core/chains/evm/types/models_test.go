@@ -2,7 +2,6 @@ package types_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -370,71 +369,6 @@ func TestHead_MarshalJSON(t *testing.T) {
 			require.Equal(t, test.expected, string(bs))
 		})
 	}
-}
-
-func Test_EvmAccessList(t *testing.T) {
-	addr := testutils.NewAddress()
-	storageKey := utils.NewHash()
-	al := gethTypes.AccessList{{Address: addr, StorageKeys: []common.Hash{storageKey}}}
-	alb, err := json.Marshal(al)
-	require.NoError(t, err)
-	jsonStr := fmt.Sprintf(`[{"address":"0x%s","storageKeys":["%s"]}]`, hex.EncodeToString(addr.Bytes()), storageKey.Hex())
-	require.Equal(t, jsonStr, string(alb))
-
-	nNull := txmgr.EvmAccessList{}
-	nValid := txmgr.EvmAccessListFrom(al)
-
-	t.Run("MarshalJSON", func(t *testing.T) {
-		_, err := json.Marshal(nNull)
-		require.NoError(t, err)
-		assert.Nil(t, nil)
-
-		b, err := json.Marshal(nValid)
-		require.NoError(t, err)
-		assert.Equal(t, alb, b)
-	})
-
-	t.Run("UnmarshalJSON", func(t *testing.T) {
-		var n txmgr.EvmAccessList
-		err := json.Unmarshal(nil, &n)
-		require.EqualError(t, err, "unexpected end of JSON input")
-
-		err = json.Unmarshal([]byte("null"), &n)
-		require.NoError(t, err)
-		assert.False(t, n.Valid)
-
-		err = json.Unmarshal([]byte(jsonStr), &n)
-		require.NoError(t, err)
-		assert.True(t, n.Valid)
-		assert.Equal(t, al, n.AccessList)
-	})
-
-	t.Run("Value", func(t *testing.T) {
-		value, err := nNull.Value()
-		require.NoError(t, err)
-		assert.Nil(t, value)
-
-		value, err = nValid.Value()
-		require.NoError(t, err)
-		assert.NotNil(t, value)
-		assert.Equal(t, alb, value)
-	})
-
-	t.Run("Scan", func(t *testing.T) {
-		n := new(txmgr.EvmAccessList)
-		err := n.Scan(nil)
-		require.NoError(t, err)
-		assert.False(t, n.Valid)
-
-		err = n.Scan([]byte("null"))
-		require.NoError(t, err)
-		assert.False(t, n.Valid)
-
-		err = n.Scan([]byte(jsonStr))
-		require.NoError(t, err)
-		assert.True(t, n.Valid)
-		assert.Equal(t, al, n.AccessList)
-	})
 }
 
 const gethSampleBlock = `

@@ -39,8 +39,6 @@ import (
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -520,15 +518,15 @@ func (_m *Application) Stop() error {
 }
 
 // TxmStorageService provides a mock function with given fields:
-func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList] {
+func (_m *Application) TxmStorageService() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee] {
 	ret := _m.Called()
 
-	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]
-	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList]); ok {
+	var r0 txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee]
+	if rf, ok := ret.Get(0).(func() txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee, txmgr.EvmAccessList])
+			r0 = ret.Get(0).(txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee])
 		}
 	}
 
