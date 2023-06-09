@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/smartcontractkit/ocr2vrf/types/hash"
 	"github.com/smartcontractkit/sqlx"

@@ -37,13 +37,6 @@ func (g *generalConfig) PyroscopeAuthToken() string {
 	return string(*g.secrets.Pyroscope.AuthToken)
 }
 
-func (g *generalConfig) PrometheusAuthToken() string {
-	if g.secrets.Prometheus.AuthToken == nil {
-		return ""
-	}
-	return string(*g.secrets.Prometheus.AuthToken)
-}
-
 func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
 		return &models.MercuryCredentials{

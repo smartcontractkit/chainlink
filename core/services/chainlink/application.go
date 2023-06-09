@@ -225,7 +225,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.PyroscopeServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg)
+		profiler, err = logger.StartPyroscope(cfg, cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -233,10 +233,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
+	ap := cfg.AutoPprof()
 	var nurse *services.Nurse
-	if cfg.AutoPprofEnabled() {
+	if ap.Enabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(ap, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -252,18 +253,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.ExplorerURL() != nil && cfg.TelemetryIngress().URL() != nil {
+	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
 		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
-	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
+	if cfg.Explorer().URL() != nil {
+		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
 	ticfg := cfg.TelemetryIngress()
 	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.ExplorerURL() == nil && ticfg.URL() != nil {
+	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
 		if ticfg.UseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
 				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
@@ -298,8 +299,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
@@ -419,8 +420,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.StarkNetEnabled() {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
-		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), cfg.Database(), registrarConfig)
+		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -444,6 +445,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
+			cfg.Insecure(),
 			relayers,
 		)
 	} else {
@@ -475,6 +477,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.Database(),
 			chains.EVM,
@@ -499,7 +502,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
+		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
 		ExternalInitiatorManager: externalInitiatorManager,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
@@ -842,8 +845,8 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
-	rpid := app.Config.RPID()
-	rporigin := app.Config.RPOrigin()
+	rpid := app.Config.WebServer().MFA().RPID()
+	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}

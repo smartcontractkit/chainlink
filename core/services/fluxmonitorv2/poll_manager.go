@@ -80,15 +80,6 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
 
-	var drumbeatTicker utils.CronTicker
-	var err error
-	if cfg.DrumbeatEnabled {
-		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	p := &PollManager{
 		cfg:    cfg,
 		logger: logger.Named("PollManager"),
@@ -98,8 +89,14 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
-		drumbeat:         drumbeatTicker,
 		chPoll:           make(chan PollRequest),
+	}
+	var err error
+	if cfg.DrumbeatEnabled {
+		p.drumbeat, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
+		if err != nil {
+			return nil, err
+		}
 	}
 	p.isHibernating.Store(cfg.IsHibernating)
 	return p, nil

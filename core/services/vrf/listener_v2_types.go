@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -159,8 +160,8 @@ func (lsn *listenerV2) processBatch(
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
 			FeeLimit:       totalGasLimitBumped,
-			Strategy:       txmgr.NewSendEveryStrategy(),
-			Meta: &txmgr.EthTxMeta{
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
+			Meta: &txmgr.EvmTxMeta{
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLinkStr,
 				SubID:           &subID,

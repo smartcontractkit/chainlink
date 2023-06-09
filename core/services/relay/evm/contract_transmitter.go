@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -30,13 +30,13 @@ type ContractTransmitter interface {
 var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EvmTxMeta) error
 	FromAddress() gethcommon.Address
 }
 
-type ReportToEthMetadata func([]byte) (*txmgr.EthTxMeta, error)
+type ReportToEthMetadata func([]byte) (*txmgr.EvmTxMeta, error)
 
-func reportToEthTxMetaNoop([]byte) (*txmgr.EthTxMeta, error) {
+func reportToEvmTxMetaNoop([]byte) (*txmgr.EvmTxMeta, error) {
 	return nil, nil
 }
 
@@ -48,7 +48,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
-	reportToEthTxMeta   ReportToEthMetadata
+	reportToEvmTxMeta   ReportToEthMetadata
 }
 
 func transmitterFilterName(addr common.Address) string {
@@ -62,7 +62,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	reportToEthTxMeta ReportToEthMetadata,
+	reportToEvmTxMeta ReportToEthMetadata,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
@@ -73,8 +73,8 @@ func NewOCRContractTransmitter(
 	if err != nil {
 		return nil, err
 	}
-	if reportToEthTxMeta == nil {
-		reportToEthTxMeta = reportToEthTxMetaNoop
+	if reportToEvmTxMeta == nil {
+		reportToEvmTxMeta = reportToEvmTxMetaNoop
 	}
 	return &contractTransmitter{
 		contractAddress:     address,
@@ -84,7 +84,7 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                lggr.Named("OCRContractTransmitter"),
-		reportToEthTxMeta:   reportToEthTxMeta,
+		reportToEvmTxMeta:   reportToEvmTxMeta,
 	}, nil
 }
 
@@ -104,7 +104,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	txMeta, err := oc.reportToEthTxMeta(report)
+	txMeta, err := oc.reportToEvmTxMeta(report)
 	if err != nil {
 		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
 	}

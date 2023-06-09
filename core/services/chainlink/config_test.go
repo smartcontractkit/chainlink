@@ -298,6 +298,8 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           ptr(true),
 		SessionTimeout:          models.MustNewDuration(time.Hour),
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
+		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
+		StartTimeout:            models.MustNewDuration(15 * time.Second),
 		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -702,6 +704,8 @@ HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -1268,7 +1272,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
+	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
 	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
@@ -1383,7 +1387,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			for _, fs := range tt.from {
 				var f Config
 				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
-				c.SetFrom(&f)
+				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
 			require.NoError(t, err)

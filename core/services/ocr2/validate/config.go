@@ -3,7 +3,7 @@ package validate
 import (
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -15,13 +15,16 @@ import (
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config
-	OCRDevelopmentMode() bool
 	MercuryCredentials(credName string) *models.MercuryCredentials
 	ThresholdKeyShare() string
 }
 
+type InsecureConfig interface {
+	OCRDevelopmentMode() bool
+}
+
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
+func ToLocalConfig(config Config, insConf InsecureConfig, spec job.OCR2OracleSpec) types.LocalConfig {
 	var (
 		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
 		ccConfirmations       = spec.ContractConfigConfirmations
@@ -43,7 +46,7 @@ func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
 		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
 	}
-	if config.OCRDevelopmentMode() {
+	if insConf.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
 		// For example to lower contractConfigTrackerPollInterval to speed up tests.
 		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode

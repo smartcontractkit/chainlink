@@ -6,14 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
-
-// TODO: Replace this value with the proper value in
-// libocr/offchainreporting2/types later!
-const ConfigDigestPrefixMercuryV02 types.ConfigDigestPrefix = 6
 
 // Originally sourced from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/offchain_config_digester.go
 
@@ -68,7 +64,5 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 }
 
 func (d OffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
-	// TODO: Replace this value with the proper value in
-	// libocr/offchainreporting2/types later!
-	return ConfigDigestPrefixMercuryV02, nil
+	return types.ConfigDigestPrefixMercuryV02, nil
 }

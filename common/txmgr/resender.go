@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -41,7 +42,7 @@ type Resender[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	ADD any,
 ] struct {
@@ -65,7 +66,7 @@ func NewResender[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	ADD any,
 ](
@@ -140,7 +141,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) resen
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
 	for _, k := range enabledAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
-		attempts, err = er.txStore.FindEthTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 		}
@@ -190,7 +191,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R, ADD]) logSt
 			if time.Since(oldestAttempt.CreatedAt) > er.config.TxResendAfterThreshold()*2 {
 				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
 				er.logger.Errorw("TxAttempt has been unconfirmed for more than max duration", "maxDuration", er.config.TxResendAfterThreshold()*2,
-					"txID", oldestAttempt.TxID, "txFee", oldestAttempt.Fee(),
+					"txID", oldestAttempt.TxID, "txFee", oldestAttempt.TxFee,
 					"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
 			}
 		}
@@ -203,7 +204,7 @@ func findOldestUnconfirmedAttempt[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ](attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], bool) {
 	var oldestAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]

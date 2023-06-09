@@ -65,13 +65,14 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230606192102-72eb65f16e5e
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230606234201-cca3103bf8a6
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230531071550-c058f7c3964f
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482
-	github.com/smartcontractkit/libocr v0.0.0-20230525150148-a75f6e244bb3
-	github.com/smartcontractkit/ocr2keepers v0.6.15
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230605190626-969219bf1df9
+	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
+	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230607110245-0809f2a4a41d
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230607140106-3de6d0aed120
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230526143804-20ea6fd3d0dc
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
@@ -84,7 +85,7 @@ require (
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.13
 	go.dedis.ch/fixbuf v1.0.3
-	go.dedis.ch/kyber/v3 v3.0.14
+	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.9.0
@@ -310,7 +311,8 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230523211009-fd9406f09967 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect

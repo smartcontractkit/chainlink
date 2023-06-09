@@ -60,11 +60,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-var prometheus *ginprom.Prometheus
-var initOnce sync.Once
+var (
+	initGlobalsOnce sync.Once
+	prometheus      *ginprom.Prometheus
+	grpcOpts        loop.GRPCOpts
+)
 
-func initPrometheus(cfg config.Prometheus) {
-	prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.PrometheusAuthToken()))
+func initGlobals(cfg config.Prometheus) {
+	// Avoid double initializations.
+	initGlobalsOnce.Do(func() {
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
+		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+	})
 }
 
 var (
@@ -125,11 +132,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	// Avoid double initializations.
-	initOnce.Do(func() {
-		initPrometheus(cfg)
-	})
-	grpcOpts := loop.SetupTelemetry(nil) // default prometheus.Registerer
+	initGlobals(cfg.Prometheus())
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
 	if err != nil {
@@ -279,7 +282,7 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            solLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: r,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
@@ -331,7 +334,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:            starkLggr.Name(),
 			Cmd:           cmdName,
-			LoggingConfig: r,
+			LoggingConfig: r.Log(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
@@ -439,7 +442,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	config := app.GetConfig()
 
 	mode := gin.ReleaseMode
-	if !build.IsProd() && config.LogLevel() < zapcore.InfoLevel {
+	if !build.IsProd() && config.Log().Level() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
@@ -451,7 +454,8 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
-	if config.Port() == 0 && config.TLSPort() == 0 {
+	ws := config.WebServer()
+	if ws.HTTPPort() == 0 && ws.TLS().HTTPSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
 	}
 
@@ -462,20 +466,21 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.WebDefaultHTTPTimeout().Duration()
-	if config.Port() != 0 {
+	timeoutDuration := config.WebServer().StartTimeout()
+	if ws.HTTPPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
-			return server.run(config.Port(), config.HTTPServerWriteTimeout())
+			return server.run(ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
 		})
 	}
 
-	if config.TLSPort() != 0 {
+	tls := config.WebServer().TLS()
+	if tls.HTTPSPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
-				config.TLSPort(),
-				config.CertFile(),
-				config.KeyFile(),
-				config.HTTPServerWriteTimeout())
+				tls.HTTPSPort(),
+				tls.CertFile(),
+				tls.KeyFile(),
+				config.WebServer().HTTPWriteTimeout())
 		})
 	}
 

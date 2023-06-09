@@ -518,7 +518,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
-	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
 
@@ -664,8 +664,8 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 	return cmd.ClientOpts{RemoteNodeURL: *MustParseURL(ta.t, ta.Server.URL), InsecureSkipVerify: true}
 }
 
-// NewClientAndRenderer creates a new cmd.Client for the test application
-func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
+// NewShellAndRenderer creates a new cmd.Shell for the test application
+func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
@@ -685,7 +685,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Shell {
+func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
 	client := &cmd.Shell{

@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -20,7 +21,7 @@ type TxAttemptBuilder[
 	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
 	R ChainReceipt[TX_HASH, BLOCK_HASH], //  R - chain receipt type
 	SEQ Sequence, // SEQ - chain sequence/nonce type
-	FEE Fee, // FEE - chain fee type
+	FEE feetypes.Fee, // FEE - chain fee type
 	ADD any, // additional parameter within Tx to pass extra information
 ] interface {
 	// interfaces for running the underlying estimator
@@ -28,14 +29,14 @@ type TxAttemptBuilder[
 	types.HeadTrackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
-	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, opts ...Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
+	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, opts ...feetypes.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
 
 	// NewTxAttemptWithType builds a transaction using the configured fee estimator (new estimation) + passed in tx type
-	NewTxAttemptWithType(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, txType int, opts ...Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
+	NewTxAttemptWithType(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger, txType int, opts ...feetypes.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, feeLimit uint32, retryable bool, err error)
 
 	// NewBumpTxAttempt builds a transaction using the configured fee estimator (bumping) + tx type from previous attempt
 	// this should only be used after an initial attempt has been broadcast and the underlying gas estimator only needs to bump the fee
-	NewBumpTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], previousAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], priorAttempts []PriorAttempt[FEE, TX_HASH], lggr logger.Logger) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], bumpedFee FEE, bumpedFeeLimit uint32, retryable bool, err error)
+	NewBumpTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], previousAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], priorAttempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], lggr logger.Logger) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], bumpedFee FEE, bumpedFeeLimit uint32, retryable bool, err error)
 
 	// NewCustomTxAttempt builds a transaction using the passed in fee + tx type
 	NewCustomTxAttempt(tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], retryable bool, err error)

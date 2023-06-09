@@ -11,7 +11,7 @@ import (
 
 // BootstrapNodeCmd launches a chainlink node with a bootstrap job
 var BootstrapNodeCmd = &cobra.Command{
-	Use:   "bootstrap [address] [ui-port] [p2pv2-port]",
+	Use:   "bootstrap [ui-port] [p2pv2-port]",
 	Short: "Setup a bootstrap node.",
 	Long:  `This commands launches a chainlink node inside the docker container and sets up the bootstrap job`,
 	Run: func(cmd *cobra.Command, args []string) {

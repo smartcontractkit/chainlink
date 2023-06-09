@@ -1,17 +1,19 @@
-package gateway
+package handlers
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // UserCallbackPayload is a response to user request sent to HandleUserMessage().
 // Each message needs to receive at most one response on the provided channel.
 type UserCallbackPayload struct {
-	Msg     *Message
-	ErrCode ErrorCode
+	Msg     *api.Message
+	ErrCode api.ErrorCode
 	ErrMsg  string
 }
 
@@ -31,10 +33,16 @@ type Handler interface {
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
 	//   2. waits on callbackCh with a timeout
-	HandleUserMessage(ctx context.Context, msg *Message, callbackCh chan<- UserCallbackPayload) error
+	HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage
-	HandleNodeMessage(ctx context.Context, msg *Message, nodeAddr string) error
+	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
+}
+
+// Representation of a DON from a Handler's perspective.
+type DON interface {
+	// Thread-safe
+	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
 }
 
 type HandlerType = string
@@ -43,10 +51,10 @@ const (
 	Dummy HandlerType = "dummy"
 )
 
-func NewHandler(handlerType HandlerType, donConfig *DONConfig, connMgr DONConnectionManager) (Handler, error) {
+func NewHandler(handlerType HandlerType, donConfig *config.DONConfig, don DON) (Handler, error) {
 	switch handlerType {
 	case Dummy:
-		return NewDummyHandler(donConfig, connMgr)
+		return NewDummyHandler(donConfig, don)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

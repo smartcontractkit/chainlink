@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -61,7 +62,7 @@ type TransmitCheckerFactory[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
@@ -75,7 +76,7 @@ type TransmitChecker[
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ] interface {
 
@@ -107,7 +108,7 @@ type Broadcaster[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any, // additional parameter used in tx construction
 	FEE_UNIT txmgrtypes.Unit, // base fee unit type
 ] struct {
@@ -157,7 +158,7 @@ func NewBroadcaster[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 	FEE_UNIT txmgrtypes.Unit,
 ](
@@ -480,11 +481,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 			return retryable, errors.Wrap(err, "processUnstartedTxs failed on NewAttempt")
 		}
 
-		if err := eb.txStore.UpdateEthTxUnstartedToInProgress(etx, &a); errors.Is(err, ErrEthTxRemoved) {
+		if err := eb.txStore.UpdateTxUnstartedToInProgress(etx, &a); errors.Is(err, ErrEthTxRemoved) {
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return true, errors.Wrap(err, "processUnstartedTxs failed on UpdateEthTxUnstartedToInProgress")
+			return true, errors.Wrap(err, "processUnstartedTxs failed on UpdateTxUnstartedToInProgress")
 		}
 
 		if err, retryable := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
@@ -496,7 +497,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) handleAnyInProgressEthTx(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
-	etx, err := eb.txStore.GetEthTxInProgress(fromAddress)
+	etx, err := eb.txStore.GetTxInProgress(fromAddress)
 	if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed"), true
 	}
@@ -521,7 +522,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) handleInProgressEthTx(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], initialBroadcastAt time.Time) (error, bool) {
-	if etx.State != EthTxInProgress {
+	if etx.State != TxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
 
@@ -535,7 +536,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		return errors.Wrap(err, "building transmit checker"), false
 	}
 
-	lgr := etx.GetLogger(eb.logger.With("fee", attempt.Fee()))
+	lgr := etx.GetLogger(eb.logger.With("fee", attempt.TxFee))
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
@@ -606,7 +607,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		// and hand off to the eth confirmer to get the receipt (or mark as
 		// failed).
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
+		return eb.txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 			return eb.incrementNextNonceAtomic(tx, etx)
 		}), true
 	case clienttypes.Underpriced:
@@ -653,7 +654,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 			// Despite the error, the RPC node considers the previously sent
 			// transaction to have been accepted. In this case, the right thing to
 			// do is assume success and hand off to EthConfirmer
-			return eb.txStore.UpdateEthTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
+			return eb.txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(tx pg.Queryer) error {
 				return eb.incrementNextNonceAtomic(tx, etx)
 			}), true
 		}
@@ -691,13 +692,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], initialBroadcastAt time.Time) (err error, retryable bool) {
 	lgr.With(
 		"sendError", txError,
-		"attemptFee", attempt.Fee(),
+		"attemptFee", attempt.TxFee,
 		"maxGasPriceConfig", eb.config.MaxFeePrice(),
 	).Errorf("attempt fee %v was rejected by the node for being too low. "+
 		"Node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
-		attempt.Fee(), txError.Error(), eb.config.FeePriceDefault().String())
+		attempt.TxFee, txError.Error(), eb.config.FeePriceDefault().String())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
@@ -714,7 +715,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 		return err, false
 	}
 
-	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, txmgrtypes.OptForceRefetch)
+	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, feetypes.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to build new attempt"), retryable
 	}
@@ -728,12 +729,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 	if err = eb.txStore.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithNewFee failed"), true
 	}
-	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.Fee().String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) error {
-	if etx.State != EthTxInProgress {
+	if etx.State != TxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
@@ -759,7 +760,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, AD
 			return errors.Wrap(err, "failed to resume pipeline")
 		}
 	}
-	return eb.txStore.UpdateEthTxFatalError(etx)
+	return eb.txStore.UpdateTxFatalError(etx)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UNIT]) getNextNonce(address ADDR) (nonce SEQ, err error) {

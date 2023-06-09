@@ -8,7 +8,6 @@ import (
 
 type Config interface {
 	config.OCR2Config
-	OCRDevelopmentMode() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	MercuryCredentials(credName string) *ocr2models.MercuryCredentials
@@ -18,4 +17,8 @@ type Config interface {
 
 type JobConfig interface {
 	DefaultHTTPTimeout() models.Duration
+}
+
+type InsecureConfig interface {
+	OCRDevelopmentMode() bool
 }
