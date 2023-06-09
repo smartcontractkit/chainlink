@@ -332,7 +332,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 }
 
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config)
+	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password())
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
