@@ -58,7 +58,7 @@ interface IFunctionsSubscriptions {
 
   /**
    * @notice Moves funds from one subscription account to another.
-   * @dev Only callable by a route
+   * @dev Only callable by the Coordinator contract that is saved in the request commitment  
    * @param requestId - The ID of the request
    * @param to - The address to pay funds to, allowing them to withdraw
    * @param amount - The amount to transfer

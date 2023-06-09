@@ -12,12 +12,11 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
-  LinkTokenInterface private LINK;
+  // Reentrancy protection.
+  bool internal s_reentrancyLock;
+  error Reentrant();
 
-  // We need to maintain a list of consuming addresses.
-  // This bound ensures we are able to loop over them as needed.
-  // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 public constant MAX_CONSUMERS = 100;
+  LinkTokenInterface private LINK;
 
   // ================================================================
   // |                      Subscription state                      |
@@ -36,6 +35,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   mapping(uint64 => IFunctionsSubscriptions.Subscription) /* subscriptionId */ /* subscription */
     private s_subscriptions;
 
+  // We need to maintain a list of addresses that can consume a subscription.
+  // This bound ensures we are able to loop over them as needed.
+  // Should a user require more consumers, they can use multiple subscriptions.
+  uint16 public constant MAX_CONSUMERS = 100;
   mapping(address => mapping(uint64 => IFunctionsSubscriptions.Consumer)) /* consumer */ /* subscriptionId */ /* Consumer data */
     private s_consumers;
 
@@ -47,14 +50,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
-  error Reentrant();
   error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint64 subscriptionId, address consumer);
   error ConsumerRequestsInFlight();
   error InvalidSubscription();
   error OnlyCallableFromLink();
-  error OnlyCallableByCoordinator();
+  error OnlyCallableFromCoordinator();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
   error PendingRequestExists();
@@ -65,16 +67,21 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   mapping(address => uint96) /* oracle node */ /* LINK balance */
     private s_withdrawableTokens;
 
+  // ================================================================
+  // |                       Request state                          |
+  // ================================================================
+
   struct Request {
     address coordinator;
     address client;
     uint64 subscriptionId;
+    uint32 gasLimit;
     uint96 estimatedCost;
     uint256 timeoutTimestamp;
   }
 
   mapping(bytes32 => Request) /* request ID */ /* Request data */
-    private s_requests;
+    internal s_requests;
 
   // ================================================================
   // |                       Initialization                         |
@@ -162,17 +169,19 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function _blockBalance(
     address client,
     uint64 subscriptionId,
+    uint32 gasLimit,
     uint96 amount,
     bytes32 requestId,
     address coordinator,
     uint256 requestTimeoutSeconds
-  ) internal nonReentrant {
+  ) internal {
     s_subscriptions[subscriptionId].blockedBalance += amount;
     s_consumers[client][subscriptionId].initiatedRequests += 1;
     s_requests[requestId] = Request(
       coordinator,
       client,
       subscriptionId,
+      gasLimit,
       amount,
       block.timestamp + requestTimeoutSeconds
     );
@@ -185,11 +194,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     bytes32 requestId,
     address[] memory to,
     uint96[] memory amount
-  ) external nonReentrant {
+  ) external onlyCoordinator(requestId) nonReentrant {
     Request memory request = s_requests[requestId];
-    if (msg.sender != request.coordinator) {
-      revert OnlyCallableByCoordinator();
-    }
+
     if (to.length != amount.length) {
       revert InvalidCalldata();
     }
@@ -202,6 +209,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       revert InsufficientBalance();
     }
 
+    delete s_requests[requestId];
+
     s_subscriptions[request.subscriptionId].balance -= totalAmount;
 
     for (uint16 j = 0; j < to.length; j++) {
@@ -210,8 +219,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
     s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedCost;
     s_consumers[request.client][request.subscriptionId].completedRequests += 1;
-
-    delete s_requests[requestId];
   }
 
   // ================================================================
@@ -510,13 +517,24 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _;
   }
 
+  modifier onlyCoordinator(bytes32 requestId) {
+    if (msg.sender != s_requests[requestId].coordinator) {
+      revert OnlyCallableFromCoordinator();
+    }
+    _;
+  }
+
+  modifier nonReentrant() {
+    if (s_reentrancyLock) {
+      revert Reentrant();
+    }
+    _;
+  }
+
   /**
    * @dev The allow list is kept on the Router contract. This modifier checks if a user is authorized from there.
    */
   modifier onlyAuthorizedUsers() virtual {
-    _;
-  }
-  modifier nonReentrant() virtual {
     _;
   }
   modifier onlyRouterOwner() virtual {

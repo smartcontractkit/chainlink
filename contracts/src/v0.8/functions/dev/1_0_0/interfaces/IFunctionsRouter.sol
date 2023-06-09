@@ -20,7 +20,7 @@ interface IFunctionsRouter is IRouterBase {
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param gasLimit Gas limit for the fulfillment callback
    * @param jobId A jobId that identifies which route to send the request to
-   * @return requestId A unique request identifier (unique per DON)
+   * @return requestId A unique request identifier
    */
   function sendRequest(
     uint64 subscriptionId,
@@ -28,4 +28,18 @@ interface IFunctionsRouter is IRouterBase {
     uint32 gasLimit,
     bytes32 jobId
   ) external returns (bytes32);
+
+  /**
+   * @notice The fee that will be paid to the Router owner for operating the network
+   * @dev Only callable by the Coordinator contract that is saved in the commitment
+   * @param requestId The identifier for the request
+   * @param response response data from DON consensus
+   * @param err error from DON consensus
+   * @return success If the callback to the client contract was successful or not
+   */
+  function callback(
+    bytes32 requestId,
+    bytes memory response,
+    bytes memory err
+  ) external returns (bool success);
 }

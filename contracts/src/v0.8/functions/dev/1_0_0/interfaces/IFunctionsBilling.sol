@@ -81,6 +81,4 @@ interface IFunctionsBilling {
    * @param requestId - The request ID to time out
    */
   function timeoutRequest(bytes32 requestId) external returns (bool);
-
-  function isReentrancyLocked() external returns (bool);
 }
