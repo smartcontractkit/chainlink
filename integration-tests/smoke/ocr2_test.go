@@ -29,7 +29,7 @@ import (
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	testEnvironment, testNetwork := setupOCR2Test(t)
+	testEnvironment, testNetwork := setupOCR2Test(t, false)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -90,7 +90,7 @@ func TestOCRv2Basic(t *testing.T) {
 	)
 }
 
-func setupOCR2Test(t *testing.T) (
+func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
@@ -103,8 +103,14 @@ func setupOCR2Test(t *testing.T) (
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+	var toml string
+	if forwardersEnabled {
+		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
+	} else {
+		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
+	}
 	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
+		"toml": toml,
 	})
 	require.NoError(t, err, "Error creating chainlink deployment")
 
