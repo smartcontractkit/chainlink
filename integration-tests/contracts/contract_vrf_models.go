@@ -128,11 +128,6 @@ type VRFBeacon interface {
 
 type VRFBeaconConsumer interface {
 	Address() string
-	RequestRandomness(
-		numWords uint16,
-		subID, confirmationDelayArg *big.Int,
-	) (*types.Receipt, error)
-	RedeemRandomness(subID, requestID *big.Int) error
 	RequestRandomnessFulfillment(
 		numWords uint16,
 		subID, confirmationDelayArg *big.Int,

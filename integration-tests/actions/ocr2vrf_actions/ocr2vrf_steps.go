@@ -198,42 +198,6 @@ func DeployOCR2VRFContracts(t *testing.T, contractDeployer contracts.ContractDep
 	return dkg, coordinator, vrfBeacon, consumer
 }
 
-func RequestAndRedeemRandomness(
-	t *testing.T,
-	consumer contracts.VRFBeaconConsumer,
-	chainClient blockchain.EVMClient,
-	vrfBeacon contracts.VRFBeacon,
-	numberOfRandomWordsToRequest uint16,
-	subscriptionID,
-	confirmationDelay *big.Int,
-	randomnessTransmissionEventTimeout time.Duration,
-) *big.Int {
-	l := utils.GetTestLogger(t)
-	receipt, err := consumer.RequestRandomness(
-		numberOfRandomWordsToRequest,
-		subscriptionID,
-		confirmationDelay,
-	)
-	require.NoError(t, err, "Error requesting randomness from Consumer Contract")
-	l.Info().Interface("TX Hash", receipt.TxHash).Msg("Randomness requested from Consumer contract")
-
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for TXs to complete")
-
-	requestID := getRequestId(t, consumer, receipt, confirmationDelay)
-
-	newTransmissionEvent, err := vrfBeacon.WaitForNewTransmissionEvent(randomnessTransmissionEventTimeout)
-	require.NoError(t, err, "Error waiting for NewTransmission event from VRF Beacon Contract")
-	l.Info().Interface("NewTransmission event", newTransmissionEvent).Msg("Randomness transmitted by DON")
-
-	err = consumer.RedeemRandomness(subscriptionID, requestID)
-	require.NoError(t, err, "Error redeeming randomness from Consumer Contract")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for TXs to complete")
-
-	return requestID
-}
-
 func RequestRandomnessFulfillmentAndWaitForFulfilment(
 	t *testing.T,
 	consumer contracts.VRFBeaconConsumer,

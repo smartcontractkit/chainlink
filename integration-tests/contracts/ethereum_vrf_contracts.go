@@ -1126,64 +1126,6 @@ func (consumer *EthereumVRFBeaconConsumer) Address() string {
 	return consumer.address.Hex()
 }
 
-func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
-	numWords uint16,
-	subID, confirmationDelayArg *big.Int,
-) (*types.Receipt, error) {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
-	if err != nil {
-		return nil, errors.Wrap(err, "TransactionOpts failed")
-	}
-	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomness(
-		opts,
-		numWords,
-		subID,
-		confirmationDelayArg,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "TestRequestRandomness failed")
-	}
-	err = consumer.client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, errors.Wrap(err, "ProcessTransaction failed")
-	}
-	err = consumer.client.WaitForEvents()
-
-	if err != nil {
-		return nil, errors.Wrap(err, "WaitForEvents failed")
-	}
-	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, errors.Wrap(err, "GetTxReceipt failed")
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Number of Words", numWords).
-		Interface("Number of Confirmations", confirmationDelayArg).
-		Msg("RequestRandomness called")
-	return receipt, nil
-}
-
-func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
-	subID, requestID *big.Int,
-) error {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := consumer.vrfBeaconConsumer.TestRedeemRandomness(
-		opts,
-		subID,
-		requestID,
-	)
-	if err != nil {
-		return err
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Request ID", requestID).
-		Msg("RedeemRandomness called")
-	return consumer.client.ProcessTransaction(tx)
-}
-
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	numWords uint16,
 	subID, confirmationDelayArg *big.Int,
