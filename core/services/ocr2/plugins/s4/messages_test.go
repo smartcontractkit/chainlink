@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
+	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -38,12 +39,14 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 			Version: v.Version,
 		}
 	}
-	data, err := s4.MarshalQuery(snapshot)
+	addressRange := s4_svc.NewFullAddressRange()
+	data, err := s4.MarshalQuery(snapshot, addressRange)
 	assert.NoError(t, err)
 
-	qq, err := s4.UnmarshalQuery(data)
+	qq, ar, err := s4.UnmarshalQuery(data)
 	assert.NoError(t, err)
 	assert.Len(t, qq, n)
+	assert.Equal(t, addressRange, ar)
 }
 
 func Test_VerifySignature(t *testing.T) {

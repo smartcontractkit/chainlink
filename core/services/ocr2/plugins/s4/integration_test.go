@@ -65,7 +65,7 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 	}
 }
 
-func (d *don) executeOCR(ctx context.Context, rounds int) []error {
+func (d *don) simulateOCR(ctx context.Context, rounds int) []error {
 	errors := make([]error, d.size)
 
 	for i := 0; i < rounds && ctx.Err() == nil; i++ {
@@ -162,7 +162,7 @@ func TestS4Integration_HappyDON(t *testing.T) {
 	require.NoError(t, err)
 
 	// S4 to propagate all records in one OCR round
-	errors := don.executeOCR(ctx, 1)
+	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
 	for i := 0; i < don.size; i++ {
@@ -188,7 +188,7 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 	}
 
 	// S4 to propagate all records in one OCR round
-	errors := don.executeOCR(ctx, 1)
+	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
 	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
@@ -222,7 +222,7 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 	require.Len(t, originSnapshot, len(rows)-1)
 
 	// S4 to propagate valid records in one OCR round
-	errors := don.executeOCR(ctx, 1)
+	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
@@ -254,7 +254,7 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 	require.NoError(t, err)
 
 	// It requires at least two rounds due to MaxObservationEntries = rows / 2
-	errors := don.executeOCR(ctx, 2)
+	errors := don.simulateOCR(ctx, 2)
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
@@ -280,7 +280,7 @@ func TestS4Integration_Expired(t *testing.T) {
 
 	// within one round, all records will be GC-ed
 	time.Sleep(testutils.TestInterval)
-	errors := don.executeOCR(ctx, 1)
+	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
 	for i := 0; i < don.size; i++ {
@@ -306,7 +306,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 	require.NoError(t, err)
 
 	// this still requires one round, because Observation takes all unconfirmed rows
-	errors := don.executeOCR(ctx, 1)
+	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
@@ -333,7 +333,7 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 
 	// all records will be propagated to the last node when it is a leader
 	// leader selection is round-robin, so the 4th iteration picks the last node
-	errors := don.executeOCR(ctx, 4)
+	errors := don.simulateOCR(ctx, 4)
 	checkNoErrors(t, errors)
 
 	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
@@ -388,7 +388,7 @@ func TestS4Integration_RandomState(t *testing.T) {
 	}
 
 	// for any state, all nodes should converge to the same snapshot
-	errors := don.executeOCR(ctx, 4)
+	errors := don.simulateOCR(ctx, 4)
 	checkNoErrors(t, errors)
 
 	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))

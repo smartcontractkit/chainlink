@@ -10,8 +10,14 @@ message SnapshotRow {
     uint64 version   = 3;
 }
 
+message AddressRange {
+    bytes minAddress = 1;
+    bytes maxAddress = 2;
+}
+
 message Query {
-    repeated SnapshotRow rows = 1;
+    AddressRange addressRange = 1;
+    repeated SnapshotRow rows = 2;
 }
 
 message Row {

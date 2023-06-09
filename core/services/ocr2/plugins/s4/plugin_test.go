@@ -278,6 +278,8 @@ func TestPlugin_Query(t *testing.T) {
 		query := &s4.Query{}
 		err = proto.Unmarshal(queryBytes, query)
 		assert.NoError(t, err)
+		assert.Equal(t, s4_svc.MinAddress, s4.UnmarshalAddress(query.AddressRange.MinAddress))
+		assert.Equal(t, s4_svc.MaxAddress, s4.UnmarshalAddress(query.AddressRange.MaxAddress))
 
 		compareSnapshotRows(t, query.Rows, rows)
 	})

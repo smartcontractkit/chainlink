@@ -10,22 +10,33 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func MarshalQuery(rows []*SnapshotRow) ([]byte, error) {
+func MarshalQuery(rows []*SnapshotRow, addressRange *s4.AddressRange) ([]byte, error) {
 	rr := &Query{
+		AddressRange: &AddressRange{
+			MinAddress: addressRange.MinAddress.Bytes(),
+			MaxAddress: addressRange.MaxAddress.Bytes(),
+		},
 		Rows: rows,
 	}
 	return proto.Marshal(rr)
 }
 
-func UnmarshalQuery(data []byte) ([]*SnapshotRow, error) {
+func UnmarshalQuery(data []byte) ([]*SnapshotRow, *s4.AddressRange, error) {
+	addressRange := s4.NewFullAddressRange()
 	query := &Query{}
 	if err := proto.Unmarshal(data, query); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if query.Rows == nil {
 		query.Rows = make([]*SnapshotRow, 0)
 	}
-	return query.Rows, nil
+	if query.AddressRange != nil {
+		addressRange = &s4.AddressRange{
+			MinAddress: UnmarshalAddress(query.AddressRange.MinAddress),
+			MaxAddress: UnmarshalAddress(query.AddressRange.MaxAddress),
+		}
+	}
+	return query.Rows, addressRange, nil
 }
 
 func MarshalRows(rows []*Row) ([]byte, error) {

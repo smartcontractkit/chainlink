@@ -68,7 +68,7 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		}
 	}
 
-	queryBytes, err := MarshalQuery(rows)
+	queryBytes, err := MarshalQuery(rows, c.addressRange)
 	if err != nil {
 		return nil, err
 	}
@@ -106,11 +106,11 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 	maxRemainingRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
 	remainingRows := make([]*s4.Row, 0)
 
-	queryRows, err := UnmarshalQuery(query)
+	queryRows, addressRange, err := UnmarshalQuery(query)
 	if err != nil {
 		c.logger.Errorw("Failed to unmarshal query (likely malformed)", "err", err)
 	} else {
-		snapshot, err := c.orm.GetSnapshot(s4.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 		if err != nil {
 			c.logger.Errorw("ORM GetSnapshot error", "err", err)
 		} else {
@@ -124,7 +124,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 			for _, qr := range queryRows {
 				address := UnmarshalAddress(qr.Address)
 				k := key{address: address.String(), slotID: uint(qr.Slotid)}
-				if version, ok := snapshotVersionsMap[k]; ok && version >= qr.Version {
+				if version, ok := snapshotVersionsMap[k]; ok && version > qr.Version {
 					toBeAdded = append(toBeAdded, rkey{address: address, slotID: uint(qr.Slotid)})
 					delete(snapshotVersionsMap, k)
 				}
