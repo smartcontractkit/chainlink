@@ -183,7 +183,6 @@ func New(
 	err = logPoller.RegisterFilter(logpoller.Filter{
 		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
-			t.randomnessRequestedTopic,
 			t.randomnessFulfillmentRequestedTopic,
 			t.randomWordsFulfilledTopic,
 			t.configSetTopic,
@@ -342,7 +341,6 @@ func (c *coordinator) ReportBlocks(
 		int64(currentHeight-c.coordinatorConfig.LookbackBlocks),
 		int64(currentHeight),
 		[]common.Hash{
-			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
 			c.randomWordsFulfilledTopic,
 			c.outputsServedTopic,
@@ -356,8 +354,7 @@ func (c *coordinator) ReportBlocks(
 
 	c.lggr.Tracew("logsWithSigs", "logs", logs)
 
-	randomnessRequestedLogs,
-		randomnessFulfillmentRequestedLogs,
+	randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
 		outputsServedLogs,
 		err := c.unmarshalLogs(logs)
@@ -368,7 +365,6 @@ func (c *coordinator) ReportBlocks(
 
 	c.lggr.Tracew(
 		"finished unmarshalLogs",
-		"RandomnessRequested", randomnessRequestedLogs,
 		"RandomnessFulfillmentRequested", randomnessFulfillmentRequestedLogs,
 		"RandomWordsFulfilled", randomWordsFulfilledLogs,
 		"OutputsServed", outputsServedLogs,
@@ -383,7 +379,6 @@ func (c *coordinator) ReportBlocks(
 	// Get blockhashes that pertain to requested blocks.
 	blockhashesMapping, err := c.getBlockhashesMappingFromRequests(
 		ctx,
-		randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		currentHeight,
 		recentBlockHashesStartHeight,
@@ -400,17 +395,6 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	blocksRequested := make(map[block]struct{})
-	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
-	if err != nil {
-		err = errors.Wrap(err, "filter requests in ReportBlocks")
-		return
-	}
-	for _, uf := range unfulfilled {
-		blocksRequested[uf] = struct{}{}
-	}
-
-	c.lggr.Tracew("filtered eligible randomness requests", "blocks", unfulfilled)
-
 	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
 		err = errors.Wrap(err, "filter callbacks in ReportBlocks")
@@ -468,7 +452,6 @@ func (c *coordinator) ReportBlocks(
 // getBlockhashesMappingFromRequests returns the blockhashes for enqueued request blocks.
 func (c *coordinator) getBlockhashesMappingFromRequests(
 	ctx context.Context,
-	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	currentHeight uint64,
 	recentBlockHashesStartHeight uint64,
@@ -476,19 +459,6 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 
 	// Get all request + callback requests into a mapping.
 	rawBlocksRequested := make(map[uint64]struct{})
-	for _, l := range randomnessRequestedLogs {
-		if isBlockEligible(l.NextBeaconOutputHeight, l.ConfDelay, currentHeight) {
-			rawBlocksRequested[l.NextBeaconOutputHeight] = struct{}{}
-
-			// Also get the blockhash for the most recent cached report on this block,
-			// if one exists.
-			cacheKey := getBlockCacheKey(l.NextBeaconOutputHeight, l.ConfDelay.Uint64())
-			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
-			if t != nil {
-				rawBlocksRequested[t.recentBlockHeight] = struct{}{}
-			}
-		}
-	}
 	for _, l := range randomnessFulfillmentRequestedLogs {
 		if isBlockEligible(l.NextBeaconOutputHeight, l.ConfDelay, currentHeight) {
 			rawBlocksRequested[l.NextBeaconOutputHeight] = struct{}{}
@@ -697,54 +667,9 @@ func (c *coordinator) filterEligibleCallbacks(
 	return
 }
 
-// filterEligibleRandomnessRequests extracts valid randomness requests from the given logs,
-// based on their readiness to be fulfilled.
-func (c *coordinator) filterEligibleRandomnessRequests(
-	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
-	confirmationDelays map[uint32]struct{},
-	currentHeight uint64,
-	blockhashesMapping map[uint64]common.Hash,
-) (unfulfilled []block, err error) {
-
-	for _, r := range randomnessRequestedLogs {
-		// The on-chain machinery will revert requests that specify an unsupported
-		// confirmation delay, so this is more of a sanity check than anything else.
-		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
-			// if we can't find the conf delay in the map then just ignore this request
-			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
-				"confDelay", r.ConfDelay.String(),
-				"supportedConfDelays", confirmationDelays)
-			continue
-		}
-
-		// Check that the block is elligible.
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			cacheKey := getBlockCacheKey(r.NextBeaconOutputHeight, r.ConfDelay.Uint64())
-			t := c.toBeTransmittedBlocks.GetItem(cacheKey)
-			// If the block is found in the cache and the recentBlockHash from the report containing the block
-			// is correct, then the block is in-flight and should not be included in the current observation. If that
-			// report gets re-orged, then the recentBlockHash of the report will become invalid, in which case
-			// the cached block is ignored and the block is added to the current observation.
-			validTransmission := (t != nil) && (t.recentBlockHash == blockhashesMapping[t.recentBlockHeight])
-			if validTransmission {
-				c.lggr.Debugw("Block is in-flight", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
-				continue
-			}
-
-			unfulfilled = append(unfulfilled, block{
-				blockNumber: r.NextBeaconOutputHeight,
-				confDelay:   uint32(r.ConfDelay.Uint64()),
-			})
-			c.lggr.Debugw("Block is eligible", "blockNumber", r.NextBeaconOutputHeight, "confDelay", r.ConfDelay)
-		}
-	}
-	return
-}
-
 func (c *coordinator) unmarshalLogs(
 	logs []logpoller.Log,
 ) (
-	randomnessRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessRequested,
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested,
 	randomWordsFulfilledLogs []*vrf_wrapper.VRFCoordinatorRandomWordsFulfilled,
 	outputsServedLogs []*vrf_wrapper.VRFCoordinatorOutputsServed,
@@ -753,20 +678,6 @@ func (c *coordinator) unmarshalLogs(
 	for _, lg := range logs {
 		rawLog := toGethLog(lg)
 		switch lg.EventSig {
-		case c.randomnessRequestedTopic:
-			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
-			if err2 != nil {
-				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
-				return
-			}
-			rr, ok := unpacked.(*vrf_wrapper.VRFCoordinatorRandomnessRequested)
-			if !ok {
-				// should never happen
-				err = errors.New("cast to *VRFCoordinatorRandomnessRequested")
-				return
-			}
-			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
 		case c.randomnessFulfillmentRequestedTopic:
 			unpacked, err2 := c.onchainRouter.ParseLog(rawLog)
 			if err2 != nil {
@@ -811,7 +722,6 @@ func (c *coordinator) unmarshalLogs(
 		default:
 			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", lg.EventSig))
 			c.lggr.Error(fmt.Sprintf("expected one of: %s (RandomnessRequested) %s (RandomnessFulfillmentRequested) %s (RandomWordsFulfilled) %s (OutputsServed), got %s",
-				hexutil.Encode(c.randomnessRequestedTopic[:]),
 				hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
 				hexutil.Encode(c.randomWordsFulfilledTopic[:]),
 				hexutil.Encode(c.outputsServedTopic[:]),

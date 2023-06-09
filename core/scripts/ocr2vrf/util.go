@@ -416,45 +416,6 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 	return o
 }
 
-func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID, confDelay *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
-
-	tx, err := coordinator.RequestRandomness(e.Owner, confDelay, numWords, confDelay, nil)
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID, subID *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
-
-	tx, err := coordinator.RedeemRandomness(e.Owner, subID, requestID, nil)
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string, numWords uint16, subID, confDelay *big.Int) *big.Int {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
-
-	tx, err := consumer.TestRequestRandomness(e.Owner, numWords, subID, confDelay)
-	helpers.PanicErr(err)
-	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-
-	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
-	helpers.PanicErr(err)
-
-	blockNumber := receipt.BlockNumber
-	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
-	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
-
-	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
-
-	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-	helpers.PanicErr(err)
-	fmt.Println("requestID: ", requestID)
-
-	return requestID
-}
-
 func readRandomness(
 	e helpers.Environment,
 	consumerAddress string,
@@ -496,16 +457,6 @@ func requestRandomnessCallback(
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
-}
-
-func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, subID, requestID *big.Int, numWords int64) {
-	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
-
-	tx, err := consumer.TestRedeemRandomness(e.Owner, subID, requestID)
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-
-	printRandomnessFromConsumer(consumer, requestID, numWords)
 }
 
 func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer, requestID *big.Int, numWords int64) {

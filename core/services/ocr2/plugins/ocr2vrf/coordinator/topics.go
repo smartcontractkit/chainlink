@@ -8,7 +8,6 @@ import (
 )
 
 type topics struct {
-	randomnessRequestedTopic            common.Hash
 	randomnessFulfillmentRequestedTopic common.Hash
 	randomWordsFulfilledTopic           common.Hash
 	configSetTopic                      common.Hash
@@ -18,7 +17,6 @@ type topics struct {
 
 func newTopics() topics {
 	return topics{
-		randomnessRequestedTopic:            vrf_coordinator.VRFCoordinatorRandomnessRequested{}.Topic(),
 		randomnessFulfillmentRequestedTopic: vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested{}.Topic(),
 		randomWordsFulfilledTopic:           vrf_coordinator.VRFCoordinatorRandomWordsFulfilled{}.Topic(),
 		configSetTopic:                      vrf_beacon.VRFBeaconConfigSet{}.Topic(),

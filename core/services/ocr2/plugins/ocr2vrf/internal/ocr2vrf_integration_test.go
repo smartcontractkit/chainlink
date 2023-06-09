@@ -537,22 +537,6 @@ linkEthFeedAddress     	= "%s"
 	require.NoError(t, err)
 	require.Equal(t, assets.Ether(5).ToInt(), initialSub.Balance)
 
-	// Send a beacon VRF request and mine it
-	_, err = uni.consumer.TestRequestRandomness(uni.owner, 2, uni.subID, big.NewInt(1))
-	require.NoError(t, err)
-	uni.backend.Commit()
-
-	redemptionRequestID, err := uni.consumer.SMostRecentRequestID(nil)
-	require.NoError(t, err)
-
-	// There is no premium on this request, so the cost of the request should have been:
-	// = (request overhead) * (gas price) / (LINK/ETH ratio)
-	// = (50_000 * 1 Gwei) / .01
-	// = 5_000_000 GJuels
-	subAfterBeaconRequest, err := uni.coordinator.GetSubscription(nil, uni.subID)
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(initialSub.Balance.Int64()-assets.GWei(5_000_000).Int64()), subAfterBeaconRequest.Balance)
-
 	// Send a fulfillment VRF request and mine it
 	_, err = uni.consumer.TestRequestRandomnessFulfillment(uni.owner, uni.subID, 1, big.NewInt(2), 100_000, []byte{})
 	require.NoError(t, err)
@@ -567,7 +551,7 @@ linkEthFeedAddress     	= "%s"
 	// = 15_000_000 GJuels
 	subAfterFulfillmentRequest, err := uni.coordinator.GetSubscription(nil, uni.subID)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(subAfterBeaconRequest.Balance.Int64()-assets.GWei(15_000_000).Int64()), subAfterFulfillmentRequest.Balance)
+	require.Equal(t, big.NewInt(initialSub.Balance.Int64()-assets.GWei(15_000_000).Int64()), subAfterFulfillmentRequest.Balance)
 
 	// Send two batched fulfillment VRF requests and mine them
 	_, err = uni.loadTestConsumer.TestRequestRandomnessFulfillmentBatch(uni.owner, uni.subID, 1, big.NewInt(2), 200_000, []byte{}, big.NewInt(2))
@@ -593,14 +577,6 @@ linkEthFeedAddress     	= "%s"
 	t.Log("waiting for fulfillment")
 
 	var balanceAfterRefund *big.Int
-	// poll until we're able to redeem the randomness without reverting
-	// at that point, it's been fulfilled
-	gomega.NewWithT(t).Eventually(func() bool {
-		_, err := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
-		t.Logf("TestRedeemRandomness err: %+v", err)
-		return err == nil
-	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
-
 	gomega.NewWithT(t).Eventually(func() bool {
 		// Ensure a refund is provided. Refund amount comes out to ~20_500_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
@@ -715,12 +691,6 @@ linkEthFeedAddress     	= "%s"
 	gomega.NewWithT(t).Eventually(func() bool {
 
 		var errs []error
-		rw1, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(0))
-		t.Logf("TestRedeemRandomness 1st word err: %+v", err)
-		errs = append(errs, err)
-		rw2, err := uni.consumer.SReceivedRandomnessByRequestID(nil, redemptionRequestID, big.NewInt(1))
-		t.Logf("TestRedeemRandomness 2nd word err: %+v", err)
-		errs = append(errs, err)
 		rw3, err := uni.consumer.SReceivedRandomnessByRequestID(nil, fulfillmentRequestID, big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err)
 		errs = append(errs, err)
@@ -743,7 +713,6 @@ linkEthFeedAddress     	= "%s"
 		}
 		t.Logf("Batch FulfillRandomness total requests/fulfillments equal err: %+v", err)
 
-		t.Logf("randomness from redeemRandomness: %s %s", rw1.String(), rw2.String())
 		t.Logf("randomness from fulfillRandomness: %s", rw3.String())
 		t.Logf("randomness from batch fulfillRandomness: %s %s", rw4.String(), rw5.String())
 		t.Logf("total batch requested and fulfilled: %d %d", batchTotalRequests, batchTotalFulfillments)
