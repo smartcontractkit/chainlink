@@ -79,7 +79,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*30)
+	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*10)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -88,9 +88,9 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCRw contract to be 5 but got %d", answer.Int64())
 
-	err = actions.SetAllAdapterResponsesToTheSameValueOCR2(10, ocrInstances, workerNodes, mockServer)
+	err = mockServer.SetValuePath("ocr2", 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, ocrInstances, chainClient, time.Minute*30)
+	err = actions.StartNewOCR2Round(2, ocrInstances, chainClient, time.Minute*10)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
