@@ -352,7 +352,7 @@ func setCoordinatorBilling(e helpers.Environment, vrfCoordinatorAddr string, use
 		StalenessSeconds:                  stalenessSeconds,
 		RedeemableRequestGasOverhead:      redeemableRequestGasOverhead,
 		CallbackRequestGasOverhead:        callbackRequestGasOverhead,
-		PremiumPercentage:                 uint8(premiumPercentage),
+		PremiumPercentage:                 premiumPercentage,
 		ReasonableGasPriceStalenessBlocks: reasonableGasPriceStalenessBlocks,
 		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
 	})
