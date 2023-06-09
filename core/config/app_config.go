@@ -31,13 +31,8 @@ type AppConfig interface {
 	SetPasswords(keystore, vrf *string)
 
 	FeatureFlags
-	Keystore
 	OCR1Config
 	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
-	Prometheus
 	Pyroscope
 	Secrets
 
@@ -53,6 +48,9 @@ type AppConfig interface {
 	AutoPprof() AutoPprof
 	Insecure() Insecure
 	Explorer() Explorer
+	Password() Password
+	Prometheus() Prometheus
+	P2P() P2P
 }
 
 type DatabaseBackupMode string
