@@ -29,8 +29,6 @@ import (
 
 	time "time"
 
-	url "net/url"
-
 	uuid "github.com/google/uuid"
 
 	zapcore "go.uber.org/zap/zapcore"
@@ -412,52 +410,6 @@ func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthereumHTTPURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumHTTPURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumSecondaryURLs provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumSecondaryURLs() []url.URL {
-	ret := _m.Called()
-
-	var r0 []url.URL
-	if rf, ok := ret.Get(0).(func() []url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumURL() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -951,44 +903,16 @@ func (_m *ChainScopedConfig) EvmUseForwarders() bool {
 	return r0
 }
 
-// ExplorerAccessKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerAccessKey() string {
+// Explorer provides a mock function with given fields:
+func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerSecret provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerSecret() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 coreconfig.Explorer
+	if rf, ok := ret.Get(0).(func() coreconfig.Explorer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(coreconfig.Explorer)
 		}
 	}
 
