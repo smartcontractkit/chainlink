@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -541,68 +540,4 @@ func StartNewOCR2Round(
 		}
 	}
 	return nil
-}
-
-// SetAdapterResponseOCR2 sets a single adapter response that correlates with an ocr2 contract and a chainlink node
-func SetAdapterResponseOCR2(
-	response int,
-	ocrInstance contracts.OffchainAggregatorV2,
-	chainlinkNode *client.Chainlink,
-	mockserver *ctfClient.MockserverClient,
-) error {
-	nodeContractPairID, err := BuildNodeContractPairIDOCR2(chainlinkNode, ocrInstance)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf("/%s", nodeContractPairID)
-	err = mockserver.SetValuePath(path, response)
-	if err != nil {
-		return fmt.Errorf("setting mockserver value path failed: %w", err)
-	}
-	return nil
-}
-
-// SetAllAdapterResponsesToTheSameValueOCR2 sets the mock responses in mockserver that are read by chainlink nodes
-// to simulate different adapters. This sets all adapter responses for each node and contract to the same response
-func SetAllAdapterResponsesToTheSameValueOCR2(
-	response int,
-	ocrInstances []contracts.OffchainAggregatorV2,
-	chainlinkNodes []*client.Chainlink,
-	mockserver *ctfClient.MockserverClient,
-) error {
-	var adapterVals sync.WaitGroup
-	var err error
-	for _, o := range ocrInstances {
-		ocrInstance := o
-		for _, n := range chainlinkNodes {
-			node := n
-			adapterVals.Add(1)
-			go func() {
-				defer adapterVals.Done()
-				err = SetAdapterResponseOCR2(response, ocrInstance, node, mockserver)
-			}()
-		}
-	}
-	if err != nil {
-		return err
-	}
-	adapterVals.Wait()
-	return nil
-}
-
-// BuildNodeContractPairIDOCR2 builds a UUID based on a related pair of a Chainlink node and OCR contract
-func BuildNodeContractPairIDOCR2(node *client.Chainlink, ocrInstance contracts.OffchainAggregatorV2) (string, error) {
-	if node == nil {
-		return "", fmt.Errorf("chainlink node is nil")
-	}
-	if ocrInstance == nil {
-		return "", fmt.Errorf("OCR Instance is nil")
-	}
-	nodeAddress, err := node.PrimaryEthAddress()
-	if err != nil {
-		return "", fmt.Errorf("getting chainlink node's primary ETH address failed: %w", err)
-	}
-	shortNodeAddr := nodeAddress[2:12]
-	shortOCRAddr := ocrInstance.Address()[2:12]
-	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
 }
