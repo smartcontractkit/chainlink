@@ -203,7 +203,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 	}
 
 	return &OCR2Transaction{
-		encoder: evm.EVMAutomationEncoder20{},
+		encoder: evm.EVMAutomationEncoder21{},
 		abi:     contract,
 		raw:     raw,
 		tx:      tx,
@@ -211,7 +211,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 }
 
 type OCR2Transaction struct {
-	encoder evm.EVMAutomationEncoder20
+	encoder evm.EVMAutomationEncoder21
 	abi     abi.ABI
 	raw     map[string]interface{}
 	tx      types.Transaction
@@ -354,7 +354,7 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	chkBlocks := []string{}
 
 	for _, u := range upkeeps {
-		val, ok := u.(evm.EVMAutomationUpkeepResult20)
+		val, ok := u.(evm.EVMAutomationUpkeepResult21)
 		if !ok {
 			panic("unrecognized upkeep result type")
 		}
