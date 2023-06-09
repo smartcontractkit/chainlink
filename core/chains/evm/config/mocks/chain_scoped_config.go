@@ -29,8 +29,6 @@ import (
 
 	time "time"
 
-	url "net/url"
-
 	uuid "github.com/google/uuid"
 
 	zapcore "go.uber.org/zap/zapcore"
@@ -347,34 +345,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	return r0
 }
 
-// DevWebServer provides a mock function with given fields:
-func (_m *ChainScopedConfig) DevWebServer() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// DisableRateLimiting provides a mock function with given fields:
-func (_m *ChainScopedConfig) DisableRateLimiting() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // EVMEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) EVMEnabled() bool {
 	ret := _m.Called()
@@ -440,52 +410,6 @@ func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthereumHTTPURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumHTTPURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumSecondaryURLs provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumSecondaryURLs() []url.URL {
-	ret := _m.Called()
-
-	var r0 []url.URL
-	if rf, ok := ret.Get(0).(func() []url.URL); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]url.URL)
-		}
-	}
-
-	return r0
-}
-
-// EthereumURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumURL() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -979,44 +903,16 @@ func (_m *ChainScopedConfig) EvmUseForwarders() bool {
 	return r0
 }
 
-// ExplorerAccessKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerAccessKey() string {
+// Explorer provides a mock function with given fields:
+func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerSecret provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerSecret() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// ExplorerURL provides a mock function with given fields:
-func (_m *ChainScopedConfig) ExplorerURL() *url.URL {
-	ret := _m.Called()
-
-	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
+	var r0 coreconfig.Explorer
+	if rf, ok := ret.Get(0).(func() coreconfig.Explorer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*url.URL)
+			r0 = ret.Get(0).(coreconfig.Explorer)
 		}
 	}
 
@@ -1151,15 +1047,17 @@ func (_m *ChainScopedConfig) GasEstimatorMode() string {
 	return r0
 }
 
-// InfiniteDepthQueries provides a mock function with given fields:
-func (_m *ChainScopedConfig) InfiniteDepthQueries() bool {
+// Insecure provides a mock function with given fields:
+func (_m *ChainScopedConfig) Insecure() coreconfig.Insecure {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 coreconfig.Insecure
+	if rf, ok := ret.Get(0).(func() coreconfig.Insecure); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Insecure)
+		}
 	}
 
 	return r0
@@ -1222,20 +1120,6 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *ass
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Wei)
 		}
-	}
-
-	return r0
-}
-
-// KeystorePassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeystorePassword() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -1677,20 +1561,6 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRDevelopmentMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRDevelopmentMode() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2174,15 +2044,33 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
-// PrometheusAuthToken provides a mock function with given fields:
-func (_m *ChainScopedConfig) PrometheusAuthToken() string {
+// Password provides a mock function with given fields:
+func (_m *ChainScopedConfig) Password() coreconfig.Password {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Password
+	if rf, ok := ret.Get(0).(func() coreconfig.Password); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Password)
+		}
+	}
+
+	return r0
+}
+
+// Prometheus provides a mock function with given fields:
+func (_m *ChainScopedConfig) Prometheus() coreconfig.Prometheus {
+	ret := _m.Called()
+
+	var r0 coreconfig.Prometheus
+	if rf, ok := ret.Get(0).(func() coreconfig.Prometheus); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Prometheus)
+		}
 	}
 
 	return r0
@@ -2344,20 +2232,6 @@ func (_m *ChainScopedConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 
 // ThresholdKeyShare provides a mock function with given fields:
 func (_m *ChainScopedConfig) ThresholdKeyShare() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// VRFPassword provides a mock function with given fields:
-func (_m *ChainScopedConfig) VRFPassword() string {
 	ret := _m.Called()
 
 	var r0 string

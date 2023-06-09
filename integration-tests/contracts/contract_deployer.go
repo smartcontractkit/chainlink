@@ -11,10 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
@@ -79,7 +80,7 @@ type ContractDeployer interface {
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployDKG() (DKG, error)
-	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string) (VRFCoordinatorV3, error)
+	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
 	DeployVRFBeaconConsumer(vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
 	DeployBlockhashStore() (BlockHashStore, error)

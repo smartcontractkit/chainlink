@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -18,7 +19,7 @@ import (
 func Test_SendEveryStrategy(t *testing.T) {
 	t.Parallel()
 
-	s := txmgr.SendEveryStrategy{}
+	s := txmgrcommon.SendEveryStrategy{}
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
@@ -32,7 +33,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 
 	subject := uuid.New()
-	s := txmgr.NewDropOldestStrategy(subject, 1, cfg.Database().DefaultQueryTimeout())
+	s := txmgrcommon.NewDropOldestStrategy(subject, 1, cfg.Database().DefaultQueryTimeout())
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -69,7 +70,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := txmgr.NewDropOldestStrategy(subj1, 2, cfg.Database().DefaultQueryTimeout())
+		s := txmgrcommon.NewDropOldestStrategy(subj1, 2, cfg.Database().DefaultQueryTimeout())
 
 		n, err := s.PruneQueue(txStore, pg.WithQueryer(db))
 		require.NoError(t, err)

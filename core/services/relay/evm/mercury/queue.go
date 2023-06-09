@@ -37,8 +37,6 @@ const promInterval = 6500 * time.Millisecond
 type TransmitQueue struct {
 	utils.StartStopOnce
 
-	feedID string
-
 	cond sync.Cond
 	lggr logger.Logger
 	mu   *sync.RWMutex
@@ -48,7 +46,8 @@ type TransmitQueue struct {
 	closed bool
 
 	// monitor loop
-	stopMonitor func()
+	stopMonitor       func()
+	transmitQueueLoad prometheus.Gauge
 }
 
 type Transmission struct {
@@ -67,7 +66,10 @@ func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int) *TransmitQu
 	pq := new(priorityQueue)
 	heap.Init(pq) // for completeness
 	mu := new(sync.RWMutex)
-	return &TransmitQueue{utils.StartStopOnce{}, feedID, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, pq, maxlen, false, nil}
+	return &TransmitQueue{
+		utils.StartStopOnce{}, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, pq, maxlen, false, nil,
+		transmitQueueLoad.WithLabelValues(feedID, fmt.Sprintf("%d", maxlen)),
+	}
 }
 
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
@@ -154,8 +156,10 @@ func (tq *TransmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{},
 }
 
 func (tq *TransmitQueue) report() {
+	tq.mu.RLock()
 	length := tq.pq.Len()
-	transmitQueueLoad.WithLabelValues(tq.feedID, fmt.Sprintf("%d", tq.maxlen)).Set(float64(length))
+	tq.mu.RUnlock()
+	tq.transmitQueueLoad.Set(float64(length))
 }
 
 func (tq *TransmitQueue) Ready() error {
@@ -194,6 +198,8 @@ func (tq *TransmitQueue) pop() *Transmission {
 
 // HEAP
 // Adapted from https://pkg.go.dev/container/heap#example-package-PriorityQueue
+
+// WARNING: None of these methods are thread-safe, caller must synchronize
 
 var _ heap.Interface = &priorityQueue{}
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -53,7 +54,7 @@ var (
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
 func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.EvmTxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.EvmTransmitCheckerSpec{})
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgrcommon.NewSendEveryStrategy(), txmgr.EvmTransmitCheckerSpec{})
 }
 
 var (

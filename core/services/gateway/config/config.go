@@ -1,4 +1,4 @@
-package gateway
+package config
 
 import (
 	"encoding/json"

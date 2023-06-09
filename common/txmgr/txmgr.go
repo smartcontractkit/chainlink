@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,7 +38,7 @@ type TxManager[
 	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ] interface {
 	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
@@ -67,7 +68,7 @@ type Txm[
 	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 	FEE_UNIT txmgrtypes.Unit,
 ] struct {
@@ -112,7 +113,7 @@ func NewTxm[
 	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 	FEE_UNIT txmgrtypes.Unit,
 ](
@@ -487,16 +488,15 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD, FEE_UN
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send native token to zero address")
 	}
-	etx = txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]{
+	newTx := txmgrtypes.NewTx[ADDR, TX_HASH]{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
 		FeeLimit:       gasLimit,
-		State:          TxUnstarted,
-		ChainID:        chainID,
+		Strategy:       NewSendEveryStrategy(),
 	}
-	err = b.txStore.InsertTx(&etx)
+	etx, err = b.txStore.CreateTransaction(newTx, chainID)
 	return etx, errors.Wrap(err, "SendNativeToken failed to insert eth_tx")
 }
 
@@ -507,7 +507,7 @@ type NullTxManager[
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
+	FEE feetypes.Fee,
 	ADD any,
 ] struct {
 	ErrMsg string
