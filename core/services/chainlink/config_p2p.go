@@ -17,6 +17,10 @@ type p2p struct {
 	c v2types.P2P
 }
 
+func (p *p2p) Enabled() bool {
+	return p.V1().Enabled() || p.V2().Enabled()
+}
+
 func (p *p2p) NetworkStack() (n ocrnetworking.NetworkingStack) {
 	return p.c.NetworkStack()
 }

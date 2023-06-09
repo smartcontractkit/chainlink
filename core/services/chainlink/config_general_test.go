@@ -24,7 +24,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.CosmosEnabled())
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
-	assert.Equal(t, false, config.FeatureExternalInitiators())
+	assert.Equal(t, false, config.JobPipeline().ExternalInitiatorsEnabled())
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }
 

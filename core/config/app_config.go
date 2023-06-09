@@ -22,6 +22,11 @@ type AppConfig interface {
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
 	DefaultChainID() *big.Int
+	EVMEnabled() bool
+	EVMRPCEnabled() bool
+	CosmosEnabled() bool
+	SolanaEnabled() bool
+	StarkNetEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -30,7 +35,6 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	FeatureFlags
 	OCR1Config
 	OCR2Config
 
@@ -52,6 +56,7 @@ type AppConfig interface {
 	P2P() P2P
 	Mercury() Mercury
 	Threshold() Threshold
+	Feature() Feature
 }
 
 type DatabaseBackupMode string
