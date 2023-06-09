@@ -56,7 +56,7 @@ func (g *generalConfig) SetPasswords(keystore, vrf *string) {
 	}
 }
 
-func (g *generalConfig) KeystorePassword() string {
+func (g *generalConfig) keystorePassword() string {
 	g.passwordMu.RLock()
 	defer g.passwordMu.RUnlock()
 	if g.secrets.Password.Keystore == nil {
@@ -65,7 +65,7 @@ func (g *generalConfig) KeystorePassword() string {
 	return string(*g.secrets.Password.Keystore)
 }
 
-func (g *generalConfig) VRFPassword() string {
+func (g *generalConfig) vrfPassword() string {
 	g.passwordMu.RLock()
 	defer g.passwordMu.RUnlock()
 	if g.secrets.Password.VRF == nil {
