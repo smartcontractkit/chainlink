@@ -53,6 +53,9 @@ var _ decryptionPlugin.ConfigParser = &ThresholdConfigParser{}
 type ThresholdConfigParser struct{}
 
 func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig.ReportingPluginConfigWrapper, error) {
+	// Print config bytes as hex string
+	fmt.Printf("Config Bytes: %x\n", config)
+
 	reportingPluginConfigWrapper, err := DecodeReportingPluginConfig(config)
 	if err != nil {
 		return nil, errors.New("failed to decode Functions Threshold plugin config")
