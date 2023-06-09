@@ -1473,7 +1473,8 @@ RETURNING "eth_txes".*
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}
-		pruned, err := txRequest.Strategy.PruneQueue(o, pg.WithQueryer(tx))
+		var pruned int64
+		pruned, err = txRequest.Strategy.PruneQueue(o, pg.WithQueryer(tx))
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune eth_txes")
 		}
