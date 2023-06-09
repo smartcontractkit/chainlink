@@ -673,6 +673,14 @@ func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
 }
 
+func (g *generalConfig) Password() coreconfig.Password {
+	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
+}
+
+func (g *generalConfig) Prometheus() coreconfig.Prometheus {
+	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
 var (
 	zeroURL        = url.URL{}
 	zeroSha256Hash = models.Sha256Hash{}
