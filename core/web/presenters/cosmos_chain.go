@@ -41,6 +41,6 @@ func NewCosmosNodeResource(node types.NodeStatus) CosmosNodeResource {
 		Name:    node.Name,
 		State:   node.State,
 		Config:  node.Config,
-		Order:   node.Order,
+		Order:   "NA",
 	}}
 }

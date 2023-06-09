@@ -192,7 +192,6 @@ func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
 		return types.NodeStatus{}, err
 	}
 	s.Config = string(b)
-	s.Order = "-"
 	return s, nil
 }
 

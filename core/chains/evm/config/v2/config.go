@@ -174,7 +174,9 @@ func nodeStatus(n *Node, chainID string) (relaytypes.NodeStatus, error) {
 		return relaytypes.NodeStatus{}, err
 	}
 	s.Config = string(b)
-	s.Order = fmt.Sprint(*n.Order)
+	if n.Order != nil {
+		s.Order = n.Order
+	}
 
 	return s, nil
 }

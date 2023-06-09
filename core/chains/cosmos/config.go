@@ -196,7 +196,6 @@ func nodeStatus(n *coscfg.Node, chainID string) (relaytypes.NodeStatus, error) {
 		return relaytypes.NodeStatus{}, err
 	}
 	s.Config = string(b)
-	s.Order = "-"
 	return s, nil
 }
 

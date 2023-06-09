@@ -1,6 +1,10 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink-relay/pkg/types"
+import (
+	"fmt"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+)
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
@@ -39,6 +43,6 @@ func NewEVMNodeResource(node types.NodeStatus) EVMNodeResource {
 		Name:    node.Name,
 		State:   node.State,
 		Config:  node.Config,
-		Order:   node.Order,
+		Order:   fmt.Sprint(*node.Order),
 	}}
 }
