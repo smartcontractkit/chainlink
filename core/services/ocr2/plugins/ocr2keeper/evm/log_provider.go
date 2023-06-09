@@ -169,10 +169,14 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 
 	vals := []ocr2keepers.PerformLog{}
 	for _, p := range performed {
-		// broadcast log to subscribers
-		checkBlockNumber := uint32(p.Raw.BlockNumber) // TODO: check if this is correct
+		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
+		if err != nil {
+			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
+			continue
+		}
 		l := ocr2keepers.PerformLog{
-			Key:             UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(checkBlockNumber, p.Id),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
