@@ -16,6 +16,7 @@ import (
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
@@ -374,16 +375,17 @@ func TestS4Integration_RandomState(t *testing.T) {
 				Payload:    mustRandomBytes(t, 64),
 			}
 			env := &s4_svc.Envelope{
-				Address:    user.address.Bytes(),
+				Address:    common.BytesToAddress(user.address.Bytes()).Bytes(),
 				SlotID:     row.SlotId,
 				Version:    row.Version,
 				Expiration: row.Expiration,
 				Payload:    row.Payload,
 			}
 			sig, err := env.Sign(user.privateKey)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			row.Signature = sig
-			_ = don.orms[o].Update(row, pg.WithParentCtx(ctx))
+			err = don.orms[o].Update(row, pg.WithParentCtx(ctx))
+			require.NoError(t, err)
 		}
 	}
 

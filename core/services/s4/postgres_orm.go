@@ -59,7 +59,6 @@ func (o orm) Update(row *Row, qopts ...pg.QOpt) error {
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 ON CONFLICT (namespace, address, slot_id)
 DO UPDATE SET version = EXCLUDED.version,
-namespace = EXCLUDED.namespace,
 expiration = EXCLUDED.expiration,
 confirmed = EXCLUDED.confirmed,
 payload = EXCLUDED.payload,
