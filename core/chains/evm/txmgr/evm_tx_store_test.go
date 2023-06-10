@@ -52,10 +52,7 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, orm.InsertTxAttempt(&attempt))
 
 	// tx 3 has no attempts
-	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.TxUnstarted
-	tx3.FromAddress = from
-	require.NoError(t, orm.InsertTx(&tx3))
+	cltest.MustCreateUnstartedGeneratedTx(t, orm, from, &cltest.FixtureChainID)
 
 	var count int
 	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
@@ -100,10 +97,7 @@ func TestORM_Transactions(t *testing.T) {
 	require.NoError(t, orm.InsertTxAttempt(&attempt))
 
 	// tx 3 has no attempts
-	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.TxUnstarted
-	tx3.FromAddress = from
-	require.NoError(t, orm.InsertTx(&tx3))
+	cltest.MustCreateUnstartedGeneratedTx(t, orm, from, &cltest.FixtureChainID)
 
 	var count int
 	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
@@ -217,10 +211,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	// tx 3 has no attempts
-	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = txmgrcommon.TxUnstarted
-	tx3.FromAddress = from
-	require.NoError(t, orm.InsertTx(&tx3))
+	cltest.MustCreateUnstartedGeneratedTx(t, orm, from, &cltest.FixtureChainID)
 
 	cltest.MustInsertUnconfirmedEthTx(t, orm, 3, from)                           // tx4
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
@@ -343,15 +334,13 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 	t.Run("does not update when broadcast_at is NULL", func(t *testing.T) {
 		t.Parallel()
 
-		etx := cltest.NewEthTx(t, fromAddress)
-		err := orm.InsertTx(&etx)
-		require.NoError(t, err)
+		etx := cltest.MustCreateUnstartedGeneratedTx(t, orm, fromAddress, &cltest.FixtureChainID)
 
 		var nullTime *time.Time
 		assert.Equal(t, nullTime, etx.BroadcastAt)
 
 		currTime := time.Now()
-		err = orm.UpdateBroadcastAts(currTime, []int64{etx.ID})
+		err := orm.UpdateBroadcastAts(currTime, []int64{etx.ID})
 		require.NoError(t, err)
 		etx, err = orm.FindTxWithAttempts(etx.ID)
 
@@ -1148,8 +1137,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-
+		cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 		resultEtx := new(txmgr.EvmTx)
 		err := txStore.FindNextUnstartedTransactionFromAddress(resultEtx, fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
@@ -1225,7 +1213,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	nonce := evmtypes.Nonce(123)
 
 	t.Run("update successful", func(t *testing.T) {
-		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 		etx.Sequence = &nonce
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
@@ -1239,7 +1227,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	})
 
 	t.Run("update fails because tx is removed", func(t *testing.T) {
-		etx := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 		etx.Sequence = &nonce
 
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
@@ -1276,7 +1264,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
-		etx2 := cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		etx2 := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
 		etx2.Sequence = &nonce
 		attempt2 := cltest.NewLegacyEthTxAttempt(t, etx2.ID)
 		attempt2.Hash = etx.TxAttempts[0].Hash
@@ -1410,9 +1398,9 @@ func TestORM_CountUnstartedTransactions(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress)
+	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
+	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
+	cltest.MustCreateUnstartedGeneratedTx(t, txStore, otherAddress, &cltest.FixtureChainID)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 
 	count, err := txStore.CountUnstartedTransactions(fromAddress, &cltest.FixtureChainID)
@@ -1431,6 +1419,10 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
+	toAddress := testutils.NewAddress()
+	encodedPayload := []byte{1, 2, 3}
+	feeLimit := uint32(1000000000)
+	value := big.Int(assets.NewEthValue(142))
 	var maxUnconfirmedTransactions uint64 = 2
 
 	t.Run("with no eth_txes returns nil", func(t *testing.T) {
@@ -1440,7 +1432,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 
 	// deliberately one extra to exceed limit
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress)
+		cltest.MustCreateUnstartedTx(t, txStore, otherAddress, toAddress, encodedPayload, feeLimit, value, &cltest.FixtureChainID)
 	}
 
 	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
@@ -1480,7 +1472,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 	})
 
 	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, feeLimit, value, &cltest.FixtureChainID)
 	}
 
 	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
@@ -1488,14 +1480,14 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+	cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, feeLimit, value, &cltest.FixtureChainID)
 
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := txStore.CheckTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
 
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress)
+		cltest.MustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, feeLimit, value, &cltest.FixtureChainID)
 		err = txStore.CheckTxQueueCapacity(fromAddress, maxUnconfirmedTransactions, &cltest.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting EVM.Transactions.MaxQueued", maxUnconfirmedTransactions))
@@ -1595,24 +1587,21 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	subject1 := uuid.New()
-	for i := 0; i < 5; i++ {
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject1)
-	}
-	subject2 := uuid.New()
-	for i := 0; i < 5; i++ {
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subject2)
-	}
-
 	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
-		n, err := txStore.PruneUnstartedTxQueue(uint32(5), subject1)
-		require.NoError(t, err)
-		assert.Equal(t, int64(0), n)
+		subject1 := uuid.New()
+		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5), cfg.Database().DefaultQueryTimeout())
+		for i := 0; i < 5; i++ {
+			cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, cltest.EvmTxRequestWithStrategy(strategy1))
+		}
+		testutils.AssertCountPerSubject(t, db, int64(5), subject1)
 	})
 
 	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
-		n, err := txStore.PruneUnstartedTxQueue(uint32(3), subject1)
-		require.NoError(t, err)
-		assert.Equal(t, int64(2), n)
+		subject2 := uuid.New()
+		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3), cfg.Database().DefaultQueryTimeout())
+		for i := 0; i < 5; i++ {
+			cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, cltest.EvmTxRequestWithStrategy(strategy2))
+		}
+		testutils.AssertCountPerSubject(t, db, int64(3), subject2)
 	})
 }
