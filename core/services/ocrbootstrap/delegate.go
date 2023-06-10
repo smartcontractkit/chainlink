@@ -65,7 +65,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
 	spec := jobSpec.BootstrapSpec
 	if spec == nil {
-		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
+		return nil, ocrcommon.ErrUnexpectedJobType{Expected: job.Bootstrap, Actual: jobSpec.Type}
 	}
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -133,12 +133,12 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	spec := jb.BootstrapSpec
 	if spec == nil {
-		return errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", spec)
+		return ocrcommon.ErrUnexpectedJobType{Expected: job.Bootstrap, Actual: jb.Type}
 	}
 
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		return ocrcommon.ErrRelayNotFound{Relay: spec.Relay}
 	}
 
 	rargs := types.RelayArgs{
@@ -164,12 +164,12 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	spec := jb.BootstrapSpec
 	if spec == nil {
-		return errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", spec)
+		return ocrcommon.ErrUnexpectedJobType{Expected: job.Bootstrap, Actual: jb.Type}
 	}
 
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		d.lggr.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		d.lggr.Error(ocrcommon.ErrRelayNotFound{Relay: spec.Relay})
 		return nil
 	}
 	rargs := types.RelayArgs{

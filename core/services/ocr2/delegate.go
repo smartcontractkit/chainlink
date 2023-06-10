@@ -60,14 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-type ErrNonOCR2JobType struct {
-	job.Job
-}
-
-func (e ErrNonOCR2JobType) Error() string {
-	return fmt.Sprintf("ocr2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 job %v", e.Job)
-}
-
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
@@ -233,7 +225,7 @@ func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec) (filters []evmlogpo
 func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		return ErrNonOCR2JobType{jb}
+		return ocrcommon.ErrUnexpectedJobType{Expected: job.OffchainReporting2, Actual: jb.Type}
 	}
 	if lp := d.logPollerFromSpec(spec); lp != nil {
 		filters, err := d.filtersFromSpec(jb.OCR2OracleSpec)
@@ -250,7 +242,7 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	}
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		return errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		return ocrcommon.ErrRelayNotFound{Relay: spec.Relay}
 	}
 	rargs := types.RelayArgs{
 		JobID:       spec.ID,
@@ -276,7 +268,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	//  at all (no rows deleted).
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		d.lggr.Error(ErrNonOCR2JobType{jb})
+		d.lggr.Error(ocrcommon.ErrUnexpectedJobType{Expected: job.OffchainReporting2, Actual: jb.Type})
 		return nil
 	}
 	if lp := d.logPollerFromSpec(spec); lp != nil {
@@ -296,7 +288,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		d.lggr.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+		d.lggr.Error(ocrcommon.ErrRelayNotFound{Relay: spec.Relay})
 		return nil
 	}
 	rargs := types.RelayArgs{
@@ -315,7 +307,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		return nil, ErrNonOCR2JobType{jb}
+		return nil, ocrcommon.ErrUnexpectedJobType{Expected: job.OffchainReporting2, Actual: jb.Type}
 	}
 	if !spec.TransmitterID.Valid {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
