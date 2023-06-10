@@ -130,10 +130,6 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
-	var al types.AccessList
-	if etx.AdditionalParameters.Valid {
-		al = etx.AdditionalParameters.AccessList
-	}
 	d := newDynamicFeeTransaction(
 		uint64(*etx.Sequence),
 		etx.ToAddress,
@@ -143,7 +139,6 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 		fee.TipCap,
 		fee.FeeCap,
 		etx.EncodedPayload,
-		al,
 	)
 	tx := types.NewTx(&d)
 	attempt, err = c.newSignedAttempt(etx, tx)
@@ -198,17 +193,16 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
-		ChainID:    chainID,
-		Nonce:      nonce,
-		GasTipCap:  gasTipCap.ToInt(),
-		GasFeeCap:  gasFeeCap.ToInt(),
-		Gas:        uint64(gasLimit),
-		To:         &to,
-		Value:      value,
-		Data:       data,
-		AccessList: accessList,
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasTipCap.ToInt(),
+		GasFeeCap: gasFeeCap.ToInt(),
+		Gas:       uint64(gasLimit),
+		To:        &to,
+		Value:     value,
+		Data:      data,
 	}
 }
 

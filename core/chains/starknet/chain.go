@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
@@ -82,7 +81,6 @@ func (c *chain) getClient() (*starknet.Client, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
-	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
 	timeout := c.cfg.RequestTimeout()
