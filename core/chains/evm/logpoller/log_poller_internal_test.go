@@ -363,12 +363,14 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		var wg sync.WaitGroup
 		pass := make(chan struct{})
+		cancelled := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+				close(cancelled)
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
@@ -379,6 +381,9 @@ func TestLogPoller_Replay(t *testing.T) {
 				lp.replayStart <- 4
 				close(pass)
 			}()
+			// We cannot return until we're sure that Replay() received the cancellation signal,
+			// otherwise replayComplete<- might be sent first
+			<-cancelled
 		})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
