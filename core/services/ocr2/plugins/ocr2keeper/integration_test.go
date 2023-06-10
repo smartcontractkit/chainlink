@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	"github.com/smartcontractkit/ocr2keepers/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
@@ -267,7 +268,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 
 		[relayConfig]
 		chainID = 1337
@@ -282,7 +283,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -294,6 +295,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 
 		[pluginConfig]
 		maxServiceWorkers = 100
+		cacheEvictionInterval = "1s"
 		mercuryCredentialName = "%s"
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
@@ -316,6 +318,16 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		"registrar":            testutils.NewAddress(),
 	}, configType)
 	require.NoError(t, err)
+
+	offC, err := json.Marshal(config.OffchainConfig{
+		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on goerli)
+		MinConfirmations:     1,
+	})
+	if err != nil {
+		t.Logf("error creating off-chain config: %s", err)
+		t.Fail()
+	}
+
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		10*time.Second,        // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
@@ -325,10 +337,7 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 		3,                     // rMax uint8,
 		[]int{1, 1, 1, 1},
 		oracles,
-		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on goerli)
-			MinConfirmations:     1,
-		}.Encode(), // reportingPluginConfig []byte,
+		offC,                  // reportingPluginConfig []byte,
 		20*time.Millisecond,   // Max duration query
 		1600*time.Millisecond, // Max duration observation
 		800*time.Millisecond,
@@ -522,7 +531,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 
 		[relayConfig]
 		chainID = 1337
@@ -537,7 +546,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "1s"
+		contractConfigTrackerPollInterval = "15s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -549,6 +558,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		chainID = 1337
 
 		[pluginConfig]
+		cacheEvictionInterval = "1s"
+		maxServiceWorkers = 100
 		mercuryCredentialName = "%s"
 		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
@@ -571,6 +582,15 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		"registrar":            testutils.NewAddress(),
 	}, configType)
 	require.NoError(t, err)
+
+	offC, err := json.Marshal(config.OffchainConfig{
+		PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
+	})
+	if err != nil {
+		t.Logf("error creating off-chain config: %s", err)
+		t.FailNow()
+	}
+
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		10*time.Second,       // deltaProgress time.Duration,
 		10*time.Second,       // deltaResend time.Duration,
@@ -580,9 +600,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		3,                    // rMax uint8,
 		[]int{1, 1, 1, 1},
 		oracles,
-		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 12 * 1000, // ~100 block lockout (on goerli)
-		}.Encode(), // reportingPluginConfig []byte,
+		offC,                // reportingPluginConfig []byte,
 		50*time.Millisecond, // Max duration query
 		1*time.Second,       // Max duration observation
 		1*time.Second,
@@ -701,6 +719,6 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		PluginType: job.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
-	names, err = ocr2keeper.FilterNamesFromSpec(spec)
+	_, err = ocr2keeper.FilterNamesFromSpec(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }

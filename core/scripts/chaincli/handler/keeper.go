@@ -201,7 +201,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx, true)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		case keeper.RegistryVersion_2_1:
-			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx)
+			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx, true)
 			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
 			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
