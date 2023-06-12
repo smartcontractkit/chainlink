@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
@@ -63,6 +63,6 @@ func (d OffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.Con
 	), nil
 }
 
-func (d OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
-	return types.ConfigDigestPrefixEVM
+func (d OffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
+	return types.ConfigDigestPrefixMercuryV02, nil
 }

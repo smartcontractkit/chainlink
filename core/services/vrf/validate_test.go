@@ -26,6 +26,7 @@ schemaVersion   = 1
 minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+vrfOwnerAddress = "0x2a0d386f122851dc5AFBE45cb2E8411CE255b000"
 requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
@@ -55,6 +56,7 @@ decode_log->vrf->encode_tx->submit_tx
 				assert.Equal(t, uint32(10), s.VRFSpec.MinIncomingConfirmations)
 				assert.Equal(t, "0xB3b7874F13387D44a3398D298B075B7A3505D8d4", s.VRFSpec.CoordinatorAddress.String())
 				assert.Equal(t, "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179800", s.VRFSpec.PublicKey.String())
+				assert.Equal(t, "0x2a0d386f122851dc5AFBE45cb2E8411CE255b000", s.VRFSpec.VRFOwnerAddress.String())
 				require.Equal(t, 168*time.Hour, s.VRFSpec.RequestTimeout)
 				require.Equal(t, time.Minute, s.VRFSpec.BackoffInitialDelay)
 				require.Equal(t, 2*time.Hour, s.VRFSpec.BackoffMaxDelay)

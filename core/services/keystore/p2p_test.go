@@ -21,7 +21,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg.Database())
 	require.NoError(t, keyStore.Unlock(cltest.Password))
 	ks := keyStore.P2P()
 	reset := func() {

@@ -30,6 +30,10 @@ type HasEVMConfigs interface {
 type EVMConfigs []*EVMConfig
 
 func (cs EVMConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
@@ -72,7 +76,10 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 	return
 }
 
-func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
+func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -84,6 +91,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
@@ -150,6 +158,9 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	}
 	if n.SendOnly != nil {
 		v2.SendOnly = *n.SendOnly
+	}
+	if n.Order != nil {
+		v2.Order = *n.Order
 	}
 	return
 }
@@ -277,10 +288,8 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
-					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-				}
+				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
 	}
@@ -352,23 +361,6 @@ func (c *Chain) ValidateConfig() (err error) {
 	if !chainType.IsValid() {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 			Msg: config.ErrInvalidChainType.Error()})
-
-	} else {
-		switch chainType {
-		case config.ChainOptimism, config.ChainMetis:
-			gasEst := *c.GasEstimator.Mode
-			switch gasEst {
-			case "Optimism2", "L2Suggested":
-				// valid
-			case "Optimism":
-				err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst,
-					Msg: "unsupported since OVM 1.0 was discontinued - use L2Suggested"})
-			default:
-				err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst,
-					Msg: fmt.Sprintf("not allowed with ChainType %q - use L2Suggested", chainType)})
-			}
-		case config.ChainArbitrum, config.ChainXDai:
-		}
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
@@ -568,6 +560,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 
 type GasLimitJobType struct {
 	OCR    *uint32 `toml:",inline"`
+	OCR2   *uint32 `toml:",inline"`
 	DR     *uint32 `toml:",inline"`
 	VRF    *uint32 `toml:",inline"`
 	FM     *uint32 `toml:",inline"`
@@ -577,6 +570,9 @@ type GasLimitJobType struct {
 func (t *GasLimitJobType) setFrom(f *GasLimitJobType) {
 	if f.OCR != nil {
 		t.OCR = f.OCR
+	}
+	if f.OCR2 != nil {
+		t.OCR2 = f.OCR2
 	}
 	if f.DR != nil {
 		t.DR = f.DR
@@ -719,6 +715,7 @@ type Node struct {
 	WSURL    *models.URL
 	HTTPURL  *models.URL
 	SendOnly *bool
+	Order    *int32
 }
 
 func (n *Node) ValidateConfig() (err error) {
@@ -760,6 +757,13 @@ func (n *Node) ValidateConfig() (err error) {
 		}
 	}
 
+	if n.Order != nil && (*n.Order < 1 || *n.Order > 100) {
+		err = multierr.Append(err, v2.ErrInvalid{Name: "Order", Value: *n.Order, Msg: "must be between 1 and 100"})
+	} else if n.Order == nil {
+		z := int32(100)
+		n.Order = &z
+	}
+
 	return
 }
 
@@ -775,5 +779,8 @@ func (n *Node) SetFrom(f *Node) {
 	}
 	if f.SendOnly != nil {
 		n.SendOnly = f.SendOnly
+	}
+	if f.Order != nil {
+		n.Order = f.Order
 	}
 }

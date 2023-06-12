@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/patrickmn/go-cache"
-	"github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -101,7 +101,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
 			hb:     client.HeadBroadcaster(),
-			chHead: make(chan types.BlockKey, 1),
+			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
 		lggr:     lggr,
 		poller:   client.LogPoller(),
@@ -112,7 +112,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
-		headFunc: func(types.BlockKey) {},
+		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
 			cred:          mc,
@@ -121,7 +121,8 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			cooldownCache: cooldownCache,
 			apiErrCache:   apiErrCache,
 		},
-		hc: http.DefaultClient,
+		hc:  http.DefaultClient,
+		enc: EVMAutomationEncoder20{},
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -160,7 +161,7 @@ var upkeepActiveEvents = []common.Hash{
 }
 
 type checkResult struct {
-	ur  []types.UpkeepResult
+	ur  []EVMAutomationUpkeepResult20
 	err error
 }
 
@@ -196,36 +197,42 @@ type EvmRegistry struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	active        map[string]activeUpkeep
-	headFunc      func(types.BlockKey)
+	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
 	mercury       MercuryConfig
 	hc            HttpClient
+	enc           EVMAutomationEncoder20
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
-func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]types.UpkeepIdentifier, error) {
+func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	keys := make([]types.UpkeepIdentifier, len(r.active))
+	keys := make([]ocr2keepers.UpkeepIdentifier, len(r.active))
 	var i int
 	for _, value := range r.active {
-		keys[i] = types.UpkeepIdentifier(value.ID.String())
+		keys[i] = ocr2keepers.UpkeepIdentifier(value.ID.String())
 		i++
 	}
 
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...types.UpkeepKey) (types.UpkeepResults, error) {
+func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepKey) ([]ocr2keepers.UpkeepResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
 
 	select {
 	case rs := <-chResult:
-		return rs.ur, rs.err
+		result := make([]ocr2keepers.UpkeepResult, len(rs.ur))
+		for i := range rs.ur {
+			result[i] = rs.ur[i]
+		}
+
+		return result, rs.err
 	case <-ctx.Done():
 		// safety on context done to provide an error on context cancellation
 		// contract calls through the geth wrappers are a bit of a black box
@@ -234,15 +241,6 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys
 		// CheckUpkeep needing to return immediately.
 		return nil, fmt.Errorf("%w: failed to check upkeep on registry", ErrContextCancelled)
 	}
-}
-
-func (r *EvmRegistry) IdentifierFromKey(key types.UpkeepKey) (types.UpkeepIdentifier, error) {
-	_, id, err := blockAndIdFromKey(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return id.Bytes(), nil
 }
 
 func (r *EvmRegistry) Name() string {
@@ -438,16 +436,11 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	err := r.poller.RegisterFilter(logpoller.Filter{
+	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
-	if err != nil {
-		r.mu.Lock()
-		r.mu.Unlock()
-	}
-	return err
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
@@ -562,7 +555,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []types.UpkeepKey, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []ocr2keepers.UpkeepKey, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -595,13 +588,8 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 	}
 
 	for i, res := range upkeepResults {
-		_, id, err := blockAndIdFromKey(res.Key)
-		if err != nil {
-			continue
-		}
-
 		r.mu.RLock()
-		up, ok := r.active[id.String()]
+		up, ok := r.active[res.ID.String()]
 		r.mu.RUnlock()
 
 		if ok {
@@ -614,15 +602,38 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []t
 	}
 }
 
+func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
+	var (
+		block *big.Int
+		id    *big.Int
+		ok    bool
+	)
+
+	parts := strings.Split(string(key), separator)
+	if len(parts) != 2 {
+		return nil, nil, fmt.Errorf("unsplittable key")
+	}
+
+	if block, ok = new(big.Int).SetString(parts[0], 10); !ok {
+		return nil, nil, fmt.Errorf("could not get block from key")
+	}
+
+	if id, ok = new(big.Int).SetString(parts[1], 10); !ok {
+		return nil, nil, fmt.Errorf("could not get id from key")
+	}
+
+	return block, id, nil
+}
+
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) ([]types.UpkeepResult, error) {
+func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult20, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
 		checkResults = make([]*string, len(keys))
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := blockAndIdFromKey(key)
+		block, upkeepId, err := splitKey(key)
 		if err != nil {
 			return nil, err
 		}
@@ -659,7 +670,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 
 	var (
 		multiErr error
-		results  = make([]types.UpkeepResult, len(keys))
+		results  = make([]EVMAutomationUpkeepResult20, len(keys))
 	)
 
 	for i, req := range checkReqs {
@@ -668,7 +679,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			var err error
-			r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", keys[i].String(), *checkResults[i])
+			r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", string(keys[i]), *checkResults[i])
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
 				return nil, err
@@ -680,7 +691,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []types.UpkeepKey) 
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []types.UpkeepResult) ([]types.UpkeepResult, error) {
+func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
 		performResults  = make([]*string, 0, len(checkResults))
@@ -688,22 +699,17 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	)
 
 	for i, checkResult := range checkResults {
-		if checkResult.State == types.NotEligible {
+		if !checkResult.Eligible {
 			continue
 		}
 
-		block, upkeepId, err := blockAndIdFromKey(checkResult.Key)
-		if err != nil {
-			return nil, err
-		}
-
-		opts, err := r.buildCallOpts(ctx, block)
+		opts, err := r.buildCallOpts(ctx, big.NewInt(int64(checkResult.Block)))
 		if err != nil {
 			return nil, err
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
-		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
+		payload, err := r.abi.Pack("simulatePerformUpkeep", checkResult.ID, checkResult.PerformData)
 		if err != nil {
 			return nil, err
 		}
@@ -735,7 +741,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in simulate perform", checkResults[i].Key, req.Error)
+			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Block, checkResults[i].ID, req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
@@ -744,7 +750,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			}
 
 			if !simulatePerformSuccess {
-				checkResults[performToKeyIdx[i]].State = types.NotEligible
+				checkResults[performToKeyIdx[i]].Eligible = false
 			}
 		}
 	}
@@ -813,25 +819,4 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	return results, multiErr
-}
-
-func blockAndIdFromKey(key types.UpkeepKey) (*big.Int, *big.Int, error) {
-	parts := strings.Split(key.String(), separator)
-	if len(parts) != 2 {
-		return nil, nil, fmt.Errorf("%w: missing data in upkeep key", ErrUpkeepKeyNotParsable)
-	}
-
-	block := new(big.Int)
-	_, ok := block.SetString(parts[0], 10)
-	if !ok {
-		return nil, nil, fmt.Errorf("%w: must be big int", ErrUpkeepKeyNotParsable)
-	}
-
-	id := new(big.Int)
-	_, ok = id.SetString(parts[1], 10)
-	if !ok {
-		return nil, nil, fmt.Errorf("%w: must be big int", ErrUpkeepKeyNotParsable)
-	}
-
-	return block, id, nil
 }

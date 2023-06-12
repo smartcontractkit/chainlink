@@ -8,9 +8,11 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -27,8 +29,12 @@ type ChainHeadTracker interface {
 	HeadTracker() httypes.HeadTracker
 }
 
+type Runner interface {
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
+}
+
 type datasource struct {
-	pipelineRunner pipeline.Runner
+	pipelineRunner Runner
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
@@ -38,50 +44,77 @@ type datasource struct {
 
 	chEnhancedTelem  chan<- ocrcommon.EnhancedTelemetryMercuryData
 	chainHeadTracker ChainHeadTracker
+	fetcher          relaymercury.Fetcher
 }
 
 var _ relaymercury.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker ChainHeadTracker) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker ChainHeadTracker, fetcher relaymercury.Fetcher) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (relaymercury.Observation, error) {
-	run, trrs, err := ds.executeRun(ctx)
-	if err != nil {
-		return relaymercury.Observation{}, fmt.Errorf("Observe failed while executing run: %w", err)
-	}
-	select {
-	case ds.runResults <- run:
-	default:
-		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-	}
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercury.Observation, err error) {
+	// setCurrentBlock must come first, along with observationTimestamp, to
+	// avoid front-running
+	ds.setCurrentBlock(ctx, &obs)
 
-	// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
-	// They are guaranteed to be sorted by index asc so should be in the correct order
-	var finaltrrs []pipeline.TaskRunResult
-	for _, trr := range trrs {
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
+	var wg sync.WaitGroup
+	if fetchMaxFinalizedBlockNum {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.MaxFinalizedBlockNumber.Val, obs.MaxFinalizedBlockNumber.Err = ds.fetcher.FetchInitialMaxFinalizedBlockNumber(ctx)
+		}()
+	} else {
+		obs.MaxFinalizedBlockNumber.Err = errors.New("fetchMaxFinalizedBlockNum=false")
+	}
+	var trrs pipeline.TaskRunResults
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var run pipeline.Run
+		run, trrs, err = ds.executeRun(ctx)
+		if err != nil {
+			err = fmt.Errorf("Observe failed while executing run: %w", err)
+			return
 		}
-	}
+		select {
+		case ds.runResults <- run:
+		default:
+			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+		}
 
-	parsed, err := ds.parse(finaltrrs)
-	if err != nil {
-		return relaymercury.Observation{}, fmt.Errorf("Observe failed while parsing run results: %w", err)
-	}
-	ds.setCurrentBlock(ctx, &parsed)
+		// NOTE: trrs comes back as _all_ tasks, but we only want the terminal ones
+		// They are guaranteed to be sorted by index asc so should be in the correct order
+		var finaltrrs []pipeline.TaskRunResult
+		for _, trr := range trrs {
+			if trr.IsTerminal() {
+				finaltrrs = append(finaltrrs, trr)
+			}
+		}
+
+		var parsed parseOutput
+		parsed, err = ds.parse(finaltrrs)
+		if err != nil {
+			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+			return
+		}
+		obs.BenchmarkPrice = parsed.benchmarkPrice
+		obs.Bid = parsed.bid
+		obs.Ask = parsed.ask
+	}()
+	wg.Wait()
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
 		ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
 			TaskRunResults: trrs,
-			Observation:    parsed,
+			Observation:    obs,
 			RepTimestamp:   repts,
 		})
 
 	}
 
-	return parsed, nil
+	return obs, err
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -92,13 +125,19 @@ func toBigInt(val interface{}) (*big.Int, error) {
 	return dec.BigInt(), nil
 }
 
+type parseOutput struct {
+	benchmarkPrice relaymercury.ObsResult[*big.Int]
+	bid            relaymercury.ObsResult[*big.Int]
+	ask            relaymercury.ObsResult[*big.Int]
+}
+
 // parse expects the output of observe to be three values, in the following order:
 // 1. benchmark price
 // 2. bid
 // 3. ask
 //
 // returns error on parse errors: if something is the wrong type
-func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Observation, merr error) {
+func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr error) {
 	var finaltrrs []pipeline.TaskRunResult
 	for _, trr := range trrs {
 		// only return terminal trrs from executeRun
@@ -110,46 +149,46 @@ func (ds *datasource) parse(trrs pipeline.TaskRunResults) (obs relaymercury.Obse
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
 	if len(finaltrrs) != 3 {
-		return obs, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(finaltrrs))
+		return o, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(finaltrrs))
 	}
 	merr = errors.Join(
-		setBenchmarkPrice(&obs, finaltrrs[0].Result),
-		setBid(&obs, finaltrrs[1].Result),
-		setAsk(&obs, finaltrrs[2].Result),
+		setBenchmarkPrice(&o, finaltrrs[0].Result),
+		setBid(&o, finaltrrs[1].Result),
+		setAsk(&o, finaltrrs[2].Result),
 	)
 
-	return obs, merr
+	return o, merr
 }
 
-func setBenchmarkPrice(obs *relaymercury.Observation, res pipeline.Result) error {
+func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
-		obs.BenchmarkPrice.Err = res.Error
+		o.benchmarkPrice.Err = res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
 	} else {
-		obs.BenchmarkPrice.Val = val
+		o.benchmarkPrice.Val = val
 	}
 	return nil
 }
 
-func setBid(obs *relaymercury.Observation, res pipeline.Result) error {
+func setBid(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
-		obs.Bid.Err = res.Error
+		o.bid.Err = res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse Bid: %w", err)
 	} else {
-		obs.Bid.Val = val
+		o.bid.Val = val
 	}
 	return nil
 }
 
-func setAsk(obs *relaymercury.Observation, res pipeline.Result) error {
+func setAsk(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
-		obs.Ask.Err = res.Error
+		o.ask.Err = res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse Ask: %w", err)
 	} else {
-		obs.Ask.Val = val
+		o.ask.Val = val
 	}
 	return nil
 }

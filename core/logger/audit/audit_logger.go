@@ -4,18 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
-	"go.uber.org/multierr"
-
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -35,133 +31,6 @@ type AuditLogger interface {
 	Audit(eventID EventID, data Data)
 }
 
-type AuditLoggerConfig struct {
-	Enabled        *bool
-	ForwardToUrl   *models.URL
-	JsonWrapperKey *string
-	Headers        *[]ServiceHeader
-}
-
-func (p *AuditLoggerConfig) SetFrom(f *AuditLoggerConfig) {
-	if v := f.Enabled; v != nil {
-		p.Enabled = v
-	}
-	if v := f.ForwardToUrl; v != nil {
-		p.ForwardToUrl = v
-	}
-	if v := f.JsonWrapperKey; v != nil {
-		p.JsonWrapperKey = v
-	}
-	if v := f.Headers; v != nil {
-		p.Headers = v
-	}
-
-}
-
-// ServiceHeader is an HTTP header to include in POST to log service.
-type ServiceHeader struct {
-	Header string
-	Value  string
-}
-
-func (h *ServiceHeader) UnmarshalText(input []byte) error {
-	parts := strings.SplitN(string(input), ":", 2)
-	h.Header = parts[0]
-	if len(parts) > 1 {
-		h.Value = strings.TrimSpace(parts[1])
-	}
-	return h.validate()
-}
-
-func (h *ServiceHeader) MarshalText() ([]byte, error) {
-	var b bytes.Buffer
-	fmt.Fprintf(&b, "%s: %s", h.Header, h.Value)
-	return b.Bytes(), nil
-}
-
-// We act slightly more strictly than the HTTP specifications
-// technically allow instead following the guidelines of
-// cloudflare transforms.
-// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
-var (
-	headerNameRegex  = regexp.MustCompile(`^[A-Za-z\-]+$`)
-	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
-)
-
-func (h ServiceHeader) validate() (err error) {
-	if !headerNameRegex.MatchString(h.Header) {
-		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
-	}
-
-	if !headerValueRegex.MatchString(h.Value) {
-		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
-	}
-	return
-}
-
-type ServiceHeaders []ServiceHeader
-
-func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
-	if sh == nil {
-		return errors.New("Cannot unmarshal to a nil receiver")
-	}
-
-	headers := string(input)
-
-	var parsedHeaders []ServiceHeader
-	if headers != "" {
-		headerLines := strings.Split(headers, "\\")
-		for _, header := range headerLines {
-			keyValue := strings.Split(header, "||")
-			if len(keyValue) != 2 {
-				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
-			}
-			h := ServiceHeader{
-				Header: keyValue[0],
-				Value:  keyValue[1],
-			}
-
-			if err := h.validate(); err != nil {
-				return err
-			}
-			parsedHeaders = append(parsedHeaders, h)
-		}
-	}
-
-	*sh = parsedHeaders
-	return nil
-}
-
-func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
-	if sh == nil {
-		return nil, errors.New("Cannot marshal to a nil receiver")
-	}
-
-	sb := strings.Builder{}
-	for _, header := range *sh {
-		sb.WriteString(header.Header)
-		sb.WriteString("||")
-		sb.WriteString(header.Value)
-		sb.WriteString("\\")
-	}
-
-	serialized := sb.String()
-
-	if len(serialized) > 0 {
-		serialized = serialized[:len(serialized)-1]
-	}
-
-	return []byte(serialized), nil
-}
-
-type Config interface {
-	AuditLoggerEnabled() bool
-	AuditLoggerForwardToUrl() (models.URL, error)
-	AuditLoggerEnvironment() string
-	AuditLoggerJsonWrapperKey() string
-	AuditLoggerHeaders() (ServiceHeaders, error)
-}
-
 type HTTPAuditLoggerInterface interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -170,7 +39,7 @@ type AuditLoggerService struct {
 	logger          logger.Logger            // The standard logger configured in the node
 	enabled         bool                     // Whether the audit logger is enabled or not
 	forwardToUrl    models.URL               // Location we are going to send logs to
-	headers         []ServiceHeader          // Headers to be sent along with logs for identification/authentication
+	headers         []models.ServiceHeader   // Headers to be sent along with logs for identification/authentication
 	jsonWrapperKey  string                   // Wrap audit data as a map under this key if present
 	environmentName string                   // Decorate the environment this is coming from
 	hostname        string                   // The self-reported hostname of the machine
@@ -194,10 +63,10 @@ var NoopLogger AuditLogger = &AuditLoggerService{}
 // Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
 // AuditLogger instance. If the environment variables are not set, the logger
 // is disabled and short circuits execution via enabled flag.
-func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
+func NewAuditLogger(logger logger.Logger, config config.AuditLogger) (AuditLogger, error) {
 	// If the unverified config is nil, then we assume this came from the
 	// configuration system and return a nil logger.
-	if config == nil || !config.AuditLoggerEnabled() {
+	if config == nil || !config.Enabled() {
 		return &AuditLoggerService{}, nil
 	}
 
@@ -206,12 +75,12 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		return nil, errors.Errorf("initialization error - unable to get hostname: %s", err)
 	}
 
-	forwardToUrl, err := config.AuditLoggerForwardToUrl()
+	forwardToUrl, err := config.ForwardToUrl()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
 
-	headers, err := config.AuditLoggerHeaders()
+	headers, err := config.Headers()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
@@ -224,8 +93,8 @@ func NewAuditLogger(logger logger.Logger, config Config) (AuditLogger, error) {
 		enabled:         true,
 		forwardToUrl:    forwardToUrl,
 		headers:         headers,
-		jsonWrapperKey:  config.AuditLoggerJsonWrapperKey(),
-		environmentName: config.AuditLoggerEnvironment(),
+		jsonWrapperKey:  config.JsonWrapperKey(),
+		environmentName: config.Environment(),
 		hostname:        hostname,
 		localIP:         getLocalIP(),
 		loggingClient:   &http.Client{Timeout: time.Second * webRequestTimeout},

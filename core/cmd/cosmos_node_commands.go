@@ -39,6 +39,6 @@ func (ps CosmosNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewCosmosNodeClient(c *Client) NodeClient {
-	return newNodeClient[CosmosNodePresenters](c, "cosmos")
+func NewCosmosNodeClient(s *Shell) NodeClient {
+	return newNodeClient[CosmosNodePresenters](s, "cosmos")
 }

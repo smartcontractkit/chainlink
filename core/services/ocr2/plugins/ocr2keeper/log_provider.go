@@ -3,7 +3,6 @@ package ocr2keeper
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -11,21 +10,22 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	pluginchain "github.com/smartcontractkit/ocr2keepers/pkg/chain"
-	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	pluginevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type TransmitUnpacker interface {
-	UnpackTransmitTxInput([]byte) ([]plugintypes.UpkeepResult, error)
+	UnpackTransmitTxInput([]byte) ([]ocr2keepers.UpkeepResult, error)
 }
 
 type LogProvider struct {
@@ -43,8 +43,6 @@ type LogProvider struct {
 	txCheckBlockCache *pluginutils.Cache[string]
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
-
-var _ plugintypes.PerformLogProvider = (*LogProvider)(nil)
 
 func logProviderFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
@@ -145,7 +143,7 @@ func (c *LogProvider) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
-func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog, error) {
+func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -171,12 +169,12 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
 	}
 
-	vals := []plugintypes.PerformLog{}
+	vals := []ocr2keepers.PerformLog{}
 	for _, p := range performed {
 		// broadcast log to subscribers
-		l := plugintypes.PerformLog{
-			Key:             pluginchain.NewUpkeepKey(big.NewInt(int64(p.CheckBlockNumber)), p.Id),
-			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", p.BlockNumber))),
+		l := ocr2keepers.PerformLog{
+			Key:             evm.UpkeepKeyHelper[uint32]{}.MakeUpkeepKey(p.CheckBlockNumber, p.Id),
+			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			TransactionHash: p.TxHash.Hex(),
 			Confirmations:   end - p.BlockNumber,
 		}
@@ -186,7 +184,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]plugintypes.PerformLog
 	return vals, nil
 }
 
-func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleReportLog, error) {
+func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -249,47 +247,47 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]plugintypes.StaleR
 		return nil, fmt.Errorf("%w: failed to unmarshal insufficient fund upkeep logs", err)
 	}
 
-	vals := []plugintypes.StaleReportLog{}
+	vals := []ocr2keepers.StaleReportLog{}
 	for _, r := range reorged {
-		upkeepId := plugintypes.UpkeepIdentifier(r.Id.String())
+		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
 		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
 			continue
 		}
-		l := plugintypes.StaleReportLog{
-			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+		l := ocr2keepers.StaleReportLog{
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
 	for _, r := range staleUpkeep {
-		upkeepId := plugintypes.UpkeepIdentifier(r.Id.String())
+		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
 		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
 			continue
 		}
-		l := plugintypes.StaleReportLog{
-			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+		l := ocr2keepers.StaleReportLog{
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
 		vals = append(vals, l)
 	}
 	for _, r := range insufficientFunds {
-		upkeepId := plugintypes.UpkeepIdentifier(r.Id.String())
+		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
 		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
 			continue
 		}
-		l := plugintypes.StaleReportLog{
-			Key:             pluginchain.NewUpkeepKeyFromBlockAndID(checkBlockNumber, upkeepId),
-			TransmitBlock:   pluginchain.BlockKey([]byte(fmt.Sprintf("%d", r.BlockNumber))),
+		l := ocr2keepers.StaleReportLog{
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			TransmitBlock:   evm.BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end - r.BlockNumber,
 		}
@@ -413,43 +411,52 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
-func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id plugintypes.UpkeepIdentifier) (bk plugintypes.BlockKey, e error) {
+func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2keepers.UpkeepIdentifier) (bk ocr2keepers.BlockKey, e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = fmt.Errorf("recovered from panic in getCheckBlockNumberForUpkeep: %v", r)
 		}
 	}()
+
 	// Check if value already exists in cache for txHash, id pair
 	cacheKey := txHash.String() + "|" + string(id)
 	if val, ok := c.txCheckBlockCache.Get(cacheKey); ok {
-		return pluginchain.BlockKey(val), nil
+		return ocr2keepers.BlockKey(val), nil
 	}
 
 	var tx gethtypes.Transaction
 	err := c.client.CallContext(context.Background(), &tx, "eth_getTransactionByHash", txHash)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+
 	txData := tx.Data()
 	if len(txData) < 4 {
-		return nil, fmt.Errorf("error in getCheckBlockNumberForUpkeep, got invalid tx data %s", txData)
+		return "", fmt.Errorf("error in getCheckBlockNumberForUpkeep, got invalid tx data %s", txData)
 	}
+
 	decodedReport, err := c.packer.UnpackTransmitTxInput(txData[4:]) // Remove first 4 bytes of function signature
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+
 	for _, upkeep := range decodedReport {
-		bl, ui, err := upkeep.Key.BlockKeyAndUpkeepID()
-		if err != nil {
-			return nil, err
+		// TODO: the log provider should be in the evm package for isolation
+		res, ok := upkeep.(pluginevm.EVMAutomationUpkeepResult20)
+		if !ok {
+			return "", fmt.Errorf("unexpected type")
 		}
-		if string(ui) == string(id) {
-			c.txCheckBlockCache.Set(cacheKey, bl.String(), pluginutils.DefaultCacheExpiration)
-			return bl, nil
+
+		if res.ID.String() == string(id) {
+			bl := fmt.Sprintf("%d", res.Block)
+
+			c.txCheckBlockCache.Set(cacheKey, bl, pluginutils.DefaultCacheExpiration)
+
+			return ocr2keepers.BlockKey(bl), nil
 		}
 	}
 
-	return nil, fmt.Errorf("upkeep %s not found in tx hash %s", id, txHash)
+	return "", fmt.Errorf("upkeep %s not found in tx hash %s", id, txHash)
 }
 
 type performed struct {

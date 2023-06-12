@@ -219,7 +219,6 @@ func (c *chain) getClient() (client.ReaderWriter, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
-	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
 	for _, i := range index {
@@ -293,8 +292,7 @@ func (c *chain) Close() error {
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
 		c.lggr.Debug("Stopping balance monitor")
-		return multierr.Combine(c.txm.Close(),
-			c.balanceMonitor.Close())
+		return services.CloseAll(c.txm, c.balanceMonitor)
 	})
 }
 

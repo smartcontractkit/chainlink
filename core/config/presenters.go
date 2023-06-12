@@ -3,10 +3,12 @@ package config
 import (
 	"fmt"
 	"math/big"
+
+	"golang.org/x/exp/constraints"
 )
 
-// FriendlyBigInt returns a string printing the integer in both
+// FriendlyNumber returns a string printing the integer or big.Int in both
 // decimal and hexadecimal formats.
-func FriendlyBigInt(n *big.Int) string {
+func FriendlyNumber[N constraints.Integer | *big.Int](n N) string {
 	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
 }
