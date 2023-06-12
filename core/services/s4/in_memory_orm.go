@@ -56,7 +56,14 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]
-	if ok && existing.Row.Version > row.Version {
+	versionOk := false
+	if ok && row.Confirmed {
+		versionOk = existing.Row.Version <= row.Version
+	}
+	if ok && !row.Confirmed {
+		versionOk = existing.Row.Version < row.Version
+	}
+	if ok && !versionOk {
 		return ErrVersionTooLow
 	}
 
@@ -96,9 +103,10 @@ func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) 
 	for _, mrow := range o.rows {
 		if mrow.Row.Expiration > now {
 			rows = append(rows, &SnapshotRow{
-				Address: utils.NewBig(mrow.Row.Address.ToInt()),
-				SlotId:  mrow.Row.SlotId,
-				Version: mrow.Row.Version,
+				Address:   utils.NewBig(mrow.Row.Address.ToInt()),
+				SlotId:    mrow.Row.SlotId,
+				Version:   mrow.Row.Version,
+				Confirmed: mrow.Row.Confirmed,
 			})
 		}
 	}
