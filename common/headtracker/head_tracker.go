@@ -38,7 +38,7 @@ const HeadsBufferSize = 10
 type HeadTracker[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
 	S commontypes.Subscription,
-	ID txmgrtypes.ID, // TODO: Do we want to combine this?
+	ID txmgrtypes.ID,
 	BLOCK_HASH commontypes.Hashable,
 ] struct {
 	log             logger.Logger
