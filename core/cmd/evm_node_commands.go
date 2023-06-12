@@ -11,7 +11,7 @@ type EVMNodePresenter struct {
 
 // ToRow presents the EVMNodeResource as a slice of strings.
 func (p *EVMNodePresenter) ToRow() []string {
-	return []string{p.GetID(), p.Name, p.ChainID, p.State, p.Config}
+	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 
 // RenderTable implements TableRenderer
