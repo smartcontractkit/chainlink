@@ -420,7 +420,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.StarkNetEnabled() {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
-		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
+		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
