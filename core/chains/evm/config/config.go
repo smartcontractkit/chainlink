@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
+// Deprecated, use EVM below
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
@@ -27,9 +28,6 @@ type ChainScopedOnlyConfig interface {
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
 	EvmEIP1559DynamicFees() bool
-	EthTxReaperInterval() time.Duration
-	EthTxReaperThreshold() time.Duration
-	EthTxResendAfterThreshold() time.Duration
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
@@ -56,11 +54,8 @@ type ChainScopedOnlyConfig interface {
 	EvmLogKeepBlocksDepth() uint32
 	EvmLogPollInterval() time.Duration
 	EvmMaxGasPriceWei() *assets.Wei
-	EvmMaxInFlightTransactions() uint32
-	EvmMaxQueuedTransactions() uint64
 	EvmMinGasPriceWei() *assets.Wei
 	EvmNonceAutoSync() bool
-	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
@@ -79,17 +74,31 @@ type ChainScopedOnlyConfig interface {
 
 	// OCR2 chain specific config
 	OCR2AutomationGasLimit() uint32
+}
 
+type EVM interface {
 	BalanceMonitor() BalanceMonitor
+	Transactions() Transactions
 }
 
 type BalanceMonitor interface {
 	Enabled() bool
 }
 
+type Transactions interface {
+	ForwardersEnabled() bool
+	ReaperInterval() time.Duration
+	ResendAfterThreshold() time.Duration
+	ReaperThreshold() time.Duration
+	MaxInFlight() uint32
+	MaxQueued() uint64
+}
+
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig
-	ChainScopedOnlyConfig
+	ChainScopedOnlyConfig // Deprecated, to be replaced by EVM() below
 	Validate() error
+
+	EVM() EVM
 }

@@ -116,6 +116,7 @@ type Broadcaster[
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
 	config         txmgrtypes.BroadcasterConfig
+	txConfig       txmgrtypes.BroadcasterTransactionsConfig
 	listenerConfig txmgrtypes.BroadcasterListenerConfig
 
 	// autoSyncNonce, if set, will cause Broadcaster to fast-forward the nonce
@@ -159,6 +160,7 @@ func NewBroadcaster[
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	config txmgrtypes.BroadcasterConfig,
+	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	eventBroadcaster pg.EventBroadcaster,
@@ -178,6 +180,7 @@ func NewBroadcaster[
 		nonceSyncer:      nonceSyncer,
 		chainID:          client.ConfiguredChainID(),
 		config:           config,
+		txConfig:         txConfig,
 		listenerConfig:   listenerConfig,
 		eventBroadcaster: eventBroadcaster,
 		ks:               keystore,
@@ -440,7 +443,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) p
 		return retryable, errors.Wrap(err, "processUnstartedTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
-		maxInFlightTransactions := eb.config.MaxInFlightTransactions()
+		maxInFlightTransactions := eb.txConfig.MaxInFlight()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.txStore.CountUnconfirmedTransactions(fromAddress, eb.chainID)
 			if err != nil {

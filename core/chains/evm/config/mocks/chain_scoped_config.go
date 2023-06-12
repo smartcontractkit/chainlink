@@ -91,22 +91,6 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	return r0
 }
 
-// BalanceMonitor provides a mock function with given fields:
-func (_m *ChainScopedConfig) BalanceMonitor() config.BalanceMonitor {
-	ret := _m.Called()
-
-	var r0 config.BalanceMonitor
-	if rf, ok := ret.Get(0).(func() config.BalanceMonitor); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.BalanceMonitor)
-		}
-	}
-
-	return r0
-}
-
 // BlockBackfillDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) BlockBackfillDepth() uint64 {
 	ret := _m.Called()
@@ -323,6 +307,22 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 	return r0
 }
 
+// EVM provides a mock function with given fields:
+func (_m *ChainScopedConfig) EVM() config.EVM {
+	ret := _m.Called()
+
+	var r0 config.EVM
+	if rf, ok := ret.Get(0).(func() config.EVM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.EVM)
+		}
+	}
+
+	return r0
+}
+
 // EVMEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) EVMEnabled() bool {
 	ret := _m.Called()
@@ -346,48 +346,6 @@ func (_m *ChainScopedConfig) EVMRPCEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// EthTxReaperInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthTxReaperInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthTxReaperThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthTxReaperThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthTxResendAfterThreshold provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -795,34 +753,6 @@ func (_m *ChainScopedConfig) EvmMaxGasPriceWei() *assets.Wei {
 	return r0
 }
 
-// EvmMaxInFlightTransactions provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmMaxInFlightTransactions() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmMaxQueuedTransactions provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmMaxQueuedTransactions() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
 // EvmMinGasPriceWei provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmMinGasPriceWei() *assets.Wei {
 	ret := _m.Called()
@@ -862,20 +792,6 @@ func (_m *ChainScopedConfig) EvmRPCDefaultBatchSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmUseForwarders provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmUseForwarders() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

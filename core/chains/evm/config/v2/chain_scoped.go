@@ -57,6 +57,22 @@ func (c *ChainScoped) Validate() (err error) {
 	return
 }
 
+type evmConfig struct {
+	c *EVMConfig
+}
+
+func (e *evmConfig) BalanceMonitor() config.BalanceMonitor {
+	return &balanceMonitorConfig{c: e.c.BalanceMonitor}
+}
+
+func (e *evmConfig) Transactions() config.Transactions {
+	return &transactionsConfig{c: e.c.Transactions}
+}
+
+func (c *ChainScoped) EVM() config.EVM {
+	return &evmConfig{c: c.cfg}
+}
+
 func (c *ChainScoped) AutoCreateKey() bool {
 	return *c.cfg.AutoCreateKey
 }
@@ -75,10 +91,6 @@ type balanceMonitorConfig struct {
 
 func (b *balanceMonitorConfig) Enabled() bool {
 	return *b.c.Enabled
-}
-
-func (c *ChainScoped) BalanceMonitor() config.BalanceMonitor {
-	return &balanceMonitorConfig{c: c.cfg.BalanceMonitor}
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
@@ -120,16 +132,32 @@ func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 	return *c.cfg.GasEstimator.EIP1559DynamicFees
 }
 
-func (c *ChainScoped) EthTxReaperInterval() time.Duration {
-	return c.cfg.Transactions.ReaperInterval.Duration()
+type transactionsConfig struct {
+	c Transactions
 }
 
-func (c *ChainScoped) EthTxReaperThreshold() time.Duration {
-	return c.cfg.Transactions.ReaperThreshold.Duration()
+func (t *transactionsConfig) ForwardersEnabled() bool {
+	return *t.c.ForwardersEnabled
 }
 
-func (c *ChainScoped) EthTxResendAfterThreshold() time.Duration {
-	return c.cfg.Transactions.ResendAfterThreshold.Duration()
+func (t *transactionsConfig) ReaperInterval() time.Duration {
+	return t.c.ReaperInterval.Duration()
+}
+
+func (t *transactionsConfig) ReaperThreshold() time.Duration {
+	return t.c.ReaperThreshold.Duration()
+}
+
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
+	return t.c.ResendAfterThreshold.Duration()
+}
+
+func (t *transactionsConfig) MaxInFlight() uint32 {
+	return *t.c.MaxInFlight
+}
+
+func (t *transactionsConfig) MaxQueued() uint64 {
+	return uint64(*t.c.MaxQueued)
 }
 
 func (c *ChainScoped) EvmFinalityDepth() uint32 {
@@ -244,20 +272,8 @@ func (c *ChainScoped) EvmLogKeepBlocksDepth() uint32 {
 	return *c.cfg.LogKeepBlocksDepth
 }
 
-func (c *ChainScoped) EvmMaxInFlightTransactions() uint32 {
-	return *c.cfg.Transactions.MaxInFlight
-}
-
-func (c *ChainScoped) EvmMaxQueuedTransactions() uint64 {
-	return uint64(*c.cfg.Transactions.MaxQueued)
-}
-
 func (c *ChainScoped) EvmNonceAutoSync() bool {
 	return *c.cfg.NonceAutoSync
-}
-
-func (c *ChainScoped) EvmUseForwarders() bool {
-	return *c.cfg.Transactions.ForwardersEnabled
 }
 
 func (c *ChainScoped) EvmRPCDefaultBatchSize() uint32 {

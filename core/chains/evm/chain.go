@@ -139,7 +139,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	}
 
 	var balanceMonitor monitor.BalanceMonitor
-	if cfg.EVMRPCEnabled() && cfg.BalanceMonitor().Enabled() {
+	if cfg.EVMRPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
 		balanceMonitor = monitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}

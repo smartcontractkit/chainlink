@@ -516,7 +516,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
+		if jb.ForwardingAllowed != chain.Config().EVM().Transactions().ForwardersEnabled() {
 			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
 		}
 
