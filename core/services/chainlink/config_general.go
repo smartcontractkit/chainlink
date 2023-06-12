@@ -4,25 +4,19 @@ import (
 	_ "embed"
 	"fmt"
 	"math/big"
-	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -224,19 +218,19 @@ func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
 }
 
-func (g *generalConfig) FeatureExternalInitiators() bool {
-	return *g.c.JobPipeline.ExternalInitiatorsEnabled
+func (g *generalConfig) Feature() coreconfig.Feature {
+	return &featureConfig{c: g.c.Feature}
 }
 
 func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureOffchainReporting() bool {
+func (g *generalConfig) OCREnabled() bool {
 	return *g.c.OCR.Enabled
 }
 
-func (g *generalConfig) FeatureOffchainReporting2() bool {
+func (g *generalConfig) OCR2Enabled() bool {
 	return *g.c.OCR2.Enabled
 }
 
@@ -248,8 +242,8 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
-func (g *generalConfig) AutoPprofEnabled() bool {
-	return *g.c.AutoPprof.Enabled
+func (g *generalConfig) AutoPprof() config.AutoPprof {
+	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) EVMEnabled() bool {
@@ -281,52 +275,6 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
-func (g *generalConfig) EthereumHTTPURL() *url.URL {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					return (*url.URL)(n.HTTPURL)
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumSecondaryURLs() (us []url.URL) {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.HTTPURL != nil {
-					us = append(us, (url.URL)(*n.HTTPURL))
-				}
-			}
-		}
-	}
-	return nil
-
-}
-func (g *generalConfig) EthereumURL() string {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			for _, n := range c.Nodes {
-				if n.SendOnly == nil || !*n.SendOnly {
-					if n.WSURL != nil {
-						return n.WSURL.String()
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func (g *generalConfig) P2PEnabled() bool {
-	p := g.c.P2P
-	return *p.V1.Enabled || *p.V2.Enabled
-}
-
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
 		if c.IsEnabled() {
@@ -354,16 +302,8 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) AllowOrigins() string {
-	return *g.c.WebServer.AllowOrigins
-}
-
-func (g *generalConfig) AuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Authenticated
-}
-
-func (g *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.AuthenticatedPeriod
+func (g *generalConfig) WebServer() config.WebServer {
+	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -414,39 +354,16 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) BridgeResponseURL() *url.URL {
-	if g.c.WebServer.BridgeResponseURL.IsZero() {
-		return nil
-	}
-	return g.c.WebServer.BridgeResponseURL.URL()
-}
-
-func (g *generalConfig) BridgeCacheTTL() time.Duration {
-	return g.c.WebServer.BridgeCacheTTL.Duration()
-}
-
-func (g *generalConfig) CertFile() string {
-	s := *g.c.WebServer.TLS.CertPath
-	if s == "" {
-		s = filepath.Join(g.TLSDir(), "server.crt")
-	}
-	return s
-}
-
 func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
-func (g *generalConfig) WebDefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequest.MaxSize)
-}
-
-func (g *generalConfig) WebDefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.HTTPRequest.DefaultTimeout
-}
-
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
+}
+
+func (g *generalConfig) Explorer() config.Explorer {
+	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
 }
 
 func (g *generalConfig) ExplorerURL() *url.URL {
@@ -457,24 +374,12 @@ func (g *generalConfig) ExplorerURL() *url.URL {
 	return u
 }
 
-func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return *g.c.FluxMonitor.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) FMSimulateTransactions() bool {
-	return *g.c.FluxMonitor.SimulateTransactions
-}
-
-func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return g.c.WebServer.HTTPWriteTimeout.Duration()
+func (g *generalConfig) FluxMonitor() config.FluxMonitor {
+	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
-}
-
-func (g *generalConfig) JSONConsole() bool {
-	return *g.c.Log.JSONConsole
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
@@ -493,35 +398,8 @@ func (g *generalConfig) Keeper() config.Keeper {
 	return &keeperConfig{c: g.c.Keeper}
 }
 
-func (g *generalConfig) KeyFile() string {
-	if g.TLSKeyPath() == "" {
-		return filepath.Join(g.TLSDir(), "server.key")
-	}
-	return g.TLSKeyPath()
-}
-
-func (g *generalConfig) LogFileDir() string {
-	s := *g.c.Log.File.Dir
-	if s == "" {
-		s = g.RootDir()
-	}
-	return s
-}
-
-func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.File.MaxSize
-}
-
-func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.File.MaxAgeDays
-}
-
-func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.File.MaxBackups
-}
-
-func (g *generalConfig) LogUnixTimestamps() bool {
-	return *g.c.Log.UnixTS
+func (g *generalConfig) Log() config.Log {
+	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
 func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -620,6 +498,10 @@ func (g *generalConfig) OCR2SimulateTransactions() bool {
 	return *g.c.OCR2.SimulateTransactions
 }
 
+func (g *generalConfig) P2P() config.P2P {
+	return &p2p{c: g.c.P2P}
+}
+
 func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	return g.c.P2P.NetworkStack()
 }
@@ -644,131 +526,8 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) P2PAnnounceIP() net.IP {
-	return *g.c.P2P.V1.AnnounceIP
-}
-
-func (g *generalConfig) P2PAnnouncePort() uint16 {
-	return *g.c.P2P.V1.AnnouncePort
-}
-
-func (g *generalConfig) P2PBootstrapPeers() ([]string, error) {
-	p := *g.c.P2P.V1.DefaultBootstrapPeers
-	if p == nil {
-		p = []string{}
-	}
-	return p, nil
-}
-
-func (g *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
-	return *g.c.P2P.V1.DHTAnnouncementCounterUserPrefix
-}
-
-func (g *generalConfig) P2PListenIP() net.IP {
-	return *g.c.P2P.V1.ListenIP
-}
-
-func (g *generalConfig) P2PListenPort() uint16 {
-	v1 := g.c.P2P.V1
-	p := *v1.ListenPort
-	return p
-}
-
-func (g *generalConfig) P2PListenPortRaw() string {
-	p := *g.c.P2P.V1.ListenPort
-	if p == 0 {
-		return ""
-	}
-	return strconv.Itoa(int(p))
-}
-
-func (g *generalConfig) P2PNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) P2PBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
-func (g *generalConfig) P2PDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
-	return g.c.P2P.V1.PeerstoreWriteInterval.Duration()
-}
-
-func (g *generalConfig) P2PV2AnnounceAddresses() []string {
-	if v := g.c.P2P.V2.AnnounceAddresses; v != nil {
-		return *v
-	}
-	return nil
-}
-
-func (g *generalConfig) P2PV2Bootstrappers() (locators []commontypes.BootstrapperLocator) {
-	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
-		return *v
-	}
-	return nil
-}
-
-func (g *generalConfig) P2PV2BootstrappersRaw() (s []string) {
-	if v := g.c.P2P.V2.DefaultBootstrappers; v != nil {
-		for _, b := range *v {
-			t, err := b.MarshalText()
-			if err != nil {
-				// log panic matches old behavior - only called for UI presentation
-				panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
-			}
-			s = append(s, string(t))
-		}
-	}
-	return
-}
-
-func (g *generalConfig) P2PV2DeltaDial() models.Duration {
-	if v := g.c.P2P.V2.DeltaDial; v != nil {
-		return *v
-	}
-	return models.Duration{}
-}
-
-func (g *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	if v := g.c.P2P.V2.DeltaReconcile; v != nil {
-		return *v
-
-	}
-	return models.Duration{}
-}
-
-func (g *generalConfig) P2PV2ListenAddresses() []string {
-	if v := g.c.P2P.V2.ListenAddresses; v != nil {
-		return *v
-	}
-	return nil
-}
-
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
-}
-func (g *generalConfig) Port() uint16 {
-	return *g.c.WebServer.HTTPPort
-}
-
-func (g *generalConfig) RPID() string {
-	return *g.c.WebServer.MFA.RPID
-}
-
-func (g *generalConfig) RPOrigin() string {
-	return *g.c.WebServer.MFA.RPOrigin
-}
-
-func (g *generalConfig) ReaperExpiration() models.Duration {
-	return *g.c.WebServer.SessionReaperExpiration
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
 func (g *generalConfig) RootDir() string {
@@ -780,128 +539,38 @@ func (g *generalConfig) RootDir() string {
 	return h
 }
 
-func (g *generalConfig) SecureCookies() bool {
-	return *g.c.WebServer.SecureCookies
-}
-
-func (g *generalConfig) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   g.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-		SameSite: http.SameSiteStrictMode,
-	}
-}
-
-func (g *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) TLSCertPath() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) TLSDir() string {
-	return filepath.Join(g.RootDir(), "tls")
-}
-
-func (g *generalConfig) TLSHost() string {
-	return *g.c.WebServer.TLS.Host
-}
-
-func (g *generalConfig) TLSKeyPath() string {
-	return *g.c.WebServer.TLS.KeyPath
-}
-
-func (g *generalConfig) TLSPort() uint16 {
-	return *g.c.WebServer.TLS.HTTPSPort
-}
-
-func (g *generalConfig) TLSRedirect() bool {
-	return *g.c.WebServer.TLS.ForceRedirect
-}
-
 func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return &telemetryIngressConfig{
 		c: g.c.TelemetryIngress,
 	}
 }
 
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	if g.c.TelemetryIngress.URL.IsZero() {
-		return nil
-	}
-	return g.c.TelemetryIngress.URL.URL()
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Unauthenticated
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
-}
-
 func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
 	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
-// Insecure config
-func (g *generalConfig) DevWebServer() bool {
-	return build.IsDev() && g.c.Insecure.DevWebServer != nil &&
-		*g.c.Insecure.DevWebServer
-}
-
-func (g *generalConfig) OCRDevelopmentMode() bool {
-	// OCRDevelopmentMode is allowed in TestBuilds as well
-	return (build.IsDev() || build.IsTest()) && g.c.Insecure.OCRDevelopmentMode != nil &&
-		*g.c.Insecure.OCRDevelopmentMode
-}
-
-func (g *generalConfig) DisableRateLimiting() bool {
-	return build.IsDev() && g.c.Insecure.DisableRateLimiting != nil &&
-		*g.c.Insecure.DisableRateLimiting
-}
-
-func (g *generalConfig) InfiniteDepthQueries() bool {
-	return build.IsDev() && g.c.Insecure.InfiniteDepthQueries != nil &&
-		*g.c.Insecure.InfiniteDepthQueries
+func (g *generalConfig) Insecure() config.Insecure {
+	return &insecureConfig{c: g.c.Insecure}
 }
 
 func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
+}
+
+func (g *generalConfig) Password() coreconfig.Password {
+	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
+}
+
+func (g *generalConfig) Prometheus() coreconfig.Prometheus {
+	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
 var (

@@ -211,7 +211,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
-      lastPerformBlockNumber: reg.lastPerformBlockNumber,
+      lastPerformed: reg.lastPerformed,
       amountSpent: reg.amountSpent,
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]

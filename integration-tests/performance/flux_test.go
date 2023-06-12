@@ -186,6 +186,10 @@ HTTPWriteTimout = '300s'
 
 [OCR]
 Enabled = true`
+	cd, err := chainlink.NewDeployment(3, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -193,11 +197,8 @@ Enabled = true`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
-			"replicas": 3,
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

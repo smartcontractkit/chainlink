@@ -131,7 +131,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -144,7 +144,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, etx.State, txmgrcommon.EthTxUnstarted)
+		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -165,7 +165,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       21000,
 			Meta:           nil,
-			Strategy:       txmgr.SendEveryStrategy{},
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Txm#CreateTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting EVM.Transactions.MaxQueued")
@@ -182,7 +182,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			EncodedPayload:    []byte{1, 2, 3},
 			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
-			Strategy:          txmgr.SendEveryStrategy{},
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 
@@ -193,7 +193,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			EncodedPayload:    []byte{1, 2, 3},
 			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
-			Strategy:          txmgr.SendEveryStrategy{},
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 
@@ -209,7 +209,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       21000,
-			Strategy:       txmgr.SendEveryStrategy{},
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.String()))
@@ -221,7 +221,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       21000,
-			Strategy:       txmgr.SendEveryStrategy{},
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction from %s on chain ID 0: eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", otherAddress.Hex(), otherAddress.Hex()))
@@ -241,7 +241,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			FeeLimit:       gasLimit,
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
@@ -264,7 +264,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
-		meta := &txmgr.EthTxMeta{
+		meta := &txmgr.EvmTxMeta{
 			JobID:         &jobID,
 			RequestID:     &requestID,
 			RequestTxHash: &requestTxHash,
@@ -282,7 +282,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			EncodedPayload: payload,
 			FeeLimit:       gasLimit,
 			Meta:           meta,
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
@@ -320,7 +320,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			EncodedPayload:   payload,
 			FeeLimit:         gasLimit,
 			ForwarderAddress: fwdr.Address,
-			Strategy:         txmgr.NewSendEveryStrategy(),
+			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)

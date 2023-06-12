@@ -21,6 +21,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -773,8 +774,8 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
-			Strategy:       txmgr.NewSendEveryStrategy(),
-			Meta: &txmgr.EthTxMeta{
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
+			Meta: &txmgr.EvmTxMeta{
 				RequestID:     &requestID,
 				SubID:         &p.req.req.SubId,
 				RequestTxHash: &p.req.req.Raw.TxHash,
@@ -968,13 +969,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					FeeLimit:       p.gasLimit,
-					Meta: &txmgr.EthTxMeta{
+					Meta: &txmgr.EvmTxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
 						SubID:         &p.req.req.SubId,
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
-					Strategy: txmgr.NewSendEveryStrategy(),
+					Strategy: txmgrcommon.NewSendEveryStrategy(),
 					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,

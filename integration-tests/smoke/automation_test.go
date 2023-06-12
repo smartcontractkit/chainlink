@@ -255,6 +255,7 @@ func TestAutomationAddFunds(t *testing.T) {
 func TestAutomationPauseUnPause(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+
 	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
 		t, "pause-unpause", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, false,
 	)
@@ -802,7 +803,6 @@ func setupAutomationTest(
 		})
 	}
 	chainlinkProps := map[string]any{
-		"replicas":    "1",
 		"toml":        client.AddNetworksConfig(automationBaseTOML, network),
 		"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
 		"db": map[string]any{
@@ -810,17 +810,17 @@ func setupAutomationTest(
 		},
 	}
 
+	cd, err := chainlink.NewDeployment(5, chainlinkProps)
+	require.NoError(t, err, "Failed to create chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig)
-	for i := 0; i < 5; i++ {
-		testEnvironment.AddHelm(chainlink.New(i, chainlinkProps))
-	}
-	err := testEnvironment.Run()
+		AddHelm(evmConfig).
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 
 	require.NoError(t, err, "Error setting up test environment")
 

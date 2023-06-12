@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,12 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/types"
+	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+
+	offchain "github.com/smartcontractkit/ocr2keepers/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -137,6 +139,15 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
+	offC, err := json.Marshal(offchain.OffchainConfig{
+		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
+		MinConfirmations:     1,
+		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
@@ -146,11 +157,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		50,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
-		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
-			MinConfirmations:     1,
-			MercuryLookup:        d.cfg.UpkeepMercury,
-		}.Encode(), // reportingPluginConfig []byte,
+		offC,                  // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
 		800*time.Millisecond,  // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
@@ -269,6 +276,14 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
+	offC, err := json.Marshal(offchain.OffchainConfig{
+		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
+		MinConfirmations:     1,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
@@ -278,10 +293,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		50,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
-		ocr2keepers.OffchainConfig{
-			PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
-			MinConfirmations:     1,
-		}.Encode(), // reportingPluginConfig []byte,
+		offC,                  // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
 		800*time.Millisecond,  // maxDurationReport time.Duration,

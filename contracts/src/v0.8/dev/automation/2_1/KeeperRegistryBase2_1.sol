@@ -9,6 +9,7 @@ import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "./interfaces/MercuryLookupCompatibleInterface.sol";
+import "./interfaces/ILogAutomation.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
@@ -24,7 +25,7 @@ import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
  * @member target the contract which needs to be serviced
  * @member amountSpent the amount this upkeep has spent
  * @member balance the balance of this upkeep
- * @member lastPerformBlockNumber the last block number when this upkeep was performed
+ * @member lastPerformed the last block number or timestamp when this upkeep was performed
  */
 struct Upkeep {
   uint32 executeGas;
@@ -35,7 +36,7 @@ struct Upkeep {
   // 3 bytes left in 1st EVM word - not written to in transmit
   uint96 amountSpent;
   uint96 balance;
-  uint32 lastPerformBlockNumber;
+  uint32 lastPerformed; // TODO time expires in 2100
   // 4 bytes left in 2nd EVM word - written in transmit path
   address target;
   // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -54,6 +55,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   bytes4 internal constant MERCURY_CALLBACK_SELECTOR = MercuryLookupCompatibleInterface.mercuryCallback.selector;
+  bytes4 internal constant CHECK_LOG_SELECTOR = ILogAutomation.checkLog.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
@@ -73,7 +75,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 75_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
@@ -128,6 +130,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
+  error InvalidTriggerType();
   error MigrationNotPermitted();
   error NotAContract();
   error OnlyActiveTransmitters();
@@ -267,23 +270,27 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
+  // the just gets emitted in UpkeepPerformed
+  /**
+  @dev NOTE that blockNum / blockHash describe the block used for the callback,
+  not necessarily the block number that the log was emitted in!!!!
+   */
   struct LogTrigger {
-    uint32 blockNum;
-    uint32 logIndex;
-    bytes32 blockHash;
     bytes32 txHash;
+    uint32 logIndex;
+    uint32 blockNum;
+    bytes32 blockHash;
   }
 
-  struct CronTrigger {
-    uint256 timestamp;
-  }
+  // TODO no custom types in 0.8.6
+  // type CronTrigger uint256; // timestamp
 
   // Report transmitted by OCR to transmit function
-  // TODO - do we use this struct anywhere?
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
     uint256[] upkeepIds;
+    uint256[] gasLimits;
     bytes[] triggers;
     bytes[] performDatas;
   }
@@ -396,7 +403,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       executeGas: gasLimit,
       balance: balance,
       maxValidBlocknumber: UINT32_MAX,
-      lastPerformBlockNumber: 0,
+      lastPerformed: 0,
       amountSpent: 0,
       paused: paused,
       forwarder: forwarder
