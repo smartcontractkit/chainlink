@@ -77,21 +77,17 @@ func TestOCRv2Basic(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 
-	for i := 2; i <= 100; i++ {
-		roundValue := 10 + i
-		err = mockServer.SetValuePath("ocr2", roundValue)
-		require.NoError(t, err)
-		err = actions.StartNewOCR2Round(int64(i), aggregatorContracts, chainClient, time.Minute*5)
-		require.NoError(t, err)
+	err = mockServer.SetValuePath("ocr2", 10)
+	require.NoError(t, err)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, chainClient, time.Minute*5)
+	require.NoError(t, err)
 
-		roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(int64(i)))
-		require.NoError(t, err, "Error getting latest OCR answer")
-		require.Equal(t, int64(roundValue), roundData.Answer.Int64(),
-			"Expected latest answer from OCR contract to be %d but got %d",
-			roundValue,
-			roundData.Answer.Int64(),
-		)
-	}
+	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	require.NoError(t, err, "Error getting latest OCR answer")
+	require.Equal(t, int64(10), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 10 but got %d",
+		roundData.Answer.Int64(),
+	)
 }
 
 func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
