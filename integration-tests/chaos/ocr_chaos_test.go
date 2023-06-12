@@ -58,11 +58,9 @@ func TestMain(m *testing.M) {
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	cd, err := chainlink.NewDeployment(6, defaultOCRSettings)
-	require.NoError(t, err)
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      []environment.ConnectedChart
+		clChart      environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
@@ -78,7 +76,7 @@ func TestOCRChaos(t *testing.T) {
 		// https://github.com/smartcontractkit/chainlink-env/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
-			cd,
+			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -88,7 +86,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(nil),
-			cd,
+			chainlink.New(0, defaultOCRSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -98,7 +96,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMinorityNodes: {
 			ethereum.New(nil),
-			cd,
+			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -107,7 +105,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(nil),
-			cd,
+			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -116,7 +114,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(nil),
-			cd,
+			chainlink.New(0, defaultOCRSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -139,7 +137,7 @@ func TestOCRChaos(t *testing.T) {
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(testCase.networkChart).
-				AddHelmCharts(testCase.clChart)
+				AddHelm(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err)
 			if testEnvironment.WillUseRemoteRunner() {

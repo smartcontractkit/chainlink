@@ -108,19 +108,17 @@ const (
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	cd, err := chainlink.NewDeployment(6, defaultAutomationSettings)
-	require.NoError(t, err, "failed to create chainlink deployment")
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      []environment.ConnectedChart
+		clChart      environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
 		// see ocr_chaos.test.go for comments
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			cd,
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -129,7 +127,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(defaultEthereumSettings),
-			cd,
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -138,7 +136,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(defaultEthereumSettings),
-			cd,
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -148,7 +146,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(defaultEthereumSettings),
-			cd,
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -158,7 +156,7 @@ func TestAutomationChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(defaultEthereumSettings),
-			cd,
+			chainlink.New(0, defaultAutomationSettings),
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -182,7 +180,7 @@ func TestAutomationChaos(t *testing.T) {
 					Test:            t,
 				}).
 				AddHelm(testCase.networkChart).
-				AddHelmCharts(testCase.clChart).
+				AddHelm(testCase.clChart).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
 					WsURL:   network.URL,
