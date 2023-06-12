@@ -20,9 +20,10 @@ type Row struct {
 
 // SnapshotRow used by GetVersions function.
 type SnapshotRow struct {
-	Address *utils.Big
-	SlotId  uint
-	Version uint64
+	Address   *utils.Big
+	SlotId    uint
+	Version   uint64
+	Confirmed bool
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
