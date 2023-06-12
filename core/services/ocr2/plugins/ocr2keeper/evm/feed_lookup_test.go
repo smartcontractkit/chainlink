@@ -40,7 +40,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	require.Nil(t, err, "need registry abi")
-	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
+	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
 	var headTracker httypes.HeadTracker
 	var headBroadcaster httypes.HeadBroadcaster

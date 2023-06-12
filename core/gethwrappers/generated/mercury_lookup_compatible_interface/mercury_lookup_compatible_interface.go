@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package mercury_lookup_compatible_interface
+package feed_lookup_compatible_interface
 
 import (
 	"errors"
