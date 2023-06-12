@@ -128,17 +128,16 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, fmt.Errorf("upkeep ids of incorrect type in report")
 	}
 
-	// TODO: a type assertion on `wrappedPerform` did not work, even with the
+	// TODO: a type assertion on `wrappedTrigger` did not work, even with the
 	// exact same struct definition as what follows. reflect was used to get the
 	// struct definition. not sure yet how to clean this up.
 	// ex:
 	// t := reflect.TypeOf(rawPerforms)
 	// fmt.Printf("%v\n", t)
-	triggers, ok := m[mKeys[3]].([]struct {
-		BlockNumber uint32   `json:"blockNumber"`
-		Blockhash   [32]byte `json:"blockHash"`
+	triggers, ok := m[mKeys[4]].([]struct {
+		BlockNumber uint32   `abi:"blockNumber"`
+		BlockHash   [32]byte `abi:"blockHash"`
 	})
-
 	if !ok {
 		return res, fmt.Errorf("triggers of incorrect structure in report")
 	}
@@ -173,7 +172,7 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 			FastGasWei:       wei,
 			LinkNative:       link,
 			CheckBlockNumber: triggers[i].BlockNumber,
-			CheckBlockHash:   triggers[i].Blockhash,
+			CheckBlockHash:   triggers[i].BlockHash,
 		}
 
 		res[i] = ocr2keepers.UpkeepResult(r)

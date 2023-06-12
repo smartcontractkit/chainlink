@@ -359,14 +359,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			State:          txmgrcommon.TxUnstarted,
 		}
 		eipTxWithAl := txmgr.EvmTx{
-			FromAddress:          fromAddress,
-			ToAddress:            toAddress,
-			EncodedPayload:       []byte{42, 42, 0},
-			Value:                big.Int(assets.NewEthValue(242)),
-			FeeLimit:             gasLimit,
-			CreatedAt:            time.Unix(0, 1),
-			State:                txmgrcommon.TxUnstarted,
-			AdditionalParameters: txmgr.EvmAccessListFrom(gethTypes.AccessList{gethTypes.AccessTuple{Address: testutils.NewAddress(), StorageKeys: []gethCommon.Hash{utils.NewHash()}}}),
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 42, 0},
+			Value:          big.Int(assets.NewEthValue(242)),
+			FeeLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 1),
+			State:          txmgrcommon.TxUnstarted,
 		}
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(3) && tx.Value().Cmp(big.NewInt(142)) == 0
@@ -396,8 +395,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, evmtypes.Nonce(4), *eipTxWithAl.Sequence)
 		assert.NotNil(t, eipTxWithAl.BroadcastAt)
 		assert.NotNil(t, eipTxWithAl.InitialBroadcastAt)
-		assert.True(t, eipTxWithAl.AdditionalParameters.Valid)
-		assert.Len(t, eipTxWithAl.AdditionalParameters.AccessList, 1)
 		assert.Len(t, eipTxWithAl.TxAttempts, 1)
 
 		attempt := eipTxWithAl.TxAttempts[0]

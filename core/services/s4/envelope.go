@@ -35,6 +35,9 @@ func NewEnvelopeFromRecord(key *Key, record *Record) *Envelope {
 
 // Sign calculates signature for the serialized envelope data.
 func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err error) {
+	if len(e.Address) != common.AddressLength {
+		return nil, fmt.Errorf("invalid address length: %d", len(e.Address))
+	}
 	js, err := e.ToJson()
 	if err != nil {
 		return nil, err
@@ -45,6 +48,9 @@ func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err erro
 
 // GetSignerAddress verifies the signature and returns the signing address.
 func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, err error) {
+	if len(e.Address) != common.AddressLength {
+		return common.Address{}, fmt.Errorf("invalid address length: %d", len(e.Address))
+	}
 	js, err := e.ToJson()
 	if err != nil {
 		return common.Address{}, err

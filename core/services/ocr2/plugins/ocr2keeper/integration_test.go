@@ -744,7 +744,7 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		PluginType: job.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
-	names, err = ocr2keeper.FilterNamesFromSpec(spec)
+	_, err = ocr2keeper.FilterNamesFromSpec(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 	require.Len(t, names, 0)
 }
