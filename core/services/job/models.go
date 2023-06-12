@@ -141,8 +141,6 @@ type Job struct {
 	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
 	LegacyGasStationSidecarSpecID *int32
 	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
-	BootstrapSpec                 *BootstrapSpec
-	BootstrapSpecID               *int32
 	GatewaySpec                   *GatewaySpec
 	GatewaySpecID                 *int32
 	PipelineSpecID                int32
@@ -156,9 +154,20 @@ type Job struct {
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time
-	// Type spec contains job type specific configuration that is customisable per job.
+	// TypeSpec contains job type specific configuration that is customisable per job.
 	// Each job of one type can configure the same properties, but with different values.
 	TypeSpec []byte
+}
+
+func (j *Job) BootstrapSpec() (bs BootstrapSpec, err error) {
+	// Use json new decoder to preserve the type (pass in a reader)
+	err = json.Unmarshal(j.TypeSpec, &bs)
+
+	if err != nil {
+		return bs, errors.Wrap(err, "Failed to unmarshal BootstrapSpec")
+	}
+
+	return bs, nil
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {

@@ -36,6 +36,7 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -469,15 +470,24 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
 	require.NoError(t, err)
 
+	bs, err := (&jb).BootstrapSpec()
+	require.NoError(t, err)
+	require.Equal(t, relay.EVM, bs.Relay)
+
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
 	cltest.AssertCount(t, db, "jobs", 1)
-	var relay string
-	require.NoError(t, db.Get(&relay, `SELECT type_spec->>'Relay' FROM jobs WHERE id = $1`, jb.ID))
-	require.Equal(t, "evm", relay)
+
+	loadedJb, err := jobORM.LoadJobByID(testutils.Context(t), jb.ID)
+	require.NoError(t, err)
+	require.Equal(t, jb, loadedJb)
+
+	loadedBs, err := (&loadedJb).BootstrapSpec()
+	require.NoError(t, err)
+	require.Equal(t, bs, loadedBs)
+	require.Equal(t, relay.EVM, loadedBs.Relay)
 
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
-	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 

@@ -3,10 +3,13 @@
 ALTER TABLE jobs -- `type_spec` should be made NOT NULL after refactoring
 ADD COLUMN type_spec JSONB;
 ALTER TABLE jobs DROP CONSTRAINT chk_only_one_spec;
+ALTER TABLE jobs DROP COLUMN bootstrap_spec_id;
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE jobs DROP COLUMN type_spec;
+ALTER TABLE jobs
+ADD COLUMN bootstrap_spec_id INT REFERENCES bootstrap_specs (id);
 ALTER TABLE jobs
 ADD CONSTRAINT chk_only_one_spec CHECK (
         num_nonnulls(

@@ -45,6 +45,7 @@ type ORM interface {
 	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error
 	InsertJob(job *Job, qopts ...pg.QOpt) error
 	CreateJob(jb *Job, qopts ...pg.QOpt) error
+	LoadJobByID(ctx context.Context, id int32, qopts ...pg.QOpt) (Job, error)
 	FindJobs(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
@@ -414,14 +415,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create LegacyGasStationSidecar spec")
 			}
 			jb.LegacyGasStationSidecarSpecID = &specID
-		case Bootstrap:
-			// This is step 1 to validating the approach.
-			// Ideally, this marshaling happens when we parse the TOML, and we don't have to do it here.
-			typeSpec, err := json.Marshal(jb.BootstrapSpec)
-			if err != nil {
-				return errors.Wrap(err, "failed to convert BootstrapSpec to TypeSpec")
-			}
-			jb.TypeSpec = typeSpec
 		case Gateway:
 			var specID int32
 			sql := `INSERT INTO gateway_specs (gateway_config, created_at, updated_at)
@@ -431,6 +424,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
+		case Bootstrap:
+			// Do nothing for Bootstrap jobs as they no longer have a separate specs table
+			// This entire switch statement can be removed once job type specs are moved to the type_spec column
+			break
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -468,18 +465,18 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	// if job has id, emplace otherwise insert with a new id.
 	if job.ID == 0 {
 		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                 legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, type_spec, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, :type_spec, NOW())
 		RETURNING *;`
 	} else {
 		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                   legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, type_spec, created_at)
 		VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, :type_spec, NOW())
 		RETURNING *;`
 	}
@@ -507,7 +504,6 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				webhook_spec_id,
 				direct_request_spec_id,
 				blockhash_store_spec_id,
-				bootstrap_spec_id,
 				block_header_feeder_spec_id,
 				gateway_spec_id
 		),
@@ -537,9 +533,6 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_blockhash_store_specs AS (
 			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
-		),
-		deleted_bootstrap_specs AS (
-			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
 		),
 		deleted_block_header_feeder_specs AS (
 			DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)
@@ -786,6 +779,77 @@ func (o *orm) FindJobTx(id int32) (Job, error) {
 func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	err = o.findJob(&jb, "id", id, pg.WithParentCtx(ctx))
 	return
+}
+
+// LoadJob returns job by ID with its TypeSpec loaded into the respective field
+func (o *orm) LoadJobByID(ctx context.Context, id int32, qopts ...pg.QOpt) (jb Job, err error) {
+	q := o.q.WithOpts(qopts...)
+
+	err = q.Transaction(func(tx pg.Queryer) error {
+		err = q.Get(&jb, `SELECT * FROM jobs WHERE id = $1`, id)
+
+		if err != nil {
+			return errors.Wrap(err, "LoadJobByID failed")
+		}
+
+		// What is pipeline spec?
+		// Can we store pipeline spec in the job table too?
+		err = loadJobType(tx, &jb, "PipelineSpec", "pipeline_specs", &jb.PipelineSpecID)
+
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("Failed to load PipelineSpec for job ID: %v", id))
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return jb, errors.Wrap(err, "LoadJobByID failed")
+	}
+
+	// Unmarshal in BootstrapSpec
+
+	// // Grabs job's TypeSpec name.
+	// // This is assuming that the TypeSpec name is the same as the job's Type with a "Spec" suffix.
+	// jobType := jb.Type.String()
+	// jobTypeSpecInterfaceName := strings.ToUpper(string(jobType[0])) + jobType[1:] + "Spec"
+
+	// // Create a job spec variable with a Go type matching the job's type
+	// jobSpec := reflect.New(reflect.ValueOf(jb).FieldByName(jobTypeSpecInterfaceName).Type().Elem()).Interface()
+
+	// // Use json new decoder to preserve the type (pass in a reader)
+	// err = json.Unmarshal(jb.TypeSpec, &jobSpec)
+
+	// if err != nil {
+	// 	return jb, errors.Wrap(err, fmt.Sprintf("Failed to unmarshal %v job type spec", jobType))
+	// }
+
+	// // Set the job's type spec field to the unmarshalled job spec
+	// reflect.ValueOf(&jb).Elem().FieldByName(jobTypeSpecInterfaceName).Set(reflect.ValueOf(jobSpec))
+
+	return jb, nil
+
+	// reflect.ValueOf(job).Elem().FieldByName(field).Set(destVal)
+	// return nil
+
+	// q := o.q.WithOpts(qopts...)
+	// err := q.Transaction(func(tx pg.Queryer) error {
+	// 	sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
+	// 	err := tx.Get(jb, sql, arg)
+	// 	if err != nil {
+	// 		return errors.Wrap(err, "failed to load job")
+	// 	}
+
+	// 	if err = LoadAllJobTypes(tx, jb); err != nil {
+	// 		return err
+	// 	}
+
+	// 	return loadJobSpecErrors(tx, jb)
+	// })
+	// if err != nil {
+	// 	return errors.Wrap(err, "findJob failed")
+	// }
+	// return o.LoadEnvConfigVars(jb)
 }
 
 // FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
@@ -1221,7 +1285,6 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadBlockHeaderFeederJob(tx, job, job.BlockHeaderFeederSpecID),
 		loadLegacyGasStationServerJob(tx, job, job.LegacyGasStationServerSpecID),
 		loadJobType(tx, job, "LegacyGasStationSidecarSpec", "legacy_gas_station_sidecar_specs", job.LegacyGasStationSidecarSpecID),
-		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 		loadJobType(tx, job, "GatewaySpec", "gateway_specs", job.GatewaySpecID),
 	)
 }
