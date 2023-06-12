@@ -33,7 +33,6 @@ type AppConfig interface {
 	FeatureFlags
 	OCR1Config
 	OCR2Config
-	Secrets
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -51,6 +50,8 @@ type AppConfig interface {
 	Password() Password
 	Prometheus() Prometheus
 	P2P() P2P
+	Mercury() Mercury
+	Threshold() Threshold
 }
 
 type DatabaseBackupMode string

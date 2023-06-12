@@ -574,6 +574,14 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
+}
+
 var (
 	zeroURL        = url.URL{}
 	zeroSha256Hash = models.Sha256Hash{}
