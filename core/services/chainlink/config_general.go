@@ -218,19 +218,19 @@ func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
 }
 
-func (g *generalConfig) FeatureExternalInitiators() bool {
-	return *g.c.JobPipeline.ExternalInitiatorsEnabled
+func (g *generalConfig) Feature() coreconfig.Feature {
+	return &featureConfig{c: g.c.Feature}
 }
 
 func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureOffchainReporting() bool {
+func (g *generalConfig) OCREnabled() bool {
 	return *g.c.OCR.Enabled
 }
 
-func (g *generalConfig) FeatureOffchainReporting2() bool {
+func (g *generalConfig) OCR2Enabled() bool {
 	return *g.c.OCR2.Enabled
 }
 
@@ -244,10 +244,6 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 
 func (g *generalConfig) AutoPprof() config.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
-}
-
-func (g *generalConfig) AutoPprofEnabled() bool {
-	return *g.c.AutoPprof.Enabled
 }
 
 func (g *generalConfig) EVMEnabled() bool {
@@ -277,11 +273,6 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 		}
 	}
 	return nil
-}
-
-func (g *generalConfig) P2PEnabled() bool {
-	p := g.c.P2P
-	return *p.V1.Enabled || *p.V2.Enabled
 }
 
 func (g *generalConfig) SolanaEnabled() bool {
@@ -535,12 +526,8 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
 func (g *generalConfig) RootDir() string {
@@ -576,6 +563,14 @@ func (g *generalConfig) Password() coreconfig.Password {
 
 func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
 var (

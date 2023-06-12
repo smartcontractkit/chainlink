@@ -82,7 +82,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -129,7 +129,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -166,7 +166,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+				txManager.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
 					return tx.MinConfirmations == clnull.Uint32From(2)
 				})).Return(txmgr.EvmTx{}, nil)
 			},
@@ -206,7 +206,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -251,7 +251,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -281,7 +281,7 @@ func TestETHTxTask(t *testing.T) {
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.EvmTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -315,7 +315,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -349,7 +349,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -414,7 +414,7 @@ func TestETHTxTask(t *testing.T) {
 					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", txmgr.EvmNewTx{
+				txManager.On("CreateTransaction", txmgr.EvmTxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
@@ -510,7 +510,7 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
-				txManager.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+				txManager.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
 					return tx.MinConfirmations == clnull.Uint32From(3) && tx.PipelineTaskRunID != nil
 				})).Return(txmgr.EvmTx{}, nil)
 			},
