@@ -3,7 +3,6 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -22,25 +21,6 @@ const (
 	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
-)
-
-var (
-	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
-	// function which returns this tuple in order to decode the bytes
-	pdataABI, _ = abi.JSON(strings.NewReader(`[{
-		"name":"check",
-		"type":"function",
-		"outputs":[{
-			"name":"ret",
-			"type":"tuple",
-			"components":[
-				{"type":"uint32","name":"checkBlockNumber"},
-				{"type":"bytes32","name":"checkBlockhash"},
-				{"type":"bytes","name":"performData"}
-				]
-			}]
-		}]`,
-	))
 )
 
 type evmRegistryPackerV2_1 struct {
