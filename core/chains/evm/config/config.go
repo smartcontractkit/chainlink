@@ -15,7 +15,6 @@ type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
 	AutoCreateKey() bool
-	BalanceMonitorEnabled() bool
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
@@ -80,6 +79,12 @@ type ChainScopedOnlyConfig interface {
 
 	// OCR2 chain specific config
 	OCR2AutomationGasLimit() uint32
+
+	BalanceMonitor() BalanceMonitor
+}
+
+type BalanceMonitor interface {
+	Enabled() bool
 }
 
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore

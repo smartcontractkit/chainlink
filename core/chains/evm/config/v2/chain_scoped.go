@@ -11,6 +11,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -68,8 +69,16 @@ func (c *ChainScoped) BlockBackfillSkip() bool {
 	return *c.cfg.BlockBackfillSkip
 }
 
-func (c *ChainScoped) BalanceMonitorEnabled() bool {
-	return *c.cfg.BalanceMonitor.Enabled
+type balanceMonitorConfig struct {
+	c BalanceMonitor
+}
+
+func (b *balanceMonitorConfig) Enabled() bool {
+	return *b.c.Enabled
+}
+
+func (c *ChainScoped) BalanceMonitor() config.BalanceMonitor {
+	return &balanceMonitorConfig{c: c.cfg.BalanceMonitor}
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {

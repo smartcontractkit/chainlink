@@ -9,6 +9,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -89,15 +91,17 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	return r0
 }
 
-// BalanceMonitorEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) BalanceMonitorEnabled() bool {
+// BalanceMonitor provides a mock function with given fields:
+func (_m *ChainScopedConfig) BalanceMonitor() config.BalanceMonitor {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 config.BalanceMonitor
+	if rf, ok := ret.Get(0).(func() config.BalanceMonitor); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.BalanceMonitor)
+		}
 	}
 
 	return r0
