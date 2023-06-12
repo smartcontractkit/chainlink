@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-	kevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
+	kevm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -81,11 +81,11 @@ func EVMDependencies(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Chai
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm.NewEVMRegistryServiceV2_1(rAddr, chain, mc, lggr); err != nil {
+	if registry, err = kevm.NewEVMRegistryServiceV2_0(rAddr, chain, mc, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	encoder := kevm.EVMAutomationEncoder21{}
+	encoder := kevm.EVMAutomationEncoder20{}
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
