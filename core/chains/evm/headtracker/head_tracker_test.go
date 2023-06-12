@@ -86,10 +86,10 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 
 	h := cltest.Head(200)
 	require.NoError(t, ht.headSaver.Save(testutils.Context(t), h))
-	assert.Equal(t, big.NewInt(200), ht.headSaver.LatestChain().BlockNumber())
+	assert.Equal(t, big.NewInt(200), ht.headSaver.LatestChain().ToInt())
 
 	firstHead := firstHead(t, db)
-	assert.Equal(t, big.NewInt(101), firstHead.BlockNumber())
+	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
 
 	lastHead, err := orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.headSaver.LatestChain().BlockNumber())
+			assert.Equal(t, test.want, ht.headSaver.LatestChain().ToInt())
 		})
 	}
 }
@@ -904,7 +904,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		require.NotNil(t, h)
 
 		require.Equal(t, uint32(2), h.ChainLength())
-		require.Equal(t, big.NewInt(0), h.EarliestInChain().BlockNumber())
+		require.Equal(t, int64(0), h.EarliestInChain().BlockNumber())
 	})
 
 	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
@@ -935,7 +935,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		// Should contain 12, 11, 10, 9
 		assert.Equal(t, 4, int(h.ChainLength()))
-		assert.Equal(t, big.NewInt(9), h.EarliestInChain().BlockNumber())
+		assert.Equal(t, int64(9), h.EarliestInChain().BlockNumber())
 	})
 
 	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
@@ -964,7 +964,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		// Should contain 12, 11, 10, 9
 		assert.Equal(t, 4, int(h.ChainLength()))
-		assert.Equal(t, big.NewInt(9), h.EarliestInChain().BlockNumber())
+		assert.Equal(t, int64(9), h.EarliestInChain().BlockNumber())
 	})
 }
 
