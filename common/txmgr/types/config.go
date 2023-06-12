@@ -2,10 +2,9 @@ package types
 
 import "time"
 
-// FEE_UNIT - fee unit
-type TxmConfig[FEE_UNIT Unit] interface {
-	BroadcasterConfig[FEE_UNIT]
-	ConfirmerConfig[FEE_UNIT]
+type TxmConfig interface {
+	BroadcasterConfig
+	ConfirmerConfig
 	ResenderConfig
 	ReaperConfig
 
@@ -14,22 +13,20 @@ type TxmConfig[FEE_UNIT Unit] interface {
 	MaxQueuedTransactions() uint64
 }
 
-// FEE_UNIT - fee unit
-type BroadcasterConfig[FEE_UNIT Unit] interface {
+type BroadcasterConfig interface {
 	MaxInFlightTransactions() uint32
 
 	// from gas.Config
 	IsL2() bool
-	MaxFeePrice() FEE_UNIT
-	FeePriceDefault() FEE_UNIT
+	MaxFeePrice() string     // logging value
+	FeePriceDefault() string // logging value
 }
 
 type BroadcasterListenerConfig interface {
 	FallbackPollInterval() time.Duration
 }
 
-// FEE_UNIT - fee unit
-type ConfirmerConfig[FEE_UNIT Unit] interface {
+type ConfirmerConfig interface {
 	RPCDefaultBatchSize() uint32
 	UseForwarders() bool
 	FeeBumpTxDepth() uint32
@@ -39,7 +36,7 @@ type ConfirmerConfig[FEE_UNIT Unit] interface {
 	// from gas.Config
 	FeeBumpThreshold() uint64
 	FinalityDepth() uint32
-	MaxFeePrice() FEE_UNIT
+	MaxFeePrice() string // logging value
 	FeeBumpPercent() uint16
 }
 

@@ -45,9 +45,9 @@ type ListenerConfig interface {
 }
 
 type (
-	EvmTxmConfig         txmgrtypes.TxmConfig[*assets.Wei]
-	EvmBroadcasterConfig txmgrtypes.BroadcasterConfig[*assets.Wei]
-	EvmConfirmerConfig   txmgrtypes.ConfirmerConfig[*assets.Wei]
+	EvmTxmConfig         txmgrtypes.TxmConfig
+	EvmBroadcasterConfig txmgrtypes.BroadcasterConfig
+	EvmConfirmerConfig   txmgrtypes.ConfirmerConfig
 	EvmResenderConfig    txmgrtypes.ResenderConfig
 	EvmReaperConfig      txmgrtypes.ReaperConfig
 )
@@ -72,9 +72,9 @@ func (c evmTxmConfig) MaxInFlightTransactions() uint32 { return c.EvmMaxInFlight
 
 func (c evmTxmConfig) IsL2() bool { return c.ChainType().IsL2() }
 
-func (c evmTxmConfig) MaxFeePrice() *assets.Wei { return c.EvmMaxGasPriceWei() }
+func (c evmTxmConfig) MaxFeePrice() string { return c.EvmMaxGasPriceWei().String() }
 
-func (c evmTxmConfig) FeePriceDefault() *assets.Wei { return c.EvmGasPriceDefault() }
+func (c evmTxmConfig) FeePriceDefault() string { return c.EvmGasPriceDefault().String() }
 
 func (c evmTxmConfig) RPCDefaultBatchSize() uint32 { return c.EvmRPCDefaultBatchSize() }
 
