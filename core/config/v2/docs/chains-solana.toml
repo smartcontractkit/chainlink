@@ -35,6 +35,24 @@ ComputeUnitPriceDefault = 0 # Default
 # FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 FeeBumpPeriod = '3s' # Default
 
+# Configs for HeadTracker
+# HistoryDepth represents the top N block numbers to keep in the heads database table.
+# Should be at least as large as FinalityDepth. May result in a performance penalty
+# if set to a very large value (10,000+).
+HistoryDepth = 100 # Default
+# MaxBufferSize is the maximum number of heads that may be buffered in front of the
+# head tracker before older heads start to be dropped. Represents the maximum permissible
+# "lag" for the head tracker.
+MaxBufferSize = 3 # Default
+# BlockEmissionIdleWarningThreshold is the duration to wait after receiving no new heads
+# before marking RPC endpoints as out-of-sync and logging warnings. Set to '0' to disable
+# out-of-sync checking. Formatted as a duration (e.g., '3m' for 3 minutes).
+BlockEmissionIdleWarningThreshold = 30 # Default
+# SamplingInterval is the duration of the window in which head tracker callbacks will be
+# made at maximum once. A performance optimization for fast chains. Set to '0' to disable
+# sampling. Formatted as a duration (e.g., '1s' for 1 second).
+SamplingInterval = '1s' # Default
+
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
 Name = 'primary' # Example
