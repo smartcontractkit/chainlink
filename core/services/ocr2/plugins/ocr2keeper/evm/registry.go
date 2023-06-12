@@ -647,10 +647,18 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		if err != nil {
 			return nil, err
 		}
-		checkData := []byte{} // TODO
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId, checkData)
-		if err != nil {
-			return nil, err
+		var payload []byte
+		switch getUpkeepType(upkeepId.Bytes()) {
+		case logTrigger:
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, []byte{})
+			if err != nil {
+				return nil, err
+			}
+		default:
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		var result string
