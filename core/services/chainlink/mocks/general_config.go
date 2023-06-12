@@ -13,8 +13,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-
 	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 
 	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
@@ -424,16 +422,16 @@ func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
 }
 
-// MercuryCredentials provides a mock function with given fields: credName
-func (_m *GeneralConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
-	ret := _m.Called(credName)
+// Mercury provides a mock function with given fields:
+func (_m *GeneralConfig) Mercury() config.Mercury {
+	ret := _m.Called()
 
-	var r0 *models.MercuryCredentials
-	if rf, ok := ret.Get(0).(func(string) *models.MercuryCredentials); ok {
-		r0 = rf(credName)
+	var r0 config.Mercury
+	if rf, ok := ret.Get(0).(func() config.Mercury); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.MercuryCredentials)
+			r0 = ret.Get(0).(config.Mercury)
 		}
 	}
 
@@ -826,43 +824,17 @@ func (_m *GeneralConfig) Prometheus() config.Prometheus {
 	return r0
 }
 
-// PyroscopeAuthToken provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeAuthToken() string {
+// Pyroscope provides a mock function with given fields:
+func (_m *GeneralConfig) Pyroscope() config.Pyroscope {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Pyroscope
+	if rf, ok := ret.Get(0).(func() config.Pyroscope); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeEnvironment provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeServerAddress provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeServerAddress() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Pyroscope)
+		}
 	}
 
 	return r0
@@ -1012,15 +984,17 @@ func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	return r0
 }
 
-// ThresholdKeyShare provides a mock function with given fields:
-func (_m *GeneralConfig) ThresholdKeyShare() string {
+// Threshold provides a mock function with given fields:
+func (_m *GeneralConfig) Threshold() config.Threshold {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Threshold
+	if rf, ok := ret.Get(0).(func() config.Threshold); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Threshold)
+		}
 	}
 
 	return r0

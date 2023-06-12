@@ -535,12 +535,8 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
 func (g *generalConfig) RootDir() string {
@@ -576,6 +572,14 @@ func (g *generalConfig) Password() coreconfig.Password {
 
 func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
 var (
