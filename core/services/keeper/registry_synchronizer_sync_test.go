@@ -57,8 +57,6 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	keys := map[string]bool{}
 	for _, entry := range logObserver.All() {
 		for _, field := range entry.Context {
-			keys[field.Key] = true
-
 			switch field.Key {
 			case "error":
 				require.Equal(t, "failed to get upkeep config: failure in calling contract [chain connection error example]: getConfig v1.2", field.String)
@@ -66,7 +64,10 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 				require.Equal(t, fmt.Sprintf("UPx%064s", "429ab990419450db80821"), field.String)
 			case "registryContract":
 				require.Equal(t, addr.Hex(), field.String)
+			default:
+				continue
 			}
+			keys[field.Key] = true
 		}
 	}
 
