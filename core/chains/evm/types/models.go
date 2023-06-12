@@ -57,12 +57,8 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
-func (h *Head) BlockNumber() *big.Int {
-	if h == nil {
-		return nil
-	}
-
-	return big.NewInt(h.Number)
+func (h *Head) BlockNumber() int64 {
+	return h.Number
 }
 
 func (h *Head) BlockHash() common.Hash {

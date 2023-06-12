@@ -165,7 +165,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 		return nil
 	}
 
-	baseHeight := headWithChain.BlockNumber().Int64() - int64(depth-1)
+	baseHeight := headWithChain.BlockNumber() - int64(depth-1)
 	if baseHeight < 0 {
 		baseHeight = 0
 	}
@@ -207,7 +207,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 	}
 
 	if !prevHead.IsValid() || head.BlockNumber().Cmp(prevHead.BlockNumber()) == 1 {
-		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.BlockNumber().Int64()))
+		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.BlockNumber()))
 
 		headWithChain := ht.headSaver.Chain(head.BlockHash())
 		if !headWithChain.IsValid() {
@@ -223,8 +223,8 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
-		prevUnFinalizedHead := prevHead.BlockNumber().Int64() - int64(ht.config.FinalityDepth())
-		if head.BlockNumber().Int64() < prevUnFinalizedHead {
+		prevUnFinalizedHead := prevHead.BlockNumber() - int64(ht.config.FinalityDepth())
+		if head.BlockNumber() < prevUnFinalizedHead {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
@@ -303,7 +303,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 
 // backfill fetches all missing heads up until the base height
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head commontypes.Head[BLOCK_HASH], baseHeight int64) (err error) {
-	headNumberInt64 := head.BlockNumber().Int64()
+	headNumberInt64 := head.BlockNumber()
 	if headNumberInt64 <= baseHeight {
 		return nil
 	}
@@ -325,7 +325,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			"err", err)
 	}()
 
-	for i := head.BlockNumber().Int64() - 1; i >= baseHeight; i-- {
+	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.GetParentHash())
 		if existingHead.IsValid() {
