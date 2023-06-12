@@ -40,7 +40,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 		expectedKeys = append(expectedKeys, expectedKey{
 			ID:      k.ID(),
 			Version: k.Version,
-			PubKey:  k.PublicKeyString(),
+			PubKey:  fmt.Sprintf("csa_%s", k.PublicKeyString()),
 		})
 	}
 
@@ -97,7 +97,7 @@ func Test_CreateCSAKey(t *testing.T) {
 				"csaKey": {
 					"id": "%s",
 					"version": %d,
-					"publicKey": "%s"
+					"publicKey": "csa_%s"
 				}
 			}
 		}
@@ -165,7 +165,7 @@ func Test_DeleteCSAKey(t *testing.T) {
 				"csaKey": {
 					"id": "%s",
 					"version": %d,
-					"publicKey": "%s"
+					"publicKey": "csa_%s"
 				}
 			}
 		}

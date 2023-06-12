@@ -39,6 +39,6 @@ func (ps StarkNetNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewStarkNetNodeClient(c *Client) NodeClient {
-	return newNodeClient[StarkNetNodePresenters](c, "starknet")
+func NewStarkNetNodeClient(s *Shell) NodeClient {
+	return newNodeClient[StarkNetNodePresenters](s, "starknet")
 }

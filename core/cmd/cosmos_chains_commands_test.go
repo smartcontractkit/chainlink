@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 )
 
-func TestClient_IndexCosmosChains(t *testing.T) {
+func TestShell_IndexCosmosChains(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
@@ -22,7 +22,7 @@ func TestClient_IndexCosmosChains(t *testing.T) {
 		Enabled: ptr(true),
 	}
 	app := cosmosStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.CosmosChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.CosmosChainPresenters)

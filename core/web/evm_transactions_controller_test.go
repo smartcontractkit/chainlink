@@ -26,7 +26,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	db := app.GetSqlxDB()
 	borm := app.TxmStorageService()
-	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, app.Config.Database()).Eth()
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
@@ -40,9 +40,9 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	require.NoError(t, borm.InsertTxAttempt(&attempt))
 
-	_, count, err := borm.EthTransactionsWithAttempts(0, 100)
+	_, count, err := borm.TransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 

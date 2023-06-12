@@ -194,7 +194,10 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 		return fmt.Errorf("failed to send tx: %w", err)
 	}
 
-	k.waitTx(ctx, signedTx)
+	if err := k.waitTx(ctx, signedTx); err != nil {
+		log.Fatal("Send ETH failed, error is %s", err.Error())
+	}
+	log.Println("Send ETH successfully")
 
 	return nil
 }
@@ -208,7 +211,7 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) error {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
-		log.Println("WaitDeployed failed: ", err)
+		log.Println("WaitTx failed: ", err)
 		return err
 	}
 

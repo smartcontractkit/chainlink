@@ -126,6 +126,8 @@ HTTPPort = 6688
 SecureCookies = true
 SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
 
 [WebServer.MFA]
 RPID = ''
@@ -170,6 +172,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR]
 Enabled = false

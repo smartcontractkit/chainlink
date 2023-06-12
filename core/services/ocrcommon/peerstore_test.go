@@ -53,7 +53,7 @@ func Test_Peerstore_Start(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
+	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg.Database())
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -76,7 +76,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
+	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg.Database())
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -66,7 +66,7 @@ func Test_Queue(t *testing.T) {
 	t.Parallel()
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
-	transmitQueue := NewTransmitQueue(lggr, 7)
+	transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7)
 
 	t.Run("successfully add transmissions to transmit queue", func(t *testing.T) {
 		for _, tt := range testTransmissions {

@@ -11,11 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -54,7 +53,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, starkKey)
 }
 
-func TestClient_StarkNetKeys(t *testing.T) {
+func TestShell_StarkNetKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().StarkNet()
 	cleanup := func() {
@@ -68,7 +67,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 	t.Run("ListStarkNetKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().StarkNet().Create()
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
@@ -81,7 +80,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 	t.Run("CreateStarkNetKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewStarkNetKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().StarkNet().GetAll()
 		require.NoError(t, err)
@@ -90,7 +89,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 
 	t.Run("DeleteStarkNetKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().StarkNet().Create()
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
@@ -111,7 +110,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 	t.Run("ImportExportStarkNetKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().StarkNet().Create()
 		require.NoError(t, err)

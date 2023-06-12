@@ -39,10 +39,10 @@ func (r *RunResultSaver) Start(context.Context) error {
 				case run := <-r.runResults:
 					if !run.HasErrors() && r.maxSuccessfulRuns == 0 {
 						// optimisation: don't bother persisting it if we don't need to save successful runs
-						r.logger.Debugw("Skipping save of successful run due to MaxSuccessfulRuns=0", "run", run)
+						r.logger.Tracew("Skipping save of successful run due to MaxSuccessfulRuns=0", "run", run)
 						continue
 					}
-					r.logger.Debugw("RunSaver: saving job run", "run", run)
+					r.logger.Tracew("RunSaver: saving job run", "run", run)
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
 					if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {

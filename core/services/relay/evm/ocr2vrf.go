@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
-	types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // DKGProvider provides all components needed for a DKG plugin.
