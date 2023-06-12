@@ -415,8 +415,8 @@ WHERE id = $2;
 // feeds manager id exists.
 func (o *orm) UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (id int64, err error) {
 	stmt := `
-INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, external_job_id, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 ON CONFLICT (remote_uuid)
 DO
 	UPDATE SET
@@ -429,19 +429,12 @@ DO
 				ELSE EXCLUDED.status
 			END
 		),
-		external_job_id = (
-			CASE
-				WHEN job_proposals.status = 'deleted' THEN job_proposals.external_job_id
-				WHEN job_proposals.status = 'approved' THEN job_proposals.external_job_id
-				ELSE EXCLUDED.external_job_id
-			END
-		),
 		multiaddrs = EXCLUDED.multiaddrs,
 		updated_at = EXCLUDED.updated_at
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, jp.ExternalJobID)
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -551,8 +544,8 @@ RETURNING id;
 	return id, errors.Wrap(err, "CreateJobProposalSpec failed")
 }
 
-// ExistsSpecByJobProposalIDAndVersion checks if a job proposal spec exists for
-// a specific job proposal and version.
+// ExistsSpecByJobProposalIDAndVersion checks if a job proposal spec exists for a specific job
+// proposal and version.
 func (o *orm) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error) {
 	stmt := `
 SELECT exists (
@@ -566,9 +559,8 @@ SELECT exists (
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
 }
 
-// DeleteProposal performs a soft delete of the job proposal by setting the
-// status to deleted and update the status to
-// deleted
+// DeleteProposal performs a soft delete of the job proposal by setting the status to deleted and
+// update the status to deleted
 func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals

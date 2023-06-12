@@ -49,6 +49,7 @@ type ORM interface {
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
 	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
+	FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -852,6 +853,31 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	})
 
 	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
+}
+
+func (o *orm) FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (jobID int32, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT jobs.id
+FROM jobs
+LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.feed_id = $2 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
+LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.feed_id = $2 AND bs.id = jobs.bootstrap_spec_id
+WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
+`
+		err = tx.Get(&jobID, stmt, contractID, feedID)
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			if err != nil {
+				return errors.Wrap(err, "error searching for job by contract id and feed id")
+			}
+			return nil
+		}
+
+		return err
+	})
+
+	return jobID, errors.Wrap(err, "FindOCR2JobIDByAddress failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {

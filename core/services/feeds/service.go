@@ -689,16 +689,16 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	// All job specs should have external_job_ids
+	if j.ExternalJobID == uuid.Nil {
+		return errors.New("failed to approve job spec due to missing ExternalJobID in spec")
+	}
+
 	// Check that the bridges exist
 	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
 		logger.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
 
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
-	}
-
-	address, evmChainID, err := s.getAddressAndEVMChainIDFromJob(j)
-	if err != nil {
-		return err
 	}
 
 	q := s.q.WithOpts(pctx)
@@ -710,33 +710,43 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			pgOpts = pg.WithQueryer(tx)
 		)
 
-		// Check if a job already exist for the proposal
-		if proposal.ExternalJobID.Valid {
-			var j job.Job
-			j, txerr = s.jobORM.FindJobByExternalJobID(proposal.ExternalJobID.UUID, pg.WithQueryer(tx))
-			if txerr != nil {
-				// Return an error if the repository errors. If there is a not found
-				// error we want to continue with approving the job.
-				if !errors.Is(txerr, sql.ErrNoRows) {
-					return errors.Wrap(txerr, "FindJobByExternalJobID failed")
-				}
-			}
-
-			if txerr == nil {
-				existingJobID = j.ID
+		// Use the external job id to check if a job already exists
+		foundJob, txerr := s.jobORM.FindJobByExternalJobID(j.ExternalJobID, pgOpts)
+		if txerr != nil {
+			// Return an error if the repository errors. If there is a not found
+			// error we want to continue with approving the job.
+			if !errors.Is(txerr, sql.ErrNoRows) {
+				return errors.Wrap(txerr, "FindJobByExternalJobID failed")
 			}
 		}
 
+		if txerr == nil {
+			existingJobID = foundJob.ID
+		}
+
 		// If no job was found by external job id, check if a job exists by address
-		// TODO: this method should be updated to work for ocr2 jobs
 		if existingJobID == 0 {
-			existingJobID, txerr = s.jobORM.FindJobIDByAddress(address, evmChainID, pgOpts)
-			if txerr != nil {
-				// Return an error if the repository errors. If there is a not found
-				// error we want to continue with approving the job.
-				if !errors.Is(txerr, sql.ErrNoRows) {
-					return errors.Wrap(txerr, "FindJobIDByAddress failed")
+			switch j.Type {
+			case job.OffchainReporting, job.FluxMonitor:
+				existingJobID, txerr = s.findExistingJobForOCRFlux(j, pgOpts)
+				if txerr != nil {
+					// Return an error if the repository errors. If there is a not found
+					// error we want to continue with approving the job.
+					if !errors.Is(txerr, sql.ErrNoRows) {
+						return errors.Wrap(txerr, "FindJobIDByAddress failed")
+					}
 				}
+			case job.OffchainReporting2, job.Bootstrap:
+				existingJobID, txerr = s.findExistingJobForOCR2(j, pgOpts)
+				if txerr != nil {
+					// Return an error if the repository errors. If there is a not found
+					// error we want to continue with approving the job.
+					if !errors.Is(txerr, sql.ErrNoRows) {
+						return errors.Wrap(txerr, "FindOCR2JobIDByAddress failed")
+					}
+				}
+			default:
+				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
 		}
 
@@ -838,19 +848,31 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		if err = s.orm.CancelSpec(id, pg.WithQueryer(tx)); err != nil {
-			return err
+		var (
+			txerr  error
+			pgOpts = pg.WithQueryer(tx)
+		)
+
+		if txerr = s.orm.CancelSpec(id, pgOpts); txerr != nil {
+			return txerr
 		}
 
 		// Delete the job
-		var j job.Job
-		j, err = s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pg.WithQueryer(tx))
-		if err != nil {
-			return errors.Wrap(err, "FindJobByExternalJobID failed")
-		}
+		if jp.ExternalJobID.Valid {
+			j, txerr := s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pgOpts)
+			if txerr != nil {
+				// Return an error if the repository errors. If there is a not found error we want
+				// to continue with cancelling the spec but we won't have to cancel any jobs.
+				if !errors.Is(txerr, sql.ErrNoRows) {
+					return errors.Wrap(txerr, "FindJobByExternalJobID failed")
+				}
+			}
 
-		if err = s.jobSpawner.DeleteJob(j.ID, pg.WithQueryer(tx)); err != nil {
-			return errors.Wrap(err, "DeleteJob failed")
+			if txerr == nil {
+				if serr := s.jobSpawner.DeleteJob(j.ID, pgOpts); serr != nil {
+					return errors.Wrap(serr, "DeleteJob failed")
+				}
+			}
 		}
 
 		// Send to FMS Client
@@ -1012,8 +1034,61 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
-// getAddressAndChainIDFromJob extracts the address and evmChainID from a job
-func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Address, *utils.Big, error) {
+func (s *service) findExistingJob(j *job.Job, qopts pg.QOpt) (int32, error) {
+	var existingJobID int32
+	var err error
+
+	switch j.Type {
+	case job.OffchainReporting, job.FluxMonitor:
+		existingJobID, err = s.findExistingJobForOCRFlux(j, qopts)
+		if err != nil {
+			// Return an error if the repository errors. If there is a not found
+			// error we want to continue with approving the job.
+			if !errors.Is(err, sql.ErrNoRows) {
+				return 0, err
+			}
+		}
+	case job.OffchainReporting2, job.Bootstrap:
+		existingJobID, err = s.findExistingJobForOCR2(j, qopts)
+		if err != nil {
+			// Return an error if the repository errors. If there is a not found
+			// error we want to continue with approving the job.
+			if !errors.Is(err, sql.ErrNoRows) {
+				return 0, err
+			}
+		}
+	default:
+		return 0, errors.Errorf("unsupported job type: %s", j.Type)
+	}
+
+	return existingJobID, nil
+}
+
+// findExistingJobForOCR2 looks for existing job for OCR2
+func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, error) {
+	var contractID string
+	var feedID common.Hash
+
+	switch j.Type {
+	case job.OffchainReporting2:
+		contractID = j.OCR2OracleSpec.ContractID
+		feedID = j.OCR2OracleSpec.FeedID
+	case job.Bootstrap:
+		contractID = j.BootstrapSpec.ContractID
+		if j.BootstrapSpec.FeedID != nil {
+			feedID = *j.BootstrapSpec.FeedID
+		}
+	case job.FluxMonitor, job.OffchainReporting:
+		return 0, errors.Errorf("contradID and feedID not applicable for job type: %s", j.Type)
+	default:
+		return 0, errors.Errorf("unsupported job type: %s", j.Type)
+	}
+
+	return s.jobORM.FindOCR2JobIDByAddress(contractID, feedID, qopts)
+}
+
+// findExistingJobForOCRFlux looks for existing job for OCR or flux
+func (s *service) findExistingJobForOCRFlux(j *job.Job, qopts pg.QOpt) (int32, error) {
 	var address ethkey.EIP55Address
 	var evmChainID *utils.Big
 
@@ -1021,40 +1096,16 @@ func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Addres
 	case job.OffchainReporting:
 		address = j.OCROracleSpec.ContractAddress
 		evmChainID = j.OCROracleSpec.EVMChainID
-	case job.OffchainReporting2:
-		eipAddress, addrErr := ethkey.NewEIP55Address(j.OCR2OracleSpec.ContractID)
-		if addrErr != nil {
-			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from OCR2 job spec")
-		}
-
-		evmChain, chainErr := job.EVMChainForJob(j, s.chainSet)
-		if chainErr != nil {
-			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from OCR2 job spec")
-		}
-
-		evmChainID = utils.NewBig(evmChain.ID())
-		address = eipAddress
-	case job.Bootstrap:
-		eipAddress, addrErr := ethkey.NewEIP55Address(j.BootstrapSpec.ContractID)
-		if addrErr != nil {
-			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from Bootstrap job spec")
-		}
-
-		evmChain, chainErr := job.EVMChainForBootstrapJob(j, s.chainSet)
-		if chainErr != nil {
-			return eipAddress, nil, errors.Wrap(chainErr, "failed to get evmChainID from Bootstrap job spec")
-		}
-
-		evmChainID = utils.NewBig(evmChain.ID())
-		address = eipAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 		evmChainID = j.FluxMonitorSpec.EVMChainID
+	case job.OffchainReporting2, job.Bootstrap:
+		return 0, errors.Errorf("epi55address and evmchainID not applicable for job type: %s", j.Type)
 	default:
-		return address, nil, errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}
 
-	return address, evmChainID, nil
+	return s.jobORM.FindJobIDByAddress(address, evmChainID, qopts)
 }
 
 // generateJob validates and generates a job from a spec.
@@ -1318,7 +1369,7 @@ func (s *service) isApprovable(propStatus JobProposalStatus, proposalID int64, s
 }
 
 func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatus) bool {
-	return propStatus != JobProposalStatusDeleted && specStatus == SpecStatusPending
+	return propStatus != JobProposalStatusDeleted && (specStatus == SpecStatusPending || specStatus == SpecStatusCancelled)
 }
 
 var _ Service = &NullService{}
