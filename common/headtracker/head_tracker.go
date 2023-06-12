@@ -206,7 +206,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		return errors.Wrapf(err, "failed to save head: %#v", head)
 	}
 
-	if !prevHead.IsValid() || head.BlockNumber().Cmp(prevHead.BlockNumber()) == 1 {
+	if !prevHead.IsValid() || head.BlockNumber() > prevHead.BlockNumber() {
 		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.BlockNumber()))
 
 		headWithChain := ht.headSaver.Chain(head.BlockHash())
@@ -215,7 +215,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
-	} else if head.BlockNumber().Cmp(prevHead.BlockNumber()) == 0 {
+	} else if head.BlockNumber() == prevHead.BlockNumber() {
 		if head.BlockHash() != prevHead.BlockHash() {
 			ht.log.Debugw("Got duplicate head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockHash())
 		} else {

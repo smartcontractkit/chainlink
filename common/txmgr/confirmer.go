@@ -276,21 +276,21 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
 
-	if err := ec.txStore.SetBroadcastBeforeBlockNum(head.BlockNumber().Int64(), ec.chainID); err != nil {
+	if err := ec.txStore.SetBroadcastBeforeBlockNum(head.BlockNumber(), ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
 		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed")
 	}
 
-	if err := ec.CheckForReceipts(ctx, head.BlockNumber().Int64()); err != nil {
+	if err := ec.CheckForReceipts(ctx, head.BlockNumber()); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
 	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber().Int64()); err != nil {
+	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
 		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
 	}
 
@@ -912,7 +912,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(head.BlockNumber().Int64(), head.EarliestHeadInChain().BlockNumber().Int64(), ec.chainID)
+	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 	}
@@ -933,7 +933,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	wg.Add(len(ec.enabledAddresses))
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
-			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber().Int64()); err != nil {
+			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
@@ -959,7 +959,7 @@ func hasReceiptInLongestChain[
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
-				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Cmp(head.BlockNumber()) == 0 {
+				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
 					return true
 				}
 			}
@@ -1074,7 +1074,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, head commontypes.Head[BLOCK_HASH]) error {
 
-	receiptsPlus, err := ec.txStore.FindReceiptsPendingConfirmation(ctx, head.BlockNumber().Int64(), ec.chainID)
+	receiptsPlus, err := ec.txStore.FindReceiptsPendingConfirmation(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {
 		return err

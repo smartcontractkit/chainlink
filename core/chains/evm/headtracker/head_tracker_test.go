@@ -857,7 +857,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		require.Equal(t, uint32(8), h.ChainLength())
 		earliestInChain := h.EarliestInChain()
-		assert.Equal(t, head8.Number, earliestInChain.BlockNumber().Int64())
+		assert.Equal(t, head8.Number, earliestInChain.BlockNumber())
 		assert.Equal(t, head8.Hash, earliestInChain.BlockHash())
 	})
 

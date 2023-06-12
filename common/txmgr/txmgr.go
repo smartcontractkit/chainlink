@@ -412,7 +412,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) OnNewLongestChain(ctx context.Context, head HEAD) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
-			b.reaper.SetLatestBlockNum(head.BlockNumber().Int64())
+			b.reaper.SetLatestBlockNum(head.BlockNumber())
 		}
 		b.txAttemptBuilder.OnNewLongestChain(ctx, head)
 		select {

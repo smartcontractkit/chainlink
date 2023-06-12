@@ -41,7 +41,7 @@ func TestHead_NewHead(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
 			num := evmtypes.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0, nil)
-			assert.Equal(t, test.want, fmt.Sprintf("%x", num.BlockNumber()))
+			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
 		})
 	}
 }
@@ -222,7 +222,7 @@ func TestHead_EarliestInChain(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, big.NewInt(1), head.EarliestInChain().BlockNumber())
+	assert.Equal(t, int64(1), head.EarliestInChain().BlockNumber())
 }
 
 func TestHead_IsInChain(t *testing.T) {
