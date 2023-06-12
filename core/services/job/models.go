@@ -159,17 +159,14 @@ type Job struct {
 	TypeSpec []byte
 }
 
-// j.BootstrapSpec
-func Spec[S any](j *Job) *S {
-	var spec S
-	// Use json new decoder to preserve the type (pass in a reader)
+func Spec[S any](j *Job) (spec *S) {
 	err := json.Unmarshal(j.TypeSpec, &spec)
 
 	if err != nil {
 		return nil
 	}
 
-	return &spec
+	return spec
 }
 
 func (j *Job) BootstrapSpec() *BootstrapSpec {
