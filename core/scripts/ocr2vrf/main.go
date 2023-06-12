@@ -59,16 +59,13 @@ func main() {
 	switch os.Args[1] {
 	case "dkg-deploy":
 		deployDKG(e)
-	case "router-deploy":
-		deployVRFRouter(e)
 	case "coordinator-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		linkAddress := cmd.String("link-address", "", "link contract address")
 		linkEthFeed := cmd.String("link-eth-feed", "", "link/eth feed address")
-		routerAddress := cmd.String("router-address", "", "router address")
 		helpers.ParseArgs(cmd, os.Args[2:], "beacon-period-blocks", "link-address", "link-eth-feed")
-		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed, *routerAddress)
+		deployVRFCoordinator(e, big.NewInt(*beaconPeriodBlocks), *linkAddress, *linkEthFeed)
 	case "beacon-deploy":
 		cmd := flag.NewFlagSet("beacon-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
@@ -235,28 +232,28 @@ func main() {
 		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-address")
 		setProducer(e, *coordinatorAddress, *beaconAddress)
-	case "router-request-randomness":
-		cmd := flag.NewFlagSet("router-request-randomness", flag.ExitOnError)
-		routerAddress := cmd.String("router-address", "", "VRF coordinator contract address")
+	case "coordinator-request-randomness":
+		cmd := flag.NewFlagSet("coordinator-request-randomness", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
 		subID := cmd.String("sub-id", "", "subscription ID")
 		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
-		helpers.ParseArgs(cmd, os.Args[2:], "router-address", "sub-id")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
 		requestRandomness(
 			e,
-			*routerAddress,
+			*coordinatorAddress,
 			uint16(*numWords),
 			decimal.RequireFromString(*subID).BigInt(),
 			big.NewInt(*confDelay))
-	case "router-redeem-randomness":
-		cmd := flag.NewFlagSet("router-redeem-randomness", flag.ExitOnError)
-		routerAddress := cmd.String("router-address", "", "VRF coordinator contract address")
+	case "coordinator-redeem-randomness":
+		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator contract address")
 		subID := cmd.String("sub-id", "", "subscription ID")
 		requestID := cmd.Int64("request-id", 0, "request ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "router-address", "sub-id", "request-id")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "request-id")
 		redeemRandomness(
 			e,
-			*routerAddress,
+			*coordinatorAddress,
 			decimal.RequireFromString(*subID).BigInt(),
 			big.NewInt(*requestID))
 	case "beacon-info":
@@ -292,7 +289,6 @@ func main() {
 		fmt.Println("balance:", sub.Balance)
 		fmt.Println("consumers:", sub.Consumers)
 		fmt.Println("owner:", sub.Owner)
-		fmt.Println("request count:", sub.ReqCount)
 	case "link-balance":
 		cmd := flag.NewFlagSet("link-balance", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "link address")

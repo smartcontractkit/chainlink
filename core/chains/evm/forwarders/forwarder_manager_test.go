@@ -59,8 +59,8 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
-	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
-	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg, evmcfg.Database())
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 
 	fwd, err := fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
@@ -112,8 +112,8 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
-	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
-	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg, evmcfg.Database())
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
 
 	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)

@@ -232,9 +232,9 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -823,7 +823,7 @@ func setupForwarderEnabledNode(
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config)
+	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
 	chainID := utils.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
 	require.NoError(t, err)
@@ -1319,7 +1319,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})

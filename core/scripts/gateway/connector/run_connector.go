@@ -2,58 +2,67 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"flag"
 	"fmt"
-	"net/url"
+	"os"
+	"os/signal"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 )
 
 // Script to run Connector outside of the core node.
 //
-// Usage without TLS:
+// Usage (without TLS):
 //
-//	go run run_connector.go --url ws://localhost:8081/node
-//
-// Usage with TLS:
-//
-//	go run run_connector.go --url wss://localhost:8089/node
-type initiator struct {
+//	go run run_connector.go --config sample_config.toml
+type client struct {
+	privateKey *ecdsa.PrivateKey
+	connector  connector.GatewayConnector
+	lggr       logger.Logger
 }
 
-func (*initiator) NewAuthHeader(url *url.URL) []byte {
-	fmt.Println("generating new auth header:", url.String())
-	return []byte{}
+func (h *client) HandleGatewayMessage(gatewayId string, msg *gateway.Message) {
+	h.lggr.Infof("received message from gateway %s. Echoing back.", gatewayId)
+	h.connector.SendToGateway(context.Background(), gatewayId, msg)
 }
 
-func (*initiator) ChallengeResponse(challenge []byte) ([]byte, error) {
-	fmt.Println("generating challenge response:", string(challenge))
-	return []byte{}, nil
+func (h *client) Sign(data ...[]byte) ([]byte, error) {
+	return gateway.SignData(h.privateKey, data...)
 }
 
 func main() {
-	urlStr := flag.String("url", "", "Gateway URL")
+	configFile := flag.String("config", "", "Path to TOML config file")
 	flag.Parse()
-	url, err := url.Parse(*urlStr)
+
+	rawConfig, err := os.ReadFile(*configFile)
 	if err != nil {
-		fmt.Println("error parsing url:", err)
-	}
-
-	lggr, _ := logger.NewLogger()
-
-	config := network.WebSocketClientConfig{
-		HandshakeTimeoutMillis: 1000,
-	}
-	client := network.NewWebSocketClient(config, &initiator{}, lggr)
-	conn, err := client.Connect(context.Background(), url)
-	if err != nil || conn == nil {
-		fmt.Println("connection error:", err)
+		fmt.Println("error reading config:", err)
 		return
 	}
 
-	fmt.Println("connected successfully!")
-	if err = conn.Close(); err != nil {
-		fmt.Println("error closing connection", err)
+	var cfg connector.ConnectorConfig
+	err = toml.Unmarshal(rawConfig, &cfg)
+	if err != nil {
+		fmt.Println("error parsing config:", err)
+		return
 	}
+
+	sampleKey, _ := crypto.HexToECDSA("cd47d3fafdbd652dd2b66c6104fa79b372c13cb01f4a4fbfc36107cce913ac1d")
+	lggr, _ := logger.NewLogger()
+	client := &client{privateKey: sampleKey, lggr: lggr}
+	connector, _ := connector.NewGatewayConnector(&cfg, client, client, common.NewRealClock(), lggr)
+	client.connector = connector
+
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
+	connector.Start(ctx)
+
+	<-ctx.Done()
+	connector.Close()
 }

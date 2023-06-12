@@ -53,4 +53,4 @@ func NewQConfig(logSQL bool) QConfig {
 
 func (p *qConfig) LogSQL() bool { return p.logSQL }
 
-func (p *qConfig) DatabaseDefaultQueryTimeout() time.Duration { return p.defaultQueryTimeout }
+func (p *qConfig) DefaultQueryTimeout() time.Duration { return p.defaultQueryTimeout }

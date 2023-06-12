@@ -134,8 +134,7 @@ func verShaNameStatic() string {
 // Tests should use TestLogger.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	l, closeLogger := c.New()
-	return l.With("version", verShaNameStatic()), closeLogger
+	return c.New()
 }
 
 type Config struct {
@@ -180,7 +179,9 @@ func (c *Config) New() (Logger, func() error) {
 	}
 
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), closeLogger
+	l = newPrometheusLogger(l)
+	l = l.With("version", verShaNameStatic())
+	return l, closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
