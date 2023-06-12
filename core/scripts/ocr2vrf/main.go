@@ -17,6 +17,8 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 )
 
 type commonSetConfigArgs struct {
@@ -59,6 +61,24 @@ func main() {
 	switch os.Args[1] {
 	case "dkg-deploy":
 		deployDKG(e)
+	case "beacon-producer-address":
+		cmd := flag.NewFlagSet("beacon-producer-address", flag.ExitOnError)
+		beaconAddress := cmd.String("beacon-address", "", "VRF beacon contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "beacon-address")
+		beacon, err := vrf_beacon.NewVRFBeacon(common.HexToAddress(*beaconAddress), e.Ec)
+		helpers.PanicErr(err)
+		producer, err := beacon.ICoordinator(nil)
+		helpers.PanicErr(err)
+		fmt.Println("beacon producer is:", producer)
+	case "coordinator-link-token":
+		cmd := flag.NewFlagSet("coordinator-link-token", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		coordinator, err := vrf_coordinator.NewVRFCoordinator(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		linkAddress, err := coordinator.ILink(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator link address:", linkAddress)
 	case "coordinator-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")

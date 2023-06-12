@@ -4,4 +4,4 @@ load_test_beacon_consumer: ../../../contracts/solc/v0.8.19/LoadTestBeaconVRFCons
 vrf_beacon: ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin 4527c24f408ae7876f6b0511d77e435e8b4b36c9afc43edccad4df537af237b7
 vrf_beacon_consumer: ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.abi ../../../contracts/solc/v0.8.19/BeaconVRFConsumer.bin 864aee9ecf62f4d7503e31694941a1f1e6261b5f306285fd864a6eaa0dd45a3a
 vrf_beacon_coordinator: ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 08da747a3488fcd318ddc0db75fd0df7c07a100b2e19061f0efcb12a7180ecde
-vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin f286391bb5bb0fc7f1b202dc54a39dfcb9a9d06ce1a682d37414041423e1295c
+vrf_coordinator: ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin 5acf3daafad65d4e6645e3050e83af0a97ec1ac214ef86f4710d4faad9b69b1a

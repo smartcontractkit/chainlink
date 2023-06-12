@@ -37,9 +37,6 @@ func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
 	chainIDs := v2.UniqueStrings{}
 	for i, c := range cs {
-		if c == nil {
-			panic(fmt.Sprintf("EVMConfigs[%d] is nil", i))
-		}
 		if chainIDs.IsDupeFmt(c.ChainID) {
 			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), c.ChainID.String()))
 		}
