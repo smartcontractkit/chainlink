@@ -199,7 +199,7 @@ var (
 
 	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Optimism Mainnet",
-		ClientImplementation:      blockchain.MetisClientImplementation, // Optimism Bedrock has not been released yet, use Metis for Legacy Tx Support
+		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   10,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
