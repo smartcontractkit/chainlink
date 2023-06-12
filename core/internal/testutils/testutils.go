@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"math"
@@ -79,7 +80,10 @@ func NewRandomEVMChainID() *big.Int {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 

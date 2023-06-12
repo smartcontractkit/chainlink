@@ -43,6 +43,6 @@ func (ps SolanaChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func SolanaChainClient(client *Client) ChainClient {
-	return newChainClient[SolanaChainPresenters](client, "solana")
+func SolanaChainClient(s *Shell) ChainClient {
+	return newChainClient[SolanaChainPresenters](s, "solana")
 }

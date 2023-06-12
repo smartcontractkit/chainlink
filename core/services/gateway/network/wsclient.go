@@ -27,8 +27,9 @@ type webSocketClient struct {
 }
 
 func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitiator, lggr logger.Logger) WebSocketClient {
-	dialer := websocket.DefaultDialer
-	dialer.HandshakeTimeout = time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond
+	dialer := &websocket.Dialer{
+		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
+	}
 	client := &webSocketClient{
 		initiator: initiator,
 		dialer:    dialer,
@@ -38,7 +39,10 @@ func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitia
 }
 
 func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket.Conn, error) {
-	authHeader := c.initiator.NewAuthHeader(url)
+	authHeader, err := c.initiator.NewAuthHeader(url)
+	if err != nil {
+		return nil, err
+	}
 	authHeaderStr := base64.StdEncoding.EncodeToString(authHeader)
 
 	hdr := make(http.Header)

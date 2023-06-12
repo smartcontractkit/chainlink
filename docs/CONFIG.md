@@ -440,6 +440,8 @@ HTTPPort = 6688 # Default
 SecureCookies = true # Default
 SessionTimeout = '15m' # Default
 SessionReaperExpiration = '240h' # Default
+HTTPMaxSize = '32768b' # Default
+StartTimeout = '15s' # Default
 ```
 
 
@@ -497,6 +499,18 @@ SessionTimeout determines the amount of idle time to elapse before session cooki
 SessionReaperExpiration = '240h' # Default
 ```
 SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
+
+### HTTPMaxSize
+```toml
+HTTPMaxSize = '32768b' # Default
+```
+HTTPMaxSize defines the maximum size for HTTP requests and responses made by the node server.
+
+### StartTimeout
+```toml
+StartTimeout = '15s' # Default
+```
+StartTimeout defines the maximum amount of time the node will wait for a server to start.
 
 ## WebServer.RateLimit
 ```toml
@@ -702,6 +716,8 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
+DefaultTransactionQueueDepth = 1 # Default
+SimulateTransactions = false # Default
 ```
 
 
@@ -792,6 +808,18 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
+
+### DefaultTransactionQueueDepth
+```toml
+DefaultTransactionQueueDepth = 1 # Default
+```
+DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
+
+### SimulateTransactions
+```toml
+SimulateTransactions = false # Default
+```
+SimulateTransactions enables transaction simulation for OCR2.
 
 ## OCR
 ```toml
@@ -1684,16 +1712,16 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
+LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
@@ -1703,37 +1731,37 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
+ResendAfterThreshold = '30s'
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
-BumpThreshold = 0
-EIP1559DynamicFees = false
+BumpThreshold = 3
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2217,84 +2245,6 @@ GasLimit = 5300000
 
 </p></details>
 
-<details><summary>Optimism Kovan (69)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
-LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-
-[Transactions]
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'L2Suggested'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 0
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 0
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[HeadTracker]
-HistoryDepth = 10
-MaxBufferSize = 3
-SamplingInterval = '1s'
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-```
-
-</p></details>
-
 <details><summary>xDai Mainnet (100)</summary><p>
 
 ```toml
@@ -2616,10 +2566,10 @@ LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 3
+MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
+NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
@@ -2643,7 +2593,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = true
@@ -2653,7 +2603,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 24
+BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -2670,7 +2620,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 
 [OCR]
-ContractConfirmations = 4
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -4023,9 +3973,10 @@ BlockBackfillSkip enables skipping of very long backfills.
 
 ### ChainType
 ```toml
-ChainType = 'Optimism' # Example
+ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
+Available types: arbitrum, metis, optimismBedrock, xdai
 
 ### FinalityDepth
 ```toml
@@ -4239,7 +4190,7 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `Optimism2`/`L2Suggested` is a special mode only for use with Optimism and Metis blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `L2Suggested` is a special mode only for use with L2 blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
@@ -4305,7 +4256,7 @@ LimitMultiplier = '1.0' # Default
 ```
 LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 
-This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
+This factor is always applied, so includes L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 
 ### LimitTransfer
 ```toml
@@ -4412,6 +4363,7 @@ Only applies to EIP-1559 transactions)
 ```toml
 [EVM.GasEstimator.LimitJobType]
 OCR = 100_000 # Example
+OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
@@ -4424,6 +4376,12 @@ Keeper = 100_000 # Example
 OCR = 100_000 # Example
 ```
 OCR overrides LimitDefault for OCR jobs.
+
+### OCR2
+```toml
+OCR2 = 100_000 # Example
+```
+OCR2 overrides LimitDefault for OCR2 jobs.
 
 ### DR
 ```toml
@@ -4615,7 +4573,7 @@ SelectionMode controls node selection strategy:
 SyncThreshold = 5 # Default
 ```
 SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
-Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`, `PriorityLevel`), or total difficulty (`TotalDifficulty`).
 
 Set to 0 to disable this check.
 
@@ -4660,6 +4618,7 @@ Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
 SendOnly = false # Default
+Order = 100 # Default
 ```
 
 
@@ -4686,6 +4645,12 @@ HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 SendOnly = false # Default
 ```
 SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+
+### Order
+```toml
+Order = 100 # Default
+```
+Order of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
 
 ## EVM.OCR2.Automation
 ```toml

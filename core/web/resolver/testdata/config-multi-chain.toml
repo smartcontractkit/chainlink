@@ -55,8 +55,8 @@ ChainID = '42'
 PriceDefault = '9.223372036854775807 ether'
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
@@ -65,8 +65,8 @@ ChainID = '137'
 Mode = 'FixedPrice'
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
@@ -81,7 +81,7 @@ ChainID = 'Malaga-420'
 BlocksUntilTxTimeout = 20
 
 [[Cosmos.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 TendermintURL = 'http://bombay.cosmos.com'
 
 [[Solana]]
@@ -97,7 +97,7 @@ ChainID = 'testnet'
 OCR2CachePollPeriod = '1m0s'
 
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
 
 [[Starknet]]

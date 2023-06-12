@@ -106,6 +106,7 @@ func Test_NodeQuery(t *testing.T) {
 					name
 					wsURL
 					httpURL
+					order
 				}
 				... on NotFoundError {
 					message
@@ -127,6 +128,7 @@ func Test_NodeQuery(t *testing.T) {
 					Name:    &name,
 					WSURL:   models.MustParseURL("ws://some-url"),
 					HTTPURL: models.MustParseURL("http://some-url"),
+					Order:   ptr(int32(11)),
 				}}})
 			},
 			query: query,
@@ -135,7 +137,8 @@ func Test_NodeQuery(t *testing.T) {
 				"node": {
 					"name": "node-name",
 					"wsURL": "ws://some-url",
-					"httpURL": "http://some-url"
+					"httpURL": "http://some-url",
+					"order": 11
 				}
 			}`,
 		},
@@ -158,3 +161,5 @@ func Test_NodeQuery(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func ptr[T any](t T) *T { return &t }

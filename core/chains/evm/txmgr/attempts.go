@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -36,7 +37,7 @@ func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSi
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
 // used for when a brand new transaction is being created in the txm
-func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr logger.Logger, opts ...txmgrtypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr logger.Logger, opts ...feetypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	txType := 0x0
 	if c.config.EvmEIP1559DynamicFees() {
 		txType = 0x2
@@ -46,7 +47,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr 
 
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
-func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmTx, lggr logger.Logger, txType int, opts ...txmgrtypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmTx, lggr logger.Logger, txType int, opts ...feetypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.FeeLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
@@ -59,9 +60,10 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx EvmT
 
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
-func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmTx, previousAttempt EvmTxAttempt, priorAttempts []EvmPriorAttempt, lggr logger.Logger) (attempt EvmTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
+func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx EvmTx, previousAttempt EvmTxAttempt, priorAttempts []EvmTxAttempt, lggr logger.Logger) (attempt EvmTxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
 	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.Fee(), etx.FeeLimit, keySpecificMaxGasPriceWei, priorAttempts)
+
+	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(priorAttempts))
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, errors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
@@ -128,10 +130,6 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
-	var al types.AccessList
-	if etx.AdditionalParameters.Valid {
-		al = etx.AdditionalParameters.AccessList
-	}
 	d := newDynamicFeeTransaction(
 		uint64(*etx.Sequence),
 		etx.ToAddress,
@@ -141,7 +139,6 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee
 		fee.TipCap,
 		fee.FeeCap,
 		etx.EncodedPayload,
-		al,
 	)
 	tx := types.NewTx(&d)
 	attempt, err = c.newSignedAttempt(etx, tx)
@@ -196,17 +193,16 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
-		ChainID:    chainID,
-		Nonce:      nonce,
-		GasTipCap:  gasTipCap.ToInt(),
-		GasFeeCap:  gasFeeCap.ToInt(),
-		Gas:        uint64(gasLimit),
-		To:         &to,
-		Value:      value,
-		Data:       data,
-		AccessList: accessList,
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasTipCap.ToInt(),
+		GasFeeCap: gasFeeCap.ToInt(),
+		Gas:       uint64(gasLimit),
+		To:        &to,
+		Value:     value,
+		Data:      data,
 	}
 }
 
@@ -296,4 +292,22 @@ func (c *evmTxAttemptBuilder) SignTx(address common.Address, tx *types.Transacti
 	}
 	txHash := signedTx.Hash()
 	return txHash, rlp.Bytes(), nil
+}
+
+func newEvmPriorAttempts(attempts []EvmTxAttempt) (prior []gas.EvmPriorAttempt) {
+	for i := range attempts {
+		priorAttempt := gas.EvmPriorAttempt{
+			ChainSpecificFeeLimit:   attempts[i].ChainSpecificFeeLimit,
+			BroadcastBeforeBlockNum: attempts[i].BroadcastBeforeBlockNum,
+			TxHash:                  attempts[i].Hash,
+			TxType:                  attempts[i].TxType,
+			GasPrice:                attempts[i].TxFee.Legacy,
+			DynamicFee: gas.DynamicFee{
+				FeeCap: attempts[i].TxFee.DynamicFeeCap,
+				TipCap: attempts[i].TxFee.DynamicTipCap,
+			},
+		}
+		prior = append(prior, priorAttempt)
+	}
+	return
 }

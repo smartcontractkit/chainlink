@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"net/url"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -22,8 +21,7 @@ type ServiceCtx interface {
 }
 
 type Config interface {
-	DatabaseURL() url.URL
-	TriggerFallbackDBPollInterval() time.Duration
+	URL() url.URL
 	pg.QConfig
 }
 

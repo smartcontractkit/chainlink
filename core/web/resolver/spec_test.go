@@ -991,3 +991,61 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_GatewaySpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	gatewayConfig := map[string]interface{}{
+		"NodeServerConfig": map[string]interface{}{},
+	}
+
+	testCases := []GQLTestCase{
+		{
+			name:          "Gateway spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					Type: job.Gateway,
+					GatewaySpec: &job.GatewaySpec{
+						ID:            id,
+						GatewayConfig: gatewayConfig,
+						CreatedAt:     f.Timestamp(),
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on GatewaySpec {
+									id
+									gatewayConfig
+									createdAt
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "GatewaySpec",
+							"id": "1",
+							"gatewayConfig": {"NodeServerConfig": {}},
+							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
