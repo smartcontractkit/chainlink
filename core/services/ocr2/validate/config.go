@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
@@ -15,8 +14,6 @@ import (
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config
-	MercuryCredentials(credName string) *models.MercuryCredentials
-	ThresholdKeyShare() string
 }
 
 type InsecureConfig interface {

@@ -3,7 +3,6 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,34 +24,6 @@ const (
 	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 )
-
-var (
-	// rawPerformData is abi encoded tuple(uint32, bytes32, bytes). We create an ABI with dummy
-	// function which returns this tuple in order to decode the bytes
-	pdataABI, _ = abi.JSON(strings.NewReader(`[{
-		"name":"check",
-		"type":"function",
-		"outputs":[{
-			"name":"ret",
-			"type":"tuple",
-			"components":[
-				{"type":"uint32","name":"checkBlockNumber"},
-				{"type":"bytes32","name":"checkBlockhash"},
-				{"type":"bytes","name":"performData"}
-				]
-			}]
-		}]`,
-	))
-)
-
-type performDataWrapper struct {
-	Result performDataStruct
-}
-type performDataStruct struct {
-	CheckBlockNumber uint32   `abi:"checkBlockNumber"`
-	CheckBlockhash   [32]byte `abi:"checkBlockhash"`
-	PerformData      []byte   `abi:"performData"`
-}
 
 type evmRegistryPackerV2_1 struct {
 	abi abi.ABI
@@ -83,9 +54,11 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	}
 
 	result = EVMAutomationUpkeepResult21{
-		Block:    uint32(block.Uint64()),
-		ID:       id,
-		Eligible: true,
+		Block:            uint32(block.Uint64()),
+		ID:               id,
+		Eligible:         true,
+		CheckBlockNumber: uint32(block.Uint64()),
+		CheckBlockHash:   [32]byte{}, // TODO
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
@@ -100,15 +73,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
 	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
-		var ret0 = new(performDataWrapper)
-		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)
-		if err != nil {
-			return result, err
-		}
-
-		result.CheckBlockNumber = ret0.Result.CheckBlockNumber
-		result.CheckBlockHash = ret0.Result.CheckBlockhash
-		result.PerformData = ret0.Result.PerformData
+		result.PerformData = rawPerformData
 	}
 
 	// This is a default placeholder which is used since we do not get the execute gas
@@ -132,7 +97,7 @@ func (rp *evmRegistryPackerV2_1) UnpackMercuryCallbackResult(callbackResp []byte
 	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackSimulatePerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return false, err

@@ -20,7 +20,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 )
 
 type OCR2ReportDataElem struct {

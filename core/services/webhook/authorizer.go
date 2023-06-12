@@ -11,7 +11,7 @@ import (
 )
 
 type AuthorizerConfig interface {
-	FeatureExternalInitiators() bool
+	ExternalInitiatorsEnabled() bool
 }
 
 type Authorizer interface {
@@ -43,7 +43,7 @@ func NewEIAuthorizer(db *sql.DB, ei bridges.ExternalInitiator) *eiAuthorizer {
 }
 
 func (ea *eiAuthorizer) CanRun(ctx context.Context, config AuthorizerConfig, jobUUID uuid.UUID) (can bool, err error) {
-	if !config.FeatureExternalInitiators() {
+	if !config.ExternalInitiatorsEnabled() {
 		return false, nil
 	}
 	row := ea.db.QueryRowContext(ctx, `

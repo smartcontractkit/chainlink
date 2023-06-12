@@ -650,7 +650,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		var payload []byte
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId, []byte{})
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, []byte{}) // TODO: pass log data
 			if err != nil {
 				return nil, err
 			}
@@ -757,7 +757,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Block, checkResults[i].ID, req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			simulatePerformSuccess, err := r.packer.UnpackSimulatePerformResult(*performResults[i])
+			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
 				return nil, err
 			}

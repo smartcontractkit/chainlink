@@ -55,11 +55,11 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
 	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
 	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
 
