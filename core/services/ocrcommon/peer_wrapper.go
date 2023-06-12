@@ -27,7 +27,7 @@ import (
 )
 
 type PeerWrapperConfig interface {
-	OCRTraceLogging() bool
+	OCR() config.OCR
 	P2P() config.P2P
 }
 
@@ -194,7 +194,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	peerConfig := ocrnetworking.PeerConfig{
 		NetworkingStack: config.NetworkStack(),
 		PrivKey:         key.PrivKey,
-		Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
+		Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCR().TraceLogging(), func(string) {}),
 
 		// V1 config
 		V1ListenIP:                         config.V1().ListenIP(),

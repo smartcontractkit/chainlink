@@ -14,23 +14,16 @@ import (
 	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
-	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRKeyBundleID() (string, error)
 	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	OCRCaptureEATelemetry() bool
+	OCRDatabaseTimeout() time.Duration
+	OCR() config.OCR
 }
 
 type insecureConfig interface {
@@ -100,7 +93,7 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 		if err := validateBootstrapSpec(tree, jb); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, cfg.OCR().ObservationTimeout(), jb); err != nil {
 		return jb, err
 	}
 	if err := validateTimingParameters(cfg, cfg.Insecure(), spec); err != nil {
@@ -139,7 +132,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	return ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, ocrObservationTimeout time.Duration, spec job.Job) error {
 	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -154,7 +147,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	if spec.OCROracleSpec.ObservationTimeout != 0 {
 		observationTimeout = spec.OCROracleSpec.ObservationTimeout.Duration()
 	} else {
-		observationTimeout = config.OCRObservationTimeout()
+		observationTimeout = ocrObservationTimeout
 	}
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")

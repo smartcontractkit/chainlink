@@ -1,8 +1,6 @@
 package ocrcommon
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"

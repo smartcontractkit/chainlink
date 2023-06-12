@@ -13,7 +13,7 @@ type Config interface {
 }
 
 func toLocalConfig(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
-	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
+	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec, cfg.OCR())
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,

@@ -92,7 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OCROracleSpec, chain.Config().OCR())
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		v2Bootstrappers = peerWrapper.Config().P2P().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
@@ -217,10 +217,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		}
 
 		cfg := chain.Config()
-		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
 		var checker txmgr.EvmTransmitCheckerSpec
-		if chain.Config().OCRSimulateTransactions() {
+		if chain.Config().OCR().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 

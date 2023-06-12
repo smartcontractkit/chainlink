@@ -279,6 +279,10 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
+func (g *generalConfig) OCR() config.OCR {
+	return ocrConfig{c: g.c.OCR}
+}
+
 func (g *generalConfig) P2PEnabled() bool {
 	p := g.c.P2P
 	return *p.V1.Enabled || *p.V2.Enabled
