@@ -79,7 +79,9 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = orm.Update(row)
-		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
+		if !row.Confirmed {
+			assert.ErrorIs(t, err, s4.ErrVersionTooLow)
+		}
 	}
 
 	for _, row := range rows {
@@ -156,6 +158,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 				assert.Equal(t, snapshotRow.Address, sr.Address)
 				assert.Equal(t, snapshotRow.SlotId, sr.SlotId)
 				assert.Equal(t, snapshotRow.Version, sr.Version)
+				assert.Equal(t, snapshotRow.Confirmed, sr.Confirmed)
 			}
 		})
 

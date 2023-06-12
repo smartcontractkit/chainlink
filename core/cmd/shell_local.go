@@ -378,13 +378,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	if s.Config.FeatureOffchainReporting() {
+	if s.Config.OCREnabled() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.FeatureOffchainReporting2() {
+	if s.Config.OCR2Enabled() {
 		var enabledChains []chaintype.ChainType
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)
@@ -403,7 +403,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.P2PEnabled() {
+	if s.Config.P2P().Enabled() {
 		err2 := app.GetKeyStore().P2P().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")

@@ -1046,17 +1046,17 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		if !s.cfg.FeatureOffchainReporting() {
+		if !s.cfg.OCREnabled() {
 			return nil, ErrOCRDisabled
 		}
 		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.OffchainReporting2:
-		if !s.cfg.FeatureOffchainReporting2() {
+		if !s.cfg.OCR2Enabled() {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, s.insecureCfg, spec)
 	case job.Bootstrap:
-		if !s.cfg.FeatureOffchainReporting2() {
+		if !s.cfg.OCR2Enabled() {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)

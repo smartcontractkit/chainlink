@@ -112,7 +112,7 @@ jobs:
         run: |
           EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
           EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
-          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingKey' $GITHUB_EVENT_PATH)
 
           echo ::add-mask::$EVM_URLS
           echo ::add-mask::$EVM_HTTP_URLS
