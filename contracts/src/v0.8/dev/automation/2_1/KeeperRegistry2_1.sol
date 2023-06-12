@@ -497,7 +497,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   }
 
   function _validateCronTrigger(uint256 upkeepId, uint256 trigger, Upkeep memory upkeep) internal returns (bool) {
-    if (trigger < upkeep.lastPerformed) {
+    if (trigger <= upkeep.lastPerformed) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId);
       return false;
