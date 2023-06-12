@@ -280,9 +280,8 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		}
 
 		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:            solLggr.Name(),
-			Cmd:           cmdName,
-			LoggingConfig: r.Log(),
+			ID:  solLggr.Name(),
+			Cmd: cmdName,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
@@ -332,9 +331,8 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		}
 
 		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:            starkLggr.Name(),
-			Cmd:           cmdName,
-			LoggingConfig: r.Log(),
+			ID:  starkLggr.Name(),
+			Cmd: cmdName,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
