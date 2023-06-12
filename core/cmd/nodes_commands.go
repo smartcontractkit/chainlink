@@ -65,4 +65,4 @@ func (cli *nodeClient[P2]) IndexNodes(c *cli.Context) (err error) {
 	return cli.getPage(cli.path, c.Int("page"), &p)
 }
 
-var nodeHeaders = []string{"Name", "Chain ID", "State", "Config"}
+var nodeHeaders = []string{"ID", "Name", "Chain ID", "State", "Config"}

@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -33,12 +34,14 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 		WSURL:    models.MustParseURL("ws://localhost:8546"),
 		HTTPURL:  models.MustParseURL("http://localhost:8546"),
 		SendOnly: ptr(false),
+		Order:    ptr(int32(15)),
 	}
 	node2 := evmcfg.Node{
 		Name:     ptr("Test node 2"),
 		WSURL:    models.MustParseURL("ws://localhost:8547"),
 		HTTPURL:  models.MustParseURL("http://localhost:8547"),
 		SendOnly: ptr(false),
+		Order:    ptr(int32(36)),
 	}
 	chain := evmcfg.EVMConfig{
 		ChainID: chainID,
@@ -59,12 +62,18 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	assert.Equal(t, chainID.String(), n1.ChainID)
 	assert.Equal(t, *node1.Name, n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
+	assert.Contains(t, n1.Config, node1.WSURL.String())
+	assert.Contains(t, n1.Config, node1.HTTPURL.String())
+	assert.Contains(t, n1.Config, fmt.Sprint(*node1.Order))
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, chainID.String(), n2.ChainID)
 	assert.Equal(t, *node2.Name, n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
+	assert.Contains(t, n2.Config, node2.WSURL.String())
+	assert.Contains(t, n2.Config, node2.HTTPURL.String())
+	assert.Contains(t, n2.Config, fmt.Sprint(*node2.Order))
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)

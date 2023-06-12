@@ -52,6 +52,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	assert.Equal(t, chainID, n.ChainID)
 	assert.Equal(t, *node.Name, n.ID)
 	assert.Equal(t, *node.Name, n.Name)
+	assert.Contains(t, n.Config, node.TendermintURL.Host)
 	wantConfig, err := toml.Marshal(node)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n.Config)
