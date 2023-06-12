@@ -223,13 +223,29 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
   return bytes[15] as Trigger
 }
 
-const encodeConfig = (config: any) => {
+type OnchainConfig = {
+  paymentPremiumPPB: BigNumberish
+  flatFeeMicroLink: BigNumberish
+  checkGasLimit: BigNumberish
+  stalenessSeconds: BigNumberish
+  gasCeilingMultiplier: BigNumberish
+  minUpkeepSpend: BigNumberish
+  maxCheckDataSize: BigNumberish
+  maxPerformDataSize: BigNumberish
+  maxPerformGas: BigNumberish
+  fallbackGasPrice: BigNumberish
+  fallbackLinkPrice: BigNumberish
+  transcoder: string
+  registrars: string[]
+}
+
+const encodeConfig = (config: OnchainConfig) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
       ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
       uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
-      address registrar)',
+      address[] registrars)',
     ],
     [config],
   )
@@ -668,7 +684,7 @@ describe('KeeperRegistry2_1', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrars: [],
         }),
         offchainVersion,
         offchainBytes,
@@ -847,7 +863,7 @@ describe('KeeperRegistry2_1', () => {
       fallbackGasPrice,
       fallbackLinkPrice,
       transcoder: transcoder.address,
-      registrar: ethers.constants.AddressZero,
+      registrars: [],
     }
 
     baseConfig = [
@@ -2985,40 +3001,46 @@ describe('KeeperRegistry2_1', () => {
   describeMaybe('#setConfig - onchain', () => {
     const payment = BigNumber.from(1)
     const flatFee = BigNumber.from(2)
+    const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
-    const maxGas = BigNumber.from(6)
-    const fbGasEth = BigNumber.from(7)
-    const fbLinkEth = BigNumber.from(8)
     const newMinUpkeepSpend = BigNumber.from(9)
     const newMaxCheckDataSize = BigNumber.from(10000)
     const newMaxPerformDataSize = BigNumber.from(10000)
     const newMaxPerformGas = BigNumber.from(10000000)
+    const fbGasEth = BigNumber.from(7)
+    const fbLinkEth = BigNumber.from(8)
+    const newTranscoder = randomAddress()
+    const newRegistrars = [randomAddress(), randomAddress()]
+
+    const newConfig: OnchainConfig = {
+      paymentPremiumPPB: payment,
+      flatFeeMicroLink: flatFee,
+      checkGasLimit: maxGas,
+      stalenessSeconds: staleness,
+      gasCeilingMultiplier: ceiling,
+      minUpkeepSpend: newMinUpkeepSpend,
+      maxCheckDataSize: newMaxCheckDataSize,
+      maxPerformDataSize: newMaxPerformDataSize,
+      maxPerformGas: newMaxPerformGas,
+      fallbackGasPrice: fbGasEth,
+      fallbackLinkPrice: fbLinkEth,
+      transcoder: newTranscoder,
+      registrars: newRegistrars,
+    }
 
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
-        registry.connect(payee1).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig({
-            paymentPremiumPPB: payment,
-            flatFeeMicroLink: flatFee,
-            checkGasLimit: maxGas,
-            stalenessSeconds: staleness,
-            gasCeilingMultiplier: ceiling,
-            minUpkeepSpend: newMinUpkeepSpend,
-            maxCheckDataSize: newMaxCheckDataSize,
-            maxPerformDataSize: newMaxPerformDataSize,
-            maxPerformGas: newMaxPerformGas,
-            fallbackGasPrice: fbGasEth,
-            fallbackLinkPrice: fbLinkEth,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          }),
-          offchainVersion,
-          offchainBytes,
-        ),
+        registry
+          .connect(payee1)
+          .setConfig(
+            signerAddresses,
+            keeperAddresses,
+            f,
+            encodeConfig(newConfig),
+            offchainVersion,
+            offchainBytes,
+          ),
         'Only callable by owner',
       )
     })
@@ -3032,28 +3054,16 @@ describe('KeeperRegistry2_1', () => {
       assert.isTrue(stalenessSeconds.eq(oldConfig.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
-      await registry.connect(owner).setConfig(
-        signerAddresses,
-        keeperAddresses,
-        f,
-        encodeConfig({
-          paymentPremiumPPB: payment,
-          flatFeeMicroLink: flatFee,
-          checkGasLimit: maxGas,
-          stalenessSeconds: staleness,
-          gasCeilingMultiplier: ceiling,
-          minUpkeepSpend: newMinUpkeepSpend,
-          maxCheckDataSize: newMaxCheckDataSize,
-          maxPerformDataSize: newMaxPerformDataSize,
-          maxPerformGas: newMaxPerformGas,
-          fallbackGasPrice: fbGasEth,
-          fallbackLinkPrice: fbLinkEth,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        }),
-        offchainVersion,
-        offchainBytes,
-      )
+      await registry
+        .connect(owner)
+        .setConfig(
+          signerAddresses,
+          keeperAddresses,
+          f,
+          encodeConfig(newConfig),
+          offchainVersion,
+          offchainBytes,
+        )
 
       const updated = await registry.getState()
       const updatedConfig = updated.config
@@ -3092,31 +3102,22 @@ describe('KeeperRegistry2_1', () => {
           updatedState.latestConfigBlockNumber,
       )
       assert(oldState.latestConfigDigest != updatedState.latestConfigDigest)
+
+      assert.equal(updatedConfig.transcoder, newTranscoder)
+      assert.deepEqual(updatedConfig.registrars, newRegistrars)
     })
 
     it('emits an event', async () => {
-      const tx = await registry.connect(owner).setConfig(
-        signerAddresses,
-        keeperAddresses,
-        f,
-        encodeConfig({
-          paymentPremiumPPB: payment,
-          flatFeeMicroLink: flatFee,
-          checkGasLimit: maxGas,
-          stalenessSeconds: staleness,
-          gasCeilingMultiplier: ceiling,
-          minUpkeepSpend: newMinUpkeepSpend,
-          maxCheckDataSize: newMaxCheckDataSize,
-          maxPerformDataSize: newMaxPerformDataSize,
-          maxPerformGas: newMaxPerformGas,
-          fallbackGasPrice: fbGasEth,
-          fallbackLinkPrice: fbLinkEth,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        }),
-        offchainVersion,
-        offchainBytes,
-      )
+      const tx = await registry
+        .connect(owner)
+        .setConfig(
+          signerAddresses,
+          keeperAddresses,
+          f,
+          encodeConfig(newConfig),
+          offchainVersion,
+          offchainBytes,
+        )
       await expect(tx).to.emit(registry, 'ConfigSet')
     })
 
@@ -3126,21 +3127,11 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig({
-            paymentPremiumPPB: payment,
-            flatFeeMicroLink: flatFee,
-            checkGasLimit: maxGas,
-            stalenessSeconds: staleness,
-            gasCeilingMultiplier: ceiling,
-            minUpkeepSpend: newMinUpkeepSpend,
-            maxCheckDataSize: BigNumber.from(1),
-            maxPerformDataSize: newMaxPerformDataSize,
-            maxPerformGas: newMaxPerformGas,
-            fallbackGasPrice: fbGasEth,
-            fallbackLinkPrice: fbLinkEth,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          }),
+          encodeConfig(
+            Object.assign({}, newConfig, {
+              maxCheckDataSize: BigNumber.from(1),
+            }),
+          ),
           offchainVersion,
           offchainBytes,
         ),
@@ -3151,21 +3142,11 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig({
-            paymentPremiumPPB: payment,
-            flatFeeMicroLink: flatFee,
-            checkGasLimit: maxGas,
-            stalenessSeconds: staleness,
-            gasCeilingMultiplier: ceiling,
-            minUpkeepSpend: newMinUpkeepSpend,
-            maxCheckDataSize: newMaxCheckDataSize,
-            maxPerformDataSize: BigNumber.from(1),
-            maxPerformGas: newMaxPerformGas,
-            fallbackGasPrice: fbGasEth,
-            fallbackLinkPrice: fbLinkEth,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          }),
+          encodeConfig(
+            Object.assign({}, newConfig, {
+              maxPerformDataSize: BigNumber.from(1),
+            }),
+          ),
           offchainVersion,
           offchainBytes,
         ),
@@ -3176,21 +3157,11 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig({
-            paymentPremiumPPB: payment,
-            flatFeeMicroLink: flatFee,
-            checkGasLimit: maxGas,
-            stalenessSeconds: staleness,
-            gasCeilingMultiplier: ceiling,
-            minUpkeepSpend: newMinUpkeepSpend,
-            maxCheckDataSize: newMaxCheckDataSize,
-            maxPerformDataSize: newMaxPerformDataSize,
-            maxPerformGas: BigNumber.from(1),
-            fallbackGasPrice: fbGasEth,
-            fallbackLinkPrice: fbLinkEth,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          }),
+          encodeConfig(
+            Object.assign({}, newConfig, {
+              maxPerformGas: BigNumber.from(1),
+            }),
+          ),
           offchainVersion,
           offchainBytes,
         ),
@@ -4042,7 +4013,7 @@ describe('KeeperRegistry2_1', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrars: [],
         }),
         offchainVersion,
         offchainBytes,
@@ -4670,7 +4641,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackGasPrice,
               fallbackLinkPrice,
               transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
+              registrars: [],
             }),
             offchainVersion,
             offchainBytes,
@@ -4721,7 +4692,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackGasPrice,
               fallbackLinkPrice,
               transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
+              registrars: [],
             }),
             offchainVersion,
             offchainBytes,
@@ -4767,7 +4738,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackGasPrice,
               fallbackLinkPrice,
               transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
+              registrars: [],
             }),
             offchainVersion,
             offchainBytes,

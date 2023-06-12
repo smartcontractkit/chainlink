@@ -345,6 +345,14 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       offchainConfig
     );
 
+    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
+      s_registrars.remove(s_registrars.at(idx));
+    }
+
+    for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
+      s_registrars.add(onchainConfig.registrars[idx]);
+    }
+
     emit ConfigSet(
       previousConfigBlockNumber,
       s_latestConfigDigest,
