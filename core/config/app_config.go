@@ -33,8 +33,6 @@ type AppConfig interface {
 	FeatureFlags
 	OCR1Config
 	OCR2Config
-	Pyroscope
-	Secrets
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -42,6 +40,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Pyroscope() Pyroscope
 	Log() Log
 	FluxMonitor() FluxMonitor
 	WebServer() WebServer
@@ -51,6 +50,8 @@ type AppConfig interface {
 	Password() Password
 	Prometheus() Prometheus
 	P2P() P2P
+	Mercury() Mercury
+	Threshold() Threshold
 }
 
 type DatabaseBackupMode string

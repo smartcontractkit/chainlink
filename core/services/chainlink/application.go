@@ -222,10 +222,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var profiler *pyroscope.Profiler
-	if cfg.PyroscopeServerAddress() != "" {
+	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg, cfg.AutoPprof())
+		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -421,7 +421,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,

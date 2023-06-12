@@ -5,22 +5,28 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
+	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_MarshalUnmarshalRows(t *testing.T) {
 	t.Parallel()
 
-	const n = 100
+	const n = 1000
 	rows := generateTestRows(t, n, time.Minute)
 
 	data, err := s4.MarshalRows(rows)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	rr, err := s4.UnmarshalRows(data)
-	assert.NoError(t, err)
-	assert.Len(t, rr, n)
+	require.NoError(t, err)
+	require.Len(t, rr, n)
+
+	data2, err := s4.MarshalRows(rr)
+	require.NoError(t, err)
+	require.Equal(t, data, data2)
 }
 
 func Test_MarshalUnmarshalQuery(t *testing.T) {
@@ -38,12 +44,14 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 			Version: v.Version,
 		}
 	}
-	data, err := s4.MarshalQuery(snapshot)
-	assert.NoError(t, err)
+	addressRange := s4_svc.NewFullAddressRange()
+	data, err := s4.MarshalQuery(snapshot, addressRange)
+	require.NoError(t, err)
 
-	qq, err := s4.UnmarshalQuery(data)
-	assert.NoError(t, err)
-	assert.Len(t, qq, n)
+	qq, ar, err := s4.UnmarshalQuery(data)
+	require.NoError(t, err)
+	require.Len(t, qq, n)
+	require.Equal(t, addressRange, ar)
 }
 
 func Test_VerifySignature(t *testing.T) {
@@ -51,9 +59,31 @@ func Test_VerifySignature(t *testing.T) {
 
 	rows := generateTestRows(t, 2, time.Minute)
 	err := rows[0].VerifySignature()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	rows[1].Signature[0] = ^rows[1].Signature[0]
 	err = rows[1].VerifySignature()
-	assert.Error(t, err)
+	require.Error(t, err)
+
+	t.Run("address with leading zeros", func(t *testing.T) {
+		pk, _, addr := generateCryptoEntity(t)
+		for addr[0] != 0 {
+			pk, _, addr = generateCryptoEntity(t)
+		}
+		rows := generateTestRows(t, 1, time.Minute)
+		rows[0].Address = addr.Big().Bytes()
+		env := &s4_svc.Envelope{
+			Address:    addr.Bytes(),
+			SlotID:     uint(rows[0].Slotid),
+			Version:    rows[0].Version,
+			Expiration: rows[0].Expiration,
+			Payload:    rows[0].Payload,
+		}
+		sig, err := env.Sign(pk)
+		assert.NoError(t, err)
+		rows[0].Signature = sig
+
+		err = rows[0].VerifySignature()
+		require.NoError(t, err)
+	})
 }
