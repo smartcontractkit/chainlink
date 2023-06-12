@@ -178,7 +178,7 @@ contract KeeperRegistryLogicA2_1 is
       (Trigger, bytes, bytes)
     );
     id = _createID(triggerType);
-    AutomationForwarder forwarder = new AutomationForwarder(id, target);
+    AutomationForwarder forwarder = new AutomationForwarder(id, target, address(this));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
@@ -331,7 +331,7 @@ contract KeeperRegistryLogicA2_1 is
     // TODO - we should be creating the forwarder in the transcoder, not here
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
-        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target);
+        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target, address(this));
       }
       _createUpkeep(
         ids[idx],

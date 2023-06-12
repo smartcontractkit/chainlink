@@ -20,8 +20,8 @@ contract AutomationForwarder is TypeAndVersionInterface {
 
   error NotAuthorized();
 
-  constructor(uint256 upkeepID, address target) {
-    s_registry = IAutomationRegistryConsumer(msg.sender);
+  constructor(uint256 upkeepID, address target, address registry) {
+    s_registry = IAutomationRegistryConsumer(registry);
     i_target = target;
     i_upkeepID = upkeepID;
   }
