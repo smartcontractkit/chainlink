@@ -29,9 +29,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -82,6 +84,7 @@ type DelegateConfig interface {
 	JobPipeline() jobPipelineConfig
 	Database() pg.QConfig
 	Insecure() insecureConfig
+	Mercury() coreconfig.Mercury
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -91,6 +94,7 @@ type delegateConfig struct {
 	jobPipeline jobPipelineConfig
 	database    pg.QConfig
 	insecure    insecureConfig
+	mercury     mercuryConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -105,6 +109,10 @@ func (d *delegateConfig) Insecure() insecureConfig {
 	return d.insecure
 }
 
+func (d *delegateConfig) Mercury() coreconfig.Mercury {
+	return d.mercury
+}
+
 type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
@@ -114,13 +122,18 @@ type jobPipelineConfig interface {
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+type mercuryConfig interface {
+	Credentials(credName string) *models.MercuryCredentials
+}
+
+func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
 		database:        qconf,
 		insecure:        i,
+		mercury:         m,
 	}
 }
 
@@ -672,7 +685,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
 
-		mc := d.cfg.MercuryCredentials(credName)
+		mc := d.cfg.Mercury().Credentials(credName)
 
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 		if err2 != nil {
