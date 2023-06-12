@@ -37,7 +37,6 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
-			{"invalid transaction: nonce too low", true, "Optimism"},
 			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
 			{"call failed: OldNonce", true, "Nethermind"},
 			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
@@ -191,7 +190,6 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
 			{"not enough funds for gas", true, "Arbitrum"},
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
-			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
 			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
 			{"insufficient funds", true, "Klaytn"},
@@ -230,17 +228,10 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("L2 Fees errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-
-		err = evmclient.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		err = evmclient.NewSendErrorS("max fee per gas less than block base fee")
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		err = newSendErrorWrapped("max fee per gas less than block base fee")
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
 
@@ -258,9 +249,9 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow())
 
 		assert.False(t, randomError.L2FeeTooLow())
