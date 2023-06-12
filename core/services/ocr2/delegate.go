@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
+	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -76,6 +81,7 @@ type DelegateConfig interface {
 	plugins.RegistrarConfig
 	JobPipeline() jobPipelineConfig
 	Database() pg.QConfig
+	Insecure() insecureConfig
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -84,6 +90,7 @@ type delegateConfig struct {
 	plugins.RegistrarConfig
 	jobPipeline jobPipelineConfig
 	database    pg.QConfig
+	insecure    insecureConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -94,17 +101,26 @@ func (d *delegateConfig) Database() pg.QConfig {
 	return d.database
 }
 
+func (d *delegateConfig) Insecure() insecureConfig {
+	return d.insecure
+}
+
+type insecureConfig interface {
+	OCRDevelopmentMode() bool
+}
+
 type jobPipelineConfig interface {
 	MaxSuccessfulRuns() uint64
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(vc validate.Config, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
 		database:        qconf,
+		insecure:        i,
 	}
 }
 
@@ -316,7 +332,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 
-	lc := validate.ToLocalConfig(d.cfg, *spec)
+	lc := validate.ToLocalConfig(d.cfg, d.cfg.Insecure(), *spec)
 	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -328,7 +344,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.Config().P2PV2Bootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.Config().P2P().V2().DefaultBootstrappers())
 	if err != nil {
 		return nil, err
 	}
@@ -655,13 +671,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
+
 		mc := d.cfg.MercuryCredentials(credName)
+
 		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}
 
 		var cfg ocr2keeper.PluginConfig
+
 		err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
@@ -672,7 +691,62 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 		}
 
-		conf := ocr2keepers.DelegateConfig{
+		w := &logWriter{log: lggr.Named("Automation Dependencies")}
+
+		// set some defaults
+		conf := config.ReportingFactoryConfig{
+			CacheExpiration:       config.DefaultCacheExpiration,
+			CacheEvictionInterval: config.DefaultCacheClearInterval,
+			MaxServiceWorkers:     config.DefaultMaxServiceWorkers,
+			ServiceQueueLength:    config.DefaultServiceQueueLength,
+		}
+
+		// override if set in config
+		if cfg.CacheExpiration.Value() != 0 {
+			conf.CacheExpiration = cfg.CacheExpiration.Value()
+		}
+
+		if cfg.CacheEvictionInterval.Value() != 0 {
+			conf.CacheEvictionInterval = cfg.CacheEvictionInterval.Value()
+		}
+
+		if cfg.MaxServiceWorkers != 0 {
+			conf.MaxServiceWorkers = cfg.MaxServiceWorkers
+		}
+
+		if cfg.ServiceQueueLength != 0 {
+			conf.ServiceQueueLength = cfg.ServiceQueueLength
+		}
+
+		runr, err2 := runner.NewRunner(
+			log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
+			rgstry,
+			encoder,
+			conf.MaxServiceWorkers,
+			conf.ServiceQueueLength,
+			conf.CacheExpiration,
+			conf.CacheEvictionInterval,
+		)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
+		}
+
+		condObs := &polling.PollingObserverFactory{
+			Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
+			Source:  rgstry,
+			Heads:   rgstry,
+			Runner:  runr,
+			Encoder: encoder,
+		}
+
+		coord := &coordinator.CoordinatorFactory{
+			Logger:     log.New(w, "[automation-plugin-coordinator] ", log.Lshortfile),
+			Encoder:    encoder,
+			Logs:       logProvider,
+			CacheClean: conf.CacheEvictionInterval,
+		}
+
+		dConf := ocr2keepers.DelegateConfig{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          keeperProvider.ContractTransmitter(),
@@ -684,16 +758,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			HeadSubscriber:               rgstry,
-			Registry:                     rgstry,
-			ReportEncoder:                encoder,
-			PerformLogProvider:           logProvider,
-			CacheExpiration:              cfg.CacheExpiration.Value(),
-			CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
-			MaxServiceWorkers:            cfg.MaxServiceWorkers,
-			ServiceQueueLength:           cfg.ServiceQueueLength,
+			ConditionalObserverFactory:   condObs,
+			CoordinatorFactory:           coord,
+			Encoder:                      encoder,
+			Runner:                       runr,
+			// the following values are not needed in the delegate config anymore
+			CacheExpiration:       cfg.CacheExpiration.Value(),
+			CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
+			MaxServiceWorkers:     cfg.MaxServiceWorkers,
+			ServiceQueueLength:    cfg.ServiceQueueLength,
 		}
-		pluginService, err2 := ocr2keepers.NewDelegate(conf)
+
+		pluginService, err2 := ocr2keepers.NewDelegate(dConf)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 		}
@@ -710,6 +786,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 
 		return []job.ServiceCtx{
+			job.NewServiceAdapter(runr),
 			runResultSaver,
 			keeperProvider,
 			rgstry,
@@ -809,4 +886,14 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(l.jobID, msg)
+}
+
+type logWriter struct {
+	log logger.Logger
+}
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	l.log.Debug(string(p), nil)
+	n = len(p)
+	return
 }

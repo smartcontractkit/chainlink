@@ -1272,7 +1272,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
+	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
 	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
@@ -1387,7 +1387,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			for _, fs := range tt.from {
 				var f Config
 				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
-				c.SetFrom(&f)
+				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
 			require.NoError(t, err)

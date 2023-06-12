@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	commontypes "github.com/smartcontractkit/libocr/commontypes"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -17,21 +15,11 @@ import (
 
 	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 
-	net "net"
-
-	networking "github.com/smartcontractkit/libocr/networking"
-
-	p2pkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
 	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 
 	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
-	storemodels "github.com/smartcontractkit/chainlink/v2/core/store/models"
-
 	time "time"
-
-	url "net/url"
 
 	uuid "github.com/google/uuid"
 
@@ -1278,17 +1266,43 @@ func (_m *GeneralConfig) PrometheusAuthToken() string {
 	return r0
 }
 
-// Pyroscope provides a mock function with given fields:
-func (_m *GeneralConfig) Pyroscope() config.Pyroscope {
+// PyroscopeAuthToken provides a mock function with given fields:
+func (_m *GeneralConfig) PyroscopeAuthToken() string {
 	ret := _m.Called()
 
-	var r0 config.Pyroscope
-	if rf, ok := ret.Get(0).(func() config.Pyroscope); ok {
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Pyroscope)
-		}
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// PyroscopeEnvironment provides a mock function with given fields:
+func (_m *GeneralConfig) PyroscopeEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// PyroscopeServerAddress provides a mock function with given fields:
+func (_m *GeneralConfig) PyroscopeServerAddress() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

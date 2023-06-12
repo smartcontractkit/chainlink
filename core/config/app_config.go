@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,8 @@ type AppConfig interface {
 	AppID() uuid.UUID
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
+	InsecureFastScrypt() bool
+	DefaultChainID() *big.Int
 
 	Validate() error
 	ValidateDB() error
@@ -27,17 +30,9 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	Ethereum
-	Explorer
 	FeatureFlags
-	Insecure
-	Keystore
 	OCR1Config
 	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
-	Prometheus
 	Secrets
 
 	Database() Database
@@ -51,6 +46,11 @@ type AppConfig interface {
 	FluxMonitor() FluxMonitor
 	WebServer() WebServer
 	AutoPprof() AutoPprof
+	Insecure() Insecure
+	Explorer() Explorer
+	Password() Password
+	Prometheus() Prometheus
+	P2P() P2P
 }
 
 type DatabaseBackupMode string

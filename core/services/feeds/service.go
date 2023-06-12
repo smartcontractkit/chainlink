@@ -109,6 +109,7 @@ type service struct {
 	ocr2KeyStore keystore.OCR2
 	jobSpawner   job.Spawner
 	cfg          Config
+	insecureCfg  InsecureConfig
 	jobCfg       JobConfig
 	connMgr      ConnectionsManager
 	chainSet     evm.ChainSet
@@ -124,6 +125,7 @@ func NewService(
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	cfg Config,
+	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	dbCfg pg.QConfig,
 	chainSet evm.ChainSet,
@@ -141,6 +143,7 @@ func NewService(
 		ocr1KeyStore: keyStore.OCR(),
 		ocr2KeyStore: keyStore.OCR2(),
 		cfg:          cfg,
+		insecureCfg:  insecureCfg,
 		jobCfg:       jobCfg,
 		connMgr:      newConnectionsManager(lggr),
 		chainSet:     chainSet,
@@ -1051,7 +1054,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.cfg.FeatureOffchainReporting2() {
 			return nil, ErrOCR2Disabled
 		}
-		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
+		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, s.insecureCfg, spec)
 	case job.Bootstrap:
 		if !s.cfg.FeatureOffchainReporting2() {
 			return nil, ErrOCR2Disabled

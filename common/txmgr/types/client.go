@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -67,32 +68,31 @@ type TxmClient[
 	BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ Sequence,
-	FEE Fee,
-	ADD any,
+	FEE feetypes.Fee,
 ] interface {
 	ConfiguredChainID() CHAIN_ID
 	BatchSendTransactions(
 		ctx context.Context,
-		store TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		store TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 		bathSize int,
 		lggr logger.Logger,
 	) ([]clienttypes.SendTxReturnCode, []error, error)
 	SendTransactionReturnCode(
 		ctx context.Context,
-		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 		lggr logger.Logger,
 	) (clienttypes.SendTxReturnCode, error)
 	PendingNonceAt(ctx context.Context, addr ADDR) (SEQ, error)
 	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 	BatchGetReceipts(
 		ctx context.Context,
-		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD], err error),
+		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error),
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,
@@ -100,7 +100,7 @@ type TxmClient[
 	) (txhash string, err error)
 	CallContract(
 		ctx context.Context,
-		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 		blockNumber *big.Int,
 	) (rpcErr fmt.Stringer, extractErr error)
 }

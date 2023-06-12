@@ -1,10 +1,11 @@
-package gateway
+package handlers
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -12,7 +13,7 @@ import (
 // Each message needs to receive at most one response on the provided channel.
 type UserCallbackPayload struct {
 	Msg     *api.Message
-	ErrCode ErrorCode
+	ErrCode api.ErrorCode
 	ErrMsg  string
 }
 
@@ -38,16 +39,22 @@ type Handler interface {
 	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 
+// Representation of a DON from a Handler's perspective.
+type DON interface {
+	// Thread-safe
+	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
+}
+
 type HandlerType = string
 
 const (
 	Dummy HandlerType = "dummy"
 )
 
-func NewHandler(handlerType HandlerType, donConfig *DONConfig, connMgr DONConnectionManager) (Handler, error) {
+func NewHandler(handlerType HandlerType, donConfig *config.DONConfig, don DON) (Handler, error) {
 	switch handlerType {
 	case Dummy:
-		return NewDummyHandler(donConfig, connMgr)
+		return NewDummyHandler(donConfig, don)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

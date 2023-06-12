@@ -66,37 +66,34 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, evmcfg)
 
-	t.Run("sends up to EvmMaxInFlightTransactions per key", func(t *testing.T) {
-		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
-			resentHex := make([]string, len(elems))
-			for i, elem := range elems {
-				resentHex[i] = elem.Args[0].(string)
-			}
-			assert.Len(t, elems, len(addr1TxesRawHex)+len(addr2TxesRawHex)+int(evmcfg.EvmMaxInFlightTransactions()))
-			// All addr1TxesRawHex should be included
-			for _, addr := range addr1TxesRawHex {
+	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
+		resentHex := make([]string, len(elems))
+		for i, elem := range elems {
+			resentHex[i] = elem.Args[0].(string)
+		}
+		assert.Len(t, elems, len(addr1TxesRawHex)+len(addr2TxesRawHex)+int(evmcfg.EvmMaxInFlightTransactions()))
+		// All addr1TxesRawHex should be included
+		for _, addr := range addr1TxesRawHex {
+			assert.Contains(t, resentHex, addr)
+		}
+		// All addr2TxesRawHex should be included
+		for _, addr := range addr1TxesRawHex {
+			assert.Contains(t, resentHex, addr)
+		}
+		// Up to limit EvmMaxInFlightTransactions addr3TxesRawHex should be included
+		for i, addr := range addr1TxesRawHex {
+			if i > int(evmcfg.EvmMaxInFlightTransactions()) {
+				// Above limit EvmMaxInFlightTransactions addr3TxesRawHex should NOT be included
+				assert.NotContains(t, resentHex, addr)
+			} else {
 				assert.Contains(t, resentHex, addr)
 			}
-			// All addr2TxesRawHex should be included
-			for _, addr := range addr1TxesRawHex {
-				assert.Contains(t, resentHex, addr)
-			}
-			// Up to limit EvmMaxInFlightTransactions addr3TxesRawHex should be included
-			for i, addr := range addr1TxesRawHex {
-				if i > int(evmcfg.EvmMaxInFlightTransactions()) {
-					// Above limit EvmMaxInFlightTransactions addr3TxesRawHex should NOT be included
-					assert.NotContains(t, resentHex, addr)
-				} else {
-					assert.Contains(t, resentHex, addr)
-				}
-			}
-			return true
-		})).Run(func(args mock.Arguments) {}).Return(nil)
+		}
+		return true
+	})).Run(func(args mock.Arguments) {}).Return(nil)
 
-		err := er.XXXTestResendUnconfirmed()
-		require.NoError(t, err)
-
-	})
+	err := er.XXXTestResendUnconfirmed()
+	require.NoError(t, err)
 }
 
 func Test_EthResender_alertUnconfirmed(t *testing.T) {
