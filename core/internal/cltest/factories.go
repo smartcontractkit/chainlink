@@ -306,7 +306,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxS
 	return etx
 }
 
-func MustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.EvmTxRequest)) (tx txmgr.EvmTx) {
+func MustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.EvmTxRequest)) (tx txmgr.EvmTx) {
 	txRequest := txmgr.EvmTxRequest{
 		FromAddress: fromAddress,
 	}
@@ -348,7 +348,7 @@ func EvmTxRequestWithValue(value big.Int) func(*txmgr.EvmTxRequest) {
 	}
 }
 
-func MustCreateUnstartedTx(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.EvmTx) {
+func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.EvmTx) {
 	txRequest := txmgr.EvmTxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
@@ -361,7 +361,7 @@ func MustCreateUnstartedTx(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddre
 	return MustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
 }
 
-func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.TestEvmTxStore, txRequest txmgr.EvmTxRequest, chainID *big.Int) (tx txmgr.EvmTx) {
+func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.EvmTxRequest, chainID *big.Int) (tx txmgr.EvmTx) {
 	tx, err := txStore.CreateTransaction(txRequest, chainID)
 	require.NoError(t, err)
 	return tx
