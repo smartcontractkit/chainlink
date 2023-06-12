@@ -31,6 +31,7 @@ import (
 
 var (
 	defaultOCRSettings = map[string]interface{}{
+		"replicas": "6",
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",

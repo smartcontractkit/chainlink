@@ -41,7 +41,8 @@ AnnounceAddresses = ["0.0.0.0:8090"]
 ListenAddresses = ["0.0.0.0:8090"]`
 
 	defaultAutomationSettings = map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
+		"replicas": "6",
+		"toml":     client.AddNetworksConfig(baseTOML, networks.SelectedNetwork),
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
