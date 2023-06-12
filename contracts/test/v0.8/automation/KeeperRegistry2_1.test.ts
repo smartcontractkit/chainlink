@@ -200,7 +200,7 @@ function now() {
   return Math.floor(Date.now() / 1000)
 }
 
-async function getUpkeepID(tx: ContractTransaction) {
+async function getUpkeepID(tx: ContractTransaction): Promise<BigNumber> {
   const receipt = await tx.wait()
   for (const event of receipt.events || []) {
     if (
@@ -1831,7 +1831,7 @@ describe('KeeperRegistry2_1', () => {
                       conditionalUpkeepExtraData,
                     )
                   const upkeepId = await getUpkeepID(tx)
-                  passingUpkeepIds.push(upkeepId.toString())
+                  passingUpkeepIds.push(upkeepId)
 
                   // Add funds to passing upkeeps
                   await registry.connect(admin).addFunds(upkeepId, toWei('100'))
@@ -1848,7 +1848,7 @@ describe('KeeperRegistry2_1', () => {
                       conditionalUpkeepExtraData,
                     )
                   const upkeepId = await getUpkeepID(tx)
-                  failingUpkeepIds.push(upkeepId.toString())
+                  failingUpkeepIds.push(upkeepId)
                 }
               })
 
@@ -2099,7 +2099,7 @@ describe('KeeperRegistry2_1', () => {
               conditionalUpkeepExtraData,
             )
           const upkeepId = await getUpkeepID(tx)
-          upkeepIds.push(upkeepId.toString())
+          upkeepIds.push(upkeepId)
 
           // Add funds to passing upkeeps
           await registry.connect(owner).addFunds(upkeepId, toWei('10'))
@@ -2140,7 +2140,7 @@ describe('KeeperRegistry2_1', () => {
               conditionalUpkeepExtraData,
             )
           const upkeepId = await getUpkeepID(tx)
-          upkeepIds.push(upkeepId.toString())
+          upkeepIds.push(upkeepId)
 
           // Add funds to passing upkeeps
           await arbRegistry.connect(owner).addFunds(upkeepId, toWei('100'))
@@ -2206,9 +2206,9 @@ describe('KeeperRegistry2_1', () => {
       const id1 = await getUpkeepID(tx)
       await registry.connect(admin).addFunds(id1, toWei('5'))
 
-      await getTransmitTx(registry, keeper1, [id1.toString()])
-      await getTransmitTx(registry, keeper2, [id1.toString()])
-      await getTransmitTx(registry, keeper3, [id1.toString()])
+      await getTransmitTx(registry, keeper1, [id1])
+      await getTransmitTx(registry, keeper2, [id1])
+      await getTransmitTx(registry, keeper3, [id1])
 
       await registry
         .connect(payee1)
@@ -2233,9 +2233,9 @@ describe('KeeperRegistry2_1', () => {
       const id2 = await getUpkeepID(tx2)
       await registry.connect(admin).addFunds(id2, toWei('5'))
 
-      await getTransmitTx(registry, keeper1, [id2.toString()])
-      await getTransmitTx(registry, keeper2, [id2.toString()])
-      await getTransmitTx(registry, keeper3, [id2.toString()])
+      await getTransmitTx(registry, keeper1, [id2])
+      await getTransmitTx(registry, keeper2, [id2])
+      await getTransmitTx(registry, keeper3, [id2])
 
       await registry
         .connect(payee2)
