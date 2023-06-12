@@ -574,7 +574,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 			}
 			return
 		}
-		upkeepResults, err = r.mercuryLookup(ctx, upkeepResults)
+		upkeepResults, err = r.feedLookup(ctx, upkeepResults)
 		if err != nil {
 			chResult <- checkResult{
 				err: err,

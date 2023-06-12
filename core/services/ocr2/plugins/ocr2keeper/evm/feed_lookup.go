@@ -67,11 +67,9 @@ type AdminOffchainConfig struct {
 	MercuryEnabled bool `json:"mercuryEnabled"`
 }
 
-// mercuryLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
-	// return error only if there are errors which stops the process
-	// don't surface Mercury API errors to plugin bc MercuryLookup process should be self-contained
-	// TODO (AUTO-2862): parallelize the mercury lookup work for all upkeeps
+// feedLookup looks through check upkeep results looking for any that need off chain lookup
+func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
+	// TODO (AUTO-2862): parallelize the feed lookup work for all upkeeps
 	for i := range upkeepResults {
 		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
@@ -107,7 +105,7 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d decodeMercuryLookup: %v", upkeepId, block, err)
 			continue
 		}
-		r.lggr.Infof("[MercuryLookup] upkeep %s block %d mercuryLookup=%v", upkeepId, block, mercuryLookup)
+		r.lggr.Infof("[MercuryLookup] upkeep %s block %d feedLookup=%v", upkeepId, block, mercuryLookup)
 
 		// do the mercury lookup request
 		values, retryable, err := r.doMercuryRequest(ctx, mercuryLookup, upkeepId)
@@ -120,14 +118,14 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d values: %v", values)
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d extraData: %v", mercuryLookup.extraData)
-		mercuryBytes, err := r.mercuryCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
+		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
 		if err != nil {
-			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryCallback err: %v", upkeepId, block, err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)
 			continue
 		}
 
-		r.lggr.Infof("MercuryLookup mercuryCallback b=%v", mercuryBytes.String())
-		r.lggr.Infof("MercuryLookup mercuryCallback b=%v", mercuryBytes)
+		r.lggr.Infof("MercuryLookup checkCallback b=%v", mercuryBytes.String())
+		r.lggr.Infof("MercuryLookup checkCallback b=%v", mercuryBytes)
 		needed, performData, failureReason, gasUsed, err := r.packer.UnpackMercuryCallbackResult(mercuryBytes)
 		if err != nil {
 			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d UnpackMercuryCallbackResult err: %v", upkeepId, block, err)
@@ -196,8 +194,8 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 	}, nil
 }
 
-func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, values [][]byte, ed []byte, block uint32) (hexutil.Bytes, error) {
-	payload, err := r.abi.Pack("mercuryCallback", upkeepID, values, ed)
+func (r *EvmRegistry) checkCallback(ctx context.Context, upkeepID *big.Int, values [][]byte, ed []byte, block uint32) (hexutil.Bytes, error) {
+	payload, err := r.abi.Pack("checkCallback", upkeepID, values, ed)
 	if err != nil {
 		return nil, err
 	}

@@ -145,7 +145,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	}
 	//target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	callbackResp := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	upkeepNeededFalseResp, err := setupRegistry.abi.Methods["mercuryCallback"].Outputs.Pack(false, []byte{})
+	upkeepNeededFalseResp, err := setupRegistry.abi.Methods["checkCallback"].Outputs.Pack(false, []byte{})
 	assert.Nil(t, err, t.Name())
 
 	// desired outcomes
@@ -295,7 +295,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			}
 			r.hc = mockHttpClient
 
-			got, err := r.mercuryLookup(context.Background(), tt.input)
+			got, err := r.feedLookup(context.Background(), tt.input)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
@@ -656,7 +656,7 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			r := setupEVMRegistry(t)
-			payload, err := r.abi.Pack("mercuryCallback", tt.upkeepId, values, tt.mercuryLookup.extraData)
+			payload, err := r.abi.Pack("checkCallback", tt.upkeepId, values, tt.mercuryLookup.extraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
 				"to":   r.addr.Hex(),
@@ -671,7 +671,7 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 				}).Once()
 			r.client = client
 
-			_, err = r.mercuryCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
+			_, err = r.checkCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
