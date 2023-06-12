@@ -22,6 +22,11 @@ type AppConfig interface {
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
 	DefaultChainID() *big.Int
+	EVMEnabled() bool
+	EVMRPCEnabled() bool
+	CosmosEnabled() bool
+	SolanaEnabled() bool
+	StarkNetEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -30,11 +35,8 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	FeatureFlags
 	OCR1Config
 	OCR2Config
-	Pyroscope
-	Secrets
 
 	Database() Database
 	AuditLogger() AuditLogger
@@ -42,6 +44,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Pyroscope() Pyroscope
 	Log() Log
 	FluxMonitor() FluxMonitor
 	WebServer() WebServer
@@ -51,6 +54,9 @@ type AppConfig interface {
 	Password() Password
 	Prometheus() Prometheus
 	P2P() P2P
+	Mercury() Mercury
+	Threshold() Threshold
+	Feature() Feature
 }
 
 type DatabaseBackupMode string

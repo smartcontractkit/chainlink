@@ -26,11 +26,11 @@ func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) bridges.ORM {
 
 type eiEnabledCfg struct{}
 
-func (eiEnabledCfg) FeatureExternalInitiators() bool { return true }
+func (eiEnabledCfg) ExternalInitiatorsEnabled() bool { return true }
 
 type eiDisabledCfg struct{}
 
-func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
+func (eiDisabledCfg) ExternalInitiatorsEnabled() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)

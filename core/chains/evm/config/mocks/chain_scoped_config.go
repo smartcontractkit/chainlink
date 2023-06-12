@@ -15,8 +15,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
-
 	time "time"
 
 	uuid "github.com/google/uuid"
@@ -86,20 +84,6 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.AutoPprof)
 		}
-	}
-
-	return r0
-}
-
-// AutoPprofEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -909,85 +893,17 @@ func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
 	return r0
 }
 
-// FeatureExternalInitiators provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
+// Feature provides a mock function with given fields:
+func (_m *ChainScopedConfig) Feature() coreconfig.Feature {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 coreconfig.Feature
+	if rf, ok := ret.Get(0).(func() coreconfig.Feature); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFeedsManager provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureLogPoller provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureLogPoller() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureOffchainReporting() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureOffchainReporting2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureUICSAKeys provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Feature)
+		}
 	}
 
 	return r0
@@ -1150,16 +1066,16 @@ func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogfFn) {
 	_m.Called(log)
 }
 
-// MercuryCredentials provides a mock function with given fields: credName
-func (_m *ChainScopedConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
-	ret := _m.Called(credName)
+// Mercury provides a mock function with given fields:
+func (_m *ChainScopedConfig) Mercury() coreconfig.Mercury {
+	ret := _m.Called()
 
-	var r0 *models.MercuryCredentials
-	if rf, ok := ret.Get(0).(func(string) *models.MercuryCredentials); ok {
-		r0 = rf(credName)
+	var r0 coreconfig.Mercury
+	if rf, ok := ret.Get(0).(func() coreconfig.Mercury); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.MercuryCredentials)
+			r0 = ret.Get(0).(coreconfig.Mercury)
 		}
 	}
 
@@ -1392,6 +1308,20 @@ func (_m *ChainScopedConfig) OCR2DefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCR2Enabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2Enabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -1556,6 +1486,20 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCREnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCREnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCRKeyBundleID provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -1690,20 +1634,6 @@ func (_m *ChainScopedConfig) P2P() coreconfig.P2P {
 	return r0
 }
 
-// P2PEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // Password provides a mock function with given fields:
 func (_m *ChainScopedConfig) Password() coreconfig.Password {
 	ret := _m.Called()
@@ -1736,43 +1666,17 @@ func (_m *ChainScopedConfig) Prometheus() coreconfig.Prometheus {
 	return r0
 }
 
-// PyroscopeAuthToken provides a mock function with given fields:
-func (_m *ChainScopedConfig) PyroscopeAuthToken() string {
+// Pyroscope provides a mock function with given fields:
+func (_m *ChainScopedConfig) Pyroscope() coreconfig.Pyroscope {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Pyroscope
+	if rf, ok := ret.Get(0).(func() coreconfig.Pyroscope); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeEnvironment provides a mock function with given fields:
-func (_m *ChainScopedConfig) PyroscopeEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeServerAddress provides a mock function with given fields:
-func (_m *ChainScopedConfig) PyroscopeServerAddress() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Pyroscope)
+		}
 	}
 
 	return r0
@@ -1890,15 +1794,17 @@ func (_m *ChainScopedConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return r0
 }
 
-// ThresholdKeyShare provides a mock function with given fields:
-func (_m *ChainScopedConfig) ThresholdKeyShare() string {
+// Threshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) Threshold() coreconfig.Threshold {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 coreconfig.Threshold
+	if rf, ok := ret.Get(0).(func() coreconfig.Threshold); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Threshold)
+		}
 	}
 
 	return r0
