@@ -33,7 +33,6 @@ type AppConfig interface {
 	FeatureFlags
 	OCR1Config
 	OCR2Config
-	Pyroscope
 	Secrets
 
 	Database() Database
@@ -42,6 +41,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Sentry() Sentry
 	JobPipeline() JobPipeline
+	Pyroscope() Pyroscope
 	Log() Log
 	FluxMonitor() FluxMonitor
 	WebServer() WebServer

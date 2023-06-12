@@ -30,12 +30,6 @@ func (g *generalConfig) ExplorerSecret() string {
 	}
 	return string(*g.secrets.Explorer.Secret)
 }
-func (g *generalConfig) PyroscopeAuthToken() string {
-	if g.secrets.Pyroscope.AuthToken == nil {
-		return ""
-	}
-	return string(*g.secrets.Pyroscope.AuthToken)
-}
 
 func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
 	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
