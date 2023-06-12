@@ -85,19 +85,19 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	pipelineORM := pipeline.NewORM(db, lggr, cfg)
-	bridgeORM := bridges.NewORM(db, lggr, cfg)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg)
-	orm := newORM(t, db, cfg, nil)
+	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	orm := newORM(t, db, cfg.Database(), nil)
 
 	address := testutils.NewAddress()
 	var roundID uint32 = 1

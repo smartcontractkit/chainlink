@@ -8,22 +8,9 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type Config interface {
-	pg.QConfig
-	OCR() config.OCR
-	EvmGasLimitDefault() uint32
-	JobPipelineResultWriteQueueDepth() uint64
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-	P2PBootstrapPeers() ([]string, error)
-	P2PPeerID() p2pkey.PeerID
-	P2PV2Bootstrappers() []commontypes.BootstrapperLocator
-	FlagsContractAddress() string
 	ChainType() config.ChainType
 }
 

@@ -14,18 +14,26 @@ import (
 	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
-	OCR() config.OCR
+	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
+	OCRKeyBundleID() (string, error)
 	OCRObservationGracePeriod() time.Duration
-	P2PPeerID() p2pkey.PeerID
+	OCRObservationTimeout() time.Duration
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	OCRCaptureEATelemetry() bool
+}
+
+type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
 
@@ -95,7 +103,7 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg, spec); err != nil {
+	if err := validateTimingParameters(cfg, cfg.Insecure(), spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -118,8 +126,8 @@ var (
 	}
 )
 
-func validateTimingParameters(cfg ValidationConfig, spec job.OCROracleSpec) error {
-	lc := toLocalConfig(cfg, spec)
+func validateTimingParameters(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec) error {
+	lc := toLocalConfig(cfg, insecureCfg, spec)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
@@ -146,7 +154,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	if spec.OCROracleSpec.ObservationTimeout != 0 {
 		observationTimeout = spec.OCROracleSpec.ObservationTimeout.Duration()
 	} else {
-		observationTimeout = config.OCR().ObservationTimeout()
+		observationTimeout = config.OCRObservationTimeout()
 	}
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")

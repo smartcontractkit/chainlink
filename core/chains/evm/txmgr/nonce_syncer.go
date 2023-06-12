@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,11 +47,7 @@ import (
 //
 // This gives us re-org protection up to EVM.FinalityDepth deep in the
 // worst case, which is in line with our other guarantees.
-type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
-	Sync(ctx context.Context, addr ADDR) (err error)
-}
-
-var _ NonceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
+var _ txmgr.NonceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
 	txStore EvmTxStore
@@ -129,7 +125,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		newNextNonce--
 	}
 
-	err = s.txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(newNextNonce), keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStore.UpdateKeyNextSequence(evmtypes.Nonce(newNextNonce), keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())

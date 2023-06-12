@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -334,12 +333,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
 				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
+                vrf_owner_address,
 				created_at, updated_at)
 			VALUES (
 				:coordinator_address, :public_key, :min_incoming_confirmations,
 				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
+			    :vrf_owner_address,
 				NOW(), NOW())
 			RETURNING id;`
 
@@ -697,31 +698,36 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 }
 
 type OCRSpecConfig interface {
-	P2PPeerID() p2pkey.PeerID
-	OCR() config.OCR
+	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
+	OCRObservationTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	OCRKeyBundleID() (string, error)
+	OCRCaptureEATelemetry() bool
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
-		os.ObservationTimeout = models.Interval(cfg.OCR().ObservationTimeout())
+		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
 		os.BlockchainTimeoutEnv = true
-		os.BlockchainTimeout = models.Interval(cfg.OCR().BlockchainTimeout())
+		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
 		os.ContractConfigTrackerSubscribeIntervalEnv = true
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCR().ContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
 		os.ContractConfigTrackerPollIntervalEnv = true
-		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCR().ContractPollInterval())
+		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmationsEnv = true
@@ -739,7 +745,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
-	os.CaptureEATelemetry = cfg.OCR().CaptureEATelemetry()
+	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
 
 	return &os
 }
@@ -747,7 +753,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 // LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
-		ta, err := cfg.OCR().TransmitterAddress()
+		ta, err := cfg.OCRTransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
@@ -758,7 +764,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 	}
 
 	if os.EncryptedOCRKeyBundleID == nil {
-		kb, err := cfg.OCR().KeyBundleID()
+		kb, err := cfg.OCRKeyBundleID()
 		if err != nil {
 			return nil, err
 		}
@@ -774,7 +780,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DatabaseDefaultQueryTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }

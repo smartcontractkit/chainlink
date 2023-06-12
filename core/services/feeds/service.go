@@ -109,6 +109,8 @@ type service struct {
 	ocr2KeyStore keystore.OCR2
 	jobSpawner   job.Spawner
 	cfg          Config
+	insecureCfg  InsecureConfig
+	jobCfg       JobConfig
 	connMgr      ConnectionsManager
 	chainSet     evm.ChainSet
 	lggr         logger.Logger
@@ -123,6 +125,9 @@ func NewService(
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	cfg Config,
+	insecureCfg InsecureConfig,
+	jobCfg JobConfig,
+	dbCfg pg.QConfig,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
 	version string,
@@ -131,13 +136,15 @@ func NewService(
 	svc := &service{
 		orm:          orm,
 		jobORM:       jobORM,
-		q:            pg.NewQ(db, lggr, cfg),
+		q:            pg.NewQ(db, lggr, dbCfg),
 		jobSpawner:   jobSpawner,
 		p2pKeyStore:  keyStore.P2P(),
 		csaKeyStore:  keyStore.CSA(),
 		ocr1KeyStore: keyStore.OCR(),
 		ocr2KeyStore: keyStore.OCR2(),
 		cfg:          cfg,
+		insecureCfg:  insecureCfg,
+		jobCfg:       jobCfg,
 		connMgr:      newConnectionsManager(lggr),
 		chainSet:     chainSet,
 		lggr:         lggr,
@@ -1047,14 +1054,14 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.cfg.FeatureOffchainReporting2() {
 			return nil, ErrOCR2Disabled
 		}
-		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, spec)
+		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, s.insecureCfg, spec)
 	case job.Bootstrap:
 		if !s.cfg.FeatureOffchainReporting2() {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
-		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
+		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 

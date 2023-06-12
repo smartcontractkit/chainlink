@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initJobsSubCmds(client *Client) []cli.Command {
+func initJobsSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "list",
 			Usage:  "List all jobs",
-			Action: client.ListJobs,
+			Action: s.ListJobs,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -33,22 +33,22 @@ func initJobsSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "show",
 			Usage:  "Show a job",
-			Action: client.ShowJob,
+			Action: s.ShowJob,
 		},
 		{
 			Name:   "create",
 			Usage:  "Create a job",
-			Action: client.CreateJob,
+			Action: s.CreateJob,
 		},
 		{
 			Name:   "delete",
 			Usage:  "Delete a job",
-			Action: client.DeleteJob,
+			Action: s.DeleteJob,
 		},
 		{
 			Name:   "run",
 			Usage:  "Trigger a job run",
-			Action: client.TriggerPipelineRun,
+			Action: s.TriggerPipelineRun,
 		},
 	}
 }
@@ -202,19 +202,19 @@ func (ps JobPresenters) RenderTable(rt RendererTable) error {
 }
 
 // ListJobs lists all jobs
-func (cli *Client) ListJobs(c *cli.Context) (err error) {
-	return cli.getPage("/v2/jobs", c.Int("page"), &JobPresenters{})
+func (s *Shell) ListJobs(c *cli.Context) (err error) {
+	return s.getPage("/v2/jobs", c.Int("page"), &JobPresenters{})
 }
 
 // ShowJob displays the details of a job
-func (cli *Client) ShowJob(c *cli.Context) (err error) {
+func (s *Shell) ShowJob(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must provide the id of the job"))
+		return s.errorOut(errors.New("must provide the id of the job"))
 	}
 	id := c.Args().First()
-	resp, err := cli.HTTP.Get("/v2/jobs/" + id)
+	resp, err := s.HTTP.Get("/v2/jobs/" + id)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -222,31 +222,31 @@ func (cli *Client) ShowJob(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &JobPresenter{})
+	return s.renderAPIResponse(resp, &JobPresenter{})
 }
 
 // CreateJob creates a job
 // Valid input is a TOML string or a path to TOML file
-func (cli *Client) CreateJob(c *cli.Context) (err error) {
+func (s *Shell) CreateJob(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass in TOML or filepath"))
+		return s.errorOut(errors.New("must pass in TOML or filepath"))
 	}
 
 	tomlString, err := getTOMLString(c.Args().First())
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: tomlString,
 	})
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := s.HTTP.Post("/v2/jobs", bytes.NewReader(request))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -258,28 +258,28 @@ func (cli *Client) CreateJob(c *cli.Context) (err error) {
 		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
 			err = multierr.Append(err, rerr)
-			return cli.errorOut(err)
+			return s.errorOut(err)
 		}
 		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
-	err = cli.renderAPIResponse(resp, &JobPresenter{}, "Job created")
+	err = s.renderAPIResponse(resp, &JobPresenter{}, "Job created")
 	return err
 }
 
 // DeleteJob deletes a job
-func (cli *Client) DeleteJob(c *cli.Context) error {
+func (s *Shell) DeleteJob(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the job id to be archived"))
+		return s.errorOut(errors.New("must pass the job id to be archived"))
 	}
-	resp, err := cli.HTTP.Delete("/v2/jobs/" + c.Args().First())
+	resp, err := s.HTTP.Delete("/v2/jobs/" + c.Args().First())
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
-	_, err = cli.parseResponse(resp)
+	_, err = s.parseResponse(resp)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	fmt.Printf("Job %v Deleted\n", c.Args().First())
@@ -287,13 +287,13 @@ func (cli *Client) DeleteJob(c *cli.Context) error {
 }
 
 // TriggerPipelineRun triggers a job run based on a job ID
-func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
+func (s *Shell) TriggerPipelineRun(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+		return s.errorOut(errors.New("Must pass the job id to trigger a run"))
 	}
-	resp, err := cli.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
+	resp, err := s.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -302,6 +302,6 @@ func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
 	}()
 
 	var run presenters.PipelineRunResource
-	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
+	err = s.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
 	return err
 }

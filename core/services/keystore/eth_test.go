@@ -31,7 +31,7 @@ func Test_EthKeyStore(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg.Database())
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ethKeyStore := keyStore.Eth()
@@ -112,7 +112,7 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		// add one eth_tx
-		borm := cltest.NewTxStore(t, db, cfg)
+		borm := cltest.NewTxStore(t, db, cfg.Database())
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, key.Address)
 
 		_, err = ethKeyStore.Delete(key.ID())
@@ -212,7 +212,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
@@ -326,7 +326,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	ethKeyStore := keyStore.Eth()
 
 	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -350,7 +350,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg.Database())
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()
@@ -473,7 +473,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	defer func() { close(chDone) }()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 	chSub, unsubscribe := ks.SubscribeToKeyChanges()
 	defer unsubscribe()
@@ -541,7 +541,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Run("creates one unique key per chain if none exist", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		ks := keyStore.Eth()
 
 		testutils.AssertCount(t, db, "evm_key_states", 0)
@@ -556,7 +556,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Run("does nothing if a key exists for a chain", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		ks := keyStore.Eth()
 
 		// Add one enabled key
@@ -579,7 +579,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Run("does nothing if a key exists but is disabled for a chain", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
-		keyStore := cltest.NewKeyStore(t, db, cfg)
+		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		ks := keyStore.Eth()
 
 		// Add one enabled key
@@ -612,7 +612,7 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 
 	k1, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
@@ -675,7 +675,7 @@ func Test_NextSequence(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 	randNonce := testutils.NewRandomPositiveInt64()
 
@@ -706,7 +706,7 @@ func Test_IncrementNextSequence(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 	randNonce := testutils.NewRandomPositiveInt64()
 
@@ -746,7 +746,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 
 	randKeyID := utils.RandomAddress().Hex()
@@ -791,7 +791,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 
 	// create keys

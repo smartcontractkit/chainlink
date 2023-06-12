@@ -1016,14 +1016,14 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
+		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), r.App.GetConfig().Insecure(), args.Input.TOML)
 		if !config.FeatureOffchainReporting2() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, args.Input.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
 	case job.Cron:
