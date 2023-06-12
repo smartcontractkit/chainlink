@@ -56,5 +56,6 @@ func (p *GRPCPluginMedian) ClientConfig() *plugin.ClientConfig {
 		Plugins:          map[string]plugin.Plugin{PluginMedianName: p},
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		GRPCDialOptions:  p.DialOpts,
+		Logger:           HCLogLogger(p.Logger),
 	}
 }

@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestWith(t *testing.T) {
@@ -15,9 +18,8 @@ func TestWith(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tt := range []struct {
-		name    string
-		logger  Logger
-		expSame bool
+		name   string
+		logger Logger
 	}{
 		{
 			name:   "test",
@@ -40,22 +42,17 @@ func TestWith(t *testing.T) {
 			logger: &different{zaptest.NewLogger(t).Sugar(), ""},
 		},
 		{
-			name:    "missing",
-			logger:  &mismatch{zaptest.NewLogger(t).Sugar(), ""},
-			expSame: true,
+			name:   "missing",
+			logger: &mismatch{zaptest.NewLogger(t).Sugar(), ""},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := With(tt.logger, "foo", "bar")
-			same := got == tt.logger
-			if same && !tt.expSame {
+			if got == tt.logger {
 				t.Error("expected a new logger with foo==bar, but got same")
-			} else if tt.expSame && !same {
-				t.Errorf("expected the same logger %v, w/o foo=bar, but got %v", tt.logger, got)
 			}
 		})
 	}
-
 }
 
 func TestNamed(t *testing.T) {
@@ -96,7 +93,119 @@ func TestNamed(t *testing.T) {
 			require.Equal(t, tt.expectedName, tt.logger.Name())
 		})
 	}
+}
 
+func TestHelper(t *testing.T) {
+	prod, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name   string
+		logger Logger
+	}{
+		{
+			name:   "test",
+			logger: Test(t),
+		},
+		{
+			name:   "nop",
+			logger: Nop(),
+		},
+		{
+			name:   "prod",
+			logger: prod,
+		},
+		{
+			name:   "other",
+			logger: &other{zaptest.NewLogger(t).Sugar(), ""},
+		},
+		{
+			name:   "different",
+			logger: &different{zaptest.NewLogger(t).Sugar(), ""},
+		},
+		{
+			name:   "missing",
+			logger: &mismatch{zaptest.NewLogger(t).Sugar(), ""},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Helper(tt.logger, 1)
+			if got == tt.logger {
+				t.Error("expected a new logger with foo==bar, but got same")
+			}
+		})
+	}
+}
+
+func TestCritical(t *testing.T) {
+	lggr, observed := TestObserved(t, zap.DebugLevel)
+	testCritical(t, lggr, observed, "foobar", zap.DPanicLevel)
+
+	var sl *zap.SugaredLogger
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &other{sl, ""}
+	testCritical(t, lggr, observed, "foobar", zap.DPanicLevel)
+
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &mismatch{sl, ""}
+	testCritical(t, lggr, observed, "[crit] foobar", zap.ErrorLevel)
+}
+
+func testCritical(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
+	Critical(lggr, "foo", "bar")
+	all := observed.TakeAll()
+	require.Len(t, all, 1)
+	line := all[0]
+	assert.Equal(t, lvl, line.Level)
+	assert.Equal(t, msg, line.Message)
+}
+
+func TestCriticalw(t *testing.T) {
+	lggr, observed := TestObserved(t, zap.DebugLevel)
+	testCriticalw(t, lggr, observed, "msg", zap.DPanicLevel)
+
+	var sl *zap.SugaredLogger
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &other{sl, ""}
+	testCriticalw(t, lggr, observed, "msg", zap.DPanicLevel)
+
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &mismatch{sl, ""}
+	testCriticalw(t, lggr, observed, "[crit] msg", zap.ErrorLevel)
+}
+
+func testCriticalw(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
+	Criticalw(lggr, "msg", "foo", "bar")
+	all := observed.TakeAll()
+	require.Len(t, all, 1)
+	line := all[0]
+	assert.Equal(t, lvl, line.Level)
+	assert.Equal(t, msg, line.Message)
+	require.Equal(t, "bar", line.ContextMap()["foo"])
+}
+
+func TestCriticalf(t *testing.T) {
+	lggr, observed := TestObserved(t, zap.DebugLevel)
+	testCriticalf(t, lggr, observed, "foo: bar", zap.DPanicLevel)
+
+	var sl *zap.SugaredLogger
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &other{sl, ""}
+	testCriticalf(t, lggr, observed, "foo: bar", zap.DPanicLevel)
+
+	sl, observed = testObserved(t, zap.DebugLevel)
+	lggr = &mismatch{sl, ""}
+	testCriticalf(t, lggr, observed, "[crit] foo: bar", zap.ErrorLevel)
+}
+
+func testCriticalf(t *testing.T, lggr Logger, observed *observer.ObservedLogs, msg string, lvl zapcore.Level) {
+	Criticalf(lggr, "foo: %s", "bar")
+	all := observed.TakeAll()
+	require.Len(t, all, 1)
+	line := all[0]
+	assert.Equal(t, lvl, line.Level)
+	assert.Equal(t, msg, line.Message)
 }
 
 type other struct {
@@ -106,6 +215,10 @@ type other struct {
 
 func (o *other) With(args ...interface{}) Logger {
 	return &other{o.SugaredLogger.With(args...), ""}
+}
+
+func (o *other) Helper(skip int) Logger {
+	return &other{o.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
 }
 
 func (o *other) Name() string {
@@ -119,6 +232,10 @@ func (o *other) Named(name string) Logger {
 	return &newLogger
 }
 
+func (o *other) Critical(args ...interface{})                       { o.DPanic(args...) }
+func (o *other) Criticalf(format string, values ...interface{})     { o.DPanicf(format, values...) }
+func (o *other) Criticalw(msg string, keysAndValues ...interface{}) { o.DPanicw(msg, keysAndValues...) }
+
 type different struct {
 	*zap.SugaredLogger
 	name string
@@ -126,6 +243,10 @@ type different struct {
 
 func (d *different) With(args ...interface{}) differentLogger {
 	return &different{d.SugaredLogger.With(args...), ""}
+}
+
+func (d *different) Helper(skip int) differentLogger {
+	return &other{d.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
 }
 
 func (d *different) Name() string {
@@ -146,6 +267,10 @@ type mismatch struct {
 
 func (m *mismatch) With(args ...interface{}) interface{} {
 	return &mismatch{m.SugaredLogger.With(args...), ""}
+}
+
+func (m *mismatch) Helper(skip int) interface{} {
+	return &other{m.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
 }
 
 func (m *mismatch) Name() string {

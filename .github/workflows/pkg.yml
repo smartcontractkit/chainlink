@@ -43,7 +43,7 @@ jobs:
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
           # skip-build-cache: true
 
-      - name: Verify lint report artifact
+      - name: Print lint report artifact
         if: always()
         run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
 

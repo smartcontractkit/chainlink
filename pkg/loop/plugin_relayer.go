@@ -58,5 +58,6 @@ func (p *GRPCPluginRelayer) ClientConfig() *plugin.ClientConfig {
 		Plugins:          map[string]plugin.Plugin{PluginRelayerName: p},
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		GRPCDialOptions:  p.DialOpts,
+		Logger:           HCLogLogger(p.Logger),
 	}
 }
