@@ -63,12 +63,10 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
-	spec := (&jobSpec).BootstrapSpec()
-
+	spec := jobSpec.BootstrapSpec()
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
-
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
 	} else if !d.peerWrapper.IsStarted() {

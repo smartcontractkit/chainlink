@@ -414,6 +414,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create LegacyGasStationSidecar spec")
 			}
 			jb.LegacyGasStationSidecarSpecID = &specID
+		case Bootstrap:
+			// Do nothing for Bootstrap jobs as they no longer have a separate specs table
+			// This entire switch statement can be removed once job type specs are moved to the type_spec column
+			break
 		case Gateway:
 			var specID int32
 			sql := `INSERT INTO gateway_specs (gateway_config, created_at, updated_at)
@@ -423,10 +427,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
-		case Bootstrap:
-			// Do nothing for Bootstrap jobs as they no longer have a separate specs table
-			// This entire switch statement can be removed once job type specs are moved to the type_spec column
-			break
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -779,7 +779,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	return
 }
 
-// LoadJob returns job by ID with its TypeSpec loaded into the respective field
+// LoadJobByID returns job by ID with its TypeSpec loaded into the respective field
 func (o *orm) LoadJobByID(ctx context.Context, id int32, qopts ...pg.QOpt) (jb Job, err error) {
 	q := o.q.WithOpts(qopts...)
 
@@ -805,49 +805,7 @@ func (o *orm) LoadJobByID(ctx context.Context, id int32, qopts ...pg.QOpt) (jb J
 		return jb, errors.Wrap(err, "LoadJobByID failed")
 	}
 
-	// Unmarshal in BootstrapSpec
-
-	// // Grabs job's TypeSpec name.
-	// // This is assuming that the TypeSpec name is the same as the job's Type with a "Spec" suffix.
-	// jobType := jb.Type.String()
-	// jobTypeSpecInterfaceName := strings.ToUpper(string(jobType[0])) + jobType[1:] + "Spec"
-
-	// // Create a job spec variable with a Go type matching the job's type
-	// jobSpec := reflect.New(reflect.ValueOf(jb).FieldByName(jobTypeSpecInterfaceName).Type().Elem()).Interface()
-
-	// // Use json new decoder to preserve the type (pass in a reader)
-	// err = json.Unmarshal(jb.TypeSpec, &jobSpec)
-
-	// if err != nil {
-	// 	return jb, errors.Wrap(err, fmt.Sprintf("Failed to unmarshal %v job type spec", jobType))
-	// }
-
-	// // Set the job's type spec field to the unmarshalled job spec
-	// reflect.ValueOf(&jb).Elem().FieldByName(jobTypeSpecInterfaceName).Set(reflect.ValueOf(jobSpec))
-
 	return jb, nil
-
-	// reflect.ValueOf(job).Elem().FieldByName(field).Set(destVal)
-	// return nil
-
-	// q := o.q.WithOpts(qopts...)
-	// err := q.Transaction(func(tx pg.Queryer) error {
-	// 	sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
-	// 	err := tx.Get(jb, sql, arg)
-	// 	if err != nil {
-	// 		return errors.Wrap(err, "failed to load job")
-	// 	}
-
-	// 	if err = LoadAllJobTypes(tx, jb); err != nil {
-	// 		return err
-	// 	}
-
-	// 	return loadJobSpecErrors(tx, jb)
-	// })
-	// if err != nil {
-	// 	return errors.Wrap(err, "findJob failed")
-	// }
-	// return o.LoadEnvConfigVars(jb)
 }
 
 // FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
