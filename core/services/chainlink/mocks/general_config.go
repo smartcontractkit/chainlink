@@ -79,20 +79,6 @@ func (_m *GeneralConfig) AutoPprof() config.AutoPprof {
 	return r0
 }
 
-// AutoPprofEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) AutoPprofEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // ConfigTOML provides a mock function with given fields:
 func (_m *GeneralConfig) ConfigTOML() (string, string) {
 	ret := _m.Called()
@@ -239,85 +225,17 @@ func (_m *GeneralConfig) Explorer() config.Explorer {
 	return r0
 }
 
-// FeatureExternalInitiators provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureExternalInitiators() bool {
+// Feature provides a mock function with given fields:
+func (_m *GeneralConfig) Feature() config.Feature {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 config.Feature
+	if rf, ok := ret.Get(0).(func() config.Feature); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFeedsManager provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureLogPoller provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureLogPoller() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureOffchainReporting() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting2 provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureOffchainReporting2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureUICSAKeys provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureUICSAKeys() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Feature)
+		}
 	}
 
 	return r0
@@ -550,6 +468,20 @@ func (_m *GeneralConfig) OCR2DefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCR2Enabled provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2Enabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -672,6 +604,20 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCREnabled provides a mock function with given fields:
+func (_m *GeneralConfig) OCREnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCRKeyBundleID provides a mock function with given fields:
 func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -773,20 +719,6 @@ func (_m *GeneralConfig) P2P() config.P2P {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.P2P)
 		}
-	}
-
-	return r0
-}
-
-// P2PEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) P2PEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

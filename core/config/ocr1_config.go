@@ -8,6 +8,7 @@ import (
 
 // OCR1Config is a subset of global config relevant to OCR v1.
 type OCR1Config interface {
+	OCREnabled() bool
 	// OCR1 config, can override in jobs, only ethereum.
 	OCRBlockchainTimeout() time.Duration
 	OCRContractPollInterval() time.Duration

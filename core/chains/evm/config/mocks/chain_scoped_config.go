@@ -89,20 +89,6 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	return r0
 }
 
-// AutoPprofEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoPprofEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // BalanceMonitorEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) BalanceMonitorEnabled() bool {
 	ret := _m.Called()
@@ -907,85 +893,17 @@ func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
 	return r0
 }
 
-// FeatureExternalInitiators provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
+// Feature provides a mock function with given fields:
+func (_m *ChainScopedConfig) Feature() coreconfig.Feature {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 coreconfig.Feature
+	if rf, ok := ret.Get(0).(func() coreconfig.Feature); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFeedsManager provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureLogPoller provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureLogPoller() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureOffchainReporting() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureOffchainReporting2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureUICSAKeys provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Feature)
+		}
 	}
 
 	return r0
@@ -1390,6 +1308,20 @@ func (_m *ChainScopedConfig) OCR2DefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCR2Enabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2Enabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -1554,6 +1486,20 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCREnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCREnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCRKeyBundleID provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -1683,20 +1629,6 @@ func (_m *ChainScopedConfig) P2P() coreconfig.P2P {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.P2P)
 		}
-	}
-
-	return r0
-}
-
-// P2PEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
