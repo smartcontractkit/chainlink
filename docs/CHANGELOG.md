@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-# 2.2.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+# 2.2.0 - 2023-06-12
 
 ### Added
 
@@ -25,14 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
-- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
 	- `LogBackfillBatchSize = 1000`
-	- `RPCDefaultBatchSize: 250`
+	- `RPCDefaultBatchSize = 250`
 	- `GasEstimator.BatchSize = 25`
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 - Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
-
-<!-- unreleasedstop -->
 
 ## 2.1.1 - 2023-05-22
 
