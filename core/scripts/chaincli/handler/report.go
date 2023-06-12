@@ -20,7 +20,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 )
 
 type OCR2ReportDataElem struct {
@@ -203,7 +203,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 	}
 
 	return &OCR2Transaction{
-		encoder: evm.EVMAutomationEncoder21{},
+		encoder: evm.EVMAutomationEncoder20{},
 		abi:     contract,
 		raw:     raw,
 		tx:      tx,
@@ -211,7 +211,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 }
 
 type OCR2Transaction struct {
-	encoder evm.EVMAutomationEncoder21
+	encoder evm.EVMAutomationEncoder20
 	abi     abi.ABI
 	raw     map[string]interface{}
 	tx      types.Transaction
@@ -354,7 +354,7 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	chkBlocks := []string{}
 
 	for _, u := range upkeeps {
-		val, ok := u.(evm.EVMAutomationUpkeepResult21)
+		val, ok := u.(evm.EVMAutomationUpkeepResult20)
 		if !ok {
 			panic("unrecognized upkeep result type")
 		}
