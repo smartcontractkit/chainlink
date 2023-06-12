@@ -342,7 +342,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
-	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config)
+	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -358,7 +358,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 		return def.ID(), nil
 	}
-	err = keyStore.Migrate(s.Config.VRFPassword(), DefaultEVMChainIDFunc)
+	err = keyStore.Migrate(s.Config.Password().VRF(), DefaultEVMChainIDFunc)
 
 	if s.Config.EVMEnabled() {
 		if err != nil {
@@ -378,13 +378,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	if s.Config.FeatureOffchainReporting() {
+	if s.Config.OCREnabled() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.FeatureOffchainReporting2() {
+	if s.Config.OCR2Enabled() {
 		var enabledChains []chaintype.ChainType
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)
@@ -403,7 +403,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.P2PEnabled() {
+	if s.Config.P2P().Enabled() {
 		err2 := app.GetKeyStore().P2P().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
@@ -607,7 +607,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
-	err = keyStore.Unlock(s.Config.KeystorePassword())
+	err = keyStore.Unlock(s.Config.Password().Keystore())
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}

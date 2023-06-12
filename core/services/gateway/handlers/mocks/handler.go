@@ -7,7 +7,7 @@ import (
 
 	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
-	gateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -46,11 +46,11 @@ func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *api.Message, node
 }
 
 // HandleUserMessage provides a mock function with given fields: ctx, msg, callbackCh
-func (_m *Handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gateway.UserCallbackPayload) error {
+func (_m *Handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
 	ret := _m.Called(ctx, msg, callbackCh)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- gateway.UserCallbackPayload) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
 		r0 = rf(ctx, msg, callbackCh)
 	} else {
 		r0 = ret.Error(0)

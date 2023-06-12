@@ -12,7 +12,7 @@ type Config interface {
 	pg.QConfig
 }
 
-func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
+func toLocalConfig(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
 	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
@@ -25,7 +25,7 @@ func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalC
 		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
 		DataSourceGracePeriod:                  concreteSpec.ObservationGracePeriod.Duration(),
 	}
-	if cfg.OCRDevelopmentMode() {
+	if insecureCfg.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
 		// For example to lower contractConfigTrackerPollInterval to speed up tests.
 		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode

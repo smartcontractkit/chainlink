@@ -24,7 +24,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.CosmosEnabled())
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
-	assert.Equal(t, false, config.FeatureExternalInitiators())
+	assert.Equal(t, false, config.JobPipeline().ExternalInitiatorsEnabled())
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }
 
@@ -35,10 +35,10 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 
-		assert.False(t, config.DevWebServer())
-		assert.False(t, config.DisableRateLimiting())
-		assert.False(t, config.InfiniteDepthQueries())
-		assert.False(t, config.OCRDevelopmentMode())
+		assert.False(t, config.Insecure().DevWebServer())
+		assert.False(t, config.Insecure().DisableRateLimiting())
+		assert.False(t, config.Insecure().InfiniteDepthQueries())
+		assert.False(t, config.Insecure().OCRDevelopmentMode())
 	})
 
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
@@ -54,9 +54,9 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		// Just asserting that override logic work on a safe config
 		assert.True(t, config.AuditLogger().Enabled())
 
-		assert.False(t, config.DevWebServer())
-		assert.False(t, config.DisableRateLimiting())
-		assert.False(t, config.InfiniteDepthQueries())
+		assert.False(t, config.Insecure().DevWebServer())
+		assert.False(t, config.Insecure().DisableRateLimiting())
+		assert.False(t, config.Insecure().InfiniteDepthQueries())
 	})
 
 	t.Run("ValidateConfig fails if insecure config is set on non-dev builds", func(t *testing.T) {

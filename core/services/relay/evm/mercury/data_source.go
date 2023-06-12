@@ -54,6 +54,10 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logg
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercury.Observation, err error) {
+	// setCurrentBlock must come first, along with observationTimestamp, to
+	// avoid front-running
+	ds.setCurrentBlock(ctx, &obs)
+
 	var wg sync.WaitGroup
 	if fetchMaxFinalizedBlockNum {
 		wg.Add(1)
@@ -98,11 +102,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		obs.BenchmarkPrice = parsed.benchmarkPrice
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ds.setCurrentBlock(ctx, &obs)
 	}()
 	wg.Wait()
 
