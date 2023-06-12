@@ -14,4 +14,5 @@ type P2P interface {
 	IncomingMessageBufferSize() int
 	OutgoingMessageBufferSize() int
 	TraceLogging() bool
+	Enabled() bool
 }
