@@ -17,11 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type evmHeadTracker = headtracker.HeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
+type headTracker = headtracker.HeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
 
-var _ commontypes.HeadTracker[*evmtypes.Head, common.Hash] = (*evmHeadTracker)(nil)
+var _ commontypes.HeadTracker[*evmtypes.Head, common.Hash] = (*headTracker)(nil)
 
-func NewEvmHeadTracker(
+func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config,

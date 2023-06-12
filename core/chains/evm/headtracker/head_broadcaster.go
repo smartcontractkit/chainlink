@@ -9,12 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type evmHeadBroadcaster = headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
+type headBroadcaster = headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
 
-var _ commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash] = &evmHeadBroadcaster{}
+var _ commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash] = &headBroadcaster{}
 
-func NewEvmHeadBroadcaster(
+func NewHeadBroadcaster(
 	lggr logger.Logger,
-) *evmHeadBroadcaster {
+) *headBroadcaster {
 	return headtracker.NewHeadBroadcaster[*evmtypes.Head, common.Hash](lggr)
 }
