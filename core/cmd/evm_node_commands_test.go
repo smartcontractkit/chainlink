@@ -2,7 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
-	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -62,20 +62,33 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	assert.Equal(t, chainID.String(), n1.ChainID)
 	assert.Equal(t, *node1.Name, n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
-	assert.Contains(t, n1.Config, node1.WSURL.String())
-	assert.Contains(t, n1.Config, node1.HTTPURL.String())
-	assert.Contains(t, n1.Config, fmt.Sprint(*node1.Order))
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, chainID.String(), n2.ChainID)
 	assert.Equal(t, *node2.Name, n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
-	assert.Contains(t, n2.Config, node2.WSURL.String())
-	assert.Contains(t, n2.Config, node2.HTTPURL.String())
-	assert.Contains(t, n2.Config, fmt.Sprint(*node2.Order))
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 20, len(renderLines))
+	assert.Contains(t, renderLines[1], "Name")
+	assert.Contains(t, renderLines[1], n1.Name)
+	assert.Contains(t, renderLines[2], "Chain ID")
+	assert.Contains(t, renderLines[2], n1.ChainID)
+	assert.Contains(t, renderLines[3], "State")
+	assert.Contains(t, renderLines[3], n1.State)
+	assert.Contains(t, renderLines[11], "Name")
+	assert.Contains(t, renderLines[11], n2.Name)
+	assert.Contains(t, renderLines[12], "Chain ID")
+	assert.Contains(t, renderLines[12], n2.ChainID)
+	assert.Contains(t, renderLines[13], "State")
+	assert.Contains(t, renderLines[13], n2.State)
 }

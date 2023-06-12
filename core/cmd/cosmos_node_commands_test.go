@@ -1,14 +1,15 @@
 package cmd_test
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -43,7 +44,6 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	}
 	app := cosmosStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
-
 	require.Nil(t, cmd.NewCosmosNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.CosmosNodePresenters)
@@ -52,9 +52,21 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	assert.Equal(t, chainID, n.ChainID)
 	assert.Equal(t, *node.Name, n.ID)
 	assert.Equal(t, *node.Name, n.Name)
-	assert.Contains(t, n.Config, node.TendermintURL.Host)
 	wantConfig, err := toml.Marshal(node)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 7, len(renderLines))
+	assert.Contains(t, renderLines[1], "Name")
+	assert.Contains(t, renderLines[1], n.Name)
+	assert.Contains(t, renderLines[2], "Chain ID")
+	assert.Contains(t, renderLines[2], n.ChainID)
+	assert.Contains(t, renderLines[3], "State")
+	assert.Contains(t, renderLines[3], n.State)
 }
