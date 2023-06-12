@@ -64,7 +64,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
-		secureMiddleware(tls.ForceRedirect(), tls.Host(), config.DevWebServer()),
+		secureMiddleware(tls.ForceRedirect(), tls.Host(), config.Insecure().DevWebServer()),
 	)
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())
@@ -87,7 +87,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	v2Routes(app, api)
 	loopRoutes(app, api)
 
-	guiAssetRoutes(engine, config.DisableRateLimiting(), app.GetLogger())
+	guiAssetRoutes(engine, config.Insecure().DisableRateLimiting(), app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
@@ -105,7 +105,7 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	// Disable introspection and set a max query depth in production.
 	var schemaOpts []graphql.SchemaOpt
 
-	if !app.GetConfig().InfiniteDepthQueries() {
+	if !app.GetConfig().Insecure().InfiniteDepthQueries() {
 		schemaOpts = append(schemaOpts,
 			graphql.MaxDepth(10),
 		)

@@ -215,7 +215,7 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 		return nil, err
 	}
 
-	return NewFeaturesPayloadResolver(r.App.GetConfig()), nil
+	return NewFeaturesPayloadResolver(r.App.GetConfig().Feature()), nil
 }
 
 // Node retrieves a node by ID (Name)

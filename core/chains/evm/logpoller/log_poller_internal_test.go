@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/exp/slices"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -152,7 +153,11 @@ func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry
 
 	assert.Equal(t, "SQL ERROR", observedLog.Entry.Message)
 
-	field := observedLog.Context[0]
+	i := slices.IndexFunc(observedLog.Context, func(f zapcore.Field) bool {
+		return f.Key == "err"
+	})
+	require.GreaterOrEqual(t, i, 0)
+	field := observedLog.Context[i]
 	require.Equal(t, zapcore.ErrorType, field.Type)
 	err, ok := field.Interface.(error)
 	var pgErr *pgconn.PgError
@@ -358,12 +363,14 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		var wg sync.WaitGroup
 		pass := make(chan struct{})
+		cancelled := make(chan struct{})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+				close(cancelled)
 			}()
 		})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
@@ -374,6 +381,9 @@ func TestLogPoller_Replay(t *testing.T) {
 				lp.replayStart <- 4
 				close(pass)
 			}()
+			// We cannot return until we're sure that Replay() received the cancellation signal,
+			// otherwise replayComplete<- might be sent first
+			<-cancelled
 		})
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms

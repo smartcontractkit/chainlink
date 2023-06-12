@@ -21,6 +21,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -768,12 +769,12 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		}
 
 		requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
-		etx, err = lsn.txm.CreateTransaction(txmgr.EvmNewTx{
+		etx, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.EvmTxMeta{
 				RequestID:     &requestID,
 				SubID:         &p.req.req.SubId,
@@ -963,7 +964,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				transaction, err = lsn.txm.CreateTransaction(txmgr.EvmNewTx{
+				transaction, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -974,7 +975,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						SubID:         &p.req.req.SubId,
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
-					Strategy: txmgr.NewSendEveryStrategy(),
+					Strategy: txmgrcommon.NewSendEveryStrategy(),
 					Checker: txmgr.EvmTransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,

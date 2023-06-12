@@ -222,10 +222,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var profiler *pyroscope.Profiler
-	if cfg.PyroscopeServerAddress() != "" {
+	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg, cfg.AutoPprof())
+		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -253,18 +253,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.ExplorerURL() != nil && cfg.TelemetryIngress().URL() != nil {
+	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
 		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
-	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
+	if cfg.Explorer().URL() != nil {
+		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
 	ticfg := cfg.TelemetryIngress()
 	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.ExplorerURL() == nil && ticfg.URL() != nil {
+	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
 		if ticfg.UseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
 				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
@@ -375,7 +375,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if cfg.P2PEnabled() {
+	if cfg.P2P().Enabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
@@ -385,7 +385,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if cfg.FeatureOffchainReporting() {
+	if cfg.OCREnabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
@@ -401,7 +401,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-	if cfg.FeatureOffchainReporting2() {
+	if cfg.OCR2Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
@@ -421,7 +421,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.JobPipeline(), cfg.Database(), registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -445,6 +445,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
+			cfg.Insecure(),
 			relayers,
 		)
 	} else {
@@ -460,14 +461,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
-	if cfg.FeatureLogPoller() {
+	if cfg.Feature().LogPoller() {
 		for _, c := range chains.EVM.Chains() {
 			srvcs = append(srvcs, c.LogPoller())
 		}
 	}
 
 	var feedsService feeds.Service
-	if cfg.FeatureFeedsManager() {
+	if cfg.Feature().FeedsManager() {
 		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
 		feedsService = feeds.NewService(
 			feedsORM,
@@ -476,6 +477,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.Database(),
 			chains.EVM,
@@ -527,7 +529,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
 	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.FeatureOffchainReporting2() {
+	if !cfg.OCR2Enabled() {
 		for _, service := range app.Chains.services() {
 			checkable := service.(services.Checkable)
 			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
@@ -821,7 +823,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
-	if app.Config.FeatureLogPoller() {
+	if app.Config.Feature().LogPoller() {
 		chain.LogPoller().ReplayAsync(int64(number))
 	}
 	return nil
