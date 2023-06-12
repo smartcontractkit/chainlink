@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
