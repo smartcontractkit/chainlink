@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"math/rand"
+	"crypto/rand"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -9,8 +9,10 @@ import (
 // NewHash return random Keccak256
 func NewHash() common.Hash {
 	b := make([]byte, 32)
-	// #nosec this method is only used in tests
-	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
 	return common.BytesToHash(b)
 }
 

@@ -80,6 +80,8 @@ HTTPPort = 6688
 SecureCookies = true
 SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
 
 [WebServer.MFA]
 RPID = ''

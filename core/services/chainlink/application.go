@@ -161,6 +161,7 @@ type ApplicationOpts struct {
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
 	LoopRegistry             *plugins.LoopRegistry
+	GRPCOpts                 loop.GRPCOpts
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -221,10 +222,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var profiler *pyroscope.Profiler
-	if cfg.PyroscopeServerAddress() != "" {
+	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg)
+		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -232,10 +233,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
+	ap := cfg.AutoPprof()
 	var nurse *services.Nurse
-	if cfg.AutoPprofEnabled() {
+	if ap.Enabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(ap, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -251,18 +253,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.ExplorerURL() != nil && cfg.TelemetryIngress().URL() != nil {
+	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
 		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
-	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
+	if cfg.Explorer().URL() != nil {
+		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
 	ticfg := cfg.TelemetryIngress()
 	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.ExplorerURL() == nil && ticfg.URL() != nil {
+	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
 		if ticfg.UseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
 				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
@@ -295,12 +297,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	srvcs = append(srvcs, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg, auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
+		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
 	srvcs = append(srvcs, pipelineORM)
@@ -332,7 +334,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineORM,
 				chains.EVM,
 				globalLogger,
-				cfg,
+				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -373,17 +375,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if cfg.P2PEnabled() {
+	if cfg.P2P().Enabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if cfg.FeatureOffchainReporting() {
+	if cfg.OCREnabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
@@ -393,13 +395,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
-			cfg,
+			cfg.Database(),
 			mailMon,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-	if cfg.FeatureOffchainReporting2() {
+	if cfg.OCR2Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
@@ -418,8 +420,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if cfg.StarkNetEnabled() {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
-		registrarConfig := plugins.NewRegistrarConfig(cfg, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, registrarConfig)
+		registrarConfig := plugins.NewRegistrarConfig(cfg.Log(), opts.GRPCOpts, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -443,6 +445,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
+			cfg.Insecure(),
 			relayers,
 		)
 	} else {
@@ -458,15 +461,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
-	if cfg.FeatureLogPoller() {
+	if cfg.Feature().LogPoller() {
 		for _, c := range chains.EVM.Chains() {
 			srvcs = append(srvcs, c.LogPoller())
 		}
 	}
 
 	var feedsService feeds.Service
-	if cfg.FeatureFeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
+	if cfg.Feature().FeedsManager() {
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -474,6 +477,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Insecure(),
+			cfg.JobPipeline(),
+			cfg.Database(),
 			chains.EVM,
 			globalLogger,
 			opts.Version,
@@ -496,7 +502,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
+		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
 		ExternalInitiatorManager: externalInitiatorManager,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
@@ -523,7 +529,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
 	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.FeatureOffchainReporting2() {
+	if !cfg.OCR2Enabled() {
 		for _, service := range app.Chains.services() {
 			checkable := service.(services.Checkable)
 			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
@@ -817,7 +823,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
-	if app.Config.FeatureLogPoller() {
+	if app.Config.Feature().LogPoller() {
 		chain.LogPoller().ReplayAsync(int64(number))
 	}
 	return nil
@@ -839,8 +845,8 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
-	rpid := app.Config.RPID()
-	rporigin := app.Config.RPOrigin()
+	rpid := app.Config.WebServer().MFA().RPID()
+	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}

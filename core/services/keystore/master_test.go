@@ -18,7 +18,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg.Database())
 	const tableName = "encrypted_key_rings"
 	reset := func() {
 		keyStore.ResetXXXTestOnly()

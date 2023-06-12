@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

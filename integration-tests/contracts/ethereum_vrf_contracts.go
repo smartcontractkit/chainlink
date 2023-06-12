@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_router"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
@@ -194,31 +193,13 @@ func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
 	}, err
 }
 
-// DeployVRFRouter deploys VRF router contract
-func (e *EthereumContractDeployer) DeployVRFRouter() (VRFRouter, error) {
-	address, _, instance, err := e.client.DeployContract("VRFRouter", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_router.DeployVRFRouter(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFRouter{
-		client:    e.client,
-		vrfRouter: instance.(*vrf_router.VRFRouter),
-		address:   address,
-	}, err
-}
-
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string, vrfRouter string) (VRFCoordinatorV3, error) {
+func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string) (VRFCoordinatorV3, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress), common.HexToAddress(vrfRouter))
+		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress))
 	})
 	if err != nil {
 		return nil, err
@@ -285,12 +266,12 @@ func decodeHexTo32ByteArray(val string) ([32]byte, error) {
 }
 
 // DeployVRFBeaconConsumer deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfRouterAddress), false, beaconPeriodBlockCount)
+		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfCoordinatorAddress), false, beaconPeriodBlockCount)
 	})
 	if err != nil {
 		return nil, err
@@ -936,32 +917,6 @@ func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*d
 	}
 }
 
-// EthereumVRFRouter represents EthereumVRFRouter contract
-type EthereumVRFRouter struct {
-	address   *common.Address
-	client    blockchain.EVMClient
-	vrfRouter *vrf_router.VRFRouter
-}
-
-func (router *EthereumVRFRouter) Address() string {
-	return router.address.Hex()
-}
-
-func (router *EthereumVRFRouter) RegisterCoordinator(coordinatorAddress string) error {
-	opts, err := router.client.TransactionOpts(router.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := router.vrfRouter.RegisterCoordinator(
-		opts,
-		common.HexToAddress(coordinatorAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return router.client.ProcessTransaction(tx)
-}
-
 // EthereumVRFCoordinatorV3 represents VRFCoordinatorV3 contract
 type EthereumVRFCoordinatorV3 struct {
 	address          *common.Address
@@ -1043,9 +998,9 @@ func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint3
 	if err != nil {
 		return err
 	}
-	tx, err := coordinator.vrfCoordinatorV3.SetConfig(
+	tx, err := coordinator.vrfCoordinatorV3.SetCallbackConfig(
 		opts,
-		vrf_coordinator.VRFCoordinatorConfig{
+		vrf_coordinator.VRFCoordinatorCallbackConfig{
 			MaxCallbackGasLimit:        maxCallbackGasLimit,
 			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
 		},

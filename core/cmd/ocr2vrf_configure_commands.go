@@ -241,7 +241,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		}
 
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config)
+		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err
@@ -332,7 +332,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 }
 
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config)
+	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password())
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}

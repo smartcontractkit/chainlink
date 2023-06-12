@@ -222,18 +222,18 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	switch jobType {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
-		if !config.FeatureOffchainReporting() {
+		if !config.OCREnabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
-		if !config.FeatureOffchainReporting2() {
+		jb, err = validate.ValidatedOracleSpecToml(config, config.Insecure(), tomlString)
+		if !config.OCR2Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, tomlString)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(tomlString)
 	case job.Cron:

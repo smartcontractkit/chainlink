@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"math/rand"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -17,21 +16,14 @@ import (
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
 	q      pg.Q
-	config ORMConfig
 	logger logger.Logger
 }
 
-type ORMConfig interface {
-	EvmEIP1559DynamicFees() bool
-	pg.QConfig
-}
-
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, config ORMConfig) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config pg.QConfig) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
 		q:      pg.NewQ(db, lggr, config),
-		config: config,
 		logger: lggr,
 	}
 }
@@ -180,7 +172,6 @@ WHERE keeper_registries.contract_address = $1
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(upkeeps), func(i, j int) {
 		upkeeps[i], upkeeps[j] = upkeeps[j], upkeeps[i]
 	})

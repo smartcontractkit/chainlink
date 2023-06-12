@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -26,12 +27,11 @@ func batchSendTransactions[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ txmgrtypes.Sequence,
-	FEE txmgrtypes.Fee,
-	ADD any,
+	FEE feetypes.Fee,
 ](
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
-	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {

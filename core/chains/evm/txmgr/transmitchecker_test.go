@@ -105,7 +105,7 @@ func TestTransmitCheckers(t *testing.T) {
 			Value:          big.Int(assets.NewEthValue(642)),
 			FeeLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          txmgrcommon.EthTxUnstarted,
+			State:          txmgrcommon.TxUnstarted,
 		}
 		attempt := txmgr.EvmTxAttempt{
 			Tx:        tx,
@@ -158,10 +158,10 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
+		txRequest := func(t *testing.T, vrfReqID [32]byte, nilTxHash bool) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID[:])
 			txHash := common.Hash{}
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID:     &h,
 				MaxLink:       &testDefaultMaxLink, // 1 LINK
 				SubID:         &testDefaultSubID,
@@ -183,7 +183,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -236,29 +236,29 @@ func TestTransmitCheckers(t *testing.T) {
 		})
 
 		t.Run("already fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r1, false)
+			tx, attempt := txRequest(t, r1, false)
 			err := checker.Check(ctx, log, tx, attempt)
 			require.Error(t, err, "request already fulfilled")
 		})
 
 		t.Run("nil RequestTxHash", func(t *testing.T) {
-			tx, attempt := newTx(t, r1, true)
+			tx, attempt := txRequest(t, r1, true)
 			err := checker.Check(ctx, log, tx, attempt)
 			require.NoError(t, err)
 		})
 
 		t.Run("not fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, r3, false)
+			tx, attempt := txRequest(t, r3, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
-			tx, attempt := newTx(t, r2, false)
+			tx, attempt := txRequest(t, r2, false)
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("failure fetching tx receipt and block head", func(t *testing.T) {
-			tx, attempt := newTx(t, r1, false)
+			tx, attempt := txRequest(t, r1, false)
 			mockBatch.Return(errors.New("could not fetch"))
 			err := checker.Check(ctx, log, tx, attempt)
 			require.NoError(t, err)
@@ -269,9 +269,9 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 
-		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
+		txRequest := func(t *testing.T, vrfReqID *big.Int) (txmgr.EvmTx, txmgr.EvmTxAttempt) {
 			h := common.BytesToHash(vrfReqID.Bytes())
-			meta := txmgr.EthTxMeta{
+			meta := txmgr.EvmTxMeta{
 				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
@@ -288,7 +288,7 @@ func TestTransmitCheckers(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(642)),
 				FeeLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          txmgrcommon.EthTxUnstarted,
+				State:          txmgrcommon.TxUnstarted,
 				Meta:           &metaJson,
 			}
 			return tx, txmgr.EvmTxAttempt{
@@ -321,18 +321,18 @@ func TestTransmitCheckers(t *testing.T) {
 		}
 
 		t.Run("already fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, big.NewInt(1))
+			tx, attempt := txRequest(t, big.NewInt(1))
 			err := checker.Check(ctx, log, tx, attempt)
 			require.Error(t, err, "request already fulfilled")
 		})
 
 		t.Run("not fulfilled", func(t *testing.T) {
-			tx, attempt := newTx(t, big.NewInt(3))
+			tx, attempt := txRequest(t, big.NewInt(3))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
-			tx, attempt := newTx(t, big.NewInt(2))
+			tx, attempt := txRequest(t, big.NewInt(2))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
@@ -340,7 +340,7 @@ func TestTransmitCheckers(t *testing.T) {
 			checker.HeadByNumber = func(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 				return nil, errors.New("can't get head")
 			}
-			tx, attempt := newTx(t, big.NewInt(3))
+			tx, attempt := txRequest(t, big.NewInt(3))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
@@ -351,7 +351,7 @@ func TestTransmitCheckers(t *testing.T) {
 				}, nil
 			}
 			checker.RequestBlockNumber = nil
-			tx, attempt := newTx(t, big.NewInt(4))
+			tx, attempt := txRequest(t, big.NewInt(4))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 	})

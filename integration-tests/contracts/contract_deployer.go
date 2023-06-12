@@ -3,7 +3,6 @@ package contracts
 import (
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"math/big"
 	"time"
 
@@ -12,11 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -79,10 +80,9 @@ type ContractDeployer interface {
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployDKG() (DKG, error)
-	DeployVRFRouter() (VRFRouter, error)
-	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string, linkEthFeedAddr string, routerAddr string) (VRFCoordinatorV3, error)
+	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
-	DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
+	DeployVRFBeaconConsumer(vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)

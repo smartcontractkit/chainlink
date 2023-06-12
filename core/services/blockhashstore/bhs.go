@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -25,13 +26,17 @@ var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
 	EvmGasLimitDefault() uint32
-	DatabaseDefaultQueryTimeout() time.Duration
+}
+
+type bpBHSDatabaseConfig interface {
+	DefaultQueryTimeout() time.Duration
 }
 
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof
 // transaction manager, and reads BlockhashStore state from the contract.
 type BulletproofBHS struct {
 	config        bpBHSConfig
+	dbConfig      bpBHSDatabaseConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
 	txm           txmgr.EvmTxManager
@@ -44,6 +49,7 @@ type BulletproofBHS struct {
 // NewBulletproofBHS creates a new instance with the given transaction manager and blockhash store.
 func NewBulletproofBHS(
 	config bpBHSConfig,
+	dbConfig bpBHSDatabaseConfig,
 	fromAddresses []ethkey.EIP55Address,
 	txm txmgr.EvmTxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
@@ -58,6 +64,7 @@ func NewBulletproofBHS(
 
 	return &BulletproofBHS{
 		config:        config,
+		dbConfig:      dbConfig,
 		fromAddresses: fromAddresses,
 		txm:           txm,
 		abi:           bhsABI,
@@ -79,7 +86,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
+	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -87,7 +94,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256, c.config.DatabaseDefaultQueryTimeout()),
+		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256, c.dbConfig.DefaultQueryTimeout()),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
@@ -127,12 +134,12 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmNewTx{
+	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
 		FeeLimit:       c.config.EvmGasLimitDefault(),
-		Strategy:       txmgr.NewSendEveryStrategy(),
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

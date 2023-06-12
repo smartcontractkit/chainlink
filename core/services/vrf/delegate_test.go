@@ -70,14 +70,14 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	hb := headtracker.NewEvmHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipelineMaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, cfg)
+	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 		vuni.prm,
 		vuni.cc,
 		logger.TestLogger(t),
-		cfg,
+		cfg.Database(),
 		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
@@ -300,11 +300,11 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
-				meta := newTx.Meta
-				return newTx.FromAddress == vuni.submitter &&
-					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.FeeLimit == uint32(500000) &&
+			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool {
+				meta := txRequest.Meta
+				return txRequest.FromAddress == vuni.submitter &&
+					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					txRequest.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
@@ -559,7 +559,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -587,7 +587,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string

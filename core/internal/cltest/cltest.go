@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -158,7 +159,6 @@ func init() {
 	// the same advisory locks when tested with `go test -p N` for N > 1
 	seed := time.Now().UTC().UnixNano()
 	fmt.Printf("cltest random seed: %v\n", seed)
-	rand.Seed(seed)
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
@@ -178,8 +178,7 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	t.Helper()
 
 	b = make([]byte, l)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,15 +193,15 @@ type JobPipelineV2TestHelper struct {
 
 type JobPipelineConfig interface {
 	pipeline.Config
-	JobPipelineMaxSuccessfulRuns() uint64
+	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, dbCfg, cfg.JobPipelineMaxSuccessfulRuns())
+	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
 	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, dbCfg)
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -220,7 +219,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	lggr := logger.TestLogger(t)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ks, estimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), ks, txBuilder, lggr)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
 	return ec, nil
@@ -378,7 +377,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg.Database())
 			}
 
 		}
@@ -387,7 +386,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	var ids []utils.Big
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
@@ -395,7 +394,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if len(ids) > 0 {
 		o := chainCfgs
 		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -445,7 +444,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -471,7 +470,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -480,7 +479,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 
 		opts := starknet.ChainSetOpts{
-			Config:   cfg,
 			Logger:   starkLggr,
 			KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
 			Configs:  starknet.NewConfigs(cfgs),
@@ -519,7 +517,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
-	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
 
@@ -665,8 +663,8 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 	return cmd.ClientOpts{RemoteNodeURL: *MustParseURL(ta.t, ta.Server.URL), InsecureSkipVerify: true}
 }
 
-// NewClientAndRenderer creates a new cmd.Client for the test application
-func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
+// NewShellAndRenderer creates a new cmd.Shell for the test application
+func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
@@ -686,7 +684,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Shell, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Shell {
+func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
 	client := &cmd.Shell{
@@ -1301,8 +1299,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1689,7 +1686,7 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 
 	for _, subcommand := range command.Subcommands {
 		if !foundName {
-			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
+			foundName = strings.EqualFold(subcommand.Name, parent)
 		}
 
 		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)

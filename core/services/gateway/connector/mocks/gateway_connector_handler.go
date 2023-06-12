@@ -3,7 +3,10 @@
 package mocks
 
 import (
-	gateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+
+	context "context"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -12,9 +15,37 @@ type GatewayConnectorHandler struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *GatewayConnectorHandler) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // HandleGatewayMessage provides a mock function with given fields: gatewayId, msg
-func (_m *GatewayConnectorHandler) HandleGatewayMessage(gatewayId string, msg *gateway.Message) {
+func (_m *GatewayConnectorHandler) HandleGatewayMessage(gatewayId string, msg *api.Message) {
 	_m.Called(gatewayId, msg)
+}
+
+// Start provides a mock function with given fields: _a0
+func (_m *GatewayConnectorHandler) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 type mockConstructorTestingTNewGatewayConnectorHandler interface {

@@ -98,6 +98,17 @@ var (
 			float64(60 * time.Second),
 		},
 	}, []string{"oracle"})
+
+	promPrunedRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_pruned",
+		Help: "Metric to track number of requests pruned from the DB",
+	}, []string{"oracle"})
+)
+
+const (
+	DefaultPruneMaxStoredRequests uint32 = 20_000
+	DefaultPruneCheckFrequencySec uint32 = 60 * 10
+	DefaultPruneBatchSize         uint32 = 500
 )
 
 type FunctionsListener struct {
@@ -105,7 +116,7 @@ type FunctionsListener struct {
 	oracle            *ocr2dr_oracle.OCR2DROracle
 	oracleHexAddr     string
 	job               job.Job
-	eaClient          ExternalAdapterClient
+	bridgeAccessor    BridgeAccessor
 	logBroadcaster    log.Broadcaster
 	shutdownWaitGroup sync.WaitGroup
 	mbOracleEvents    *utils.Mailbox[log.Broadcast]
@@ -123,12 +134,12 @@ func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, eaClient ExternalAdapterClient, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
 		job:             job,
-		eaClient:        eaClient,
+		bridgeAccessor:  bridgeAccessor,
 		logBroadcaster:  logBroadcaster,
 		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
 		chStop:          make(chan struct{}),
@@ -159,9 +170,10 @@ func (l *FunctionsListener) Start(context.Context) error {
 		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
 			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
 		}
-		l.shutdownWaitGroup.Add(3)
+		l.shutdownWaitGroup.Add(4)
 		go l.processOracleEvents()
 		go l.timeoutRequests()
+		go l.pruneRequests()
 		go func() {
 			<-l.chStop
 			unsubscribeLogs()
@@ -329,7 +341,14 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	computationResult, computationError, domains, err := l.eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
+	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
+	if err != nil {
+		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", formatRequestId(request.RequestId), "err", err)
+		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
+		return
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", formatRequestId(request.RequestId), "err", err)
@@ -414,6 +433,48 @@ func (l *FunctionsListener) timeoutRequests() {
 				l.logger.Debugw("timed out requests", "requestIDs", idStrs)
 			} else {
 				l.logger.Debug("no requests to time out")
+			}
+		}
+	}
+}
+
+func (l *FunctionsListener) pruneRequests() {
+	defer l.shutdownWaitGroup.Done()
+	maxStoredRequests, freqSec, batchSize := l.pluginConfig.PruneMaxStoredRequests, l.pluginConfig.PruneCheckFrequencySec, l.pluginConfig.PruneBatchSize
+	if maxStoredRequests == 0 {
+		l.logger.Warnw("pruneMaxStoredRequests not configured - using default", "DefaultPruneMaxStoredRequests", DefaultPruneMaxStoredRequests)
+		maxStoredRequests = DefaultPruneMaxStoredRequests
+	}
+	if freqSec == 0 {
+		l.logger.Warnw("pruneCheckFrequencySec not configured - using default", "DefaultPruneCheckFrequencySec", DefaultPruneCheckFrequencySec)
+		freqSec = DefaultPruneCheckFrequencySec
+	}
+	if batchSize == 0 {
+		l.logger.Warnw("pruneBatchSize not configured - using default", "DefaultPruneBatchSize", DefaultPruneBatchSize)
+		batchSize = DefaultPruneBatchSize
+	}
+
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			ctx, cancel := l.getNewHandlerContext()
+			startTime := time.Now()
+			nTotal, nPruned, err := l.pluginORM.PruneOldestRequests(maxStoredRequests, batchSize, pg.WithParentCtx(ctx))
+			cancel()
+			elapsedMillis := time.Since(startTime).Milliseconds()
+			if err != nil {
+				l.logger.Errorw("error when calling PruneOldestRequests", "err", err, "elapsedMillis", elapsedMillis)
+				break
+			}
+			if nPruned > 0 {
+				promPrunedRequests.WithLabelValues(l.oracleHexAddr).Add(float64(nPruned))
+				l.logger.Debugw("pruned requests from the DB", "nTotal", nTotal, "nPruned", nPruned, "elapsedMillis", elapsedMillis)
+			} else {
+				l.logger.Debugw("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
 			}
 		}
 	}
