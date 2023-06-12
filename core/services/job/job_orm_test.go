@@ -470,8 +470,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
 	require.NoError(t, err)
 
-	bs, err := (&jb).BootstrapSpec()
-	require.NoError(t, err)
+	bs := (&jb).BootstrapSpec()
 	require.Equal(t, relay.EVM, bs.Relay)
 
 	err = jobORM.CreateJob(&jb)
@@ -482,8 +481,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, jb, loadedJb)
 
-	loadedBs, err := (&loadedJb).BootstrapSpec()
-	require.NoError(t, err)
+	loadedBs := (&loadedJb).BootstrapSpec()
 	require.Equal(t, bs, loadedBs)
 	require.Equal(t, relay.EVM, loadedBs.Relay)
 

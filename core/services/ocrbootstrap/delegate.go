@@ -63,43 +63,44 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
-	bs, err := (&jobSpec).BootstrapSpec()
+	spec := (&jobSpec).BootstrapSpec()
 
-	if err != nil {
+	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
+
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	relayer, exists := d.relayers[bs.Relay]
+	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
-		return nil, errors.Errorf("%s relay does not exist is it enabled?", bs.Relay)
+		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
-	if bs.FeedID != nil {
-		bs.RelayConfig["feedID"] = *bs.FeedID
+	if spec.FeedID != nil {
+		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
 
 	ctxVals := loop.ContextValues{
 		JobID:      jobSpec.ID,
 		JobName:    jobSpec.Name.ValueOrZero(),
-		ContractID: bs.ContractID,
-		FeedID:     bs.FeedID,
+		ContractID: spec.ContractID,
+		FeedID:     spec.FeedID,
 	}
 	ctx := ctxVals.ContextWithValues(context.Background())
 
 	configProvider, err := relayer.NewConfigProvider(ctx, types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
-		JobID:         bs.ID,
-		ContractID:    bs.ContractID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
-		RelayConfig:   bs.RelayConfig.Bytes(),
+		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.cfg, d.insecureCfg, bs.AsOCR2Spec())
+	lc := validate.ToLocalConfig(d.cfg, d.insecureCfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:   d.peerWrapper.Peer2,
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
-		Database:              NewDB(d.db.DB, bs.ID, lggr),
+		Database:              NewDB(d.db.DB, spec.ID, lggr),
 		LocalConfig:           lc,
 		Logger: logger.NewOCRWrapper(lggr.Named("OCRBootstrap"), true, func(msg string) {
 			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")

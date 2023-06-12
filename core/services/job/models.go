@@ -159,15 +159,21 @@ type Job struct {
 	TypeSpec []byte
 }
 
-func (j *Job) BootstrapSpec() (bs BootstrapSpec, err error) {
+// j.BootstrapSpec
+func Spec[S any](j *Job) *S {
+	var spec S
 	// Use json new decoder to preserve the type (pass in a reader)
-	err = json.Unmarshal(j.TypeSpec, &bs)
+	err := json.Unmarshal(j.TypeSpec, &spec)
 
 	if err != nil {
-		return bs, errors.Wrap(err, "Failed to unmarshal BootstrapSpec")
+		return nil
 	}
 
-	return bs, nil
+	return &spec
+}
+
+func (j *Job) BootstrapSpec() *BootstrapSpec {
+	return Spec[BootstrapSpec](j)
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {

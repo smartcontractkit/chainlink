@@ -16,11 +16,7 @@ var (
 
 // EVMChainForJob parses the job spec and retrieves the evm chain found.
 func EVMChainForBootstrapJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
-	bs, err := job.BootstrapSpec()
-	if err != nil {
-		return nil, err
-	}
-	chainIDInterface, ok := bs.RelayConfig["chainID"]
+	chainIDInterface, ok := job.BootstrapSpec().RelayConfig["chainID"]
 	if !ok {
 		return nil, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
 	}

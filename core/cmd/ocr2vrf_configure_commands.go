@@ -396,12 +396,10 @@ func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.App
 		return errors.Wrap(err, "failed to unmarshal job spec")
 	}
 
-	typeSpec, err := json.Marshal(os)
+	jb.TypeSpec, err = json.Marshal(os)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert BootstrapSpec to TypeSpec")
 	}
-
-	jb.TypeSpec = typeSpec
 
 	err = app.AddJobV2(context.Background(), &jb)
 	if err != nil {

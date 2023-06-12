@@ -106,13 +106,7 @@ func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 		return nil, false
 	}
 
-	bs, err := r.j.BootstrapSpec()
-
-	if err != nil {
-		return nil, false
-	}
-
-	return &BootstrapSpecResolver{spec: bs}, true
+	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec()}, true
 }
 
 func (r *SpecResolver) ToGatewaySpec() (*GatewaySpecResolver, bool) {

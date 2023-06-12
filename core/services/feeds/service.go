@@ -1014,12 +1014,7 @@ func (s *service) getAddressAndEVMChainIDFromJob(j *job.Job) (ethkey.EIP55Addres
 		evmChainID = utils.NewBig(evmChain.ID())
 		address = eipAddress
 	case job.Bootstrap:
-		bs, err := j.BootstrapSpec()
-		if err != nil {
-			return address, nil, errors.Wrap(err, "failed to get bootstrap spec")
-		}
-
-		eipAddress, addrErr := ethkey.NewEIP55Address(bs.ContractID)
+		eipAddress, addrErr := ethkey.NewEIP55Address(j.BootstrapSpec().ContractID)
 		if addrErr != nil {
 			return eipAddress, nil, errors.Wrap(addrErr, "failed to create EIP55Address from Bootstrap job spec")
 		}

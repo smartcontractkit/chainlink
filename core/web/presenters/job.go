@@ -512,11 +512,7 @@ func NewJobResource(j job.Job) *JobResource {
 	case job.BlockHeaderFeeder:
 		resource.BlockHeaderFeederSpec = NewBlockHeaderFeederSpec(j.BlockHeaderFeederSpec)
 	case job.Bootstrap:
-		bs, err := (&j).BootstrapSpec()
-		if err != nil {
-			panic(err)
-		}
-		resource.BootstrapSpec = NewBootstrapSpec(&bs)
+		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec())
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
 	}
