@@ -136,7 +136,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	newTx := txmgr.EvmNewTx{
+	txRequest := txmgr.EvmTxRequest{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
@@ -149,11 +149,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 
 	if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline when tx is confirmed
-		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
+		txRequest.PipelineTaskRunID = &t.uuid
+		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateTransaction(newTx)
+	_, err = txManager.CreateTransaction(txRequest)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
