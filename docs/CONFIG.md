@@ -4795,6 +4795,11 @@ ComputeUnitPriceMax = 1000 # Default
 ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
+BlockEmissionIdleWarningThreshold = '30s'
+FinalityDepth = 50
+HeadTrackerHistoryDepth = 100
+HeadTrackerMaxBufferSize = 3
+HeadTrackerSamplingInterval = '1s'
 ```
 
 

@@ -492,6 +492,13 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
+BlockEmissionIdleWarningThreshold = '30s'
+FinalityDepth = 50
+HeadTrackerHistoryDepth = 100
+HeadTrackerMaxBufferSize = 3
+HeadTrackerSamplingInterval = '1s'
+
+[[Solana.Nodes]]
 
 [[Solana.Nodes]]
 Name = 'primary'

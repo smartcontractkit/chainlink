@@ -557,21 +557,26 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:       relayutils.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:       relayutils.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:     relayutils.MustNewDuration(time.Minute),
-				OCR2CacheTTL:            relayutils.MustNewDuration(time.Hour),
-				TxTimeout:               relayutils.MustNewDuration(time.Hour),
-				TxRetryTimeout:          relayutils.MustNewDuration(time.Minute),
-				TxConfirmTimeout:        relayutils.MustNewDuration(time.Second),
-				SkipPreflight:           ptr(true),
-				Commitment:              ptr("banana"),
-				MaxRetries:              ptr[int64](7),
-				FeeEstimatorMode:        ptr("fixed"),
-				ComputeUnitPriceMax:     ptr[uint64](1000),
-				ComputeUnitPriceMin:     ptr[uint64](10),
-				ComputeUnitPriceDefault: ptr[uint64](100),
-				FeeBumpPeriod:           relayutils.MustNewDuration(time.Minute),
+				BalancePollPeriod:                 relayutils.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:                 relayutils.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:               relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:                      relayutils.MustNewDuration(time.Hour),
+				TxTimeout:                         relayutils.MustNewDuration(time.Hour),
+				TxRetryTimeout:                    relayutils.MustNewDuration(time.Minute),
+				TxConfirmTimeout:                  relayutils.MustNewDuration(time.Second),
+				SkipPreflight:                     ptr(true),
+				Commitment:                        ptr("banana"),
+				MaxRetries:                        ptr[int64](7),
+				FeeEstimatorMode:                  ptr("fixed"),
+				ComputeUnitPriceMax:               ptr[uint64](1000),
+				ComputeUnitPriceMin:               ptr[uint64](10),
+				ComputeUnitPriceDefault:           ptr[uint64](100),
+				FeeBumpPeriod:                     relayutils.MustNewDuration(time.Minute),
+				BlockEmissionIdleWarningThreshold: relayutils.MustNewDuration(30 * time.Second),
+				FinalityDepth:                     ptr[uint32](50),
+				HeadTrackerHistoryDepth:           ptr[uint32](100),
+				HeadTrackerMaxBufferSize:          ptr[uint32](3),
+				HeadTrackerSamplingInterval:       relayutils.MustNewDuration(time.Second),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
@@ -983,6 +988,11 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
+BlockEmissionIdleWarningThreshold = '30s'
+FinalityDepth = 50
+HeadTrackerHistoryDepth = 100
+HeadTrackerMaxBufferSize = 3
+HeadTrackerSamplingInterval = '1s'
 
 [[Solana.Nodes]]
 Name = 'primary'

@@ -373,6 +373,26 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
 }
 
+func (c *SolanaConfig) BlockEmissionIdleWarningThreshold() time.Duration {
+	return c.Chain.BlockEmissionIdleWarningThreshold.Duration()
+}
+
+func (c *SolanaConfig) FinalityDepth() uint32 {
+	return *c.Chain.FinalityDepth
+}
+
+func (c *SolanaConfig) HeadTrackerHistoryDepth() *uint32 {
+	return c.Chain.HeadTrackerHistoryDepth
+}
+
+func (c *SolanaConfig) HeadTrackerMaxBufferSize() *uint32 {
+	return c.Chain.HeadTrackerMaxBufferSize
+}
+
+func (c *SolanaConfig) HeadTrackerSamplingInterval() time.Duration {
+	return c.Chain.HeadTrackerSamplingInterval.Duration()
+}
+
 // Configs manages solana chains and nodes.
 type Configs interface {
 	chains.ChainConfigs
