@@ -116,7 +116,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	}
 
 	logPoller := logpoller.LogPollerDisabled
-	if cfg.FeatureLogPoller() {
+	if cfg.Feature().LogPoller() {
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {

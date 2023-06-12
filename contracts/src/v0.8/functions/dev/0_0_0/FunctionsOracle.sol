@@ -255,15 +255,17 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       returns (IFunctionsBillingRegistry.FulfillResult result) {
         if (result == IFunctionsBillingRegistry.FulfillResult.USER_SUCCESS) {
           emit OracleResponse(requestIds[i]);
+          emit ResponseTransmitted(requestIds[i], transmitter);
         } else if (result == IFunctionsBillingRegistry.FulfillResult.USER_ERROR) {
           emit UserCallbackError(requestIds[i], "error in callback");
+          emit ResponseTransmitted(requestIds[i], transmitter);
         } else if (result == IFunctionsBillingRegistry.FulfillResult.INVALID_REQUEST_ID) {
           emit InvalidRequestID(requestIds[i]);
         }
       } catch (bytes memory reason) {
         emit UserCallbackRawError(requestIds[i], reason);
+        emit ResponseTransmitted(requestIds[i], transmitter);
       }
-      emit ResponseTransmitted(requestIds[i], transmitter);
     }
   }
 
