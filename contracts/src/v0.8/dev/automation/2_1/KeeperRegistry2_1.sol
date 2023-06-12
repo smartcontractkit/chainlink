@@ -15,6 +15,7 @@ import "../../../OCR2Abstract.sol";
 contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ERC677ReceiverInterface {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @notice versions:
@@ -247,7 +248,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    bytes memory onchainConfig,
+    bytes memory onchainConfigBytes,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override onlyOwner {
@@ -296,18 +297,17 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     s_transmittersList = transmitters;
 
     // Set the onchain config
-    OnchainConfig memory onchainConfigStruct = abi.decode(onchainConfig, (OnchainConfig));
-    if (onchainConfigStruct.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    if (onchainConfigStruct.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
-    if (onchainConfigStruct.maxPerformDataSize < s_storage.maxPerformDataSize)
-      revert MaxPerformDataSizeCanOnlyIncrease();
+    OnchainConfig memory onchainConfig = abi.decode(onchainConfigBytes, (OnchainConfig));
+    if (onchainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
+    if (onchainConfig.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
+    if (onchainConfig.maxPerformDataSize < s_storage.maxPerformDataSize) revert MaxPerformDataSizeCanOnlyIncrease();
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
-      stalenessSeconds: onchainConfigStruct.stalenessSeconds,
-      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
+      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
+      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
+      stalenessSeconds: onchainConfig.stalenessSeconds,
+      gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: false,
       reentrancyGuard: false,
       totalPremium: totalPremium,
@@ -315,20 +315,19 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     });
 
     s_storage = Storage({
-      checkGasLimit: onchainConfigStruct.checkGasLimit,
-      minUpkeepSpend: onchainConfigStruct.minUpkeepSpend,
-      maxPerformGas: onchainConfigStruct.maxPerformGas,
-      transcoder: onchainConfigStruct.transcoder,
-      registrar: onchainConfigStruct.registrar,
-      maxCheckDataSize: onchainConfigStruct.maxCheckDataSize,
-      maxPerformDataSize: onchainConfigStruct.maxPerformDataSize,
+      checkGasLimit: onchainConfig.checkGasLimit,
+      minUpkeepSpend: onchainConfig.minUpkeepSpend,
+      maxPerformGas: onchainConfig.maxPerformGas,
+      transcoder: onchainConfig.transcoder,
+      maxCheckDataSize: onchainConfig.maxCheckDataSize,
+      maxPerformDataSize: onchainConfig.maxPerformDataSize,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       ownerLinkBalance: s_storage.ownerLinkBalance
     });
-    s_fallbackGasPrice = onchainConfigStruct.fallbackGasPrice;
-    s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
+    s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
+    s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(_blockNum());
@@ -341,7 +340,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       signers,
       transmitters,
       f,
-      onchainConfig,
+      onchainConfigBytes,
       offchainConfigVersion,
       offchainConfig
     );
@@ -353,7 +352,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       signers,
       transmitters,
       f,
-      onchainConfig,
+      onchainConfigBytes,
       offchainConfigVersion,
       offchainConfig
     );

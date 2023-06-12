@@ -6,6 +6,7 @@ import "./KeeperRegistryBase2_1.sol";
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @dev see KeeperRegistry master contract for constructor description
@@ -355,7 +356,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
-      registrar: s_storage.registrar
+      registrars: s_registrars.values()
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);

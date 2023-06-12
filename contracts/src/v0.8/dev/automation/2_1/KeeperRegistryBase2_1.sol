@@ -23,6 +23,7 @@ import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
 abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
@@ -76,6 +77,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => bytes) internal s_checkData;
   mapping(bytes32 => bool) internal s_observedLogTriggers;
   // Registry config and state
+  EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
@@ -208,7 +210,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     address transcoder;
-    address registrar;
+    address[] registrars;
   }
 
   /**
@@ -311,14 +313,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     address transcoder; // Address of transcoder contract used in migrations
     // 1 EVM word full
     uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
-    address registrar; // Address of registrar used to register upkeeps
-    // 2 EVM word full
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
     uint32 configCount; // incremented each time a new config is posted, The count
     // is incorporated into the config digest to prevent replay attacks.
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
+    // 2 EVM word full
     uint32 maxCheckDataSize; // max length of checkData bytes
     uint32 maxPerformDataSize; // max length of performData bytes
     // 4 bytes to 3rd EVM word

@@ -22,6 +22,7 @@ contract KeeperRegistryLogicA2_1 is
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @param logicB the address of the second logic contract
@@ -172,7 +173,7 @@ contract KeeperRegistryLogicA2_1 is
     bytes calldata checkData, // TODO - this should be included in the trigger
     bytes calldata extraData
   ) external returns (uint256 id) {
-    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
+    if (msg.sender != owner() && !s_registrars.contains(msg.sender)) revert OnlyCallableByOwnerOrRegistrar();
     (Trigger triggerType, bytes memory triggerConfig, bytes memory offchainConfig) = abi.decode(
       extraData,
       (Trigger, bytes, bytes)
