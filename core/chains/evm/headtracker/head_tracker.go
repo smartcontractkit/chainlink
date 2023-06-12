@@ -101,7 +101,7 @@ func NewHeadTracker[
 	}
 }
 
-func NewEvmHeadTracker(
+func NewEVMHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config,
@@ -120,7 +120,7 @@ func NewEvmHeadTracker(
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewEvmHeadListener(lggr, ethClient, config, chStop),
+		headListener:    NewEVMHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 		getNilHead:      func() *evmtypes.Head { return nil },

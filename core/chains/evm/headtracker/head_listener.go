@@ -72,7 +72,7 @@ func NewHeadListener[
 	}
 }
 
-func NewEvmHeadListener(
+func NewEVMHeadListener(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config, chStop chan struct{},

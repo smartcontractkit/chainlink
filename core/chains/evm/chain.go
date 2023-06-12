@@ -102,7 +102,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	}
 
 	db := opts.DB
-	headBroadcaster := headtracker.NewEvmHeadBroadcaster(l)
+	headBroadcaster := headtracker.NewEVMHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {
@@ -110,7 +110,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
-		headTracker = headtracker.NewEvmHeadTracker(l, client, headtracker.NewWrappedConfig(cfg), headBroadcaster, headSaver, opts.MailMon)
+		headTracker = headtracker.NewEVMHeadTracker(l, client, headtracker.NewWrappedConfig(cfg), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
