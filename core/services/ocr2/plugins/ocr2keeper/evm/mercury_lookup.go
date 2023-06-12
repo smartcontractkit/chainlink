@@ -120,12 +120,18 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d values: %v", values)
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d extraData: %v", mercuryLookup.extraData)
-		needed, performData, failureReason, gasUsed, err := r.mercuryCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
+		mercuryBytes, err := r.mercuryCallback(ctx, upkeepId, values, mercuryLookup.extraData, block)
 		if err != nil {
-			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryLookupCallback err: %v", upkeepId, block, err)
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d mercuryCallback err: %v", upkeepId, block, err)
 			continue
 		}
 
+		r.lggr.Infof("MercuryLookup mercuryCallback b=%v", mercuryBytes.String())
+		r.lggr.Infof("MercuryLookup mercuryCallback b=%v", mercuryBytes)
+		needed, performData, failureReason, gasUsed, err := r.packer.UnpackMercuryCallbackResult(mercuryBytes)
+		if err != nil {
+			r.lggr.Errorf("[MercuryLookup] upkeep %s block %d UnpackMercuryCallbackResult err: %v", upkeepId, block, err)
+		}
 		r.lggr.Debugf("[MercuryLookup] upkeep %s block %d needed %v\nperformData: %v\nfailureReason: %d\ngasUsed: %s\nperformData: %s", upkeepId, block, needed, performData, failureReason, gasUsed.String(), hexutil.Encode(performData))
 
 		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
@@ -190,12 +196,10 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 	}, nil
 }
 
-// mercuryCallback calls mercuryCallback function on registry 2.1. The registry will forward the call to the mercuryCallback function
-// on user's contract with proper check gas limit.
-func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, values [][]byte, ed []byte, block uint32) (bool, []byte, uint8, *big.Int, error) {
+func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, values [][]byte, ed []byte, block uint32) (hexutil.Bytes, error) {
 	payload, err := r.abi.Pack("mercuryCallback", upkeepID, values, ed)
 	if err != nil {
-		return false, nil, 0, nil, err
+		return nil, err
 	}
 
 	var b hexutil.Bytes
@@ -206,12 +210,9 @@ func (r *EvmRegistry) mercuryCallback(ctx context.Context, upkeepID *big.Int, va
 
 	err = r.client.CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(uint64(block)))
 	if err != nil {
-		return false, nil, 0, nil, err
+		return nil, err
 	}
-
-	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", hexutil.Encode(b))
-	r.lggr.Infof("MercuryLookup mercuryCallback b=%v", b)
-	return r.packer.UnpackMercuryCallbackResult(b)
+	return b, nil
 }
 
 // doMercuryRequest

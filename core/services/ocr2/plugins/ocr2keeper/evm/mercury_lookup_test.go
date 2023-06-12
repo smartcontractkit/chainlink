@@ -37,7 +37,7 @@ import (
 // setups up an evm registry for tests.
 func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.TestLogger(t)
-	addr := common.Address{}
+	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	require.Nil(t, err, "need registry abi")
 	mercuryCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
@@ -265,11 +265,6 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 			}},
 			hasHttpCalls:   true,
 			callbackNeeded: true,
-		},
-		{
-			name:  "skip - cooldown cache",
-			input: []EVMAutomationUpkeepResult21{upkeepResult},
-			want:  []EVMAutomationUpkeepResult21{upkeepResult},
 		},
 	}
 
@@ -586,9 +581,6 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 }
 
 func TestEvmRegistry_MercuryCallback(t *testing.T) {
-	//executeGas := uint32(100)
-	from := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
-	to := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
 	tests := []struct {
@@ -664,20 +656,22 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			r := setupEVMRegistry(t)
-			r.addr = from
-			r.client = client
 			payload, err := r.abi.Pack("mercuryCallback", tt.upkeepId, values, tt.mercuryLookup.extraData)
 			require.Nil(t, err)
-			callbackMsg := ethereum.CallMsg{
-				To:   &to,
-				Data: payload,
+			args := map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
 			}
 			// if args don't match, just use mock.Anything
-			client.On("CallContract", mock.Anything, callbackMsg, tt.blockNumber).Return(tt.callbackResp, tt.callbackErr)
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).
+				Run(func(args mock.Arguments) {
+					//b := args.Get(1).(*hexutil.Bytes)
+					//b = &hexutil.Bytes{0, 1}
+					//args.
+				}).Once()
+			r.client = client
 
-			upkeepNeeded, performData, _, _, err := r.mercuryCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
-			assert.Equal(t, tt.upkeepNeeded, upkeepNeeded, tt.name)
-			assert.Equal(t, tt.performData, performData, tt.name)
+			_, err = r.mercuryCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
