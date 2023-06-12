@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	mercurycompatible "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -85,7 +85,7 @@ type LatestBlockGetter interface {
 }
 
 func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
-	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercurycompatible.MercuryLookupCompatibleInterfaceABI))
+	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -118,7 +118,7 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            mercuryLookupCompatibleABI,
+			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
 		hc:  http.DefaultClient,
@@ -130,20 +130,6 @@ func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models
 	}
 
 	return r, nil
-}
-
-func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiErrExpiration, cleanupInterval time.Duration) (*cache.Cache, *cache.Cache, *cache.Cache) {
-	// cache that stores UpkeepInfo for callback during MercuryLookup
-	upkeepInfoCache := cache.New(defaultUpkeepExpiration, cleanupInterval)
-
-	// with apiErrCacheExpiration= 10m and cooldownExp= 2^errCount
-	// then max cooldown = 2^10 approximately 17m at which point the cooldownExp > apiErrCacheExpiration so the count will get reset
-	// cache for Mercurylookup Upkeeps that are on ice due to errors
-	cooldownCache := cache.New(defaultCooldownExpiration, cleanupInterval)
-
-	// cache for tracking errors for an Upkeep during MercuryLookup
-	apiErrCache := cache.New(defaultApiErrExpiration, cleanupInterval)
-	return upkeepInfoCache, cooldownCache, apiErrCache
 }
 
 var upkeepStateEvents = []common.Hash{
