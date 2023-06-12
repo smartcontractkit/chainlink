@@ -32,6 +32,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 	loadedNetwork := networks.SelectedNetwork
 
 	defaultOCR2VRFSettings := map[string]interface{}{
+		"replicas": "6",
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
@@ -44,12 +45,10 @@ func TestOCR2VRFChaos(t *testing.T) {
 		Simulated:   loadedNetwork.Simulated,
 		WsURLs:      loadedNetwork.URLs,
 	}
-	cd, err := chainlink.NewDeployment(6, defaultOCR2VRFSettings)
-	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
-		clChart      []environment.ConnectedChart
+		clChart      environment.ConnectedChart
 		chaosFunc    chaos.ManifestFunc
 		chaosProps   *chaos.Props
 	}{
@@ -64,7 +63,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//4. verify VRF request gets fulfilled
 		PodChaosFailMinorityNodes: {
 			ethereum.New(defaultOCR2VRFEthereumSettings),
-			cd,
+			chainlink.New(0, defaultOCR2VRFSettings),
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
@@ -74,7 +73,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - currently failing, need to investigate deeper
 		//PodChaosFailMajorityNodes: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	cd,
+		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -84,7 +83,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//todo - do we need these chaos tests?
 		//PodChaosFailMajorityDB: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	cd,
+		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewFailPods,
 		//	&chaos.Props{
 		//		LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -94,7 +93,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailMajorityNetwork: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	cd,
+		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
@@ -104,7 +103,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 		//NetworkChaosFailBlockchainNode: {
 		//	ethereum.New(defaultOCR2VRFEthereumSettings),
-		//	cd,
+		//	chainlink.New(0, defaultOCR2VRFSettings),
 		//	chaos.NewNetworkPartition,
 		//	&chaos.Props{
 		//		FromLabels:  &map[string]*string{"app": a.Str("geth")},
@@ -127,7 +126,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 					Test: t,
 				}).
 				AddHelm(testCase.networkChart).
-				AddHelmCharts(testCase.clChart)
+				AddHelm(testCase.clChart)
 			err := testEnvironment.Run()
 			require.NoError(t, err, "Error running test environment")
 			if testEnvironment.WillUseRemoteRunner() {
