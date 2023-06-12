@@ -32,7 +32,7 @@ Order = 5
   state instead of relying on an unreliable round-trip to the Mercury server.
 
 ### Fixed
-- Fixed a bug in the `nodes xxx list` where results where not displayed correctly
+- Fixed a bug in the `nodes xxx list` that caused results to not be displayed correctly
 
 ### Changed
 - Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
