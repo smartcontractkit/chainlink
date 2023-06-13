@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 
 	"golang.org/x/crypto/nacl/box"
@@ -59,8 +57,6 @@ func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []
 	}
 
 	publicKey := [curve25519.PointSize]byte(ok.ConfigEncryptionPublicKey())
-	publicKeyAsHex := hex.EncodeToString(publicKey[:])
-	fmt.Println("publicKeyAsHex: ", publicKeyAsHex)
 
 	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, &ok.encryptionKey)
 	if !success {
