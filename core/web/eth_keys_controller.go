@@ -123,8 +123,8 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 
 	cid := c.Query("evmChainID")
-	chain, err := ekc.getChainAndErr(c, ekc.app.GetChains().EVM, cid)
-	if err != nil {
+	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	if !ok {
 		return
 	}
 
@@ -209,8 +209,8 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 	oldPassword := c.Query("oldpassword")
 	cid := c.Query("evmChainID")
-	chain, err := ekc.getChainAndErr(c, ekc.app.GetChains().EVM, cid)
-	if err != nil {
+	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	if !ok {
 		return
 	}
 
@@ -270,8 +270,8 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	address := common.BytesToAddress(addressBytes)
 
 	cid := c.Query("evmChainID")
-	chain, err := ekc.getChainAndErr(c, ekc.app.GetChains().EVM, cid)
-	if err != nil {
+	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	if !ok {
 		return
 	}
 
@@ -411,24 +411,24 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	return presenters.SetETHKeyMaxGasPriceWei(utils.NewBig(price.ToInt()))
 }
 
-// getChainAndErr is a convenience wrapper to retrieve a chain for a given request
+// getChain is a convenience wrapper to retrieve a chain for a given request
 // and call the corresponding API response error function for 400, 404 and 500 results
-func (ekc *ETHKeysController) getChainAndErr(c *gin.Context, cs evm.ChainSet, chainIDstr string) (chain evm.Chain, err1 error) {
+func (ekc *ETHKeysController) getChain(c *gin.Context, cs evm.ChainSet, chainIDstr string) (chain evm.Chain, ok bool) {
 	chain, err := getChain(ekc.app.GetChains().EVM, chainIDstr)
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
-			return nil, err
+			return nil, false
 		} else if errors.Is(err, ErrMultipleChains) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
-			return nil, err
+			return nil, false
 		} else if errors.Is(err, ErrMissingChainID) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
-			return nil, err
+			return nil, false
 		} else {
 			jsonAPIError(c, http.StatusInternalServerError, err)
-			return nil, err
+			return nil, false
 		}
 	}
-	return chain, nil
+	return chain, true
 }

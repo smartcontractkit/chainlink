@@ -292,10 +292,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
 		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
-		ethKeysGroup := authv2.Group("", auth.Authenticate(app.SessionORM(),
-			auth.AuthenticateByToken,
-			auth.AuthenticateBySession,
-		))
 		ekc := NewETHKeysController(app)
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
@@ -304,6 +300,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
 		// duplicated from above, with `evm` instead of `eth`
 		// legacy ones remain for backwards compatibility
+
+		ethKeysGroup := authv2.Group("", auth.Authenticate(app.SessionORM(),
+			auth.AuthenticateByToken,
+			auth.AuthenticateBySession,
+		))
 
 		ethKeysGroup.Use(ekc.formatETHKeyResponse())
 		authv2.GET("/keys/evm", ekc.Index)
