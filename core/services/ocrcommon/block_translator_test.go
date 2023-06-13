@@ -35,10 +35,6 @@ func Test_BlockTranslator(t *testing.T) {
 		assert.Equal(t, big.NewInt(42), from)
 		assert.Equal(t, big.NewInt(42), to)
 
-		bt = ocrcommon.NewBlockTranslator(v2.ChainOptimismKovan(t), ethClient, lggr)
-		from, to = bt.NumberToQueryRange(ctx, 42)
-		assert.Equal(t, big.NewInt(42), from)
-		assert.Equal(t, big.NewInt(42), to)
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {
