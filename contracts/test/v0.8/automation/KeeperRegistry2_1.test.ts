@@ -759,7 +759,7 @@ describe('KeeperRegistry2_1', () => {
       upkeeps.push({
         Id: upkeepIds[i],
         performGas: config.executeGas,
-        trigger: trigger,
+        trigger,
         performData: config.performData,
       })
     }
