@@ -284,6 +284,7 @@ contract KeeperRegistryLogicA2_1 is
       id = ids[idx];
       upkeep = s_upkeep[id];
       _requireAdminAndNotCancelled(id);
+      upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];

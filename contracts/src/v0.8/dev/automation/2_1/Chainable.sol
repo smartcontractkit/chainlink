@@ -10,7 +10,7 @@ contract Chainable {
   /**
    * @dev addresses of the next contract in the chain **have to be immutable/constant** or the system won't work
    */
-  address public immutable i_next;
+  address private immutable i_next;
 
   /**
    * @param next the address of the next contract in the chain
