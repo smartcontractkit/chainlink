@@ -1745,7 +1745,7 @@ func getLogPoller(
 	return lp
 }
 
-func TestFilterNamesFromSpec(t *testing.T) {
+func TestFiltersFromSpec(t *testing.T) {
 	beaconAddress := newAddress(t)
 	coordinatorAddress := newAddress(t)
 	dkgAddress := newAddress(t)

@@ -1131,6 +1131,9 @@ func FiltersFromSpec(spec *job.OCR2OracleSpec) (filters []logpoller.Filter, err 
 	if err2 != nil {
 		err = errors.Join(err, err2)
 	}
+	if err != nil {
+		return nil, err
+	}
 	return []logpoller.Filter{createLogFilter(beacon.Address(), coord.Address(), dkg.Address())}, err
 }
 
