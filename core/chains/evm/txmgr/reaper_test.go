@@ -31,7 +31,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
