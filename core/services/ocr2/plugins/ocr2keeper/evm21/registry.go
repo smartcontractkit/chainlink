@@ -114,8 +114,9 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
-		hc:  http.DefaultClient,
-		enc: EVMAutomationEncoder21{},
+		hc:               http.DefaultClient,
+		enc:              EVMAutomationEncoder21{},
+		logEventProvider: NewLogEventProvider(lggr, client.LogPoller()),
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -183,6 +184,8 @@ type EvmRegistry struct {
 	mercury       *MercuryConfig
 	hc            HttpClient
 	enc           EVMAutomationEncoder21
+
+	logEventProvider *logEventProvider
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
@@ -450,10 +453,24 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
+	case *iregistry21.IKeeperRegistryMasterUpkeepPaused:
+		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.removeFromActive(l.Id)
+	case *iregistry21.IKeeperRegistryMasterUpkeepCanceled:
+		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.removeFromActive(l.Id)
+	case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
+		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig); err != nil {
+			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", l.Id.String(), err)
+		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
 		trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(l.Id.Bytes()))
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.addToActive(l.Id, false)
+		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
+			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", err)
+		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
@@ -468,6 +485,21 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	return nil
+}
+
+func (r *EvmRegistry) removeFromActive(id *big.Int) {
+	r.mu.Lock()
+	delete(r.active, id.String())
+	r.mu.Unlock()
+
+	trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes()))
+	switch trigger {
+	case logTrigger:
+		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
+			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
+		}
+		r.lggr.Debugw("unregistered log filter", "upkeepID", id.String())
+	}
 }
 
 func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
@@ -827,4 +859,43 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	return results, multiErr
+}
+
+func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
+	uid := id.String()
+	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes())) {
+	case logTrigger:
+		if len(cfg) == 0 {
+			fetched, err := r.fetchTriggerConfig(id)
+			if err != nil {
+				return errors.Wrap(err, "failed to fetch log upkeep config")
+			}
+			cfg = fetched
+		}
+		parsed, err := r.packer.UnpackLogTriggerConfig(cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to unpack log upkeep config")
+		}
+		if err := r.logEventProvider.RegisterFilter(id, LogTriggerConfig(parsed)); err != nil {
+			return errors.Wrap(err, "failed to register log filter")
+		}
+		r.lggr.Debugw("registered log filter", "upkeepID", uid, "cfg", parsed)
+	default:
+	}
+	return nil
+}
+
+// updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
+func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
+	opts, err := r.buildCallOpts(r.ctx, nil)
+	if err != nil {
+		r.lggr.Warnw("failed to build opts for tx", "err", err)
+		return nil, err
+	}
+	cfg, err := r.registry.GetUpkeepTriggerConfig(opts, id)
+	if err != nil {
+		r.lggr.Warnw("failed to get trigger config", "err", err)
+		return nil, err
+	}
+	return cfg, nil
 }
