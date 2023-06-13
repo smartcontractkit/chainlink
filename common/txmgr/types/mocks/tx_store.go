@@ -450,8 +450,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithA
 	return r0, r1
 }
 
-// FindTxWithNonce provides a mock function with given fields: fromAddress, seq
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithNonce(fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
+// FindTxWithSequence provides a mock function with given fields: fromAddress, seq
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	ret := _m.Called(fromAddress, seq)
 
 	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -1000,20 +1000,20 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroad
 	return r0
 }
 
-// UpdateKeyNextSequence provides a mock function with given fields: newNextNonce, currentNextNonce, address, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateKeyNextSequence(newNextNonce SEQ, currentNextNonce SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error {
+// UpdateKeyNextSequence provides a mock function with given fields: newNextSequence, currentNextSequence, address, chainID, qopts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateKeyNextSequence(newNextSequence SEQ, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, newNextNonce, currentNextNonce, address, chainID)
+	_ca = append(_ca, newNextSequence, currentNextSequence, address, chainID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(SEQ, SEQ, ADDR, CHAIN_ID, ...pg.QOpt) error); ok {
-		r0 = rf(newNextNonce, currentNextNonce, address, chainID, qopts...)
+		r0 = rf(newNextSequence, currentNextSequence, address, chainID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1021,20 +1021,20 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateKeyNe
 	return r0
 }
 
-// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextNonceCallback, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
+// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState, incrNextSequenceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, etx, attempt, NewAttemptState, incrNextNonceCallback)
+	_ca = append(_ca, etx, attempt, NewAttemptState, incrNextSequenceCallback)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], txmgrtypes.TxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
-		r0 = rf(etx, attempt, NewAttemptState, incrNextNonceCallback, qopts...)
+		r0 = rf(etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

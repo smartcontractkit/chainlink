@@ -15,7 +15,7 @@ import (
 // Every native chain must implement independently
 type Client[
 	CHAINID ID,
-	SEQ Sequence, // nonce
+	SEQ Sequence,
 	ADDR types.Hashable,
 	BLOCK any,
 	BLOCKHASH types.Hashable,
@@ -84,7 +84,7 @@ type TxmClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 		lggr logger.Logger,
 	) (clienttypes.SendTxReturnCode, error)
-	PendingNonceAt(ctx context.Context, addr ADDR) (SEQ, error)
+	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
 	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 	BatchGetReceipts(
 		ctx context.Context,

@@ -1795,7 +1795,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		defer func() { assert.NoError(t, eb.Close()) }()
 
-		testutils.WaitForLogMessage(t, observed, "Skipping nonce auto-sync")
+		testutils.WaitForLogMessage(t, observed, "Skipping sequence auto-sync")
 	})
 
 	t.Run("when eth node returns nonce, successfully sets nonce", func(t *testing.T) {
