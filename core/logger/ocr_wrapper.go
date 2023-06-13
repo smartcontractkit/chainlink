@@ -12,6 +12,7 @@ type ocrWrapper struct {
 	saveError func(string)
 }
 
+// Deprecated: use github.com/smartcontractkit/chainlink-relay/pkg/logger.NewOCRWrapper instead.
 func NewOCRWrapper(l Logger, trace bool, saveError func(string)) ocrtypes.Logger {
 	return &ocrWrapper{
 		internal:  l.Helper(2),
