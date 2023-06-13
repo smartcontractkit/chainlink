@@ -147,6 +147,9 @@ contract KeeperRegistryLogicA2_1 is
     } else {
       (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     }
+    if (!upkeepNeeded) {
+      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
+    }
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 
