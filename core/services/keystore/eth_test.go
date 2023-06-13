@@ -112,8 +112,8 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		// add one eth_tx
-		borm := cltest.NewTxStore(t, db, cfg.Database())
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, key.Address)
+		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, key.Address)
 
 		_, err = ethKeyStore.Delete(key.ID())
 		require.NoError(t, err)
