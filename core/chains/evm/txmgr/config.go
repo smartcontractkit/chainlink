@@ -7,7 +7,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // Config encompasses config used by txmgr package
@@ -15,10 +15,17 @@ import (
 //
 //go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
-	gas.Config
+	ChainType() coreconfig.ChainType
+	EvmEIP1559DynamicFees() bool
+	EvmFinalityDepth() uint32
+	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint32
 	EvmGasLimitDefault() uint32
+	EvmGasPriceDefault() *assets.Wei
+	EvmGasTipCapMinimum() *assets.Wei
+	EvmMaxGasPriceWei() *assets.Wei
+	EvmMinGasPriceWei() *assets.Wei
 	EvmNonceAutoSync() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
