@@ -580,7 +580,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_MercuryCallback(t *testing.T) {
+func TestEvmRegistry_CheckCallback(t *testing.T) {
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
 	tests := []struct {
