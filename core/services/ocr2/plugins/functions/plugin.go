@@ -50,7 +50,7 @@ const (
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
-func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+func NewFunctionsServices(thresholdSharedOracleArgs, functionsSharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
 
 	var pluginConfig config.PluginConfig
@@ -73,20 +73,20 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 
 	// Threshold plugin
-	sharedThresholdOracleArgs := libocr2.OCR2OracleArgs{
-		BinaryNetworkEndpointFactory: sharedOracleArgs.BinaryNetworkEndpointFactory,
-		V2Bootstrappers:              sharedOracleArgs.V2Bootstrappers,
-		ContractTransmitter:          sharedOracleArgs.ContractTransmitter,
-		ContractConfigTracker:        sharedOracleArgs.ContractConfigTracker,
-		Database:                     sharedOracleArgs.Database,
-		LocalConfig:                  sharedOracleArgs.LocalConfig,
-		Logger:                       sharedOracleArgs.Logger,
-		MonitoringEndpoint:           sharedOracleArgs.MonitoringEndpoint,
-		OffchainConfigDigester:       sharedOracleArgs.OffchainConfigDigester,
-		OffchainKeyring:              sharedOracleArgs.OffchainKeyring,
-		OnchainKeyring:               sharedOracleArgs.OnchainKeyring,
-		ReportingPluginFactory:       nil, // To be set by NewThresholdServices
-	}
+	// sharedThresholdOracleArgs := libocr2.OCR2OracleArgs{
+	// 	BinaryNetworkEndpointFactory: sharedOracleArgs.BinaryNetworkEndpointFactory,
+	// 	V2Bootstrappers:              sharedOracleArgs.V2Bootstrappers,
+	// 	ContractTransmitter:          sharedOracleArgs.ContractTransmitter,
+	// 	ContractConfigTracker:        sharedOracleArgs.ContractConfigTracker,
+	// 	Database:                     sharedOracleArgs.Database,
+	// 	LocalConfig:                  sharedOracleArgs.LocalConfig,
+	// 	Logger:                       sharedOracleArgs.Logger,
+	// 	MonitoringEndpoint:           sharedOracleArgs.MonitoringEndpoint,
+	// 	OffchainConfigDigester:       sharedOracleArgs.OffchainConfigDigester,
+	// 	OffchainKeyring:              sharedOracleArgs.OffchainKeyring,
+	// 	OnchainKeyring:               sharedOracleArgs.OnchainKeyring,
+	// 	ReportingPluginFactory:       nil, // To be set by NewThresholdServices
+	// }
 	// TODO: Get configuration values from JobSpec
 	decryptor := threshold.NewDecryptionQueue(100, 10_000, 100, time.Duration(300)*time.Second, conf.Lggr.Named("DecryptionQueue"))
 	thresholdServicesConfig := threshold.ThresholdServicesConfig{
@@ -94,21 +94,26 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 		KeyshareWithPubKey: conf.ThresholdPrivateKeyShare,
 		ConfigParser:       config.ThresholdConfigParser{},
 	}
-	thresholdService, err2 := threshold.NewThresholdService(&sharedThresholdOracleArgs, &thresholdServicesConfig)
+	thresholdService, err2 := threshold.NewThresholdService(thresholdSharedOracleArgs, &thresholdServicesConfig)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "error calling NewThresholdServices")
 	}
 	allServices = append(allServices, thresholdService)
+	thresholdReportingPluginOracle, err := libocr2.NewOracle(*thresholdSharedOracleArgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call NewOracle to create a Threshold Reporting Plugin")
+	}
+	allServices = append(allServices, job.NewServiceAdapter(thresholdReportingPluginOracle))
 
 	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint, decryptor)
 	allServices = append(allServices, functionsListener)
 
-	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    sharedOracleArgs.Logger,
+	functionsSharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+		Logger:    functionsSharedOracleArgs.Logger,
 		PluginORM: pluginORM,
 		JobID:     conf.Job.ExternalJobID,
 	}
-	functionsReportingPluginOracle, err := libocr2.NewOracle(*sharedOracleArgs)
+	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsSharedOracleArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
 	}

@@ -53,8 +53,8 @@ func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Thresho
 }
 
 type KeyshareWithPubKey struct {
-	PublicKey       interface{} //tdh2easy.PublicKey
-	PrivateKeyShare interface{} //tdh2easy.PrivateShare
+	PublicKey       json.RawMessage //tdh2easy.PublicKey
+	PrivateKeyShare json.RawMessage //tdh2easy.PrivateShare
 }
 
 func UnmarshalKeys(raw []byte) (publicKey tdh2easy.PublicKey, privateShare tdh2easy.PrivateShare, err error) {
@@ -64,23 +64,13 @@ func UnmarshalKeys(raw []byte) (publicKey tdh2easy.PublicKey, privateShare tdh2e
 		return publicKey, privateShare, err
 	}
 
-	publicKeyJson, err := json.Marshal(kwpk.PublicKey)
-	if err != nil {
-		return publicKey, privateShare, err
-	}
-	fmt.Println("Public Key JSON: ", string(publicKeyJson))
-
-	err = publicKey.Unmarshal(publicKeyJson)
+	err = publicKey.Unmarshal(kwpk.PublicKey)
 	if err != nil {
 		return publicKey, privateShare, err
 	}
 	fmt.Println("Public Key:", publicKey)
 
-	privateShareJson, err := json.Marshal(kwpk.PrivateKeyShare)
-	if err != nil {
-		return publicKey, privateShare, err
-	}
-	err = privateShare.Unmarshal(privateShareJson)
+	err = privateShare.Unmarshal(kwpk.PrivateKeyShare)
 	if err != nil {
 		return publicKey, privateShare, err
 	}

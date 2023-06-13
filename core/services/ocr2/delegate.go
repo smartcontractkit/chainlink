@@ -751,6 +751,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 
+		thresholdProvider, err2 := evmrelay.NewFunctionsProvider(
+			d.chainSet,
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+				New:           d.isNewlyCreatedJob,
+			},
+			types.PluginArgs{
+				TransmitterID: transmitterID,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			},
+			lggr.Named("ThresholdRelayer"),
+			d.ethKs,
+		)
+		if err2 != nil {
+			return nil, err2
+		}
+
 		var relayConfig evmrelaytypes.RelayConfig
 		err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 		if err2 != nil {
@@ -772,7 +792,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "error decrypting threshold private key share")
 		}
 
-		sharedOracleArgs := libocr2.OCR2OracleArgs{
+		functionsSharedOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),
@@ -782,6 +802,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
 			OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		}
+
+		thresholdSharedOracleArgs := libocr2.OCR2OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          thresholdProvider.ContractTransmitter(),
+			ContractConfigTracker:        thresholdProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
+			OffchainConfigDigester:       thresholdProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
@@ -802,7 +837,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ThresholdPrivateKeyShare: thresholdPrivateKey,
 		}
 
-		functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
+		functionsServices, err := functions.NewFunctionsServices(&thresholdSharedOracleArgs, &functionsSharedOracleArgs, &functionsServicesConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 		}

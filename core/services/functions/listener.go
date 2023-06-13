@@ -337,17 +337,41 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	jsonRequestData, err := json.Marshal(requestData)
-	if err != nil {
-		l.logger.Errorw("failed to encode CBOR back to JSON", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR re-encoding error"))
-		return
-	}
-
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", formatRequestId(request.RequestId), "err", err)
 		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
+		return
+	}
+
+	secretsLocation, secretsLocationExists := requestData["secretsLocation"]
+	encryptedSecretsUrls, secretsExist := requestData["secrets"]
+	encryptedSecretsUrlsBytes, isCorrectType := encryptedSecretsUrls.([]byte)
+	if secretsLocationExists && secretsLocation == 1 && secretsExist && isCorrectType {
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, encryptedSecretsUrlsBytes, formatRequestId(request.RequestId), l.job.Name.ValueOrZero())
+		if err != nil {
+			l.logger.Errorw("failed to fetch valid threshold encrypted secrets", "requestID", formatRequestId(request.RequestId), "err", err)
+		} else if len(userError) > 0 {
+			// To maintain backwards compatibility with existing single-encrypted secrets,
+			// if the fetched secrets are not in the threshold encrypted format (ie: user error), then proceed without threshold decryption.
+			// This will eventually be deprecated and the user error will be returned on-chain.
+			l.logger.Debugf("fetching threshold encrypted secrets returned user error: %s - proceeding without threshold decryption", userError)
+		} else if len(thresholdEncSecrets) > 0 {
+			thresholdDecryptedSecrets, err := l.decryptor.Decrypt(ctx, request.RequestId[:], thresholdEncSecrets)
+			if err != nil {
+				l.logger.Errorw("failed to decrypt threshold encrypted secrets", "requestID", formatRequestId(request.RequestId), "err", err)
+			} else {
+				requestData["secrets"] = thresholdDecryptedSecrets
+			}
+		} else {
+			l.logger.Debug("threshold encrypted secrets are empty - proceeding without threshold decryption")
+		}
+	}
+
+	jsonRequestData, err := json.Marshal(requestData)
+	if err != nil {
+		l.logger.Errorw("failed to encode CBOR back to JSON", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR re-encoding error"))
 		return
 	}
 
