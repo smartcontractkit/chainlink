@@ -19,8 +19,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
@@ -203,10 +205,18 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 		"data": hexutil.Bytes(payload),
 	}
 
+	log.Printf("======================== for block %d ========================\n", blockNumber)
 	err = k.client.Client().CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(blockNumber))
 	if err != nil {
 		log.Fatalf("eth call failed: %v", err)
 	}
+
+	log.Printf("checkCallback input: %s\n", hexutil.Encode(b))
+	resp, err := hexutil.Decode(hexutil.Encode(b))
+	if err != nil {
+		log.Fatalf("failed to decode: %v", err)
+	}
+	log.Printf("checkCallback input: %v\n", resp)
 
 	out, err := keeperRegistryABI.Methods["checkCallback"].Outputs.UnpackValues(b)
 	if err != nil {
@@ -222,6 +232,96 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	log.Printf("failureReason: %d\n", failureReason)
 	log.Printf("gasUsed: %d\n", gasUsed)
 
+	log.Printf("======================== for block %d ========================\n", blockNumber+1)
+	err = k.client.Client().CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(blockNumber+1))
+	if err != nil {
+		log.Fatalf("eth call failed: %v", err)
+	}
+
+	log.Printf("checkCallback input: %s\n", hexutil.Encode(b))
+	resp, err = hexutil.Decode(hexutil.Encode(b))
+	if err != nil {
+		log.Fatalf("failed to decode: %v", err)
+	}
+	log.Printf("checkCallback input: %v\n", resp)
+
+	out, err = keeperRegistryABI.Methods["checkCallback"].Outputs.UnpackValues(b)
+	if err != nil {
+		log.Fatalf("%v: unpack checkUpkeep return: %s", err, hexutil.Encode(b))
+	}
+
+	upkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	rawPerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	failureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	gasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	log.Printf("upkeepNeeded: %v\n", upkeepNeeded)
+	log.Printf("rawPerformData: %v\n", rawPerformData)
+	log.Printf("failureReason: %d\n", failureReason)
+	log.Printf("gasUsed: %d\n", gasUsed)
+
+	var (
+		checkReqs    = make([]rpc.BatchElem, 1)
+		checkResults = make([]*string, 1)
+	)
+
+	block := blockNumber
+
+	opts, err := buildCallOpts(ctx, big.NewInt(int64(block)))
+	if err != nil {
+		log.Fatalf("failed to build call opts: %v", err)
+	}
+
+	payload, err = keeperRegistryABI.Pack("checkUpkeep", upkeepId)
+	if err != nil {
+		log.Fatalf("failed to check upkeep: %v", err)
+	}
+
+	var result string
+	checkReqs[0] = rpc.BatchElem{
+		Method: "eth_call",
+		Args: []interface{}{
+			map[string]interface{}{
+				"to":   k.cfg.RegistryAddress,
+				"data": hexutil.Bytes(payload),
+			},
+			hexutil.EncodeBig(opts.BlockNumber),
+		},
+		Result: &result,
+	}
+
+	checkResults[0] = &result
+
+	if err := k.client.Client().BatchCallContext(ctx, checkReqs); err != nil {
+		log.Fatalf("failed to batch call: %v", err)
+	}
+
+	//var (
+	//	multiErr error
+	//	results  = make([]EVMAutomationUpkeepResult21, len(1))
+	//)
+	//
+	//for i, req := range checkReqs {
+	//	if req.Error != nil {
+	//		r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
+	//		multierr.AppendInto(&multiErr, req.Error)
+	//	} else {
+	//		var err error
+	//		r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", string(keys[i]), *checkResults[i])
+	//		results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+	//		if err != nil {
+	//			return nil, errors.Wrap(err, "failed to unpack check result")
+	//		}
+	//	}
+	//}
+}
+
+func buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
+	opts := bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: block,
+	}
+
+	return &opts, nil
 }
 
 func generateHMAC(method string, path string, body []byte, clientId string, secret string, ts int64) string {
