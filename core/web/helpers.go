@@ -28,20 +28,6 @@ func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	}
 }
 
-func errorNotFound(c *gin.Context, err error) {
-	// once cleared, update to http.StatusNotFound
-	jsonAPIError(c, http.StatusInternalServerError, err)
-}
-
-func errorBadRequest(c *gin.Context, err error) {
-	// once cleared, update to http.StatusBadRequest
-	jsonAPIError(c, http.StatusInternalServerError, err)
-}
-
-func errorInternal(c *gin.Context, err error) {
-	jsonAPIError(c, http.StatusInternalServerError, err)
-}
-
 func paginatedResponse(
 	c *gin.Context,
 	name string,
