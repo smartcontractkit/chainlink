@@ -127,10 +127,10 @@ func (ks *keyStates) disable(addr common.Address, chainID *big.Int, updatedAt ti
 }
 
 // warning: not thread-safe! caller must sync
-func (ks *keyStates) enable(addr common.Address, chainID *big.Int, updated_at time.Time) {
+func (ks *keyStates) enable(addr common.Address, chainID *big.Int, updatedAt time.Time) {
 	state := ks.get(addr, chainID)
 	state.Disabled = false
-	state.UpdatedAt = updated_at
+	state.UpdatedAt = updatedAt
 }
 
 // warning: not thread-safe! caller must sync

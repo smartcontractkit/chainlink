@@ -425,10 +425,9 @@ func (ekc *ETHKeysController) getChain(c *gin.Context, cs evm.ChainSet, chainIDs
 		} else if errors.Is(err, ErrMissingChainID) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return nil, false
-		} else {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return nil, false
 		}
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return nil, false
 	}
 	return chain, true
 }
