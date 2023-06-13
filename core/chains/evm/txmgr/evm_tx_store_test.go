@@ -676,7 +676,7 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
 }
 
-func TestORM_FindTxWithNonce(t *testing.T) {
+func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -686,7 +686,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -695,7 +695,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
 
-		res, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 	})
