@@ -7,8 +7,8 @@ import (
 
 type Config interface {
 	config.OCR2Config
-	FeatureOffchainReporting() bool
-	FeatureOffchainReporting2() bool
+	OCREnabled() bool
+	OCR2Enabled() bool
 }
 
 type JobConfig interface {

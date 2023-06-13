@@ -126,30 +126,30 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnstar
 	return r0, r1
 }
 
-// CreateTransaction provides a mock function with given fields: newTx, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(newTx txmgrtypes.NewTx[ADDR, TX_HASH], chainID CHAIN_ID, qopts ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
+// CreateTransaction provides a mock function with given fields: txRequest, chainID, qopts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID, qopts ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, newTx, chainID)
+	_ca = append(_ca, txRequest, chainID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error)); ok {
-		return rf(newTx, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error)); ok {
+		return rf(txRequest, chainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]); ok {
-		r0 = rf(newTx, chainID, qopts...)
+	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]); ok {
+		r0 = rf(txRequest, chainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE])
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgrtypes.NewTx[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) error); ok {
-		r1 = rf(newTx, chainID, qopts...)
+	if rf, ok := ret.Get(1).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], CHAIN_ID, ...pg.QOpt) error); ok {
+		r1 = rf(txRequest, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -623,20 +623,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 	}
 
 	return r0, r1
-}
-
-// InsertTx provides a mock function with given fields: etx
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) InsertTx(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) error {
-	ret := _m.Called(etx)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) error); ok {
-		r0 = rf(etx)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // InsertTxAttempt provides a mock function with given fields: attempt

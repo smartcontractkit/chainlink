@@ -168,7 +168,7 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 	} else if err != nil {
 		return
 	}
-	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
+	// For L2 chains, submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
 	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
 		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
 	}

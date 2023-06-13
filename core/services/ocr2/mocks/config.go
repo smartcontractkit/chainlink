@@ -125,6 +125,20 @@ func (_m *Config) OCR2DefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCR2Enabled provides a mock function with given fields:
+func (_m *Config) OCR2Enabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *Config) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()

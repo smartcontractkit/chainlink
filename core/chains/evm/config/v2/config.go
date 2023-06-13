@@ -288,10 +288,8 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				if config.ChainType(*c.ChainType) != config.ChainOptimismBedrock {
-					err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
-						Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
-				}
+				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
 	}
@@ -363,23 +361,6 @@ func (c *Chain) ValidateConfig() (err error) {
 	if !chainType.IsValid() {
 		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 			Msg: config.ErrInvalidChainType.Error()})
-
-	} else {
-		switch chainType {
-		case config.ChainOptimism, config.ChainMetis:
-			gasEst := *c.GasEstimator.Mode
-			switch gasEst {
-			case "Optimism2", "L2Suggested":
-				// valid
-			case "Optimism":
-				err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst,
-					Msg: "unsupported since OVM 1.0 was discontinued - use L2Suggested"})
-			default:
-				err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.Mode", Value: gasEst,
-					Msg: fmt.Sprintf("not allowed with ChainType %q - use L2Suggested", chainType)})
-			}
-		case config.ChainArbitrum, config.ChainXDai:
-		}
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
