@@ -248,7 +248,7 @@ func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-
+	core = &loggerNameOverrideCore{core, zcfg.EncoderConfig.NameKey} //TODO constructor
 	return &zapLogger{
 		level:         zcfg.Level,
 		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),

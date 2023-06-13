@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 )
 
 var _ Logger = &zapLogger{}
@@ -100,4 +101,34 @@ func (l *zapLogger) Sync() error {
 
 func (l *zapLogger) Recover(panicErr interface{}) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
+}
+
+// loggerNameOverrideCore promotes any string field with key loggerName to the [zapcore.Entry.LoggerName] and removes it
+// from the field set. If multiple matches are found, the last is used.
+type loggerNameOverrideCore struct {
+	zapcore.Core
+	loggerName string
+}
+
+var (
+	_ zapcore.Core = (*loggerNameOverrideCore)(nil)
+)
+
+func (c *loggerNameOverrideCore) Level() zapcore.Level {
+	return zapcore.LevelOf(c.Core)
+}
+
+func (c *loggerNameOverrideCore) With(fields []zapcore.Field) zapcore.Core {
+	return &loggerNameOverrideCore{c.Core.With(fields), c.loggerName}
+}
+
+func (c *loggerNameOverrideCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	fn := func(field zapcore.Field) bool {
+		return field.Key == c.loggerName && field.String != ""
+	}
+	for i := slices.IndexFunc(fields, fn); i >= 0; i = slices.IndexFunc(fields, fn) {
+		ent.LoggerName = fields[i].String
+		fields = slices.Delete(fields, i, i+1)
+	}
+	return c.Core.Write(ent, fields)
 }
