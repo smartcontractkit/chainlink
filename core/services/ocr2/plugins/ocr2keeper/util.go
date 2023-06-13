@@ -97,6 +97,14 @@ func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	return keeperProvider, registry, encoder, logProvider, err
 }
 
+func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
+	addr, err := ethkey.NewEIP55Address(spec.ContractID)
+	if err != nil {
+		return nil, err
+	}
+	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
+}
+
 func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder, *kevm21.LogProvider, error) {
 	var err error
 	var chain evm.Chain
@@ -135,10 +143,10 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	return keeperProvider, registry, encoder, logProvider, err
 }
 
-func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
+func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
 	addr, err := ethkey.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
+	return []string{kevm21.LogProviderFilterName(addr.Address()), kevm21.UpkeepFilterName(addr.Address())}, err
 }

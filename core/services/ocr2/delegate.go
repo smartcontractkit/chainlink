@@ -223,7 +223,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
 	case job.OCR2Keeper:
-		filters, err = ocr2keeper.FilterNamesFromSpec(spec)
+		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
