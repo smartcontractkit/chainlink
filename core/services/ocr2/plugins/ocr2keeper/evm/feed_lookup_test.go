@@ -81,17 +81,17 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 
 // helper for mocking the http requests
 //func (r *EvmRegistry) buildRevertBytesHelper() []byte {
-//	mercuryErr := r.mercury.abi.Errors["MercuryLookup"]
+//	mercuryErr := r.mercury.abi.Errors["FeedLookup"]
 //	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
-//	ml := MercuryLookup{
-//		feedLabel:  "feedIDHex",
+//	ml := FeedLookup{
+//		feedParamKey:  "feedIDHex",
 //		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//		queryLabel: "blockNumber",
-//		query:      big.NewInt(8586948),
+//		timeParamKey: "blockNumber",
+//		time:      big.NewInt(8586948),
 //		extraData:  []byte{},
 //	}
 //	// check if Pack does not add selector for me
-//	pack, err := mercuryErr.Inputs.Pack(ml.feedLabel, ml.feeds, ml.queryLabel, ml.query, ml.extraData)
+//	pack, err := mercuryErr.Inputs.Pack(ml.feedParamKey, ml.feeds, ml.timeParamKey, ml.time, ml.extraData)
 //	if err != nil {
 //		log.Fatal("failed to build revert")
 //	}
@@ -113,7 +113,7 @@ func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("520376062160720574742736856650455852347405918082346589375578334001045521721", 10)
 	assert.True(t, ok, t.Name())
 
-	// builds revert data with mock server query
+	// builds revert data with mock server time
 	//revertPerformData := setupRegistry.buildRevertBytesHelper()
 	// prepare input upkeepResult
 	//upkeepResult := EVMAutomationUpkeepResult21{
@@ -309,17 +309,17 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    []byte
-		want    *MercuryLookup
+		want    *FeedLookup
 		wantErr error
 	}{
 		//{
 		//	name: "success",
 		//	data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 20, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	want: &MercuryLookup{
-		//		feedLabel:  "feedIDHex",
+		//	want: &FeedLookup{
+		//		feedParamKey:  "feedIDHex",
 		//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		//		queryLabel: "blockNumber",
-		//		query:      big.NewInt(18945237),
+		//		timeParamKey: "blockNumber",
+		//		time:      big.NewInt(18945237),
 		//		extraData:  []byte{48, 120, 48, 48},
 		//	},
 		//	wantErr: nil,
@@ -327,11 +327,11 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 		//{
 		//	name: "success - with extra data",
 		//	data: []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 48, 241, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	want: &MercuryLookup{
-		//		feedLabel:  "feedIDHex",
+		//	want: &FeedLookup{
+		//		feedParamKey:  "feedIDHex",
 		//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		//		queryLabel: "blockNumber",
-		//		query:      big.NewInt(18952433),
+		//		timeParamKey: "blockNumber",
+		//		time:      big.NewInt(18952433),
 		//		// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
 		//		extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 		//	},
@@ -347,7 +347,7 @@ func TestEvmRegistry_decodeMercuryLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			got, err := r.decodeMercuryLookup(tt.data)
+			got, err := r.decodeFeedLookup(tt.data)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
@@ -430,7 +430,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	tests := []struct {
 		name         string
 		index        int
-		ml           *MercuryLookup
+		ml           *FeedLookup
 		mv           job.MercuryVersion
 		blob         string
 		statusCode   int
@@ -441,12 +441,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - mercury responds in the first try",
 			index: 0,
-			ml: &MercuryLookup{
-				feedLabel:  "feedIDHex",
-				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				queryLabel: "blockNumber",
-				query:      big.NewInt(123456),
-				extraData:  nil,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+				extraData:    nil,
 			},
 			mv:   job.MercuryV02,
 			blob: "0xab2123dc00000012",
@@ -454,12 +454,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - retry for 404",
 			index: 0,
-			ml: &MercuryLookup{
-				feedLabel:  "feedIDHex",
-				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				queryLabel: "blockNumber",
-				query:      big.NewInt(123456),
-				extraData:  nil,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+				extraData:    nil,
 			},
 			mv:          job.MercuryV02,
 			blob:        "0xab2123dcbabbad",
@@ -469,12 +469,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - retry for 500",
 			index: 0,
-			ml: &MercuryLookup{
-				feedLabel:  "feedIDHex",
-				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				queryLabel: "blockNumber",
-				query:      big.NewInt(123456),
-				extraData:  nil,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+				extraData:    nil,
 			},
 			mv:          job.MercuryV02,
 			blob:        "0xab2123dcbbabad",
@@ -484,12 +484,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "failure - returns retryable",
 			index: 0,
-			ml: &MercuryLookup{
-				feedLabel:  "feedIDHex",
-				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				queryLabel: "blockNumber",
-				query:      big.NewInt(123456),
-				extraData:  nil,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+				extraData:    nil,
 			},
 			mv:           job.MercuryV02,
 			blob:         "0xab2123dc",
@@ -501,18 +501,18 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "failure - returns not retryable",
 			index: 0,
-			ml: &MercuryLookup{
-				feedLabel:  "feedIDHex",
-				feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				queryLabel: "blockNumber",
-				query:      big.NewInt(123456),
-				extraData:  nil,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+				extraData:    nil,
 			},
 			mv:           job.MercuryV02,
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
 			retryable:    false,
-			errorMessage: "All attempts fail:\n#1: MercuryLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 	}
 
@@ -584,7 +584,7 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 	values := [][]byte{bs}
 	tests := []struct {
 		name          string
-		mercuryLookup *MercuryLookup
+		mercuryLookup *FeedLookup
 		values        [][]byte
 		statusCode    int
 		upkeepId      *big.Int
@@ -600,11 +600,11 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 	}{
 		//{
 		//	name: "success - empty extra data",
-		//	mercuryLookup: &MercuryLookup{
-		//		feedLabel:  "feedIDHex",
+		//	mercuryLookup: &FeedLookup{
+		//		feedParamKey:  "feedIDHex",
 		//		feeds:      []string{"ETD-USD", "BTC-ETH"},
-		//		queryLabel: "blockNumber",
-		//		query:      big.NewInt(100),
+		//		timeParamKey: "blockNumber",
+		//		time:      big.NewInt(100),
 		//		extraData:  []byte{48, 120, 48, 48},
 		//	},
 		//	values:       values,
@@ -617,11 +617,11 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 		//},
 		//{
 		//	name: "success - with extra data",
-		//	mercuryLookup: &MercuryLookup{
-		//		feedLabel:  "feedIDHex",
+		//	mercuryLookup: &FeedLookup{
+		//		feedParamKey:  "feedIDHex",
 		//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		//		queryLabel: "blockNumber",
-		//		query:      big.NewInt(18952430),
+		//		timeParamKey: "blockNumber",
+		//		time:      big.NewInt(18952430),
 		//		// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
 		//		extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 		//	},
@@ -635,11 +635,11 @@ func TestEvmRegistry_MercuryCallback(t *testing.T) {
 		//},
 		//{
 		//	name: "failure - bad response",
-		//	mercuryLookup: &MercuryLookup{
-		//		feedLabel:  "feedIDHex",
+		//	mercuryLookup: &FeedLookup{
+		//		feedParamKey:  "feedIDHex",
 		//		feeds:      []string{"ETD-USD", "BTC-ETH"},
-		//		queryLabel: "blockNumber",
-		//		query:      big.NewInt(100),
+		//		timeParamKey: "blockNumber",
+		//		time:      big.NewInt(100),
 		//		extraData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		//	},
 		//	values:       values,

@@ -556,7 +556,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 		r.lggr.Infof("doCheck mercury=%v", r.mercury.cred.URL)
 		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
 			chResult <- checkResult{
-				err: errors.New("mercury credential is empty or not provided but MercuryLookup feature is enabled on registry"),
+				err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
 			}
 			return
 		}
