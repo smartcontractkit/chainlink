@@ -11,7 +11,7 @@ type CosmosNodePresenter struct {
 
 // ToRow presents the CosmosNodeResource as a slice of strings.
 func (p *CosmosNodePresenter) ToRow() []string {
-	return []string{p.GetID(), p.Name, p.ChainID, p.State, p.Config}
+	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 
 // RenderTable implements TableRenderer
