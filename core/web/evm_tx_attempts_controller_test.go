@@ -20,14 +20,14 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.TxmStorageService()
+	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 1, 2, from)
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 2, 3, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 2, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
 	t.Cleanup(cleanup)
