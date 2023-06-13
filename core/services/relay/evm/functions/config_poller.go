@@ -3,7 +3,7 @@ package functions
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -64,7 +65,7 @@ func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
+func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.ContractConfig, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -80,8 +81,16 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 		signers = append(signers, addr[:])
 	}
 
-	// Print OffchainConfig as hex string
-	fmt.Println("OffchainConfig: ", hex.EncodeToString(unpacked.OffchainConfig))
+	// Replace the first two bytes of the config digest with the plugin type to avoid duplicate config digests between plugins
+	if pluginType == ThresholdPlugin {
+		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(types.ConfigDigestPrefixThreshold))
+	}
+	if pluginType == FunctionsPlugin {
+		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(types.ConfigDigestPrefixFunctions))
+	}
+
+	fmt.Println("THRESHOLD PLUGIN TYPE: ", pluginType)
+	fmt.Println("THRESHOLD CONFIG DIGEST: ", unpacked.ConfigDigest)
 
 	return ocrtypes.ContractConfig{
 		ConfigDigest:          unpacked.ConfigDigest,

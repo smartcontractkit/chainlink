@@ -32,6 +32,7 @@ import (
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -294,6 +295,44 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 			ContractAddress: contractAddress,
 		}
 	}
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+}
+
+func newFunctionsConfigProvider(pluginType functions.FunctionsPluginType, lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+	var relayConfig types.RelayConfig
+	err := json.Unmarshal(args.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+	if !common.IsHexAddress(args.ContractID) {
+		return nil, errors.Errorf("invalid contractID, expected hex address")
+	}
+
+	contractAddress := common.HexToAddress(args.ContractID)
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get contract ABI JSON")
+	}
+	var cp ConfigPoller
+
+	cp, err = functions.NewFunctionsConfigPoller(pluginType, lggr, chain.LogPoller(), contractAddress)
+
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("THRESHOLD newFunctionsConfigProvider pluginType: ", pluginType)
+
+	offchainConfigDigester := functions.EVMOffchainConfigDigester{
+		ChainID:         chain.Config().ChainID().Uint64(),
+		ContractAddress: contractAddress,
+		PluginType:      pluginType,
+	}
+
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 

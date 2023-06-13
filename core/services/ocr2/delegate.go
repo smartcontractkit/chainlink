@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	functions_relay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -746,6 +747,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			},
 			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
+			functions_relay.FunctionsPlugin,
 		)
 		if err2 != nil {
 			return nil, err2
@@ -766,6 +768,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			},
 			lggr.Named("ThresholdRelayer"),
 			d.ethKs,
+			functions_relay.ThresholdPlugin,
 		)
 		if err2 != nil {
 			return nil, err2
@@ -792,7 +795,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "error decrypting threshold private key share")
 		}
 
-		functionsSharedOracleArgs := libocr2.OCR2OracleArgs{
+		functionsOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          functionsProvider.ContractTransmitter(),
@@ -807,7 +810,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 		}
 
-		thresholdSharedOracleArgs := libocr2.OCR2OracleArgs{
+		thresholdOracleArgs := libocr2.OCR2OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          thresholdProvider.ContractTransmitter(),
@@ -837,7 +840,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			ThresholdPrivateKeyShare: thresholdPrivateKey,
 		}
 
-		functionsServices, err := functions.NewFunctionsServices(&thresholdSharedOracleArgs, &functionsSharedOracleArgs, &functionsServicesConfig)
+		functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &functionsServicesConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 		}
