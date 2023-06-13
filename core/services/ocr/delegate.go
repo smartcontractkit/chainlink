@@ -92,7 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), chain.Config().OCR(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -161,14 +161,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
 		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
 		//  in P2P.V2.DefaultBootstrappers config var.  Only a non-empty list will override the default list.
-		v2Bootstrappers = peerWrapper.Config().P2P().V2().DefaultBootstrappers()
+		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
-	lc := toLocalConfig(chain.Config(), chain.Config().Insecure(), *concreteSpec)
+	lc := toLocalConfig(chain.Config(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	} else {
 		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
 		//   node config or in job spec
-		if peerWrapper.Config().P2P().NetworkStack() != ocrnetworking.NetworkingStackV2 {
+		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV2 {
 			if len(v1BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v1 bootstrap peer defined")
 			}
@@ -201,7 +201,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 
 		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
 		//   node config or in job spec
-		if peerWrapper.Config().P2P().NetworkStack() != ocrnetworking.NetworkingStackV1 {
+		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV1 {
 			if len(v2Bootstrappers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
@@ -217,10 +217,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		}
 
 		cfg := chain.Config()
-		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
 		var checker txmgr.EvmTransmitCheckerSpec
-		if chain.Config().OCRSimulateTransactions() {
+		if chain.Config().OCR().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 

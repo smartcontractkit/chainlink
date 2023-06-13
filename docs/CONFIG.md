@@ -834,6 +834,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 CaptureEATelemetry = false # Default
+TraceLogging = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
@@ -905,6 +906,12 @@ TransmitterAddress is the default sending address to use for OCR. If you have an
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
+
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
 
 ## P2P
 ```toml

@@ -26,9 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type PeerWrapperConfig interface {
-	OCRTraceLogging() bool
-	P2P() config.P2P
+type PeerWrapperOCRConfig interface {
+	TraceLogging() bool
 }
 
 type (
@@ -46,7 +45,8 @@ type (
 	SingletonPeerWrapper struct {
 		utils.StartStopOnce
 		keyStore      keystore.Master
-		config        PeerWrapperConfig
+		p2pCfg        config.P2P
+		ocrCfg        PeerWrapperOCRConfig
 		dbConfig      pg.QConfig
 		db            *sqlx.DB
 		lggr          logger.Logger
@@ -64,17 +64,17 @@ type (
 	}
 )
 
-func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
-	switch config.P2P().NetworkStack() {
+func ValidatePeerWrapperConfig(config config.P2P) error {
+	switch config.NetworkStack() {
 	case ocrnetworking.NetworkingStackV1:
 		// Note: If P2PListenPort isn't set, the peer wrapper will generate a random one itself.
 		return nil
 	case ocrnetworking.NetworkingStackV2:
-		if len(config.P2P().V2().ListenAddresses()) == 0 {
+		if len(config.V2().ListenAddresses()) == 0 {
 			return errors.New("networking stack v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	case ocrnetworking.NetworkingStackV1V2:
-		if len(config.P2P().V2().ListenAddresses()) == 0 {
+		if len(config.V2().ListenAddresses()) == 0 {
 			return errors.New("networking stack v1v2 selected but no P2P.V2.ListenAddresses specified")
 		}
 	default:
@@ -86,10 +86,11 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config PeerWrapperConfig, dbConfig pg.QConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg PeerWrapperOCRConfig, dbConfig pg.QConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
-		config:   config,
+		p2pCfg:   p2pCfg,
+		ocrCfg:   ocrCfg,
 		dbConfig: dbConfig,
 		db:       db,
 		lggr:     lggr.Named("SingletonPeerWrapper"),
@@ -132,17 +133,17 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	if ks, err := p.keyStore.P2P().GetAll(); err == nil && len(ks) == 0 {
 		return ocrnetworking.PeerConfig{}, errors.Errorf("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	}
-	key, err := p.keyStore.P2P().GetOrFirst(p.config.P2P().PeerID())
+	key, err := p.keyStore.P2P().GetOrFirst(p.p2pCfg.PeerID())
 	if err != nil {
 		return ocrnetworking.PeerConfig{}, err
 	}
 	p.PeerID = key.PeerID()
 
-	v1 := p.config.P2P().V1()
+	v1 := p.p2pCfg.V1()
 	p2pPort := v1.ListenPort()
 	// We need to start the peer store wrapper if v1 is required.
 	// Also fallback to listen params if announce params not specified.
-	ns := p.config.P2P().NetworkStack()
+	ns := p.p2pCfg.NetworkStack()
 	// NewPeer requires that these are both set or unset, otherwise it will error out.
 	v1AnnounceIP, v1AnnouncePort := v1.AnnounceIP(), v1.AnnouncePort()
 	var peerStore p2ppeerstore.Peerstore
@@ -190,11 +191,11 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 		discovererDB = NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
 	}
 
-	config := p.config.P2P()
+	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
 		NetworkingStack: config.NetworkStack(),
 		PrivKey:         key.PrivKey,
-		Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
+		Logger:          logger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V1 config
 		V1ListenIP:                         config.V1().ListenIP(),
@@ -263,6 +264,6 @@ func (p *SingletonPeerWrapper) HealthReport() map[string]error {
 	return map[string]error{p.Name(): p.Healthy()}
 }
 
-func (p *SingletonPeerWrapper) Config() PeerWrapperConfig {
-	return p.config
+func (p *SingletonPeerWrapper) P2PConfig() config.P2P {
+	return p.p2pCfg
 }
