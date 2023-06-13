@@ -75,13 +75,6 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
-// UpkeepTriggerConfig represents the interface for the trigger config of an upkeep.
-// It is used to wrap existing structs:
-//   - iregistry21.KeeperRegistryBase21LogTriggerConfig
-//   - iregistry21.KeeperRegistryBase21CronTriggerConfig
-type UpkeepTriggerConfig interface {
-}
-
 //go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -249,6 +242,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 	return keys, nil
 }
 
+// TODO: should be called with ocr2keepers.UpkeepPayload
 func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepKey) ([]ocr2keepers.UpkeepResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
