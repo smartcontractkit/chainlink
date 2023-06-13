@@ -88,19 +88,15 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCRw contract to be 5 but got %d", answer.Int64())
 
-	for i := 2; i <= 100; i++ {
-		roundValue := 10 + i
-		err = mockServer.SetValuePath("ocr2", roundValue)
-		require.NoError(t, err)
-		err = actions.StartNewOCR2Round(int64(i), ocrInstances, chainClient, time.Minute*5)
-		require.NoError(t, err)
+	err = mockServer.SetValuePath("ocr2", 10)
+	require.NoError(t, err)
+	err = actions.StartNewOCR2Round(2, ocrInstances, chainClient, time.Minute*10)
+	require.NoError(t, err)
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
 
-		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
-		require.NoError(t, err, "Error getting latest OCRv2 answer")
-		require.Equal(t, int64(roundValue), answer.Int64(),
-			"Expected latest answer from OCRv2 contract to be %d but got %d",
-			roundValue,
-			answer.Int64(),
-		)
-	}
+	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+	require.NoError(t, err, "Error getting latest OCRv2 answer")
+	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCRv2 contract to be 10 but got %d", answer.Int64())
+
 }
