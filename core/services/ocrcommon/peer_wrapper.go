@@ -7,6 +7,7 @@ import (
 	"net"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -26,10 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type PeerWrapperOCRConfig interface {
-	TraceLogging() bool
-}
-
 type (
 	peerAdapterOCR1 struct {
 		ocr1types.BinaryNetworkEndpointFactory
@@ -46,7 +43,6 @@ type (
 		utils.StartStopOnce
 		keyStore      keystore.Master
 		p2pCfg        config.P2P
-		ocrCfg        PeerWrapperOCRConfig
 		dbConfig      pg.QConfig
 		db            *sqlx.DB
 		lggr          logger.Logger
@@ -86,11 +82,10 @@ func ValidatePeerWrapperConfig(config config.P2P) error {
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg PeerWrapperOCRConfig, dbConfig pg.QConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, dbConfig pg.QConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		p2pCfg:   p2pCfg,
-		ocrCfg:   ocrCfg,
 		dbConfig: dbConfig,
 		db:       db,
 		lggr:     lggr.Named("SingletonPeerWrapper"),
@@ -195,8 +190,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	peerConfig := ocrnetworking.PeerConfig{
 		NetworkingStack: config.NetworkStack(),
 		PrivKey:         key.PrivKey,
-		Logger:          logger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
-
+		Logger:          relaylogger.NewOCRWrapper(p.lggr, func(string) {}),
 		// V1 config
 		V1ListenIP:                         config.V1().ListenIP(),
 		V1ListenPort:                       p2pPort,

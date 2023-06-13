@@ -502,7 +502,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -548,7 +548,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -582,7 +582,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -610,7 +610,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -640,7 +640,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 
 		sd := ocr.NewDelegate(

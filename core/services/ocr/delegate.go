@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -164,7 +165,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
+	ocrLogger := relaylogger.NewOCRWrapper(lggr, func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
