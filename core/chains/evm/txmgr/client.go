@@ -30,6 +30,10 @@ func NewEvmTxmClient(c evmclient.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
+func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
+	return c.PendingNonceAt(ctx, addr)
+}
+
 func (c *evmTxmClient) ConfiguredChainID() *big.Int {
 	return c.client.ConfiguredChainID()
 }
