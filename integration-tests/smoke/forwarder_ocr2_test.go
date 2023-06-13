@@ -72,6 +72,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	err = actions.CreateOCRv2JobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
 
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
