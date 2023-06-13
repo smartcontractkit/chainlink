@@ -91,7 +91,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_1(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -219,17 +219,31 @@ type EvmRegistry struct {
 	enc           EVMAutomationEncoder21
 }
 
-// GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
+// GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
-func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
+func (r *EvmRegistry) GetActiveUpkeepIDs(ctx context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
+	return r.GetActiveUpkeepIDsByType(ctx)
+}
+
+// GetActiveUpkeepIDsByType returns all active upkeeps of the given trigger types.
+func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...uint8) ([]ocr2keepers.UpkeepIdentifier, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	keys := make([]ocr2keepers.UpkeepIdentifier, len(r.active))
-	var i int
+	keys := make([]ocr2keepers.UpkeepIdentifier, 0)
+
 	for _, value := range r.active {
-		keys[i] = ocr2keepers.UpkeepIdentifier(value.ID.String())
-		i++
+		if len(triggers) == 0 {
+			keys = append(keys, ocr2keepers.UpkeepIdentifier(value.ID.String()))
+			continue
+		}
+		trigger := getUpkeepType(value.ID.Bytes())
+		for _, t := range triggers {
+			if trigger == upkeepType(t) {
+				keys = append(keys, ocr2keepers.UpkeepIdentifier(value.ID.String()))
+				break
+			}
+		}
 	}
 
 	return keys, nil
