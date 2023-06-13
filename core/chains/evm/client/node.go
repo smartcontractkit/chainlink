@@ -454,7 +454,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("nBatchElems", len(b), "batchElems", b)
 
-	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
 		err = n.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
@@ -1004,7 +1004,7 @@ func (n *node) logResult(
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		lggr.Tracew(
 			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
 			results...,
 		)
