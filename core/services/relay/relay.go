@@ -30,11 +30,6 @@ var (
 	}
 )
 
-type LogPollerCapable interface {
-	RegisterLogFilters(args types.RelayArgs, q pg.Queryer) (err error)
-	UnregisterLogFilters(args types.RelayArgs, q pg.Queryer) (err error)
-}
-
 type JobHooks interface {
 	OnCreateJob(arg types.RelayArgs, q pg.Queryer) (err error)
 	OnDeleteJob(arg types.RelayArgs, q pg.Queryer) (err error)
@@ -102,27 +97,19 @@ func (r *relayerAdapter) HealthReport() map[string]error {
 	return hr
 }
 
-type ErrLogFiltersNotSupported struct {
-	relayName string
-}
-
-func (e ErrLogFiltersNotSupported) Error() string {
-	return fmt.Sprintf("Log filtering is not supported by relay %s", e.relayName)
-}
-
 func (r *relayerAdapter) OnCreateJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
-	relay, ok := r.Relayer.(LogPollerCapable)
+	relay, ok := r.Relayer.(JobHooks)
 	if !ok {
 		return nil
 	}
-	return relay.RegisterLogFilters(rargs, q)
+	return relay.OnCreateJob(rargs, q)
 
 }
 
 func (r *relayerAdapter) OnDeleteJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
-	relay, ok := r.Relayer.(LogPollerCapable)
+	relay, ok := r.Relayer.(JobHooks)
 	if !ok {
 		return nil
 	}
-	return relay.UnregisterLogFilters(rargs, q)
+	return relay.OnDeleteJob(rargs, q)
 }

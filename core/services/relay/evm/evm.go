@@ -140,7 +140,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	return configProvider, err
 }
 
-func (r *Relayer) RegisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
+func (r *Relayer) OnCreateJob(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
 	var relayConfig types.RelayConfig
 	filters, err := filtersFromRelayArgs(args)
 	if err != nil {
@@ -164,7 +164,7 @@ func (r *Relayer) RegisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (e
 	return nil
 }
 
-func (r *Relayer) UnregisterLogFilters(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
+func (r *Relayer) OnDeleteJob(args relaytypes.RelayArgs, q pg.Queryer) (err error) {
 	var relayConfig types.RelayConfig
 	filters, err := filtersFromRelayArgs(args)
 	if err != nil {
