@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -81,26 +80,26 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 }
 
 // helper for mocking the http requests
-func (r *EvmRegistry) buildRevertBytesHelper() []byte {
-	mercuryErr := r.mercury.abi.Errors["MercuryLookup"]
-	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
-	ml := MercuryLookup{
-		feedLabel:  "feedIDHex",
-		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		queryLabel: "blockNumber",
-		query:      big.NewInt(8586948),
-		extraData:  []byte{},
-	}
-	// check if Pack does not add selector for me
-	pack, err := mercuryErr.Inputs.Pack(ml.feedLabel, ml.feeds, ml.queryLabel, ml.query, ml.extraData)
-	if err != nil {
-		log.Fatal("failed to build revert")
-	}
-	var payload []byte
-	payload = append(payload, mercuryLookupSelector[:]...)
-	payload = append(payload, pack...)
-	return payload
-}
+//func (r *EvmRegistry) buildRevertBytesHelper() []byte {
+//	mercuryErr := r.mercury.abi.Errors["MercuryLookup"]
+//	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
+//	ml := MercuryLookup{
+//		feedLabel:  "feedIDHex",
+//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+//		queryLabel: "blockNumber",
+//		query:      big.NewInt(8586948),
+//		extraData:  []byte{},
+//	}
+//	// check if Pack does not add selector for me
+//	pack, err := mercuryErr.Inputs.Pack(ml.feedLabel, ml.feeds, ml.queryLabel, ml.query, ml.extraData)
+//	if err != nil {
+//		log.Fatal("failed to build revert")
+//	}
+//	var payload []byte
+//	payload = append(payload, mercuryLookupSelector[:]...)
+//	payload = append(payload, pack...)
+//	return payload
+//}
 
 func TestEvmRegistry_mercuryLookup(t *testing.T) {
 	//setupRegistry := setupEVMRegistry(t)
