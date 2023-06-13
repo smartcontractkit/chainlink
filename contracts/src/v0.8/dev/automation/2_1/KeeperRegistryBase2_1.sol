@@ -249,7 +249,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member balance the balance of this upkeep
    * @member admin for this upkeep
    * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformed the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
    * @member amountSpent the amount this upkeep has spent
    * @member paused if this upkeep has been paused
    * @member skipSigVerification skip signature verification in transmit for a low security low cost model
@@ -262,7 +262,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 balance;
     address admin;
     uint64 maxValidBlocknumber;
-    uint32 lastPerformed;
+    uint32 lastPerformedBlockNumberOrTimestamp;
     uint96 amountSpent;
     bool paused;
     bytes offchainConfig;
@@ -276,7 +276,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member target the contract which needs to be serviced
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
-   * @member lastPerformed the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
    */
   struct Upkeep {
     uint32 executeGas;
@@ -287,7 +287,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 3 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformed; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
     // 4 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -525,7 +525,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       executeGas: gasLimit,
       balance: balance,
       maxValidBlocknumber: UINT32_MAX,
-      lastPerformed: 0,
+      lastPerformedBlockNumberOrTimestamp: 0,
       amountSpent: 0,
       paused: paused,
       forwarder: forwarder
