@@ -37,6 +37,7 @@ type (
 	EvmReceipt                = dbReceipt // EvmReceipt is the exported DB table model for receipts
 	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 	EvmTxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	EvmChainReceipt           = txmgrtypes.ChainReceipt[common.Hash, common.Hash]
 )
 
 var _ EvmKeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
