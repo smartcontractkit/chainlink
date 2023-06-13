@@ -325,6 +325,34 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 4 bytes to 3rd EVM word
   }
 
+  // Report transmitted by OCR to transmit function
+  struct Report {
+    uint256 fastGasWei;
+    uint256 linkNative;
+    uint256[] upkeepIds;
+    uint256[] gasLimits;
+    bytes[] triggers;
+    bytes[] performDatas;
+  }
+
+  /**
+   * @dev This struct is used to maintain run time information about an upkeep in transmit function
+   * @member upkeep the upkeep struct
+   * @member earlyChecksPassed whether the upkeep passed early checks before perform
+   * @member paymentParams the paymentParams for this upkeep
+   * @member performSuccess whether the perform was successful
+   * @member gasUsed gasUsed by this upkeep in perform
+   */
+  struct UpkeepTransmitInfo {
+    Upkeep upkeep;
+    bool earlyChecksPassed;
+    uint96 maxLinkPayment;
+    bool performSuccess;
+    Trigger triggerType;
+    uint256 gasUsed;
+    uint256 gasOverhead;
+  }
+
   struct Transmitter {
     bool active;
     uint8 index; // Index of oracle in s_signersList/s_transmittersList
@@ -378,15 +406,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
-  // Report transmitted by OCR to transmit function
-  struct Report {
-    uint256 fastGasWei;
-    uint256 linkNative;
-    uint256[] upkeepIds;
-    uint256[] gasLimits;
-    bytes[] triggers;
-    bytes[] performDatas;
-  }
+  type CronTrigger is uint256;
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
@@ -416,10 +436,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id);
-  event ReorgedUpkeepReport(uint256 indexed id);
-  event InsufficientFundsUpkeepReport(uint256 indexed id);
-  event CancelledUpkeepReport(uint256 indexed id);
+  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
+  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event Paused(address account);
   event Unpaused(address account);
 

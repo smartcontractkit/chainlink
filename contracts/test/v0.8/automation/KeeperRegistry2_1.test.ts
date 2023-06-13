@@ -383,7 +383,7 @@ const parseReorgedUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['ReorgedUpkeepReport(uint256)'].name
+        registry.interface.events['ReorgedUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as ReorgedUpkeepReportEvent)
       }
@@ -400,7 +400,8 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
     try {
       const log = registry.interface.parseLog(rawLog)
       if (
-        log.name == registry.interface.events['StaleUpkeepReport(uint256)'].name
+        log.name ==
+        registry.interface.events['StaleUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as StaleUpkeepReportEvent)
       }
@@ -418,7 +419,9 @@ const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['InsufficientFundsUpkeepReport(uint256)'].name
+        registry.interface.events[
+          'InsufficientFundsUpkeepReport(uint256,bytes)'
+        ].name
       ) {
         parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
       }
@@ -436,7 +439,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['CancelledUpkeepReport(uint256)'].name
+        registry.interface.events['CancelledUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as CancelledUpkeepReportEvent)
       }

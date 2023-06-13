@@ -59,24 +59,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   ////////
 
   /**
-   * @dev This struct is used to maintain run time information about an upkeep in transmit function
-   * @member upkeep the upkeep struct
-   * @member earlyChecksPassed whether the upkeep passed early checks before perform
-   * @member paymentParams the paymentParams for this upkeep
-   * @member performSuccess whether the perform was successful
-   * @member gasUsed gasUsed by this upkeep in perform
-   */
-  struct UpkeepTransmitInfo {
-    Upkeep upkeep;
-    bool earlyChecksPassed;
-    uint96 maxLinkPayment;
-    bool performSuccess;
-    Trigger triggerType;
-    uint256 gasUsed;
-    uint256 gasOverhead;
-  }
-
-  /**
    * @inheritdoc OCR2Abstract
    */
   function transmit(
@@ -439,27 +421,24 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint96 maxLinkPayment
   ) internal returns (bool) {
     if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
-      BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
-      if (!_validateBlockTrigger(upkeepId, trigger, upkeep)) return false;
+      if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
-      LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-      if (!_validateLogTrigger(upkeepId, trigger)) return false;
+      if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
     } else if (triggerType == Trigger.CRON) {
-      uint256 trigger = abi.decode(rawTrigger, (uint256));
-      if (!_validateCronTrigger(upkeepId, trigger, upkeep)) return false;
+      if (!_validateCronTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else {
       revert InvalidTriggerType();
     }
     if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId);
+      emit CancelledUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
 
     if (upkeep.balance < maxLinkPayment) {
       // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId);
+      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
 
@@ -471,47 +450,54 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    */
   function _validateBlockTrigger(
     uint256 upkeepId,
-    BlockTrigger memory trigger,
+    bytes memory rawTrigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
+    BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
     if (trigger.blockNum < upkeep.lastPerformed) {
       // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId);
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     if (_blockHash(trigger.blockNum) != trigger.blockHash) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
-      emit ReorgedUpkeepReport(upkeepId);
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     return true;
   }
 
-  function _validateLogTrigger(uint256 upkeepId, LogTrigger memory trigger) internal returns (bool) {
+  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
+    LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     if (_blockHash(trigger.blockNum) != trigger.blockHash) {
-      emit ReorgedUpkeepReport(upkeepId);
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     bytes32 logID = keccak256(abi.encodePacked(trigger.txHash, trigger.logIndex));
     if (s_observedLogTriggers[logID]) {
-      emit StaleUpkeepReport(upkeepId);
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     s_observedLogTriggers[logID] = true;
     return true;
   }
 
-  function _validateCronTrigger(uint256 upkeepId, uint256 trigger, Upkeep memory upkeep) internal returns (bool) {
+  function _validateCronTrigger(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    Upkeep memory upkeep
+  ) internal returns (bool) {
+    uint256 trigger = abi.decode(rawTrigger, (uint256));
     if (trigger <= upkeep.lastPerformed) {
       // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId);
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     if (trigger > block.timestamp) {
       // Rare condition where reorged block can have timestamp < than triggering block
-      emit ReorgedUpkeepReport(upkeepId);
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     return true;
