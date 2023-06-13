@@ -124,7 +124,7 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
-		err := jobORM.CreateJob(jb)
+		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		require.NotNil(t, jb.PipelineSpec)
 
@@ -180,7 +180,7 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="%s"];
 			"""
 		`, bridge.Name.String()))
-		err := jobORM.CreateJob(jb)
+		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
@@ -209,7 +209,7 @@ func TestRunner(t *testing.T) {
 		cs := evmmocks.NewChainSet(t)
 		cs.On("Get", mock.Anything).Return(c, nil)
 
-		jb, err := ocr.ValidatedOracleSpecToml(cs, `
+		jb, err2 := ocr.ValidatedOracleSpecToml(cs, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 1
@@ -231,7 +231,7 @@ func TestRunner(t *testing.T) {
 			answer1      [type=median index=0];
 			"""
 		`)
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
 		require.Error(t, err)

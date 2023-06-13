@@ -280,7 +280,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
-	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
+	if err = utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
 		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
 	}
 
@@ -315,10 +315,10 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", s.Config.ShutdownGracePeriod())
 		// LockedDB.Close() will release DB locks and close DB connection
 		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err := ldb.Close(); err != nil {
+		if err = ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err := s.CloseLogger(); err != nil {
+		if err = s.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}
 
@@ -595,8 +595,8 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	if c.IsSet("password") {
-		pwd, err := utils.PasswordFromFile(c.String("password"))
-		if err != nil {
+		pwd, err2 := utils.PasswordFromFile(c.String("password"))
+		if err2 != nil {
 			return s.errorOut(fmt.Errorf("error reading password: %+v", err))
 		}
 		s.Config.SetPasswords(&pwd, nil)
