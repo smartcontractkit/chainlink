@@ -216,13 +216,6 @@ func (g *generateOCR2Config) Run(args []string) {
 		panic(err)
 	}
 
-	reportingPluginConfigCheck, err := config.DecodeReportingPluginConfig(reportingPluginConfigBytes)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("Reporting Plugin Config %+v\n", reportingPluginConfigCheck)
-
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
