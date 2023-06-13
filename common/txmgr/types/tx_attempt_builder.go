@@ -19,7 +19,7 @@ type TxAttemptBuilder[
 	HEAD types.Head[BLOCK_HASH], // HEAD - chain head type
 	ADDR types.Hashable, // ADDR - chain address type
 	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
-	SEQ Sequence, // SEQ - chain sequence/nonce type
+	SEQ Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
 	FEE feetypes.Fee, // FEE - chain fee type
 ] interface {
 	// interfaces for running the underlying estimator
