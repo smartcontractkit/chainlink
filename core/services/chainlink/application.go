@@ -379,7 +379,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.Database(), db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")

@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-// OCR1Config is a subset of global config relevant to OCR v1.
+// OCR is a subset of global config relevant to OCR v1.
 type OCR interface {
 	Enabled() bool
 	// OCR1 config, can override in jobs, only ethereum.
