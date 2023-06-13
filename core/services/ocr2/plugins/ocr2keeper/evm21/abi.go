@@ -33,6 +33,7 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
 	return &evmRegistryPackerV2_1{abi: abi}
 }
 
+// TODO: remove for 2.1
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
 	var (
 		result EVMAutomationUpkeepResult21
@@ -58,7 +59,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		ID:               id,
 		Eligible:         true,
 		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{}, // TODO
+		CheckBlockHash:   [32]byte{},
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)

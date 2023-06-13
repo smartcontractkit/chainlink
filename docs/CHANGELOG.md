@@ -32,10 +32,16 @@ Order = 5
   state instead of relying on an unreliable round-trip to the Mercury server.
 
 ### Fixed
+- Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 
 ### Changed
 - Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
 - Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
+
+### Removed
+- Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
+- Optimism Kovan configurations along with legacy error messages.
+
 ...
 
 # 2.2.0 - UNRELEASED

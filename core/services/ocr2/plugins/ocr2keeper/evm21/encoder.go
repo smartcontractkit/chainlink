@@ -14,15 +14,23 @@ type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
 }
 
+func mustNewType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
+	a, err := abi.NewType(t, internalType, components)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
 var (
-	Uint256, _            = abi.NewType("uint256", "", nil)
-	Uint256Arr, _         = abi.NewType("uint256[]", "", nil)
-	BytesArr, _           = abi.NewType("bytes[]", "", nil)
+	Uint256               = mustNewType("uint256", "", nil)
+	Uint256Arr            = mustNewType("uint256[]", "", nil)
+	BytesArr              = mustNewType("bytes[]", "", nil)
 	TriggerMarshalingArgs = []abi.ArgumentMarshaling{
 		{Name: "blockNumber", Type: "uint32"},
 		{Name: "blockHash", Type: "bytes32"},
 	}
-	TriggerArr, _       = abi.NewType("tuple(uint32,bytes32)[]", "", TriggerMarshalingArgs)
+	TriggerArr          = mustNewType("tuple(uint32,bytes32)[]", "", TriggerMarshalingArgs)
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap

@@ -11,7 +11,7 @@ type SolanaNodePresenter struct {
 
 // ToRow presents the SolanaNodeResource as a slice of strings.
 func (p *SolanaNodePresenter) ToRow() []string {
-	return []string{p.GetID(), p.Name, p.ChainID, p.State, p.Config}
+	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 
 // RenderTable implements TableRenderer

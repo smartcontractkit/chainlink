@@ -9,9 +9,9 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -65,7 +65,7 @@ func NewChainSet[N Node, S ChainService](
 	cs := chainSet[N, S]{
 		opts:    opts,
 		configs: cfgs,
-		lggr:    lggr.Named("ChainSet"),
+		lggr:    logger.Named(lggr, "ChainSet"),
 		chains:  chains,
 	}
 

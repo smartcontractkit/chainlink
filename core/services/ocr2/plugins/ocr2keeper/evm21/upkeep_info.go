@@ -23,8 +23,13 @@ const (
 )
 
 // getUpkeepType returns the upkeep type from the given ID.
-// it follows the same logic as the contract, but performs it locally
-// TODO: check indianness
+// it follows the same logic as the contract, but performs it locally.
+//
+// NOTE: the id provided to this function should be initialized with big.Int.Bytes(), e.g.:
+// id, _ := big.NewInt(0).SetString("...", 10)
+// getUpkeepType(id.Bytes())
+//
+// TODO: check endianness
 func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
 	if len(id) < upkeepTypeByteIndex+1 {
 		return conditionTrigger
