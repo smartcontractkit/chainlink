@@ -31,6 +31,8 @@ Order = 5
   overlap. It can now be guaranteed at the protocol level, so we can use local
   state instead of relying on an unreliable round-trip to the Mercury server.
 
+- Add new config parameter to OCR named `TraceLogging` that enables trace logging of OCR jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter.
+
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 
