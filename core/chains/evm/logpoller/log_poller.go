@@ -230,7 +230,7 @@ func (lp *logPoller) RegisterFilter(filter Filter, q pg.Queryer) error {
 		lp.lggr.Debugw("Creating new filter", "filter", filter)
 	}
 
-	if err := lp.orm.InsertFilter(filter); err != nil {
+	if err := lp.orm.InsertFilter(filter, pg.WithQueryer(q)); err != nil {
 		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
 	}
 	lp.filters[filter.Name] = filter
