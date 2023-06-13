@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -62,7 +61,7 @@ func NewTxm(
 // NewEvmTxm creates a new concrete EvmTxm
 func NewEvmTxm(
 	chainId *big.Int,
-	cfg txmgrtypes.TxmConfig[*assets.Wei], // explicit type to allow inference
+	cfg txmgrtypes.TxmConfig,
 	keyStore EvmKeyStore,
 	lggr logger.Logger,
 	checkerFactory EvmTransmitCheckerFactory,
@@ -98,7 +97,7 @@ func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int]
 func NewEvmConfirmer(
 	txStore EvmTxStore,
 	evmClient EvmTxmClient,
-	config txmgrtypes.ConfirmerConfig[*assets.Wei],
+	config txmgrtypes.ConfirmerConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore EvmKeyStore,
 	txAttemptBuilder EvmTxAttemptBuilder,
@@ -111,7 +110,7 @@ func NewEvmConfirmer(
 func NewEvmBroadcaster(
 	txStore EvmTxStore,
 	evmClient EvmTxmClient,
-	config txmgrtypes.BroadcasterConfig[*assets.Wei],
+	config txmgrtypes.BroadcasterConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore EvmKeyStore,
 	eventBroadcaster pg.EventBroadcaster,
