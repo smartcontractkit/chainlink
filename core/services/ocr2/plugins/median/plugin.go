@@ -30,7 +30,7 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 		ContractTransmitter:       provider.MedianContract(),
 		DataSource:                dataSource,
 		JuelsPerFeeCoinDataSource: juelsPerFeeCoin,
-		Logger: logger.NewOCRWrapper(lggr, func(msg string) {
+		Logger: logger.NewOCRWrapper(lggr, true, func(msg string) {
 			ctx, cancelFn := p.stop.NewCtx()
 			defer cancelFn()
 			if err := errorLog.SaveError(ctx, msg); err != nil {
