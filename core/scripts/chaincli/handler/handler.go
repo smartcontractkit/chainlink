@@ -195,7 +195,7 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 	}
 
 	if err := k.waitTx(ctx, signedTx); err != nil {
-		log.Fatal("Send ETH failed, error is %s", err.Error())
+		log.Fatalf("Send ETH failed, error is %s", err.Error())
 	}
 	log.Println("Send ETH successfully")
 
