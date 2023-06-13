@@ -381,12 +381,12 @@ func (c *SolanaConfig) FinalityDepth() uint32 {
 	return *c.Chain.FinalityDepth
 }
 
-func (c *SolanaConfig) HeadTrackerHistoryDepth() *uint32 {
-	return c.Chain.HeadTrackerHistoryDepth
+func (c *SolanaConfig) HeadTrackerHistoryDepth() uint32 {
+	return *c.Chain.HeadTrackerHistoryDepth
 }
 
-func (c *SolanaConfig) HeadTrackerMaxBufferSize() *uint32 {
-	return c.Chain.HeadTrackerMaxBufferSize
+func (c *SolanaConfig) HeadTrackerMaxBufferSize() uint32 {
+	return *c.Chain.HeadTrackerMaxBufferSize
 }
 
 func (c *SolanaConfig) HeadTrackerSamplingInterval() time.Duration {
