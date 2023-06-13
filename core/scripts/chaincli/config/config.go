@@ -88,6 +88,7 @@ type Config struct {
 	MercuryID       string `mapstructure:"MERCURY_ID"`
 	MercuryKey      string `mapstructure:"MERCURY_KEY"`
 	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
+	UpkeepID        string `mapstructure:"UPKEEP_ID"`
 }
 
 // New creates a new config
