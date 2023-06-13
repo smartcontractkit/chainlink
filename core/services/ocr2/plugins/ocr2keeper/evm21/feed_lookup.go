@@ -126,9 +126,9 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 
 		r.lggr.Infof("FeedLookup checkCallback b=%v", mercuryBytes.String())
 		r.lggr.Infof("FeedLookup checkCallback b=%v", mercuryBytes)
-		needed, performData, failureReason, gasUsed, err := r.packer.UnpackMercuryCallbackResult(mercuryBytes)
+		needed, performData, failureReason, gasUsed, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackMercuryCallbackResult err: %v", upkeepId, block, err)
+			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", upkeepId, block, err)
 		}
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d needed %v\nperformData: %v\nfailureReason: %d\ngasUsed: %s\nperformData: %s", upkeepId, block, needed, performData, failureReason, gasUsed.String(), hexutil.Encode(performData))
 

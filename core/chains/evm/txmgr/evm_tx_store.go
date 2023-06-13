@@ -43,6 +43,7 @@ var (
 type TestEvmTxStore interface {
 	EvmTxStore
 	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
+	InsertTx(etx *EvmTx) error                                 // only used for testing purposes
 }
 
 type evmTxStore struct {

@@ -171,7 +171,6 @@ type EvmRegistry struct {
 	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
-	mercury       MercuryConfig
 	hc            HttpClient
 	enc           EVMAutomationEncoder20
 }

@@ -28,6 +28,20 @@ func (_m *HttpServer) Close() error {
 	return r0
 }
 
+// GetPort provides a mock function with given fields:
+func (_m *HttpServer) GetPort() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
 // SetHTTPRequestHandler provides a mock function with given fields: handler
 func (_m *HttpServer) SetHTTPRequestHandler(handler network.HTTPRequestHandler) {
 	_m.Called(handler)
