@@ -1258,9 +1258,10 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 			c.EVM[0].Chain.Transactions.ResendAfterThreshold = zero
 		})
 
-		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
+		ccfg := evmtest.NewChainScopedConfig(t, evmCfg)
+		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg)
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
-		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
+		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)

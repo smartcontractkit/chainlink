@@ -376,16 +376,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
 	if cfg.P2P().Enabled() {
-		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if cfg.OCREnabled() {
+	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
@@ -479,6 +479,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			cfg,
 			cfg.Insecure(),
 			cfg.JobPipeline(),
+			cfg.OCR(),
 			cfg.Database(),
 			chains.EVM,
 			globalLogger,
