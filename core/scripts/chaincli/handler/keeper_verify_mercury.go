@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
@@ -271,7 +272,7 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 		log.Fatalf("failed to build call opts: %v", err)
 	}
 
-	payload, err = keeperRegistryABI.Pack("checkUpkeep", upkeepId)
+	payload, err = keeperRegistryABI.Pack("checkUpkeep", upkeepId, []byte{})
 	if err != nil {
 		log.Fatalf("failed to check upkeep: %v", err)
 	}
@@ -295,24 +296,67 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 		log.Fatalf("failed to batch call: %v", err)
 	}
 
-	//var (
-	//	multiErr error
-	//	results  = make([]EVMAutomationUpkeepResult21, len(1))
-	//)
-	//
-	//for i, req := range checkReqs {
-	//	if req.Error != nil {
-	//		r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
-	//		multierr.AppendInto(&multiErr, req.Error)
-	//	} else {
-	//		var err error
-	//		r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", string(keys[i]), *checkResults[i])
-	//		results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
-	//		if err != nil {
-	//			return nil, errors.Wrap(err, "failed to unpack check result")
-	//		}
-	//	}
-	//}
+	raw := *checkResults[0]
+	b, err = hexutil.Decode(raw)
+	if err != nil {
+		log.Fatalf("failed to decode: %v", err)
+	}
+
+	out, err = keeperRegistryABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
+	if err != nil {
+		log.Fatalf("failed to unpack: %v", err)
+	}
+
+	result21 := evm.EVMAutomationUpkeepResult21{
+		Block:            uint32(blockNumber),
+		ID:               upkeepId,
+		Eligible:         true,
+		CheckBlockNumber: uint32(blockNumber),
+		CheckBlockHash:   [32]byte{},
+	}
+
+	upkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	rawPerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	result21.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	result21.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	result21.FastGasWei = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	result21.LinkNative = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+
+	if !upkeepNeeded {
+		result21.Eligible = false
+	}
+	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
+	if result21.FailureReason == evm.UPKEEP_FAILURE_REASON_NONE || (result21.FailureReason == evm.UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+		result21.PerformData = rawPerformData
+	}
+
+	// This is a default placeholder which is used since we do not get the execute gas
+	// from checkUpkeep result. This field is overwritten later from the execute gas
+	// we have for an upkeep in memory. TODO (AUTO-1482): Refactor this
+	result21.ExecuteGas = 5_000_000
+
+	log.Printf("result21 FailureReason: %v", result21.FailureReason)
+	log.Printf("result21 PerformData: %v", result21.PerformData)
+	log.Printf("result21 Eligible: %v", result21.Eligible)
+	log.Printf("result21 ID: %v", result21.ID)
+
+	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
+	if err != nil {
+		log.Fatalf("failed to get ABI: %v", err)
+	}
+
+	e := feedLookupCompatibleABI.Errors["FeedLookup"]
+	unpack, err := e.Unpack(result21.PerformData)
+	if err != nil {
+		log.Fatalf("failed to unpack: %v", err)
+	}
+	errorParameters := unpack.([]interface{})
+
+	log.Printf("feedParamKey: %s", *abi.ConvertType(errorParameters[0], new(string)).(*string))
+	log.Printf("feeds: %v", *abi.ConvertType(errorParameters[1], new([]string)).(*[]string))
+	log.Printf("timeParamKey: %s", *abi.ConvertType(errorParameters[2], new(string)).(*string))
+	log.Printf("time: %s", *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int))
+	log.Printf("extraData: %v", *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte))
 }
 
 func buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
