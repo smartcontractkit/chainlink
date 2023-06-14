@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
@@ -45,22 +46,24 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db          *sqlx.DB
-	chainSet    evm.ChainSet
-	lggr        logger.Logger
-	cfg         RelayerConfig
-	ks          keystore.Master
-	mercuryPool wsrpc.Pool
+	db               *sqlx.DB
+	chainSet         evm.ChainSet
+	lggr             logger.Logger
+	cfg              RelayerConfig
+	ks               keystore.Master
+	mercuryPool      wsrpc.Pool
+	eventBroadcaster pg.EventBroadcaster
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
-		db:          db,
-		chainSet:    chainSet,
-		lggr:        lggr.Named("Relayer"),
-		cfg:         cfg,
-		ks:          ks,
-		mercuryPool: wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		db:               db,
+		chainSet:         chainSet,
+		lggr:             lggr.Named("Relayer"),
+		cfg:              cfg,
+		ks:               ks,
+		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		eventBroadcaster: eventBroadcaster,
 	}
 }
 
@@ -104,7 +107,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -129,7 +132,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
-	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args)
+	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -158,6 +161,8 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 type ConfigPoller interface {
 	ocrtypes.ContractConfigTracker
 
+	Start()
+	Close() error
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
@@ -222,6 +227,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 				}
 			}()
 		}
+		c.configPoller.Start()
 		return nil
 	})
 }
@@ -230,7 +236,7 @@ func (c *configWatcher) Close() error {
 	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
 		c.replayCancel()
 		c.wg.Wait()
-		return nil
+		return c.configPoller.Close()
 	})
 }
 
@@ -246,7 +252,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -268,10 +274,12 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	var cp ConfigPoller
 
 	if relayConfig.FeedID != nil {
-		cp, err = mercury.NewConfigPoller(lggr,
+		cp, err = mercury.NewConfigPoller(
+			lggr,
 			chain.LogPoller(),
 			contractAddress,
 			*relayConfig.FeedID,
+			eventBroadcaster,
 		)
 	} else {
 		cp, err = NewConfigPoller(lggr,
@@ -414,7 +422,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 }
 
 func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}
