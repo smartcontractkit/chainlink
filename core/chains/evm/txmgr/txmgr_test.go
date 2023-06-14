@@ -98,7 +98,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
@@ -425,7 +425,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -594,7 +594,7 @@ func TestTxm_Reset(t *testing.T) {
 
 	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
 	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)
