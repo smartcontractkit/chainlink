@@ -1651,7 +1651,6 @@ func newNewTransmissionLog(
 	//     bytes32 configDigest
 	// );
 	e := vrf_beacon.VRFBeaconNewTransmission{
-		AggregatorRoundId:  1,
 		JuelsPerFeeCoin:    big.NewInt(1_000),
 		ReasonableGasPrice: 1_000,
 		EpochAndRound:      big.NewInt(1),
@@ -1668,22 +1667,10 @@ func newNewTransmissionLog(
 		e.Transmitter, e.JuelsPerFeeCoin, e.ReasonableGasPrice, e.ConfigDigest)
 	require.NoError(t, err)
 
-	// aggregatorRoundId is indexed
-	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
-	require.NoError(t, err)
-	indexedArgs := abi.Arguments{
-		{
-			Name: "aggregatorRoundId",
-			Type: aggregatorRoundIDType,
-		},
-	}
-	aggregatorPacked, err := indexedArgs.Pack(e.AggregatorRoundId)
-	require.NoError(t, err)
-
 	// epochAndRound is indexed
 	epochAndRoundType, err := abi.NewType("uint40", "", nil)
 	require.NoError(t, err)
-	indexedArgs = abi.Arguments{
+	indexedArgs := abi.Arguments{
 		{
 			Name: "epochAndRound",
 			Type: epochAndRoundType,
@@ -1698,7 +1685,6 @@ func newNewTransmissionLog(
 		Data:    nonIndexedData,
 		Topics: [][]byte{
 			topic0.Bytes(),
-			aggregatorPacked,
 			epochAndRoundPacked,
 		},
 		EventSig: topic0,
