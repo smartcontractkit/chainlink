@@ -39,7 +39,7 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Clo
 }
 
 // CreateTransaction provides a mock function with given fields: txRequest, qopts
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest types.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest types.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -49,15 +49,15 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Cre
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error)); ok {
+	if rf, ok := ret.Get(0).(func(types.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
 		return rf(txRequest, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(types.TxRequest[ADDR, TX_HASH], ...pg.QOpt) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]); ok {
+	if rf, ok := ret.Get(0).(func(types.TxRequest[ADDR, TX_HASH], ...pg.QOpt) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
 		r0 = rf(txRequest, qopts...)
 	} else {
-		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE])
+		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
 	if rf, ok := ret.Get(1).(func(types.TxRequest[ADDR, TX_HASH], ...pg.QOpt) error); ok {
@@ -162,18 +162,18 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 }
 
 // SendNativeToken provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from ADDR, to ADDR, value big.Int, gasLimit uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from ADDR, to ADDR, value big.Int, gasLimit uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
 
-	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	var r0 types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error)); ok {
+	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) (types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
 		return rf(chainID, from, to, value, gasLimit)
 	}
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]); ok {
+	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
 		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
-		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE])
+		r0 = ret.Get(0).(types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
 	if rf, ok := ret.Get(1).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) error); ok {

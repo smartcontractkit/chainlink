@@ -11,7 +11,7 @@ type StarkNetNodePresenter struct {
 
 // ToRow presents the StarkNetNodeResource as a slice of strings.
 func (p *StarkNetNodePresenter) ToRow() []string {
-	return []string{p.GetID(), p.Name, p.ChainID, p.State, p.Config}
+	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 
 // RenderTable implements TableRenderer
