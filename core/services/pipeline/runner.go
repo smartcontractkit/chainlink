@@ -457,7 +457,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
 	}
-	l.Debugw("Pipeline task completed", loggerFields...)
+	l.Tracew("Pipeline task completed", loggerFields...)
 
 	now := time.Now()
 
