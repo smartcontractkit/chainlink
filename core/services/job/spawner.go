@@ -322,7 +322,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	err := q.Transaction(func(tx pg.Queryer) error {
 		err2 := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
 		if err2 != nil {
-			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
+			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err2)
 			return err2
 		}
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if

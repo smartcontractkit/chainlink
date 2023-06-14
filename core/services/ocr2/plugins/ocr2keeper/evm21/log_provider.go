@@ -17,7 +17,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -45,14 +44,14 @@ type LogProvider struct {
 
 func LogProviderFilter(addr common.Address) logpoller.Filter {
 	return logpoller.Filter{
-		Name:      logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr),
-		Addresses: []common.Address{addr},
+		Name: logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr),
 		EventSigs: []common.Hash{
-			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
-			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
-			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
-			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 		},
+		Addresses: []common.Address{addr},
 	}
 }
 
