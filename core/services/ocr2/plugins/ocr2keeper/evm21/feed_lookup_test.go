@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -673,59 +674,62 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 
 		upkeepNeeded bool
 		performData  []byte
-		wantErr      error
+		wantErr      assert.ErrorAssertionFunc
 	}{
-		//{
-		//	name: "success - empty extra data",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey: "feedIDHex",
-		//		feeds:        []string{"ETD-USD", "BTC-ETH"},
-		//		timeParamKey: "blockNumber",
-		//		time:         big.NewInt(100),
-		//		extraData:    []byte{48, 120, 48, 48},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	upkeepNeeded: true,
-		//	performData:  []byte{48, 120, 48, 48},
-		//},
-		//{
-		//	name: "success - with extra data",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey:  "feedIDHex",
-		//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		//		timeParamKey: "blockNumber",
-		//		time:      big.NewInt(18952430),
-		//		// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
-		//		extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	upkeepNeeded: true,
-		//	performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-		//},
-		//{
-		//	name: "failure - bad response",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey:  "feedIDHex",
-		//		feeds:      []string{"ETD-USD", "BTC-ETH"},
-		//		timeParamKey: "blockNumber",
-		//		time:      big.NewInt(100),
-		//		extraData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{},
-		//	wantErr:      errors.New("callback output unpack error: abi: attempting to unmarshall an empty string while arguments are expected"),
-		//},
+		{
+			name: "success - empty extra data",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"ETD-USD", "BTC-ETH"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(100),
+				extraData:    []byte{48, 120, 48, 48},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{48, 120, 48, 48},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "success - with extra data",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(18952430),
+				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "failure - bad response",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"ETD-USD", "BTC-ETH"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(100),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{},
+			callbackErr:  errors.New("bad response"),
+			wantErr:      assert.Error,
+		},
 	}
 
 	for _, tt := range tests {
@@ -739,18 +743,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				"data": hexutil.Bytes(payload),
 			}
 			// if args don't match, just use mock.Anything
-			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).Return(tt.callbackErr).
 				Run(func(args mock.Arguments) {
-					//b := args.Get(1).(*hexutil.Bytes)
-					//b = &hexutil.Bytes{0, 1}
+					by := args.Get(1).(*hexutil.Bytes)
+					*by = tt.callbackResp
 				}).Once()
 			r.client = client
 
 			_, err = r.checkCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
-			if tt.wantErr != nil {
-				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
-				assert.NotNil(t, err, tt.name)
-			}
+			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
 		})
 	}
 }
