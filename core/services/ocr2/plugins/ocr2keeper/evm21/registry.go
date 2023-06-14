@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -65,9 +65,13 @@ var (
 
 //go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)
-	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (iregistry21.UpkeepInfo, error)
+	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)
+	GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	MercuryCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
@@ -80,17 +84,17 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
 	mercuryLookupCompatibleABI, err := abi.JSON(strings.NewReader(mercury_lookup_compatible_interface.MercuryLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
-	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
+	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
@@ -103,15 +107,15 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr,
+		lggr:     lggr.Named("EvmRegistry"),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
 		registry: registry,
-		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
+		abi:      keeperRegistryABI,
+		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: MercuryConfig{
@@ -122,7 +126,7 @@ func NewEVMRegistryServiceV2_0(addr common.Address, client evm.Chain, mc *models
 			apiErrCache:   apiErrCache,
 		},
 		hc:  http.DefaultClient,
-		enc: EVMAutomationEncoder20{},
+		enc: EVMAutomationEncoder21{},
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -147,21 +151,24 @@ func setupCaches(defaultUpkeepExpiration, defaultCooldownExpiration, defaultApiE
 }
 
 var upkeepStateEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet{}.Topic(), // unpauses an upkeep
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused{}.Topic(),    // updates the gas limit for an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(),       // adds new upkeep id to registry
+	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),         // adds new upkeep id to registry via migration
+	iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet{}.Topic(),      // unpauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),         // updates the gas limit for an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),           // pauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepCanceled{}.Topic(),         // cancels an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
 
 var upkeepActiveEvents = []common.Hash{
-	keeper_registry_wrapper2_0.KeeperRegistryUpkeepPerformed{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryReorgedUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
-	keeper_registry_wrapper2_0.KeeperRegistryStaleUpkeepReport{}.Topic(),
+	iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+	iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 }
 
 type checkResult struct {
-	ur  []EVMAutomationUpkeepResult20
+	ur  []EVMAutomationUpkeepResult21
 	err error
 }
 
@@ -188,7 +195,7 @@ type EvmRegistry struct {
 	client        client.Client
 	registry      Registry
 	abi           abi.ABI
-	packer        *evmRegistryPackerV2_0
+	packer        *evmRegistryPackerV2_1
 	chLog         chan logpoller.Log
 	reInit        *time.Timer
 	mu            sync.RWMutex
@@ -202,25 +209,40 @@ type EvmRegistry struct {
 	runError      error
 	mercury       MercuryConfig
 	hc            HttpClient
-	enc           EVMAutomationEncoder20
+	enc           EVMAutomationEncoder21
 }
 
-// GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
+// GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
-func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
+func (r *EvmRegistry) GetActiveUpkeepIDs(ctx context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
+	return r.GetActiveUpkeepIDsByType(ctx)
+}
+
+// GetActiveUpkeepIDsByType returns all active upkeeps of the given trigger types.
+func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...uint8) ([]ocr2keepers.UpkeepIdentifier, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	keys := make([]ocr2keepers.UpkeepIdentifier, len(r.active))
-	var i int
+	keys := make([]ocr2keepers.UpkeepIdentifier, 0)
+
 	for _, value := range r.active {
-		keys[i] = ocr2keepers.UpkeepIdentifier(value.ID.String())
-		i++
+		if len(triggers) == 0 {
+			keys = append(keys, ocr2keepers.UpkeepIdentifier(value.ID.String()))
+			continue
+		}
+		trigger := getUpkeepType(value.ID.Bytes())
+		for _, t := range triggers {
+			if trigger == upkeepType(t) {
+				keys = append(keys, ocr2keepers.UpkeepIdentifier(value.ID.String()))
+				break
+			}
+		}
 	}
 
 	return keys, nil
 }
 
+// TODO: should be called with ocr2keepers.UpkeepPayload
 func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepKey) ([]ocr2keepers.UpkeepResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
@@ -231,7 +253,6 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys
 		for i := range rs.ur {
 			result[i] = rs.ur[i]
 		}
-
 		return result, rs.err
 	case <-ctx.Done():
 		// safety on context done to provide an error on context cancellation
@@ -281,7 +302,6 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		{
 			go func(cx context.Context, lggr logger.Logger, f func() error) {
 				ticker := time.NewTicker(time.Second)
-
 				for {
 					select {
 					case <-ticker.C:
@@ -444,7 +464,6 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 }
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
-
 	hash := l.TxHash.String()
 	if _, ok := r.txHashes[hash]; ok {
 		return nil
@@ -458,18 +477,21 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	}
 
 	switch l := abilog.(type) {
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
-		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
+		trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(l.Id.Bytes()))
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
+	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
+	case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, false)
-	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
+	case *iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.addToActive(l.Id, true)
+	default:
+		r.lggr.Debugf("Unknown log detected for log %+v in transaction %s", l, hash)
 	}
 
 	return nil
@@ -626,7 +648,7 @@ func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult20, error) {
+func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult21, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
 		checkResults = make([]*string, len(keys))
@@ -642,10 +664,18 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		if err != nil {
 			return nil, err
 		}
-
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
-		if err != nil {
-			return nil, err
+		var payload []byte
+		switch getUpkeepType(upkeepId.Bytes()) {
+		case logTrigger:
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId, []byte{}) // TODO: pass log data
+			if err != nil {
+				return nil, err
+			}
+		default:
+			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		var result string
@@ -670,7 +700,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	var (
 		multiErr error
-		results  = make([]EVMAutomationUpkeepResult20, len(keys))
+		results  = make([]EVMAutomationUpkeepResult21, len(keys))
 	)
 
 	for i, req := range checkReqs {
@@ -682,7 +712,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", string(keys[i]), *checkResults[i])
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
 		}
 	}
@@ -691,7 +721,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
+func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
 		performResults  = make([]*string, 0, len(checkResults))
@@ -810,10 +840,14 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			var err error
-			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
+			info, err := r.packer.UnpackUpkeepInfo(ids[i], *uResults[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %s", err)
+			}
+			results[i] = activeUpkeep{ // TODO
+				ID:              ids[i],
+				PerformGasLimit: info.ExecuteGas,
+				CheckData:       info.CheckData,
 			}
 		}
 	}

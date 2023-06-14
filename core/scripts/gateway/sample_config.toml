@@ -2,10 +2,18 @@
 Port = 8080
 Path = "/user"
 ContentTypeHeader = "application/jsonrpc"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
 
 [NodeServerConfig]
 Port = 8081
 Path = "/node"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
 HandshakeTimeoutMillis = 1000
 
 [ConnectionManagerConfig]
