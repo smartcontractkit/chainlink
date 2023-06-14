@@ -826,7 +826,7 @@ func (b *BlockHistoryEstimator) isUsable(tx evmtypes.Transaction, block evmtypes
 		lggr.Debugw("Ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
-	return chainSpecificIsUsable(tx, block, cfg)
+	return chainSpecificIsUsable(tx, block.BaseFeePerGas, cfg)
 }
 
 func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {

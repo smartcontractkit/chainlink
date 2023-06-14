@@ -1,13 +1,14 @@
 package gas
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
 // Config that determines whether a transaction should be used for gas estimation
-func chainSpecificIsUsable(tx evmtypes.Transaction, block evmtypes.Block, cfg Config) bool {
+func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, cfg Config) bool {
 	if cfg.ChainType() == config.ChainXDai {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
 		// However, xDai reserves a special type of "bridge" transaction with 0 gas
@@ -37,7 +38,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, block evmtypes.Block, cfg Co
 		// and uses the standard 0x0, 0x2 types instead. We need to discard any invalid transactions
 		// and not throw an error since this can happen from time to time and it's an expected behavior
 		// until they fully migrate to 0x7c.
-		if tx.GasPrice.Cmp(block.BaseFeePerGas) < 0 {
+		if baseFee != nil && tx.GasPrice.Cmp(baseFee) < 0 {
 			return false
 
 		}
