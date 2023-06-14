@@ -126,6 +126,9 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		sort.Float64s(delays)
 		info.SortedAllDelays = delays
 		info.TotalPerforms = uint64(len(info.SortedAllDelays))
+		//
+		//log.Printf("info.TotalDelayBlock: %v", info.TotalDelayBlock)
+		//log.Printf("info.DelayBuckets: %v", info.DelayBuckets)
 
 		p50, _ := stats.Percentile(info.SortedAllDelays, 50)
 		p90, _ := stats.Percentile(info.SortedAllDelays, 90)
@@ -134,7 +137,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		maxDelay := info.SortedAllDelays[len(info.SortedAllDelays)-1]
 
 		log.Printf("%d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
-		log.Printf("All delays: %v", info.SortedAllDelays)
+		//log.Printf("All delays: %v", info.SortedAllDelays)
 		upkeepStats.AllInfos = append(upkeepStats.AllInfos, info)
 		upkeepStats.TotalPerforms += info.TotalPerforms
 		upkeepStats.TotalDelayBlock += info.TotalDelayBlock
