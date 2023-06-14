@@ -631,7 +631,7 @@ func isBlacklisted(k string) bool {
 
 // prometheusUse is adapted from ginprom.Prometheus.Use
 // until merged upstream: https://github.com/Depado/ginprom/pull/48
-func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.HandlerOpts) {
+func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.HandlerOpts, aggregatePluginMetricsFn func(gc *gin.Context)) {
 	var (
 		r prometheus.Registerer = p.Registry
 		g prometheus.Gatherer   = p.Registry
@@ -641,7 +641,12 @@ func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.Ha
 		g = prometheus.DefaultGatherer
 	}
 	h := promhttp.InstrumentMetricHandler(r, promhttp.HandlerFor(g, handlerOpts))
-	e.GET(p.MetricsPath, prometheusHandler(p.Token, h))
+	handlers := []gin.HandlerFunc{}
+	if aggregatePluginMetricsFn != nil {
+		handlers = append(handlers, aggregatePluginMetricsFn)
+	}
+	handlers = append(handlers, prometheusHandler(p.Token, h))
+	e.GET(p.MetricsPath, handlers...)
 	p.Engine = e
 }
 

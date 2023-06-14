@@ -6,6 +6,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/common/model"
@@ -22,6 +23,7 @@ type LoopRegistryServer struct {
 	logger          logger.SugaredLogger
 
 	jsonMarshalFn func(any) ([]byte, error)
+	mu            sync.Mutex
 }
 
 func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
@@ -79,21 +81,59 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 		return
 	}
 
+	//pluginURL := fmt.Sprintf("http://localhost:%d/metrics", p.EnvCfg.PrometheusPort())
+	l.getPluginMetric(gc, p)
+	/*
+		res, err := http.Get(pluginURL) //nolint
+		if err != nil {
+			gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
+			return
+		}
+		defer res.Body.Close()
+		b, err := io.ReadAll(res.Body)
+		if err != nil {
+			err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginName), err)
+			gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
+			return
+		}
+		gc.Data(http.StatusOK, "text/plain", b)
+	*/
+}
+
+func (l *LoopRegistryServer) getPluginMetric(gc *gin.Context, p *plugins.RegisteredLoop) {
 	pluginURL := fmt.Sprintf("http://%s:%d/metrics", p.EnvCfg.Hostname(), p.EnvCfg.PrometheusPort())
 	res, err := http.Get(pluginURL) //nolint
+
 	if err != nil {
+		l.mu.Lock()
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
+		l.mu.Unlock()
 		return
 	}
+
 	defer res.Body.Close()
 	b, err := io.ReadAll(res.Body)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if err != nil {
-		err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginName), err)
+		err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginURL), err)
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
 	gc.Data(http.StatusOK, "text/plain", b)
+}
 
+func (l *LoopRegistryServer) getAllPluginMetrics(gc *gin.Context) {
+	wg := sync.WaitGroup{}
+	for _, p := range l.registry.List() {
+		wg.Add(1)
+		go func(plug *plugins.RegisteredLoop) {
+			defer wg.Done()
+			l.getPluginMetric(gc, p)
+		}(p)
+	}
+	wg.Wait()
 }
 
 func pluginMetricPath(name string) string {
