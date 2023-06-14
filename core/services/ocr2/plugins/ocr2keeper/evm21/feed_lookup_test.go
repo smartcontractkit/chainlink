@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
@@ -509,7 +508,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		name         string
 		index        int
 		ml           *FeedLookup
-		mv           job.MercuryVersion
+		mv           MercuryVersion
 		blob         string
 		statusCode   int
 		retryNumber  int
@@ -526,7 +525,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				extraData:    nil,
 			},
-			mv:   job.MercuryV02,
+			mv:   MercuryV02,
 			blob: "0xab2123dc00000012",
 		},
 		{
@@ -539,7 +538,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				extraData:    nil,
 			},
-			mv:          job.MercuryV02,
+			mv:          MercuryV02,
 			blob:        "0xab2123dcbabbad",
 			retryNumber: 1,
 			statusCode:  http.StatusNotFound,
@@ -554,7 +553,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				extraData:    nil,
 			},
-			mv:          job.MercuryV02,
+			mv:          MercuryV02,
 			blob:        "0xab2123dcbbabad",
 			retryNumber: 2,
 			statusCode:  http.StatusInternalServerError,
@@ -569,7 +568,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				extraData:    nil,
 			},
-			mv:           job.MercuryV02,
+			mv:           MercuryV02,
 			blob:         "0xab2123dc",
 			retryNumber:  TotalAttempt,
 			statusCode:   http.StatusNotFound,
@@ -586,7 +585,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				extraData:    nil,
 			},
-			mv:           job.MercuryV02,
+			mv:           MercuryV02,
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
 			retryable:    false,

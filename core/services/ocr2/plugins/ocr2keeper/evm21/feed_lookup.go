@@ -21,8 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 const (
@@ -40,7 +38,11 @@ const (
 	Timestamp           = "timestamp" // valid for v0.3
 	TotalAttempt        = 3
 	UserId              = "userId"
+	MercuryV02          = MercuryVersion("v0.2")
+	MercuryV03          = MercuryVersion("v0.3")
 )
+
+type MercuryVersion string
 
 type FeedLookup struct {
 	feedParamKey string
@@ -223,12 +225,12 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 	if ml.feedParamKey == FeedIDHex && ml.timeParamKey == BlockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
-			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml, job.MercuryV02)
+			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml, MercuryV02)
 		}
 	} else if ml.feedParamKey == FeedID && ml.timeParamKey == Timestamp {
 		// only mercury v0.3
 		if resultLen == 1 {
-			go r.singleFeedRequest(ctx, ch, upkeepId, 0, ml, job.MercuryV03)
+			go r.singleFeedRequest(ctx, ch, upkeepId, 0, ml, MercuryV03)
 		} else {
 			// create a new channel with buffer size 1 since the batch endpoint will only return 1 blob
 			resultLen = 1
@@ -258,7 +260,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 }
 
 // singleFeedRequest sends a Mercury request for a single feed report.
-func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *FeedLookup, mv job.MercuryVersion) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *FeedLookup, mv MercuryVersion) {
 	q := url.Values{
 		ml.feedParamKey: {ml.feeds[index]},
 		ml.timeParamKey: {ml.time.String()},
@@ -266,7 +268,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 	}
 	mercuryURL := MercuryHostV2
 	path := MercuryPathV2
-	if mv == job.MercuryV03 {
+	if mv == MercuryV03 {
 		mercuryURL = MercuryHostV3
 		path = MercuryPathV3
 	}
