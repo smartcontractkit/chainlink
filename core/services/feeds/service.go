@@ -1037,36 +1037,6 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
-func (s *service) findExistingJob(j *job.Job, qopts pg.QOpt) (int32, error) {
-	var existingJobID int32
-	var err error
-
-	switch j.Type {
-	case job.OffchainReporting, job.FluxMonitor:
-		existingJobID, err = s.findExistingJobForOCRFlux(j, qopts)
-		if err != nil {
-			// Return an error if the repository errors. If there is a not found
-			// error we want to continue with approving the job.
-			if !errors.Is(err, sql.ErrNoRows) {
-				return 0, err
-			}
-		}
-	case job.OffchainReporting2, job.Bootstrap:
-		existingJobID, err = s.findExistingJobForOCR2(j, qopts)
-		if err != nil {
-			// Return an error if the repository errors. If there is a not found
-			// error we want to continue with approving the job.
-			if !errors.Is(err, sql.ErrNoRows) {
-				return 0, err
-			}
-		}
-	default:
-		return 0, errors.Errorf("unsupported job type: %s", j.Type)
-	}
-
-	return existingJobID, nil
-}
-
 // findExistingJobForOCR2 looks for existing job for OCR2
 func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, error) {
 	var contractID string
