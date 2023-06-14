@@ -47,6 +47,11 @@ var _ relaytypes.Relayer = &Relayer{}
 type RelayerConfig interface {
 }
 
+type JobHooks interface {
+	OnCreateJob(arg relaytypes.RelayArgs, q pg.Queryer) (err error)
+	OnDeleteJob(arg relaytypes.RelayArgs, q pg.Queryer) (err error)
+}
+
 type Relayer struct {
 	db          *sqlx.DB
 	chainSet    evm.ChainSet

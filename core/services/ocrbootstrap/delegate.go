@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 // Delegate creates Bootstrap jobs
@@ -146,7 +147,7 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 		ContractID:  spec.ContractID,
 		RelayConfig: spec.RelayConfig.Bytes(),
 	}
-	r, ok := relayer.(relay.JobHooks)
+	r, ok := relayer.(evmrelay.JobHooks)
 	if !ok {
 		return nil
 	}
@@ -177,7 +178,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		ContractID:  spec.ContractID,
 		RelayConfig: spec.RelayConfig.Bytes(),
 	}
-	r, ok := relayer.(relay.JobHooks)
+	r, ok := relayer.(evmrelay.JobHooks)
 	if !ok {
 		return nil
 	}

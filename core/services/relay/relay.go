@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type Network string
@@ -29,11 +28,6 @@ var (
 		StarkNet: {},
 	}
 )
-
-type JobHooks interface {
-	OnCreateJob(arg types.RelayArgs, q pg.Queryer) (err error)
-	OnDeleteJob(arg types.RelayArgs, q pg.Queryer) (err error)
-}
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {
@@ -52,7 +46,6 @@ var _ loop.Relayer = (*relayerAdapter)(nil)
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
-	JobHooks
 	RelayerExt
 }
 
@@ -95,21 +88,4 @@ func (r *relayerAdapter) HealthReport() map[string]error {
 	maps.Copy(r.Relayer.HealthReport(), hr)
 	maps.Copy(r.RelayerExt.HealthReport(), hr)
 	return hr
-}
-
-func (r *relayerAdapter) OnCreateJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
-	relay, ok := r.Relayer.(JobHooks)
-	if !ok {
-		return nil
-	}
-	return relay.OnCreateJob(rargs, q)
-
-}
-
-func (r *relayerAdapter) OnDeleteJob(rargs types.RelayArgs, q pg.Queryer) (err error) {
-	relay, ok := r.Relayer.(JobHooks)
-	if !ok {
-		return nil
-	}
-	return relay.OnDeleteJob(rargs, q)
 }
