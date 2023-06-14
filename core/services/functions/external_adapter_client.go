@@ -35,7 +35,7 @@ type ExternalAdapterClient interface {
 		subscriptionOwner string,
 		subscriptionId uint64,
 		nodeProvidedSecrets string,
-		jsonData json.RawMessage,
+		requestData *RequestData,
 	) (userResult, userError []byte, domains []string, err error)
 
 	FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error)
@@ -68,16 +68,7 @@ type requestPayload struct {
 	SubscriptionOwner   string       `json:"subscriptionOwner"`
 	SubscriptionId      uint64       `json:"subscriptionId"`
 	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
-	Data                *requestData `json:"data"`
-}
-
-type requestData struct {
-	Source          string   `json:"source"`
-	Language        int      `json:"language"`
-	CodeLocation    int      `json:"codeLocation"`
-	Secrets         string   `json:"secrets"`
-	SecretsLocation int      `json:"secretsLocation"`
-	Args            []string `json:"args"`
+	Data                *RequestData `json:"data"`
 }
 
 type secretsPayload struct {
@@ -134,13 +125,8 @@ func (ea *externalAdapterClient) RunComputation(
 	subscriptionOwner string,
 	subscriptionId uint64,
 	nodeProvidedSecrets string,
-	jsonData json.RawMessage,
+	requestData *RequestData,
 ) (userResult, userError []byte, domains []string, err error) {
-	var data requestData
-	err = json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "failed unmarshalling json data")
-	}
 
 	payload := requestPayload{
 		Endpoint:            "lambda",
@@ -149,7 +135,7 @@ func (ea *externalAdapterClient) RunComputation(
 		SubscriptionOwner:   subscriptionOwner,
 		SubscriptionId:      subscriptionId,
 		NodeProvidedSecrets: nodeProvidedSecrets,
-		Data:                &data,
+		Data:                requestData,
 	}
 
 	userResult, userError, domains, err = ea.request(ctx, payload, requestId, jobName, "run_computation")
