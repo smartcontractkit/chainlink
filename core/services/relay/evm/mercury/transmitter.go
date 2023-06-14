@@ -207,7 +207,7 @@ func (mt *mercuryTransmitter) runloop() {
 		b.Reset()
 		if res.Error == "" {
 			mt.transmitSuccessCount.Inc()
-			mt.lggr.Debugw("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
+			mt.lggr.Tracew("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
 		} else {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
@@ -216,7 +216,7 @@ func (mt *mercuryTransmitter) runloop() {
 			case DuplicateReport:
 				mt.transmitSuccessCount.Inc()
 				mt.transmitDuplicateCount.Inc()
-				mt.lggr.Debugw("Transmit report succeeded; duplicate report", "code", res.Code)
+				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
 				elems := map[string]interface{}{}
 				var validFrom int64
