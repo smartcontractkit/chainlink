@@ -721,6 +721,7 @@ type OCR struct {
 	SimulateTransactions *bool
 	TransmitterAddress   *ethkey.EIP55Address
 	CaptureEATelemetry   *bool
+	TraceLogging         *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -753,6 +754,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.TraceLogging; v != nil {
+		o.TraceLogging = v
 	}
 }
 

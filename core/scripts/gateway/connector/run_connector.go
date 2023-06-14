@@ -12,7 +12,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 )
@@ -28,13 +28,21 @@ type client struct {
 	lggr       logger.Logger
 }
 
-func (h *client) HandleGatewayMessage(gatewayId string, msg *gateway.Message) {
+func (h *client) HandleGatewayMessage(gatewayId string, msg *api.Message) {
 	h.lggr.Infof("received message from gateway %s. Echoing back.", gatewayId)
 	h.connector.SendToGateway(context.Background(), gatewayId, msg)
 }
 
 func (h *client) Sign(data ...[]byte) ([]byte, error) {
-	return gateway.SignData(h.privateKey, data...)
+	return api.SignData(h.privateKey, data...)
+}
+
+func (h *client) Start(ctx context.Context) error {
+	return nil
+}
+
+func (h *client) Close() error {
+	return nil
 }
 
 func main() {

@@ -2,44 +2,49 @@ package types
 
 import "time"
 
-// FEE_UNIT - fee unit
-type TxmConfig[FEE_UNIT Unit] interface {
-	BroadcasterConfig[FEE_UNIT]
-	ConfirmerConfig[FEE_UNIT]
+type TransactionManagerConfig interface {
+	BroadcasterConfig
+	ConfirmerConfig
 	ResenderConfig
 	ReaperConfig
 
 	SequenceAutoSync() bool
-	UseForwarders() bool
-	MaxQueuedTransactions() uint64
 }
 
-// FEE_UNIT - fee unit
-type BroadcasterConfig[FEE_UNIT Unit] interface {
-	MaxInFlightTransactions() uint32
+type TransactionManagerTransactionsConfig interface {
+	BroadcasterTransactionsConfig
+	ConfirmerTransactionsConfig
+	ResenderTransactionsConfig
+	ReaperTransactionsConfig
 
+	ForwardersEnabled() bool
+	MaxQueued() uint64
+}
+
+type BroadcasterConfig interface {
 	// from gas.Config
 	IsL2() bool
-	MaxFeePrice() FEE_UNIT
-	FeePriceDefault() FEE_UNIT
+	MaxFeePrice() string     // logging value
+	FeePriceDefault() string // logging value
+}
+
+type BroadcasterTransactionsConfig interface {
+	MaxInFlight() uint32
 }
 
 type BroadcasterListenerConfig interface {
 	FallbackPollInterval() time.Duration
 }
 
-// FEE_UNIT - fee unit
-type ConfirmerConfig[FEE_UNIT Unit] interface {
+type ConfirmerConfig interface {
 	RPCDefaultBatchSize() uint32
-	UseForwarders() bool
 	FeeBumpTxDepth() uint32
-	MaxInFlightTransactions() uint32
 	FeeLimitDefault() uint32
 
 	// from gas.Config
 	FeeBumpThreshold() uint64
 	FinalityDepth() uint32
-	MaxFeePrice() FEE_UNIT
+	MaxFeePrice() string // logging value
 	FeeBumpPercent() uint16
 }
 
@@ -48,19 +53,29 @@ type ConfirmerDatabaseConfig interface {
 	DefaultQueryTimeout() time.Duration
 }
 
+type ConfirmerTransactionsConfig interface {
+	MaxInFlight() uint32
+	ForwardersEnabled() bool
+}
+
 type ResenderConfig interface {
-	TxResendAfterThreshold() time.Duration
-	MaxInFlightTransactions() uint32
 	RPCDefaultBatchSize() uint32
+}
+
+type ResenderTransactionsConfig interface {
+	ResendAfterThreshold() time.Duration
+	MaxInFlight() uint32
 }
 
 //go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
 
 // ReaperConfig is the config subset used by the reaper
 type ReaperConfig interface {
-	TxReaperInterval() time.Duration
-	TxReaperThreshold() time.Duration
-
 	// gas config
 	FinalityDepth() uint32
+}
+
+type ReaperTransactionsConfig interface {
+	ReaperInterval() time.Duration
+	ReaperThreshold() time.Duration
 }

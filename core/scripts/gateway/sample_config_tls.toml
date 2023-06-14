@@ -5,6 +5,10 @@ TLSCertPath = "certificate.pem"
 TLSKeyPath = "key.pem"
 Path = "/user"
 ContentTypeHeader = "application/jsonrpc"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
 
 [NodeServerConfig]
 Port = 8089
@@ -12,6 +16,10 @@ TLSEnabled = true
 TLSCertPath = "certificate.pem"
 TLSKeyPath = "key.pem"
 Path = "/node"
+ReadTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+MaxRequestBytes = 10_000
 HandshakeTimeoutMillis = 1000
 
 [ConnectionManagerConfig]

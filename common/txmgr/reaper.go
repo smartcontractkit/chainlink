@@ -14,6 +14,7 @@ import (
 type Reaper[CHAIN_ID txmgrtypes.ID] struct {
 	store          txmgrtypes.TxHistoryReaper[CHAIN_ID]
 	config         txmgrtypes.ReaperConfig
+	txConfig       txmgrtypes.ReaperTransactionsConfig
 	chainID        CHAIN_ID
 	log            logger.Logger
 	latestBlockNum atomic.Int64
@@ -23,10 +24,11 @@ type Reaper[CHAIN_ID txmgrtypes.ID] struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper[CHAIN_ID txmgrtypes.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], config txmgrtypes.ReaperConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
+func NewReaper[CHAIN_ID txmgrtypes.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], config txmgrtypes.ReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
 	r := &Reaper[CHAIN_ID]{
 		store,
 		config,
+		txConfig,
 		chainID,
 		lggr.Named("txm_reaper"),
 		atomic.Int64{},
@@ -40,7 +42,7 @@ func NewReaper[CHAIN_ID txmgrtypes.ID](lggr logger.Logger, store txmgrtypes.TxHi
 
 // Start the reaper. Should only be called once.
 func (r *Reaper[CHAIN_ID]) Start() {
-	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.config.TxReaperThreshold(), r.config.TxReaperInterval())
+	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.txConfig.ReaperThreshold(), r.txConfig.ReaperInterval())
 	go r.runLoop()
 }
 
@@ -53,7 +55,7 @@ func (r *Reaper[CHAIN_ID]) Stop() {
 
 func (r *Reaper[CHAIN_ID]) runLoop() {
 	defer close(r.chDone)
-	ticker := time.NewTicker(utils.WithJitter(r.config.TxReaperInterval()))
+	ticker := time.NewTicker(utils.WithJitter(r.txConfig.ReaperInterval()))
 	defer ticker.Stop()
 	for {
 		select {
@@ -61,10 +63,10 @@ func (r *Reaper[CHAIN_ID]) runLoop() {
 			return
 		case <-ticker.C:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.config.TxReaperInterval()))
+			ticker.Reset(utils.WithJitter(r.txConfig.ReaperInterval()))
 		case <-r.trigger:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.config.TxReaperInterval()))
+			ticker.Reset(utils.WithJitter(r.txConfig.ReaperInterval()))
 		}
 	}
 }
@@ -94,7 +96,7 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 
 // ReapTxes deletes old txes
 func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
-	threshold := r.config.TxReaperThreshold()
+	threshold := r.txConfig.ReaperThreshold()
 	if threshold == 0 {
 		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
