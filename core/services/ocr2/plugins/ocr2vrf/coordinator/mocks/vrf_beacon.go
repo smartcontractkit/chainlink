@@ -196,25 +196,25 @@ func (_m *VRFBeaconInterface) FilterConfigSet(opts *bind.FilterOpts) (*vrf_beaco
 	return r0, r1
 }
 
-// FilterNewTransmission provides a mock function with given fields: opts, aggregatorRoundId, epochAndRound
-func (_m *VRFBeaconInterface) FilterNewTransmission(opts *bind.FilterOpts, aggregatorRoundId []uint32, epochAndRound []*big.Int) (*vrf_beacon.VRFBeaconNewTransmissionIterator, error) {
-	ret := _m.Called(opts, aggregatorRoundId, epochAndRound)
+// FilterNewTransmission provides a mock function with given fields: opts, epochAndRound
+func (_m *VRFBeaconInterface) FilterNewTransmission(opts *bind.FilterOpts, epochAndRound []*big.Int) (*vrf_beacon.VRFBeaconNewTransmissionIterator, error) {
+	ret := _m.Called(opts, epochAndRound)
 
 	var r0 *vrf_beacon.VRFBeaconNewTransmissionIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint32, []*big.Int) (*vrf_beacon.VRFBeaconNewTransmissionIterator, error)); ok {
-		return rf(opts, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) (*vrf_beacon.VRFBeaconNewTransmissionIterator, error)); ok {
+		return rf(opts, epochAndRound)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint32, []*big.Int) *vrf_beacon.VRFBeaconNewTransmissionIterator); ok {
-		r0 = rf(opts, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int) *vrf_beacon.VRFBeaconNewTransmissionIterator); ok {
+		r0 = rf(opts, epochAndRound)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_beacon.VRFBeaconNewTransmissionIterator)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint32, []*big.Int) error); ok {
-		r1 = rf(opts, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int) error); ok {
+		r1 = rf(opts, epochAndRound)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -727,30 +727,6 @@ func (_m *VRFBeaconInterface) NewKeyRequested(opts *bind.TransactOpts) (*types.T
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts) error); ok {
 		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// OracleObservationCount provides a mock function with given fields: opts, transmitterAddress
-func (_m *VRFBeaconInterface) OracleObservationCount(opts *bind.CallOpts, transmitterAddress common.Address) (uint32, error) {
-	ret := _m.Called(opts, transmitterAddress)
-
-	var r0 uint32
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) (uint32, error)); ok {
-		return rf(opts, transmitterAddress)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) uint32); ok {
-		r0 = rf(opts, transmitterAddress)
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address) error); ok {
-		r1 = rf(opts, transmitterAddress)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1562,25 +1538,25 @@ func (_m *VRFBeaconInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *
 	return r0, r1
 }
 
-// WatchNewTransmission provides a mock function with given fields: opts, sink, aggregatorRoundId, epochAndRound
-func (_m *VRFBeaconInterface) WatchNewTransmission(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconNewTransmission, aggregatorRoundId []uint32, epochAndRound []*big.Int) (event.Subscription, error) {
-	ret := _m.Called(opts, sink, aggregatorRoundId, epochAndRound)
+// WatchNewTransmission provides a mock function with given fields: opts, sink, epochAndRound
+func (_m *VRFBeaconInterface) WatchNewTransmission(opts *bind.WatchOpts, sink chan<- *vrf_beacon.VRFBeaconNewTransmission, epochAndRound []*big.Int) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, epochAndRound)
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []uint32, []*big.Int) (event.Subscription, error)); ok {
-		return rf(opts, sink, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []*big.Int) (event.Subscription, error)); ok {
+		return rf(opts, sink, epochAndRound)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []uint32, []*big.Int) event.Subscription); ok {
-		r0 = rf(opts, sink, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []*big.Int) event.Subscription); ok {
+		r0 = rf(opts, sink, epochAndRound)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(event.Subscription)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []uint32, []*big.Int) error); ok {
-		r1 = rf(opts, sink, aggregatorRoundId, epochAndRound)
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_beacon.VRFBeaconNewTransmission, []*big.Int) error); ok {
+		r1 = rf(opts, sink, epochAndRound)
 	} else {
 		r1 = ret.Error(1)
 	}
