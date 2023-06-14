@@ -52,17 +52,19 @@ WHERE namespace=$1 AND address=$2 AND slot_id=$3;`, o.tableName)
 func (o orm) Update(row *Row, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 
+	// This query inserts or updates a row, depending on whether the version is higher than the existing one.
+	// We only allow the same version when the row is confirmed.
+	// We never transition back from unconfirmed to confirmed state.
 	stmt := fmt.Sprintf(`INSERT INTO %s as t (namespace, address, slot_id, version, expiration, confirmed, payload, signature, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 ON CONFLICT (namespace, address, slot_id)
 DO UPDATE SET version = EXCLUDED.version,
-namespace = EXCLUDED.namespace,
 expiration = EXCLUDED.expiration,
 confirmed = EXCLUDED.confirmed,
 payload = EXCLUDED.payload,
 signature = EXCLUDED.signature,
 updated_at = NOW()
-WHERE t.version < EXCLUDED.version
+WHERE (t.version < EXCLUDED.version AND t.confirmed IS FALSE) OR (t.version <= EXCLUDED.version AND EXCLUDED.confirmed IS TRUE)
 RETURNING id;`, o.tableName)
 	var id uint64
 	err := q.Get(&id, stmt, o.namespace, row.Address, row.SlotId, row.Version, row.Expiration, row.Confirmed, row.Payload, row.Signature)
@@ -84,7 +86,7 @@ func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Snaps
 	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, confirmed FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
 	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err

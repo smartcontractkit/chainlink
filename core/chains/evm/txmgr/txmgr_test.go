@@ -21,6 +21,7 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -41,15 +42,15 @@ import (
 )
 
 func makeTestEvmTxm(
-	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.EvmTxManager, error) {
+	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.EvmTxManager, error) {
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 
 	// logic for building components (from evm/evm_txm.go) -------
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
-		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
-		"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
+		"maxInFlightTransactions", txConfig.MaxInFlight(),
+		"maxQueuedTransactions", txConfig.MaxQueued(),
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
@@ -60,8 +61,9 @@ func makeTestEvmTxm(
 	return txmgr.NewTxm(
 		db,
 		cfg,
-		cfg.Database(),
-		cfg.Database().Listener(),
+		txConfig,
+		dbConfig,
+		listenerConfig,
 		ethClient,
 		lggr,
 		lp,
@@ -78,14 +80,12 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1).ToInt()
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config, dbConfig, evmConfig := makeConfigs(t)
 	config.On("GasEstimatorMode").Return("FixedPrice")
 
-	keyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
+	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, keyStore, nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
 	require.NoError(t, err)
 
 	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
@@ -98,7 +98,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
@@ -106,13 +106,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	gasLimit := uint32(1000)
 	payload := []byte{1, 2, 3}
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config, dbConfig, evmConfig := makeConfigs(t)
 	config.On("GasEstimatorMode").Return("FixedPrice")
+
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -120,8 +119,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		evmConfig.maxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -158,8 +157,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		_, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		evmConfig.maxQueued = uint64(1)
+		_, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -174,9 +173,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
+		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		tx1, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		tx1, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -186,8 +185,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
-		tx2, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		tx2, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -204,7 +202,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
 		rndAddr := testutils.NewAddress()
-		_, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		_, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    rndAddr,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -216,7 +214,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
 
-		_, err = txm.CreateTransaction(txmgr.EvmNewTx{
+		_, err = txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    otherAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -235,8 +233,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		checker := txmgr.EvmTransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		evmConfig.maxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -271,12 +269,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			MaxLink:       &testDefaultMaxLink, // 1e18
 			SubID:         &testDefaultSubID,
 		}
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		evmConfig.maxQueued = uint64(1)
 		checker := txmgr.EvmTransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -305,7 +303,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		evmConfig.maxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
 		form := forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
@@ -314,7 +312,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
@@ -366,13 +364,43 @@ func (d *databaseConfig) Listener() config.Listener {
 	return &listenerConfig{}
 }
 
+type evmConfig struct {
+	evmconfig.EVM
+	maxInFlight          uint32
+	reaperInterval       time.Duration
+	reaperThreshold      time.Duration
+	resendAfterThreshold time.Duration
+	maxQueued            uint64
+}
+
+func (e *evmConfig) Transactions() evmconfig.Transactions {
+	return &transactionsConfig{e: e}
+}
+
+type transactionsConfig struct {
+	evmconfig.Transactions
+	e *evmConfig
+}
+
+func (_ *transactionsConfig) ForwardersEnabled() bool             { return true }
+func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.maxInFlight }
+func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.maxQueued }
+func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.reaperInterval }
+func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.reaperThreshold }
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.resendAfterThreshold }
+
+func makeConfigs(t *testing.T) (*txmmocks.Config, *databaseConfig, *evmConfig) {
+	config := newMockConfig(t)
+	db := &databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
+	ec := &evmConfig{maxInFlight: uint32(42), maxQueued: uint64(0), reaperInterval: time.Duration(0), reaperThreshold: time.Duration(0)}
+	return config, db, ec
+}
+
 func newMockConfig(t *testing.T) *txmmocks.Config {
 	// These are only used for logging, the exact value doesn't matter
 	// It can be overridden in the test that uses it
 	cfg := txmmocks.NewConfig(t)
 	cfg.On("EvmGasBumpTxDepth").Return(uint32(42)).Maybe().Once()
-	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe()
-	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
 	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
 	cfg.On("EvmGasLimitDefault").Return(uint32(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
@@ -391,16 +419,13 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmGasTipCapMinimum").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmMaxGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(assets.NewWeiI(42)).Maybe().Once()
-	cfg.On("EvmUseForwarders").Return(true).Maybe()
-	cfg.On("Database").Return(&databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout})
-
 	return cfg
 }
 
 func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -411,25 +436,24 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	gasLimit := uint32(1000)
 	toAddress := testutils.NewAddress()
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config, dbConfig, evmConfig := makeConfigs(t)
 	config.On("GasEstimatorMode").Return("FixedPrice")
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst.Eth(), nil)
+	kst := cltest.NewKeyStore(t, db, dbConfig)
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
+
+		evmConfig.maxQueued = uint64(1)
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -446,13 +470,14 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
+		evmConfig.maxQueued = uint64(1)
+
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -473,8 +498,8 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		etx, err := txm.CreateTransaction(txmgr.EvmNewTx{
+		evmConfig.maxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -491,23 +516,26 @@ func TestTxm_Lifecycle(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	config := newMockConfig(t)
 	kst := ksmocks.NewEth(t)
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 
-	config.On("EthTxResendAfterThreshold").Return(1 * time.Hour)
-	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-	config.On("EthTxReaperInterval").Return(1 * time.Hour)
-	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
+	config, dbConfig, evmConfig := makeConfigs(t)
+
+	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
+
+	evmConfig.resendAfterThreshold = 1 * time.Hour
+	evmConfig.reaperThreshold = 1 * time.Hour
+	evmConfig.reaperInterval = 1 * time.Hour
+
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]gethcommon.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, kst, eventBroadcaster)
+	txm, err := makeTestEvmTxm(t, db, ethClient, config, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst, eventBroadcaster)
 	require.NoError(t, err)
 
 	head := cltest.Head(42)
@@ -566,7 +594,7 @@ func TestTxm_Reset(t *testing.T) {
 
 	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
 	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)
@@ -587,7 +615,7 @@ func TestTxm_Reset(t *testing.T) {
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 
-	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, kst.Eth(), eventBroadcaster)
+	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)

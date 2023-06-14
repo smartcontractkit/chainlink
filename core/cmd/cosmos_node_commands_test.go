@@ -1,14 +1,15 @@
 package cmd_test
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -43,7 +44,6 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	}
 	app := cosmosStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
-
 	require.Nil(t, cmd.NewCosmosNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.CosmosNodePresenters)
@@ -56,4 +56,17 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 10, len(renderLines))
+	assert.Contains(t, renderLines[2], "Name")
+	assert.Contains(t, renderLines[2], n.Name)
+	assert.Contains(t, renderLines[3], "Chain ID")
+	assert.Contains(t, renderLines[3], n.ChainID)
+	assert.Contains(t, renderLines[4], "State")
+	assert.Contains(t, renderLines[4], n.State)
 }

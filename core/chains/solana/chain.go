@@ -16,7 +16,9 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -172,12 +173,12 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 }
 
 func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
-	lggr = lggr.With("chainID", id, "chainSet", "solana")
+	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
 		nodes:       cfgs.Nodes,
-		lggr:        lggr.Named("Chain"),
+		lggr:        logger.Named(lggr, "Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
 	tc := func() (client.ReaderWriter, error) {
@@ -219,7 +220,6 @@ func (c *chain) getClient() (client.ReaderWriter, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
-	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
 	for _, i := range index {
@@ -260,7 +260,7 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 			expectedChainID: c.id,
 		}
 		// create client
-		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
+		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}

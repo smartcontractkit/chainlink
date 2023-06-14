@@ -697,7 +697,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 
 func ptr[T any](v T) *T { return &v }
 
-func TestFilterNamesFromSpec(t *testing.T) {
+func TestFilterNamesFromSpec20(t *testing.T) {
 	b := make([]byte, 20)
 	_, err := rand.Read(b)
 	require.NoError(t, err)
@@ -708,7 +708,7 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		ContractID: address.String(), // valid contract addr
 	}
 
-	names, err := ocr2keeper.FilterNamesFromSpec(spec)
+	names, err := ocr2keeper.FilterNamesFromSpec20(spec)
 	require.NoError(t, err)
 
 	assert.Len(t, names, 2)
@@ -719,6 +719,32 @@ func TestFilterNamesFromSpec(t *testing.T) {
 		PluginType: job.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
-	names, err = ocr2keeper.FilterNamesFromSpec(spec)
+	_, err = ocr2keeper.FilterNamesFromSpec20(spec)
+	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
+}
+
+func TestFilterNamesFromSpec21(t *testing.T) {
+	b := make([]byte, 20)
+	_, err := rand.Read(b)
+	require.NoError(t, err)
+	address := common.HexToAddress(hexutil.Encode(b))
+
+	spec := &job.OCR2OracleSpec{
+		PluginType: job.OCR2Keeper,
+		ContractID: address.String(), // valid contract addr
+	}
+
+	names, err := ocr2keeper.FilterNamesFromSpec21(spec)
+	require.NoError(t, err)
+
+	assert.Len(t, names, 2)
+	assert.Equal(t, logpoller.FilterName("OCR2KeeperRegistry - LogProvider", address), names[0])
+	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
+
+	spec = &job.OCR2OracleSpec{
+		PluginType: job.OCR2Keeper,
+		ContractID: "0x5431", // invalid contract addr
+	}
+	_, err = ocr2keeper.FilterNamesFromSpec21(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }

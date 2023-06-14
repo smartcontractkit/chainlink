@@ -29,9 +29,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -82,6 +84,7 @@ type DelegateConfig interface {
 	JobPipeline() jobPipelineConfig
 	Database() pg.QConfig
 	Insecure() insecureConfig
+	Mercury() coreconfig.Mercury
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -91,6 +94,7 @@ type delegateConfig struct {
 	jobPipeline jobPipelineConfig
 	database    pg.QConfig
 	insecure    insecureConfig
+	mercury     mercuryConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -105,6 +109,10 @@ func (d *delegateConfig) Insecure() insecureConfig {
 	return d.insecure
 }
 
+func (d *delegateConfig) Mercury() coreconfig.Mercury {
+	return d.mercury
+}
+
 type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
@@ -114,13 +122,18 @@ type jobPipelineConfig interface {
 	ResultWriteQueueDepth() uint64
 }
 
-func NewDelegateConfig(vc validate.Config, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+type mercuryConfig interface {
+	Credentials(credName string) *models.MercuryCredentials
+}
+
+func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
 		database:        qconf,
 		insecure:        i,
+		mercury:         m,
 	}
 }
 
@@ -210,7 +223,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
 	case job.OCR2Keeper:
-		filters, err = ocr2keeper.FilterNamesFromSpec(spec)
+		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
@@ -344,7 +357,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.Config().P2P().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.P2PConfig().V2().DefaultBootstrappers())
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +516,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
+		if jb.ForwardingAllowed != chain.Config().EVM().Transactions().ForwardersEnabled() {
 			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
 		}
 
@@ -672,9 +685,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "failed to get mercury credential name")
 		}
 
-		mc := d.cfg.MercuryCredentials(credName)
+		mc := d.cfg.Mercury().Credentials(credName)
 
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}

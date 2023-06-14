@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -33,12 +34,14 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 		WSURL:    models.MustParseURL("ws://localhost:8546"),
 		HTTPURL:  models.MustParseURL("http://localhost:8546"),
 		SendOnly: ptr(false),
+		Order:    ptr(int32(15)),
 	}
 	node2 := evmcfg.Node{
 		Name:     ptr("Test node 2"),
 		WSURL:    models.MustParseURL("ws://localhost:8547"),
 		HTTPURL:  models.MustParseURL("http://localhost:8547"),
 		SendOnly: ptr(false),
+		Order:    ptr(int32(36)),
 	}
 	chain := evmcfg.EVMConfig{
 		ChainID: chainID,
@@ -69,4 +72,23 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 23, len(renderLines))
+	assert.Contains(t, renderLines[2], "Name")
+	assert.Contains(t, renderLines[2], n1.Name)
+	assert.Contains(t, renderLines[3], "Chain ID")
+	assert.Contains(t, renderLines[3], n1.ChainID)
+	assert.Contains(t, renderLines[4], "State")
+	assert.Contains(t, renderLines[4], n1.State)
+	assert.Contains(t, renderLines[12], "Name")
+	assert.Contains(t, renderLines[12], n2.Name)
+	assert.Contains(t, renderLines[13], "Chain ID")
+	assert.Contains(t, renderLines[13], n2.ChainID)
+	assert.Contains(t, renderLines[14], "State")
+	assert.Contains(t, renderLines[14], n2.State)
 }

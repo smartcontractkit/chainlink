@@ -65,6 +65,10 @@ func (h *Head) BlockHash() common.Hash {
 	return h.Hash
 }
 
+func (h *Head) GetParentHash() common.Hash {
+	return h.ParentHash
+}
+
 func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	if h.Parent == nil {
 		return nil

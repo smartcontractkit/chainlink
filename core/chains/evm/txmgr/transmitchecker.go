@@ -25,7 +25,7 @@ import (
 )
 
 type (
-	EvmTransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
+	EvmTransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
 )
 

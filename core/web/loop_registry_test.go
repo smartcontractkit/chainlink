@@ -21,7 +21,6 @@ import (
 type mockLoopImpl struct {
 	t *testing.T
 	*plugins.PromServer
-	counter prometheus.Counter
 }
 
 // test prom var to avoid collision with real chainlink metrics
@@ -74,7 +73,7 @@ func TestLoopRegistry(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// register a mock loop
-	loop, err := app.GetLoopRegistry().Register("mockLoopImpl", app.Config.Log())
+	loop, err := app.GetLoopRegistry().Register("mockLoopImpl")
 	require.NoError(t, err)
 	require.NotNil(t, loop)
 	require.Len(t, app.GetLoopRegistry().List(), 1)

@@ -1012,12 +1012,12 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	switch jbt {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
-		if !config.FeatureOffchainReporting() {
+		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), r.App.GetConfig().Insecure(), args.Input.TOML)
-		if !config.FeatureOffchainReporting2() {
+		if !config.OCR2Enabled() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
