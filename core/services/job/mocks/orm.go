@@ -5,8 +5,11 @@ package mocks
 import (
 	context "context"
 
-	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
+	common "github.com/ethereum/go-ethereum/common"
+
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -344,6 +347,37 @@ func (_m *ORM) FindJobsByPipelineSpecIDs(ids []int32) ([]job.Job, error) {
 
 	if rf, ok := ret.Get(1).(func([]int32) error); ok {
 		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindOCR2JobIDByAddress provides a mock function with given fields: contractID, feedID, qopts
+func (_m *ORM) FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (int32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, contractID, feedID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, common.Hash, ...pg.QOpt) (int32, error)); ok {
+		return rf(contractID, feedID, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(string, common.Hash, ...pg.QOpt) int32); ok {
+		r0 = rf(contractID, feedID, qopts...)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	if rf, ok := ret.Get(1).(func(string, common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(contractID, feedID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
