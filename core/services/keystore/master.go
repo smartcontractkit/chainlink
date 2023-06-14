@@ -26,7 +26,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var ErrLocked = errors.New("Keystore is locked")
+var (
+	ErrLocked      = errors.New("Keystore is locked")
+	ErrKeyNotFound = errors.New("Key not found")
+	ErrKeyExists   = errors.New("Key already exists")
+)
 
 // DefaultEVMChainIDFunc is a func for getting a default evm chain ID -
 // necessary because it is lazily evaluated
