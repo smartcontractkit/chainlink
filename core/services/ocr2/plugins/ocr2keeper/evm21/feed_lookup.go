@@ -25,19 +25,20 @@ import (
 )
 
 const (
-	BlockNumber        = "blockNumber" // valid for v0.2
-	FeedID             = "feedID"      // valid for v0.3
-	FeedIDHex          = "feedIDHex"   // valid for v0.2
-	MercuryHostV2      = ""
-	MercuryHostV3      = ""
-	MercuryPathV2      = "/client?"
-	MercuryPathV3      = "/v1/reports?"
-	MercuryBatchPathV3 = "/v1/reports/bulk?"
-	Retry              = "retry"
-	RetryDelay         = 600 * time.Millisecond
-	Timestamp          = "timestamp" // valid for v0.3
-	TotalAttempt       = 3
-	UserId             = "userId"
+	BlockNumber         = "blockNumber" // valid for v0.2
+	FeedID              = "feedID"      // valid for v0.3
+	FeedIDHex           = "feedIDHex"   // valid for v0.2
+	MercuryHostV2       = ""
+	MercuryHostV3       = ""
+	MercuryPathV2       = "/client?"
+	MercuryPathV3       = "/v1/reports?"
+	MercuryBatchPathV3  = "/v1/reports/bulk?"
+	NotFound            = "404"
+	InternalServerError = "500"
+	RetryDelay          = 600 * time.Millisecond
+	Timestamp           = "timestamp" // valid for v0.3
+	TotalAttempt        = 3
+	UserId              = "userId"
 )
 
 type FeedLookup struct {
@@ -302,7 +303,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
-				return errors.New(Retry)
+				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 			}
@@ -323,7 +324,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
+			return err.Error() == NotFound || err.Error() == InternalServerError
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
@@ -385,7 +386,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.time.String(), resp.StatusCode)
 				retryable = true
-				return errors.New(Retry)
+				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.time.String(), resp.StatusCode)
 			}
@@ -409,7 +410,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 		},
 		// only retry when the error is 404 Not Found
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
+			return err.Error() == NotFound || err.Error() == InternalServerError
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
