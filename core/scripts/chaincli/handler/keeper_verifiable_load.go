@@ -80,7 +80,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	// create a number of workers to process the upkeep ids in batch
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg)
 	}
 
@@ -133,6 +133,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		if err != nil {
 			log.Fatalf("failed to get current bucket count for %s: %v", id.String(), err)
 		}
+
 		log.Printf("upkeep ID %s has been performed %d times in %d buckets\n", id.String(), c, b+1)
 		info := &UpkeepInfo{
 			ID:                    id,
