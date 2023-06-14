@@ -21,21 +21,36 @@ type ContextValues struct {
 }
 
 // Args returns a slice of args to pass to [logger.Logger.With].
-func (v *ContextValues) Args() []any {
-	return []any{
-		"jobID", v.JobID,
-		"jobName", v.JobName,
-		"contractID", v.ContractID,
-		"feedID", v.FeedID,
+func (v *ContextValues) Args() (a []any) {
+	if v.JobID != nil {
+		a = append(a, "jobID", v.JobID)
 	}
+	if v.JobName != nil {
+		a = append(a, "jobName", v.JobName)
+	}
+	if v.ContractID != nil {
+		a = append(a, "contractID", v.ContractID)
+	}
+	if v.FeedID != nil {
+		a = append(a, "feedID", v.FeedID)
+	}
+	return
 }
 
 // ContextWithValues returns a context.Context with values set from v.
 func (v *ContextValues) ContextWithValues(ctx context.Context) context.Context {
-	ctx = context.WithValue(ctx, ctxKeyJobID, v.JobID)
-	ctx = context.WithValue(ctx, ctxKeyJobName, v.JobName)
-	ctx = context.WithValue(ctx, ctxKeyContractID, v.ContractID)
-	ctx = context.WithValue(ctx, ctxKeyFeedID, v.FeedID)
+	if v.JobID != nil {
+		ctx = context.WithValue(ctx, ctxKeyJobID, v.JobID)
+	}
+	if v.JobName != nil {
+		ctx = context.WithValue(ctx, ctxKeyJobName, v.JobName)
+	}
+	if v.ContractID != nil {
+		ctx = context.WithValue(ctx, ctxKeyContractID, v.ContractID)
+	}
+	if v.FeedID != nil {
+		ctx = context.WithValue(ctx, ctxKeyFeedID, v.FeedID)
+	}
 	return ctx
 }
 
