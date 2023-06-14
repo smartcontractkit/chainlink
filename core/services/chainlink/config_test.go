@@ -1091,11 +1091,11 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-<<<<<<< HEAD
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock or omitted
-=======
 			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
+			- FinalityDepth: invalid value (0): must be greater than or equal to 1
+			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
+				- 0: 3 errors:
 					- Name: missing: required for all nodes
 					- WSURL: missing: required for primary nodes
 					- HTTPURL: empty: required for all nodes
