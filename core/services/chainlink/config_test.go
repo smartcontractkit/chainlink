@@ -346,6 +346,7 @@ func TestConfig_Marshal(t *testing.T) {
 		CaptureEATelemetry:                 ptr(false),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
+		TraceLogging:                       ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -766,6 +767,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
+TraceLogging = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13

@@ -718,6 +718,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
+TraceLogging = false # Default
 ```
 
 
@@ -820,6 +821,12 @@ DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in
 SimulateTransactions = false # Default
 ```
 SimulateTransactions enables transaction simulation for OCR2.
+
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
 
 ## OCR
 ```toml

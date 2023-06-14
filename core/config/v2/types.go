@@ -674,6 +674,7 @@ type OCR2 struct {
 	CaptureEATelemetry                 *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
+	TraceLogging                       *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -709,6 +710,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.SimulateTransactions; v != nil {
 		o.SimulateTransactions = v
+	}
+	if v := f.TraceLogging; v != nil {
+		o.TraceLogging = v
 	}
 }
 

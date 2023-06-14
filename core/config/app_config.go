@@ -35,8 +35,6 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	OCR2Config
-
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
 	Database() Database
@@ -49,6 +47,7 @@ type AppConfig interface {
 	Log() Log
 	Mercury() Mercury
 	OCR() OCR
+	OCR2() OCR2
 	P2P() P2P
 	Password() Password
 	Prometheus() Prometheus

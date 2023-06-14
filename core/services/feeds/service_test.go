@@ -185,7 +185,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.Database(), cc, lggr, "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), cc, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -360,7 +360,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			OCR1Config: feeds.OCR1Config{
 				Enabled: false,
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled: false,
 			},
 		}
@@ -405,7 +405,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 			AdminAddress:      "0x00000000000",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2Config{Enabled: false},
+			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
 		}
 
 		svc = setupTestService(t)
@@ -477,7 +477,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			AdminAddress:      "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2Config{Enabled: false},
+			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
 		}
 
 		svc = setupTestService(t)
@@ -520,7 +520,7 @@ func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 			AdminAddress:      "0x00000000000",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2Config{Enabled: false},
+			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
 		}
 
 		svc = setupTestService(t)
@@ -1075,7 +1075,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				P2PPeerID:   null.StringFrom(p2pKey.PeerID().String()),
 				KeyBundleID: null.StringFrom(ocrKey.GetID()),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom(multiaddr),
