@@ -40,6 +40,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
+
 	t.Cleanup(func() {
 		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
@@ -63,20 +64,21 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		actions.TrackForwarder(t, chainClient, authorizedForwarders[i], workerNodes[i])
 		err = chainClient.WaitForEvents()
 	}
-
 	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
+	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
+	require.NoError(t, err, "Error building OCRv2 config")
+	// replace transmitters with forwarders
+	ocrv2Config.Transmitters = authorizedForwarders
+
 	err = actions.CreateOCRv2JobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
-
-	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
-	require.NoError(t, err, "Error building OCRv2 config")
 
 	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
