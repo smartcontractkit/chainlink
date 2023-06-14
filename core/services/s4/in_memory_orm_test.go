@@ -26,7 +26,7 @@ func TestInMemoryORM(t *testing.T) {
 		Payload:    payload[:],
 		Version:    3,
 		Expiration: expiration,
-		Confirmed:  true,
+		Confirmed:  false,
 		Signature:  signature[:],
 	}
 
@@ -43,21 +43,24 @@ func TestInMemoryORM(t *testing.T) {
 
 		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
 		assert.NoError(t, err)
-		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 
 	t.Run("update and get", func(t *testing.T) {
+		row.Version = 5
 		err := orm.Update(row)
 		assert.NoError(t, err)
 
-		row.Version = 5
+		// unconfirmed row requires greater version
+		err = orm.Update(row)
+		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
+
+		row.Confirmed = true
 		err = orm.Update(row)
 		assert.NoError(t, err)
 
 		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
 		assert.NoError(t, err)
-		row.UpdatedAt = e.UpdatedAt
 		assert.Equal(t, row, e)
 	})
 }
@@ -121,7 +124,6 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	rows, err := orm.GetUnconfirmedRows(100)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 100)
-	assert.Less(t, rows[0].UpdatedAt, rows[99].UpdatedAt)
 }
 
 func TestInMemoryORM_GetSnapshot(t *testing.T) {

@@ -7,14 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
-// Note: this is a legacy interface. Any new fields should be added to the database
-// interface defined below and accessed via cfg.Database().<FieldName>().
-type DatabaseV1 interface {
-	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseURL() url.URL
-	LogSQL() bool
-}
-
 type Backup interface {
 	Dir() string
 	Frequency() time.Duration
@@ -39,14 +31,14 @@ type Database interface {
 	Backup() Backup
 	Listener() Listener
 	Lock() Lock
-	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseURL() url.URL
 
-	Dialect() dialects.DialectName
 	DefaultIdleInTxSessionTimeout() time.Duration
 	DefaultLockTimeout() time.Duration
-	MigrateDatabase() bool
+	DefaultQueryTimeout() time.Duration
+	Dialect() dialects.DialectName
+	LogSQL() bool
 	MaxIdleConns() int
 	MaxOpenConns() int
-	LogSQL() bool
+	MigrateDatabase() bool
+	URL() url.URL
 }

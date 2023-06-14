@@ -1,17 +1,16 @@
 package testhelpers
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // MakeConfigDigest makes config digest
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 32)
-	/* #nosec G404 */
 	_, err := rand.Read(b)
 	if err != nil {
 		t.Fatal(err)

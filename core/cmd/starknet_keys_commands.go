@@ -52,6 +52,6 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewStarkNetKeysClient(c *Client) KeysClient {
-	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
+func NewStarkNetKeysClient(s *Shell) KeysClient {
+	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", s)
 }

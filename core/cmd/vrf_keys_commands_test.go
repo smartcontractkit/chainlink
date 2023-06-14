@@ -66,13 +66,13 @@ func AssertKeysEqualNoTimestamps(t *testing.T, k1, k2 cmd.VRFKeyPresenter) {
 	assert.Equal(t, k1.Uncompressed, k2.Uncompressed)
 }
 
-func TestClientVRF_CRUD(t *testing.T) {
+func TestShellVRF_CRUD(t *testing.T) {
 	t.Parallel()
 
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -129,7 +129,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	t.Log(client, r)
 
 	// Create a key (encrypted with cltest.VRFPassword)

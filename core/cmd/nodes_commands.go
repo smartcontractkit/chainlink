@@ -7,20 +7,20 @@ import (
 	"github.com/urfave/cli"
 )
 
-func initCosmosNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("Cosmos", NewCosmosNodeClient(client))
+func initCosmosNodeSubCmd(s *Shell) cli.Command {
+	return nodeCommand("Cosmos", NewCosmosNodeClient(s))
 }
 
-func initStarkNetNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("StarkNet", NewStarkNetNodeClient(client))
+func initStarkNetNodeSubCmd(s *Shell) cli.Command {
+	return nodeCommand("StarkNet", NewStarkNetNodeClient(s))
 }
 
-func initEVMNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("EVM", NewEVMNodeClient(client))
+func initEVMNodeSubCmd(s *Shell) cli.Command {
+	return nodeCommand("EVM", NewEVMNodeClient(s))
 }
 
-func initSolanaNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("Solana", NewSolanaNodeClient(client))
+func initSolanaNodeSubCmd(s *Shell) cli.Command {
+	return nodeCommand("Solana", NewSolanaNodeClient(s))
 }
 
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
@@ -46,16 +46,16 @@ type NodeClient interface {
 }
 
 type nodeClient[P TableRenderer] struct {
-	*Client
+	*Shell
 	path string
 }
 
 // newNodeClient returns a new NodeClient for a particular type of NodeStatus.
 // P is a TableRenderer for []types.NodeStatus.
-func newNodeClient[P TableRenderer](c *Client, name string) NodeClient {
+func newNodeClient[P TableRenderer](s *Shell, name string) NodeClient {
 	return &nodeClient[P]{
-		Client: c,
-		path:   "/v2/nodes/" + name,
+		Shell: s,
+		path:  "/v2/nodes/" + name,
 	}
 }
 

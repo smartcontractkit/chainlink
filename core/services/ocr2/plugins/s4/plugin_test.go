@@ -16,8 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
@@ -77,7 +76,6 @@ func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confime
 		Confirmed:  confimed,
 		Expiration: time.Now().Add(ttl).UnixMilli(),
 		Payload:    mustRandomBytes(t, 64),
-		UpdatedAt:  time.Now().Add(-time.Second).UnixMilli(),
 	}
 	env := &s4_svc.Envelope{
 		Address:    addr.Bytes(),
@@ -96,6 +94,14 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
 	rows := make([]*s4_svc.Row, n)
 	for i := 0; i < n; i++ {
 		rows[i] = generateTestOrmRow(t, ttl, 0, false)
+	}
+	return rows
+}
+
+func generateConfirmedTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
+	rows := make([]*s4_svc.Row, n)
+	for i := 0; i < n; i++ {
+		rows[i] = generateTestOrmRow(t, ttl, uint64(i), true)
 	}
 	return rows
 }
@@ -272,6 +278,8 @@ func TestPlugin_Query(t *testing.T) {
 		query := &s4.Query{}
 		err = proto.Unmarshal(queryBytes, query)
 		assert.NoError(t, err)
+		assert.Equal(t, s4_svc.MinAddress, s4.UnmarshalAddress(query.AddressRange.MinAddress))
+		assert.Equal(t, s4_svc.MaxAddress, s4.UnmarshalAddress(query.AddressRange.MaxAddress))
 
 		compareSnapshotRows(t, query.Rows, rows)
 	})
@@ -355,12 +363,20 @@ func TestPlugin_Observation(t *testing.T) {
 	t.Run("unconfirmed with query", func(t *testing.T) {
 		numUnconfirmed := int(config.MaxObservationEntries / 2)
 		ormRows := generateTestOrmRows(t, int(config.MaxObservationEntries), time.Minute)
+		snapshot := make([]*s4_svc.SnapshotRow, len(ormRows))
 		for i, or := range ormRows {
 			or.Confirmed = i < numUnconfirmed
 			or.Version = uint64(i)
+			snapshot[i] = &s4_svc.SnapshotRow{
+				Address:   or.Address,
+				SlotId:    or.SlotId,
+				Version:   or.Version,
+				Confirmed: or.Confirmed,
+			}
 		}
 		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
 
 		snapshotRows := rowsToShapshotRows(ormRows)
 		query := &s4.Query{
@@ -423,60 +439,4 @@ func TestPlugin_Report(t *testing.T) {
 	err = proto.Unmarshal(report, reportRows)
 	assert.NoError(t, err)
 	assert.Len(t, reportRows.Rows, 10)
-}
-
-func TestPlugin_FullCycle(t *testing.T) {
-	t.Parallel()
-
-	const nOracles = 4
-	orms := make([]s4_svc.ORM, nOracles)
-	plugins := make([]types.ReportingPlugin, nOracles)
-	rows := make([]*s4_svc.Row, nOracles)
-
-	logger := logger.TestLogger(t)
-	config := createPluginConfig(100)
-	config.ProductName = "test"
-
-	for i := 0; i < nOracles; i++ {
-		orms[i] = s4_svc.NewInMemoryORM()
-		row := generateTestOrmRow(t, time.Minute, 1, false)
-		rows[i] = row
-		err := orms[i].Update(row)
-		assert.NoError(t, err)
-
-		plugin, err := s4.NewReportingPlugin(logger, config, orms[i])
-		assert.NoError(t, err)
-		plugins[i] = plugin
-	}
-
-	// execute a round
-	query, err := plugins[0].Query(testutils.Context(t), types.ReportTimestamp{})
-	assert.NoError(t, err)
-
-	aos := make([]types.AttributedObservation, nOracles)
-	for i := 0; i < nOracles; i++ {
-		observation, err2 := plugins[i].Observation(testutils.Context(t), types.ReportTimestamp{}, query)
-		assert.NoError(t, err2)
-		aos[i].Observation = observation
-		aos[i].Observer = commontypes.OracleID(i)
-	}
-
-	_, report, err := plugins[0].Report(testutils.Context(t), types.ReportTimestamp{}, query, aos)
-	assert.NoError(t, err)
-
-	for i := 0; i < nOracles; i++ {
-		_, err2 := plugins[i].ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
-		assert.NoError(t, err2)
-	}
-
-	// assertion: all oracles should have all rows
-	for i := 0; i < nOracles; i++ {
-		for _, row := range rows {
-			r, err := orms[i].Get(row.Address, row.SlotId)
-			assert.NoError(t, err)
-
-			assert.Equal(t, row.Address, r.Address)
-			assert.True(t, r.Confirmed)
-		}
-	}
 }

@@ -4,21 +4,20 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -34,12 +33,12 @@ type chain struct {
 }
 
 func newChain(id string, cfg config.Config, loopKs loop.Keystore, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
-	lggr = lggr.With("starknetChainID", id)
+	lggr = logger.With(lggr, "starknetChainID", id)
 	ch := &chain{
 		id:   id,
 		cfg:  cfg,
 		cfgs: cfgs,
-		lggr: lggr.Named("Chain"),
+		lggr: logger.Named(lggr, "Chain"),
 	}
 
 	getClient := func() (*starknet.Client, error) {
@@ -82,7 +81,6 @@ func (c *chain) getClient() (*starknet.Client, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes available")
 	}
-	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
 	timeout := c.cfg.RequestTimeout()

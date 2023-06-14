@@ -7,9 +7,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type plugin struct {
@@ -17,6 +18,11 @@ type plugin struct {
 	config       *PluginConfig
 	orm          s4.ORM
 	addressRange *s4.AddressRange
+}
+
+type key struct {
+	address string
+	slotID  uint
 }
 
 var _ types.ReportingPlugin = (*plugin)(nil)
@@ -62,7 +68,7 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		}
 	}
 
-	queryBytes, err := MarshalQuery(rows)
+	queryBytes, err := MarshalQuery(rows, c.addressRange)
 	if err != nil {
 		return nil, err
 	}
@@ -83,47 +89,80 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
 
-	queryRows := make([]*s4.Row, 0)
+	returnObservation := func(rows []*s4.Row) (types.Observation, error) {
+		promReportingPluginsObservationRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
+		return MarshalRows(convertRows(rows))
+	}
+
 	unconfirmedRows, err := c.orm.GetUnconfirmedRows(c.config.MaxObservationEntries, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to GetUnconfirmedRows in Observation()")
 	}
 
-	if uint(len(unconfirmedRows)) < c.config.MaxObservationEntries {
-		versionRows, err := UnmarshalQuery(query)
+	if uint(len(unconfirmedRows)) >= c.config.MaxObservationEntries {
+		return returnObservation(unconfirmedRows[:c.config.MaxObservationEntries])
+	}
+
+	maxRemainingRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
+	remainingRows := make([]*s4.Row, 0)
+
+	queryRows, addressRange, err := UnmarshalQuery(query)
+	if err != nil {
+		c.logger.Errorw("Failed to unmarshal query (likely malformed)", "err", err)
+	} else {
+		snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 		if err != nil {
-			c.logger.Errorw("Failed to UnmarshalQuery, likely data is malformed", "err", err)
+			c.logger.Errorw("ORM GetSnapshot error", "err", err)
 		} else {
-			maxObservationRows := int(c.config.MaxObservationEntries) - len(unconfirmedRows)
-			for _, vr := range versionRows {
-				address := UnmarshalAddress(vr.Address)
-				row, err := c.orm.Get(address, uint(vr.Slotid), pg.WithParentCtx(ctx))
-				if err == nil && row.Version > vr.Version {
-					queryRows = append(queryRows, row)
-				} else if err != nil && !errors.Is(err, s4.ErrNotFound) {
-					c.logger.Errorw("ORM Get error", "err", err)
+			type rkey struct {
+				address *utils.Big
+				slotID  uint
+			}
+
+			snapshotVersionsMap := snapshotToVersionMap(snapshot)
+			toBeAdded := make([]rkey, 0)
+			for _, qr := range queryRows {
+				address := UnmarshalAddress(qr.Address)
+				k := key{address: address.String(), slotID: uint(qr.Slotid)}
+				if version, ok := snapshotVersionsMap[k]; ok && version > qr.Version {
+					toBeAdded = append(toBeAdded, rkey{address: address, slotID: uint(qr.Slotid)})
+					delete(snapshotVersionsMap, k)
 				}
-				if len(queryRows) >= maxObservationRows {
-					break
+			}
+
+			if len(toBeAdded) > maxRemainingRows {
+				toBeAdded = toBeAdded[:maxRemainingRows]
+			} else {
+				for _, sr := range snapshot {
+					if !sr.Confirmed {
+						continue
+					}
+					k := key{address: sr.Address.String(), slotID: uint(sr.SlotId)}
+					if _, ok := snapshotVersionsMap[k]; ok {
+						toBeAdded = append(toBeAdded, rkey{address: sr.Address, slotID: uint(sr.SlotId)})
+						if len(toBeAdded) == maxRemainingRows {
+							break
+						}
+					}
+				}
+			}
+
+			for _, k := range toBeAdded {
+				row, err := c.orm.Get(k.address, k.slotID, pg.WithParentCtx(ctx))
+				if err == nil {
+					remainingRows = append(remainingRows, row)
+				} else if !errors.Is(err, s4.ErrNotFound) {
+					c.logger.Errorw("ORM Get error", "err", err)
 				}
 			}
 		}
 	}
 
-	rows := convertRows(append(unconfirmedRows, queryRows...))
-
-	promReportingPluginsObservationRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))
-
-	return MarshalRows(rows)
+	return returnObservation(append(unconfirmedRows, remainingRows...))
 }
 
 func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
-
-	type key struct {
-		address string
-		slotID  uint
-	}
 
 	reportMap := make(map[key]*Row)
 
@@ -224,4 +263,14 @@ func convertRows(from []*s4.Row) []*Row {
 		rows[i] = convertRow(row)
 	}
 	return rows
+}
+
+func snapshotToVersionMap(rows []*s4.SnapshotRow) map[key]uint64 {
+	m := make(map[key]uint64)
+	for _, row := range rows {
+		if row.Confirmed {
+			m[key{address: row.Address.String(), slotID: uint(row.SlotId)}] = row.Version
+		}
+	}
+	return m
 }

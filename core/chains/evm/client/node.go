@@ -92,6 +92,7 @@ type Node interface {
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
+	Order() int32
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -135,6 +136,7 @@ type node struct {
 	id      int32
 	chainID *big.Int
 	cfg     NodeConfig
+	order   int32
 
 	ws   rawclient
 	http *rawclient
@@ -177,13 +179,14 @@ type NodeConfig interface {
 }
 
 // NewNode returns a new *node as Node
-func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) Node {
+func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
 	n.id = id
 	n.chainID = chainID
 	n.cfg = nodeCfg
 	n.ws.uri = wsuri
+	n.order = nodeOrder
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
@@ -194,10 +197,12 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 		"nodeName", name,
 		"node", n.String(),
 		"evmChainID", chainID,
+		"nodeOrder", n.order,
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
 	n.stateLatestBlockNumber = -1
+
 	return n
 }
 
@@ -449,7 +454,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("nBatchElems", len(b), "batchElems", b)
 
-	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
 		err = n.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
@@ -999,7 +1004,7 @@ func (n *node) logResult(
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		lggr.Tracew(
 			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
 			results...,
 		)
@@ -1104,4 +1109,8 @@ func (n *node) String() string {
 
 func (n *node) Name() string {
 	return n.name
+}
+
+func (n *node) Order() int32 {
+	return n.order
 }

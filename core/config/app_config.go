@@ -1,13 +1,12 @@
 package config
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // nolint
@@ -21,6 +20,13 @@ type AppConfig interface {
 	AppID() uuid.UUID
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
+	InsecureFastScrypt() bool
+	DefaultChainID() *big.Int
+	EVMEnabled() bool
+	EVMRPCEnabled() bool
+	CosmosEnabled() bool
+	SolanaEnabled() bool
+	StarkNetEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -29,32 +35,30 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	AutoPprof
-	DatabaseV1
-	Ethereum
-	Explorer
-	FeatureFlags
-	FluxMonitor
-	Insecure
-	JobPipeline
-	Keeper
-	Keystore
-	Logging
 	OCR1Config
 	OCR2Config
-	P2PNetworking
-	P2PV1Networking
-	P2PV2Networking
-	Prometheus
-	Pyroscope
-	Secrets
-	Sentry
-	TelemetryIngress
-	Web
-	audit.Config
 
 	Database() Database
+	AuditLogger() AuditLogger
+	Keeper() Keeper
+	TelemetryIngress() TelemetryIngress
+	Sentry() Sentry
+	JobPipeline() JobPipeline
+	Pyroscope() Pyroscope
+	Log() Log
+	FluxMonitor() FluxMonitor
+	WebServer() WebServer
+	AutoPprof() AutoPprof
+	Insecure() Insecure
+	Explorer() Explorer
+	Password() Password
+	Prometheus() Prometheus
+	P2P() P2P
+	Mercury() Mercury
+	Threshold() Threshold
+	Feature() Feature
 }
+
 type DatabaseBackupMode string
 
 var (

@@ -6,7 +6,7 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -100,14 +100,14 @@ func (a *arbitrumEstimator) HealthReport() map[string]error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice, _, err = a.EvmEstimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
 	}
 	gasPrice = a.gasPriceWithBuffer(gasPrice, maxGasPriceWei)
 	ok := a.IfStarted(func() {
-		if slices.Contains(opts, txmgrtypes.OptForceRefetch) {
+		if slices.Contains(opts, feetypes.OptForceRefetch) {
 			ch := make(chan struct{})
 			select {
 			case a.chForceRefetch <- ch:

@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -334,12 +333,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
 				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
+                vrf_owner_address,
 				created_at, updated_at)
 			VALUES (
 				:coordinator_address, :public_key, :min_incoming_confirmations,
 				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
+			    :vrf_owner_address,
 				NOW(), NOW())
 			RETURNING id;`
 
@@ -697,7 +698,6 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 }
 
 type OCRSpecConfig interface {
-	P2PPeerID() p2pkey.PeerID
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
 	OCRContractPollInterval() time.Duration
@@ -780,7 +780,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DatabaseDefaultQueryTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }

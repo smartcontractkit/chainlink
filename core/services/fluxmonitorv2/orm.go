@@ -15,7 +15,7 @@ import (
 )
 
 type transmitter interface {
-	CreateTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
+	CreateTransaction(txRequest txmgr.EvmTxRequest, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -121,7 +121,7 @@ func (o *orm) CreateEthTransaction(
 	qopts ...pg.QOpt,
 ) (err error) {
 
-	_, err = o.txm.CreateTransaction(txmgr.EvmNewTx{
+	_, err = o.txm.CreateTransaction(txmgr.EvmTxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,

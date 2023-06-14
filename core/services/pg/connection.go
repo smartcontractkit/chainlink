@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	// need to make sure pgx driver is registered before opening connection
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v4/stdlib"
+	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 

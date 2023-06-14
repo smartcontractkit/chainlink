@@ -29,7 +29,6 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -46,10 +45,10 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-			AuditLogger: audit.AuditLoggerConfig{
+			AuditLogger: config.AuditLogger{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]audit.ServiceHeader{
+				Headers: ptr([]models.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -227,11 +226,11 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := []audit.ServiceHeader{
+	serviceHeaders := []models.ServiceHeader{
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
-	full.AuditLogger = audit.AuditLoggerConfig{
+	full.AuditLogger = config.AuditLogger{
 		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
@@ -299,6 +298,8 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           ptr(true),
 		SessionTimeout:          models.MustNewDuration(time.Hour),
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
+		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
+		StartTimeout:            models.MustNewDuration(15 * time.Second),
 		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -703,6 +704,8 @@ HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -1036,6 +1039,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
 			}
+			if got.EVM[c].Nodes[n].Order == nil {
+				got.EVM[c].Nodes[n].Order = ptr(int32(100))
+			}
 		}
 	}
 
@@ -1074,16 +1080,16 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
 			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
 		- 2: 5 errors:
-			- ChainType: invalid value (Arbitrum): only "optimism" can be used with this chain id
+			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
@@ -1266,8 +1272,8 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
-	dbURL := c.DatabaseURL()
+	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
+	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
@@ -1381,7 +1387,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			for _, fs := range tt.from {
 				var f Config
 				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
-				c.SetFrom(&f)
+				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
 			require.NoError(t, err)

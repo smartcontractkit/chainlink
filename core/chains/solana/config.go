@@ -7,9 +7,10 @@ import (
 
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
