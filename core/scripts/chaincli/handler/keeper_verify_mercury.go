@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
@@ -45,6 +46,14 @@ const (
 	UserId             = "userId"
 )
 
+type FeedLookup struct {
+	feedParamKey string
+	feeds        []string
+	timeParamKey string
+	time         *big.Int
+	extraData    []byte
+}
+
 type MercuryResponse struct {
 	ChainlinkBlob string `json:"chainlinkBlob"`
 }
@@ -63,91 +72,8 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("failed to get block number: %v", err)
 	}
-	mb := MercuryBytes{}
 	hc := http.DefaultClient
-	feed := "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
 	feeds := []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"}
-	q := url.Values{
-		FeedIDHex:   {feed},
-		BlockNumber: {strconv.FormatUint(blockNumber, 10)},
-		UserId:      {k.cfg.UpkeepID},
-		FeedID:      {strings.Join(feeds, ",")},
-	}
-	mercuryURL := MercuryHostV2
-	path := MercuryPathV2
-	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, path, q.Encode())
-	fmt.Printf("FeedLookup request URL: %s\n", reqUrl)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
-	if err != nil {
-		fmt.Printf("cannot create request: %v\n", err)
-		return
-	}
-
-	username := k.cfg.MercuryID
-	password := k.cfg.MercuryKey
-	if username == "" || password == "" {
-		fmt.Print("username and password are empty\n")
-		return
-	}
-	fmt.Println(username)
-
-	ts := time.Now().UTC().UnixMilli()
-	signature := generateHMAC(http.MethodGet, path+q.Encode(), []byte{}, username, password, ts)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", username)
-	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
-	req.Header.Set("X-Authorization-Signature-SHA256", signature)
-
-	retryable := false
-	retryErr := retry.Do(
-		func() error {
-			resp, err1 := hc.Do(req)
-			if err1 != nil {
-				fmt.Printf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v\n", k.cfg.UpkeepID, blockNumber, feed, err1)
-				return err1
-			}
-			defer resp.Body.Close()
-			body, err1 := io.ReadAll(resp.Body)
-			if err1 != nil {
-				fmt.Printf("FeedLookup upkeep %s block %s fails to read response body for feed %s: %v\n", k.cfg.UpkeepID, blockNumber, feed, err1)
-				return err1
-			}
-
-			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
-				fmt.Printf("FeedLookup upkeep %s block %s received status code %d for feed %s\n", k.cfg.UpkeepID, blockNumber, resp.StatusCode, feed)
-				retryable = true
-				return errors.New(Retry)
-			} else if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s\n", k.cfg.UpkeepID, blockNumber, resp.StatusCode, feed)
-			}
-
-			var m MercuryResponse
-			err1 = json.Unmarshal(body, &m)
-			if err1 != nil {
-				fmt.Printf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v\n", k.cfg.UpkeepID, blockNumber, feed, err1)
-				return err1
-			}
-			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
-			if err1 != nil {
-				fmt.Printf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v\n", k.cfg.UpkeepID, blockNumber, m.ChainlinkBlob, feed, err1)
-				return err1
-			}
-			mb.Bytes = blobBytes
-			return nil
-		},
-		// only retry when the error is 404 Not Found or 500 Internal Server Error
-		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
-		}),
-		retry.Context(ctx),
-		retry.Delay(RetryDelay),
-		retry.Attempts(TotalAttempt))
-
-	fmt.Printf("retryable: %v\n", retryable)
-	fmt.Printf("retryErr: %v\n", retryErr)
-	fmt.Printf("blob: %v\n", mb.Bytes)
-	fmt.Printf("hex: %s\n", hexutil.Encode(mb.Bytes))
 
 	log.Println("======================== Allow List ========================")
 	registry21, err := iregistry21.NewIKeeperRegistryMaster(common.HexToAddress(k.cfg.RegistryAddress), k.client)
@@ -352,11 +278,48 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	}
 	errorParameters := unpack.([]interface{})
 
-	log.Printf("feedParamKey: %s", *abi.ConvertType(errorParameters[0], new(string)).(*string))
-	log.Printf("feeds: %v", *abi.ConvertType(errorParameters[1], new([]string)).(*[]string))
-	log.Printf("timeParamKey: %s", *abi.ConvertType(errorParameters[2], new(string)).(*string))
-	log.Printf("time: %s", *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int))
-	log.Printf("extraData: %v", *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte))
+	fl := FeedLookup{
+		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
+		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
+		time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
+		extraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
+	}
+	log.Printf("feedParamKey: %s", fl.feedParamKey)
+	log.Printf("feeds: %v", fl.feeds)
+	log.Printf("timeParamKey: %s", fl.timeParamKey)
+	log.Printf("time: %s", fl.time)
+	log.Printf("extraData: %v", fl.extraData)
+
+	resultLen := len(feeds)
+	ch := make(chan MercuryBytes, resultLen)
+	if fl.feedParamKey == FeedIDHex && fl.timeParamKey == BlockNumber {
+		// only mercury v0.2
+		for i := range feeds {
+			go k.singleFeedRequest(ctx, hc, ch, upkeepId, i, fl, job.MercuryV02)
+		}
+	}
+
+	var reqErr error
+	results := make([][]byte, len(fl.feeds))
+	retryable := true
+	allSuccess := true
+	for i := 0; i < len(results); i++ {
+		m := <-ch
+		if m.Error != nil {
+			reqErr = errors.Join(reqErr, m.Error)
+			retryable = retryable && m.Retryable
+			allSuccess = false
+		}
+		results[m.Index] = m.Bytes
+	}
+	log.Printf("FeedLookup upkeep %s retryable %v reqErr %v", upkeepId.String(), retryable && !allSuccess, reqErr)
+	// only retry when not all successful AND none are not retryable
+	log.Printf("results[0]: %v", results[0])
+	log.Printf("results[1]: %v", results[1])
+	log.Printf("retryable: %v", retryable)
+	log.Printf("allSuccess: %v", allSuccess)
+	log.Printf("reqErr: %v", reqErr)
 }
 
 func buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
@@ -381,4 +344,89 @@ func generateHMAC(method string, path string, body []byte, clientId string, secr
 	signedMessage.Write([]byte(hashString))
 	userHmac := hex.EncodeToString(signedMessage.Sum(nil))
 	return userHmac
+}
+
+func (k *Keeper) singleFeedRequest(ctx context.Context, hc *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml FeedLookup, mv job.MercuryVersion) {
+	q := url.Values{
+		ml.feedParamKey: {ml.feeds[index]},
+		ml.timeParamKey: {ml.time.String()},
+		UserId:          {upkeepId.String()},
+	}
+	mercuryURL := MercuryHostV2
+	path := MercuryPathV2
+	if mv == job.MercuryV03 {
+		mercuryURL = MercuryHostV3
+		path = MercuryPathV3
+	}
+	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, path, q.Encode())
+	log.Printf("FeedLookup request URL: %s", reqUrl)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
+	if err != nil {
+		ch <- MercuryBytes{Index: index, Error: err}
+		return
+	}
+
+	ts := time.Now().UTC().UnixMilli()
+	signature := generateHMAC(http.MethodGet, path+q.Encode(), []byte{}, k.cfg.MercuryID, k.cfg.MercuryKey, ts)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", k.cfg.MercuryID)
+	req.Header.Set("X-Authorization-Timestamp", strconv.FormatInt(ts, 10))
+	req.Header.Set("X-Authorization-Signature-SHA256", signature)
+
+	retryable := false
+	retryErr := retry.Do(
+		func() error {
+			resp, err1 := hc.Do(req)
+			if err1 != nil {
+				log.Printf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				return err1
+			}
+			defer resp.Body.Close()
+			body, err1 := io.ReadAll(resp.Body)
+			if err1 != nil {
+				log.Printf("FeedLookup upkeep %s block %s fails to read response body for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				return err1
+			}
+
+			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
+				log.Printf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
+				retryable = true
+				return errors.New(Retry)
+			} else if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
+			}
+
+			var m MercuryResponse
+			err1 = json.Unmarshal(body, &m)
+			if err1 != nil {
+				log.Printf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				return err1
+			}
+			log.Printf("ChainlinkBlob %d: %s", index, m.ChainlinkBlob)
+			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
+			if err1 != nil {
+				log.Printf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", upkeepId.String(), ml.time.String(), m.ChainlinkBlob, ml.feeds[index], err1)
+				return err1
+			}
+			ch <- MercuryBytes{Index: index, Bytes: blobBytes}
+			return nil
+		},
+		// only retry when the error is 404 Not Found or 500 Internal Server Error
+		retry.RetryIf(func(err error) bool {
+			return err.Error() == Retry
+		}),
+		retry.Context(ctx),
+		retry.Delay(RetryDelay),
+		retry.Attempts(TotalAttempt))
+
+	// if all retries fail, return the error and ask the caller to handle cool down and heavyweight retry
+	if retryErr != nil {
+		mb := MercuryBytes{
+			Index:     index,
+			Retryable: retryable,
+			Error:     retryErr,
+		}
+		ch <- mb
+	}
 }
