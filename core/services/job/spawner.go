@@ -245,16 +245,16 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	defer cancel()
 
 	err = q.Transaction(func(tx pg.Queryer) error {
-		err = js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
-		if err != nil {
-			js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
-			return err
+		err2 := js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
+		if err2 != nil {
+			js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err2)
+			return err2
 		}
 
 		js.lggr.Debugw("Callback: OnCreateJob")
-		err = delegate.OnCreateJob(*jb, tx)
+		err2 = delegate.OnCreateJob(*jb, tx)
 		js.lggr.Debugw("Callback: OnCreateJob done")
-		return err
+		return err2
 	})
 	if err != nil {
 		return err
@@ -320,18 +320,18 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	lggr.Debugw("Callback: BeforeDeleteJob done")
 
 	err := q.Transaction(func(tx pg.Queryer) error {
-		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
-		if err != nil {
+		err2 := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
+		if err2 != nil {
 			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
-			return err
+			return err2
 		}
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
 		lggr.Debugw("Callback: OnDeleteJob")
-		err = aj.delegate.OnDeleteJob(aj.spec, tx)
-		if err != nil {
-			return err
+		err2 = aj.delegate.OnDeleteJob(aj.spec, tx)
+		if err2 != nil {
+			return err2
 		}
 
 		lggr.Debugw("Callback: OnDeleteJob done")

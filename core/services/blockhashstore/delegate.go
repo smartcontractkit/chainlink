@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -48,7 +48,7 @@ func (d *Delegate) JobType() job.Type {
 
 func (d *Delegate) getChainFromSpec(jb job.Job) (evm.Chain, error) {
 	if jb.BlockhashStoreSpec == nil {
-		return nil, errors.Errorf(
+		return nil, pkgerrors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
 	}
 
@@ -59,7 +59,7 @@ func (d *Delegate) getChainFromSpec(jb job.Job) (evm.Chain, error) {
 	}
 
 	if !chain.Config().Feature().LogPoller() {
-		return nil, errors.New("log poller must be enabled to run blockhashstore")
+		return nil, pkgerrors.New("log poller must be enabled to run blockhashstore")
 	}
 
 	return chain, nil
@@ -80,7 +80,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
 	if err != nil {
-		return nil, errors.Wrap(err, "getting sending keys")
+		return nil, fmt.Errorf("getting sending keys: %w", err)
 	}
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	bhs, err := blockhash_store.NewBlockhashStore(
 		jb.BlockhashStoreSpec.BlockhashStoreAddress.Address(), chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "building BHS")
+		return nil, fmt.Errorf("building BHS: %w", err)
 	}
 
 	lp := chain.LogPoller()
@@ -103,7 +103,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if c, err = v1.NewVRFCoordinator(
 			jb.BlockhashStoreSpec.CoordinatorV1Address.Address(), chain.Client()); err != nil {
 
-			return nil, errors.Wrap(err, "building V1 coordinator")
+			return nil, fmt.Errorf("building V1 coordinator: %w", err)
 		}
 
 		coordinators = append(coordinators, NewV1Coordinator(c, lp))
@@ -113,7 +113,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if c, err = v2.NewVRFCoordinatorV2(
 			jb.BlockhashStoreSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
 
-			return nil, errors.Wrap(err, "building V2 coordinator")
+			return nil, fmt.Errorf("building V2 coordinator: %w", err)
 		}
 
 		coordinators = append(coordinators, NewV2Coordinator(c, lp))
@@ -121,7 +121,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	bpBHS, err := NewBulletproofBHS(chain.Config(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
-		return nil, errors.Wrap(err, "building bulletproof bhs")
+		return nil, fmt.Errorf("building bulletproof bhs: %w", err)
 	}
 
 	log := d.logger.Named("BHS Feeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
@@ -134,7 +134,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		func(ctx context.Context) (uint64, error) {
 			head, err := chain.Client().HeadByNumber(ctx, nil)
 			if err != nil {
-				return 0, errors.Wrap(err, "getting chain head")
+				return 0, fmt.Errorf("getting chain head: %w", err)
 			}
 			return uint64(head.Number), nil
 		})
@@ -163,14 +163,14 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to register filter %v", filter)
+			return fmt.Errorf("Failed to register filter %v: %w", filter, err)
 		}
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
 		err = lp.RegisterFilter(filter, q)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to register filter %v", filter)
+			return fmt.Errorf("Failed to register filter %v: %w", filter, err)
 		}
 	}
 
@@ -196,14 +196,14 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
+			return fmt.Errorf("Failed to unregister filter %s: %w", filter.Name, err)
 		}
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
 		err = lp.UnregisterFilter(filter.Name, q)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
+			return fmt.Errorf("Failed to unregister filter %s: %w", filter.Name, err)
 		}
 	}
 	return nil
