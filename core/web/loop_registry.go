@@ -6,6 +6,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/common/model"
@@ -18,6 +19,7 @@ import (
 
 type LoopRegistryServer struct {
 	exposedPromPort int
+	promTargetHost  string
 	registry        *plugins.LoopRegistry
 	logger          logger.SugaredLogger
 
@@ -25,11 +27,22 @@ type LoopRegistryServer struct {
 }
 
 func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
+	lggr := app.GetLogger()
+	promTargetHost, exists := os.LookupEnv("CL_PROMETHEUS_TARGET_HOSTNAME")
+	if !exists {
+		var err error
+		promTargetHost, err = os.Hostname()
+		if err != nil {
+			lggr.Warnf("could not resolve hostname: %w, falling back to `localhost`", err)
+			promTargetHost = "localhost"
+		}
+	}
 	return &LoopRegistryServer{
 		exposedPromPort: int(app.GetConfig().WebServer().HTTPPort()),
 		registry:        app.GetLoopRegistry(),
-		logger:          app.GetLogger(),
+		logger:          lggr,
 		jsonMarshalFn:   json.Marshal,
+		promTargetHost:  promTargetHost,
 	}
 }
 
@@ -42,7 +55,7 @@ func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.R
 		// create a metric target for each running plugin
 		target := &targetgroup.Group{
 			Targets: []model.LabelSet{
-				{model.AddressLabel: model.LabelValue(fmt.Sprintf("localhost:%d", l.exposedPromPort))},
+				{model.AddressLabel: model.LabelValue(fmt.Sprintf("%s:%d", l.promTargetHost, l.exposedPromPort))},
 			},
 			Labels: map[model.LabelName]model.LabelValue{
 				model.MetricsPathLabel: model.LabelValue(pluginMetricPath(registeredPlugin.Name)),
