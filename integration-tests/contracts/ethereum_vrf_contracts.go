@@ -1101,7 +1101,7 @@ func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*
 
 func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
 	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
-	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
+	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil)
 	if err != nil {
 		return nil, err
 	}

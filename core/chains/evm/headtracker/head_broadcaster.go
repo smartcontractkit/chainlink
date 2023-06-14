@@ -60,7 +60,7 @@ func NewHeadBroadcaster[
 	}
 }
 
-func NewEvmHeadBroadcaster(
+func NewEVMHeadBroadcaster(
 	lggr logger.Logger,
 ) *evmHeadBroadcaster {
 	return NewHeadBroadcaster[*evmtypes.Head, common.Hash](lggr)

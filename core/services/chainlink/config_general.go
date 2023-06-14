@@ -25,7 +25,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -218,19 +217,19 @@ func (g *generalConfig) ConfigTOML() (user, effective string) {
 	return g.inputTOML, g.effectiveTOML
 }
 
-func (g *generalConfig) FeatureExternalInitiators() bool {
-	return *g.c.JobPipeline.ExternalInitiatorsEnabled
+func (g *generalConfig) Feature() coreconfig.Feature {
+	return &featureConfig{c: g.c.Feature}
 }
 
 func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureOffchainReporting() bool {
-	return *g.c.OCR.Enabled
+func (g *generalConfig) OCR() config.OCR {
+	return &ocrConfig{c: g.c.OCR}
 }
 
-func (g *generalConfig) FeatureOffchainReporting2() bool {
+func (g *generalConfig) OCR2Enabled() bool {
 	return *g.c.OCR2.Enabled
 }
 
@@ -244,10 +243,6 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 
 func (g *generalConfig) AutoPprof() config.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
-}
-
-func (g *generalConfig) AutoPprofEnabled() bool {
-	return *g.c.AutoPprof.Enabled
 }
 
 func (g *generalConfig) EVMEnabled() bool {
@@ -277,11 +272,6 @@ func (g *generalConfig) DefaultChainID() *big.Int {
 		}
 	}
 	return nil
-}
-
-func (g *generalConfig) P2PEnabled() bool {
-	p := g.c.P2P
-	return *p.V1.Enabled || *p.V2.Enabled
 }
 
 func (g *generalConfig) SolanaEnabled() bool {
@@ -411,54 +401,6 @@ func (g *generalConfig) Log() config.Log {
 	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
-func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
-	return g.c.OCR.BlockchainTimeout.Duration()
-}
-
-func (g *generalConfig) OCRContractPollInterval() time.Duration {
-	return g.c.OCR.ContractPollInterval.Duration()
-}
-
-func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
-	return g.c.OCR.ContractSubscribeInterval.Duration()
-}
-
-func (g *generalConfig) OCRKeyBundleID() (string, error) {
-	b := g.c.OCR.KeyBundleID
-	if *b == zeroSha256Hash {
-		return "", nil
-	}
-	return b.String(), nil
-}
-
-func (g *generalConfig) OCRObservationTimeout() time.Duration {
-	return g.c.OCR.ObservationTimeout.Duration()
-}
-
-func (g *generalConfig) OCRSimulateTransactions() bool {
-	return *g.c.OCR.SimulateTransactions
-}
-
-func (g *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	a := *g.c.OCR.TransmitterAddress
-	if a.IsZero() {
-		return a, errors.Wrap(coreconfig.ErrEnvUnset, "OCRTransmitterAddress is not set")
-	}
-	return a, nil
-}
-
-func (g *generalConfig) OCRTraceLogging() bool {
-	return *g.c.P2P.TraceLogging
-}
-
-func (g *generalConfig) OCRCaptureEATelemetry() bool {
-	return *g.c.OCR.CaptureEATelemetry
-}
-
-func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	return *g.c.OCR.DefaultTransactionQueueDepth
-}
-
 func (g *generalConfig) OCR2ContractConfirmations() uint16 {
 	return uint16(*g.c.OCR2.ContractConfirmations)
 }
@@ -535,12 +477,8 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
 func (g *generalConfig) RootDir() string {
@@ -576,6 +514,14 @@ func (g *generalConfig) Password() coreconfig.Password {
 
 func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
 var (

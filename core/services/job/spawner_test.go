@@ -276,8 +276,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore)
 		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
 
-		processConfig := plugins.NewRegistrarConfig(config.Log(), loop.GRPCOpts{}, func(name string, cfg plugins.LoggingConfig) (*plugins.RegisteredLoop, error) { return nil, nil })
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
+		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(config, config.Mercury(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cs, lggr, ocr2DelegateConfig,
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, relayers, mailMon)

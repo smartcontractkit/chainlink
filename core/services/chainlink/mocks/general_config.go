@@ -9,11 +9,7 @@ import (
 
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	mock "github.com/stretchr/testify/mock"
-
-	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 
 	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 
@@ -76,20 +72,6 @@ func (_m *GeneralConfig) AutoPprof() config.AutoPprof {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.AutoPprof)
 		}
-	}
-
-	return r0
-}
-
-// AutoPprofEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) AutoPprofEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -241,85 +223,17 @@ func (_m *GeneralConfig) Explorer() config.Explorer {
 	return r0
 }
 
-// FeatureExternalInitiators provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureExternalInitiators() bool {
+// Feature provides a mock function with given fields:
+func (_m *GeneralConfig) Feature() config.Feature {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 config.Feature
+	if rf, ok := ret.Get(0).(func() config.Feature); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFeedsManager provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureLogPoller provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureLogPoller() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureOffchainReporting() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureOffchainReporting2 provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureOffchainReporting2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureUICSAKeys provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureUICSAKeys() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Feature)
+		}
 	}
 
 	return r0
@@ -424,16 +338,32 @@ func (_m *GeneralConfig) LogConfiguration(log config.LogfFn) {
 	_m.Called(log)
 }
 
-// MercuryCredentials provides a mock function with given fields: credName
-func (_m *GeneralConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
-	ret := _m.Called(credName)
+// Mercury provides a mock function with given fields:
+func (_m *GeneralConfig) Mercury() config.Mercury {
+	ret := _m.Called()
 
-	var r0 *models.MercuryCredentials
-	if rf, ok := ret.Get(0).(func(string) *models.MercuryCredentials); ok {
-		r0 = rf(credName)
+	var r0 config.Mercury
+	if rf, ok := ret.Get(0).(func() config.Mercury); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.MercuryCredentials)
+			r0 = ret.Get(0).(config.Mercury)
+		}
+	}
+
+	return r0
+}
+
+// OCR provides a mock function with given fields:
+func (_m *GeneralConfig) OCR() config.OCR {
+	ret := _m.Called()
+
+	var r0 config.OCR
+	if rf, ok := ret.Get(0).(func() config.OCR); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.OCR)
 		}
 	}
 
@@ -552,6 +482,20 @@ func (_m *GeneralConfig) OCR2DefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// OCR2Enabled provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2Enabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2KeyBundleID provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	ret := _m.Called()
@@ -604,166 +548,6 @@ func (_m *GeneralConfig) OCR2TraceLogging() bool {
 	return r0
 }
 
-// OCRBlockchainTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRCaptureEATelemetry provides a mock function with given fields:
-func (_m *GeneralConfig) OCRCaptureEATelemetry() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRContractPollInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRContractSubscribeInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRKeyBundleID provides a mock function with given fields:
-func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
-	ret := _m.Called()
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (string, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// OCRObservationTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRSimulateTransactions provides a mock function with given fields:
-func (_m *GeneralConfig) OCRSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTraceLogging provides a mock function with given fields:
-func (_m *GeneralConfig) OCRTraceLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTransmitterAddress provides a mock function with given fields:
-func (_m *GeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	ret := _m.Called()
-
-	var r0 ethkey.EIP55Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (ethkey.EIP55Address, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() ethkey.EIP55Address); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(ethkey.EIP55Address)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // P2P provides a mock function with given fields:
 func (_m *GeneralConfig) P2P() config.P2P {
 	ret := _m.Called()
@@ -775,20 +559,6 @@ func (_m *GeneralConfig) P2P() config.P2P {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.P2P)
 		}
-	}
-
-	return r0
-}
-
-// P2PEnabled provides a mock function with given fields:
-func (_m *GeneralConfig) P2PEnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -826,43 +596,17 @@ func (_m *GeneralConfig) Prometheus() config.Prometheus {
 	return r0
 }
 
-// PyroscopeAuthToken provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeAuthToken() string {
+// Pyroscope provides a mock function with given fields:
+func (_m *GeneralConfig) Pyroscope() config.Pyroscope {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Pyroscope
+	if rf, ok := ret.Get(0).(func() config.Pyroscope); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeEnvironment provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeEnvironment() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// PyroscopeServerAddress provides a mock function with given fields:
-func (_m *GeneralConfig) PyroscopeServerAddress() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Pyroscope)
+		}
 	}
 
 	return r0
@@ -1012,15 +756,17 @@ func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	return r0
 }
 
-// ThresholdKeyShare provides a mock function with given fields:
-func (_m *GeneralConfig) ThresholdKeyShare() string {
+// Threshold provides a mock function with given fields:
+func (_m *GeneralConfig) Threshold() config.Threshold {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 config.Threshold
+	if rf, ok := ret.Get(0).(func() config.Threshold); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Threshold)
+		}
 	}
 
 	return r0

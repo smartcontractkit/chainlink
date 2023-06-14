@@ -5,15 +5,9 @@ import (
 
 	"github.com/pyroscope-io/client/pyroscope"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
-
-// PyroscopeConfig represents the expected configuration for Pyroscope to properly work
-type PyroscopeConfig interface {
-	PyroscopeServerAddress() string
-	PyroscopeAuthToken() string
-	PyroscopeEnvironment() string
-}
 
 type PprofConfig interface {
 	BlockProfileRate() int
@@ -21,7 +15,7 @@ type PprofConfig interface {
 }
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
-func StartPyroscope(cfg PyroscopeConfig, pprofConfig PprofConfig) (*pyroscope.Profiler, error) {
+func StartPyroscope(pyroConfig config.Pyroscope, pprofConfig PprofConfig) (*pyroscope.Profiler, error) {
 	runtime.SetBlockProfileRate(pprofConfig.BlockProfileRate())
 	runtime.SetMutexProfileFraction(pprofConfig.MutexProfileFraction())
 
@@ -31,8 +25,8 @@ func StartPyroscope(cfg PyroscopeConfig, pprofConfig PprofConfig) (*pyroscope.Pr
 		// Maybe configurable to identify the specific NOP - TBD
 		ApplicationName: "chainlink-node",
 
-		ServerAddress: cfg.PyroscopeServerAddress(),
-		AuthToken:     cfg.PyroscopeAuthToken(),
+		ServerAddress: pyroConfig.ServerAddress(),
+		AuthToken:     pyroConfig.AuthToken(),
 
 		// We disable logging the profiling info, it will be in the Pyroscope instance anyways...
 		Logger: nil,
@@ -40,7 +34,7 @@ func StartPyroscope(cfg PyroscopeConfig, pprofConfig PprofConfig) (*pyroscope.Pr
 		Tags: map[string]string{
 			"SHA":         sha,
 			"Version":     ver,
-			"Environment": cfg.PyroscopeEnvironment(),
+			"Environment": pyroConfig.Environment(),
 		},
 
 		ProfileTypes: []pyroscope.ProfileType{
