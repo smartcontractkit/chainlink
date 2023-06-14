@@ -60,7 +60,7 @@ func functionsConfigDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixThreshold))
+	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixFunctions))
 	return configDigest
 }
 
