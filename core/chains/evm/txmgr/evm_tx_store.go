@@ -40,10 +40,32 @@ var (
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
+// EvmTxStore combines the txmgr tx store interface and the interface needed for the the API to read from the tx DB
+type EvmTxStore interface {
+	TxStore
+	TxStoreWebApi
+}
+
+// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers and readers
+type TxStoreWebApi interface {
+	FindTxAttemptConfirmedByTxIDs(ids []int64) ([]EvmTxAttempt, error)
+	FindTxByHash(hash common.Hash) (*EvmTx, error)
+	Transactions(offset, limit int) ([]EvmTx, int, error)
+	TxAttempts(offset, limit int) ([]EvmTxAttempt, int, error)
+	TransactionsWithAttempts(offset, limit int) ([]EvmTx, int, error)
+	FindTxAttempt(hash common.Hash) (*EvmTxAttempt, error)
+}
+
 type TestEvmTxStore interface {
 	EvmTxStore
-	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
-	InsertTx(etx *EvmTx) error                                 // only used for testing purposes
+
+	// methods only used for testing purposes
+	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error)
+	InsertTx(etx *EvmTx) error
+	FindTxAttemptsByTxIDs(ids []int64) ([]EvmTxAttempt, error)
+	FindTxWithAttempts(etxID int64) (etx EvmTx, err error)
+	InsertTxAttempt(attempt *EvmTxAttempt) error
+	LoadTxesAttempts(etxs []*EvmTx, qopts ...pg.QOpt) error
 }
 
 type evmTxStore struct {
