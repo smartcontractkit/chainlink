@@ -89,16 +89,16 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint, decryptor)
 	allServices = append(allServices, functionsListener)
 
-	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    functionsOracleArgs.Logger,
-		PluginORM: pluginORM,
-		JobID:     conf.Job.ExternalJobID,
-	}
-	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
-	}
-	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
+	// functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+	// 	Logger:    functionsOracleArgs.Logger,
+	// 	PluginORM: pluginORM,
+	// 	JobID:     conf.Job.ExternalJobID,
+	// }
+	// functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
+	// }
+	// allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
 	if pluginConfig.GatewayConnectorConfig != nil {
 		connectorLogger := conf.Lggr.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)

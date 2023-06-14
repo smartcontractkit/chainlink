@@ -32,8 +32,12 @@ func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Thresho
 	// It can be safely assumed all oracle nodes have been given the correct key share,
 	// so we use the key share index as the oracle's index.
 	// If an oracle was given the wrong key share, key share decryption would have failed.
-	oracleToKeyShare := make(map[commontypes.OracleID]int)
-	oracleToKeyShare[commontypes.OracleID(privKeyShare.Index())] = privKeyShare.Index()
+	// oracleToKeyShare := make(map[commontypes.OracleID]int)
+	// oracleToKeyShare[commontypes.OracleID(privKeyShare.Index())] = privKeyShare.Index()
+	oracleToKeyShare := map[commontypes.OracleID]int{0: 0, 1: 1, 2: 2, 3: 3}
+
+	fmt.Println("THRESHOLD ORACLE INDEX:", privKeyShare.Index())
+	fmt.Println("THRESHOLD ORACLETOKEYSHARE:", oracleToKeyShare)
 
 	sharedOracleArgs.ReportingPluginFactory = decryptionPlugin.DecryptionReportingPluginFactory{
 		DecryptionQueue:  conf.DecryptionQueue,
