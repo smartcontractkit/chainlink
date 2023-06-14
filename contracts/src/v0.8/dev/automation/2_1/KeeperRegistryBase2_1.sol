@@ -367,7 +367,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice structure of trigger for log triggers
+   * @notice structure of offchain config for log triggers
    */
   struct LogTriggerConfig {
     address contractAddress;
@@ -379,7 +379,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice structure of trigger for cron triggers
+   * @notice structure of offchain config for cron triggers
    */
   struct CronTriggerConfig {
     string cron; // cron string such as "* * * 0 0"
@@ -387,17 +387,17 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @dev used for both conditional and ready trigger types
    */
   struct BlockTrigger {
     uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
     bytes32 blockHash;
   }
 
+  // the just gets emitted in UpkeepPerformed
   /**
-   * @notice the trigger structure of log upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number that the log was emitted in!!!!
+  @dev NOTE that blockNum / blockHash describe the block used for the callback,
+  not necessarily the block number that the log was emitted in!!!!
    */
   struct LogTrigger {
     bytes32 txHash;
@@ -406,16 +406,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
-  /**
-   * @notice the trigger structure of cron upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number that the log was emitted in!!!!
-   */
-  struct CronTrigger {
-    uint64 timestamp;
-    uint32 blockNum; // blocknum/blockhash are used for reorg protection in case of pipeline steps
-    bytes32 blockHash;
-  }
+  type CronTrigger is uint256;
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);

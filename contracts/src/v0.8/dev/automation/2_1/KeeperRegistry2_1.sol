@@ -489,13 +489,15 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     bytes memory rawTrigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
-    CronTrigger memory trigger = abi.decode(rawTrigger, (CronTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash) {
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
+    uint256 trigger = abi.decode(rawTrigger, (uint256));
+    if (trigger <= upkeep.lastPerformed) {
+      // Can happen when another report performed this upkeep after this report was generated
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if (trigger.timestamp <= upkeep.lastPerformed) {
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
+    if (trigger > block.timestamp) {
+      // Rare condition where reorged block can have timestamp < than triggering block
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     return true;
