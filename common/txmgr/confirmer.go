@@ -120,6 +120,7 @@ type Confirmer[
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	resumeCallback ResumeCallback
 	config         txmgrtypes.ConfirmerConfig
+	txConfig       txmgrtypes.ConfirmerTransactionsConfig
 	dbConfig       txmgrtypes.ConfirmerDatabaseConfig
 	chainID        CHAIN_ID
 
@@ -150,6 +151,7 @@ func NewConfirmer[
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	config txmgrtypes.ConfirmerConfig,
+	txConfig txmgrtypes.ConfirmerTransactionsConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -164,6 +166,7 @@ func NewConfirmer[
 		TxAttemptBuilder: txAttemptBuilder,
 		resumeCallback:   nil,
 		config:           config,
+		txConfig:         txConfig,
 		dbConfig:         dbConfig,
 		chainID:          client.ConfiguredChainID(),
 		ks:               keystore,
@@ -498,7 +501,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) get
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockNum int64) (receipts []R, err error) {
 	// Metadata is required to determine whether a tx is forwarded or not.
-	if ec.config.UseForwarders() {
+	if ec.txConfig.ForwardersEnabled() {
 		err = ec.txStore.PreloadTxes(attempts)
 		if err != nil {
 			return nil, errors.Wrap(err, "Confirmer#batchFetchReceipts error loading txs for attempts")
@@ -573,7 +576,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 
 		// This is only recording forwarded tx that were mined and have a status.
 		// Counters are prone to being inaccurate due to re-orgs.
-		if ec.config.UseForwarders() {
+		if ec.txConfig.ForwardersEnabled() {
 			meta, metaErr := attempt.Tx.GetMeta()
 			if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
 				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
@@ -621,7 +624,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reb
 
 	threshold := int64(ec.config.FeeBumpThreshold())
 	bumpDepth := int64(ec.config.FeeBumpTxDepth())
-	maxInFlightTransactions := ec.config.MaxInFlightTransactions()
+	maxInFlightTransactions := ec.txConfig.MaxInFlight()
 	etxs, err := ec.FindTxsRequiringRebroadcast(ctx, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
 	if err != nil {
 		return errors.Wrap(err, "FindTxsRequiringRebroadcast failed")
