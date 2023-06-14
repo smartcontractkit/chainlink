@@ -73,7 +73,7 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 		log.Fatalf("failed to get block number: %v", err)
 	}
 	hc := http.DefaultClient
-	feeds := []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"}
+	feeds := []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"}
 
 	log.Println("======================== Allow List ========================")
 	registry21, err := iregistry21.NewIKeeperRegistryMaster(common.HexToAddress(k.cfg.RegistryAddress), k.client)
@@ -316,10 +316,42 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	log.Printf("FeedLookup upkeep %s retryable %v reqErr %v", upkeepId.String(), retryable && !allSuccess, reqErr)
 	// only retry when not all successful AND none are not retryable
 	log.Printf("results[0]: %v", results[0])
-	log.Printf("results[1]: %v", results[1])
+	//log.Printf("results[1]: %v", results[1])
 	log.Printf("retryable: %v", retryable)
 	log.Printf("allSuccess: %v", allSuccess)
 	log.Printf("reqErr: %v", reqErr)
+
+	payload, err = keeperRegistryABI.Pack("checkCallback", upkeepId, results, ed)
+	if err != nil {
+		log.Fatalf("failed to pack check call back: %v", err)
+	}
+
+	args = map[string]interface{}{
+		"to":   k.cfg.RegistryAddress,
+		"data": hexutil.Bytes(payload),
+	}
+
+	err = k.client.Client().CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(block))
+	if err != nil {
+		log.Fatalf("failed to call context: %v", err)
+	}
+	log.Printf("checkCallback: %v", b)
+	log.Printf("checkCallback: %v", hexutil.MustDecode(hexutil.Encode(b)))
+
+	out, err = keeperRegistryABI.Methods["checkCallback"].Outputs.UnpackValues(b)
+	if err != nil {
+		log.Fatalf("failed to unpack: %v", err)
+	}
+
+	upkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	rawPerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	failureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	gasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+
+	log.Printf("upkeepNeeded: %v", upkeepNeeded)
+	log.Printf("rawPerformData: %v", rawPerformData)
+	log.Printf("failureReason: %v", failureReason)
+	log.Printf("gasUsed: %v", gasUsed)
 }
 
 func buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
