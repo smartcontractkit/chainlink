@@ -109,8 +109,9 @@ func TestPostgresORM_DeleteExpired(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err := orm.DeleteExpired(expired, time.Now().Add(2*time.Hour).UTC())
+	deleted, err := orm.DeleteExpired(expired, time.Now().Add(2*time.Hour).UTC())
 	assert.NoError(t, err)
+	assert.Equal(t, int64(expired), deleted)
 
 	count := 0
 	for _, row := range rows {
@@ -158,6 +159,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 				assert.Equal(t, snapshotRow.Address, sr.Address)
 				assert.Equal(t, snapshotRow.SlotId, sr.SlotId)
 				assert.Equal(t, snapshotRow.Version, sr.Version)
+				assert.Equal(t, snapshotRow.Expiration, sr.Expiration)
 				assert.Equal(t, snapshotRow.Confirmed, sr.Confirmed)
 			}
 		})
@@ -229,7 +231,7 @@ func TestPostgresORM_Namespace(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, urowsB, n/2)
 
-	err = ormB.DeleteExpired(n, time.Now().UTC())
+	_, err = ormB.DeleteExpired(n, time.Now().UTC())
 	assert.NoError(t, err)
 
 	snapshotA, err := ormA.GetSnapshot(s4.NewFullAddressRange())
