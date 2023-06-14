@@ -22,6 +22,27 @@ type Eth struct {
 	mock.Mock
 }
 
+// Add provides a mock function with given fields: address, chainID, qopts
+func (_m *Eth) Add(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, address, chainID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int, ...pg.QOpt) error); ok {
+		r0 = rf(address, chainID, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CheckEnabled provides a mock function with given fields: address, chainID
 func (_m *Eth) CheckEnabled(address common.Address, chainID *big.Int) error {
 	ret := _m.Called(address, chainID)
@@ -330,6 +351,30 @@ func (_m *Eth) GetState(id string, chainID *big.Int) (ethkey.State, error) {
 
 	if rf, ok := ret.Get(1).(func(string, *big.Int) error); ok {
 		r1 = rf(id, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStateForKey provides a mock function with given fields: _a0
+func (_m *Eth) GetStateForKey(_a0 ethkey.KeyV2) (ethkey.State, error) {
+	ret := _m.Called(_a0)
+
+	var r0 ethkey.State
+	var r1 error
+	if rf, ok := ret.Get(0).(func(ethkey.KeyV2) (ethkey.State, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(ethkey.KeyV2) ethkey.State); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(ethkey.State)
+	}
+
+	if rf, ok := ret.Get(1).(func(ethkey.KeyV2) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
