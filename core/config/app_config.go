@@ -35,28 +35,28 @@ type AppConfig interface {
 	SetLogSQL(logSQL bool)
 	SetPasswords(keystore, vrf *string)
 
-	OCR1Config
 	OCR2Config
 
-	Database() Database
 	AuditLogger() AuditLogger
-	Keeper() Keeper
-	TelemetryIngress() TelemetryIngress
-	Sentry() Sentry
-	JobPipeline() JobPipeline
-	Pyroscope() Pyroscope
-	Log() Log
-	FluxMonitor() FluxMonitor
-	WebServer() WebServer
 	AutoPprof() AutoPprof
-	Insecure() Insecure
+	Database() Database
 	Explorer() Explorer
+	Feature() Feature
+	FluxMonitor() FluxMonitor
+	Insecure() Insecure
+	JobPipeline() JobPipeline
+	Keeper() Keeper
+	Log() Log
+	Mercury() Mercury
+	OCR() OCR
+	P2P() P2P
 	Password() Password
 	Prometheus() Prometheus
-	P2P() P2P
-	Mercury() Mercury
+	Pyroscope() Pyroscope
+	Sentry() Sentry
+	TelemetryIngress() TelemetryIngress
 	Threshold() Threshold
-	Feature() Feature
+	WebServer() WebServer
 }
 
 type DatabaseBackupMode string

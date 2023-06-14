@@ -652,7 +652,7 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		if err != nil {
 			return err
 		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OCROracleSpec)
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), ch.Config().OCR(), *jb.OCROracleSpec)
 		if err != nil {
 			return err
 		}
@@ -698,36 +698,39 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 }
 
 type OCRSpecConfig interface {
-	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRObservationTimeout() time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	OCRKeyBundleID() (string, error)
-	OCRCaptureEATelemetry() bool
+}
+
+type OCRConfig interface {
+	BlockchainTimeout() time.Duration
+	CaptureEATelemetry() bool
+	ContractPollInterval() time.Duration
+	ContractSubscribeInterval() time.Duration
+	KeyBundleID() (string, error)
+	ObservationTimeout() time.Duration
+	TransmitterAddress() (ethkey.EIP55Address, error)
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
+func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
-		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
+		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
 		os.BlockchainTimeoutEnv = true
-		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
+		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
 		os.ContractConfigTrackerSubscribeIntervalEnv = true
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
 		os.ContractConfigTrackerPollIntervalEnv = true
-		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
+		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmationsEnv = true
@@ -745,15 +748,15 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
-	os.CaptureEATelemetry = cfg.OCRCaptureEATelemetry()
+	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
 
 	return &os
 }
 
 // LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
+func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
-		ta, err := cfg.OCRTransmitterAddress()
+		ta, err := ocrCfg.TransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
@@ -764,7 +767,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 	}
 
 	if os.EncryptedOCRKeyBundleID == nil {
-		kb, err := cfg.OCRKeyBundleID()
+		kb, err := ocrCfg.KeyBundleID()
 		if err != nil {
 			return nil, err
 		}
@@ -776,7 +779,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracle
 		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
 	}
 
-	return LoadEnvConfigVarsLocalOCR(cfg, os), nil
+	return LoadEnvConfigVarsLocalOCR(cfg, os, ocrCfg), nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
