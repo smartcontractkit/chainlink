@@ -111,6 +111,7 @@ type service struct {
 	cfg          Config
 	insecureCfg  InsecureConfig
 	jobCfg       JobConfig
+	ocrCfg       OCRConfig
 	connMgr      ConnectionsManager
 	chainSet     evm.ChainSet
 	lggr         logger.Logger
@@ -127,6 +128,7 @@ func NewService(
 	cfg Config,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
+	ocrCfg OCRConfig,
 	dbCfg pg.QConfig,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
@@ -145,6 +147,7 @@ func NewService(
 		cfg:          cfg,
 		insecureCfg:  insecureCfg,
 		jobCfg:       jobCfg,
+		ocrCfg:       ocrCfg,
 		connMgr:      newConnectionsManager(lggr),
 		chainSet:     chainSet,
 		lggr:         lggr,
@@ -1046,7 +1049,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		if !s.cfg.OCREnabled() {
+		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
 		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
