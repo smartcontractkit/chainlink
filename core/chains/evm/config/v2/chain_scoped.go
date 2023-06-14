@@ -42,13 +42,13 @@ func (c *ChainScoped) ChainType() gencfg.ChainType {
 func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      c.OCRBlockchainTimeout(),
+		BlockchainTimeout:                      c.OCR().BlockchainTimeout(),
 		ContractConfigConfirmations:            c.OCRContractConfirmations(),
-		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(),
-		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(),
+		ContractConfigTrackerPollInterval:      c.OCR().ContractPollInterval(),
+		ContractConfigTrackerSubscribeInterval: c.OCR().ContractSubscribeInterval(),
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      c.OCRObservationTimeout(),
+		DataSourceTimeout:                      c.OCR().ObservationTimeout(),
 		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {

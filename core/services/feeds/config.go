@@ -7,7 +7,6 @@ import (
 
 type Config interface {
 	config.OCR2Config
-	OCREnabled() bool
 	OCR2Enabled() bool
 }
 
@@ -17,4 +16,8 @@ type JobConfig interface {
 
 type InsecureConfig interface {
 	OCRDevelopmentMode() bool
+}
+
+type OCRConfig interface {
+	Enabled() bool
 }
