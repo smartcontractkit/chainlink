@@ -9,8 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-
+	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,8 +18,6 @@ import (
 	goabi "github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -28,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -203,7 +202,11 @@ func (v *EthereumKeeperRegistry) Address() string {
 }
 
 func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
@@ -1374,7 +1377,11 @@ func (v *EthereumUpkeepCounter) Address() string {
 }
 
 func (v *EthereumUpkeepCounter) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 func (v *EthereumUpkeepCounter) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
@@ -1412,7 +1419,11 @@ func (v *EthereumUpkeepPerformCounterRestrictive) Address() string {
 }
 
 func (v *EthereumUpkeepPerformCounterRestrictive) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 func (v *EthereumUpkeepPerformCounterRestrictive) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
@@ -1447,7 +1458,11 @@ func (v *EthereumKeeperConsumer) Address() string {
 }
 
 func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
@@ -1475,7 +1490,11 @@ func (v *EthereumKeeperConsumerPerformance) Address() string {
 }
 
 func (v *EthereumKeeperConsumerPerformance) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumKeeperConsumerPerformance) CheckEligible(ctx context.Context) (bool, error) {
@@ -1568,7 +1587,11 @@ func (v *EthereumAutomationConsumerBenchmark) Address() string {
 }
 
 func (v *EthereumAutomationConsumerBenchmark) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
@@ -1603,7 +1626,11 @@ func (v *EthereumKeeperRegistrar) Address() string {
 }
 
 func (v *EthereumKeeperRegistrar) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
