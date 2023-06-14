@@ -18,12 +18,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, cid *big.Int) *txmgr.EvmReaper {
-	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, cid)
+func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.EvmReaper {
+	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, txConfig, cid)
 }
 
-func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig) *txmgr.EvmReaper {
-	return newReaperWithChainID(t, db, cfg, &cltest.FixtureChainID)
+func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.EvmReaper {
+	return newReaperWithChainID(t, db, cfg, txConfig, &cltest.FixtureChainID)
+}
+
+type reaperConfig struct {
+	reaperInterval  time.Duration
+	reaperThreshold time.Duration
+}
+
+func (r *reaperConfig) ReaperInterval() time.Duration {
+	return r.reaperInterval
+}
+
+func (r *reaperConfig) ReaperThreshold() time.Duration {
+	return r.reaperThreshold
 }
 
 func TestReaper_ReapTxes(t *testing.T) {
@@ -31,7 +44,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -41,9 +54,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
-		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, txStore, config)
+		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
+
+		r := newReaper(t, txStore, config, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -54,9 +68,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
-		config.On("TxReaperThreshold").Return(0 * time.Second)
 
-		r := newReaper(t, txStore, config)
+		tc := &reaperConfig{reaperThreshold: 0 * time.Second}
+
+		r := newReaper(t, txStore, config, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -67,9 +82,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
-		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaperWithChainID(t, txStore, config, big.NewInt(42))
+		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
+
+		r := newReaperWithChainID(t, txStore, config, tc, big.NewInt(42))
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -80,9 +96,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
-		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, txStore, config)
+		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
+
+		r := newReaper(t, txStore, config, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -107,9 +124,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
 		config := txmgrmocks.NewReaperConfig(t)
 		config.On("FinalityDepth").Return(uint32(10))
-		config.On("TxReaperThreshold").Return(1 * time.Hour)
 
-		r := newReaper(t, txStore, config)
+		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
+
+		r := newReaper(t, txStore, config, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)

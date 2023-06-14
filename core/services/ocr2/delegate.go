@@ -223,7 +223,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
 	case job.OCR2Keeper:
-		filters, err = ocr2keeper.FilterNamesFromSpec(spec)
+		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
@@ -357,7 +357,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.Config().P2P().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.P2PConfig().V2().DefaultBootstrappers())
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +516,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		if jb.ForwardingAllowed != chain.Config().EvmUseForwarders() {
+		if jb.ForwardingAllowed != chain.Config().EVM().Transactions().ForwardersEnabled() {
 			return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
 		}
 
@@ -687,7 +687,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 		mc := d.cfg.Mercury().Credentials(credName)
 
-		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+		keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 		}

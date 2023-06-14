@@ -25,7 +25,6 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -226,8 +225,8 @@ func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) OCREnabled() bool {
-	return *g.c.OCR.Enabled
+func (g *generalConfig) OCR() config.OCR {
+	return &ocrConfig{c: g.c.OCR}
 }
 
 func (g *generalConfig) OCR2Enabled() bool {
@@ -400,54 +399,6 @@ func (g *generalConfig) Keeper() config.Keeper {
 
 func (g *generalConfig) Log() config.Log {
 	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
-}
-
-func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
-	return g.c.OCR.BlockchainTimeout.Duration()
-}
-
-func (g *generalConfig) OCRContractPollInterval() time.Duration {
-	return g.c.OCR.ContractPollInterval.Duration()
-}
-
-func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
-	return g.c.OCR.ContractSubscribeInterval.Duration()
-}
-
-func (g *generalConfig) OCRKeyBundleID() (string, error) {
-	b := g.c.OCR.KeyBundleID
-	if *b == zeroSha256Hash {
-		return "", nil
-	}
-	return b.String(), nil
-}
-
-func (g *generalConfig) OCRObservationTimeout() time.Duration {
-	return g.c.OCR.ObservationTimeout.Duration()
-}
-
-func (g *generalConfig) OCRSimulateTransactions() bool {
-	return *g.c.OCR.SimulateTransactions
-}
-
-func (g *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	a := *g.c.OCR.TransmitterAddress
-	if a.IsZero() {
-		return a, errors.Wrap(coreconfig.ErrEnvUnset, "OCRTransmitterAddress is not set")
-	}
-	return a, nil
-}
-
-func (g *generalConfig) OCRTraceLogging() bool {
-	return *g.c.P2P.TraceLogging
-}
-
-func (g *generalConfig) OCRCaptureEATelemetry() bool {
-	return *g.c.OCR.CaptureEATelemetry
-}
-
-func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	return *g.c.OCR.DefaultTransactionQueueDepth
 }
 
 func (g *generalConfig) OCR2ContractConfirmations() uint16 {

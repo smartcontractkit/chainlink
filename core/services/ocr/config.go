@@ -12,8 +12,8 @@ type Config interface {
 	pg.QConfig
 }
 
-func toLocalConfig(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
-	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
+func toLocalConfig(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrConfig job.OCRConfig) ocrtypes.LocalConfig {
+	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec, ocrConfig)
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,

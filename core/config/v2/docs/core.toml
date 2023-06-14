@@ -335,6 +335,8 @@ SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 # CaptureEATelemetry toggles collecting extra information from External Adaptares
 CaptureEATelemetry = false # Default
+# TraceLogging enables trace level logging.
+TraceLogging = false # Default
 
 # P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
 # If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will

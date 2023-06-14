@@ -8,16 +8,16 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -33,12 +33,12 @@ type chain struct {
 }
 
 func newChain(id string, cfg config.Config, loopKs loop.Keystore, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
-	lggr = lggr.With("starknetChainID", id)
+	lggr = logger.With(lggr, "starknetChainID", id)
 	ch := &chain{
 		id:   id,
 		cfg:  cfg,
 		cfgs: cfgs,
-		lggr: lggr.Named("Chain"),
+		lggr: logger.Named(lggr, "Chain"),
 	}
 
 	getClient := func() (*starknet.Client, error) {

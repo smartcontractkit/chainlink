@@ -65,7 +65,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230606234201-cca3103bf8a6
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230613131043-acb07f2c0f79
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482
 	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
@@ -94,6 +94,7 @@ require (
 	golang.org/x/sync v0.2.0
 	golang.org/x/term v0.8.0
 	golang.org/x/text v0.9.0
+	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.9.2
 	gonum.org/v1/gonum v0.13.0
 	google.golang.org/protobuf v1.30.0
@@ -354,7 +355,6 @@ require (
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 	google.golang.org/grpc v1.55.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

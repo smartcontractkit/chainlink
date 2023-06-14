@@ -43,6 +43,7 @@ var (
 type TestEvmTxStore interface {
 	EvmTxStore
 	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
+	InsertTx(etx *EvmTx) error                                 // only used for testing purposes
 }
 
 type evmTxStore struct {
@@ -865,8 +866,8 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
-// FindTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *evmTxStore) FindTxWithNonce(fromAddress common.Address, nonce evmtypes.Nonce) (etx *EvmTx, err error) {
+// FindTxWithSequence returns any broadcast ethtx with the given nonce
+func (o *evmTxStore) FindTxWithSequence(fromAddress common.Address, nonce evmtypes.Nonce) (etx *EvmTx, err error) {
 	etx = new(EvmTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
