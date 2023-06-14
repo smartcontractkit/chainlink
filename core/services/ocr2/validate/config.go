@@ -8,8 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
-
 // OCR2Config contains OCR2 configurations for a job.
 type OCR2Config interface {
 	BlockchainTimeout() time.Duration
