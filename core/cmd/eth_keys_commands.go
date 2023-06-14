@@ -232,7 +232,7 @@ func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return s.errorOut(errors.Wrap(err, "Failed to read request response"))
@@ -244,8 +244,7 @@ func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 		}
 		return s.errorOut(errors.Errorf("Delete ETH key failed: %s", result.Error()))
 	}
-	fmt.Println(fmt.Sprintf("Deleted ETH key: %s", address))
-	return nil
+	return s.renderAPIResponse(resp, &EthKeyPresenter{}, fmt.Sprintf("🔑 Deleted ETH key: %s\n", address))
 }
 
 // ImportETHKey imports an Ethereum key,
