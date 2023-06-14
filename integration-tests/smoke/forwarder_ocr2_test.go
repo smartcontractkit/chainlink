@@ -66,7 +66,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
-
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
@@ -75,13 +74,13 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	// replace transmitters with forwarders
 	ocrv2Config.Transmitters = authorizedForwarders
 
-	err = actions.CreateOCRv2JobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
-	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
+	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
+	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
-	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+	err = actions.CreateOCRv2JobsWithForwarder(ocrInstances, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
+	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
