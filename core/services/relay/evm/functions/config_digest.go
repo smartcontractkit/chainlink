@@ -2,6 +2,7 @@ package functions
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -26,7 +27,8 @@ func makeConfigDigestArgs() abi.Arguments {
 
 var configDigestArgs = makeConfigDigestArgs()
 
-func functionsConfigDigest(
+func configDigest(
+	pluginType FunctionsPluginType,
 	chainID uint64,
 	contractAddress common.Address,
 	configCount uint64,
@@ -36,7 +38,7 @@ func functionsConfigDigest(
 	onchainConfig []byte,
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
-) types.ConfigDigest {
+) (configDigest types.ConfigDigest, err error) {
 	chainIDBig := new(big.Int)
 	chainIDBig.SetUint64(chainID)
 	msg, err := configDigestArgs.Pack(
@@ -51,53 +53,25 @@ func functionsConfigDigest(
 		offchainConfig,
 	)
 	if err != nil {
-		// assertion
-		panic(err)
+		return configDigest, err
 	}
 	rawHash := crypto.Keccak256(msg)
-	configDigest := types.ConfigDigest{}
 	if n := copy(configDigest[:], rawHash); n != len(configDigest) {
-		// assertion
-		panic("copy too little data")
+		return configDigest, errors.New("copy too little data")
 	}
-	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixFunctions))
-	return configDigest
-}
 
-func thresholdConfigDigest(
-	chainID uint64,
-	contractAddress common.Address,
-	configCount uint64,
-	oracles []common.Address,
-	transmitters []common.Address,
-	f uint8,
-	onchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) types.ConfigDigest {
-	chainIDBig := new(big.Int)
-	chainIDBig.SetUint64(chainID)
-	msg, err := configDigestArgs.Pack(
-		chainIDBig,
-		contractAddress,
-		configCount,
-		oracles,
-		transmitters,
-		f,
-		onchainConfig,
-		offchainConfigVersion,
-		offchainConfig,
-	)
-	if err != nil {
-		// assertion
-		panic(err)
+	var prefix types.ConfigDigestPrefix
+	switch pluginType {
+	case FunctionsPlugin:
+		prefix = types.ConfigDigestPrefixEVM
+	case ThresholdPlugin:
+		prefix = types.ConfigDigestPrefixThreshold
+	case S4Plugin:
+		prefix = types.ConfigDigestPrefixS4
+	default:
+		return configDigest, errors.New("unknown plugin type")
 	}
-	rawHash := crypto.Keccak256(msg)
-	configDigest := types.ConfigDigest{}
-	if n := copy(configDigest[:], rawHash); n != len(configDigest) {
-		// assertion
-		panic("copy too little data")
-	}
-	binary.BigEndian.PutUint16(configDigest[:2], uint16(types.ConfigDigestPrefixThreshold))
-	return configDigest
+
+	binary.BigEndian.PutUint16(configDigest[:2], uint16(prefix))
+	return configDigest, nil
 }

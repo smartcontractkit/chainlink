@@ -34,45 +34,29 @@ func (d EVMOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.
 		transmitters = append(transmitters, a)
 	}
 
-	if d.PluginType == FunctionsPlugin {
-		cfg := functionsConfigDigest(
-			d.ChainID,
-			d.ContractAddress,
-			cc.ConfigCount,
-			signers,
-			transmitters,
-			cc.F,
-			cc.OnchainConfig,
-			cc.OffchainConfigVersion,
-			cc.OffchainConfig,
-		)
-		fmt.Println("THRESHOLD FUNCTIONS ConfigDigest() func CONFIG DIGEST: ", cfg)
-		return cfg, nil
-	} else if d.PluginType == ThresholdPlugin {
-		cfg := thresholdConfigDigest(
-			d.ChainID,
-			d.ContractAddress,
-			cc.ConfigCount,
-			signers,
-			transmitters,
-			cc.F,
-			cc.OnchainConfig,
-			cc.OffchainConfigVersion,
-			cc.OffchainConfig,
-		)
-		fmt.Println("THRESHOLD THRESHOLD ConfigDigest() func CONFIG DIGEST: ", cfg)
-		return cfg, nil
-	} else {
-		return types.ConfigDigest{}, fmt.Errorf("unknown plugin type: %v", d.PluginType)
-	}
+	return configDigest(
+		d.PluginType,
+		d.ChainID,
+		d.ContractAddress,
+		cc.ConfigCount,
+		signers,
+		transmitters,
+		cc.F,
+		cc.OnchainConfig,
+		cc.OffchainConfigVersion,
+		cc.OffchainConfig,
+	)
 }
 
 func (d EVMOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
-	if d.PluginType == FunctionsPlugin {
-		return types.ConfigDigestPrefixFunctions, nil
-	} else if d.PluginType == ThresholdPlugin {
+	switch d.PluginType {
+	case FunctionsPlugin:
+		return types.ConfigDigestPrefixEVM, nil
+	case ThresholdPlugin:
 		return types.ConfigDigestPrefixThreshold, nil
-	} else {
+	case S4Plugin:
+		return types.ConfigDigestPrefixS4, nil
+	default:
 		return 0, fmt.Errorf("unknown plugin type: %v", d.PluginType)
 	}
 }

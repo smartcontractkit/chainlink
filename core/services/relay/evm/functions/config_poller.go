@@ -29,6 +29,7 @@ type FunctionsPluginType int
 const (
 	FunctionsPlugin FunctionsPluginType = iota
 	ThresholdPlugin
+	S4Plugin
 )
 
 type configPoller struct {
@@ -82,11 +83,15 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 	}
 
 	// Replace the first two bytes of the config digest with the plugin type to avoid duplicate config digests between plugins
-	if pluginType == ThresholdPlugin {
+	switch pluginType {
+	case FunctionsPlugin:
+		// FunctionsPluginType should already be the prefix, so this is a no-op
+	case ThresholdPlugin:
 		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(types.ConfigDigestPrefixThreshold))
-	}
-	if pluginType == FunctionsPlugin {
-		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(types.ConfigDigestPrefixFunctions))
+	case S4Plugin:
+		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(types.ConfigDigestPrefixS4))
+	default:
+		return ocrtypes.ContractConfig{}, errors.New("unknown plugin type")
 	}
 
 	fmt.Println("THRESHOLD PLUGIN TYPE: ", pluginType)
