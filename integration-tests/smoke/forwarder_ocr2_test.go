@@ -82,6 +82,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+	err = chainClient.WaitForEvents()
+	require.NoError(t, err, "Error waiting for events")
 
 	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*10)
 	require.NoError(t, err)
