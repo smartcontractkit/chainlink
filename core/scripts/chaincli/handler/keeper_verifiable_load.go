@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -73,7 +74,49 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 
 	upkeepStats := &UpkeepStats{BlockNumber: blockNum}
 
+	resultsChan := make(chan *UpkeepInfo, 100)
+	idChan := make(chan *big.Int, 100)
+
+	var wg sync.WaitGroup
+
+	// create a number of workers to process the upkeep ids in batch
+	for i := 0; i < 10; i++ {
+		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg)
+	}
+
 	for _, id := range upkeepIds {
+		idChan <- id
+	}
+
+	close(idChan)
+	wg.Wait()
+
+	close(resultsChan)
+
+	for info := range resultsChan {
+		upkeepStats.AllInfos = append(upkeepStats.AllInfos, info)
+		upkeepStats.TotalPerforms += info.TotalPerforms
+		upkeepStats.TotalDelayBlock += info.TotalDelayBlock
+		upkeepStats.SortedAllDelays = append(upkeepStats.SortedAllDelays, info.SortedAllDelays...)
+	}
+
+	sort.Float64s(upkeepStats.SortedAllDelays)
+
+	log.Println("\n\n================================== ALL UPKEEPS SUMMARY =======================================================")
+	p50, _ := stats.Percentile(upkeepStats.SortedAllDelays, 50)
+	p90, _ := stats.Percentile(upkeepStats.SortedAllDelays, 90)
+	p95, _ := stats.Percentile(upkeepStats.SortedAllDelays, 95)
+	p99, _ := stats.Percentile(upkeepStats.SortedAllDelays, 99)
+	maxDelay := upkeepStats.SortedAllDelays[len(upkeepStats.SortedAllDelays)-1]
+	log.Printf("For total %d upkeeps: total performs: %d, p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %f, average perform delay: %f\n", len(upkeepIds), upkeepStats.TotalPerforms, p50, p90, p95, p99, maxDelay, upkeepStats.TotalDelayBlock, upkeepStats.TotalDelayBlock/float64(upkeepStats.TotalPerforms))
+	log.Printf("All STATS ABOVE ARE CALCULATED AT BLOCK %d", blockNum)
+}
+
+func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInfo, v *verifiable_load_upkeep_wrapper.VerifiableLoadUpkeep, opts *bind.CallOpts, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	for id := range idChan {
 		// it's possible to do the following to get delays, but it may run into out of gas issues
 		// performDelays, err := v.GetDelays(opts, uid)
 		log.Println()
@@ -107,15 +150,15 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		wg.Wait()
 
 		// get all the timestamp buckets of an upkeep. performs which happen every 1 hour after the first perform fall into the same bucket.
-		//t, err := v.TimestampBuckets(opts, id)
-		//if err != nil {
-		//	log.Fatalf("failed to get timestamp bucket for %s: %v", id.String(), err)
-		//}
-		//info.TimestampBucket = t
-		//for i := uint16(0); i <= t; i++ {
-		//	go k.getBucketData(v, opts, true, id, i, &wg, info)
-		//}
-		//wg.Wait()
+		t, err := v.TimestampBuckets(opts, id)
+		if err != nil {
+			log.Fatalf("failed to get timestamp bucket for %s: %v", id.String(), err)
+		}
+		info.TimestampBucket = t
+		for i := uint16(0); i <= t; i++ {
+			go k.getBucketData(v, opts, true, id, i, &wg, info)
+		}
+		wg.Wait()
 
 		for i := uint16(0); i <= b; i++ {
 			bucketDelays := info.DelayBuckets[i]
@@ -137,22 +180,8 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 
 		log.Printf("%d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
 		//log.Printf("All delays: %v", info.SortedAllDelays)
-		upkeepStats.AllInfos = append(upkeepStats.AllInfos, info)
-		upkeepStats.TotalPerforms += info.TotalPerforms
-		upkeepStats.TotalDelayBlock += info.TotalDelayBlock
-		upkeepStats.SortedAllDelays = append(upkeepStats.SortedAllDelays, info.SortedAllDelays...)
+		resultsChan <- info
 	}
-
-	sort.Float64s(upkeepStats.SortedAllDelays)
-
-	log.Println("\n\n================================== ALL UPKEEPS SUMMARY =======================================================")
-	p50, _ := stats.Percentile(upkeepStats.SortedAllDelays, 50)
-	p90, _ := stats.Percentile(upkeepStats.SortedAllDelays, 90)
-	p95, _ := stats.Percentile(upkeepStats.SortedAllDelays, 95)
-	p99, _ := stats.Percentile(upkeepStats.SortedAllDelays, 99)
-	maxDelay := upkeepStats.SortedAllDelays[len(upkeepStats.SortedAllDelays)-1]
-	log.Printf("For total %d upkeeps: total performs: %d, p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %f, average perform delay: %f\n", len(upkeepIds), upkeepStats.TotalPerforms, p50, p90, p95, p99, maxDelay, upkeepStats.TotalDelayBlock, upkeepStats.TotalDelayBlock/float64(upkeepStats.TotalPerforms))
-	log.Printf("All STATS ABOVE ARE CALCULATED AT BLOCK %d", blockNum)
 }
 
 func (k *Keeper) getBucketData(v *verifiable_load_upkeep_wrapper.VerifiableLoadUpkeep, opts *bind.CallOpts, getTimestampBucket bool, id *big.Int, bucketNum uint16, wg *sync.WaitGroup, info *UpkeepInfo) {
@@ -162,14 +191,24 @@ func (k *Keeper) getBucketData(v *verifiable_load_upkeep_wrapper.VerifiableLoadU
 	var bucketDelays []*big.Int
 	var err error
 	if getTimestampBucket {
-		bucketDelays, err = v.GetTimestampDelays(opts, id, bucketNum)
-		if err != nil {
-			log.Fatalf("failed to get timestamp bucketed delays for upkeep id %s timestamp bucket %d: %v", id.String(), bucketNum, err)
+		for i := 0; i < 3; i++ {
+			bucketDelays, err = v.GetTimestampDelays(opts, id, bucketNum)
+			if err != nil {
+				log.Printf("failed to get timestamp bucketed delays for upkeep id %s timestamp bucket %d: %v, retrying...", id.String(), bucketNum, err)
+				time.Sleep(time.Second * 3)
+			} else {
+				break
+			}
 		}
 	} else {
-		bucketDelays, err = v.GetBucketedDelays(opts, id, bucketNum)
-		if err != nil {
-			log.Fatalf("failed to get bucketed delays for upkeep id %s bucket %d: %v", id.String(), bucketNum, err)
+		for i := 0; i < 3; i++ {
+			bucketDelays, err = v.GetBucketedDelays(opts, id, bucketNum)
+			if err != nil {
+				log.Printf("failed to get bucketed delays for upkeep id %s bucket %d: %v, retrying...", id.String(), bucketNum, err)
+				time.Sleep(time.Second * 3)
+			} else {
+				break
+			}
 		}
 	}
 
