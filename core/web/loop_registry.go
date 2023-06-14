@@ -79,7 +79,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 		return
 	}
 
-	pluginURL := fmt.Sprintf("http://localhost:%d/metrics", p.EnvCfg.PrometheusPort())
+	pluginURL := fmt.Sprintf("http://%s:%d/metrics", p.EnvCfg.Hostname(), p.EnvCfg.PrometheusPort())
 	res, err := http.Get(pluginURL) //nolint
 	if err != nil {
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))

@@ -14,6 +14,7 @@ var (
 	EnvMedianPluginCmd   = Env("CL_MEDIAN_CMD")
 	EnvSolanaPluginCmd   = Env("CL_SOLANA_CMD")
 	EnvStarknetPluginCmd = Env("CL_STARKNET_CMD")
+	EnvPluginPromTarget  = Env("CL_PROMETHEUS_TARGET_HOSTNAME")
 
 	EnvDatabaseAllowSimplePasswords = Env("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	EnvDatabaseURL                  = EnvSecret("CL_DATABASE_URL")
