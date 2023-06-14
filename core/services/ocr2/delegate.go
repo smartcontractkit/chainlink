@@ -85,6 +85,7 @@ type DelegateConfig interface {
 	Database() pg.QConfig
 	Insecure() insecureConfig
 	Mercury() coreconfig.Mercury
+	Threshold() coreconfig.Threshold
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -95,6 +96,7 @@ type delegateConfig struct {
 	database    pg.QConfig
 	insecure    insecureConfig
 	mercury     mercuryConfig
+	threshold   thresholdConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -107,6 +109,10 @@ func (d *delegateConfig) Database() pg.QConfig {
 
 func (d *delegateConfig) Insecure() insecureConfig {
 	return d.insecure
+}
+
+func (d *delegateConfig) Threshold() coreconfig.Threshold {
+	return d.threshold
 }
 
 func (d *delegateConfig) Mercury() coreconfig.Mercury {
@@ -126,7 +132,11 @@ type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 }
 
-func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+type thresholdConfig interface {
+	ThresholdKeyShare() string
+}
+
+func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		Config:          vc,
 		RegistrarConfig: pluginProcessCfg,
@@ -134,6 +144,7 @@ func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, i insecureConfi
 		database:        qconf,
 		insecure:        i,
 		mercury:         m,
+		threshold:       t,
 	}
 }
 
