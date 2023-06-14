@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -16,10 +15,4 @@ type MockEvmTxManager = txmgrmocks.TxManager[*big.Int, *evmtypes.Head, common.Ad
 
 func NewMockEvmTxManager(t *testing.T) *MockEvmTxManager {
 	return txmgrmocks.NewTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee](t)
-}
-
-type MockEvmTxStore = mocks.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-
-func NewMockEvmTxStore(t *testing.T) *MockEvmTxStore {
-	return mocks.NewTxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee](t)
 }
