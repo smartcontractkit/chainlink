@@ -56,14 +56,20 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
 		t, contractDeployer, linkTokenContract, chainClient, len(workerNodes),
 	)
+
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(
 			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, chainClient, contractLoader,
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, chainClient, authorizedForwarders[i], workerNodes[i])
+		fwdrs, _, err := workerNodes[i].GetForwarders()
+		require.NoError(t, err)
+		require.NotEmpty(t, fwdrs.Data)
+		require.Equal(t, fwdrs.Data[0].Data.Address, authorizedForwarders[i])
 		err = chainClient.WaitForEvents()
 	}
+
 	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 	err = chainClient.WaitForEvents()
