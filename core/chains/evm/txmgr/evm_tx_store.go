@@ -63,7 +63,7 @@ type TestEvmTxStore interface {
 	EvmTxStore
 
 	// methods only used for testing purposes
-	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error)
+	InsertReceipt(receipt *evmtypes.Receipt) (int64, error)
 	InsertTx(etx *EvmTx) error
 	FindTxAttemptsByTxIDs(ids []int64) ([]EvmTxAttempt, error)
 	FindTxWithAttempts(etxID int64) (etx EvmTx, err error)
@@ -511,8 +511,8 @@ func (o *evmTxStore) InsertTxAttempt(attempt *EvmTxAttempt) error {
 	return pkgerrors.Wrap(err, "InsertTxAttempt failed")
 }
 
-// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) {
+// InsertReceipt only used in tests. Use SaveFetchedReceipts instead
+func (o *evmTxStore) InsertReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	// convert to database representation
 	r := DbReceiptFromEvmReceipt(receipt)
 
@@ -521,7 +521,7 @@ func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) 
 ) RETURNING *`
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
-	return r.ID, pkgerrors.Wrap(err, "InsertEthReceipt failed")
+	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
 }
 
 // FindTxWithAttempts finds the EvmTx with its attempts and receipts preloaded
