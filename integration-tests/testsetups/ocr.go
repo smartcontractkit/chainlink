@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -42,6 +43,41 @@ type OCRSoakTest struct {
 	ocrInstances          []contracts.OffchainAggregator
 	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
 	OperatorForwarderFlow bool
+}
+
+type OCRSoakTestSub struct {
+	client        blockchain.EVMClient
+	contractABI   *abi.ABI
+	completed     bool
+	completedMu   sync.Mutex
+	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated
+}
+
+func NewOCRSoakTestSub(client blockchain.EVMClient, startingBlockNumber *big.Int) (*OCRSoakTestSub, error) {
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return &OCRSoakTestSub{
+		client:        client,
+		contractABI:   contractABI,
+		completed:     false,
+		answerUpdated: make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated),
+	}, nil
+}
+
+func (o *OCRSoakTestSub) ReceiveHeader(header blockchain.NodeHeader) error {
+	o.client.Fi
+}
+
+func (o *OCRSoakTestSub) Wait() error {
+	return nil // NOP as we're going
+}
+
+func (o *OCRSoakTestSub) Complete() bool {
+	o.completedMu.Lock()
+	defer o.completedMu.Unlock()
+	return o.completed
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -174,6 +210,7 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
 	o.subscribeOCREvents(t, answerUpdated)
 	remainingExpectedAnswers := len(o.ocrInstances)
+	o.chainClient.AddHeaderEventSubscription("debug")
 	testOver := false
 	for {
 		select {
