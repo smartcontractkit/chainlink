@@ -79,6 +79,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		log.Println()
 		log.Printf("================================== UPKEEP %s SUMMARY =======================================================", id.String())
 
+		// fetch how many times this upkeep has been executed
 		c, err := v.Counters(opts, id)
 		if err != nil {
 			log.Fatalf("failed to get counter for %s: %v", id.String(), err)
@@ -106,15 +107,15 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		wg.Wait()
 
 		// get all the timestamp buckets of an upkeep. performs which happen every 1 hour after the first perform fall into the same bucket.
-		t, err := v.TimestampBuckets(opts, id)
-		if err != nil {
-			log.Fatalf("failed to get timestamp bucket for %s: %v", id.String(), err)
-		}
-		info.TimestampBucket = t
-		for i := uint16(0); i <= t; i++ {
-			go k.getBucketData(v, opts, true, id, i, &wg, info)
-		}
-		wg.Wait()
+		//t, err := v.TimestampBuckets(opts, id)
+		//if err != nil {
+		//	log.Fatalf("failed to get timestamp bucket for %s: %v", id.String(), err)
+		//}
+		//info.TimestampBucket = t
+		//for i := uint16(0); i <= t; i++ {
+		//	go k.getBucketData(v, opts, true, id, i, &wg, info)
+		//}
+		//wg.Wait()
 
 		for i := uint16(0); i <= b; i++ {
 			bucketDelays := info.DelayBuckets[i]
@@ -131,10 +132,11 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		p90, _ := stats.Percentile(info.SortedAllDelays, 90)
 		p95, _ := stats.Percentile(info.SortedAllDelays, 95)
 		p99, _ := stats.Percentile(info.SortedAllDelays, 99)
+		// TODO sometimes SortedAllDelays is empty
 		maxDelay := info.SortedAllDelays[len(info.SortedAllDelays)-1]
 
 		log.Printf("%d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
-		log.Printf("All delays: %v", info.SortedAllDelays)
+		//log.Printf("All delays: %v", info.SortedAllDelays)
 		upkeepStats.AllInfos = append(upkeepStats.AllInfos, info)
 		upkeepStats.TotalPerforms += info.TotalPerforms
 		upkeepStats.TotalDelayBlock += info.TotalDelayBlock
