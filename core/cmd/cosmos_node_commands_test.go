@@ -62,11 +62,11 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	rt := cmd.RendererTable{b}
 	nodes.RenderTable(rt)
 	renderLines := strings.Split(b.String(), "\n")
-	assert.Equal(t, 7, len(renderLines))
-	assert.Contains(t, renderLines[1], "Name")
-	assert.Contains(t, renderLines[1], n.Name)
-	assert.Contains(t, renderLines[2], "Chain ID")
-	assert.Contains(t, renderLines[2], n.ChainID)
-	assert.Contains(t, renderLines[3], "State")
-	assert.Contains(t, renderLines[3], n.State)
+	assert.Equal(t, 10, len(renderLines))
+	assert.Contains(t, renderLines[2], "Name")
+	assert.Contains(t, renderLines[2], n.Name)
+	assert.Contains(t, renderLines[3], "Chain ID")
+	assert.Contains(t, renderLines[3], n.ChainID)
+	assert.Contains(t, renderLines[4], "State")
+	assert.Contains(t, renderLines[4], n.State)
 }
