@@ -151,6 +151,55 @@ func Test_ParseCBOR(t *testing.T) {
 	}
 }
 
+func Test_ParseCBORToStruct_Success(t *testing.T) {
+	t.Parallel()
+
+	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Url  string   `cbor:"url"`
+		Path []string `cbor:"path"`
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+
+	require.NoError(t, err)
+	require.Equal(t, "https://etherprice.com/api", parsed.Url)
+	require.Equal(t, []string{"recent", "usd"}, parsed.Path)
+}
+
+func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
+	t.Parallel()
+
+	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Url  string `cbor:"url"`
+		Path []int  `cbor:"path"` // exect int but get string
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+
+	require.Error(t, err)
+}
+
+func Test_ParseCBORToStruct_BinaryStringOfWrongType(t *testing.T) {
+	t.Parallel()
+
+	// {"key":"value"} but with last byte replaced with invalid unicode (0x88)
+	hexCBOR := `0x636B65796576616C7588`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Key string `cbor:"key"`
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+	require.Error(t, err)
+}
+
 func Test_autoAddMapDelimiters(t *testing.T) {
 	t.Parallel()
 
