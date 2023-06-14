@@ -34,7 +34,7 @@ const (
 	MercuryBatchPathV3  = "/v1/reports/bulk?"
 	NotFound            = "404"
 	InternalServerError = "500"
-	RetryDelay          = 600 * time.Millisecond
+	RetryDelay          = 500 * time.Millisecond
 	Timestamp           = "timestamp" // valid for v0.3
 	TotalAttempt        = 3
 	UserId              = "userId"
@@ -120,8 +120,8 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 			continue
 		}
 
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v", values)
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d extraData: %v", feedLookup.extraData)
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v", upkeepId, block, values)
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d extraData: %v", upkeepId, block, feedLookup.extraData)
 		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, block)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)
@@ -161,7 +161,6 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 // this upkeep is allowed to use Mercury service.
 func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (bool, error) {
 	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
-	r.lggr.Info(allowed)
 	if ok {
 		return allowed.(bool), nil
 	}
