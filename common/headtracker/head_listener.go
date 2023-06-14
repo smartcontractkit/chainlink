@@ -202,7 +202,7 @@ func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Cont
 	hl.headSubscription, err = hl.client.SubscribeNewHead(ctx, hl.chHeaders)
 	if err != nil {
 		close(hl.chHeaders)
-		return errors.Wrap(err, "EthClient#SubscribeNewHead")
+		return errors.Wrap(err, "Client#SubscribeNewHead")
 	}
 
 	hl.connected.Store(true)
