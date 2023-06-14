@@ -461,6 +461,7 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 	}
 	report, err = rp.reportCodec.BuildReport(paos, rp.f, validFromBlockNum)
 	if err != nil {
+		rp.logger.Debugw("failed to BuildReport", "paos", paos, "f", rp.f, "validFromBlockNum", validFromBlockNum, "repts", repts)
 		return false, nil, err
 	}
 	if !(len(report) <= rp.maxReportLength) {

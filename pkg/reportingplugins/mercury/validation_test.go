@@ -81,7 +81,7 @@ func TestValidation(t *testing.T) {
 				paos[i].CurrentBlockNum = 500 + int64(i)
 			}
 			err := ValidateCurrentBlock(paos, f, 0)
-			assert.EqualError(t, err, "GetConsensusCurrentBlock failed: couldn't get consensus current block: no block number matching hash 0x40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e with at least f+1 votes")
+			assert.EqualError(t, err, "GetConsensusCurrentBlock failed: no unique block with at least f+1 votes")
 		})
 	})
 }

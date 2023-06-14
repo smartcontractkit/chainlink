@@ -2,8 +2,10 @@ package mercury
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,7 +82,7 @@ func Test_AggregateFunctions(t *testing.T) {
 		})
 		t.Run("if there are not at least f+1 in consensus about hash", func(t *testing.T) {
 			_, _, _, err := GetConsensusCurrentBlock(validPaos, 3)
-			assert.EqualError(t, err, "couldn't get consensus current block: no block hash with at least f+1 votes")
+			assert.EqualError(t, err, "no unique block with at least f+1 votes")
 		})
 		t.Run("if there are not at least f+1 in consensus about number", func(t *testing.T) {
 			badPaos := NewValidParsedAttributedObservations()
@@ -88,7 +90,7 @@ func Test_AggregateFunctions(t *testing.T) {
 				badPaos[i].CurrentBlockNum = int64(i)
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
-			assert.EqualError(t, err, "couldn't get consensus current block: no block number matching hash 0x40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e with at least f+1 votes")
+			assert.EqualError(t, err, "no unique block with at least f+1 votes")
 		})
 		t.Run("if there are not at least f+1 in consensus about timestamp", func(t *testing.T) {
 			badPaos := NewValidParsedAttributedObservations()
@@ -96,7 +98,148 @@ func Test_AggregateFunctions(t *testing.T) {
 				badPaos[i].CurrentBlockTimestamp = uint64(i * 100)
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
-			assert.EqualError(t, err, "couldn't get consensus current block: no block timestamp matching block hash 0x40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e and block number 16634365 with at least f+1 votes")
+			assert.EqualError(t, err, "no unique block with at least f+1 votes")
+		})
+		t.Run("in the event of an even split for block number/hash, take the higher block number", func(t *testing.T) {
+			validFrom := int64(26014056)
+			// values below are from a real observed case of this happening in the wild
+			paos := []ParsedAttributedObservation{
+				ParsedAttributedObservation{
+					Timestamp:                    1686759784,
+					Observer:                     commontypes.OracleID(2),
+					BenchmarkPrice:               big.NewInt(90700),
+					Bid:                          big.NewInt(26200),
+					Ask:                          big.NewInt(17500),
+					PricesValid:                  true,
+					CurrentBlockNum:              26014055,
+					CurrentBlockHash:             mustDecodeHex("1a2b96ef9a29614c9fc4341a5ca6690ed8ee1a2cd6b232c90ba8bea65a4b93b5"),
+					CurrentBlockTimestamp:        1686759784,
+					CurrentBlockValid:            true,
+					MaxFinalizedBlockNumber:      0,
+					MaxFinalizedBlockNumberValid: false,
+				},
+				ParsedAttributedObservation{
+					Timestamp:                    1686759784,
+					Observer:                     commontypes.OracleID(3),
+					BenchmarkPrice:               big.NewInt(92000),
+					Bid:                          big.NewInt(21300),
+					Ask:                          big.NewInt(74700),
+					PricesValid:                  true,
+					CurrentBlockNum:              26014056,
+					CurrentBlockHash:             mustDecodeHex("bdeb0181416f88812028c4e1ee9e049296c909c1ee15d57cf67d4ce869ed6518"),
+					CurrentBlockTimestamp:        1686759784,
+					CurrentBlockValid:            true,
+					MaxFinalizedBlockNumber:      0,
+					MaxFinalizedBlockNumberValid: false,
+				},
+				ParsedAttributedObservation{
+					Timestamp:                    1686759784,
+					Observer:                     commontypes.OracleID(1),
+					BenchmarkPrice:               big.NewInt(67300),
+					Bid:                          big.NewInt(70100),
+					Ask:                          big.NewInt(83200),
+					PricesValid:                  true,
+					CurrentBlockNum:              26014056,
+					CurrentBlockHash:             mustDecodeHex("bdeb0181416f88812028c4e1ee9e049296c909c1ee15d57cf67d4ce869ed6518"),
+					CurrentBlockTimestamp:        1686759784,
+					CurrentBlockValid:            true,
+					MaxFinalizedBlockNumber:      0,
+					MaxFinalizedBlockNumberValid: false,
+				},
+				ParsedAttributedObservation{
+					Timestamp:                    1686759784,
+					Observer:                     commontypes.OracleID(0),
+					BenchmarkPrice:               big.NewInt(8600),
+					Bid:                          big.NewInt(89100),
+					Ask:                          big.NewInt(53300),
+					PricesValid:                  true,
+					CurrentBlockNum:              26014055,
+					CurrentBlockHash:             mustDecodeHex("1a2b96ef9a29614c9fc4341a5ca6690ed8ee1a2cd6b232c90ba8bea65a4b93b5"),
+					CurrentBlockTimestamp:        1686759784,
+					CurrentBlockValid:            true,
+					MaxFinalizedBlockNumber:      0,
+					MaxFinalizedBlockNumberValid: false,
+				},
+			}
+			assert.NoError(t, ValidateCurrentBlock(paos, f, validFrom))
+			hash, num, _, err := GetConsensusCurrentBlock(paos, f)
+			assert.NoError(t, err)
+			assert.Equal(t, mustDecodeHex("bdeb0181416f88812028c4e1ee9e049296c909c1ee15d57cf67d4ce869ed6518"), hash)
+			assert.Equal(t, int64(26014056), num)
+			assert.GreaterOrEqual(t, num, validFrom)
+		})
+		pao := func(num int64, hash string, ts uint64) ParsedAttributedObservation {
+			return ParsedAttributedObservation{CurrentBlockNum: num, CurrentBlockHash: mustDecodeHex(hash), CurrentBlockTimestamp: ts, CurrentBlockValid: true}
+		}
+		t.Run("when there are multiple possible blocks meeting > f+1 hashes, takes the hash with the most block numbers in agreement", func(t *testing.T) {
+			paos := []ParsedAttributedObservation{
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(41, "3333333333333333333333333333333333333333333333333333333333333333", 0),
+				pao(41, "3333333333333333333333333333333333333333333333333333333333333333", 0),
+				pao(41, "3333333333333333333333333333333333333333333333333333333333333333", 0),
+				pao(42, "1111111111111111111111111111111111111111111111111111111111111111", 1),
+				pao(42, "1111111111111111111111111111111111111111111111111111111111111111", 1),
+				pao(41, "1111111111111111111111111111111111111111111111111111111111111111", 1),
+				pao(43, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+			}
+			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
+			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
+			assert.NoError(t, err)
+			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
+			assert.Equal(t, int64(42), num)
+			assert.Equal(t, uint64(1), ts)
+		})
+		t.Run("in the event of an even split of numbers/hashes, takes the hash with the highest block number", func(t *testing.T) {
+			paos := []ParsedAttributedObservation{
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(41, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(41, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(41, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+			}
+			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
+			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
+			assert.NoError(t, err)
+			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
+			assert.Equal(t, int64(42), num)
+			assert.Equal(t, uint64(1), ts)
+		})
+		t.Run("in the case where all block numbers are equal but timestamps differ, tie-breaks on latest timestamp", func(t *testing.T) {
+			paos := []ParsedAttributedObservation{
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+			}
+			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
+			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
+			assert.NoError(t, err)
+			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
+			assert.Equal(t, int64(42), num)
+			assert.Equal(t, uint64(2), ts)
+		})
+		t.Run("in the case where all block numbers and timestamps are equal, tie-breaks by taking the 'lowest' hash", func(t *testing.T) {
+			paos := []ParsedAttributedObservation{
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
+			}
+			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
+			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
+			assert.NoError(t, err)
+			assert.Equal(t, mustDecodeHex("2222222222222222222222222222222222222222222222222222222222222222"), hash)
+			assert.Equal(t, int64(42), num)
+			assert.Equal(t, uint64(1), ts)
 		})
 	})
 
