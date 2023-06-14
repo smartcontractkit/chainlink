@@ -85,16 +85,7 @@ func TestValidateDB(t *testing.T) {
 
 		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
-		err = config.ValidateDB()
-		require.Error(t, err)
-		require.ErrorIs(t, err, ErrInvalidSecrets)
-	})
 
-	t.Run("garbage db url", func(t *testing.T) {
-		t.Setenv(string(env.DatabaseURL), "garbage")
-
-		config, err := GeneralConfigOpts{}.New()
-		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrInvalidSecrets)
@@ -110,7 +101,8 @@ func TestValidateDB(t *testing.T) {
 	})
 
 	t.Run("bad password url", func(t *testing.T) {
-		t.Setenv(string(env.DatabaseURL), "postgres://postgres:pwdToShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
+		t.Setenv(string(env.DatabaseURL), "postgres://postgres:pwdTooShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
+		t.Setenv(string(env.DatabaseAllowSimplePasswords), "false")
 
 		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)

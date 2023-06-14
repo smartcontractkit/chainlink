@@ -124,6 +124,40 @@ type Secrets struct {
 	toml.Secrets
 }
 
+func (s *Secrets) SetFrom(f *Secrets) (err error) {
+	if err1 := s.Database.SetFrom(&f.Database); err1 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
+	}
+
+	if err2 := s.Explorer.SetFrom(&f.Explorer); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Explorer"))
+	}
+
+	if err3 := s.Password.SetFrom(&f.Password); err3 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Password"))
+	}
+
+	if err4 := s.Pyroscope.SetFrom(&f.Pyroscope); err4 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Pyroscope"))
+	}
+
+	if err5 := s.Prometheus.SetFrom(&f.Prometheus); err5 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Prometheus"))
+	}
+
+	if err6 := s.Mercury.SetFrom(&f.Mercury); err6 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Mercury"))
+	}
+
+	if err7 := s.Threshold.SetFrom(&f.Threshold); err7 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err7, "Threshold"))
+	}
+
+	_, err = utils.MultiErrorList(err)
+
+	return err
+}
+
 // TOMLString returns a TOML encoded string with secret values redacted.
 func (s *Secrets) TOMLString() (string, error) {
 	b, err := gotoml.Marshal(s)
@@ -180,7 +214,8 @@ func (s *Secrets) setEnv() error {
 		}
 	}
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
-		s.Database.AllowSimplePasswords = true
+		s.Database.AllowSimplePasswords = new(bool)
+		*s.Database.AllowSimplePasswords = true
 	}
 	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
 		s.Explorer.AccessKey = &explorerKey

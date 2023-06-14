@@ -191,3 +191,12 @@ func (u UniqueStrings) isDupe(s string) bool {
 	}
 	return ok
 }
+
+type ErrOverride struct {
+	Name string
+	Msg  string
+}
+
+func (e ErrOverride) Error() string {
+	return fmt.Sprintf("%s: override: %s", e.Name, e.Msg)
+}

@@ -49,6 +49,116 @@ var (
 			},
 		},
 	}
+
+	allow                           = false
+	dbURL                           = "postgres://chainlink:mysecretpassword@172.17.0.1:5432/primary"
+	backupDbURL                     = "postgres://chainlink:mysecretpassword@172.17.0.1:5433/replica"
+	testSecretsFileContentsComplete = chainlink.Secrets{
+		Secrets: v2.Secrets{
+			Database: v2.DatabaseSecrets{
+				URL:                  models.NewSecretURL(models.MustParseURL(dbURL)),
+				BackupURL:            models.NewSecretURL(models.MustParseURL(backupDbURL)),
+				AllowSimplePasswords: &allow,
+			},
+			Explorer: v2.ExplorerSecrets{
+				AccessKey: models.NewSecret("EXPLORER_ACCESS_KEY"),
+				Secret:    models.NewSecret("EXPLORER_TOKEN"),
+			},
+			Password: v2.Passwords{
+				Keystore: models.NewSecret("mysecretpassword"),
+				VRF:      models.NewSecret("mysecretvrfpassword"),
+			},
+			Pyroscope: v2.PyroscopeSecrets{
+				AuthToken: models.NewSecret("PYROSCOPE_TOKEN"),
+			},
+			Prometheus: v2.PrometheusSecrets{
+				AuthToken: models.NewSecret("PROM_TOKEN"),
+			},
+			Mercury: v2.MercurySecrets{
+				Credentials: map[string]v2.MercuryCredentials{
+					"key1": {
+						URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
+						Username: models.NewSecret("user"),
+						Password: models.NewSecret("user_pass"),
+					},
+					"key2": {
+						URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
+						Username: models.NewSecret("user"),
+						Password: models.NewSecret("user_pass"),
+					},
+				},
+			},
+			Threshold: v2.ThresholdKeyShareSecrets{
+				ThresholdKeyShare: models.NewSecret("THRESHOLD_SECRET"),
+			},
+		},
+	}
+
+	testSecretsRedactedContentsComplete = chainlink.Secrets{
+		Secrets: v2.Secrets{
+			Database: v2.DatabaseSecrets{
+				URL:                  models.NewSecretURL(models.MustParseURL("xxxxx")),
+				BackupURL:            models.NewSecretURL(models.MustParseURL("xxxxx")),
+				AllowSimplePasswords: &allow,
+			},
+			Explorer: v2.ExplorerSecrets{
+				AccessKey: models.NewSecret("xxxxx"),
+				Secret:    models.NewSecret("xxxxx"),
+			},
+			Password: v2.Passwords{
+				Keystore: models.NewSecret("xxxxx"),
+				VRF:      models.NewSecret("xxxxx"),
+			},
+			Pyroscope: v2.PyroscopeSecrets{
+				AuthToken: models.NewSecret("xxxxx"),
+			},
+			Prometheus: v2.PrometheusSecrets{
+				AuthToken: models.NewSecret("xxxxx"),
+			},
+			Mercury: v2.MercurySecrets{
+				Credentials: map[string]v2.MercuryCredentials{
+					"key1": {
+						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
+						Username: models.NewSecret("xxxxx"),
+						Password: models.NewSecret("xxxxx"),
+					},
+					"key2": {
+						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
+						Username: models.NewSecret("xxxxx"),
+						Password: models.NewSecret("xxxxx"),
+					},
+					"key3": {
+						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
+						Username: models.NewSecret("xxxxx"),
+						Password: models.NewSecret("xxxxx"),
+					},
+					"key4": {
+						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
+						Username: models.NewSecret("xxxxx"),
+						Password: models.NewSecret("xxxxx"),
+					},
+				},
+			},
+			Threshold: v2.ThresholdKeyShareSecrets{
+				ThresholdKeyShare: models.NewSecret("xxxxx"),
+			},
+		},
+	}
+
+	additionalMercurySecrets = v2.MercurySecrets{
+		Credentials: map[string]v2.MercuryCredentials{
+			"key3": {
+				URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
+				Username: models.NewSecret("user"),
+				Password: models.NewSecret("user_pass"),
+			},
+			"key4": {
+				URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
+				Username: models.NewSecret("user"),
+				Password: models.NewSecret("user_pass"),
+			},
+		},
+	}
 )
 
 func makeTestFile(t *testing.T, contents any, fileName string) string {
@@ -70,10 +180,10 @@ func withDefaults(t *testing.T, c chainlink.Config, s chainlink.Secrets) chainli
 
 func Test_initServerConfig(t *testing.T) {
 	type args struct {
-		opts        *chainlink.GeneralConfigOpts
-		fileNames   []string
-		secretsFile string
-		envVar      string
+		opts         *chainlink.GeneralConfigOpts
+		fileNames    []string
+		secretsFiles []string
+		envVar       string
 	}
 	tests := []struct {
 		name    string
@@ -136,20 +246,122 @@ func Test_initServerConfig(t *testing.T) {
 		{
 			name: "failed to read secrets",
 			args: args{
-				opts:        new(chainlink.GeneralConfigOpts),
-				fileNames:   []string{makeTestFile(t, testConfigFileContents, "test.toml")},
-				secretsFile: "/doesnt-exist",
+				opts:         new(chainlink.GeneralConfigOpts),
+				fileNames:    []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{"/doesnt-exist"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "reading secrets",
 			args: args{
-				opts:        new(chainlink.GeneralConfigOpts),
-				fileNames:   []string{makeTestFile(t, testConfigFileContents, "test.toml")},
-				secretsFile: makeTestFile(t, testSecretsFileContents, "test_secrets.toml"),
+				opts:         new(chainlink.GeneralConfigOpts),
+				fileNames:    []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{makeTestFile(t, testSecretsFileContents, "test_secrets.toml")},
 			},
 			wantCfg: withDefaults(t, testConfigFileContents, testSecretsRedactedContents),
+		},
+		{
+			name: "reading multiple secrets",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets2.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets3.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets4.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets5.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets6.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: additionalMercurySecrets}}, "test_secrets6a.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets7.toml"),
+				},
+			},
+			wantCfg: withDefaults(t, testConfigFileContents, testSecretsRedactedContentsComplete),
+		},
+		{
+			name: "reading multiple secrets with overrides: Database",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reading multiple secrets with overrides: Explorer",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reading multiple secrets with overrides: Password",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reading multiple secrets with overrides: Pyroscope",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reading multiple secrets with overrides: Prometheus",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+				{
+			name: "reading multiple secrets with overrides: Mercury",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reading multiple secrets with overrides: Threshold",
+			args: args{
+				opts:      new(chainlink.GeneralConfigOpts),
+				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1.toml"),
+					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1a.toml"),
+				},
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -157,11 +369,11 @@ func Test_initServerConfig(t *testing.T) {
 			if tt.args.envVar != "" {
 				t.Setenv(string(env.Config), tt.args.envVar)
 			}
-			cfg, err := initServerConfig(tt.args.opts, tt.args.fileNames, tt.args.secretsFile)
+			cfg, err := initServerConfig(tt.args.opts, tt.args.fileNames, tt.args.secretsFiles)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("loadOpts() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, cfg, tt.wantCfg)
+			assert.Equal(t, tt.wantCfg, cfg)
 		})
 	}
 }

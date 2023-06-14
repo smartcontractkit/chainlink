@@ -53,8 +53,8 @@ type generalConfig struct {
 //
 // See ParseTOML to initilialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
-	ConfigStrings []string
-	SecretsString string
+	ConfigStrings  []string
+	SecretsStrings []string
 
 	Config
 	Secrets
@@ -79,11 +79,18 @@ func (o *GeneralConfigOpts) parseConfig(config string) error {
 	return nil
 }
 
-// parseSecrets sets Secrets from the given TOML string.
-func (o *GeneralConfigOpts) parseSecrets() (err error) {
-	if err2 := configutils.DecodeTOML(strings.NewReader(o.SecretsString), &o.Secrets); err2 != nil {
+// parseSecrets sets Secrets from the given TOML string. Errors on overrides
+func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
+	var s Secrets
+	if err2 := configutils.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
+
+	// merge fields and err on overrides
+	if err4 := o.Secrets.SetFrom(&s); err4 != nil {
+		return fmt.Errorf("invalid secrets: %w", err4)
+	}
+
 	return nil
 }
 
@@ -96,11 +103,15 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		}
 	}
 
-	if o.SecretsString != "" {
-		err := o.parseSecrets()
+	for _, s := range o.SecretsStrings {
+		err := o.parseSecrets(s)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if nil == o.Secrets.Database.AllowSimplePasswords {
+		o.Secrets.Database.AllowSimplePasswords = new(bool)
 	}
 
 	input, err := o.Config.TOMLString()
