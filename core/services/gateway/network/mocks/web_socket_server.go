@@ -27,6 +27,20 @@ func (_m *WebSocketServer) Close() error {
 	return r0
 }
 
+// GetPort provides a mock function with given fields:
+func (_m *WebSocketServer) GetPort() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *WebSocketServer) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)

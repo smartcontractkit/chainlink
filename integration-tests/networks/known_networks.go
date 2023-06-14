@@ -199,7 +199,7 @@ var (
 
 	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Optimism Mainnet",
-		ClientImplementation:      blockchain.MetisClientImplementation, // Optimism Bedrock has not been released yet, use Metis for Legacy Tx Support
+		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   10,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
@@ -321,6 +321,17 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	CeloMainnet = blockchain.EVMNetwork{
+		Name:                      "Celo",
+		ClientImplementation:      blockchain.CeloClientImplementation,
+		ChainID:                   42220,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
 	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -340,6 +351,7 @@ var (
 		"OPTIMISM_GOERLI":   OptimismGoerli,
 		"BASE_GOERLI":       BaseGoerli,
 		"CELO_ALFAJORES":    CeloAlfajores,
+		"CELO_MAINNET":      CeloMainnet,
 		"RSK":               RSKTestnet,
 		"MUMBAI":            PolygonMumbai,
 		"POLYGON_MAINNET":   PolygonMainnet,

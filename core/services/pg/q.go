@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -123,13 +123,14 @@ type Q struct {
 	QueryTimeout time.Duration
 }
 
-func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
+func NewQ(db *sqlx.DB, lggr logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
 
 	q.db = db
-	q.logger = logger.Helper(2)
+	// skip two levels since we use internal helpers and also want to point up the stack to the caller of the Q method.
+	q.logger = logger.Helper(lggr, 2)
 	q.config = config
 
 	if q.Queryer == nil {
@@ -145,7 +146,7 @@ func NewQ(db *sqlx.DB, logger logger.Logger, config QConfig, qopts ...QOpt) (q Q
 }
 
 func (q Q) originalLogger() logger.Logger {
-	return q.logger.Helper(-2)
+	return logger.Helper(q.logger, -2)
 }
 
 func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
@@ -347,7 +348,7 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
 
 	if elapsed >= timeout {
-		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
+		logger.Criticalw(q.logger, "SLOW SQL QUERY", kvs...)
 	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
 		q.logger.Errorw("SLOW SQL QUERY", kvs...)
 	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {

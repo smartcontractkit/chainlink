@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/hashicorp/go-plugin"
@@ -13,8 +12,6 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -24,38 +21,13 @@ const (
 )
 
 func main() {
-	envCfg, err := plugins.GetEnvConfig()
-	if err != nil {
-		fmt.Printf("Failed to get environment configuration: %s\n", err)
-		os.Exit(1)
-	}
-	lggr, closeLggr := plugins.NewLogger(loggerName, envCfg)
-	defer closeLggr()
-	slggr := logger.Sugared(lggr)
+	s := plugins.StartServer(loggerName)
+	defer s.Stop()
 
-	telem := loop.SetupTelemetry(nil) // default prometheus.Registerer
+	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
+	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
-	err = promServer.Start()
-	if err != nil {
-		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
-	}
-	defer slggr.ErrorIfFn(promServer.Close, "error closing prometheus server")
-
-	healthChecker := services.NewChecker()
-	err = healthChecker.Start()
-	if err != nil {
-		lggr.Fatalf("Failed to start health checker: %v", err)
-	}
-	defer slggr.ErrorIfFn(healthChecker.Close, "Failed to close health checker")
-
-	cp := &pluginRelayer{Base: plugins.Base{Logger: lggr}}
-	defer slggr.ErrorIfFn(cp.Close, "Failed to close pluginRelayer")
-
-	err = healthChecker.Register(cp.Name(), cp)
-	if err != nil {
-		lggr.Fatalf("Failed to register plugin with health checker: %v", err)
-	}
+	s.MustRegister(p.Name(), p)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -64,15 +36,15 @@ func main() {
 		HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
 			loop.PluginRelayerName: &loop.GRPCPluginRelayer{
-				PluginServer: cp,
+				PluginServer: p,
 				BrokerConfig: loop.BrokerConfig{
 					StopCh:   stopCh,
-					Logger:   lggr,
-					GRPCOpts: telem,
+					Logger:   s.Logger,
+					GRPCOpts: s.GRPCOpts,
 				},
 			},
 		},
-		GRPCServer: telem.NewServer,
+		GRPCServer: s.GRPCOpts.NewServer,
 	})
 }
 
