@@ -33,8 +33,8 @@ func newEvmTxm(
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
-		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
-		"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
+		"maxInFlightTransactions", cfg.EVM().Transactions().MaxInFlight(),
+		"maxQueuedTransactions", cfg.EVM().Transactions().MaxQueued(),
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
@@ -50,6 +50,7 @@ func newEvmTxm(
 		txm, err = txmgr.NewTxm(
 			db,
 			cfg,
+			cfg.EVM().Transactions(),
 			cfg.Database(),
 			cfg.Database().Listener(),
 			client,
