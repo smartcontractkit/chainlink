@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -214,7 +215,7 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, upkeepID *big.Int, valu
 	return b, nil
 }
 
-// doMercuryRequest
+// doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.
 func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upkeepId *big.Int) ([][]byte, bool, error) {
 	// TODO (AUTO-3253): if no feed labels are provided in v0.3, request for all feeds
 	resultLen := len(ml.feeds)
@@ -344,12 +345,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 // multiFeedsRequest sends a Mercury request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, ml *FeedLookup) {
 	q := url.Values{
-		ml.timeParamKey: {ml.time.String()},
-		UserId:          {upkeepId.String()},
-	}
-	// verify this will generate param like feedIDHex=id1,id2,id3
-	for _, f := range ml.feeds {
-		q.Add(ml.feedParamKey, f)
+		FeedID:    {strings.Join(ml.feeds, ",")},
+		Timestamp: {ml.time.String()},
+		UserId:    {upkeepId.String()},
 	}
 
 	reqUrl := fmt.Sprintf("%s%s%s", MercuryHostV3, MercuryBatchPathV3, q.Encode())
