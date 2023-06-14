@@ -97,6 +97,14 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 	return cp, nil
 }
 
+// Start noop method
+func (cp *configPoller) Start() {}
+
+// Close noop method
+func (cp *configPoller) Close() error {
+	return nil
+}
+
 // Notify noop method
 func (cp *configPoller) Notify() <-chan struct{} {
 	return nil
