@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -76,6 +75,7 @@ type Delegate struct {
 	relayers              map[relay.Network]loop.Relayer
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
+	eventBroadcaster      pg.EventBroadcaster
 }
 
 type DelegateConfig interface {
@@ -155,6 +155,7 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers map[relay.Network]loop.Relayer,
 	mailMon *utils.MailboxMonitor,
+	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
@@ -173,6 +174,7 @@ func NewDelegate(
 		relayers:              relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
+		eventBroadcaster:      eventBroadcaster,
 	}
 }
 
@@ -825,6 +827,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			},
 			lggr.Named("FunctionsRelayer"),
 			d.ethKs,
+			d.eventBroadcaster,
 		)
 		if err2 != nil {
 			return nil, err2
