@@ -6,25 +6,23 @@ import (
 	"io"
 	"net"
 
-	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
-
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/pkg/errors"
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

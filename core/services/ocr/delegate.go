@@ -9,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/sqlx"
+
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
