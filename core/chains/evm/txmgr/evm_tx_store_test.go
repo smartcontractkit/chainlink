@@ -166,7 +166,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
 		require.Len(t, etx.TxAttempts[1].Receipts, 0)
-		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 	t.Run("FindTxByHash", func(t *testing.T) {
 		foundEtx, err := orm.FindTxByHash(attemptD.Hash)
@@ -182,7 +182,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
 		require.Len(t, etx.TxAttempts[1].Receipts, 0)
-		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 }
 
@@ -231,7 +231,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 	require.Len(t, confirmedAttempts, 1)
 	assert.Equal(t, confirmedAttempts[0].ID, attempt.ID)
 	require.Len(t, confirmedAttempts[0].Receipts, 1, "should have only one EthRecipts for a confirmed transaction")
-	assert.Equal(t, confirmedAttempts[0].Receipts[0].BlockHash, r.BlockHash)
+	assert.Equal(t, confirmedAttempts[0].Receipts[0].GetBlockHash(), r.BlockHash)
 	assert.Equal(t, confirmedAttempts[0].Hash, attempt.Hash, "confirmed Recieipt Hash should match the attempt hash")
 }
 
@@ -531,7 +531,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, etx0.TxAttempts, 1)
 	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].BlockHash)
+	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].GetBlockHash())
 	require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 }
 
@@ -665,7 +665,7 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
 }
 
-func TestORM_FindTxWithNonce(t *testing.T) {
+func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -675,7 +675,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -684,7 +684,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
 
-		res, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 	})
