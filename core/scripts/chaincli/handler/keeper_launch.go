@@ -15,15 +15,19 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -42,9 +46,15 @@ type startedNodeData struct {
 // 5. fund nodes if needed
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
-func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs bool) {
+func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, bootstrap bool) {
 	lggr, closeLggr := logger.NewLogger()
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
+
+	if bootstrap {
+		baseHandler := NewBaseHandler(k.cfg)
+		tcpAddr := baseHandler.StartBootstrapNode(ctx, k.cfg.RegistryAddress, 5688, 8000, force)
+		k.cfg.BootstrapNodeAddr = tcpAddr
+	}
 
 	var extraTOML string
 	if k.cfg.OCR2Keepers {
@@ -63,7 +73,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 
 			// Run chainlink node
 			var err error
-			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraTOML); err != nil {
+			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraTOML, force); err != nil {
 				log.Fatal("Failed to start node: ", err)
 			}
 		}(i)
@@ -144,6 +154,59 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
+	log.Println("All nodes successfully launched, now running. Use Ctrl+C to terminate")
+
+	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+		registry21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
+		if err != nil {
+			log.Fatalf("cannot create registry 2.1: %v", err)
+		}
+		v, err := registry21.TypeAndVersion(nil)
+		if err != nil {
+			log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
+		}
+		log.Printf("Version is %s", v)
+
+		upkeepIds, err := registry21.GetActiveUpkeepIDs(nil, big.NewInt(0), big.NewInt(5))
+		if err != nil {
+			log.Fatalf("failed to fetch active upkeep ids from registry 2.1: %v", err)
+		}
+		log.Printf("active upkeep ids: %v", upkeepIds)
+
+		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+			MercuryEnabled: true,
+		})
+		if err != nil {
+			log.Fatalf("failed to marshal admin offchain config: %v", err)
+		}
+		log.Printf("adminBytes is: %s", hexutil.Encode(adminBytes))
+
+		for _, id := range upkeepIds {
+			tx, err := registry21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			if err != nil {
+				log.Fatalf("failed to set admin offchain config: %v", err)
+			}
+			err = k.waitTx(ctx, tx)
+			if err != nil {
+				log.Fatalf("failed to wait for tx: %v", err)
+			} else {
+				log.Printf("admin offchain config is set for %s", id.String())
+			}
+
+			info, err := registry21.GetUpkeep(nil, id)
+			if err != nil {
+				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err)
+			}
+
+			log.Printf("Target: %s", info.Target.String())
+			log.Printf("ExecuteGas: %d", info.ExecuteGas)
+			log.Printf("Admin: %s", info.Admin.String())
+			min, err := registry21.GetMinBalanceForUpkeep(nil, id)
+			log.Printf("    Balance: %s", info.Balance)
+			log.Printf("Min Balance: %s", min.String())
+		}
+	}
+
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-termChan // Blocks here until either SIGINT or SIGTERM is received.
@@ -190,6 +253,18 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
+		case keeper.RegistryVersion_2_1:
+			registry, err := iregistry21.NewIKeeperRegistryMaster(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), utils.MaxUint256)
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
 		default:
 			panic("unexpected registry address")
 		}
@@ -206,12 +281,18 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to cancel upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+		}
 
 		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to withdraw upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+		}
 
 		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
 	}
@@ -220,7 +301,10 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
-	k.waitTx(ctx, tx)
+
+	if err := k.waitTx(ctx, tx); err != nil {
+		log.Fatalf("failed to recover funds, error is: %s", err.Error())
+	}
 
 	return nil
 }
@@ -233,12 +317,18 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to cancel upkeep, error is: %s", err.Error())
+		}
 
 		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to withdraw upkeep, error is: %s", err.Error())
+		}
 
 		log.Println("Upkeep successfully canceled and refunded: ", i)
 	}
@@ -247,7 +337,10 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
-	k.waitTx(ctx, tx)
+
+	if err := k.waitTx(ctx, tx); err != nil {
+		log.Fatalf("failed to recover funds, error is: %s", err.Error())
+	}
 
 	return nil
 }

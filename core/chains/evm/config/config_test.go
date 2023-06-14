@@ -314,7 +314,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
-	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.GeneralConfig {
+	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := utils.NewBigI(id)
 			c.EVM[0] = &v2.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: v2.Defaults(chainID, chains...),
@@ -371,12 +371,12 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &v2.Chain{
-				ChainType: ptr(string(config.ChainOptimism)),
+				ChainType: ptr(string(config.ChainOptimismBedrock)),
 				GasEstimator: v2.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
 			})
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			cfg := configWithChains(t, 10, &v2.Chain{
@@ -384,15 +384,15 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 					Mode: ptr("FixedPrice"),
 				},
 			})
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChains(t, 69, &v2.Chain{
 				GasEstimator: v2.GasEstimator{
-					Mode: ptr("BlockHistory"),
+					Mode: ptr("FixedPrice"),
 				},
 			})
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 	})
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
@@ -907,6 +907,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		c.configSetTopic,
 		c.beaconAddress,
 		int(c.finalityDepth),
+		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -917,6 +918,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		c.configSetTopic,
 		c.dkgAddress,
 		int(c.finalityDepth),
+		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")

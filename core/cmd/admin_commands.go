@@ -21,17 +21,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initAdminSubCmds(client *Client) []cli.Command {
+func initAdminSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "chpass",
 			Usage:  "Change your API password remotely",
-			Action: client.ChangePassword,
+			Action: s.ChangePassword,
 		},
 		{
 			Name:   "login",
 			Usage:  "Login to remote client by creating a session cookie",
-			Action: client.RemoteLogin,
+			Action: s.RemoteLogin,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "file, f",
@@ -46,12 +46,12 @@ func initAdminSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "logout",
 			Usage:  "Delete any local sessions",
-			Action: client.Logout,
+			Action: s.Logout,
 		},
 		{
 			Name:   "profile",
 			Usage:  "Collects profile metrics from the node.",
-			Action: client.Profile,
+			Action: s.Profile,
 			Flags: []cli.Flag{
 				cli.Uint64Flag{
 					Name:  "seconds, s",
@@ -68,7 +68,7 @@ func initAdminSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "status",
 			Usage:  "Displays the health of various services running inside the node.",
-			Action: client.Status,
+			Action: s.Status,
 			Flags:  []cli.Flag{},
 		},
 		{
@@ -78,12 +78,12 @@ func initAdminSubCmds(client *Client) []cli.Command {
 				{
 					Name:   "list",
 					Usage:  "Lists all API users and their roles",
-					Action: client.ListUsers,
+					Action: s.ListUsers,
 				},
 				{
 					Name:   "create",
 					Usage:  "Create a new API user",
-					Action: client.CreateUser,
+					Action: s.CreateUser,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:     "email",
@@ -100,7 +100,7 @@ func initAdminSubCmds(client *Client) []cli.Command {
 				{
 					Name:   "chrole",
 					Usage:  "Changes an API user's role",
-					Action: client.ChangeRole,
+					Action: s.ChangeRole,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:     "email",
@@ -117,7 +117,7 @@ func initAdminSubCmds(client *Client) []cli.Command {
 				{
 					Name:   "delete",
 					Usage:  "Delete an API user",
-					Action: client.DeleteUser,
+					Action: s.DeleteUser,
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:     "email",
@@ -177,10 +177,10 @@ func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
 }
 
 // ListUsers renders all API users and their roles
-func (cli *Client) ListUsers(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/users/", nil)
+func (s *Shell) ListUsers(_ *cli.Context) (err error) {
+	resp, err := s.HTTP.Get("/v2/users/", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -188,14 +188,14 @@ func (cli *Client) ListUsers(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &AdminUsersPresenters{})
+	return s.renderAPIResponse(resp, &AdminUsersPresenters{})
 }
 
 // CreateUser creates a new user by prompting for email, password, and role
-func (cli *Client) CreateUser(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/users/", nil)
+func (s *Shell) CreateUser(c *cli.Context) (err error) {
+	resp, err := s.HTTP.Get("/v2/users/", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -204,17 +204,17 @@ func (cli *Client) CreateUser(c *cli.Context) (err error) {
 	}()
 	var links jsonapi.Links
 	var users AdminUsersPresenters
-	if err := cli.deserializeAPIResponse(resp, &users, &links); err != nil {
-		return cli.errorOut(err)
+	if err := s.deserializeAPIResponse(resp, &users, &links); err != nil {
+		return s.errorOut(err)
 	}
 	for _, user := range users {
 		if strings.EqualFold(user.Email, c.String("email")) {
-			return cli.errorOut(fmt.Errorf("user with email %s already exists", user.Email))
+			return s.errorOut(fmt.Errorf("user with email %s already exists", user.Email))
 		}
 	}
 
 	fmt.Println("Password of new user:")
-	pwd := cli.PasswordPrompter.Prompt()
+	pwd := s.PasswordPrompter.Prompt()
 
 	request := struct {
 		Email    string `json:"email"`
@@ -228,13 +228,13 @@ func (cli *Client) CreateUser(c *cli.Context) (err error) {
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Post("/v2/users", buf)
+	response, err := s.HTTP.Post("/v2/users", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
@@ -242,11 +242,11 @@ func (cli *Client) CreateUser(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully created new API user")
+	return s.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully created new API user")
 }
 
 // ChangeRole can change a user's role
-func (cli *Client) ChangeRole(c *cli.Context) (err error) {
+func (s *Shell) ChangeRole(c *cli.Context) (err error) {
 	request := struct {
 		Email   string `json:"email"`
 		NewRole string `json:"newRole"`
@@ -257,13 +257,13 @@ func (cli *Client) ChangeRole(c *cli.Context) (err error) {
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	response, err := cli.HTTP.Patch("/v2/users", buf)
+	response, err := s.HTTP.Patch("/v2/users", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
@@ -271,19 +271,19 @@ func (cli *Client) ChangeRole(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully updated API user")
+	return s.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully updated API user")
 }
 
 // DeleteUser deletes an API user by email
-func (cli *Client) DeleteUser(c *cli.Context) (err error) {
+func (s *Shell) DeleteUser(c *cli.Context) (err error) {
 	email := c.String("email")
 	if email == "" {
-		return cli.errorOut(errors.New("email flag is empty, must specify an email"))
+		return s.errorOut(errors.New("email flag is empty, must specify an email"))
 	}
 
-	response, err := cli.HTTP.Delete(fmt.Sprintf("/v2/users/%s", email))
+	response, err := s.HTTP.Delete(fmt.Sprintf("/v2/users/%s", email))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
@@ -291,14 +291,14 @@ func (cli *Client) DeleteUser(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully deleted API user")
+	return s.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully deleted API user")
 }
 
 // Status will display the health of various services
-func (cli *Client) Status(c *cli.Context) error {
-	resp, err := cli.HTTP.Get("/health?full=1", nil)
+func (s *Shell) Status(_ *cli.Context) error {
+	resp, err := s.HTTP.Get("/health?full=1", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -306,11 +306,11 @@ func (cli *Client) Status(c *cli.Context) error {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
+	return s.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 // Profile will collect pprof metrics and store them in a folder.
-func (cli *Client) Profile(c *cli.Context) error {
+func (s *Shell) Profile(c *cli.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 
@@ -318,7 +318,7 @@ func (cli *Client) Profile(c *cli.Context) error {
 
 	err := os.Mkdir(genDir, 0o755)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	var wgPprof sync.WaitGroup
 	vitals := []string{
@@ -333,15 +333,15 @@ func (cli *Client) Profile(c *cli.Context) error {
 		"trace",        // A trace of execution of the current program.
 	}
 	wgPprof.Add(len(vitals))
-	cli.Logger.Infof("Collecting profiles: %v", vitals)
-	cli.Logger.Infof("writing debug info to %s", genDir)
+	s.Logger.Infof("Collecting profiles: %v", vitals)
+	s.Logger.Infof("writing debug info to %s", genDir)
 
 	errs := make(chan error, len(vitals))
 	for _, vt := range vitals {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			resp, err := cli.HTTP.Get(uri)
+			resp, err := s.HTTP.Get(uri)
 			if err != nil {
 				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
 				return
@@ -400,13 +400,13 @@ func (cli *Client) Profile(c *cli.Context) error {
 	wgPprof.Wait()
 	close(errs)
 	// Atmost one err is emitted per vital.
-	cli.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
+	s.Logger.Infof("collected %d/%d profiles", len(vitals)-len(errs), len(vitals))
 	if len(errs) > 0 {
 		var merr error
 		for err := range errs {
 			merr = errors.Join(merr, err)
 		}
-		return cli.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
+		return s.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
 	}
 	return nil
 }

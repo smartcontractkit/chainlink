@@ -38,7 +38,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -66,7 +66,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("handles nil head", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -86,7 +86,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("cancelled context", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -116,7 +116,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("recovers on error", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -143,7 +143,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -201,7 +201,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

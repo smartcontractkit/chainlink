@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -113,7 +113,7 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddres
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.RemoteIP(), 6690)
+	return fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 }
 
 func BuildOCR2DKGConfigVars(

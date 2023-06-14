@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,9 @@ import (
 	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -30,6 +34,8 @@ func init() {
 		InitColor(false)
 	}
 }
+
+var _ relaylogger.Logger = (Logger)(nil)
 
 //go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
@@ -132,8 +138,7 @@ func verShaNameStatic() string {
 // Tests should use TestLogger.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	l, closeLogger := c.New()
-	return l.With("version", verShaNameStatic()), closeLogger
+	return c.New()
 }
 
 type Config struct {
@@ -144,24 +149,43 @@ type Config struct {
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
 	FileMaxBackups int // files
+
+	diskSpaceAvailableFn diskSpaceAvailableFn
+	diskPollConfig       zapDiskPollConfig
+	// This is for tests only
+	testDiskLogLvlChan chan zapcore.Level
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
+	}
+	if !c.diskPollConfig.isSet() {
+		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
+	}
+
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, closeLogger, err := zapDiskLoggerConfig{
-		local:              *c,
-		diskSpaceAvailable: diskSpaceAvailable,
-		diskPollConfig:     newDiskPollConfig(diskPollInterval),
-	}.newLogger(cfg)
+	var (
+		l           Logger
+		closeLogger func() error
+		err         error
+	)
+	if !c.DebugLogsToDisk() {
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+	} else {
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), closeLogger
+	l = newPrometheusLogger(l)
+	l = l.With("version", verShaNameStatic())
+	return l, closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
@@ -172,6 +196,14 @@ func (c Config) DebugLogsToDisk() bool {
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
+}
+
+func (c *Config) DiskSpaceAvailable(path string) (utils.FileSize, error) {
+	if c.diskSpaceAvailableFn == nil {
+		c.diskSpaceAvailableFn = diskSpaceAvailable
+	}
+
+	return c.diskSpaceAvailableFn(path)
 }
 
 func (c Config) LogsFile() string {
@@ -190,4 +222,74 @@ func newZapConfigBase() zap.Config {
 	cfg.Sampling = nil
 	cfg.EncoderConfig.EncodeLevel = encodeLevel
 	return cfg
+}
+
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
+	if err != nil {
+		coreCloseFn()
+		return nil, nil, err
+	}
+
+	return l, func() error {
+		coreCloseFn()
+		loggerCloseFn()
+		return nil
+	}, nil
+}
+
+func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), error) {
+	errSink, closeFn, err := zap.Open(zcfg.ErrorOutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &zapLogger{
+		level:         zcfg.Level,
+		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
+	}, closeFn, nil
+}
+
+func newDefaultLoggingCore(zcfg zap.Config, unixTS bool) (zapcore.Core, func(), error) {
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(unixTS))
+
+	sink, closeOut, err := zap.Open(zcfg.OutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if zcfg.Level == (zap.AtomicLevel{}) {
+		return nil, nil, errors.New("missing Level")
+	}
+
+	filteredLogLevels := zap.LevelEnablerFunc(zcfg.Level.Enabled)
+
+	core := zapcore.NewCore(encoder, sink, filteredLogLevels)
+	return core, closeOut, nil
+}
+
+func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, error) {
+	diskUsage, err := local.DiskSpaceAvailable(local.Dir)
+	if err != nil || diskUsage < local.RequiredDiskSpace() {
+		diskLogLevel.SetLevel(disabledLevel)
+	}
+
+	var (
+		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(local.UnixTS))
+		sink    = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   local.logFileURI(),
+			MaxSize:    local.FileMaxSizeMB,
+			MaxAge:     local.FileMaxAgeDays,
+			MaxBackups: local.FileMaxBackups,
+			Compress:   true,
+		})
+		allLogLevels = zap.LevelEnablerFunc(diskLogLevel.Enabled)
+	)
+
+	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }

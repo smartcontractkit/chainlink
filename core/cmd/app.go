@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -29,7 +30,7 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 }
 
 // NewApp returns the command-line parser/function-router for the given client
-func NewApp(client *Client) *cli.App {
+func NewApp(s *Shell) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -67,22 +68,30 @@ func NewApp(client *Client) *cli.App {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
+		s.configFiles = c.StringSlice("config")
+		s.configFilesIsSet = c.IsSet("config")
+		s.secretsFile = c.String("secrets")
+		s.secretsFileIsSet = c.IsSet("secrets")
 
-		// setup a default config and logger
-		// these will be overwritten later if a TOML config is specified
-		if err := client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets")); err != nil {
+		// Default to using a stdout logger only.
+		// This is overidden for server commands which may start a rotating
+		// logger instead.
+		lggr, closeFn := logger.NewLogger()
+
+		cfg, err := opts.New()
+		if err != nil {
 			return err
 		}
 
-		if c.IsSet("config") || c.IsSet("secrets") {
-			client.flagsProcessed = true
-		}
+		s.Logger = lggr
+		s.CloseLogger = closeFn
+		s.Config = cfg
 
 		if c.Bool("json") {
-			client.Renderer = RendererJSON{Writer: os.Stdout}
+			s.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return client.Logger })
+		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return s.Logger })
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
@@ -95,8 +104,8 @@ func NewApp(client *Client) *cli.App {
 
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
-		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, client.Logger)
-		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, s.Logger)
+		sessionRequestBuilder := NewFileSessionRequestBuilder(s.Logger)
 
 		credentialsFile := c.String("admin-credentials-file")
 		sr, err := sessionRequestBuilder.Build(credentialsFile)
@@ -104,15 +113,25 @@ func NewApp(client *Client) *cli.App {
 			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
 		}
 
-		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
-		client.CookieAuthenticator = cookieAuth
-		client.FileSessionRequestBuilder = sessionRequestBuilder
+		s.HTTP = NewAuthenticatedHTTPClient(s.Logger, clientOpts, cookieAuth, sr)
+		s.CookieAuthenticator = cookieAuth
+		s.FileSessionRequestBuilder = sessionRequestBuilder
+
+		// Allow for initServerConfig to be called if the flag is provided.
+		if c.Bool("applyInitServerConfig") {
+			cfg, err = initServerConfig(&opts, s.configFiles, s.secretsFile)
+			if err != nil {
+				return err
+			}
+			s.Config = cfg
+		}
+
 		return nil
 
 	}
 	app.After = func(c *cli.Context) error {
-		if client.CloseLogger != nil {
-			return client.CloseLogger()
+		if s.CloseLogger != nil {
+			return s.CloseLogger()
 		}
 		return nil
 	}
@@ -120,34 +139,34 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:        "admin",
 			Usage:       "Commands for remotely taking admin related actions",
-			Subcommands: initAdminSubCmds(client),
+			Subcommands: initAdminSubCmds(s),
 		},
 		{
 			Name:        "attempts",
 			Aliases:     []string{"txas"},
 			Usage:       "Commands for managing Ethereum Transaction Attempts",
-			Subcommands: initAttemptsSubCmds(client),
+			Subcommands: initAttemptsSubCmds(s),
 		},
 		{
 			Name:        "blocks",
 			Aliases:     []string{},
 			Usage:       "Commands for managing blocks",
-			Subcommands: initBlocksSubCmds(client),
+			Subcommands: initBlocksSubCmds(s),
 		},
 		{
 			Name:        "bridges",
 			Usage:       "Commands for Bridges communicating with External Adapters",
-			Subcommands: initBrideSubCmds(client),
+			Subcommands: initBrideSubCmds(s),
 		},
 		{
 			Name:        "config",
 			Usage:       "Commands for the node's configuration",
-			Subcommands: initRemoteConfigSubCmds(client),
+			Subcommands: initRemoteConfigSubCmds(s),
 		},
 		{
 			Name:        "jobs",
 			Usage:       "Commands for managing Jobs",
-			Subcommands: initJobsSubCmds(client),
+			Subcommands: initJobsSubCmds(s),
 		},
 		{
 			Name:  "keys",
@@ -155,19 +174,19 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				// TODO unify init vs keysCommand
 				// out of scope for initial refactor because it breaks usage messages.
-				initEthKeysSubCmd(client),
-				initP2PKeysSubCmd(client),
-				initCSAKeysSubCmd(client),
-				initOCRKeysSubCmd(client),
-				initOCR2KeysSubCmd(client),
+				initEthKeysSubCmd(s),
+				initP2PKeysSubCmd(s),
+				initCSAKeysSubCmd(s),
+				initOCRKeysSubCmd(s),
+				initOCR2KeysSubCmd(s),
 
-				keysCommand("Cosmos", NewCosmosKeysClient(client)),
-				keysCommand("Solana", NewSolanaKeysClient(client)),
-				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
-				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
-				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
+				keysCommand("Cosmos", NewCosmosKeysClient(s)),
+				keysCommand("Solana", NewSolanaKeysClient(s)),
+				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
+				keysCommand("DKGSign", NewDKGSignKeysClient(s)),
+				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(s)),
 
-				initVRFKeysSubCmd(client),
+				initVRFKeysSubCmd(s),
 			},
 		},
 		{
@@ -175,7 +194,7 @@ func NewApp(client *Client) *cli.App {
 			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
-			Subcommands: initLocalSubCmds(client, build.IsProd()),
+			Subcommands: initLocalSubCmds(s, build.IsProd()),
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{
 					Name:  "config, c",
@@ -187,57 +206,100 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				if client.flagsProcessed {
-					if c.IsSet("config") || c.IsSet("secrets") {
-						// invalid mix of flags here and root
-						return fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				if c.IsSet("config") {
+					if s.configFilesIsSet || s.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						s.configFiles = c.StringSlice("config")
 					}
-					// flags at root
-					return nil
 				}
+
+				if c.IsSet("secrets") {
+					if s.configFilesIsSet || s.secretsFileIsSet {
+						return errNoDuplicateFlags
+					} else {
+						s.secretsFile = c.String("secrets")
+					}
+				}
+
 				// flags here, or ENV VAR only
-				return client.initConfigAndLogger(&opts, c.StringSlice("config"), c.String("secrets"))
+				cfg, err := initServerConfig(&opts, s.configFiles, s.secretsFile)
+				if err != nil {
+					return err
+				}
+				s.Config = cfg
+
+				logFileMaxSizeMB := s.Config.Log().File().MaxSize() / utils.MB
+				if logFileMaxSizeMB > 0 {
+					err = utils.EnsureDirAndMaxPerms(s.Config.Log().File().Dir(), os.FileMode(0700))
+					if err != nil {
+						return err
+					}
+				}
+
+				// Swap out the logger, replacing the old one.
+				err = s.CloseLogger()
+				if err != nil {
+					return err
+				}
+
+				lggrCfg := logger.Config{
+					LogLevel:       s.Config.Log().Level(),
+					Dir:            s.Config.Log().File().Dir(),
+					JsonConsole:    s.Config.Log().JSONConsole(),
+					UnixTS:         s.Config.Log().UnixTimestamps(),
+					FileMaxSizeMB:  int(logFileMaxSizeMB),
+					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
+					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
+				}
+				l, closeFn := lggrCfg.New()
+
+				s.Logger = l
+				s.CloseLogger = closeFn
+
+				return nil
 			},
 		},
 		{
 			Name:        "initiators",
 			Usage:       "Commands for managing External Initiators",
-			Subcommands: initInitiatorsSubCmds(client),
+			Subcommands: initInitiatorsSubCmds(s),
 		},
 		{
 			Name:  "txs",
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
-				initEVMTxSubCmd(client),
-				initCosmosTxSubCmd(client),
-				initSolanaTxSubCmd(client),
+				initEVMTxSubCmd(s),
+				initCosmosTxSubCmd(s),
+				initSolanaTxSubCmd(s),
 			},
 		},
 		{
 			Name:  "chains",
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
-				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
-				chainCommand("Cosmos", CosmosChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
-				chainCommand("Solana", SolanaChainClient(client),
+				chainCommand("EVM", EVMChainClient(s), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Cosmos", CosmosChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Solana", SolanaChainClient(s),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
-				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("StarkNet", StarkNetChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
 			Name:  "nodes",
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
-				initEVMNodeSubCmd(client),
-				initCosmosNodeSubCmd(client),
-				initSolanaNodeSubCmd(client),
-				initStarkNetNodeSubCmd(client),
+				initEVMNodeSubCmd(s),
+				initCosmosNodeSubCmd(s),
+				initSolanaNodeSubCmd(s),
+				initStarkNetNodeSubCmd(s),
 			},
 		},
 		{
 			Name:        "forwarders",
 			Usage:       "Commands for managing forwarder addresses.",
-			Subcommands: initFowardersSubCmds(client),
+			Subcommands: initFowardersSubCmds(s),
 		},
 	}...)
 	return app
@@ -250,21 +312,33 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-// loadOpts applies file configs and then overlays env config
-func loadOpts(opts *chainlink.GeneralConfigOpts, fileNames ...string) error {
-	for _, fileName := range fileNames {
+func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) (chainlink.GeneralConfig, error) {
+	configs := []string{}
+	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			return nil, errors.Wrapf(err, "failed to read config file: %s", fileName)
 		}
-		if err := opts.ParseConfig(string(b)); err != nil {
-			return errors.Wrapf(err, "failed to parse file: %s", fileName)
-		}
+		configs = append(configs, string(b))
 	}
+
 	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
-		if err := opts.ParseConfig(configTOML); err != nil {
-			return errors.Wrapf(err, "failed to parse env var %q", v2.EnvConfig)
-		}
+		configs = append(configs, configTOML)
 	}
-	return nil
+
+	opts.ConfigStrings = configs
+
+	secrets := ""
+	if secretsFile != "" {
+		b, err := os.ReadFile(secretsFile)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
+		}
+
+		secrets = string(b)
+	}
+
+	opts.SecretsString = secrets
+
+	return opts.New()
 }

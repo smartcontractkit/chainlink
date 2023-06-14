@@ -1,6 +1,8 @@
 package cmd_test
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -26,7 +28,7 @@ func starknetStartNewApplication(t *testing.T, cfgs ...*starknet.StarknetConfig)
 	})
 }
 
-func TestClient_IndexStarkNetNodes(t *testing.T) {
+func TestShell_IndexStarkNetNodes(t *testing.T) {
 	t.Parallel()
 
 	id := "starknet chain ID"
@@ -43,7 +45,7 @@ func TestClient_IndexStarkNetNodes(t *testing.T) {
 		Nodes:   starknet.StarknetNodes{&node1, &node2},
 	}
 	app := starknetStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewStarkNetNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
@@ -64,4 +66,23 @@ func TestClient_IndexStarkNetNodes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 14, len(renderLines))
+	assert.Contains(t, renderLines[1], "Name")
+	assert.Contains(t, renderLines[1], n1.Name)
+	assert.Contains(t, renderLines[2], "Chain ID")
+	assert.Contains(t, renderLines[2], n1.ChainID)
+	assert.Contains(t, renderLines[3], "State")
+	assert.Contains(t, renderLines[3], n1.State)
+	assert.Contains(t, renderLines[8], "Name")
+	assert.Contains(t, renderLines[8], n2.Name)
+	assert.Contains(t, renderLines[9], "Chain ID")
+	assert.Contains(t, renderLines[9], n2.ChainID)
+	assert.Contains(t, renderLines[10], "State")
+	assert.Contains(t, renderLines[10], n2.State)
 }

@@ -70,6 +70,8 @@ HTTPPort = 6688
 SecureCookies = true
 SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
 
 [WebServer.MFA]
 RPID = ''
@@ -114,6 +116,8 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR]
 Enabled = true
@@ -357,8 +361,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
@@ -434,8 +438,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
@@ -468,7 +472,7 @@ OCR2CacheTTL = '1m0s'
 TxMsgTimeout = '10m0s'
 
 [[Cosmos.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 TendermintURL = 'http://bombay.cosmos.com'
 
 [[Solana]]
@@ -512,7 +516,7 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
 
 [[Starknet]]
@@ -520,9 +524,8 @@ ChainID = 'foobar'
 OCR2CachePollPeriod = '5s'
 OCR2CacheTTL = '1m0s'
 RequestTimeout = '10s'
-TxTimeout = '1m0s'
-TxSendFrequency = '1h0m0s'
-TxMaxBatchSize = 100
+TxTimeout = '10s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

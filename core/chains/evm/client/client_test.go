@@ -18,11 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -397,13 +397,14 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	rpcSrv := rpc.NewServer()
 	t.Cleanup(rpcSrv.Stop)
 	service := sendTxService{chainID: &cltest.FixtureChainID}
-	rpcSrv.RegisterName("eth", &service)
+	err := rpcSrv.RegisterName("eth", &service)
+	require.NoError(t, err)
 	ts := httptest.NewServer(rpcSrv)
 	t.Cleanup(ts.Close)
 
 	sendonlyURL := *cltest.MustParseURL(t, ts.URL)
 	ethClient := mustNewClient(t, wsURL, sendonlyURL, sendonlyURL)
-	err := ethClient.Dial(testutils.Context(t))
+	err = ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 
 	err = ethClient.SendTransaction(testutils.Context(t), tx)

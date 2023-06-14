@@ -75,7 +75,7 @@ struct State {
  * @member balance the balance of this upkeep
  * @member admin for this upkeep
  * @member maxValidBlocknumber until which block this upkeep is valid
- * @member lastPerformBlockNumber the last block number when this upkeep was performed
+ * @member lastPerformed the last block number or timestamp when this upkeep was performed
  * @member amountSpent the amount this upkeep has spent
  * @member paused if this upkeep has been paused
  * @member skipSigVerification skip signature verification in transmit for a low security low cost model
@@ -88,7 +88,7 @@ struct UpkeepInfo {
   uint96 balance;
   address admin;
   uint64 maxValidBlocknumber;
-  uint32 lastPerformBlockNumber;
+  uint32 lastPerformed;
   uint96 amountSpent;
   bool paused;
   bytes offchainConfig;
@@ -101,7 +101,8 @@ enum UpkeepFailureReason {
   TARGET_CHECK_REVERTED,
   UPKEEP_NOT_NEEDED,
   PERFORM_DATA_EXCEEDS_LIMIT,
-  INSUFFICIENT_BALANCE
+  INSUFFICIENT_BALANCE,
+  CHECK_CALLBACK_REVERTED
 }
 
 interface AutomationRegistryBaseInterface {

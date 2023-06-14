@@ -17,6 +17,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -293,7 +294,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		TxID: ethTxIDs[1],
 	}
 
-	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStore)
@@ -379,10 +380,10 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		ID:       int64(1),
 		TxID:     ethTxID,
 		Hash:     ethTxHash,
-		Receipts: []txmgr.EvmReceipt{receipt},
+		Receipts: []*evmtypes.Receipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
-	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
 		attempt1,
 	}, nil)
 

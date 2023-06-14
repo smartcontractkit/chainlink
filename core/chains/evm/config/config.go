@@ -42,6 +42,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint32
 	EvmGasLimitOCRJobType() *uint32
+	EvmGasLimitOCR2JobType() *uint32
 	EvmGasLimitDRJobType() *uint32
 	EvmGasLimitVRFJobType() *uint32
 	EvmGasLimitFMJobType() *uint32
@@ -83,7 +84,7 @@ type ChainScopedOnlyConfig interface {
 
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	config.BasicConfig
+	config.AppConfig
 	ChainScopedOnlyConfig
 	Validate() error
 }

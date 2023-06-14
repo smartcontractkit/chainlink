@@ -12,16 +12,6 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
-    s_verifier.setConfig(
-      FEED_ID,
-      _getSignerAddresses(signers),
-      s_offchaintransmitters,
-      FAULT_TOLERANCE,
-      bytes(""),
-      VERIFIER_VERSION,
-      bytes("")
-    );
-    (, , latestDigest) = s_verifier.latestConfigDetails(FEED_ID);
   }
 
   function test_revertsIfNotOwner() public {

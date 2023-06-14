@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-	orm := NewORM(d.db, d.logger, chain.Config())
+	orm := NewORM(d.db, d.logger, chain.Config().Database())
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),
@@ -92,6 +92,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		}
 	}
 
+	keeper := chain.Config().Keeper()
+	registry := keeper.Registry()
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
@@ -99,10 +101,10 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
 		MailMon:                  d.mailMon,
-		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+		SyncInterval:             registry.SyncInterval(),
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
-		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		SyncUpkeepQueueSize:      registry.SyncUpkeepQueueSize(),
 		EffectiveKeeperAddress:   effectiveKeeperAddress,
 	})
 	upkeepExecuter := NewUpkeepExecuter(
@@ -113,7 +115,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.HeadBroadcaster(),
 		chain.GasEstimator(),
 		svcLogger,
-		chain.Config(),
+		chain.Config().Keeper(),
 		effectiveKeeperAddress,
 	)
 
