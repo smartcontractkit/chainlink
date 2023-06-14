@@ -58,7 +58,7 @@ func TestChainScopedConfig(t *testing.T) {
 
 	t.Run("EvmGasBumpTxDepthDefault", func(t *testing.T) {
 		t.Run("uses MaxInFlightTransactions when not set", func(t *testing.T) {
-			assert.Equal(t, cfg.EvmMaxInFlightTransactions(), cfg.EvmGasBumpTxDepth())
+			assert.Equal(t, cfg.EVM().Transactions().MaxInFlight(), cfg.EvmGasBumpTxDepth())
 		})
 
 		t.Run("uses customer configured value when set", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestChainScopedConfig(t *testing.T) {
 			}
 			gcfg2 := configtest.NewGeneralConfig(t, gasBumpOverrides)
 			cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
-			assert.NotEqual(t, cfg2.EvmMaxInFlightTransactions(), cfg2.EvmGasBumpTxDepth())
+			assert.NotEqual(t, cfg2.EVM().Transactions().MaxInFlight(), cfg2.EvmGasBumpTxDepth())
 			assert.Equal(t, override, cfg2.EvmGasBumpTxDepth())
 		})
 	})
