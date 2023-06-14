@@ -11,8 +11,8 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-// enum UpkeepFailureReason
-// https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
+// enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
+// make sure failure reasons are in sync between contract and offchain enum
 const (
 	UPKEEP_FAILURE_REASON_NONE = iota
 	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED

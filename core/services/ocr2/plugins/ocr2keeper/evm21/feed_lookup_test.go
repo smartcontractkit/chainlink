@@ -575,6 +575,148 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	}
 }
 
+func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	tests := []struct {
+		name         string
+		ml           *FeedLookup
+		blob         string
+		statusCode   int
+		retryNumber  int
+		retryable    bool
+		errorMessage string
+	}{
+		{
+			name: "success - mercury responds in the first try",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob: "0xab2123dc00000012",
+		},
+		{
+			name: "success - retry for 404",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:        "0xab2123dcbabbad",
+			retryNumber: 1,
+			statusCode:  http.StatusNotFound,
+		},
+		{
+			name: "success - retry for 500",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:        "0xab2123dcbbabad",
+			retryNumber: 2,
+			statusCode:  http.StatusInternalServerError,
+		},
+		{
+			name: "failure - returns retryable",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:         "0xab2123dc",
+			retryNumber:  TotalAttempt,
+			statusCode:   http.StatusNotFound,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+		},
+		{
+			name: "failure - returns not retryable",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:         "0xab2123dc",
+			statusCode:   http.StatusBadGateway,
+			retryable:    false,
+			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			hc := mocks.NewHttpClient(t)
+
+			mr := MercuryResponse{ChainlinkBlob: tt.blob}
+			b, err := json.Marshal(mr)
+			assert.Nil(t, err)
+
+			if tt.retryNumber == 0 {
+				if tt.errorMessage != "" {
+					resp := &http.Response{
+						StatusCode: tt.statusCode,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				} else {
+					resp := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				}
+			} else if tt.retryNumber > 0 && tt.retryNumber < TotalAttempt {
+				retryResp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
+
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else {
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
+			}
+			r.hc = hc
+
+			ch := make(chan MercuryBytes, 1)
+			r.multiFeedsRequest(context.Background(), ch, upkeepId, tt.ml)
+
+			m := <-ch
+			assert.Equal(t, 0, m.Index)
+			assert.Equal(t, tt.retryable, m.Retryable)
+			if tt.retryNumber >= TotalAttempt || tt.errorMessage != "" {
+				assert.Equal(t, tt.errorMessage, m.Error.Error())
+				assert.Nil(t, m.Bytes)
+			} else {
+				blobBytes, err := hexutil.Decode(tt.blob)
+				assert.Nil(t, err)
+				assert.Nil(t, m.Error)
+				assert.Equal(t, blobBytes, m.Bytes)
+			}
+		})
+	}
+}
+
 func TestEvmRegistry_CheckCallback(t *testing.T) {
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
