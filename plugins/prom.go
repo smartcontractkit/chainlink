@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 )
 
 type PromServer struct {
@@ -34,6 +35,13 @@ func WithHandler(h http.Handler) PromServerOpt {
 
 func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromServer {
 
+	// hacking: if configured to skip discovery, then we want to mute the default
+	// golang `go_xxx` metrics. do that by using non-default registry
+	// but this doesn't work with our stack b/c we use promauto to register the metrics. oof.
+
+	if v2.EnvPluginSkipDiscovery.IsTrue() {
+		lggr.Debug("plugin configured to skip discovery...")
+	}
 	s := &PromServer{
 		port:     port,
 		lggr:     lggr,

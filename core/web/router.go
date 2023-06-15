@@ -55,7 +55,11 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionStore := cookie.NewStore(secret)
 	sessionStore.Options(config.WebServer().SessionOptions())
 	cors := uiCorsHandler(config.WebServer().AllowOrigins())
+	if prometheus == nil {
+		app.GetLogger().Warn("prometheus is nil. cannot route.")
+	}
 	if prometheus != nil {
+		app.GetLogger().Debug("setting up prometheus routing")
 		pluginMetricMiddlewareFn := func(gc *gin.Context) {
 			// no-op
 			gc.Next()

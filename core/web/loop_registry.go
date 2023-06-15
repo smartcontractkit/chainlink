@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -54,8 +55,14 @@ func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 
 // discoveryHandler implements service discovery of prom endpoints for LOOPs in the registry
 func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.Request) {
+
 	l.logger.Debug("handling plugin discovery")
 	w.Header().Set("Content-Type", "application/json")
+
+	if v2.EnvPluginSkipDiscovery.IsTrue() {
+		l.logger.Warn("Loop Registry configured to skip plugin discovery")
+		return
+	}
 	var groups []*targetgroup.Group
 
 	for _, registeredPlugin := range l.registry.List() {

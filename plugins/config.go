@@ -58,6 +58,7 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 	}
 	forward("CL_LOG_SQL_MIGRATIONS")
 	forward(string(v2.EnvPluginPromTarget))
+	forward(string(v2.EnvPluginSkipDiscovery))
 	cmd.Env = append(cmd.Env,
 		"CL_PROMETHEUS_PORT="+strconv.FormatInt(int64(cfg.PrometheusPort()), 10),
 	)
