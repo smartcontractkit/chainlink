@@ -111,6 +111,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
+	l.logger.Debugf("successfully fetched plugin metrics: %s", string(b))
 	gc.Data(http.StatusOK, "text/plain", b)
 
 }
