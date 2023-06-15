@@ -354,11 +354,8 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	fmt.Println("THRESHOLD IF STATEMENT part 2", (secretsExist && isCorrectType))
 	if secretsLocationExists && secretsExist && isCorrectType {
 		fmt.Println("THRESHOLD IF STATEMENT PASSED")
-		//thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, encryptedSecretsUrlsBytes, formatRequestId(request.RequestId), l.job.Name.ValueOrZero())
-		err = nil
-		userError := ""
-		thresholdEncSecrets := []byte("{\"TDH2Ctxt\":\"eyJHcm91cCI6IlAyNTYiLCJDIjoiUHR2cHRuNXJ2SjZ4OVViR2paMytnN1NxbXNtZldrYWQrekRDTE1NZ3pxUT0iLCJMYWJlbCI6IkFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE9IiwiVSI6IkJCUkNmRWExU2FZTHNKN2tvd0lzVUR5LzRNQmtIdFovVlhHWGdJZHkzbFFjRmxOYU95VHdRcWJ6RjlPZTFhRVNvUlJnZUJPMG1ucHNsaUxnTFB2SlVBRT0iLCJVX2JhciI6IkJHVHNVaWZZSW5GMjByeWVYeHYzNGxkeHRJU3prWGQ0bGZLamJHM1k4YitUZEtjS0ZzZGxRQW1IVjJWMStOSDBvWmsrYjZiUXE0WEtHVmVTRThPR2dWbz0iLCJFIjoieFRWQlZkZC9hcUhCTzlPSlVqVkluWWxvVmVxTmQySFZSM3RHR2NLOU1wWT0iLCJGIjoiR1hFMzhCT2ZRWVRsenJsUTJjV0xFL1AzUzh3TlRBdGRmR0NjLzY2Mk45ND0ifQ==\",\"SymCtxt\":\"jAiTh9MQKHm7h6P+f7WnNfUsBb4Tp0MZSwOT5cVFceRzb0WaPDDoYnS1Yi9+1Y33rRpG4KzwTZSqOR10t08S9f9/M4RR45wehG4zM8K/V2p5G2dE4YVGKcIDJ0HAAuifor/iA0PBlqkzE0HklPbcGfpNdjdeRMtBeBS8I/gMGaIrz/ezLcDBkGIeZiM57LRmDqrwOxt95YkdEt1dCuRRjs2u3Mati1aJSmkYRNANsEzMfVfj+PXZxK9GVKHdkjdnHx++nV3+ITYeZ53tlVbrlCyUdFfnHwrbCMx0yb6RlnHkzMlsqIwtVfl6a23uecG76OGqJNgdy3POgCBwBBdWqa1ML9kMJzdFoYmGAQ+YSI5YVcaP3azfV/hIQ3J7lACNgwPLLBl9nrFeD+6Qw+/yDcfsDZDH1qg/qWTluYzKC1TiO3RAX93A/EvcOlrGhyKNXgsiXNlXPwlyM4WzawiWGHY6mqLLNoCYRu3BCdESOR6vzq4ZCJ9GBO3/W/4lNg7i21ubUhXU\",\"Nonce\":\"k3uj/FRddH49Au5b\"}")
-		//fmt.Println("THRESHOLD fetch response (thresholdEncSecret, userError, err)", thresholdEncSecrets, userError, err)
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, encryptedSecretsUrlsBytes, formatRequestId(request.RequestId), l.job.Name.ValueOrZero())
+		fmt.Println("THRESHOLD fetch response (thresholdEncSecret, userError, err)", thresholdEncSecrets, userError, err)
 		if err != nil {
 			l.logger.Errorw("failed to fetch valid threshold encrypted secrets", "requestID", formatRequestId(request.RequestId), "err", err)
 		} else if len(userError) > 0 {
@@ -367,13 +364,18 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 			// This will eventually be deprecated and the user error will be returned on-chain.
 			l.logger.Debugf("fetching threshold encrypted secrets returned user error: %s - proceeding without threshold decryption", userError)
 		} else if len(thresholdEncSecrets) > 0 {
-			thresholdDecryptedSecrets, err := l.decryptor.Decrypt(ctx, request.RequestId[:], thresholdEncSecrets)
+			thresholdDecryptedSecrets, err := l.decryptor.Decrypt(ctx,
+				[]byte(formatRequestId(request.RequestId)),
+				thresholdEncSecrets,
+			)
 			if err != nil {
 				l.logger.Errorw("failed to decrypt threshold encrypted secrets", "requestID", formatRequestId(request.RequestId), "err", err)
 				l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("Secrets decryption error"))
 			} else {
 				requestData["secrets"] = thresholdDecryptedSecrets
 			}
+
+			fmt.Println("THRESHOLD SUCCESSFUL DECRYPTION: ", string(thresholdDecryptedSecrets))
 		} else {
 			l.logger.Debug("threshold encrypted secrets are empty - proceeding without threshold decryption")
 		}

@@ -10,6 +10,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
+	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -18,7 +19,7 @@ import (
 type ThresholdServicesConfig struct {
 	DecryptionQueue    decryptionPlugin.DecryptionQueuingService
 	KeyshareWithPubKey []byte
-	ConfigParser       decryptionPlugin.ConfigParser
+	ConfigParser       decryptionPluginConfig.ConfigParser
 }
 
 func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *ThresholdServicesConfig) (job.ServiceCtx, error) {

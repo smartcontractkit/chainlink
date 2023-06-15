@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
 	"google.golang.org/protobuf/proto"
 
@@ -50,7 +49,7 @@ func EncodeReportingPluginConfig(rpConfig *ReportingPluginConfigWrapper) ([]byte
 	return proto.Marshal(rpConfig.Config)
 }
 
-var _ decryptionPlugin.ConfigParser = &ThresholdConfigParser{}
+var _ decryptionPluginConfig.ConfigParser = &ThresholdConfigParser{}
 
 type ThresholdConfigParser struct{}
 
