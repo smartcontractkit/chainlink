@@ -151,10 +151,11 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          - name: automation
-            nodes: 9
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-automation-evm-simulated
+          # Flaking a lot due to `resource serviceaccounts/default is missing` issue
+          # - name: automation
+          #   nodes: 9
+          #   os: ubuntu-latest
+            # pyroscope_env: ci-smoke-automation-evm-simulated
           - name: cron
             nodes: 1
             os: ubuntu-latest
@@ -163,10 +164,11 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
-          - name: keeper
-            nodes: 30
-            os: ubuntu20.04-4cores-16GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
+          # Flaking a lot due to `resource serviceaccounts/default is missing` issue
+          # - name: keeper
+          #   nodes: 30
+          #   os: ubuntu20.04-4cores-16GB
+          #   pyroscope_env: ci-smoke-keeper-evm-simulated
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
