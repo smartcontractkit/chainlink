@@ -55,7 +55,7 @@ enum UpkeepFailureReason {
   UPKEEP_NOT_NEEDED,
   PERFORM_DATA_EXCEEDS_LIMIT,
   INSUFFICIENT_BALANCE,
-  MERCURY_CALLBACK_REVERTED,
+  CHECK_CALLBACK_REVERTED,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -4899,7 +4899,7 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#mercuryCallback', () => {
+  describe('#checkCallback', () => {
     it('succeeds with upkeep needed', async () => {
       const tx = await registry
         .connect(owner)
@@ -4916,7 +4916,11 @@ describe('KeeperRegistry2_1', () => {
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic['mercuryCallback'](upkeepId, values, '0x')
+        .callStatic['checkCallback(uint256,bytes[],bytes)'](
+          upkeepId,
+          values,
+          '0x',
+        )
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
         [values, '0x'],

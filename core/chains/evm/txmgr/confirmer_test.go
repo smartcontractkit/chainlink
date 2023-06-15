@@ -120,7 +120,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	estimator := gasmocks.NewEvmEstimator(t)
 	lggr := logger.TestLogger(t)
-	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config.EvmEIP1559DynamicFees())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ethKeyStore, feeEstimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
@@ -1643,7 +1643,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1688,7 +1688,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()

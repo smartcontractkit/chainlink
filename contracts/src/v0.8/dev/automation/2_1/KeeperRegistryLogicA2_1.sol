@@ -148,10 +148,9 @@ contract KeeperRegistryLogicA2_1 is
   }
 
   /**
-   * @dev mercuryCallback is a helper function wrapped around the generic executeCallback
-   * it may be deprecated in the future
+   * @dev core node calls this function to call user contracts' checkCallback functions with proper gas limit
    */
-  function mercuryCallback(
+  function checkCallback(
     uint256 id,
     bytes[] memory values,
     bytes calldata extraData
@@ -160,7 +159,7 @@ contract KeeperRegistryLogicA2_1 is
     cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
-    bytes memory payload = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
+    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
     return executeCallback(id, payload);
   }
 
@@ -186,6 +185,9 @@ contract KeeperRegistryLogicA2_1 is
       upkeepFailureReason = UpkeepFailureReason.CALLBACK_REVERTED;
     } else {
       (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    }
+    if (!upkeepNeeded) {
+      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
     }
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }

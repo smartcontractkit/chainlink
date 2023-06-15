@@ -21,6 +21,32 @@ type Registry struct {
 	mock.Mock
 }
 
+// CheckCallback provides a mock function with given fields: opts, id, values, extraData
+func (_m *Registry) CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, id, values, extraData)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) (*types.Transaction, error)); ok {
+		return rf(opts, id, values, extraData)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) *types.Transaction); ok {
+		r0 = rf(opts, id, values, extraData)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) error); ok {
+		r1 = rf(opts, id, values, extraData)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetActiveUpkeepIDs provides a mock function with given fields: opts, startIndex, maxCount
 func (_m *Registry) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
 	ret := _m.Called(opts, startIndex, maxCount)
@@ -166,32 +192,6 @@ func (_m *Registry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.In
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
 		r1 = rf(opts, upkeepId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MercuryCallback provides a mock function with given fields: opts, id, values, extraData
-func (_m *Registry) MercuryCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, id, values, extraData)
-
-	var r0 *types.Transaction
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, id, values, extraData)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) *types.Transaction); ok {
-		r0 = rf(opts, id, values, extraData)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, *big.Int, [][]byte, []byte) error); ok {
-		r1 = rf(opts, id, values, extraData)
 	} else {
 		r1 = ret.Error(1)
 	}
