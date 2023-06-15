@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
-	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -107,7 +106,7 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 
 	handler := functions.NewFunctionsConnectorHandler(signerKey, lggr)
-	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, gw_common.NewRealClock(), lggr)
+	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}

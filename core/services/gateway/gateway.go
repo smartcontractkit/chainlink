@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -34,7 +33,7 @@ type gateway struct {
 func NewGatewayFromConfig(config *config.GatewayConfig, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, common.NewRealClock(), lggr)
+	connMgr, err := NewConnectionManager(config, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}
