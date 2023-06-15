@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -27,7 +26,7 @@ var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI
 var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()
 
 type Config interface {
-	gas.Config
+	EvmFinalityDepth() uint32
 }
 
 type FwdMgr struct {

@@ -86,6 +86,7 @@ type DelegateConfig interface {
 	Database() pg.QConfig
 	Insecure() insecureConfig
 	Mercury() coreconfig.Mercury
+	Threshold() coreconfig.Threshold
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -96,6 +97,7 @@ type delegateConfig struct {
 	database    pg.QConfig
 	insecure    insecureConfig
 	mercury     mercuryConfig
+	threshold   thresholdConfig
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -108,6 +110,10 @@ func (d *delegateConfig) Database() pg.QConfig {
 
 func (d *delegateConfig) Insecure() insecureConfig {
 	return d.insecure
+}
+
+func (d *delegateConfig) Threshold() coreconfig.Threshold {
+	return d.threshold
 }
 
 func (d *delegateConfig) Mercury() coreconfig.Mercury {
@@ -142,7 +148,11 @@ type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+type thresholdConfig interface {
+	ThresholdKeyShare() string
+}
+
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -150,6 +160,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, i insecureConfi
 		database:        qconf,
 		insecure:        i,
 		mercury:         m,
+		threshold:       t,
 	}
 }
 
@@ -825,6 +836,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			pluginService,
 		}, nil
 	case job.OCR2Functions:
+		encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
+		if len(encryptedThresholdKeyShare) == 0 {
+			d.lggr.Warn("ThresholdKeyShare is empty")
+		}
+
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}

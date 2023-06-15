@@ -24,6 +24,7 @@ var (
 	EnvPasswordVRF                  = EnvSecret("CL_PASSWORD_VRF")
 	EnvPyroscopeAuthToken           = EnvSecret("CL_PYROSCOPE_AUTH_TOKEN")
 	EnvPrometheusAuthToken          = EnvSecret("CL_PROMETHEUS_AUTH_TOKEN")
+	EnvThresholdKeyShare            = EnvSecret("CL_THRESHOLD_KEY_SHARE")
 )
 
 type Env string
