@@ -180,6 +180,8 @@ SessionReaperExpiration = '240h' # Default
 HTTPMaxSize = '32768b' # Default
 # StartTimeout defines the maximum amount of time the node will wait for a server to start.
 StartTimeout = '15s' # Default
+# ListenIP specifies the port to bind the HTTP server to
+ListenIP = '0.0.0.0' # Default
 
 [WebServer.RateLimit]
 # Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
@@ -210,6 +212,8 @@ KeyPath = '/home/$USER/.chainlink/tls/server.key' # Example
 HTTPSPort = 6689 # Default
 # ForceRedirect forces TLS redirect for unencrypted connections.
 ForceRedirect = false # Default
+# ListenIP specifies the port to bind the HTTPS server to
+ListenIP = '0.0.0.0' # Default
 
 [JobPipeline]
 # ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.

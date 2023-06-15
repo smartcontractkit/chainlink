@@ -442,6 +442,7 @@ SessionTimeout = '15m' # Default
 SessionReaperExpiration = '240h' # Default
 HTTPMaxSize = '32768b' # Default
 StartTimeout = '15s' # Default
+ListenIP = '0.0.0.0' # Default
 ```
 
 
@@ -512,6 +513,12 @@ StartTimeout = '15s' # Default
 ```
 StartTimeout defines the maximum amount of time the node will wait for a server to start.
 
+### ListenIP
+```toml
+ListenIP = '0.0.0.0' # Default
+```
+ListenIP specifies the port to bind the HTTP server to
+
 ## WebServer.RateLimit
 ```toml
 [WebServer.RateLimit]
@@ -574,6 +581,7 @@ Host = 'tls-host' # Example
 KeyPath = '/home/$USER/.chainlink/tls/server.key' # Example
 HTTPSPort = 6689 # Default
 ForceRedirect = false # Default
+ListenIP = '0.0.0.0' # Default
 ```
 The TLS settings apply only if you want to enable TLS security on your Chainlink node.
 
@@ -606,6 +614,12 @@ HTTPSPort is the port used for HTTPS connections. Set this to `0` to disable HTT
 ForceRedirect = false # Default
 ```
 ForceRedirect forces TLS redirect for unencrypted connections.
+
+### ListenIP
+```toml
+ListenIP = '0.0.0.0' # Default
+```
+ListenIP specifies the port to bind the HTTPS server to
 
 ## JobPipeline
 ```toml
