@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/common/model"
@@ -22,6 +23,7 @@ type LoopRegistryServer struct {
 	promTargetHost  string
 	registry        *plugins.LoopRegistry
 	logger          logger.SugaredLogger
+	client          *http.Client
 
 	jsonMarshalFn func(any) ([]byte, error)
 }
@@ -43,11 +45,13 @@ func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 		logger:          lggr,
 		jsonMarshalFn:   json.Marshal,
 		promTargetHost:  promTargetHost,
+		client:          &http.Client{Timeout: 1 * time.Second}, // some value much less than the prometheus poll interval will do there
 	}
 }
 
 // discoveryHandler implements service discovery of prom endpoints for LOOPs in the registry
 func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.Request) {
+	l.logger.Debug("handling plugin discovery")
 	w.Header().Set("Content-Type", "application/json")
 	var groups []*targetgroup.Group
 
@@ -84,7 +88,7 @@ func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.R
 
 // pluginMetricHandlers routes from endpoints published in service discovery to the the backing LOOP endpoint
 func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
-
+	l.logger.Debugf("routing plugin metric handler: %w", gc.Params)
 	pluginName := gc.Param("name")
 	p, ok := l.registry.Get(pluginName)
 	if !ok {
@@ -92,9 +96,11 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 		return
 	}
 
-	pluginURL := fmt.Sprintf("http://%s:%d/metrics", p.EnvCfg.Hostname(), p.EnvCfg.PrometheusPort())
-	res, err := http.Get(pluginURL) //nolint
+	pluginURL := fmt.Sprintf("http://%s:%d/metrics", "localhost", p.EnvCfg.PrometheusPort())
+	l.logger.Debugf("routing to %s", pluginURL)
+	res, err := l.client.Get(pluginURL) //nolint
 	if err != nil {
+		l.logger.Errorw(fmt.Sprintf("plugin metric handler failed to get plugin url %s:", pluginURL), "err", err)
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
