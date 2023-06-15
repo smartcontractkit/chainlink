@@ -23,6 +23,8 @@ const (
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
 )
 
+type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
+
 type evmRegistryPackerV2_1 struct {
 	abi abi.ABI
 }
@@ -124,18 +126,18 @@ func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
 	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (iregistry21.UpkeepInfo, error) {
+func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return iregistry21.UpkeepInfo{}, err
+		return UpkeepInfo{}, err
 	}
 
 	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return iregistry21.UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
+		return UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
 
-	info := *abi.ConvertType(out[0], new(iregistry21.UpkeepInfo)).(*iregistry21.UpkeepInfo)
+	info := *abi.ConvertType(out[0], new(UpkeepInfo)).(*UpkeepInfo)
 
 	return info, nil
 }

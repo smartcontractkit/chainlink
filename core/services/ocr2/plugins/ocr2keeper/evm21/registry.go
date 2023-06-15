@@ -65,7 +65,7 @@ var (
 
 //go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (iregistry21.UpkeepInfo, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)

@@ -38,6 +38,7 @@ type canceller interface {
 // upkeepDeployer contains functions needed to deploy an upkeep
 type upkeepDeployer interface {
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error)
+	RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
 	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
 }
 
@@ -60,6 +61,10 @@ func (d *v11KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 }
 
+func (d *v11KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
+}
+
 type v12KeeperDeployer struct {
 	registry12.KeeperRegistryInterface
 }
@@ -70,6 +75,10 @@ func (d *v12KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClie
 
 func (d *v12KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
+}
+
+func (d *v12KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
 }
 
 type v20KeeperDeployer struct {
@@ -209,6 +218,10 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
+func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
+}
+
 type v21KeeperDeployer struct {
 	iregistry21.IKeeperRegistryMasterInterface
 	cfg *config.Config
@@ -343,4 +356,14 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 
 	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+// legacy support function
+func (d *v21KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return d.IKeeperRegistryMasterInterface.RegisterUpkeep0(opts, target, gasLimit, admin, checkData, offchainConfig)
+}
+
+// the new registerUpkeep function only available on version 2.1 and above
+func (d *v21KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return d.IKeeperRegistryMasterInterface.RegisterUpkeep(opts, target, receiver, gasLimit, admin, pipelineEnabled, triggerType, pipelineData, triggerConfig, offchainConfig)
 }

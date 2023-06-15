@@ -22,8 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
 type MercuryLookup struct {
@@ -118,16 +116,16 @@ func (r *EvmRegistry) mercuryLookup(ctx context.Context, upkeepResults []EVMAuto
 	return upkeepResults, nil
 }
 
-func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error) {
+func (r *EvmRegistry) getUpkeepInfo(upkeepId *big.Int, opts *bind.CallOpts) (UpkeepInfo, error) {
 	var (
 		zero       = common.Address{}
 		err        error
-		upkeepInfo i_keeper_registry_master_wrapper_2_1.UpkeepInfo
+		upkeepInfo UpkeepInfo
 	)
 
 	u, found := r.mercury.upkeepCache.Get(upkeepId.String())
 	if found {
-		upkeepInfo = u.(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
+		upkeepInfo = u.(UpkeepInfo)
 		r.lggr.Debugf("MercuryLookup upkeep %s block %s cache hit UpkeepInfo: %+v", upkeepId.String(), opts.BlockNumber.String(), upkeepInfo)
 	} else {
 		upkeepInfo, err = r.registry.GetUpkeep(opts, upkeepId)
@@ -164,7 +162,7 @@ func (r *EvmRegistry) decodeMercuryLookup(data []byte) (*MercuryLookup, error) {
 
 // mercuryLookupCallback calls the callback(string[] memory chainlinkBlobHex, bytes memory extraData) specified by the
 // 4-byte selector from the revert. the return will match check telling us if the upkeep is needed and what the perform data is
-func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *MercuryLookup, values [][]byte, upkeepInfo i_keeper_registry_master_wrapper_2_1.UpkeepInfo, opts *bind.CallOpts) (bool, []byte, error) {
+func (r *EvmRegistry) mercuryLookupCallback(ctx context.Context, mercuryLookup *MercuryLookup, values [][]byte, upkeepInfo UpkeepInfo, opts *bind.CallOpts) (bool, []byte, error) {
 	payload, err := r.mercury.abi.Pack("mercuryCallback", values, mercuryLookup.extraData)
 	if err != nil {
 		return false, nil, fmt.Errorf("callback args pack error: %w", err)
