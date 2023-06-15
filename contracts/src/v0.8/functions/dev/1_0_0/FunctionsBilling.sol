@@ -87,6 +87,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   );
 
   error InsufficientBalance();
+  error InsufficientGasProvided();
   error InvalidSubscription();
   error UnauthorizedSender();
   error MustBeSubOwner(address owner);
@@ -349,6 +350,11 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     if (commitment.don == address(0)) {
       return FulfillResult.INVALID_REQUEST_ID;
     }
+
+    if (gasleft() < commiment.gasLimit + s_config.gasAfterPaymentCalculation + s_config.gasOverhead) {
+      revert InsufficientGasProvided();
+    }
+
     delete s_requestCommitments[requestId];
 
     IFunctionsRouter router = IFunctionsRouter(address(s_router));
