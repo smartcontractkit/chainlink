@@ -81,6 +81,10 @@ func (e *evmConfig) OCR2() config.OCR2 {
 	return &ocr2Config{c: e.c.OCR2}
 }
 
+func (e *evmConfig) GasEstimator() config.GasEstimator {
+	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay}
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
 }
@@ -99,37 +103,6 @@ func (c *ChainScoped) BlockBackfillSkip() bool {
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.NodeNoNewHeadsThreshold()
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorBatchSize() (size uint32) {
-	return *c.cfg.GasEstimator.BlockHistory.BatchSize
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorBlockDelay() uint16 {
-	return *c.cfg.RPCBlockQueryDelay
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorBlockHistorySize() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.BlockHistorySize
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionBlocks
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionPercentile
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
-	if c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks == nil {
-		return uint16(c.EvmGasBumpThreshold()) + 1
-	}
-	return *c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorTransactionPercentile() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.TransactionPercentile
 }
 
 func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
@@ -226,18 +199,6 @@ func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
 
 func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
 	return c.cfg.GasEstimator.TipCapMin
-}
-
-func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
-	return *c.cfg.HeadTracker.HistoryDepth
-}
-
-func (c *ChainScoped) EvmHeadTrackerMaxBufferSize() uint32 {
-	return *c.cfg.HeadTracker.MaxBufferSize
-}
-
-func (c *ChainScoped) EvmHeadTrackerSamplingInterval() time.Duration {
-	return c.cfg.HeadTracker.SamplingInterval.Duration()
 }
 
 func (c *ChainScoped) EvmLogBackfillBatchSize() uint32 {
@@ -376,4 +337,50 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 
 func (h *headTrackerConfig) SamplingInterval() time.Duration {
 	return h.c.SamplingInterval.Duration()
+}
+
+type blockHistoryConfig struct {
+	c             BlockHistoryEstimator
+	blockDelay    *uint16
+	bumpThreshold *uint32
+}
+
+func (b *blockHistoryConfig) BatchSize() uint32 {
+	return *b.c.BatchSize
+}
+
+func (b *blockHistoryConfig) BlockHistorySize() uint16 {
+	return *b.c.BlockHistorySize
+}
+
+func (b *blockHistoryConfig) CheckInclusionBlocks() uint16 {
+	return *b.c.CheckInclusionBlocks
+}
+
+func (b *blockHistoryConfig) CheckInclusionPercentile() uint16 {
+	return *b.c.CheckInclusionPercentile
+}
+
+func (b *blockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 {
+	if b.c.EIP1559FeeCapBufferBlocks == nil {
+		return uint16(*b.bumpThreshold) + 1
+	}
+	return *b.c.EIP1559FeeCapBufferBlocks
+}
+
+func (b *blockHistoryConfig) TransactionPercentile() uint16 {
+	return *b.c.TransactionPercentile
+}
+
+func (b *blockHistoryConfig) BlockDelay() uint16 {
+	return *b.blockDelay
+}
+
+type gasEstimatorConfig struct {
+	c          GasEstimator
+	blockDelay *uint16
+}
+
+func (g *gasEstimatorConfig) BlockHistory() config.BlockHistory {
+	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
 }

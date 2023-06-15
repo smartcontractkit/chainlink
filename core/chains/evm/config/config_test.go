@@ -237,6 +237,21 @@ func TestChainScopedConfig(t *testing.T) {
 	})
 }
 
+func TestChainScopedConfig_BlockHistory(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	bh := cfg.EVM().GasEstimator().BlockHistory()
+	assert.Equal(t, uint32(25), bh.BatchSize())
+	assert.Equal(t, uint16(8), bh.BlockHistorySize())
+	assert.Equal(t, uint16(60), bh.TransactionPercentile())
+	assert.Equal(t, uint16(90), bh.CheckInclusionPercentile())
+	assert.Equal(t, uint16(12), bh.CheckInclusionBlocks())
+	assert.Equal(t, uint16(1), bh.BlockDelay())
+	assert.Equal(t, uint16(4), bh.EIP1559FeeCapBufferBlocks())
+}
+
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	chainID := big.NewInt(56)
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
