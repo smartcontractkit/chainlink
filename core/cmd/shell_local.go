@@ -366,7 +366,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			if ch.Config().AutoCreateKey() {
+			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 				if err2 != nil {
@@ -621,7 +621,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, s.Config.Database())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, chain.Config().EVM(), chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
