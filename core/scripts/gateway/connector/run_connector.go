@@ -34,7 +34,7 @@ func (h *client) HandleGatewayMessage(gatewayId string, msg *api.Message) {
 }
 
 func (h *client) Sign(data ...[]byte) ([]byte, error) {
-	return api.SignData(h.privateKey, data...)
+	return common.SignData(h.privateKey, data...)
 }
 
 func (h *client) Start(ctx context.Context) error {
