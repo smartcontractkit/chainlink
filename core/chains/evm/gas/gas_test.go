@@ -296,10 +296,8 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 			cfg.On("EvmGasBumpWei").Return(test.bumpWei)
 			cfg.On("EvmMaxGasPriceWei").Return(test.maxGasPriceWei)
 			cfg.On("EvmGasLimitMultiplier").Return(test.limitMultiplierPercent)
-			if test.currentBaseFee != nil {
-				cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(4))
-			}
-			actual, limit, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), test.currentTipCap, test.currentBaseFee, test.originalFee, test.originalLimit, test.maxGasPriceWei)
+			bufferBlocks := uint16(4)
+			actual, limit, err := gas.BumpDynamicFeeOnly(cfg, bufferBlocks, logger.TestLogger(t), test.currentTipCap, test.currentBaseFee, test.originalFee, test.originalLimit, test.maxGasPriceWei)
 			require.NoError(t, err)
 			if actual.TipCap.Cmp(test.expectedFee.TipCap) != 0 {
 				t.Fatalf("TipCap not equal, expected %s but got %s", test.expectedFee.TipCap.String(), actual.TipCap.String())
@@ -324,14 +322,14 @@ func Test_BumpDynamicFeeOnly_HitsMaxError(t *testing.T) {
 
 	t.Run("tip cap hits max", func(t *testing.T) {
 		originalFee := gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(100)}
-		_, _, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), nil, nil, originalFee, 42, maxGasPriceWei)
+		_, _, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestLogger(t), nil, nil, originalFee, 42, maxGasPriceWei)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped tip cap of 45 gwei would exceed configured max gas price of 40 gwei (original fee: tip cap 30 gwei, fee cap 100 gwei)")
 	})
 
 	t.Run("fee cap hits max", func(t *testing.T) {
 		originalFee := gas.DynamicFee{TipCap: assets.GWei(10), FeeCap: assets.GWei(100)}
-		_, _, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), nil, nil, originalFee, 42, maxGasPriceWei)
+		_, _, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestLogger(t), nil, nil, originalFee, 42, maxGasPriceWei)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped fee cap of 150 gwei would exceed configured max gas price of 40 gwei (original fee: tip cap 10 gwei, fee cap 100 gwei)")
 	})
