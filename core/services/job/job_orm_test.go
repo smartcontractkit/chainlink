@@ -829,7 +829,7 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	zeroFeedID := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config, config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 	jobOCR2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 
@@ -844,14 +844,14 @@ func Test_FindJob(t *testing.T) {
 	ocr2WithFeedID1 := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	ocr2WithFeedID2 := "0x0000000000000000000000000000000000000000000000000000000000000002"
 	jobOCR2WithFeedID1, err := ocr2validate.ValidatedOracleSpecToml(
-		config,
+		config.OCR2(),
 		config.Insecure(),
 		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID1),
 	)
 	require.NoError(t, err)
 
 	jobOCR2WithFeedID2, err := ocr2validate.ValidatedOracleSpecToml(
-		config,
+		config.OCR2(),
 		config.Insecure(),
 		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID2),
 	)
