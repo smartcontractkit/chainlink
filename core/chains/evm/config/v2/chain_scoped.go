@@ -69,6 +69,10 @@ func (e *evmConfig) Transactions() config.Transactions {
 	return &transactionsConfig{c: e.c.Transactions}
 }
 
+func (e *evmConfig) HeadTracker() config.HeadTracker {
+	return &headTrackerConfig{c: e.c.HeadTracker}
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
 }
@@ -83,14 +87,6 @@ func (c *ChainScoped) BlockBackfillDepth() uint64 {
 
 func (c *ChainScoped) BlockBackfillSkip() bool {
 	return *c.cfg.BlockBackfillSkip
-}
-
-type balanceMonitorConfig struct {
-	c BalanceMonitor
-}
-
-func (b *balanceMonitorConfig) Enabled() bool {
-	return *b.c.Enabled
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
@@ -130,30 +126,6 @@ func (c *ChainScoped) BlockHistoryEstimatorTransactionPercentile() uint16 {
 
 func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 	return *c.cfg.GasEstimator.EIP1559DynamicFees
-}
-
-type transactionsConfig struct {
-	c Transactions
-}
-
-func (t *transactionsConfig) ForwardersEnabled() bool {
-	return *t.c.ForwardersEnabled
-}
-
-func (t *transactionsConfig) ReaperInterval() time.Duration {
-	return t.c.ReaperInterval.Duration()
-}
-
-func (t *transactionsConfig) ReaperThreshold() time.Duration {
-	return t.c.ReaperThreshold.Duration()
-}
-
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
-	return t.c.ResendAfterThreshold.Duration()
-}
-
-func (t *transactionsConfig) MaxInFlight() uint32 {
-	return *t.c.MaxInFlight
 }
 
 func (t *transactionsConfig) MaxQueued() uint64 {
@@ -246,18 +218,6 @@ func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
 
 func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
 	return c.cfg.GasEstimator.TipCapMin
-}
-
-func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
-	return *c.cfg.HeadTracker.HistoryDepth
-}
-
-func (c *ChainScoped) EvmHeadTrackerMaxBufferSize() uint32 {
-	return *c.cfg.HeadTracker.MaxBufferSize
-}
-
-func (c *ChainScoped) EvmHeadTrackerSamplingInterval() time.Duration {
-	return c.cfg.HeadTracker.SamplingInterval.Duration()
 }
 
 func (c *ChainScoped) EvmLogBackfillBatchSize() uint32 {
@@ -368,4 +328,52 @@ func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
 
 func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
 	return *c.cfg.OCR2.Automation.GasLimit
+}
+
+type balanceMonitorConfig struct {
+	c BalanceMonitor
+}
+
+func (b *balanceMonitorConfig) Enabled() bool {
+	return *b.c.Enabled
+}
+
+type transactionsConfig struct {
+	c Transactions
+}
+
+func (t *transactionsConfig) ForwardersEnabled() bool {
+	return *t.c.ForwardersEnabled
+}
+
+func (t *transactionsConfig) ReaperInterval() time.Duration {
+	return t.c.ReaperInterval.Duration()
+}
+
+func (t *transactionsConfig) ReaperThreshold() time.Duration {
+	return t.c.ReaperThreshold.Duration()
+}
+
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
+	return t.c.ResendAfterThreshold.Duration()
+}
+
+func (t *transactionsConfig) MaxInFlight() uint32 {
+	return *t.c.MaxInFlight
+}
+
+type headTrackerConfig struct {
+	c HeadTracker
+}
+
+func (h *headTrackerConfig) HistoryDepth() uint32 {
+	return *h.c.HistoryDepth
+}
+
+func (h *headTrackerConfig) MaxBufferSize() uint32 {
+	return *h.c.MaxBufferSize
+}
+
+func (h *headTrackerConfig) SamplingInterval() time.Duration {
+	return h.c.SamplingInterval.Duration()
 }
