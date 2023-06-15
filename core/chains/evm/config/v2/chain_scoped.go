@@ -73,6 +73,10 @@ func (e *evmConfig) OCR() config.OCR {
 	return &ocrConfig{c: e.c.OCR}
 }
 
+func (e *evmConfig) OCR2() config.OCR2 {
+	return &ocr2Config{c: e.c.OCR2}
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
 }
@@ -352,8 +356,4 @@ func (c *ChainScoped) NodeSelectionMode() string {
 
 func (c *ChainScoped) NodeSyncThreshold() uint32 {
 	return *c.cfg.NodePool.SyncThreshold
-}
-
-func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
-	return *c.cfg.OCR2.Automation.GasLimit
 }
