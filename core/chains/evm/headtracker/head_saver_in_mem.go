@@ -2,6 +2,7 @@ package headtracker
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 
@@ -59,7 +60,7 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) Save(ctx context.Context, head H) error {
 	if !head.IsValid() {
-		return nil
+		return errors.New("invalid head passed to Save method of InMemoryHeadSaver")
 	}
 
 	historyDepth := int64(hs.config.HeadTrackerHistoryDepth())
@@ -145,7 +146,7 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(historyDepth 
 // trimHeads() is an internal function without locking to prevent deadlocks
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int64) {
 	for headNumber, headNumberList := range hs.HeadsNumber {
-		if headNumber < historyDepth {
+		if hs.latestHead.BlockNumber()-headNumber > historyDepth {
 			for _, head := range headNumberList {
 				delete(hs.Heads, head.BlockHash())
 			}
