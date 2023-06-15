@@ -1,4 +1,5 @@
 ChainID = '42220'
+ChainType = 'celo'
 FinalityDepth = 1
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
@@ -6,7 +7,10 @@ NoNewHeadsThreshold = '1m'
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
-EIP1559DynamicFees = true
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
+BumpMin = '2 gwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 12
