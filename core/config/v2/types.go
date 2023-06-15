@@ -165,9 +165,6 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
-	if d.AllowSimplePasswords && build.IsProd() {
-		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
-	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {

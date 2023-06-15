@@ -18,12 +18,13 @@ type Row struct {
 	Signature  []byte
 }
 
-// SnapshotRow used by GetVersions function.
+// SnapshotRow(s) are returned by GetSnapshot function.
 type SnapshotRow struct {
-	Address   *utils.Big
-	SlotId    uint
-	Version   uint64
-	Confirmed bool
+	Address    *utils.Big
+	SlotId     uint
+	Version    uint64
+	Expiration int64
+	Confirmed  bool
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -44,7 +45,8 @@ type ORM interface {
 
 	// DeleteExpired deletes any entries having Expiration < utcNow,
 	// up to the given limit.
-	DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error
+	// Returns the number of deleted rows.
+	DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error)
 
 	// GetSnapshot selects all non-expired row versions for the given addresses range.
 	// For the full address range, use NewFullAddressRange().

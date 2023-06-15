@@ -1187,6 +1187,59 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	})
 }
 
+func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
+	bhe := newBlockHistoryEstimator(t, ethClient, cfg)
+	block := evmtypes.Block{
+		Number:     0,
+		Hash:       utils.NewHash(),
+		ParentHash: common.Hash{},
+		BaseFeePerGas: assets.NewWeiI(100),
+	}
+	t.Run("returns false if transaction has 0 gas limit", func(t *testing.T) {
+		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 0, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+	})
+
+	t.Run("returns false if transaction gas limit is nil and tx type is 0x0", func(t *testing.T) {
+		tx := evmtypes.Transaction{Type: 0x0, GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x7e only on Optimism", func(t *testing.T) {
+		cfg.ChainTypeF = "optimismBedrock"
+		tx := evmtypes.Transaction{Type: 0x7e, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x7c only on Celo", func(t *testing.T) {
+		cfg.ChainTypeF = "celo"
+		tx := evmtypes.Transaction{Type: 0x7c, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+	})
+
+	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {
+		cfg.ChainTypeF = "celo"
+		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+
+		tx2 := evmtypes.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250),
+			GasPrice:  assets.NewWeiI(50), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg,logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg,logger.TestLogger(t)))
+	})
+}
+
 func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := newConfigWithEIP1559DynamicFeesEnabled(t)
