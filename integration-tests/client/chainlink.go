@@ -74,8 +74,8 @@ func (c *Chainlink) Name() string {
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *Chainlink) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}
-	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Job")
-	log.Trace().Str("Node URL", c.Config.URL).Str("Job Body", spec).Msg("Creating Job")
+	log.Info().Str("Node URL", c.Config.URL).Str("Node Chart", c.Config.ChartName).Msg("Creating Job")
+	log.Trace().Str("Node URL", c.Config.URL).Str("Node Chart", c.Config.ChartName).Str("Job Body", spec).Msg("Creating Job")
 	resp, err := c.APIClient.R().
 		SetBody(&JobForm{
 			TOML: spec,
@@ -105,8 +105,16 @@ func (c *Chainlink) CreateJob(spec JobSpec) (*Job, *http.Response, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Info().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Msg("Creating Job")
-	log.Trace().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Str("Spec", specString).Msg("Creating Job")
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("Node Chart", c.Config.ChartName).
+		Str("Type", spec.Type()).
+		Msg("Creating Job")
+	log.Trace().
+		Str("Node URL", c.Config.URL).
+		Str("Node Chart", c.Config.ChartName).
+		Str("Type", spec.Type()).Str("Spec", specString).
+		Msg("Creating Job")
 	resp, err := c.APIClient.R().
 		SetBody(&JobForm{
 			TOML: specString,
