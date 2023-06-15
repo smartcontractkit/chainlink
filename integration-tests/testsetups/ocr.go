@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -41,43 +42,8 @@ type OCRSoakTest struct {
 	mockPath        string
 
 	ocrInstances          []contracts.OffchainAggregator
-	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
+	ocrInstanceMap        map[string]contracts.OffchainAggregator // address: OCR instance
 	OperatorForwarderFlow bool
-}
-
-type OCRSoakTestSub struct {
-	client        blockchain.EVMClient
-	contractABI   *abi.ABI
-	completed     bool
-	completedMu   sync.Mutex
-	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated
-}
-
-func NewOCRSoakTestSub(client blockchain.EVMClient, startingBlockNumber *big.Int) (*OCRSoakTestSub, error) {
-	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-	return &OCRSoakTestSub{
-		client:        client,
-		contractABI:   contractABI,
-		completed:     false,
-		answerUpdated: make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated),
-	}, nil
-}
-
-func (o *OCRSoakTestSub) ReceiveHeader(header blockchain.NodeHeader) error {
-	o.client.Fi
-}
-
-func (o *OCRSoakTestSub) Wait() error {
-	return nil // NOP as we're going
-}
-
-func (o *OCRSoakTestSub) Complete() bool {
-	o.completedMu.Lock()
-	defer o.completedMu.Unlock()
-	return o.completed
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -205,13 +171,16 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	// *********************
 	// ***** Test Loop *****
 	// *********************
+	testOver := false
 	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
 	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(o.Inputs.RoundTimeout)
-	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
-	o.subscribeOCREvents(t, answerUpdated)
 	remainingExpectedAnswers := len(o.ocrInstances)
-	o.chainClient.AddHeaderEventSubscription("debug")
-	testOver := false
+
+	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
+	eventSub, err := NewOCRSoakTestSub(o.chainClient, o.ocrInstances, answerUpdated)
+	require.NoError(t, err)
+	o.chainClient.AddHeaderEventSubscription("ocrSoakTestSub", eventSub)
+
 	for {
 		select {
 		case <-testDuration.C:
@@ -364,45 +333,74 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 	require.Less(t, inputs.TimeBetweenRounds, time.Hour, "TimeBetweenRounds must be less than 1 hour")
 }
 
-// subscribeToAnswerUpdatedEvent subscribes to the event log for AnswerUpdated event and
-// verifies if the answer is matching with the expected value
-func (o *OCRSoakTest) subscribeOCREvents(
-	t *testing.T,
-	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
-) {
-	l := utils.GetTestLogger(t)
+// OCRSoakTestSub is a subscription to OCR events for an OCR soak test, designed to be used in perpetuity throughout the test
+// rather than once per event. It will use a provided channel to inform the main test loop of new events.
+type OCRSoakTestSub struct {
+	client blockchain.EVMClient
+
+	answerUpdatedChan chan *offchainaggregator.OffchainAggregatorAnswerUpdated
+	ocrInstance       contracts.OffchainAggregator // Used to parse and read OCR events
+	ocrAddresses      []common.Address
+	contractABI       *abi.ABI
+	completed         bool
+	completedMu       sync.Mutex
+}
+
+// NewOCRSoakTestSub creates a new subscription to OCR events for an OCR soak test
+func NewOCRSoakTestSub(
+	client blockchain.EVMClient,
+	ocrInstances []contracts.OffchainAggregator,
+	answerUpdatedChan chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
+) (*OCRSoakTestSub, error) {
 	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
-	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-	query := geth.FilterQuery{
-		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
-		Addresses: []common.Address{},
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(o.ocrInstances); i++ {
-		query.Addresses = append(query.Addresses, common.HexToAddress(o.ocrInstances[i].Address()))
+	ocrAddresses := make([]common.Address, len(ocrInstances))
+	for i := range ocrInstances {
+		ocrAddresses[i] = common.HexToAddress(ocrInstances[i].Address())
 	}
-	eventLogs := make(chan types.Log)
-	sub, err := o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
+	return &OCRSoakTestSub{
+		client:            client,
+		contractABI:       contractABI,
+		completed:         false,
+		ocrInstance:       ocrInstances[0],
+		ocrAddresses:      ocrAddresses,
+		answerUpdatedChan: answerUpdatedChan,
+	}, nil
+}
 
-	go func() {
-		defer sub.Unsubscribe()
-
-		for {
-			select {
-			case err := <-sub.Err():
-				l.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
-				sub.Unsubscribe()
-
-				sub, err = o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-			case vLog := <-eventLogs:
-				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				require.NoError(t, err, "Getting event details for OCR instances shouldn't fail")
-
-				go o.processNewEvent(t, sub, answerUpdated, &vLog, eventDetails, o.ocrInstances[0], contractABI)
-			}
+func (o *OCRSoakTestSub) ReceiveHeader(header blockchain.NodeHeader) error {
+	fq := ethereum.FilterQuery{
+		BlockHash: &header.Hash,
+		Addresses: o.ocrAddresses,
+	}
+	logs, err := o.client.FilterLogs(context.Background(), fq)
+	if err != nil {
+		return err
+	}
+	for _, log := range logs {
+		eventDetails, err := o.contractABI.EventByID(log.Topics[0])
+		if err != nil {
+			return err
 		}
-	}()
+		if eventDetails.Name == "AnswerUpdated" {
+			answer, err := o.ocrInstance.ParseEventAnswerUpdated(log)
+			if err != nil {
+				return err
+			}
+			o.answerUpdatedChan <- answer
+		}
+	}
+	return nil
+}
+
+func (o *OCRSoakTestSub) Wait() error {
+	return nil // NOP as we never wait for these to finish
+}
+
+func (o *OCRSoakTestSub) Complete() bool {
+	o.completedMu.Lock()
+	defer o.completedMu.Unlock()
+	return o.completed
 }
