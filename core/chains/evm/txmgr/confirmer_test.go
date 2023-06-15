@@ -56,7 +56,7 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func mustTxBeInState(t *testing.T, txStore txmgr.EvmTxStore, tx txmgr.EvmTx, expectedState txmgrtypes.TxState) {
+func mustTxBeInState(t *testing.T, txStore txmgr.TestEvmTxStore, tx txmgr.EvmTx, expectedState txmgrtypes.TxState) {
 	etx, err := txStore.FindTxWithAttempts(tx.ID)
 	require.NoError(t, err)
 	require.Equal(t, expectedState, etx.State)

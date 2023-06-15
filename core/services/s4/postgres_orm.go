@@ -74,19 +74,23 @@ RETURNING id;`, o.tableName)
 	return nil
 }
 
-func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) error {
+func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error) {
 	q := o.q.WithOpts(qopts...)
 
 	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE namespace = $1 AND expiration < $2 LIMIT $3)`, o.tableName)
 	stmt := fmt.Sprintf(`%s DELETE FROM %s WHERE id IN (SELECT id FROM rows);`, with, o.tableName)
-	return q.ExecQ(stmt, o.namespace, utcNow.UnixMilli(), limit)
+	result, err := q.Exec(stmt, o.namespace, utcNow.UnixMilli(), limit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version, confirmed FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
 	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
