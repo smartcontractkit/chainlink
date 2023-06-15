@@ -26,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
@@ -39,7 +38,6 @@ const (
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
-	Retry              = "retry"
 	RetryDelay         = 600 * time.Millisecond
 	Timestamp          = "timestamp" // valid for v0.3
 	TotalAttempt       = 3
@@ -159,32 +157,32 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	log.Printf("failureReason: %d\n", failureReason)
 	log.Printf("gasUsed: %d\n", gasUsed)
 
-	log.Printf("======================== for block %d ========================\n", blockNumber+1)
-	err = k.client.Client().CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(blockNumber+1))
-	if err != nil {
-		log.Fatalf("eth call failed: %v", err)
-	}
-
-	log.Printf("checkCallback input: %s\n", hexutil.Encode(b))
-	resp, err = hexutil.Decode(hexutil.Encode(b))
-	if err != nil {
-		log.Fatalf("failed to decode: %v", err)
-	}
-	log.Printf("checkCallback input: %v\n", resp)
-
-	out, err = keeperRegistryABI.Methods["checkCallback"].Outputs.UnpackValues(b)
-	if err != nil {
-		log.Fatalf("%v: unpack checkUpkeep return: %s", err, hexutil.Encode(b))
-	}
-
-	upkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
-	rawPerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	failureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	gasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	log.Printf("upkeepNeeded: %v\n", upkeepNeeded)
-	log.Printf("rawPerformData: %v\n", rawPerformData)
-	log.Printf("failureReason: %d\n", failureReason)
-	log.Printf("gasUsed: %d\n", gasUsed)
+	//log.Printf("======================== for block %d ========================\n", blockNumber+1)
+	//err = k.client.Client().CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(blockNumber+1))
+	//if err != nil {
+	//	log.Fatalf("eth call failed: %v", err)
+	//}
+	//
+	//log.Printf("checkCallback input: %s\n", hexutil.Encode(b))
+	//resp, err = hexutil.Decode(hexutil.Encode(b))
+	//if err != nil {
+	//	log.Fatalf("failed to decode: %v", err)
+	//}
+	//log.Printf("checkCallback input: %v\n", resp)
+	//
+	//out, err = keeperRegistryABI.Methods["checkCallback"].Outputs.UnpackValues(b)
+	//if err != nil {
+	//	log.Fatalf("%v: unpack checkUpkeep return: %s", err, hexutil.Encode(b))
+	//}
+	//
+	//upkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	//rawPerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+	//failureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	//gasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	//log.Printf("upkeepNeeded: %v\n", upkeepNeeded)
+	//log.Printf("rawPerformData: %v\n", rawPerformData)
+	//log.Printf("failureReason: %d\n", failureReason)
+	//log.Printf("gasUsed: %d\n", gasUsed)
 
 	var (
 		checkReqs    = make([]rpc.BatchElem, 1)
@@ -296,7 +294,7 @@ func (k *Keeper) VerifyFeedLookup(ctx context.Context) {
 	if fl.feedParamKey == FeedIDHex && fl.timeParamKey == BlockNumber {
 		// only mercury v0.2
 		for i := range feeds {
-			go k.singleFeedRequest(ctx, hc, ch, upkeepId, i, fl, job.MercuryV02)
+			go k.singleFeedRequest(ctx, hc, ch, upkeepId, i, fl, evm.MercuryV02)
 		}
 	}
 
@@ -378,16 +376,15 @@ func generateHMAC(method string, path string, body []byte, clientId string, secr
 	return userHmac
 }
 
-func (k *Keeper) singleFeedRequest(ctx context.Context, hc *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml FeedLookup, mv job.MercuryVersion) {
+func (k *Keeper) singleFeedRequest(ctx context.Context, hc *http.Client, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml FeedLookup, mv evm.MercuryVersion) {
 	q := url.Values{
 		ml.feedParamKey: {ml.feeds[index]},
 		ml.timeParamKey: {ml.time.String()},
 		UserId:          {upkeepId.String()},
 	}
-	mercuryURL := MercuryHostV2
+	mercuryURL := k.cfg.MercuryURL
 	path := MercuryPathV2
-	if mv == job.MercuryV03 {
-		mercuryURL = MercuryHostV3
+	if mv == evm.MercuryV03 {
 		path = MercuryPathV3
 	}
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, path, q.Encode())
@@ -424,7 +421,7 @@ func (k *Keeper) singleFeedRequest(ctx context.Context, hc *http.Client, ch chan
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				log.Printf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
-				return errors.New(Retry)
+				return errors.New(fmt.Sprintf("%d", resp.StatusCode))
 			} else if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 			}
@@ -446,7 +443,7 @@ func (k *Keeper) singleFeedRequest(ctx context.Context, hc *http.Client, ch chan
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
