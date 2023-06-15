@@ -340,15 +340,7 @@ contract VRF {
     uint256 py,
     uint256 qx,
     uint256 qy
-  )
-    internal
-    pure
-    returns (
-      uint256 sx,
-      uint256 sy,
-      uint256 sz
-    )
-  {
+  ) internal pure returns (uint256 sx, uint256 sy, uint256 sz) {
     unchecked {
       // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
       // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone

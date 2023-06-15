@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -17,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -25,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func TestDirectRequestPerformance(t *testing.T) {
@@ -61,7 +62,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 	err = mockServerClient.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	jobUUID := uuid.NewV4()
+	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),

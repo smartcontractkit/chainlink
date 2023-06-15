@@ -12,6 +12,7 @@ import (
 // Config represents configuration fields
 type Config struct {
 	NodeURL              string   `mapstructure:"NODE_URL"`
+	NodeHttpURL          string   `mapstructure:"NODE_HTTP_URL"`
 	ChainID              int64    `mapstructure:"CHAIN_ID"`
 	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
 	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
@@ -60,6 +61,7 @@ type Config struct {
 	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	UpkeepMercury                   bool                   `mapstructure:"UPKEEP_MERCURY"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
@@ -69,6 +71,12 @@ type Config struct {
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
 	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
+
+	// Mercury Config
+	MercuryURL      string `mapstructure:"MERCURY_URL"`
+	MercuryID       string `mapstructure:"MERCURY_ID"`
+	MercuryKey      string `mapstructure:"MERCURY_KEY"`
+	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
 }
 
 // New creates a new config

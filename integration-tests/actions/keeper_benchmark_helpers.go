@@ -8,14 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
@@ -68,7 +67,8 @@ func DeployBenchmarkKeeperContracts(
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 	if registryVersion == ethereum.RegistryVersion_2_0 {
 		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig := BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime, 0)
+		ocrConfig, err := BuildAutoOCR2ConfigVarsWithKeyIndex(t, nodesWithoutBootstrap, *registrySettings, registrar.Address(), 5*blockTime, 0)
+		require.NoError(t, err, "OCR config should be built successfully")
 		err = registry.SetConfig(*registrySettings, ocrConfig)
 		require.NoError(t, err, "Registry config should be be set successfully")
 	}

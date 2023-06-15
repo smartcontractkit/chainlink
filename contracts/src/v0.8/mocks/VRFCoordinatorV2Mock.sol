@@ -96,11 +96,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
    * @param _consumer the VRF randomness consumer to send the result to
    * @param _words user-provided random words
    */
-  function fulfillRandomWordsWithOverride(
-    uint256 _requestId,
-    address _consumer,
-    uint256[] memory _words
-  ) public {
+  function fulfillRandomWordsWithOverride(uint256 _requestId, address _consumer, uint256[] memory _words) public {
     uint256 startGas = gasleft();
     if (s_requests[_requestId].subId == 0) {
       revert("nonexistent request");
@@ -180,17 +176,9 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     return s_currentSubId;
   }
 
-  function getSubscription(uint64 _subId)
-    external
-    view
-    override
-    returns (
-      uint96 balance,
-      uint64 reqCount,
-      address owner,
-      address[] memory consumers
-    )
-  {
+  function getSubscription(
+    uint64 _subId
+  ) external view override returns (uint96 balance, uint64 reqCount, address owner, address[] memory consumers) {
     if (s_subscriptions[_subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -213,16 +201,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     _;
   }
 
-  function getRequestConfig()
-    external
-    pure
-    override
-    returns (
-      uint16,
-      uint32,
-      bytes32[] memory
-    )
-  {
+  function getRequestConfig() external pure override returns (uint16, uint32, bytes32[] memory) {
     return (3, 2000000, new bytes32[](0));
   }
 
@@ -239,12 +218,10 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     emit ConsumerAdded(_subId, _consumer);
   }
 
-  function removeConsumer(uint64 _subId, address _consumer)
-    external
-    override
-    onlySubOwner(_subId)
-    onlyValidConsumer(_subId, _consumer)
-  {
+  function removeConsumer(
+    uint64 _subId,
+    address _consumer
+  ) external override onlySubOwner(_subId) onlyValidConsumer(_subId, _consumer) {
     address[] storage consumers = s_consumers[_subId];
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == _consumer) {

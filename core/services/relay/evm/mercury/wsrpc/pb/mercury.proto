@@ -34,13 +34,14 @@ message Report {
     int64 validFromBlockNumber = 4;
     int64 currentBlockNumber = 5;
     bytes currentBlockHash = 6;
-    int64 observationsTimestamp = 7;
-    bytes configDigest = 8;
-    uint32 epoch = 9;
-    uint32 round = 10;
-    string operatorName = 11;
-    bytes transmittingOperator = 12;
-    Timestamp createdAt = 13;
+    uint64 currentBlockTimestamp = 7;
+    int64 observationsTimestamp = 8;
+    bytes configDigest = 9;
+    uint32 epoch = 10;
+    uint32 round = 11;
+    string operatorName = 12;
+    bytes transmittingOperator = 13;
+    Timestamp createdAt = 14;
 }
 
 // Taken from: https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/timestamp.proto

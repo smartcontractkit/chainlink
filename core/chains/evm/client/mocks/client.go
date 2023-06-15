@@ -445,6 +445,20 @@ func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header
 	return r0, r1
 }
 
+// IsL2 provides a mock function with given fields:
+func (_m *Client) IsL2() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // LINKBalance provides a mock function with given fields: ctx, address, linkAddress
 func (_m *Client) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
 	ret := _m.Called(ctx, address, linkAddress)

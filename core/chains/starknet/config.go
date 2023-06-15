@@ -221,11 +221,8 @@ func setFromChain(c, f *stkcfg.Chain) {
 	if f.TxTimeout != nil {
 		c.TxTimeout = f.TxTimeout
 	}
-	if f.TxSendFrequency != nil {
-		c.TxSendFrequency = f.TxSendFrequency
-	}
-	if f.TxMaxBatchSize != nil {
-		c.TxMaxBatchSize = f.TxMaxBatchSize
+	if f.ConfirmationPoll != nil {
+		c.ConfirmationPoll = f.ConfirmationPoll
 	}
 }
 
@@ -290,12 +287,8 @@ func (c *StarknetConfig) TxTimeout() time.Duration {
 	return c.Chain.TxTimeout.Duration()
 }
 
-func (c *StarknetConfig) TxSendFrequency() time.Duration {
-	return c.Chain.TxSendFrequency.Duration()
-}
-
-func (c *StarknetConfig) TxMaxBatchSize() int {
-	return int(*c.Chain.TxMaxBatchSize)
+func (c *StarknetConfig) ConfirmationPoll() time.Duration {
+	return c.Chain.ConfirmationPoll.Duration()
 }
 
 func (c *StarknetConfig) OCR2CachePollPeriod() time.Duration {

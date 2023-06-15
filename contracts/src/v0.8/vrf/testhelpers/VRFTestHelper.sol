@@ -28,11 +28,7 @@ contract VRFTestHelper is VRF {
     return super.hashToCurve(pk, x);
   }
 
-  function ecmulVerify_(
-    uint256[2] memory x,
-    uint256 scalar,
-    uint256[2] memory q
-  ) public pure returns (bool) {
+  function ecmulVerify_(uint256[2] memory x, uint256 scalar, uint256[2] memory q) public pure returns (bool) {
     return super.ecmulVerify(x, scalar, q);
   }
 
@@ -41,15 +37,7 @@ contract VRFTestHelper is VRF {
     uint256 py,
     uint256 qx,
     uint256 qy
-  )
-    public
-    pure
-    returns (
-      uint256,
-      uint256,
-      uint256
-    )
-  {
+  ) public pure returns (uint256, uint256, uint256) {
     return super.projectiveECAdd(px, py, qx, qy);
   }
 

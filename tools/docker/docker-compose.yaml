@@ -13,7 +13,6 @@ services:
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
-      - CL_DEV
       - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env
@@ -37,7 +36,6 @@ services:
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config -s /run/secrets/secrets node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
-      - CL_DEV
       - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env

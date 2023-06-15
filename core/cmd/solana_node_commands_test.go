@@ -27,6 +27,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *clte
 	})
 }
 
+// TODO fix https://smartcontract-it.atlassian.net/browse/BCF-2114
 func TestClient_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 

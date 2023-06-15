@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -91,7 +91,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	delegate := directrequest.NewDelegate(lggr, runner, orm, cc, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
-	jb.ExternalJobID = uuid.NewV4()
+	jb.ExternalJobID = uuid.New()
 	if specF != nil {
 		specF(jb)
 	}

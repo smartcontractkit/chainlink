@@ -4,7 +4,7 @@ inputs:
     required: true
     description: A cache namespace to add
   cache-version:
-    default: "4"
+    default: "5"
     description: Change to bust cache
 description: Setup pnpm for contracts
 runs:
@@ -14,7 +14,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: ~/.cache/hardhat-nodejs/
-        key: contracts-compilers-${{ runner.os }}-${{ inputs.cache-version }}-${{ hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts') }}
+        key: contracts-compilers-${{ runner.os }}-${{ inputs.cache-version }}-${{ hashFiles('contracts/pnpm-lock.yaml', 'contracts/hardhat.config.ts') }}
 
     - name: Cache contracts build outputs
       uses: actions/cache@v3
@@ -23,9 +23,7 @@ runs:
           contracts/cache/
           contracts/artifacts/
           contracts/typechain/
-        key: ${{ format('contracts-{0}-{1}-{2}', runner.os, inputs.cache-version, inputs.namespace, hashFiles('contracts/pnpm.lock', 'contracts/hardhat.config.ts', 'contracts/src/**/*.sol')) }}
-        restore-keys: |
-          ${{ format('contracts-{0}-{1}-', runner.os, inputs.cache-version, inputs.namespace) }}
+        key: ${{ format('contracts-{0}-{1}-{2}-{3}', runner.os, inputs.cache-version, inputs.namespace, hashFiles('contracts/pnpm-lock.yaml', 'contracts/hardhat.config.ts', 'contracts/src/**/*.sol')) }}
 
     - name: Compile contracts
       shell: bash

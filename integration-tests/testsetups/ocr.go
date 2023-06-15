@@ -12,14 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -33,9 +33,11 @@ type OCRSoakTest struct {
 	TestReporter testreporters.OCRSoakTestReporter
 
 	testEnvironment *environment.Environment
-	chainlinkNodes  []*client.Chainlink
+	bootstrapNode   *client.Chainlink
+	workerNodes     []*client.Chainlink
 	chainClient     blockchain.EVMClient
 	mockServer      *ctfClient.MockserverClient
+	mockPath        string
 
 	ocrInstances          []contracts.OffchainAggregator
 	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
@@ -65,6 +67,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 			ContractReports:       make(map[string]*testreporters.OCRSoakTestReport),
 			ExpectedRoundDuration: inputs.ExpectedRoundTime,
 		},
+		mockPath:       "ocr",
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
 }
@@ -79,8 +82,9 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 	// Make connections to soak test resources
 	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
-	o.chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+	nodes, err := client.ConnectChainlinkNodes(env)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
 	o.mockServer, err = ctfClient.ConnectMockServer(env)
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 	o.chainClient.ParallelTransactions(true)
@@ -89,7 +93,7 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
-	err = actions.FundChainlinkNodes(o.chainlinkNodes[1:], o.chainClient, o.Inputs.ChainlinkNodeFunding)
+	err = actions.FundChainlinkNodes(o.workerNodes, o.chainClient, o.Inputs.ChainlinkNodeFunding)
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	if o.OperatorForwarderFlow {
@@ -97,17 +101,16 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 		require.NoError(t, err, "Loading contracts shouldn't fail")
 
 		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-			t, contractDeployer, linkTokenContract, o.chainClient, len(o.chainlinkNodes[1:]),
+			t, contractDeployer, linkTokenContract, o.chainClient, len(o.workerNodes),
 		)
-		forwarderNodes := o.chainlinkNodes[1:]
-		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.chainlinkNodes[1:])
+		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 		require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-		for i := range forwarderNodes {
+		for i := range o.workerNodes {
 			actions.AcceptAuthorizedReceiversOperator(
 				t, operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]}, o.chainClient, contractLoader,
 			)
 			require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-			actions.TrackForwarder(t, o.chainClient, authorizedForwarders[i], forwarderNodes[i])
+			actions.TrackForwarder(t, o.chainClient, authorizedForwarders[i], o.workerNodes[i])
 			err = o.chainClient.WaitForEvents()
 		}
 
@@ -116,7 +119,7 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			o.chainlinkNodes,
+			o.workerNodes,
 			authorizedForwarders,
 			o.chainClient,
 		)
@@ -125,7 +128,8 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 			o.Inputs.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
-			o.chainlinkNodes,
+			o.bootstrapNode,
+			o.workerNodes,
 			o.chainClient,
 		)
 		require.NoError(t, err)
@@ -147,13 +151,10 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
 	l := utils.GetTestLogger(t)
-	// Set initial value and create jobs
-	err := actions.SetAllAdapterResponsesToTheSameValue(o.Inputs.StartingAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
-	require.NoError(t, err, "Error setting adapter responses")
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.bootstrapNode, o.workerNodes, "ocr_forwarder", 5, o.mockServer)
 	} else {
-		err = actions.CreateOCRJobs(o.ocrInstances, o.chainlinkNodes, o.mockServer)
+		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, o.mockPath, 5, o.mockServer)
 		require.NoError(t, err, "Error creating OCR jobs")
 	}
 
@@ -170,7 +171,7 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	// *********************
 	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
 	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(o.Inputs.RoundTimeout)
-	answerUpdated := make(chan *ethereum.OffchainAggregatorAnswerUpdated)
+	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
 	o.subscribeOCREvents(t, answerUpdated)
 	remainingExpectedAnswers := len(o.ocrInstances)
 	testOver := false
@@ -214,7 +215,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, o.testEnvironment, o.chainlinkNodes, &o.TestReporter, o.chainClient
+	return t, o.testEnvironment, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.chainClient
 }
 
 // *********************
@@ -224,7 +225,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 func (o *OCRSoakTest) processNewEvent(
 	t *testing.T,
 	eventSub geth.Subscription,
-	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
+	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
 	event *types.Log,
 	eventDetails *abi.Event,
 	ocrInstance contracts.OffchainAggregator,
@@ -267,7 +268,7 @@ func (o *OCRSoakTest) processNewEvent(
 }
 
 // marshalls new answer events into manageable Go struct for further processing and reporting
-func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *ethereum.OffchainAggregatorAnswerUpdated) bool {
+func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *offchainaggregator.OffchainAggregatorAnswerUpdated) bool {
 	l := utils.GetTestLogger(t)
 	// Updated Info
 	answerAddress := newAnswer.Raw.Address.Hex()
@@ -304,7 +305,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	for _, report := range o.TestReporter.ContractReports {
 		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
 	}
-	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.chainlinkNodes, o.mockServer)
+	err = o.mockServer.SetValuePath(o.mockPath, currentAdapterValue)
 	require.NoError(t, err, "Error setting adapter responses")
 	l.Info().
 		Int("Value", currentAdapterValue).
@@ -330,10 +331,10 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 // verifies if the answer is matching with the expected value
 func (o *OCRSoakTest) subscribeOCREvents(
 	t *testing.T,
-	answerUpdated chan *ethereum.OffchainAggregatorAnswerUpdated,
+	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
 ) {
 	l := utils.GetTestLogger(t)
-	contractABI, err := ethereum.OffchainAggregatorMetaData.GetAbi()
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
 	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")

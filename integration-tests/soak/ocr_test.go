@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -62,16 +62,7 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 	err := envconfig.Process("OCR", &testInputs)
 	require.NoError(t, err, "Error reading OCR soak test inputs")
 	testInputs.setForRemoteRunner()
-
 	network := networks.SelectedNetwork // Environment currently being used to soak test on
-	var ocrEnvVars = map[string]any{
-		"P2P_LISTEN_IP":   "0.0.0.0",
-		"P2P_LISTEN_PORT": "6690",
-	}
-	// For if we end up using env vars
-	ocrEnvVars["ETH_URL"] = network.URLs[0]
-	ocrEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-	ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL: time.Hour * 720, // 30 days,
@@ -82,6 +73,12 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 		Test: t,
 	}
 
+	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
+	customNetworkTOML := ``
+	// Uncomment below for debugging TOML issues on the node
+	// fmt.Println("Using Chainlink TOML\n---------------------")
+	// fmt.Println(client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
+	// fmt.Println("---------------------")
 	replicas := 6
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
@@ -92,16 +89,12 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 			WsURLs:      network.URLs,
 		}))
 	for i := 0; i < replicas; i++ {
-		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-		if useEnvVars == "true" {
-			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
-				"env": ocrEnvVars,
-			}))
-		} else {
-			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
-			}))
-		}
+		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+			"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network),
+			"db": map[string]any{
+				"stateful": true, // stateful DB by default for soak tests
+			},
+		}))
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

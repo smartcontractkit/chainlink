@@ -11,7 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.1.1 - UNRELEASED
+<!-- unreleasedstop -->
+
+# 2.2.0 - 2023-06-12
+
+### Added
+
+- Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
+  configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
+
+### Fixed
+
+- Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
+### Changed
+
+- Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
+	- `LogBackfillBatchSize = 1000`
+	- `RPCDefaultBatchSize = 250`
+	- `GasEstimator.BatchSize = 25`
+- Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
+
+## 2.1.1 - 2023-05-22
 
 ### Updated
 
@@ -20,8 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a bug that would cause telemetry to be sent with the wrong type.
-
-<!-- unreleasedstop -->
 
 ## 2.1.0 - 2023-05-16
 
@@ -75,11 +96,6 @@ AutoCreateKey = false
 ```
 
 - Add new option for relayConfig `feedID` that handles multi-config contracts. Can be applied to any OCR2 job.
-
-### Updated
-
-- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override
-  of any values provided via configuration files.
 
 ### Updated
 

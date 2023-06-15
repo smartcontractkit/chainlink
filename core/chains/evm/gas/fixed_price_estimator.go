@@ -5,13 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ EvmEstimator = &fixedPriceEstimator{}
+var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
 	config Config
@@ -41,8 +42,7 @@ func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.H
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()
-	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
-	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, f.config)
+	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, f.config.EvmMaxGasPriceWei(), gasLimit, f.config.EvmGasLimitMultiplier())
 	return
 }
 
@@ -52,15 +52,16 @@ func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice 
 
 func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
 	gasTipCap := f.config.EvmGasTipCapDefault()
+
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = commonfee.ApplyMultiplier(originalGasLimit, f.config.EvmGasLimitMultiplier())
 
 	var feeCap *assets.Wei
 	if f.config.EvmGasBumpThreshold() == 0 {
 		// Gas bumping is disabled, just use the max fee cap
-		feeCap = getMaxGasPrice(maxGasPriceWei, f.config)
+		feeCap = getMaxGasPrice(maxGasPriceWei, f.config.EvmMaxGasPriceWei())
 	} else {
 		// Need to leave headroom for bumping so we fallback to the default value here
 		feeCap = f.config.EvmGasFeeCapDefault()

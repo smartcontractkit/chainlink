@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -226,7 +227,6 @@ func (b *BlockHistoryEstimator) HealthReport() map[string]error {
 
 func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
 	})
 	if !ok {
@@ -240,7 +240,7 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 		gasPrice = b.config.EvmGasPriceDefault()
 	}
-	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config)
+	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, b.config.EvmMaxGasPriceWei(), gasLimit, b.config.EvmGasLimitMultiplier())
 	return
 }
 
@@ -374,7 +374,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
+		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
@@ -387,7 +387,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.config.EvmGasTipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
+		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config.EvmMaxGasPriceWei())
 		if b.config.EvmGasBumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice

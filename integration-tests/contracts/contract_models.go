@@ -8,13 +8,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
@@ -57,7 +59,7 @@ type FluxAggregator interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
 	LatestRoundID(ctx context.Context) (*big.Int, error)
-	LatestRoundData(ctx context.Context) (RoundData, error)
+	LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error)
 	GetContractData(ctxt context.Context) (*FluxAggregatorData, error)
 	UpdateAvailableFunds() error
 	PaymentAmount(ctx context.Context) (*big.Int, error)
@@ -143,8 +145,21 @@ type OffchainAggregator interface {
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
-	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
+	ParseEventAnswerUpdated(log types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)
+}
+
+type OffchainAggregatorV2 interface {
+	Address() string
+	Fund(nativeAmount *big.Float) error
+	RequestNewRound() error
+	SetConfig(ocrConfig *OCRv2Config) error
+	GetConfig(ctx context.Context) ([32]byte, uint32, error)
+	SetPayees(transmitters, payees []string) error
+	GetLatestAnswer(ctx context.Context) (*big.Int, error)
+	GetLatestRound(ctx context.Context) (*RoundData, error)
+	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
+	ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error)
 }
 
 type Oracle interface {
@@ -166,7 +181,6 @@ type APIConsumer interface {
 		path string,
 		times *big.Int,
 	) error
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 }
 
 type Storage interface {
@@ -245,21 +259,6 @@ type ReadAccessController interface {
 type Flags interface {
 	Address() string
 	GetFlag(ctx context.Context, addr string) (bool, error)
-}
-
-// DeviationFlaggingValidator contract used as an external validator,
-// fox ex. in flux monitor rounds validation
-type DeviationFlaggingValidator interface {
-	Address() string
-}
-
-// PerfEvent is used to get some metrics for contracts,
-// it contrains roundID for Keeper/OCR/Flux tests and request id for VRF/Runlog
-type PerfEvent struct {
-	Contract       DeviationFlaggingValidator
-	Round          *big.Int
-	RequestID      [32]byte
-	BlockTimestamp *big.Int
 }
 
 // OperatorFactory creates Operator contracts for node operators

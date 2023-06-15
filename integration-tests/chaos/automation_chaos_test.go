@@ -234,7 +234,8 @@ func TestAutomationChaos(t *testing.T) {
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
-			ocrConfig := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+			require.NoError(t, err, "Error building OCR config vars")
 			err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")

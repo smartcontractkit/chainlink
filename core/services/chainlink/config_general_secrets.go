@@ -2,6 +2,8 @@ package chainlink
 
 import (
 	"net/url"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 func (g *generalConfig) DatabaseURL() url.URL {
@@ -40,4 +42,15 @@ func (g *generalConfig) PrometheusAuthToken() string {
 		return ""
 	}
 	return string(*g.secrets.Prometheus.AuthToken)
+}
+
+func (g *generalConfig) MercuryCredentials(credName string) *models.MercuryCredentials {
+	if mc, ok := g.secrets.Mercury.Credentials[credName]; ok {
+		return &models.MercuryCredentials{
+			URL:      mc.URL.URL().String(),
+			Username: string(*mc.Username),
+			Password: string(*mc.Password),
+		}
+	}
+	return nil
 }

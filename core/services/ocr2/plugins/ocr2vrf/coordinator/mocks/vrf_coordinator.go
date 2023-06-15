@@ -144,25 +144,25 @@ func (_m *VRFCoordinatorInterface) BatchTransferLink(opts *bind.TransactOpts, re
 	return r0, r1
 }
 
-// CalculateRequestPriceCallbackJuels provides a mock function with given fields: opts, callback
-func (_m *VRFCoordinatorInterface) CalculateRequestPriceCallbackJuels(opts *bind.CallOpts, callback vrf_coordinator.VRFBeaconTypesCallback) (*big.Int, error) {
-	ret := _m.Called(opts, callback)
+// CalculateRequestPriceCallbackJuels provides a mock function with given fields: opts, gasAllowance, arguments
+func (_m *VRFCoordinatorInterface) CalculateRequestPriceCallbackJuels(opts *bind.CallOpts, gasAllowance *big.Int, arguments []byte) (*big.Int, error) {
+	ret := _m.Called(opts, gasAllowance, arguments)
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, vrf_coordinator.VRFBeaconTypesCallback) (*big.Int, error)); ok {
-		return rf(opts, callback)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, []byte) (*big.Int, error)); ok {
+		return rf(opts, gasAllowance, arguments)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, vrf_coordinator.VRFBeaconTypesCallback) *big.Int); ok {
-		r0 = rf(opts, callback)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, []byte) *big.Int); ok {
+		r0 = rf(opts, gasAllowance, arguments)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, vrf_coordinator.VRFBeaconTypesCallback) error); ok {
-		r1 = rf(opts, callback)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, []byte) error); ok {
+		r1 = rf(opts, gasAllowance, arguments)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -248,6 +248,32 @@ func (_m *VRFCoordinatorInterface) CreateSubscription(opts *bind.TransactOpts) (
 	return r0, r1
 }
 
+// FilterBillingConfigSet provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) FilterBillingConfigSet(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorBillingConfigSetIterator, error) {
+	ret := _m.Called(opts)
+
+	var r0 *vrf_coordinator.VRFCoordinatorBillingConfigSetIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorBillingConfigSetIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorBillingConfigSetIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorBillingConfigSetIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterConfigSet provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) FilterConfigSet(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorConfigSetIterator, error) {
 	ret := _m.Called(opts)
@@ -274,20 +300,20 @@ func (_m *VRFCoordinatorInterface) FilterConfigSet(opts *bind.FilterOpts) (*vrf_
 	return r0, r1
 }
 
-// FilterFundsRecovered provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) FilterFundsRecovered(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorFundsRecoveredIterator, error) {
+// FilterCoordinatorConfigSet provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) FilterCoordinatorConfigSet(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorCoordinatorConfigSetIterator, error) {
 	ret := _m.Called(opts)
 
-	var r0 *vrf_coordinator.VRFCoordinatorFundsRecoveredIterator
+	var r0 *vrf_coordinator.VRFCoordinatorCoordinatorConfigSetIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorFundsRecoveredIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorCoordinatorConfigSetIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorFundsRecoveredIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorCoordinatorConfigSetIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorFundsRecoveredIterator)
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorCoordinatorConfigSetIterator)
 		}
 	}
 
@@ -430,6 +456,32 @@ func (_m *VRFCoordinatorInterface) FilterOwnershipTransferred(opts *bind.FilterO
 	return r0, r1
 }
 
+// FilterPaused provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) FilterPaused(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorPausedIterator, error) {
+	ret := _m.Called(opts)
+
+	var r0 *vrf_coordinator.VRFCoordinatorPausedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorPausedIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorPausedIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorPausedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterRandomWordsFulfilled provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) FilterRandomWordsFulfilled(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorRandomWordsFulfilledIterator, error) {
 	ret := _m.Called(opts)
@@ -470,6 +522,32 @@ func (_m *VRFCoordinatorInterface) FilterRandomnessFulfillmentRequested(opts *bi
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequestedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []*big.Int, []common.Address) error); ok {
+		r1 = rf(opts, requestID, requester)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterRandomnessRedeemed provides a mock function with given fields: opts, requestID, requester
+func (_m *VRFCoordinatorInterface) FilterRandomnessRedeemed(opts *bind.FilterOpts, requestID []*big.Int, requester []common.Address) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator, error) {
+	ret := _m.Called(opts, requestID, requester)
+
+	var r0 *vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator, error)); ok {
+		return rf(opts, requestID, requester)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []*big.Int, []common.Address) *vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator); ok {
+		r0 = rf(opts, requestID, requester)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessRedeemedIterator)
 		}
 	}
 
@@ -690,25 +768,25 @@ func (_m *VRFCoordinatorInterface) FilterSubscriptionOwnerTransferred(opts *bind
 	return r0, r1
 }
 
-// ForgetConsumerSubscriptionID provides a mock function with given fields: opts, consumers
-func (_m *VRFCoordinatorInterface) ForgetConsumerSubscriptionID(opts *bind.TransactOpts, consumers []common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, consumers)
+// FilterUnpaused provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) FilterUnpaused(opts *bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorUnpausedIterator, error) {
+	ret := _m.Called(opts)
 
-	var r0 *types.Transaction
+	var r0 *vrf_coordinator.VRFCoordinatorUnpausedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, consumers)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*vrf_coordinator.VRFCoordinatorUnpausedIterator, error)); ok {
+		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address) *types.Transaction); ok {
-		r0 = rf(opts, consumers)
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *vrf_coordinator.VRFCoordinatorUnpausedIterator); ok {
+		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorUnpausedIterator)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []common.Address) error); ok {
-		r1 = rf(opts, consumers)
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -716,23 +794,23 @@ func (_m *VRFCoordinatorInterface) ForgetConsumerSubscriptionID(opts *bind.Trans
 	return r0, r1
 }
 
-// GetBeaconRequest provides a mock function with given fields: opts, requestId
-func (_m *VRFCoordinatorInterface) GetBeaconRequest(opts *bind.CallOpts, requestId *big.Int) (vrf_coordinator.VRFBeaconTypesBeaconRequest, error) {
-	ret := _m.Called(opts, requestId)
+// GetBillingConfig provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) GetBillingConfig(opts *bind.CallOpts) (vrf_coordinator.VRFBeaconTypesBillingConfig, error) {
+	ret := _m.Called(opts)
 
-	var r0 vrf_coordinator.VRFBeaconTypesBeaconRequest
+	var r0 vrf_coordinator.VRFBeaconTypesBillingConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (vrf_coordinator.VRFBeaconTypesBeaconRequest, error)); ok {
-		return rf(opts, requestId)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (vrf_coordinator.VRFBeaconTypesBillingConfig, error)); ok {
+		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) vrf_coordinator.VRFBeaconTypesBeaconRequest); ok {
-		r0 = rf(opts, requestId)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) vrf_coordinator.VRFBeaconTypesBillingConfig); ok {
+		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(vrf_coordinator.VRFBeaconTypesBeaconRequest)
+		r0 = ret.Get(0).(vrf_coordinator.VRFBeaconTypesBillingConfig)
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
-		r1 = rf(opts, requestId)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -792,6 +870,58 @@ func (_m *VRFCoordinatorInterface) GetConfirmationDelays(opts *bind.CallOpts) ([
 	return r0, r1
 }
 
+// GetFee provides a mock function with given fields: opts, arg0, arg1
+func (_m *VRFCoordinatorInterface) GetFee(opts *bind.CallOpts, arg0 *big.Int, arg1 []byte) (*big.Int, error) {
+	ret := _m.Called(opts, arg0, arg1)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, []byte) (*big.Int, error)); ok {
+		return rf(opts, arg0, arg1)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, []byte) *big.Int); ok {
+		r0 = rf(opts, arg0, arg1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, []byte) error); ok {
+		r1 = rf(opts, arg0, arg1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetFulfillmentFee provides a mock function with given fields: opts, arg0, callbackGasLimit, arguments, arg3
+func (_m *VRFCoordinatorInterface) GetFulfillmentFee(opts *bind.CallOpts, arg0 *big.Int, callbackGasLimit uint32, arguments []byte, arg3 []byte) (*big.Int, error) {
+	ret := _m.Called(opts, arg0, callbackGasLimit, arguments, arg3)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, uint32, []byte, []byte) (*big.Int, error)); ok {
+		return rf(opts, arg0, callbackGasLimit, arguments, arg3)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, uint32, []byte, []byte) *big.Int); ok {
+		r0 = rf(opts, arg0, callbackGasLimit, arguments, arg3)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, uint32, []byte, []byte) error); ok {
+		r1 = rf(opts, arg0, callbackGasLimit, arguments, arg3)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSubscription provides a mock function with given fields: opts, subId
 func (_m *VRFCoordinatorInterface) GetSubscription(opts *bind.CallOpts, subId *big.Int) (vrf_coordinator.GetSubscription, error) {
 	ret := _m.Called(opts, subId)
@@ -816,8 +946,8 @@ func (_m *VRFCoordinatorInterface) GetSubscription(opts *bind.CallOpts, subId *b
 	return r0, r1
 }
 
-// GetTotalLinkBalance provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) GetTotalLinkBalance(opts *bind.CallOpts) (*big.Int, error) {
+// GetSubscriptionLinkBalance provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) GetSubscriptionLinkBalance(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
 
 	var r0 *big.Int
@@ -868,6 +998,84 @@ func (_m *VRFCoordinatorInterface) IBeaconPeriodBlocks(opts *bind.CallOpts) (*bi
 	return r0, r1
 }
 
+// ILink provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) ILink(opts *bind.CallOpts) (common.Address, error) {
+	ret := _m.Called(opts)
+
+	var r0 common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ILinkEthFeed provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) ILinkEthFeed(opts *bind.CallOpts) (common.Address, error) {
+	ret := _m.Called(opts)
+
+	var r0 common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IRouter provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) IRouter(opts *bind.CallOpts) (common.Address, error) {
+	ret := _m.Called(opts)
+
+	var r0 common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IStartSlot provides a mock function with given fields: opts
 func (_m *VRFCoordinatorInterface) IStartSlot(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -882,58 +1090,6 @@ func (_m *VRFCoordinatorInterface) IStartSlot(opts *bind.CallOpts) (*big.Int, er
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// LINK provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) LINK(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// LINKETHFEED provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) LINKETHFEED(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
 		}
 	}
 
@@ -970,8 +1126,34 @@ func (_m *VRFCoordinatorInterface) MAXCONSUMERS(opts *bind.CallOpts) (uint16, er
 	return r0, r1
 }
 
-// MaxNumWords provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) MaxNumWords(opts *bind.CallOpts) (*big.Int, error) {
+// MAXJUELSSUPPLY provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) MAXJUELSSUPPLY(opts *bind.CallOpts) (*big.Int, error) {
+	ret := _m.Called(opts)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (*big.Int, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) *big.Int); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MAXNUMWORDS provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) MAXNUMWORDS(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
 
 	var r0 *big.Int
@@ -1035,30 +1217,6 @@ func (_m *VRFCoordinatorInterface) MigrationVersion(opts *bind.CallOpts) (uint8,
 		r0 = rf(opts)
 	} else {
 		r0 = ret.Get(0).(uint8)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MinDelay provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) MinDelay(opts *bind.CallOpts) (uint16, error) {
-	ret := _m.Called(opts)
-
-	var r0 uint16
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (uint16, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) uint16); ok {
-		r0 = rf(opts)
-	} else {
-		r0 = ret.Get(0).(uint16)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -1160,6 +1318,32 @@ func (_m *VRFCoordinatorInterface) Owner(opts *bind.CallOpts) (common.Address, e
 	return r0, r1
 }
 
+// ParseBillingConfigSet provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseBillingConfigSet(log types.Log) (*vrf_coordinator.VRFCoordinatorBillingConfigSet, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorBillingConfigSet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorBillingConfigSet, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorBillingConfigSet); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorBillingConfigSet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseConfigSet provides a mock function with given fields: log
 func (_m *VRFCoordinatorInterface) ParseConfigSet(log types.Log) (*vrf_coordinator.VRFCoordinatorConfigSet, error) {
 	ret := _m.Called(log)
@@ -1186,20 +1370,20 @@ func (_m *VRFCoordinatorInterface) ParseConfigSet(log types.Log) (*vrf_coordinat
 	return r0, r1
 }
 
-// ParseFundsRecovered provides a mock function with given fields: log
-func (_m *VRFCoordinatorInterface) ParseFundsRecovered(log types.Log) (*vrf_coordinator.VRFCoordinatorFundsRecovered, error) {
+// ParseCoordinatorConfigSet provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseCoordinatorConfigSet(log types.Log) (*vrf_coordinator.VRFCoordinatorCoordinatorConfigSet, error) {
 	ret := _m.Called(log)
 
-	var r0 *vrf_coordinator.VRFCoordinatorFundsRecovered
+	var r0 *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorFundsRecovered, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorCoordinatorConfigSet, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorFundsRecovered); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorFundsRecovered)
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorCoordinatorConfigSet)
 		}
 	}
 
@@ -1368,6 +1552,32 @@ func (_m *VRFCoordinatorInterface) ParseOwnershipTransferred(log types.Log) (*vr
 	return r0, r1
 }
 
+// ParsePaused provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParsePaused(log types.Log) (*vrf_coordinator.VRFCoordinatorPaused, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorPaused
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorPaused, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorPaused); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorPaused)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseRandomWordsFulfilled provides a mock function with given fields: log
 func (_m *VRFCoordinatorInterface) ParseRandomWordsFulfilled(log types.Log) (*vrf_coordinator.VRFCoordinatorRandomWordsFulfilled, error) {
 	ret := _m.Called(log)
@@ -1408,6 +1618,32 @@ func (_m *VRFCoordinatorInterface) ParseRandomnessFulfillmentRequested(log types
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseRandomnessRedeemed provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseRandomnessRedeemed(log types.Log) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemed, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorRandomnessRedeemed
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorRandomnessRedeemed, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorRandomnessRedeemed); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorRandomnessRedeemed)
 		}
 	}
 
@@ -1628,6 +1864,82 @@ func (_m *VRFCoordinatorInterface) ParseSubscriptionOwnerTransferred(log types.L
 	return r0, r1
 }
 
+// ParseUnpaused provides a mock function with given fields: log
+func (_m *VRFCoordinatorInterface) ParseUnpaused(log types.Log) (*vrf_coordinator.VRFCoordinatorUnpaused, error) {
+	ret := _m.Called(log)
+
+	var r0 *vrf_coordinator.VRFCoordinatorUnpaused
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*vrf_coordinator.VRFCoordinatorUnpaused, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *vrf_coordinator.VRFCoordinatorUnpaused); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vrf_coordinator.VRFCoordinatorUnpaused)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Pause provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	ret := _m.Called(opts)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) (*types.Transaction, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) *types.Transaction); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Paused provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) Paused(opts *bind.CallOpts) (bool, error) {
+	ret := _m.Called(opts)
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (bool, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) bool); ok {
+		r0 = rf(opts)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ProcessVRFOutputs provides a mock function with given fields: opts, vrfOutputs, juelsPerFeeCoin, reasonableGasPrice, blockHeight, arg4
 func (_m *VRFCoordinatorInterface) ProcessVRFOutputs(opts *bind.TransactOpts, vrfOutputs []vrf_coordinator.VRFBeaconTypesVRFOutput, juelsPerFeeCoin *big.Int, reasonableGasPrice uint64, blockHeight uint64, arg4 [32]byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, vrfOutputs, juelsPerFeeCoin, reasonableGasPrice, blockHeight, arg4)
@@ -1654,95 +1966,17 @@ func (_m *VRFCoordinatorInterface) ProcessVRFOutputs(opts *bind.TransactOpts, vr
 	return r0, r1
 }
 
-// Producer provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) Producer(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ROUTER provides a mock function with given fields: opts
-func (_m *VRFCoordinatorInterface) ROUTER(opts *bind.CallOpts) (common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// RecoverFunds provides a mock function with given fields: opts, to
-func (_m *VRFCoordinatorInterface) RecoverFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, to)
-
-	var r0 *types.Transaction
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, to)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address) *types.Transaction); ok {
-		r0 = rf(opts, to)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address) error); ok {
-		r1 = rf(opts, to)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// RedeemRandomness provides a mock function with given fields: opts, sender, arg1, requestID, arg3
-func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sender common.Address, arg1 *big.Int, requestID *big.Int, arg3 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, sender, arg1, requestID, arg3)
+// RedeemRandomness provides a mock function with given fields: opts, sender, subID, requestIDArg, arg3
+func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sender common.Address, subID *big.Int, requestIDArg *big.Int, arg3 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, sender, subID, requestIDArg, arg3)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, sender, arg1, requestID, arg3)
+		return rf(opts, sender, subID, requestIDArg, arg3)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) *types.Transaction); ok {
-		r0 = rf(opts, sender, arg1, requestID, arg3)
+		r0 = rf(opts, sender, subID, requestIDArg, arg3)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1750,7 +1984,7 @@ func (_m *VRFCoordinatorInterface) RedeemRandomness(opts *bind.TransactOpts, sen
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, *big.Int, []byte) error); ok {
-		r1 = rf(opts, sender, arg1, requestID, arg3)
+		r1 = rf(opts, sender, subID, requestIDArg, arg3)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1784,17 +2018,17 @@ func (_m *VRFCoordinatorInterface) RemoveConsumer(opts *bind.TransactOpts, subId
 	return r0, r1
 }
 
-// RequestRandomness provides a mock function with given fields: opts, requester, subID, numWords, confirmationDelayArg, arg4
-func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confirmationDelayArg *big.Int, arg4 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+// RequestRandomness provides a mock function with given fields: opts, requester, subID, numWords, confDelayArg, arg4
+func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confDelayArg *big.Int, arg4 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, requester, subID, numWords, confDelayArg, arg4)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		return rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) *types.Transaction); ok {
-		r0 = rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		r0 = rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1802,7 +2036,7 @@ func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, re
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, []byte) error); ok {
-		r1 = rf(opts, requester, subID, numWords, confirmationDelayArg, arg4)
+		r1 = rf(opts, requester, subID, numWords, confDelayArg, arg4)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1810,17 +2044,17 @@ func (_m *VRFCoordinatorInterface) RequestRandomness(opts *bind.TransactOpts, re
 	return r0, r1
 }
 
-// RequestRandomnessFulfillment provides a mock function with given fields: opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6
-func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confirmationDelayArg *big.Int, callbackGasLimit uint32, arguments []byte, arg6 []byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+// RequestRandomnessFulfillment provides a mock function with given fields: opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6
+func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.TransactOpts, requester common.Address, subID *big.Int, numWords uint16, confDelayArg *big.Int, callbackGasLimit uint32, arguments []byte, arg6 []byte) (*types.Transaction, error) {
+	ret := _m.Called(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) (*types.Transaction, error)); ok {
-		return rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		return rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) *types.Transaction); ok {
-		r0 = rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		r0 = rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1828,7 +2062,7 @@ func (_m *VRFCoordinatorInterface) RequestRandomnessFulfillment(opts *bind.Trans
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, *big.Int, uint16, *big.Int, uint32, []byte, []byte) error); ok {
-		r1 = rf(opts, requester, subID, numWords, confirmationDelayArg, callbackGasLimit, arguments, arg6)
+		r1 = rf(opts, requester, subID, numWords, confDelayArg, callbackGasLimit, arguments, arg6)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1862,6 +2096,80 @@ func (_m *VRFCoordinatorInterface) RequestSubscriptionOwnerTransfer(opts *bind.T
 	return r0, r1
 }
 
+// SConfig provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) SConfig(opts *bind.CallOpts) (vrf_coordinator.SConfig, error) {
+	ret := _m.Called(opts)
+
+	var r0 vrf_coordinator.SConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (vrf_coordinator.SConfig, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) vrf_coordinator.SConfig); ok {
+		r0 = rf(opts)
+	} else {
+		r0 = ret.Get(0).(vrf_coordinator.SConfig)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SPendingRequests provides a mock function with given fields: opts, arg0
+func (_m *VRFCoordinatorInterface) SPendingRequests(opts *bind.CallOpts, arg0 *big.Int) (vrf_coordinator.SPendingRequests, error) {
+	ret := _m.Called(opts, arg0)
+
+	var r0 vrf_coordinator.SPendingRequests
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (vrf_coordinator.SPendingRequests, error)); ok {
+		return rf(opts, arg0)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) vrf_coordinator.SPendingRequests); ok {
+		r0 = rf(opts, arg0)
+	} else {
+		r0 = ret.Get(0).(vrf_coordinator.SPendingRequests)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, arg0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SProducer provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) SProducer(opts *bind.CallOpts) (common.Address, error) {
+	ret := _m.Called(opts)
+
+	var r0 common.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (common.Address, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) common.Address); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SetBillingConfig provides a mock function with given fields: opts, billingConfig
 func (_m *VRFCoordinatorInterface) SetBillingConfig(opts *bind.TransactOpts, billingConfig vrf_coordinator.VRFBeaconTypesBillingConfig) (*types.Transaction, error) {
 	ret := _m.Called(opts, billingConfig)
@@ -1881,6 +2189,32 @@ func (_m *VRFCoordinatorInterface) SetBillingConfig(opts *bind.TransactOpts, bil
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, vrf_coordinator.VRFBeaconTypesBillingConfig) error); ok {
 		r1 = rf(opts, billingConfig)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SetConfig provides a mock function with given fields: opts, config
+func (_m *VRFCoordinatorInterface) SetConfig(opts *bind.TransactOpts, config vrf_coordinator.VRFCoordinatorConfig) (*types.Transaction, error) {
+	ret := _m.Called(opts, config)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, vrf_coordinator.VRFCoordinatorConfig) (*types.Transaction, error)); ok {
+		return rf(opts, config)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, vrf_coordinator.VRFCoordinatorConfig) *types.Transaction); ok {
+		r0 = rf(opts, config)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, vrf_coordinator.VRFCoordinatorConfig) error); ok {
+		r1 = rf(opts, config)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1914,17 +2248,17 @@ func (_m *VRFCoordinatorInterface) SetConfirmationDelays(opts *bind.TransactOpts
 	return r0, r1
 }
 
-// SetProducer provides a mock function with given fields: opts, addr
-func (_m *VRFCoordinatorInterface) SetProducer(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, addr)
+// SetProducer provides a mock function with given fields: opts, producer
+func (_m *VRFCoordinatorInterface) SetProducer(opts *bind.TransactOpts, producer common.Address) (*types.Transaction, error) {
+	ret := _m.Called(opts, producer)
 
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, addr)
+		return rf(opts, producer)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address) *types.Transaction); ok {
-		r0 = rf(opts, addr)
+		r0 = rf(opts, producer)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -1932,7 +2266,7 @@ func (_m *VRFCoordinatorInterface) SetProducer(opts *bind.TransactOpts, addr com
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address) error); ok {
-		r1 = rf(opts, addr)
+		r1 = rf(opts, producer)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2018,6 +2352,82 @@ func (_m *VRFCoordinatorInterface) TransferOwnership(opts *bind.TransactOpts, to
 	return r0, r1
 }
 
+// TypeAndVersion provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) TypeAndVersion(opts *bind.CallOpts) (string, error) {
+	ret := _m.Called(opts)
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (string, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) string); ok {
+		r0 = rf(opts)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Unpause provides a mock function with given fields: opts
+func (_m *VRFCoordinatorInterface) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	ret := _m.Called(opts)
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) (*types.Transaction, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts) *types.Transaction); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchBillingConfigSet provides a mock function with given fields: opts, sink
+func (_m *VRFCoordinatorInterface) WatchBillingConfigSet(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorBillingConfigSet) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorBillingConfigSet) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorBillingConfigSet) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorBillingConfigSet) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchConfigSet provides a mock function with given fields: opts, sink
 func (_m *VRFCoordinatorInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorConfigSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -2044,16 +2454,16 @@ func (_m *VRFCoordinatorInterface) WatchConfigSet(opts *bind.WatchOpts, sink cha
 	return r0, r1
 }
 
-// WatchFundsRecovered provides a mock function with given fields: opts, sink
-func (_m *VRFCoordinatorInterface) WatchFundsRecovered(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorFundsRecovered) (event.Subscription, error) {
+// WatchCoordinatorConfigSet provides a mock function with given fields: opts, sink
+func (_m *VRFCoordinatorInterface) WatchCoordinatorConfigSet(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorFundsRecovered) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorFundsRecovered) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -2061,7 +2471,7 @@ func (_m *VRFCoordinatorInterface) WatchFundsRecovered(opts *bind.WatchOpts, sin
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorFundsRecovered) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorCoordinatorConfigSet) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -2200,6 +2610,32 @@ func (_m *VRFCoordinatorInterface) WatchOwnershipTransferred(opts *bind.WatchOpt
 	return r0, r1
 }
 
+// WatchPaused provides a mock function with given fields: opts, sink
+func (_m *VRFCoordinatorInterface) WatchPaused(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorPaused) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorPaused) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorPaused) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorPaused) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchRandomWordsFulfilled provides a mock function with given fields: opts, sink
 func (_m *VRFCoordinatorInterface) WatchRandomWordsFulfilled(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorRandomWordsFulfilled) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -2244,6 +2680,32 @@ func (_m *VRFCoordinatorInterface) WatchRandomnessFulfillmentRequested(opts *bin
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessFulfillmentRequested, []*big.Int, []common.Address) error); ok {
+		r1 = rf(opts, sink, requestID, requester)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchRandomnessRedeemed provides a mock function with given fields: opts, sink, requestID, requester
+func (_m *VRFCoordinatorInterface) WatchRandomnessRedeemed(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, requestID []*big.Int, requester []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, requestID, requester)
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) (event.Subscription, error)); ok {
+		return rf(opts, sink, requestID, requester)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) event.Subscription); ok {
+		r0 = rf(opts, sink, requestID, requester)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorRandomnessRedeemed, []*big.Int, []common.Address) error); ok {
 		r1 = rf(opts, sink, requestID, requester)
 	} else {
 		r1 = ret.Error(1)
@@ -2453,6 +2915,32 @@ func (_m *VRFCoordinatorInterface) WatchSubscriptionOwnerTransferred(opts *bind.
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorSubscriptionOwnerTransferred, []*big.Int) error); ok {
 		r1 = rf(opts, sink, subId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchUnpaused provides a mock function with given fields: opts, sink
+func (_m *VRFCoordinatorInterface) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *vrf_coordinator.VRFCoordinatorUnpaused) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorUnpaused) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorUnpaused) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *vrf_coordinator.VRFCoordinatorUnpaused) error); ok {
+		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
 	}

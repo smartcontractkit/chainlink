@@ -561,11 +561,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 		return testEnvironment, activeEVMNetwork, registryToTest
 	}
 
-	// For if we end up using env vars
-	keeperBenchmarkEnvVars["ETH_URL"] = activeEVMNetwork.URLs[0]
-	keeperBenchmarkEnvVars["ETH_HTTP_URL"] = activeEVMNetwork.HTTPURLs[0]
-	keeperBenchmarkEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(activeEVMNetwork.ChainID)
-
 	// separate RPC urls per CL node
 	internalWsURLs := make([]string, 0)
 	internalHttpURLs := make([]string, 0)
@@ -592,22 +587,13 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < NumberOfNodes; i++ {
-		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-		if useEnvVars == "true" {
-			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
-				"env":       keeperBenchmarkEnvVars,
-				"chainlink": chainlinkResources,
-				"db":        dbResources,
-			}))
-		} else {
-			activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
-			activeEVMNetwork.URLs = []string{internalWsURLs[i]}
-			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, activeEVMNetwork),
-				"chainlink": chainlinkResources,
-				"db":        dbResources,
-			}))
-		}
+		activeEVMNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+		activeEVMNetwork.URLs = []string{internalWsURLs[i]}
+		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+			"toml":      client.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, networkDetailTOML, activeEVMNetwork),
+			"chainlink": chainlinkResources,
+			"db":        dbResources,
+		}))
 	}
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")

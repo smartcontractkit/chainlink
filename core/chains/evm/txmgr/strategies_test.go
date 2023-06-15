@@ -3,11 +3,12 @@ package txmgr_test
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -30,7 +31,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
 	cfg := configtest.NewGeneralConfig(t, nil)
 
-	subject := uuid.NewV4()
+	subject := uuid.New()
 	s := txmgr.NewDropOldestStrategy(subject, 1, cfg.DatabaseDefaultQueryTimeout())
 
 	assert.True(t, s.Subject().Valid)
@@ -45,8 +46,8 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	txStore := cltest.NewTxStore(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	subj1 := uuid.NewV4()
-	subj2 := uuid.NewV4()
+	subj1 := uuid.New()
+	subj2 := uuid.New()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -54,7 +55,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	var n int64
 
 	cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, n, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(n), fromAddress)
 	n++
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, n, 42, fromAddress)
 	n++

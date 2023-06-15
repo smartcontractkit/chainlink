@@ -129,3 +129,30 @@ AuthToken is the authorization key for the Prometheus metrics endpoint.
 
 Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 
+## Mercury.Credentials.Name
+```toml
+[Mercury.Credentials.Name]
+Username = "A-Mercury-Username" # Example
+Password = "A-Mercury-Password" # Example
+URL = "https://mercury.stage.link" # Example
+```
+
+
+### Username
+```toml
+Username = "A-Mercury-Username" # Example
+```
+Username is used for basic auth of the Mercury endpoint
+
+### Password
+```toml
+Password = "A-Mercury-Password" # Example
+```
+Password is used for basic auth of the Mercury endpoint
+
+### URL
+```toml
+URL = "https://mercury.stage.link" # Example
+```
+URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
+

@@ -241,7 +241,8 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin:
 		return num < highest-int64(threshold), ln
 	case NodeSelectionMode_TotalDifficulty:
-		return td.Cmp(greatest.Sub(threshold)) < 0, ln
+		bigThreshold := utils.NewBigI(int64(threshold))
+		return td.Cmp(greatest.Sub(bigThreshold)) < 0, ln
 	default:
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}

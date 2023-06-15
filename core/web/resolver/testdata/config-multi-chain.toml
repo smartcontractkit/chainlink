@@ -102,7 +102,7 @@ URL = 'http://testnet.solana.com'
 
 [[Starknet]]
 ChainID = 'foobar'
-TxSendFrequency = '1h0m0s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

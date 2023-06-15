@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/duo-labs/webauthn/protocol"
-	"github.com/duo-labs/webauthn/webauthn"
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/pkg/errors"
 	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )

@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -223,7 +223,7 @@ func createVRFJobRegisterKey(t *testing.T, u coordinatorUniverse, app *cltest.Te
 	vrfKey, err := app.KeyStore.VRF().Create()
 	require.NoError(t, err)
 
-	jid := uuid.FromStringOrNil("96a8a26f-d426-4784-8d8f-fb387d4d8345")
+	jid := uuid.MustParse("96a8a26f-d426-4784-8d8f-fb387d4d8345")
 	expectedOnChainJobID, err := hex.DecodeString("3936613861323666643432363437383438643866666233383764346438333435")
 	require.NoError(t, err)
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{

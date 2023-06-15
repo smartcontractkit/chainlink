@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/commontypes"

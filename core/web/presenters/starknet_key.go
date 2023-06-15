@@ -7,8 +7,7 @@ import (
 // StarkNetKeyResource represents a StarkNet key JSONAPI resource.
 type StarkNetKeyResource struct {
 	JAID
-	AccountAddr string `json:"accountAddr"`
-	StarkKey    string `json:"starkPubKey"`
+	StarkKey string `json:"starkPubKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -18,9 +17,8 @@ func (StarkNetKeyResource) GetName() string {
 
 func NewStarkNetKeyResource(key starknet.Key) *StarkNetKeyResource {
 	r := &StarkNetKeyResource{
-		JAID:        JAID{ID: key.ID()},
-		AccountAddr: key.AccountAddressStr(),
-		StarkKey:    key.StarkKeyStr(),
+		JAID:     JAID{ID: key.ID()},
+		StarkKey: key.StarkKeyStr(),
 	}
 
 	return r

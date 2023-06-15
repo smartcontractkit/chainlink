@@ -5,8 +5,8 @@ import (
 	"time"
 
 	// need to make sure pgx driver is registered before opening connection
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 
@@ -29,7 +29,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		uri = uuid.NewV4().String()
+		uri = uuid.New().String()
 	}
 
 	// Initialize sql/sqlx

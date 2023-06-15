@@ -7,7 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -16,15 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	uuid "github.com/satori/go.uuid"
 )
 
 func TestRunLogBasic(t *testing.T) {
@@ -65,7 +65,7 @@ func TestRunLogBasic(t *testing.T) {
 	err = mockServer.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	jobUUID := uuid.NewV4()
+	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),

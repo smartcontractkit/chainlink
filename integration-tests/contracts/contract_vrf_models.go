@@ -53,7 +53,6 @@ type VRFConsumer interface {
 	RequestRandomness(hash [32]byte, fee *big.Int) error
 	CurrentRoundID(ctx context.Context) (*big.Int, error)
 	RandomnessOutput(ctx context.Context) (*big.Int, error)
-	WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error
 	Fund(ethAmount *big.Float) error
 }
 
@@ -102,6 +101,7 @@ type VRFCoordinatorV3 interface {
 	CreateSubscription() error
 	FindSubscriptionID() (*big.Int, error)
 	AddConsumer(subId *big.Int, consumerAddress string) error
+	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
 }
 
 type VRFBeacon interface {
@@ -131,6 +131,7 @@ type VRFBeaconConsumer interface {
 	RequestRandomnessFulfillment(
 		numWords uint16,
 		subID, confirmationDelayArg *big.Int,
+		requestGasLimit,
 		callbackGasLimit uint32,
 		arguments []byte,
 	) (*types.Receipt, error)

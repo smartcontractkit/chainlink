@@ -255,8 +255,11 @@ func (o *OCRSoakTestReport) ProcessOCRReport() bool {
 			}
 		}
 	}
-	o.averageRoundBlocks = totalRoundBlocks / o.totalRounds
-	o.averageRoundTime = totalRoundTime / time.Duration(o.totalRounds)
+	if o.totalRounds > 0 {
+		o.averageRoundBlocks = totalRoundBlocks / o.totalRounds
+		o.averageRoundTime = totalRoundTime / time.Duration(o.totalRounds)
+	}
+
 	return len(o.AnomalousAnswerIndexes) > 0
 }
 

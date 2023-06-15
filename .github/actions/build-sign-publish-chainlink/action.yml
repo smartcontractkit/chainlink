@@ -9,6 +9,9 @@ inputs:
     default: "false"
     required: false
 
+  dockerfile:
+    default: core/chainlink.Dockerfile
+    required: false
   ecr-hostname:
     description: The ECR registry scope
     default: public.ecr.aws
@@ -18,6 +21,8 @@ inputs:
       The image name with path, in the format of `[registry]/repository`. For private ECR repos the registry name is optional, where for public repos, it is required.
       Eg. Public ECR repo `chainlink` and registry alias `chainlinklabs` should be `chainlinklabs/chainlink`. For a private ECR repo `chainlink` the image name should be `chainlink`
     default: chainlink/chainlink
+    required: false
+  ecr-tag-suffix:
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -62,9 +67,9 @@ runs:
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
 
         SHARED_TAG_LIST=$(cat << EOF
-        type=ref,event=branch
-        type=semver,pattern={{version}}
-        type=sha,format=short
+        type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
+        type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
+        type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
         EOF
         )
 
@@ -105,13 +110,15 @@ runs:
 
     - name: Generate docker metadata for root image
       id: meta-root
-      uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       with:
-        flavor: |
-          suffix=-root,onlatest=true
         # list of Docker images to use as base name for tags
         images: ${{ env.shared-images }}
-        tags: ${{ env.shared-tag-list }}
+        # XXX: DO NOT USE SHARED TAGS HERE
+        tags: |
+          type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}-root
 
     - name: Build and push root docker image
       id: buildpush-root
@@ -122,27 +129,22 @@ runs:
         load: ${{ contains(inputs.publish, false) }}
         tags: ${{ steps.meta-root.outputs.tags }}
         labels: ${{ steps.meta-root.outputs.labels }}
-        file: core/chainlink.Dockerfile
+        file: ${{ inputs.dockerfile }}
         build-args: |
           CHAINLINK_USER=root
           ${{ env.shared-build-args }}
 
-    - name: Save root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
+    - name: Save root image name in GITHUB_ENV
       id: save-root-image-name-env
       shell: sh
       run: |
         IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
         echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
-        echo '## Container Images' >> $GITHUB_STEP_SUMMARY
-        echo '### Root Image' >> $GITHUB_STEP_SUMMARY
-        echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
-        echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
-      uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
       with:
         flavor: |
           latest=auto
@@ -160,7 +162,7 @@ runs:
         load: ${{ contains(inputs.publish, false) }}
         tags: ${{ steps.meta-nonroot.outputs.tags }}
         labels: ${{ steps.meta-nonroot.outputs.labels }}
-        file: core/chainlink.Dockerfile
+        file: ${{ inputs.dockerfile }}
         build-args: |
           CHAINLINK_USER=chainlink
           ${{ env.shared-build-args }}
@@ -173,7 +175,7 @@ runs:
         IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
         echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
-        echo '### Non-root Image' >> $GITHUB_STEP_SUMMARY
+        echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
         echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 

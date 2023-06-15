@@ -13,7 +13,9 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,7 +24,7 @@ import (
 )
 
 type (
-	EvmTransmitChecker     = TransmitChecker[common.Address, common.Hash]
+	EvmTransmitChecker     = TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, EvmAccessList]
 	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
 )
 
@@ -89,8 +91,8 @@ type noChecker struct{}
 func (noChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
-	_ EthTx[common.Address, common.Hash],
-	_ EthTxAttempt[common.Address, common.Hash],
+	_ EvmTx,
+	_ EvmTxAttempt,
 ) error {
 	return nil
 }
@@ -104,21 +106,21 @@ type SimulateChecker struct {
 func (s *SimulateChecker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx[common.Address, common.Hash],
-	a EthTxAttempt[common.Address, common.Hash],
+	tx EvmTx,
+	a EvmTxAttempt,
 ) error {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
 		"from": tx.FromAddress,
 		"to":   &tx.ToAddress,
-		"gas":  hexutil.Uint64(a.ChainSpecificGasLimit),
+		"gas":  hexutil.Uint64(a.ChainSpecificFeeLimit),
 		// NOTE: Deliberately do not include gas prices. We never want to fatally error a
 		// transaction just because the wallet has insufficient eth.
 		// Relevant info regarding EIP1559 transactions: https://github.com/ethereum/go-ethereum/pull/23027
 		"gasPrice":             nil,
 		"maxFeePerGas":         nil,
 		"maxPriorityFeePerGas": nil,
-		"value":                (*hexutil.Big)(tx.Value.ToInt()),
+		"value":                (*hexutil.Big)(&tx.Value),
 		"data":                 hexutil.Bytes(tx.EncodedPayload),
 	}
 	var b hexutil.Bytes
@@ -154,8 +156,8 @@ type VRFV1Checker struct {
 func (v *VRFV1Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx[common.Address, common.Hash],
-	_ EthTxAttempt[common.Address, common.Hash],
+	tx EvmTx,
+	_ EvmTxAttempt,
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {
@@ -264,8 +266,8 @@ type VRFV2Checker struct {
 func (v *VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EthTx[common.Address, common.Hash],
-	_ EthTxAttempt[common.Address, common.Hash],
+	tx EvmTx,
+	_ EvmTxAttempt,
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {

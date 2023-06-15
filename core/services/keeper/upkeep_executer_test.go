@@ -44,8 +44,7 @@ func mockEstimator(t *testing.T) (estimator *txmgrmocks.FeeEstimator[*evmtypes.H
 	// assumed to call legacy estimator only
 	estimator = txmgrmocks.NewFeeEstimator[*evmtypes.Head, gas.EvmFee, *assets.Wei, common.Hash](t)
 	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
-		Legacy:  assets.GWei(60),
-		Dynamic: nil,
+		Legacy: assets.GWei(60),
 	}, uint32(60), nil)
 	return
 }

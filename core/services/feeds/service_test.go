@@ -36,8 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -535,7 +535,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 	var (
 		idFluxMonitor         = int64(1)
-		remoteUUIDFluxMonitor = uuid.NewV4()
+		remoteUUIDFluxMonitor = uuid.New()
 		argsFluxMonitor       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDFluxMonitor,
@@ -556,7 +556,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		}
 
 		idOCR1         = int64(2)
-		remoteUUIDOCR1 = uuid.NewV4()
+		remoteUUIDOCR1 = uuid.New()
 		argsOCR1       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR1,
@@ -577,7 +577,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		}
 
 		idOCR2         = int64(3)
-		remoteUUIDOCR2 = uuid.NewV4()
+		remoteUUIDOCR2 = uuid.New()
 		argsOCR2       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR2,
@@ -598,7 +598,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		}
 
 		idBootstrap         = int64(4)
-		remoteUUIDBootstrap = uuid.NewV4()
+		remoteUUIDBootstrap = uuid.New()
 		argsBootstrap       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDBootstrap,
@@ -761,6 +761,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
+				c.OCR.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 			})
 			if tc.before != nil {
 				tc.before(svc)
@@ -783,7 +785,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		remoteUUID = uuid.NewV4()
+		remoteUUID = uuid.New()
 		args       = &feeds.DeleteJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
@@ -885,7 +887,7 @@ func Test_Service_RevokeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		remoteUUID = uuid.NewV4()
+		remoteUUID = uuid.New()
 		args       = &feeds.RevokeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
@@ -1028,6 +1030,7 @@ answer1      [type=median index=0];
 			t.Parallel()
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR2.Enabled = testutils.Ptr(true)
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
 			})
 			if tc.before != nil {
@@ -1212,7 +1215,7 @@ func Test_Service_GetJobProposal(t *testing.T) {
 
 func Test_Service_CancelSpec(t *testing.T) {
 	var (
-		externalJobID = uuid.NewV4()
+		externalJobID = uuid.New()
 		jp            = &feeds.JobProposal{
 			ID:             1,
 			ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
@@ -1494,7 +1497,7 @@ answer1 [type=median index=0];
 		}
 		j = job.Job{
 			ID:            1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: uuid.New(),
 		}
 	)
 
@@ -1528,7 +1531,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -1566,7 +1569,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					cancelledSpec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -1688,7 +1691,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -1728,7 +1731,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -1861,7 +1864,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(errors.New("failure"))
 			},
@@ -1891,7 +1894,7 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -1912,6 +1915,7 @@ answer1 [type=median index=0];
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -1995,7 +1999,7 @@ answer1      [type=median index=0];
 		}
 		j = job.Job{
 			ID:            1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: uuid.New(),
 		}
 	)
 
@@ -2028,7 +2032,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2066,7 +2070,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					cancelledSpec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2145,7 +2149,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2184,7 +2188,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2316,7 +2320,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(errors.New("failure"))
 			},
@@ -2346,7 +2350,7 @@ answer1      [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2367,6 +2371,7 @@ answer1      [type=median index=0];
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -2433,7 +2438,7 @@ chainID = 0
 		}
 		j = job.Job{
 			ID:            1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: uuid.New(),
 		}
 	)
 
@@ -2466,7 +2471,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2504,7 +2509,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					cancelledSpec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2583,7 +2588,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2622,7 +2627,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2754,7 +2759,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(errors.New("failure"))
 			},
@@ -2784,7 +2789,7 @@ chainID = 0
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					spec.ID,
-					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -2805,6 +2810,7 @@ chainID = 0
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}

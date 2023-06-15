@@ -14,6 +14,7 @@ contract FunctionsOracleEventsMock {
     event OracleResponse(bytes32 indexed requestId);
     event OwnershipTransferRequested(address indexed from,address indexed to);
     event OwnershipTransferred(address indexed from,address indexed to);
+    event ResponseTransmitted(bytes32 indexed requestId,address transmitter);
     event Transmitted(bytes32 configDigest,uint32 epoch);
     event UserCallbackError(bytes32 indexed requestId,string reason);
     event UserCallbackRawError(bytes32 indexed requestId,bytes lowLevelData);
@@ -46,6 +47,9 @@ contract FunctionsOracleEventsMock {
     }
     function emitOwnershipTransferred(address from,address to) public {
         emit OwnershipTransferred(from,to);
+    }
+    function emitResponseTransmitted(bytes32 requestId,address transmitter) public {
+        emit ResponseTransmitted(requestId,transmitter);
     }
     function emitTransmitted(bytes32 configDigest,uint32 epoch) public {
         emit Transmitted(configDigest,epoch);

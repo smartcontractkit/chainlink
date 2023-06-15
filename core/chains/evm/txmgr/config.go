@@ -22,7 +22,7 @@ type Config interface {
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
 	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint16
+	EvmGasBumpTxDepth() uint32
 	EvmGasLimitDefault() uint32
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
@@ -67,7 +67,7 @@ func (c evmTxmConfig) FeePriceDefault() *assets.Wei { return c.EvmGasPriceDefaul
 
 func (c evmTxmConfig) RPCDefaultBatchSize() uint32 { return c.EvmRPCDefaultBatchSize() }
 
-func (c evmTxmConfig) FeeBumpTxDepth() uint16 { return c.EvmGasBumpTxDepth() }
+func (c evmTxmConfig) FeeBumpTxDepth() uint32 { return c.EvmGasBumpTxDepth() }
 
 func (c evmTxmConfig) FeeLimitDefault() uint32 { return c.EvmGasLimitDefault() }
 

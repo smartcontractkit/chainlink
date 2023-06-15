@@ -9,14 +9,13 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type transmitter interface {
-	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgrtypes.Transaction, err error)
+	CreateEthTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore

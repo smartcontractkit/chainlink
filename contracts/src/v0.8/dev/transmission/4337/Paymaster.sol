@@ -45,11 +45,7 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
     s_config = Config({stalenessSeconds: stalenessSeconds, fallbackWeiPerUnitLink: fallbackWeiPerUnitLink});
   }
 
-  function onTokenTransfer(
-    address, /* _sender */
-    uint256 _amount,
-    bytes calldata _data
-  ) external {
+  function onTokenTransfer(address /* _sender */, uint256 _amount, bytes calldata _data) external {
     if (msg.sender != address(i_linkToken)) {
       revert OnlyCallableFromLink();
     }
@@ -110,11 +106,7 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
   }
 
   /// @dev Deducts user subscription balance after execution.
-  function postOp(
-    PostOpMode, /* mode */
-    bytes calldata context,
-    uint256 actualGasCost
-  ) external {
+  function postOp(PostOpMode /* mode */, bytes calldata context, uint256 actualGasCost) external {
     if (msg.sender != i_entryPoint) {
       revert Unauthorized(msg.sender, i_entryPoint);
     }

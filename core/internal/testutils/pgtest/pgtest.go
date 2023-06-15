@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ func NewQConfig(logSQL bool) pg.QConfig {
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	testutils.SkipShortDB(t)
-	db, err := sql.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
+	db, err := sql.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -31,7 +31,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 
 func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.NewV4().String())
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 

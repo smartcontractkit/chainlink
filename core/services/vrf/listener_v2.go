@@ -20,7 +20,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -807,7 +806,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			ll = ll.With("fromAddress", fromAddress)
 
 			ll.Infow("Enqueuing fulfillment")
-			var transaction txmgrtypes.Transaction
+			var transaction txmgr.EvmTx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err

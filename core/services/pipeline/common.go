@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	pkgerrors "github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -370,7 +370,6 @@ const (
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
 	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHGetBlock      TaskType = "ethgetblock"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
 	TaskTypeHTTP             TaskType = "http"
@@ -450,8 +449,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeETHGetBlock:
-		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:

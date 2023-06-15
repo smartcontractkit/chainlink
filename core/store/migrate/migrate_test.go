@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -114,7 +114,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	jb := Job{
 		Job: job.Job{
 			ID:             10,
-			ExternalJobID:  uuid.NewV4(),
+			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
 			PipelineSpecID: pipelineID,
@@ -126,7 +126,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	jb2 := Job{
 		Job: job.Job{
 			ID:             20,
-			ExternalJobID:  uuid.NewV4(),
+			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
 			PipelineSpecID: pipelineID2,
@@ -146,7 +146,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	nonBootstrapJob := Job{
 		Job: job.Job{
 			ID:             11,
-			ExternalJobID:  uuid.NewV4(),
+			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
 			PipelineSpecID: nonBootstrapPipelineID,
@@ -169,7 +169,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	newFormatBootstrapJob := Job{
 		Job: job.Job{
 			ID:              30,
-			ExternalJobID:   uuid.NewV4(),
+			ExternalJobID:   uuid.New(),
 			Type:            job.Bootstrap,
 			SchemaVersion:   1,
 			PipelineSpecID:  newFormatBoostrapPipelineID2,

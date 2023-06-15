@@ -15,13 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.BasicConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
-	return &ChainScoped{BasicConfig: genCfg, cfg: chain, lggr: lggr}
+func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
+	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	gencfg.BasicConfig
+	gencfg.AppConfig
 	lggr logger.Logger
 
 	cfg *EVMConfig
@@ -135,8 +135,11 @@ func (c *ChainScoped) EvmGasBumpThreshold() uint64 {
 	return uint64(*c.cfg.GasEstimator.BumpThreshold)
 }
 
-func (c *ChainScoped) EvmGasBumpTxDepth() uint16 {
-	return *c.cfg.GasEstimator.BumpTxDepth
+func (c *ChainScoped) EvmGasBumpTxDepth() uint32 {
+	if c.cfg.GasEstimator.BumpTxDepth != nil {
+		return *c.cfg.GasEstimator.BumpTxDepth
+	}
+	return *c.cfg.Transactions.MaxInFlight
 }
 
 func (c *ChainScoped) EvmGasBumpWei() *assets.Wei {

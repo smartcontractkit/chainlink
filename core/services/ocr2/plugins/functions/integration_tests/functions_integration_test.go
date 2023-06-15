@@ -76,7 +76,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	utils.CommitWithFinality(b)
 
 	// validate that all pipeline jobs completed as many runs as sent requests
-	const tasksPerRun = 3
+	const tasksPerRun = 4
 	var wg sync.WaitGroup
 	for i := 0; i < nOracleNodes; i++ {
 		ic := i

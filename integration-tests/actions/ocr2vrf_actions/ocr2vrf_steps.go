@@ -8,14 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
@@ -69,7 +68,17 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 	l.Info().Interface("Event", dkgSharesTransmittedEvent).Msg("DKG Shares were generated and transmitted by OCR Committee")
 }
 
-func SetAndGetOCR2VRFPluginConfig(t *testing.T, nonBootstrapNodes []*client.Chainlink, dkg contracts.DKG, vrfBeacon contracts.VRFBeacon, coordinator contracts.VRFCoordinatorV3, mockETHLinkFeed contracts.MockETHLINKFeed, keyID string, vrfBeaconAllowedConfirmationDelays []string, coordinatorConfig *ocr2vrftypes.CoordinatorConfig) *OCR2VRFPluginConfig {
+func SetAndGetOCR2VRFPluginConfig(
+	t *testing.T,
+	nonBootstrapNodes []*client.Chainlink,
+	dkg contracts.DKG,
+	vrfBeacon contracts.VRFBeacon,
+	coordinator contracts.VRFCoordinatorV3,
+	mockETHLinkFeed contracts.MockETHLINKFeed,
+	keyID string,
+	vrfBeaconAllowedConfirmationDelays []string,
+	coordinatorConfig *ocr2vrftypes.CoordinatorConfig,
+) *OCR2VRFPluginConfig {
 	var (
 		dkgKeyConfigs      []DKGKeyConfig
 		transmitters       []string
@@ -243,6 +252,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
 		confirmationDelay,
+		200_000,
 		100_000,
 		nil,
 	)
@@ -313,6 +323,8 @@ func SetupOCR2VRFUniverse(
 	// Adding VRFBeacon as producer in VRFCoordinator
 	err = coordinatorContract.SetProducer(vrfBeaconContract.Address())
 	require.NoError(t, err, "Error setting Producer for VRFCoordinator contract")
+	err = coordinatorContract.SetConfig(2.5e6, 160 /* 5 EVM words */)
+	require.NoError(t, err, "Error setting config for VRFCoordinator contract")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for TXs to complete")
 

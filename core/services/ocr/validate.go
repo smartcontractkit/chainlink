@@ -21,7 +21,6 @@ import (
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
-	Dev() bool
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
 	OCRContractPollInterval() time.Duration

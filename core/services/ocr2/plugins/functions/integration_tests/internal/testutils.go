@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_client_example"
@@ -222,7 +221,6 @@ type Node struct {
 	PeerID         string
 	Transmitter    common.Address
 	Keybundle      ocr2key.KeyBundle
-	Config         config.GeneralConfig
 	OracleIdentity confighelper2.OracleIdentityExtra
 }
 
@@ -238,7 +236,7 @@ func StartNewNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = true
+		c.Insecure.OCRDevelopmentMode = ptr(true)
 
 		c.Feature.LogPoller = ptr(true)
 
@@ -294,7 +292,6 @@ func StartNewNode(
 		PeerID:      p2pKey.PeerID().Raw(),
 		Transmitter: transmitter,
 		Keybundle:   kb,
-		Config:      config,
 		OracleIdentity: confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  kb.PublicKey(),
@@ -352,8 +349,8 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
 			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
 			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
-
-			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error
+			parse_domains      [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
+			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error -> parse_domains
 		"""
 
 		[relayConfig]
@@ -383,7 +380,8 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		source := jsonMap["data"].(map[string]any)["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		require.NoError(t, err)
 	}))
 }
 

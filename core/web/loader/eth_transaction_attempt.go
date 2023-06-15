@@ -36,7 +36,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 	// Generate a map of attempts to txIDs
 	attemptsForTx := map[string][]txmgr.EvmTxAttempt{}
 	for _, a := range attempts {
-		id := stringutils.FromInt64(a.EthTxID)
+		id := stringutils.FromInt64(a.TxID)
 
 		attemptsForTx[id] = append(attemptsForTx[id], a)
 	}

@@ -17,7 +17,7 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, cfg config.BasicConfig) error {
+func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, cfg config.Keystore) error {
 	isEmpty, err := keyStore.IsEmpty()
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")

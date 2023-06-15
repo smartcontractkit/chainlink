@@ -52,7 +52,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	t.Run("successful transmit", func(t *testing.T) {
+	t.Run("transmission successfully enqueued", func(t *testing.T) {
 		c := MockWSRPCClient{
 			transmit: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
 				require.NotNil(t, in)
@@ -67,19 +67,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
 
 		require.NoError(t, err)
-	})
-
-	t.Run("failing transmit", func(t *testing.T) {
-		c := MockWSRPCClient{
-			transmit: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
-				return nil, errors.New("foo error")
-			},
-		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foo error")
 	})
 }
 

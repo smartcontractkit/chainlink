@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -65,7 +65,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 func (jc *JobsController) Show(c *gin.Context) {
 	var err error
 	jobSpec := job.Job{}
-	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
+	if externalJobID, pErr := uuid.Parse(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
 		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
@@ -221,12 +221,12 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	switch jobType {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
+		if !config.FeatureOffchainReporting() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
+		if !config.FeatureOffchainReporting2() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:

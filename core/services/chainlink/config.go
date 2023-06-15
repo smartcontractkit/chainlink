@@ -3,6 +3,8 @@ package chainlink
 import (
 	"fmt"
 
+	"errors"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -109,9 +111,34 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
+var ErrInvalidSecrets = errors.New("invalid secrets")
+
+// Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := config.Validate(s); err != nil {
-		return fmt.Errorf("invalid secrets: %w", err)
+		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+	}
+	return nil
+}
+
+// ValidateDB only validates the encompassed DatabaseSecret
+func (s *Secrets) ValidateDB() error {
+	// This implementation was chosen so that error reporting is uniform
+	// when validating all the secret or only the db secrets,
+	// and so we could reuse config.Validate, which contains fearsome reflection logic.
+	// This meets the current needs, but if we ever wanted to compose secret
+	// validation we may need to rethink this approach and instead find a way to
+	// toggle on/off the validation of the embedded secrets.
+
+	type dbValidationType struct {
+		// choose field name to match that of Secrets.Database so we have
+		// consistent error messages.
+		Database config.DatabaseSecrets
+	}
+
+	v := &dbValidationType{s.Database}
+	if err := config.Validate(v); err != nil {
+		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil
 }
