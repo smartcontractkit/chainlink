@@ -82,8 +82,8 @@ func NewEvmTxm(
 // NewEvnResender creates a new concrete EvmResender
 func NewEvmResender(
 	lggr logger.Logger,
-	txStore TxStore,
-	evmClient EvmTxmClient,
+	txStore TransactionStore,
+	evmClient TransactionClient,
 	ks EvmKeyStore,
 	pollInterval time.Duration,
 	config EvmResenderConfig,
@@ -113,8 +113,8 @@ func NewEvmConfirmer(
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster
 func NewEvmBroadcaster(
-	txStore TxStore,
-	evmClient EvmTxmClient,
+	txStore TransactionStore,
+	evmClient TransactionClient,
 	config txmgrtypes.BroadcasterConfig,
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
