@@ -171,6 +171,9 @@ let mgRegistry: IKeeperRegistry // "migrate registry" used in migration tests
 let blankRegistry: IKeeperRegistry // used to test initial configurations
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
+let ltUpkeep: UpkeepMock
+let cronUpkeep: UpkeepMock
+let rwrUpkeep: UpkeepMock
 let transcoder: UpkeepTranscoder
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
@@ -932,7 +935,7 @@ describe('KeeperRegistry2_1', () => {
       )
     afUpkeepId = await getUpkeepID(tx)
 
-    const ltUpkeep = await upkeepMockFactory.deploy()
+    ltUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
       [
@@ -950,7 +953,7 @@ describe('KeeperRegistry2_1', () => {
       )
     logUpkeepId = await getUpkeepID(tx)
 
-    const cronUpkeep = await upkeepMockFactory.deploy()
+    cronUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
       [
@@ -960,7 +963,7 @@ describe('KeeperRegistry2_1', () => {
         PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
-        true,
+        false,
         Trigger.CRON,
         '0x',
         cronTriggerConfig,
@@ -968,7 +971,7 @@ describe('KeeperRegistry2_1', () => {
       )
     cronUpkeepId = await getUpkeepID(tx)
 
-    const rwrUpkeep = await upkeepMockFactory.deploy()
+    rwrUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
       [
@@ -978,7 +981,7 @@ describe('KeeperRegistry2_1', () => {
         PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
-        true,
+        false,
         Trigger.BLOCK,
         '0x',
         blockTriggerConfig,
@@ -1069,7 +1072,6 @@ describe('KeeperRegistry2_1', () => {
         await Promise.all([
           registry.connect(admin).addFunds(upkeepId, toWei('100')),
           registry.connect(admin).addFunds(cronUpkeepId, toWei('100')),
-          registry.connect(admin).addFunds(rwrUpkeepId, toWei('100')),
           registry.connect(admin).addFunds(logUpkeepId, toWei('100')),
         ])
       })
@@ -1078,7 +1080,6 @@ describe('KeeperRegistry2_1', () => {
         const tests: [string, BigNumber, number, number][] = [
           // [name, upkeep, num stale, num performed]
           ['conditional', upkeepId, 1, 1], // checkBlocks must be sequential
-          ['rwr', rwrUpkeepId, 1, 1], // checkBlocks must be sequential
           ['cron', cronUpkeepId, 1, 1], // timestamps must be sequential
           ['log-trigger', logUpkeepId, 0, 2], // logs are deduped based on the "trigger ID"
         ]
@@ -1100,33 +1101,23 @@ describe('KeeperRegistry2_1', () => {
         }
       })
 
-      it('returns early when check block number is less than last perform (condition & rwr)', async () => {
-        const tests: [string, BigNumber][] = [
-          ['conditional', upkeepId],
-          ['rwr', rwrUpkeepId],
-        ]
-        for (const [type, id] of tests) {
-          // First perform an upkeep to put last perform block number on upkeep state
-          const tx = await getTransmitTx(registry, keeper1, [id])
-          await tx.wait()
-          const lastPerformed = (await registry.getUpkeep(id))
-            .lastPerformedBlockNumberOrTimestamp
-          const lastPerformBlock = await ethers.provider.getBlock(lastPerformed)
-          assert.equal(lastPerformed.toString(), tx.blockNumber?.toString())
-          // Try to transmit a report which has checkBlockNumber = lastPerformed-1, should result in stale report
-          const transmitTx = await getTransmitTx(registry, keeper1, [id], {
-            checkBlockNum: lastPerformBlock.number - 1,
-            checkBlockHash: lastPerformBlock.parentHash,
-          })
-          const receipt = await transmitTx.wait()
-          const staleUpkeepReportLogs = parseStaleUpkeepReportLogs(receipt)
-          // exactly 1 StaleUpkeepReportLogs log should be emitted
-          assert.equal(
-            staleUpkeepReportLogs.length,
-            1,
-            `wrong log count for ${type} upkeep`,
-          )
-        }
+      it('returns early when check block number is less than last perform (block)', async () => {
+        // First perform an upkeep to put last perform block number on upkeep state
+        const tx = await getTransmitTx(registry, keeper1, [upkeepId])
+        await tx.wait()
+        const lastPerformed = (await registry.getUpkeep(upkeepId))
+          .lastPerformedBlockNumberOrTimestamp
+        const lastPerformBlock = await ethers.provider.getBlock(lastPerformed)
+        assert.equal(lastPerformed.toString(), tx.blockNumber?.toString())
+        // Try to transmit a report which has checkBlockNumber = lastPerformed-1, should result in stale report
+        const transmitTx = await getTransmitTx(registry, keeper1, [upkeepId], {
+          checkBlockNum: lastPerformBlock.number - 1,
+          checkBlockHash: lastPerformBlock.parentHash,
+        })
+        const receipt = await transmitTx.wait()
+        const staleUpkeepReportLogs = parseStaleUpkeepReportLogs(receipt)
+        // exactly 1 StaleUpkeepReportLogs log should be emitted
+        assert.equal(staleUpkeepReportLogs.length, 1)
       })
 
       it('returns early when timestamp is less or eq to last perform (cron)', async () => {
@@ -1154,7 +1145,6 @@ describe('KeeperRegistry2_1', () => {
       it('handles case when check block hash does not match', async () => {
         const tests: [string, BigNumber, number][] = [
           ['conditional', upkeepId, 1],
-          ['rwr', rwrUpkeepId, 1],
           ['cron', cronUpkeepId, 0], // reorgs don't matter for cron
           ['log-trigger', logUpkeepId, 1],
         ]
@@ -1183,7 +1173,6 @@ describe('KeeperRegistry2_1', () => {
         }
         const tests: [string, BigNumber, number][] = [
           ['conditional', upkeepId, 1],
-          ['rwr', rwrUpkeepId, 1],
           ['cron', cronUpkeepId, 0], // reorgs don't matter for cron
           ['log-trigger', logUpkeepId, 1],
         ]
@@ -2713,6 +2702,16 @@ describe('KeeperRegistry2_1', () => {
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
         assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
+      })
+
+      it('always returns true if pipeline is disabled', async () => {
+        await registry.connect(owner).addFunds(rwrUpkeepId, toWei('100'))
+        await rwrUpkeep.setCanCheck(false) // dosn't matter
+        assert.isFalse(await registry.getPipelineEnabled(rwrUpkeepId))
+        const checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic['checkUpkeep(uint256)'](rwrUpkeepId)
+        assert.isTrue(checkUpkeepResult.upkeepNeeded)
       })
 
       itMaybe(

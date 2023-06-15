@@ -100,7 +100,7 @@ contract KeeperRegistryLogicA2_1 is
     upkeepNeeded = true;
     performData = checkData; // pass data through in case no pipeline is configured
 
-    if (upkeep.hasPipeline) {
+    if (upkeep.pipelineEnabled) {
       bytes memory callData;
       if (triggerType == Trigger.BLOCK || triggerType == Trigger.CRON) {
         callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
@@ -173,7 +173,7 @@ contract KeeperRegistryLogicA2_1 is
     bytes4 receiver,
     uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
     address admin,
-    bool hasPipeline,
+    bool pipelineEnabled,
     Trigger triggerType,
     bytes calldata pipelineData,
     bytes memory triggerConfig,
@@ -193,7 +193,7 @@ contract KeeperRegistryLogicA2_1 is
         lastPerformedBlockNumberOrTimestamp: 0,
         amountSpent: 0,
         paused: false,
-        hasPipeline: hasPipeline,
+        pipelineEnabled: pipelineEnabled,
         forwarder: forwarder
       }),
       admin,

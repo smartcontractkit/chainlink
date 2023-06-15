@@ -274,7 +274,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member forwarder the forwarder contract to use for this upkeep
    * @member receiver the receiver function to call on the target contract
    * @member paused if this upkeep has been paused
-   * @member hasPipeline if this upkeep has a pipeline of pre-processors
+   * @member pipelineEnabled if this upkeep has a pipeline of pre-processors
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
@@ -287,7 +287,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes4 receiver;
     // 0 bytes left in 1st EVM word - not written to in transmit
     bool paused;
-    bool hasPipeline;
+    bool pipelineEnabled;
     uint96 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
