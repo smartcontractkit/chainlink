@@ -1632,9 +1632,9 @@ func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 }
 
 func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey.State {
-	states, err := kst.GetStatesForKeys([]ethkey.KeyV2{key})
+	state, err := kst.GetStateForKey(key)
 	require.NoError(t, err)
-	return states[0]
+	return state
 }
 
 func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
