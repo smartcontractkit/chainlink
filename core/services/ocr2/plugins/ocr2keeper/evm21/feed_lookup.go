@@ -27,7 +27,6 @@ const (
 	BlockNumber        = "blockNumber" // valid for v0.2
 	FeedID             = "feedID"      // valid for v0.3
 	FeedIDHex          = "feedIDHex"   // valid for v0.2
-	MercuryHostV3      = ""
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
@@ -284,11 +283,13 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				retryable = false
 				return err1
 			}
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
+				retryable = false
 				return err1
 			}
 
@@ -297,17 +298,20 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 				retryable = true
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
+				retryable = false
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 			}
 
 			var m MercuryResponse
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
+				retryable = false
 				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
+				retryable = false
 				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", upkeepId.String(), ml.time.String(), m.ChainlinkBlob, ml.feeds[index], err1)
 				return err1
 			}
@@ -362,12 +366,14 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 		func() error {
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
+				retryable = false
 				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for multi feed: %v", upkeepId.String(), ml.time.String(), err1)
 				return err1
 			}
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
+				retryable = false
 				return err1
 			}
 
@@ -376,17 +382,20 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 				retryable = true
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
+				retryable = false
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.time.String(), resp.StatusCode)
 			}
 
 			var m MercuryResponse
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
+				retryable = false
 				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for multi feed: %v", upkeepId.String(), ml.time.String(), err1)
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
+				retryable = false
 				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for multi feed: %v", upkeepId.String(), ml.time.String(), m.ChainlinkBlob, err1)
 				return err1
 			}
