@@ -1,7 +1,7 @@
 pragma solidity 0.8.15;
 
 import "../interfaces/automation/AutomationCompatibleInterface.sol";
-import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 //interface IVerifierProxy {
@@ -14,7 +14,7 @@ import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/Ar
 //  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 //}
 
-contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
+contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
   event MercuryPerformEvent(
     address indexed origin,
     address indexed sender,
@@ -33,8 +33,8 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
   uint256 public initialBlock;
   uint256 public counter;
   string[] public feeds;
-  string public feedLabel;
-  string public queryLabel;
+  string public feedParamKey;
+  string public timeParamKey;
   bool public immutable useL1BlockNumber;
 
   constructor(uint256 _testRange, uint256 _interval, bool _useL1BlockNumber) {
@@ -43,16 +43,16 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDHex"; // feedIDStr is deprecated
+    feedParamKey = "feedIDHex"; // feedIDStr is deprecated
     feeds = [
       "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
       "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
     ];
-    queryLabel = "blockNumber"; // timestamp not supported yet
+    timeParamKey = "blockNumber"; // timestamp not supported yet
     useL1BlockNumber = _useL1BlockNumber;
   }
 
-  function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
+  function checkCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
@@ -68,9 +68,9 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();
     }
-    // encode ARB_SYS as extraData to verify that it is provided to mercuryCallback correctly.
+    // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
-    revert MercuryLookup(feedLabel, feeds, queryLabel, blockNumber, abi.encodePacked(address(ARB_SYS)));
+    revert FeedLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {

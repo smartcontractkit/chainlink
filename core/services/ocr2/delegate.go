@@ -362,7 +362,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
 	lggr = logger.Sugared(lggr.With("transmitterID", transmitterID))
 
-	ocrDB := NewDB(d.db, spec.ID, lggr, d.cfg.Database())
+	ocrDB := NewDB(d.db, spec.ID, 0, lggr, d.cfg.Database())
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
