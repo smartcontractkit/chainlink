@@ -630,12 +630,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"jobName", jb.Name.ValueOrZero(),
 			"jobID", jb.ID,
 		)
-		vrfLogger := logger.NewOCRWrapper(l.With(
-			"vrfContractID", spec.ContractID), true, func(msg string) {
+		vrfLogger := relaylogger.NewOCRWrapper(l.With(
+			"vrfContractID", spec.ContractID), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
-		dkgLogger := logger.NewOCRWrapper(l.With(
-			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
+		dkgLogger := relaylogger.NewOCRWrapper(l.With(
+			"dkgContractID", cfg.DKGContractAddress), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
 		dkgReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
