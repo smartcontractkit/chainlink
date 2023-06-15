@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -22,7 +23,7 @@ import (
 
 func preparePlugin(t *testing.T, batchSize uint32) (types.ReportingPlugin, *functions_mocks.ORM, *encoding.ReportCodec) {
 	lggr := logger.TestLogger(t)
-	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {})
+	ocrLogger := relaylogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
 	factory := functions.FunctionsReportingPluginFactory{
 		Logger:    ocrLogger,

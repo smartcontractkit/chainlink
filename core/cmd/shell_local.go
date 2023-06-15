@@ -384,7 +384,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.OCR2Enabled() {
+	if s.Config.OCR2().Enabled() {
 		var enabledChains []chaintype.ChainType
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)

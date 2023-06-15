@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	ocr2mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -83,6 +82,8 @@ func TestRunner(t *testing.T) {
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
+		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
 	})
 
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
@@ -238,10 +239,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := ocr2mocks.NewConfig(t)
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb2, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -275,9 +273,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb3, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1

@@ -108,10 +108,10 @@ type service struct {
 	ocr1KeyStore keystore.OCR
 	ocr2KeyStore keystore.OCR2
 	jobSpawner   job.Spawner
-	cfg          Config
 	insecureCfg  InsecureConfig
 	jobCfg       JobConfig
 	ocrCfg       OCRConfig
+	ocr2cfg      OCR2Config
 	connMgr      ConnectionsManager
 	chainSet     evm.ChainSet
 	lggr         logger.Logger
@@ -125,10 +125,10 @@ func NewService(
 	db *sqlx.DB,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
-	cfg Config,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	ocrCfg OCRConfig,
+	ocr2Cfg OCR2Config,
 	dbCfg pg.QConfig,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
@@ -144,10 +144,10 @@ func NewService(
 		csaKeyStore:  keyStore.CSA(),
 		ocr1KeyStore: keyStore.OCR(),
 		ocr2KeyStore: keyStore.OCR2(),
-		cfg:          cfg,
 		insecureCfg:  insecureCfg,
 		jobCfg:       jobCfg,
 		ocrCfg:       ocrCfg,
+		ocr2cfg:      ocr2Cfg,
 		connMgr:      newConnectionsManager(lggr),
 		chainSet:     chainSet,
 		lggr:         lggr,
@@ -1096,12 +1096,12 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		}
 		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.OffchainReporting2:
-		if !s.cfg.OCR2Enabled() {
+		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
 		}
-		js, err = ocr2.ValidatedOracleSpecToml(s.cfg, s.insecureCfg, spec)
+		js, err = ocr2.ValidatedOracleSpecToml(s.ocr2cfg, s.insecureCfg, spec)
 	case job.Bootstrap:
-		if !s.cfg.OCR2Enabled() {
+		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
 		}
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
@@ -1200,8 +1200,8 @@ func (s *service) newOCR1ConfigMsg(cfg OCR1Config) (*pb.OCR1Config, error) {
 	return msg, nil
 }
 
-// newOCR2ConfigMsg generates a OCR2Config protobuf message.
-func (s *service) newOCR2ConfigMsg(cfg OCR2Config) (*pb.OCR2Config, error) {
+// newOCR2ConfigMsg generates a OCR2ConfigModel protobuf message.
+func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) {
 	if !cfg.Enabled {
 		return &pb.OCR2Config{Enabled: false}, nil
 	}

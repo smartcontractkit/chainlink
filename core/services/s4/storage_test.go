@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -132,33 +133,6 @@ func TestStorage_Errors(t *testing.T) {
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
-	/* to be reworked
-	t.Run("ErrNotFound if expired", func(t *testing.T) {
-		privateKey, _, address := generateCryptoEntity(t)
-		key := &s4.Key{
-			Address: address,
-			SlotId:  2,
-			Version: 0,
-		}
-		record := &s4.Record{
-			Payload:    []byte("foobar"),
-			Expiration: time.Now().UnixMilli() + 1,
-		}
-		env := s4.NewEnvelopeFromRecord(key, record)
-		signature, err := env.Sign(privateKey)
-		assert.NoError(t, err)
-
-		ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
-
-		err = storage.Put(testutils.Context(t), key, record, signature)
-		assert.NoError(t, err)
-
-		_, _, err = storage.Get(testutils.Context(t), key)
-		assert.ErrorIs(t, err, s4.ErrNotFound)
-	})
-	*/
-
 	t.Run("ErrVersionTooLow", func(t *testing.T) {
 		privateKey, _, address := generateCryptoEntity(t)
 		key := &s4.Key{
@@ -222,4 +196,38 @@ func TestStorage_PutAndGet(t *testing.T) {
 		assert.Equal(t, record.Expiration, rec.Expiration)
 		assert.Equal(t, record.Payload, rec.Payload)
 	})
+}
+
+func TestStorage_List(t *testing.T) {
+	t.Parallel()
+
+	ormMock, storage := setupTestStorage(t)
+	address := testutils.NewAddress()
+	ormRows := []*s4.SnapshotRow{
+		{
+			SlotId:     1,
+			Version:    1,
+			Expiration: 1,
+		},
+		{
+			SlotId:     5,
+			Version:    5,
+			Expiration: 5,
+		},
+	}
+
+	addressRange := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	ormMock.On("GetSnapshot", addressRange, mock.Anything).Return(ormRows, nil)
+
+	rows, err := storage.List(testutils.Context(t), address)
+	require.NoError(t, err)
+	assert.Len(t, rows, 2)
+	for _, row := range rows {
+		if row.SlotId == ormRows[0].SlotId {
+			assert.Equal(t, ormRows[0], row)
+		}
+		if row.SlotId == ormRows[1].SlotId {
+			assert.Equal(t, ormRows[1], row)
+		}
+	}
 }
