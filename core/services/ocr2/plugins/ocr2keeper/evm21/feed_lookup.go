@@ -27,7 +27,6 @@ const (
 	BlockNumber        = "blockNumber" // valid for v0.2
 	FeedID             = "feedID"      // valid for v0.3
 	FeedIDHex          = "feedIDHex"   // valid for v0.2
-	MercuryHostV2      = ""
 	MercuryHostV3      = ""
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
@@ -258,10 +257,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		ml.timeParamKey: {ml.time.String()},
 		UserId:          {upkeepId.String()},
 	}
-	mercuryURL := MercuryHostV2
+	mercuryURL := r.mercury.cred.URL
 	path := MercuryPathV2
 	if mv == MercuryV03 {
-		mercuryURL = MercuryHostV3
 		path = MercuryPathV3
 	}
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, path, q.Encode())
@@ -343,7 +341,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 		UserId:    {upkeepId.String()},
 	}
 
-	reqUrl := fmt.Sprintf("%s%s%s", MercuryHostV3, MercuryBatchPathV3, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, MercuryBatchPathV3, q.Encode())
 	r.lggr.Debugf("FeedLookup request URL: %s", reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)

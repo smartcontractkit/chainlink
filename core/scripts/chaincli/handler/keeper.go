@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -30,6 +31,7 @@ import (
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
 var extraDataEncoder *abi.Type
@@ -666,6 +668,49 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
+
+	// set administrative offchain config for mercury upkeeps
+	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
+		if err != nil {
+			log.Fatalf("cannot create registry 2.1: %v", err)
+		}
+		v, err := reg21.TypeAndVersion(nil)
+		if err != nil {
+			log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
+		}
+		log.Printf("registry version is %s", v)
+		log.Printf("active upkeep ids: %v", activeUpkeepIds)
+
+		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+			MercuryEnabled: true,
+		})
+		if err != nil {
+			log.Fatalf("failed to marshal admin offchain config: %v", err)
+		}
+
+		for _, id := range activeUpkeepIds {
+			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			if err != nil {
+				log.Fatalf("failed to set admin offchain config: %v", err)
+			}
+			err = k.waitTx(ctx, tx)
+			if err != nil {
+				log.Fatalf("failed to wait for tx: %v", err)
+			} else {
+				log.Printf("admin offchain config is set for %s", id.String())
+			}
+
+			info, err := reg21.GetUpkeep(nil, id)
+			if err != nil {
+				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err)
+			}
+			min, err := reg21.GetMinBalanceForUpkeep(nil, id)
+			log.Printf("    Balance: %s", info.Balance)
+			log.Printf("Min Balance: %s", min.String())
+		}
+	}
+
 	fmt.Println()
 }
 
