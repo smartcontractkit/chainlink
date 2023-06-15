@@ -77,6 +77,7 @@ require (
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
 	github.com/tendermint/tendermint v0.34.23
+	github.com/test-go/testify v1.1.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.14.4
 	github.com/ugorji/go/codec v1.2.11
@@ -373,4 +374,7 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+
+	// until libocr takes max query duration timeout
+	github.com/smartcontractkit/libocr => github.com/jmank88/libocr v0.0.0-20230612221310-b34d1ec22335
 )
