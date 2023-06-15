@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -79,8 +80,8 @@ type Delegate struct {
 }
 
 type DelegateConfig interface {
-	validate.Config
 	plugins.RegistrarConfig
+	OCR2() ocr2Config
 	JobPipeline() jobPipelineConfig
 	Database() pg.QConfig
 	Insecure() insecureConfig
@@ -89,8 +90,8 @@ type DelegateConfig interface {
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
 type delegateConfig struct {
-	validate.Config
 	plugins.RegistrarConfig
+	ocr2        ocr2Config
 	jobPipeline jobPipelineConfig
 	database    pg.QConfig
 	insecure    insecureConfig
@@ -113,6 +114,21 @@ func (d *delegateConfig) Mercury() coreconfig.Mercury {
 	return d.mercury
 }
 
+func (d *delegateConfig) OCR2() ocr2Config {
+	return d.ocr2
+}
+
+type ocr2Config interface {
+	BlockchainTimeout() time.Duration
+	CaptureEATelemetry() bool
+	ContractConfirmations() uint16
+	ContractPollInterval() time.Duration
+	ContractTransmitterTransmitTimeout() time.Duration
+	DatabaseTimeout() time.Duration
+	KeyBundleID() (string, error)
+	TraceLogging() bool
+}
+
 type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
@@ -126,9 +142,9 @@ type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 }
 
-func NewDelegateConfig(vc validate.Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
-		Config:          vc,
+		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
 		jobPipeline:     jp,
 		database:        qconf,
@@ -343,11 +359,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 
-	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {
+	ocrLogger := relaylogger.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
 
-	lc := validate.ToLocalConfig(d.cfg, d.cfg.Insecure(), *spec)
+	lc := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -368,7 +384,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	var kbID string
 	if spec.OCRKeyBundleID.Valid {
 		kbID = spec.OCRKeyBundleID.String
-	} else if kbID, err = d.cfg.OCR2KeyBundleID(); err != nil {
+	} else if kbID, err = d.cfg.OCR2().KeyBundleID(); err != nil {
 		return nil, err
 	}
 	kb, err := d.ks.Get(kbID)
@@ -376,7 +392,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, err
 	}
 
-	spec.CaptureEATelemetry = d.cfg.OCR2CaptureEATelemetry()
+	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 
@@ -614,12 +630,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"jobName", jb.Name.ValueOrZero(),
 			"jobID", jb.ID,
 		)
-		vrfLogger := logger.NewOCRWrapper(l.With(
-			"vrfContractID", spec.ContractID), true, func(msg string) {
+		vrfLogger := relaylogger.NewOCRWrapper(l.With(
+			"vrfContractID", spec.ContractID), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
-		dkgLogger := logger.NewOCRWrapper(l.With(
-			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
+		dkgLogger := relaylogger.NewOCRWrapper(l.With(
+			"dkgContractID", cfg.DKGContractAddress), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		})
 		dkgReportingPluginFactoryDecorator := func(wrapped ocr2types.ReportingPluginFactory) ocr2types.ReportingPluginFactory {
