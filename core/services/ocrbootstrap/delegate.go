@@ -24,7 +24,7 @@ type Delegate struct {
 	db                *sqlx.DB
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	cfg               validate.Config
+	ocr2Cfg           validate.OCR2Config
 	insecureCfg       validate.InsecureConfig
 	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]loop.Relayer
@@ -37,7 +37,7 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg validate.Config,
+	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
 	relayers map[relay.Network]loop.Relayer,
 ) *Delegate {
@@ -46,7 +46,7 @@ func NewDelegateBootstrap(
 		jobORM:      jobORM,
 		peerWrapper: peerWrapper,
 		lggr:        logger.Sugared(lggr),
-		cfg:         cfg,
+		ocr2Cfg:     ocr2Cfg,
 		insecureCfg: insecureCfg,
 		relayers:    relayers,
 	}
@@ -98,7 +98,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.cfg, d.insecureCfg, spec.AsOCR2Spec())
+	lc := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

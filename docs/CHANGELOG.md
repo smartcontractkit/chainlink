@@ -35,6 +35,8 @@ Order = 5
   jobs. These replace the settings `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions`
   for OCR2.
 
+- Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
+
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 
@@ -49,9 +51,9 @@ Order = 5
 - Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
 - Optimism Kovan configurations along with legacy error messages.
 
-...
+<!-- unreleasedstop -->
 
-# 2.2.0 - UNRELEASED
+# 2.2.0 - 2023-06-12
 
 ### Added
 
@@ -64,9 +66,9 @@ Order = 5
 
 ### Changed
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
-- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
 	- `LogBackfillBatchSize = 1000`
-	- `RPCDefaultBatchSize: 250`
+	- `RPCDefaultBatchSize = 250`
 	- `GasEstimator.BatchSize = 25`
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 - Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.

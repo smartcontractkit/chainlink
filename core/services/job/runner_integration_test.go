@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	ocr2mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -83,6 +82,8 @@ func TestRunner(t *testing.T) {
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
+		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
 	})
 
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
@@ -124,7 +125,7 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
-		err := jobORM.CreateJob(jb)
+		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		require.NotNil(t, jb.PipelineSpec)
 
@@ -180,7 +181,7 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="%s"];
 			"""
 		`, bridge.Name.String()))
-		err := jobORM.CreateJob(jb)
+		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
@@ -200,15 +201,16 @@ func TestRunner(t *testing.T) {
 
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
+		ocrCfg := config.OCR()
 		cfg.On("Insecure").Return(&insecureConfig{ocrDevMode: true})
 		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
-		cfg.On("OCRCaptureEATelemetry").Return(false)
+		cfg.On("OCR").Return(ocrCfg)
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
 		cs := evmmocks.NewChainSet(t)
 		cs.On("Get", mock.Anything).Return(c, nil)
 
-		jb, err := ocr.ValidatedOracleSpecToml(cs, `
+		jb, err2 := ocr.ValidatedOracleSpecToml(cs, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 1
@@ -230,17 +232,14 @@ func TestRunner(t *testing.T) {
 			answer1      [type=median index=0];
 			"""
 		`)
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := ocr2mocks.NewConfig(t)
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb2, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -274,9 +273,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb3, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -501,7 +498,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -547,7 +544,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -581,7 +578,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -609,7 +606,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
@@ -639,7 +636,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, config.Database(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 
 		sd := ocr.NewDelegate(

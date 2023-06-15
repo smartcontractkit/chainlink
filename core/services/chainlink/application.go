@@ -376,16 +376,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
 	if cfg.P2P().Enabled() {
-		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, cfg.Database(), db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if cfg.OCREnabled() {
+	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
@@ -401,12 +401,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-	if cfg.OCR2Enabled() {
+	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore)
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore, eventBroadcaster)
 			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {
@@ -421,7 +421,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.StarkNet] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg, cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -438,13 +438,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			relayers,
 			mailMon,
+			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
 			jobORM,
 			peerWrapper,
 			globalLogger,
-			cfg,
+			cfg.OCR2(),
 			cfg.Insecure(),
 			relayers,
 		)
@@ -476,9 +477,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db,
 			jobSpawner,
 			keyStore,
-			cfg,
 			cfg.Insecure(),
 			cfg.JobPipeline(),
+			cfg.OCR(),
+			cfg.OCR2(),
 			cfg.Database(),
 			chains.EVM,
 			globalLogger,
@@ -529,7 +531,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
 	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.OCR2Enabled() {
+	if !cfg.OCR2().Enabled() {
 		for _, service := range app.Chains.services() {
 			checkable := service.(services.Checkable)
 			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {

@@ -9,8 +9,6 @@ import (
 
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
-	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	mock "github.com/stretchr/testify/mock"
 
 	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -356,356 +354,36 @@ func (_m *GeneralConfig) Mercury() config.Mercury {
 	return r0
 }
 
-// OCR2BlockchainTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2BlockchainTimeout() time.Duration {
+// OCR provides a mock function with given fields:
+func (_m *GeneralConfig) OCR() config.OCR {
 	ret := _m.Called()
 
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+	var r0 config.OCR
+	if rf, ok := ret.Get(0).(func() config.OCR); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(time.Duration)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.OCR)
+		}
 	}
 
 	return r0
 }
 
-// OCR2CaptureEATelemetry provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2CaptureEATelemetry() bool {
+// OCR2 provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2() config.OCR2 {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 config.OCR2
+	if rf, ok := ret.Get(0).(func() config.OCR2); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.OCR2)
+		}
 	}
 
 	return r0
-}
-
-// OCR2ContractConfirmations provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2ContractConfirmations() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// OCR2ContractPollInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2ContractPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCR2ContractSubscribeInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2ContractSubscribeInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCR2ContractTransmitterTransmitTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCR2DatabaseTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2DatabaseTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCR2DefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2DefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCR2Enabled provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2Enabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCR2KeyBundleID provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
-	ret := _m.Called()
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (string, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// OCR2SimulateTransactions provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2SimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCR2TraceLogging provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2TraceLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRBlockchainTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRCaptureEATelemetry provides a mock function with given fields:
-func (_m *GeneralConfig) OCRCaptureEATelemetry() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRContractPollInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRContractSubscribeInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRDefaultTransactionQueueDepth provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCREnabled provides a mock function with given fields:
-func (_m *GeneralConfig) OCREnabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRKeyBundleID provides a mock function with given fields:
-func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
-	ret := _m.Called()
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (string, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// OCRObservationTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRSimulateTransactions provides a mock function with given fields:
-func (_m *GeneralConfig) OCRSimulateTransactions() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTraceLogging provides a mock function with given fields:
-func (_m *GeneralConfig) OCRTraceLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// OCRTransmitterAddress provides a mock function with given fields:
-func (_m *GeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	ret := _m.Called()
-
-	var r0 ethkey.EIP55Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (ethkey.EIP55Address, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() ethkey.EIP55Address); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(ethkey.EIP55Address)
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // P2P provides a mock function with given fields:

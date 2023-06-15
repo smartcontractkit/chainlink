@@ -150,9 +150,9 @@ func TestORM(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
 	var r txmgr.EvmReceipt
-	t.Run("InsertEthReceipt", func(t *testing.T) {
+	t.Run("InsertReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		id, err := orm.InsertEthReceipt(&r.Receipt)
+		id, err := orm.InsertReceipt(&r.Receipt)
 		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
@@ -207,7 +207,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	_, err := orm.InsertEthReceipt(&r.Receipt)
+	_, err := orm.InsertReceipt(&r.Receipt)
 	require.NoError(t, err)
 
 	// tx 3 has no attempts
@@ -415,6 +415,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
 		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.DefaultChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)

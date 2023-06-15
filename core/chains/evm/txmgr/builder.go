@@ -70,7 +70,7 @@ func NewEvmTxm(
 	checkerFactory EvmTransmitCheckerFactory,
 	fwdMgr EvmFwdMgr,
 	txAttemptBuilder EvmTxAttemptBuilder,
-	txStore EvmTxStore,
+	txStore TxStore,
 	nonceSyncer EvmNonceSyncer,
 	broadcaster *EvmBroadcaster,
 	confirmer *EvmConfirmer,
@@ -82,7 +82,7 @@ func NewEvmTxm(
 // NewEvnResender creates a new concrete EvmResender
 func NewEvmResender(
 	lggr logger.Logger,
-	txStore EvmTxStore,
+	txStore TxStore,
 	evmClient EvmTxmClient,
 	ks EvmKeyStore,
 	pollInterval time.Duration,
@@ -99,7 +99,7 @@ func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int]
 
 // NewEvmConfirmer instantiates a new EVM confirmer
 func NewEvmConfirmer(
-	txStore EvmTxStore,
+	txStore TxStore,
 	evmClient EvmTxmClient,
 	config txmgrtypes.ConfirmerConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -113,7 +113,7 @@ func NewEvmConfirmer(
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster
 func NewEvmBroadcaster(
-	txStore EvmTxStore,
+	txStore TxStore,
 	evmClient EvmTxmClient,
 	config txmgrtypes.BroadcasterConfig,
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,

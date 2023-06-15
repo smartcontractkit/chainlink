@@ -171,6 +171,7 @@ KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = false
@@ -183,6 +184,7 @@ KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
+TraceLogging = false
 
 [P2P]
 IncomingMessageBufferSize = 10
