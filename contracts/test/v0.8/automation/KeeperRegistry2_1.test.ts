@@ -67,11 +67,12 @@ enum Mode {
 
 // copied from KeeperRegistryBase2_1.sol
 enum Trigger {
-  CONDITION,
+  BLOCK,
   LOG,
   CRON,
-  READY,
 }
+
+const PERFORM_SELECTOR = '0x4585e33b'
 
 // -----------------------------------------------------------------------------------------------
 // These are the gas overheads that off chain systems should provide to check upkeep / transmit
@@ -120,11 +121,6 @@ const zeroAddress = ethers.constants.AddressZero
 const epochAndRound5_1 =
   '0x0000000000000000000000000000000000000000000000000000000000000501'
 
-const conditionalUpkeepExtraData = ethers.utils.defaultAbiCoder.encode(
-  ['uint8', 'bytes', 'bytes'],
-  [Trigger.CONDITION, '0x', '0x'],
-)
-
 const logTriggerConfig = ethers.utils.defaultAbiCoder.encode(
   ['tuple(address,uint8,bytes32,bytes32,bytes32,bytes32)'],
   [
@@ -138,27 +134,15 @@ const logTriggerConfig = ethers.utils.defaultAbiCoder.encode(
     ],
   ],
 )
-const logUpkeepExtraData = ethers.utils.defaultAbiCoder.encode(
-  ['uint8', 'bytes', 'bytes'],
-  [Trigger.LOG, logTriggerConfig, '0x'],
-)
 
 const cronTriggerConfig = ethers.utils.defaultAbiCoder.encode(
-  ['tuple(string,bytes)'],
-  [['* * * 0 0', ethers.utils.randomBytes(36)]],
-)
-const cronUpkeepExtraData = ethers.utils.defaultAbiCoder.encode(
-  ['uint8', 'bytes', 'bytes'],
-  [Trigger.CRON, cronTriggerConfig, '0x'],
+  ['tuple(string)'],
+  [['* * * 0 0']],
 )
 
-const rwrTriggerConfig = ethers.utils.defaultAbiCoder.encode(
-  ['tuple(bytes)'],
-  [[ethers.utils.randomBytes(36)]],
-)
-const rwrUpkeepExtraData = ethers.utils.defaultAbiCoder.encode(
-  ['uint8', 'bytes', 'bytes'],
-  [Trigger.READY, rwrTriggerConfig, '0x'],
+const blockTriggerConfig = ethers.utils.defaultAbiCoder.encode(
+  ['tuple(uint32)'],
+  [[1]],
 )
 // -----------------------------------------------------------------------------------------------
 
@@ -217,7 +201,7 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
   const bytes = ethers.utils.arrayify(upkeepId.toHexString())
   for (let idx = 4; idx < 15; idx++) {
     if (bytes[idx] != 0) {
-      return Trigger.CONDITION
+      return Trigger.BLOCK
     }
   }
   return bytes[15] as Trigger
@@ -740,8 +724,7 @@ describe('KeeperRegistry2_1', () => {
     for (let i = 0; i < upkeepIds.length; i++) {
       let trigger: string
       switch (getTriggerType(upkeepIds[i])) {
-        case Trigger.CONDITION:
-        case Trigger.READY:
+        case Trigger.BLOCK:
           trigger = encodeBlockTrigger(
             config.checkBlockNum,
             config.checkBlockHash,
@@ -926,12 +909,12 @@ describe('KeeperRegistry2_1', () => {
       .transfer(await admin.getAddress(), toWei('1000'))
     let tx = await registry
       .connect(owner)
-      .registerUpkeep(
+      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
         mock.address,
         executeGas,
         await admin.getAddress(),
         randomBytes,
-        conditionalUpkeepExtraData,
+        '0x',
       )
     upkeepId = await getUpkeepID(tx)
 
@@ -940,48 +923,66 @@ describe('KeeperRegistry2_1', () => {
       .deploy(linkToken.address, registry.address)
     tx = await registry
       .connect(owner)
-      .registerUpkeep(
+      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
         autoFunderUpkeep.address,
         executeGas,
         autoFunderUpkeep.address,
         randomBytes,
-        conditionalUpkeepExtraData,
+        '0x',
       )
     afUpkeepId = await getUpkeepID(tx)
 
     const ltUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
-      .registerUpkeep(
+      [
+        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
+      ](
         ltUpkeep.address,
+        PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
+        true,
+        Trigger.LOG,
+        '0x',
+        logTriggerConfig,
         emptyBytes,
-        logUpkeepExtraData,
       )
     logUpkeepId = await getUpkeepID(tx)
 
     const cronUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
-      .registerUpkeep(
+      [
+        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
+      ](
         cronUpkeep.address,
+        PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
+        true,
+        Trigger.CRON,
+        '0x',
+        cronTriggerConfig,
         emptyBytes,
-        cronUpkeepExtraData,
       )
     cronUpkeepId = await getUpkeepID(tx)
 
     const rwrUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
-      .registerUpkeep(
+      [
+        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
+      ](
         rwrUpkeep.address,
+        PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
+        true,
+        Trigger.BLOCK,
+        '0x',
+        blockTriggerConfig,
         emptyBytes,
-        rwrUpkeepExtraData,
       )
     rwrUpkeepId = await getUpkeepID(tx)
 
@@ -1108,7 +1109,8 @@ describe('KeeperRegistry2_1', () => {
           // First perform an upkeep to put last perform block number on upkeep state
           const tx = await getTransmitTx(registry, keeper1, [id])
           await tx.wait()
-          const lastPerformed = (await registry.getUpkeep(id)).lastPerformed
+          const lastPerformed = (await registry.getUpkeep(id))
+            .lastPerformedBlockNumberOrTimestamp
           const lastPerformBlock = await ethers.provider.getBlock(lastPerformed)
           assert.equal(lastPerformed.toString(), tx.blockNumber?.toString())
           // Try to transmit a report which has checkBlockNumber = lastPerformed-1, should result in stale report
@@ -1132,7 +1134,7 @@ describe('KeeperRegistry2_1', () => {
         const tx = await getTransmitTx(registry, keeper1, [cronUpkeepId])
         await tx.wait()
         const lastPerformed = (await registry.getUpkeep(cronUpkeepId))
-          .lastPerformed
+          .lastPerformedBlockNumberOrTimestamp
         expect(lastPerformed).to.approximately(now(), 100)
         // Try to transmit a report which has timestamp == lastPerformed, should result in stale report
         const transmitTx = await getTransmitTx(
@@ -1373,12 +1375,12 @@ describe('KeeperRegistry2_1', () => {
 
         let tx = await arbRegistry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             executeGas,
             await admin.getAddress(),
             randomBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           )
         const upkeepId = await getUpkeepID(tx)
         await arbRegistry.connect(owner).addFunds(upkeepId, toWei('100'))
@@ -1554,13 +1556,15 @@ describe('KeeperRegistry2_1', () => {
             offchainVersion,
             offchainBytes,
           )
-          const tx = await registry.connect(owner).registerUpkeep(
-            mock.address,
-            maxPerformGas, // max allowed gas
-            await admin.getAddress(),
-            randomBytes,
-            conditionalUpkeepExtraData,
-          )
+          const tx = await registry
+            .connect(owner)
+            ['registerUpkeep(address,uint32,address,bytes,bytes)'](
+              mock.address,
+              maxPerformGas, // max allowed gas
+              await admin.getAddress(),
+              randomBytes,
+              '0x',
+            )
           const upkeepId = await getUpkeepID(tx)
           await registry.connect(admin).addFunds(upkeepId, toWei('100'))
 
@@ -1684,7 +1688,7 @@ describe('KeeperRegistry2_1', () => {
             )
             // Last perform block number should be updated
             assert.equal(
-              registrationAfter.lastPerformed.toString(),
+              registrationAfter.lastPerformedBlockNumberOrTimestamp.toString(),
               tx.blockNumber?.toString(),
             )
 
@@ -1826,12 +1830,12 @@ describe('KeeperRegistry2_1', () => {
                   const mock = await upkeepMockFactory.deploy()
                   const tx = await registry
                     .connect(owner)
-                    .registerUpkeep(
+                    ['registerUpkeep(address,uint32,address,bytes,bytes)'](
                       mock.address,
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
-                      conditionalUpkeepExtraData,
+                      '0x',
                     )
                   const upkeepId = await getUpkeepID(tx)
                   passingUpkeepIds.push(upkeepId)
@@ -1843,12 +1847,12 @@ describe('KeeperRegistry2_1', () => {
                   const mock = await upkeepMockFactory.deploy()
                   const tx = await registry
                     .connect(owner)
-                    .registerUpkeep(
+                    ['registerUpkeep(address,uint32,address,bytes,bytes)'](
                       mock.address,
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
-                      conditionalUpkeepExtraData,
+                      '0x',
                     )
                   const upkeepId = await getUpkeepID(tx)
                   failingUpkeepIds.push(upkeepId)
@@ -1870,14 +1874,20 @@ describe('KeeperRegistry2_1', () => {
                 const registrationPassingBefore = await Promise.all(
                   passingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(reg.lastPerformed.toString(), '0')
+                    assert.equal(
+                      reg.lastPerformedBlockNumberOrTimestamp.toString(),
+                      '0',
+                    )
                     return reg
                   }),
                 )
                 const registrationFailingBefore = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(reg.lastPerformed.toString(), '0')
+                    assert.equal(
+                      reg.lastPerformedBlockNumberOrTimestamp.toString(),
+                      '0',
+                    )
                     return reg
                   }),
                 )
@@ -1950,7 +1960,9 @@ describe('KeeperRegistry2_1', () => {
 
                   // Last perform block number should be updated
                   assert.equal(
-                    registrationPassingAfter[i].lastPerformed.toString(),
+                    registrationPassingAfter[
+                      i
+                    ].lastPerformedBlockNumberOrTimestamp.toString(),
                     tx.blockNumber?.toString(),
                   )
 
@@ -1974,7 +1986,9 @@ describe('KeeperRegistry2_1', () => {
 
                   // Last perform block number should not be updated
                   assert.equal(
-                    registrationFailingAfter[i].lastPerformed.toString(),
+                    registrationFailingAfter[
+                      i
+                    ].lastPerformedBlockNumberOrTimestamp.toString(),
                     '0',
                   )
                 }
@@ -2094,12 +2108,12 @@ describe('KeeperRegistry2_1', () => {
           const mock = await upkeepMockFactory.deploy()
           const tx = await registry
             .connect(owner)
-            .registerUpkeep(
+            ['registerUpkeep(address,uint32,address,bytes,bytes)'](
               mock.address,
               executeGas,
               await admin.getAddress(),
               randomBytes,
-              conditionalUpkeepExtraData,
+              '0x',
             )
           const upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId)
@@ -2135,12 +2149,12 @@ describe('KeeperRegistry2_1', () => {
           const mock = await upkeepMockFactory.deploy()
           const tx = await arbRegistry
             .connect(owner)
-            .registerUpkeep(
+            ['registerUpkeep(address,uint32,address,bytes,bytes)'](
               mock.address,
               executeGas,
               await admin.getAddress(),
               randomBytes,
-              conditionalUpkeepExtraData,
+              '0x',
             )
           const upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId)
@@ -2198,12 +2212,12 @@ describe('KeeperRegistry2_1', () => {
       // add funds to upkeep 1 and perform and withdraw some payment
       const tx = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mock.address,
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          conditionalUpkeepExtraData,
+          emptyBytes,
         )
 
       const id1 = await getUpkeepID(tx)
@@ -2226,12 +2240,12 @@ describe('KeeperRegistry2_1', () => {
       // add funds to upkeep 2 and perform and withdraw some payment
       const tx2 = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mock.address,
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          conditionalUpkeepExtraData,
+          emptyBytes,
         )
       const id2 = await getUpkeepID(tx2)
       await registry.connect(admin).addFunds(id2, toWei('5'))
@@ -2310,22 +2324,22 @@ describe('KeeperRegistry2_1', () => {
     it('uses maxPerformData size in checkUpkeep but actual performDataSize in transmit', async () => {
       const tx1 = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mock.address,
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionalUpkeepExtraData,
+          '0x',
         )
       const upkeepID1 = await getUpkeepID(tx1)
       const tx2 = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mock.address,
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionalUpkeepExtraData,
+          '0x',
         )
       const upkeepID2 = await getUpkeepID(tx2)
       await mock.setCanCheck(true)
@@ -2389,12 +2403,12 @@ describe('KeeperRegistry2_1', () => {
     beforeEach(async () => {
       const tx = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mock.address,
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionalUpkeepExtraData,
+          '0x',
         )
       upkeepId2 = await getUpkeepID(tx)
 
@@ -2788,18 +2802,12 @@ describe('KeeperRegistry2_1', () => {
       let upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
-        Trigger.CONDITION,
+        Trigger.BLOCK,
       )
-      assert(upkeepIds.length == 2)
+      assert(upkeepIds.length == 3)
       assert(upkeepIds[0].eq(upkeepId))
       assert(upkeepIds[1].eq(afUpkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDsByType(
-        0,
-        numUpkeps,
-        Trigger.READY,
-      )
-      assert(upkeepIds.length == 1)
-      assert(upkeepIds[0].eq(rwrUpkeepId))
+      assert(upkeepIds[2].eq(rwrUpkeepId))
       upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
@@ -3434,12 +3442,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'RegistryPaused()',
       )
@@ -3449,12 +3457,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             zeroAddress,
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'NotAContract()',
       )
@@ -3464,12 +3472,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(keeper1)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'OnlyCallableByOwnerOrRegistrar()',
       )
@@ -3479,12 +3487,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             2299,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'GasLimitOutsideRange()',
       )
@@ -3494,12 +3502,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             5000001,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'GasLimitOutsideRange()',
       )
@@ -3513,14 +3521,14 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             executeGas,
             await admin.getAddress(),
             longBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
-        'CheckDataExceedsLimit()',
+        'PipelineDataExceedsLimit()',
       )
     })
 
@@ -3534,12 +3542,12 @@ describe('KeeperRegistry2_1', () => {
           const checkData = checkDatas[kdx]
           const tx = await registry
             .connect(owner)
-            .registerUpkeep(
+            ['registerUpkeep(address,uint32,address,bytes,bytes)'](
               mock.address,
               executeGas,
               await admin.getAddress(),
               checkData,
-              conditionalUpkeepExtraData,
+              '0x',
             )
 
           //confirm the upkeep details and verify emitted events
@@ -3549,11 +3557,11 @@ describe('KeeperRegistry2_1', () => {
             .withArgs(upkeepId, executeGas, await admin.getAddress())
 
           await expect(tx)
-            .to.emit(registry, 'UpkeepOffchainConfigSet')
-            .withArgs(upkeepId, '0x')
+            .to.emit(registry, 'UpkeepPipelineDataSet')
+            .withArgs(upkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
-            .withArgs(upkeepId, '0x')
+            .withArgs(upkeepId, blockTriggerConfig)
 
           const registration = await registry.getUpkeep(upkeepId)
 
@@ -3566,7 +3574,7 @@ describe('KeeperRegistry2_1', () => {
           assert.equal(await admin.getAddress(), registration.admin)
           assert.equal(0, registration.balance.toNumber())
           assert.equal(0, registration.amountSpent.toNumber())
-          assert.equal(0, registration.lastPerformed)
+          assert.equal(0, registration.lastPerformedBlockNumberOrTimestamp)
           assert.equal(checkData, registration.checkData)
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')
@@ -3680,17 +3688,19 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#updateCheckData', () => {
+  describe('#setUpkeepPipelineData', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
-        registry.connect(keeper1).updateCheckData(upkeepId.add(1), randomBytes),
+        registry
+          .connect(keeper1)
+          .setUpkeepPipelineData(upkeepId.add(1), randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if the caller is not upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).updateCheckData(upkeepId, randomBytes),
+        registry.connect(keeper1).setUpkeepPipelineData(upkeepId, randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
@@ -3699,37 +3709,37 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).updateCheckData(upkeepId, randomBytes),
+        registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes),
         'UpkeepCancelled()',
       )
     })
 
     it('is allowed to update on paused upkeep', async () => {
       await registry.connect(admin).pauseUpkeep(upkeepId)
-      await registry.connect(admin).updateCheckData(upkeepId, randomBytes)
+      await registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
     })
 
-    it('reverts if newCheckData exceeds limit', async () => {
+    it('reverts if new data exceeds limit', async () => {
       let longBytes = '0x'
       for (let i = 0; i < 10000; i++) {
         longBytes += '1'
       }
 
       await evmRevert(
-        registry.connect(admin).updateCheckData(upkeepId, longBytes),
-        'CheckDataExceedsLimit()',
+        registry.connect(admin).setUpkeepPipelineData(upkeepId, longBytes),
+        'PipelineDataExceedsLimit()',
       )
     })
 
-    it('updates the upkeep check data and emits an event', async () => {
+    it('updates the upkeep pipeline data and emits an event', async () => {
       const tx = await registry
         .connect(admin)
-        .updateCheckData(upkeepId, randomBytes)
+        .setUpkeepPipelineData(upkeepId, randomBytes)
       await expect(tx)
-        .to.emit(registry, 'UpkeepCheckDataUpdated')
+        .to.emit(registry, 'UpkeepPipelineDataSet')
         .withArgs(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
@@ -4186,12 +4196,12 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .registerUpkeep(
+          ['registerUpkeep(address,uint32,address,bytes,bytes)'](
             mock.address,
             executeGas,
             await admin.getAddress(),
             emptyBytes,
-            conditionalUpkeepExtraData,
+            '0x',
           ),
         'RegistryPaused()',
       )
@@ -4875,12 +4885,12 @@ describe('KeeperRegistry2_1', () => {
     it('succeeds with upkeep needed', async () => {
       const tx = await registry
         .connect(owner)
-        .registerUpkeep(
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
           mercuryUpkeep.address,
           executeGas,
           await admin.getAddress(),
           randomBytes,
-          conditionalUpkeepExtraData,
+          '0x',
         )
       upkeepId = await getUpkeepID(tx)
 
@@ -4888,14 +4898,10 @@ describe('KeeperRegistry2_1', () => {
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic['mercuryCallback(uint256,bytes[],bytes)'](
-          upkeepId,
-          values,
-          conditionalUpkeepExtraData,
-        )
+        .callStatic['mercuryCallback'](upkeepId, values, '0x')
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
-        [values, conditionalUpkeepExtraData],
+        [values, '0x'],
       )
 
       assert.isTrue(res.upkeepNeeded)

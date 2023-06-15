@@ -74,7 +74,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
-  mapping(uint256 => bytes) internal s_checkData;
+  mapping(uint256 => bytes) internal s_pipelineData;
   mapping(bytes32 => bool) internal s_observedLogTriggers;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
@@ -138,7 +138,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IncorrectNumberOfFaultyOracles();
   error RepeatedSigner();
   error RepeatedTransmitter();
-  error CheckDataExceedsLimit();
+  error PipelineDataExceedsLimit();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
   error InvalidReport();
@@ -160,10 +160,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   enum Trigger {
-    CONDITION,
+    BLOCK,
     LOG,
-    CRON,
-    READY
+    CRON
   }
 
   enum UpkeepFailureReason {
@@ -272,23 +271,27 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @notice relevant state of an upkeep which is used in transmit function
    * @member executeGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
+   * @member forwarder the forwarder contract to use for this upkeep
+   * @member receiver the receiver function to call on the target contract
    * @member paused if this upkeep has been paused
-   * @member target the contract which needs to be serviced
+   * @member hasPipeline if this upkeep has a pipeline of pre-processors
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
+   * @member target the contract which needs to be serviced
    */
   struct Upkeep {
     uint32 executeGas;
     uint32 maxValidBlocknumber;
-    bool paused;
     AutomationForwarder forwarder;
-    // TODO - Trigger type would fit in here...
-    // 3 bytes left in 1st EVM word - not written to in transmit
+    bytes4 receiver;
+    // 0 bytes left in 1st EVM word - not written to in transmit
+    bool paused;
+    bool hasPipeline;
     uint96 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
-    // 4 bytes left in 2nd EVM word - written in transmit path
+    // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
   }
@@ -366,6 +369,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
+  struct BlockTriggerConfig {
+    uint32 checkCadance; // how often to check in blocks
+  }
+
   /**
    * @notice structure of offchain config for log triggers
    */
@@ -383,7 +390,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   struct CronTriggerConfig {
     string cron; // cron string such as "* * * 0 0"
-    bytes payload; // function + data to call on target contract
   }
 
   /**
@@ -419,7 +425,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
+  event UpkeepPipelineDataSet(uint256 indexed id, bytes newPipelineData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
@@ -486,44 +492,31 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   /**
    * @notice creates a new upkeep with the given fields
-   * @param target address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when
-   * performing upkeep
+   * @param id the id of the upkeep
+   * @param upkeep the upkeep to create
    * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param paused if this upkeep is paused
-   * TODO - moving this function off of base will probaly save a fair amount of space for one of the contracts (either master or LogicA)
+   * @param pipelineData data the optional input data to the first pipeline task (either "check data" or "perform data")
+   * @param triggerConfig the trigger config for this upkeep
+   * @param offchainConfig the off-chain config of this upkeep
    */
   function _createUpkeep(
     uint256 id,
-    address target,
-    uint32 gasLimit,
+    Upkeep memory upkeep,
     address admin,
-    uint96 balance,
-    bytes memory checkData,
-    bool paused,
+    bytes memory pipelineData,
     bytes memory triggerConfig,
-    bytes memory offchainConfig,
-    AutomationForwarder forwarder
+    bytes memory offchainConfig
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
-    if (!target.isContract()) revert NotAContract();
-    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (!upkeep.target.isContract()) revert NotAContract();
+    if (pipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    if (upkeep.executeGas < PERFORM_GAS_MIN || upkeep.executeGas > s_storage.maxPerformGas)
+      revert GasLimitOutsideRange();
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
-    s_upkeep[id] = Upkeep({
-      target: target,
-      executeGas: gasLimit,
-      balance: balance,
-      maxValidBlocknumber: UINT32_MAX,
-      lastPerformedBlockNumberOrTimestamp: 0,
-      amountSpent: 0,
-      paused: paused,
-      forwarder: forwarder
-    });
+    s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
-    s_expectedLinkBalance = s_expectedLinkBalance + balance;
-    s_checkData[id] = checkData;
+    s_pipelineData[id] = pipelineData;
+    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -680,7 +673,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     for (uint256 idx = 4; idx < 15; idx++) {
       if (rawID[idx] != empty) {
         // old IDs that were created before this standard and migrated to this registry
-        return Trigger.CONDITION;
+        return Trigger.BLOCK;
       }
     }
     return Trigger(uint8(rawID[15]));

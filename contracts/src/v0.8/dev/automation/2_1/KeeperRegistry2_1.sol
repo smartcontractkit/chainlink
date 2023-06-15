@@ -110,9 +110,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
       // Actually perform the target upkeep
       (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
-        upkeepTransmitInfo[i].triggerType,
         upkeepTransmitInfo[i].upkeep.forwarder,
         report.gasLimits[i],
+        upkeepTransmitInfo[i].upkeep.receiver,
         report.performDatas[i]
       );
 
@@ -197,7 +197,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
-    (success, gasUsed) = _performUpkeep(getTriggerType(id), upkeep.forwarder, upkeep.executeGas, performData);
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.executeGas, upkeep.receiver, performData);
     return (success, gasUsed, upkeep.executeGas);
   }
 
@@ -420,7 +420,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep,
     uint96 maxLinkPayment
   ) internal returns (bool) {
-    if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
+    if (triggerType == Trigger.BLOCK) {
       if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
       if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
@@ -454,7 +454,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep
   ) internal returns (bool) {
     BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
-    if (trigger.blockNum < upkeep.lastPerformed) {
+    if (trigger.blockNum < upkeep.lastPerformedBlockNumberOrTimestamp) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
@@ -490,7 +490,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep
   ) internal returns (bool) {
     uint256 trigger = abi.decode(rawTrigger, (uint256));
-    if (trigger <= upkeep.lastPerformed) {
+    if (trigger <= upkeep.lastPerformedBlockNumberOrTimestamp) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
@@ -535,10 +535,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @dev we don't update anything for log triggers because log triggered txs can be performed out of order
    */
   function _updateLastPerformed(uint256 upkeepID, Trigger triggerType) private {
-    if (triggerType == Trigger.CONDITION || triggerType == Trigger.READY) {
-      s_upkeep[upkeepID].lastPerformed = uint32(_blockNum());
+    if (triggerType == Trigger.BLOCK) {
+      s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(_blockNum());
     } else if (triggerType == Trigger.CRON) {
-      s_upkeep[upkeepID].lastPerformed = uint32(block.timestamp);
+      s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(block.timestamp);
     }
   }
 
@@ -547,15 +547,13 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * transmitter and the exact gas required by the Upkeep
    */
   function _performUpkeep(
-    Trigger triggerType,
     AutomationForwarder forwarder,
     uint256 executeGas,
+    bytes4 selector,
     bytes memory performData
   ) private nonReentrant returns (bool success, uint256 gasUsed) {
     gasUsed = gasleft();
-    if (triggerType == Trigger.CONDITION || triggerType == Trigger.LOG) {
-      performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    }
+    performData = abi.encodeWithSelector(selector, performData);
     success = forwarder.forward(executeGas, performData);
     gasUsed = gasUsed - gasleft();
     return (success, gasUsed);

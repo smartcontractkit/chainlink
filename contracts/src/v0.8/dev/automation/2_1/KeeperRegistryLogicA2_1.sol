@@ -59,7 +59,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, s_checkData[id]);
+    return checkUpkeep(id, s_pipelineData[id]);
   }
 
   function checkUpkeep(
@@ -98,10 +98,11 @@ contract KeeperRegistryLogicA2_1 is
     }
 
     upkeepNeeded = true;
+    performData = checkData; // pass data through in case no pipeline is configured
 
-    if (triggerType == Trigger.CONDITION || triggerType == Trigger.LOG) {
+    if (upkeep.hasPipeline) {
       bytes memory callData;
-      if (triggerType == Trigger.CONDITION) {
+      if (triggerType == Trigger.BLOCK || triggerType == Trigger.CRON) {
         callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
       } else {
         callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
@@ -115,10 +116,11 @@ contract KeeperRegistryLogicA2_1 is
         (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
         if (!upkeepNeeded)
           return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-        if (performData.length > s_storage.maxPerformDataSize)
-          return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
       }
     }
+
+    if (performData.length > s_storage.maxPerformDataSize)
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
 
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
   }
@@ -168,24 +170,68 @@ contract KeeperRegistryLogicA2_1 is
 
   function registerUpkeep(
     address target,
+    bytes4 receiver,
     uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
     address admin,
-    bytes calldata checkData, // TODO - this should be included in the trigger
-    bytes calldata extraData
-  ) external returns (uint256 id) {
+    bool hasPipeline,
+    Trigger triggerType,
+    bytes calldata pipelineData,
+    bytes memory triggerConfig,
+    bytes memory offchainConfig
+  ) public returns (uint256 id) {
     if (msg.sender != owner() && !s_registrars.contains(msg.sender)) revert OnlyCallableByOwnerOrRegistrar();
-    (Trigger triggerType, bytes memory triggerConfig, bytes memory offchainConfig) = abi.decode(
-      extraData,
-      (Trigger, bytes, bytes)
-    );
     id = _createID(triggerType);
     AutomationForwarder forwarder = new AutomationForwarder(id, target, address(this));
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, triggerConfig, offchainConfig, forwarder);
+    _createUpkeep(
+      id,
+      Upkeep({
+        target: target,
+        receiver: receiver,
+        executeGas: gasLimit,
+        balance: 0,
+        maxValidBlocknumber: UINT32_MAX,
+        lastPerformedBlockNumberOrTimestamp: 0,
+        amountSpent: 0,
+        paused: false,
+        hasPipeline: hasPipeline,
+        forwarder: forwarder
+      }),
+      admin,
+      pipelineData,
+      triggerConfig,
+      offchainConfig
+    );
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
+    emit UpkeepPipelineDataSet(id, pipelineData);
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
+  }
+
+  /**
+   * this function registers a conditional upkeep, using a backwards compatible function signature
+   * @dev this function is deprecated and will be removed in a future version of chainlink automation
+   */
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
+    address admin,
+    bytes calldata checkData,
+    bytes calldata offchainConfig
+  ) external returns (uint256 id) {
+    return
+      registerUpkeep(
+        target,
+        PERFORM_SELECTOR,
+        gasLimit,
+        admin,
+        true,
+        Trigger.BLOCK,
+        checkData,
+        abi.encode(BlockTriggerConfig({checkCadance: 1})),
+        offchainConfig
+      );
   }
 
   function addFunds(uint256 id, uint96 amount) external {
@@ -275,9 +321,9 @@ contract KeeperRegistryLogicA2_1 is
     uint256 id;
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
-    bytes[] memory checkDatas = new bytes[](ids.length);
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
+    bytes[] memory pipelineDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
@@ -286,13 +332,13 @@ contract KeeperRegistryLogicA2_1 is
       _requireAdminAndNotCancelled(id);
       upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
-      checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
+      pipelineDatas[idx] = s_pipelineData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
-      delete s_checkData[id];
+      delete s_pipelineData[id];
       delete s_upkeepTriggerConfig[id];
       delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
@@ -301,7 +347,7 @@ contract KeeperRegistryLogicA2_1 is
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, triggerConfigs, offchainConfigs);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, admins, pipelineDatas, triggerConfigs, offchainConfigs);
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -325,23 +371,19 @@ contract KeeperRegistryLogicA2_1 is
     (
       uint256[] memory ids,
       Upkeep[] memory upkeeps,
-      bytes[] memory checkDatas,
       address[] memory upkeepAdmins,
+      bytes[] memory pipelineDatas,
       bytes[] memory triggerConfigs,
       bytes[] memory offchainConfigs
-    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[], bytes[]));
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       _createUpkeep(
         ids[idx],
-        upkeeps[idx].target,
-        upkeeps[idx].executeGas,
+        upkeeps[idx],
         upkeepAdmins[idx],
-        upkeeps[idx].balance,
-        checkDatas[idx],
-        upkeeps[idx].paused,
+        pipelineDatas[idx],
         triggerConfigs[idx],
-        offchainConfigs[idx],
-        upkeeps[idx].forwarder
+        offchainConfigs[idx]
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }

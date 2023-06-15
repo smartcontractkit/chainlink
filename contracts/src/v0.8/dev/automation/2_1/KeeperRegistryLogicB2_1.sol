@@ -77,12 +77,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepUnpaused(id);
   }
 
-  // TODO rename
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+  function setUpkeepPipelineData(uint256 id, bytes calldata newPipelineData) external {
     _requireAdminAndNotCancelled(id);
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataUpdated(id, newCheckData);
+    if (newPipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    s_pipelineData[id] = newPipelineData;
+    emit UpkeepPipelineDataSet(id, newPipelineData);
   }
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
@@ -200,6 +199,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
 
   /**
    * @notice read all of the details about an upkeep
+   * @dev this function may be deprecated in a future version of automation in favor of individual
+   * getters for each field
    */
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
@@ -207,7 +208,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       target: reg.target,
       forwarder: address(reg.forwarder),
       executeGas: reg.executeGas,
-      checkData: s_checkData[id],
+      checkData: s_pipelineData[id],
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
@@ -282,6 +283,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function getLogTriggerConfig(uint256 upkeepId) public view returns (LogTriggerConfig memory) {
     require(getTriggerType(upkeepId) == Trigger.LOG);
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
+  }
+
+  function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
+    require(getTriggerType(upkeepId) == Trigger.LOG);
+    return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
   }
 
   function getCronTriggerConfig(uint256 upkeepId) public view returns (CronTriggerConfig memory) {
