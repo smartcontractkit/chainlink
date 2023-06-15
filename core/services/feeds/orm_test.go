@@ -773,8 +773,8 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	actual, err = orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	assert.Equal(t, feeds.JobProposalStatusPending, actual.Status)
-	assert.Equal(t, uuid.NullUUID{}, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
 	assert.True(t, actual.PendingUpdate)
 
 	// Delete the proposal
