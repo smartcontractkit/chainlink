@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -20,25 +21,25 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 const (
 	BlockNumber        = "blockNumber" // valid for v0.2
 	FeedID             = "feedID"      // valid for v0.3
 	FeedIDHex          = "feedIDHex"   // valid for v0.2
-	MercuryHostV2      = ""
 	MercuryHostV3      = ""
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
-	Retry              = "retry"
-	RetryDelay         = 600 * time.Millisecond
+	RetryDelay         = 500 * time.Millisecond
 	Timestamp          = "timestamp" // valid for v0.3
 	TotalAttempt       = 3
 	UserId             = "userId"
+	MercuryV02         = MercuryVersion("v0.2")
+	MercuryV03         = MercuryVersion("v0.3")
 )
+
+type MercuryVersion string
 
 type FeedLookup struct {
 	feedParamKey string
@@ -71,7 +72,6 @@ type AdminOffchainConfig struct {
 func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult21) ([]EVMAutomationUpkeepResult21, error) {
 	// TODO (AUTO-2862): parallelize the feed lookup work for all upkeeps
 	for i := range upkeepResults {
-		// if its another reason continue/skip
 		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
@@ -97,9 +97,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 			continue
 		}
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d perform data: %v", upkeepId, block, upkeepResults[i].PerformData)
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d perform data: %s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
 
-		// if it doesn't decode to the FeedLookup custom error continue/skip
 		feedLookup, err := r.decodeFeedLookup(upkeepResults[i].PerformData)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
@@ -107,7 +105,6 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 		}
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d feedLookup=%v", upkeepId, block, feedLookup)
 
-		// do the mercury lookup request
 		values, retryable, err := r.doMercuryRequest(ctx, feedLookup, upkeepId)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d doMercuryRequest: %v", upkeepId, block, err)
@@ -116,19 +113,18 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 			continue
 		}
 
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v", values)
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d extraData: %v", feedLookup.extraData)
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v\nextraData: %v", upkeepId, block, values, feedLookup.extraData)
 		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, block)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)
 			continue
 		}
 
-		r.lggr.Infof("FeedLookup checkCallback b=%v", mercuryBytes.String())
 		r.lggr.Infof("FeedLookup checkCallback b=%v", mercuryBytes)
 		needed, performData, failureReason, gasUsed, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", upkeepId, block, err)
+			continue
 		}
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d needed %v\nperformData: %v\nfailureReason: %d\ngasUsed: %s\nperformData: %s", upkeepId, block, needed, performData, failureReason, gasUsed.String(), hexutil.Encode(performData))
 
@@ -157,7 +153,6 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 // this upkeep is allowed to use Mercury service.
 func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (bool, error) {
 	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
-	r.lggr.Info(allowed)
 	if ok {
 		return allowed.(bool), nil
 	}
@@ -213,7 +208,7 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, upkeepID *big.Int, valu
 	return b, nil
 }
 
-// doMercuryRequest
+// doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.
 func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upkeepId *big.Int) ([][]byte, bool, error) {
 	// TODO (AUTO-3253): if no feed labels are provided in v0.3, request for all feeds
 	resultLen := len(ml.feeds)
@@ -221,12 +216,12 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 	if ml.feedParamKey == FeedIDHex && ml.timeParamKey == BlockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
-			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml, job.MercuryV02)
+			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml, MercuryV02)
 		}
 	} else if ml.feedParamKey == FeedID && ml.timeParamKey == Timestamp {
 		// only mercury v0.3
 		if resultLen == 1 {
-			go r.singleFeedRequest(ctx, ch, upkeepId, 0, ml, job.MercuryV03)
+			go r.singleFeedRequest(ctx, ch, upkeepId, 0, ml, MercuryV03)
 		} else {
 			// create a new channel with buffer size 1 since the batch endpoint will only return 1 blob
 			resultLen = 1
@@ -256,16 +251,15 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 }
 
 // singleFeedRequest sends a Mercury request for a single feed report.
-func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *FeedLookup, mv job.MercuryVersion) {
+func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, index int, ml *FeedLookup, mv MercuryVersion) {
 	q := url.Values{
 		ml.feedParamKey: {ml.feeds[index]},
 		ml.timeParamKey: {ml.time.String()},
 		UserId:          {upkeepId.String()},
 	}
-	mercuryURL := MercuryHostV2
+	mercuryURL := r.mercury.cred.URL
 	path := MercuryPathV2
-	if mv == job.MercuryV03 {
-		mercuryURL = MercuryHostV3
+	if mv == MercuryV03 {
 		path = MercuryPathV3
 	}
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, path, q.Encode())
@@ -295,14 +289,13 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
-				r.lggr.Errorf("FeedLookup upkeep %s block %s fails to read response body for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				return err1
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
-				return errors.New(Retry)
+				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 			}
@@ -323,7 +316,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
@@ -343,15 +336,12 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 // multiFeedsRequest sends a Mercury request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, ml *FeedLookup) {
 	q := url.Values{
-		ml.timeParamKey: {ml.time.String()},
-		UserId:          {upkeepId.String()},
-	}
-	// verify this will generate param like feedIDHex=id1,id2,id3
-	for _, f := range ml.feeds {
-		q.Add(ml.feedParamKey, f)
+		FeedID:    {strings.Join(ml.feeds, ",")},
+		Timestamp: {ml.time.String()},
+		UserId:    {upkeepId.String()},
 	}
 
-	reqUrl := fmt.Sprintf("%s%s%s", MercuryHostV3, MercuryBatchPathV3, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, MercuryBatchPathV3, q.Encode())
 	r.lggr.Debugf("FeedLookup request URL: %s", reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -378,14 +368,13 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
-				r.lggr.Errorf("FeedLookup upkeep %s block %s fails to read response body for multi feed: %v", upkeepId.String(), ml.time.String(), err1)
 				return err1
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.time.String(), resp.StatusCode)
 				retryable = true
-				return errors.New(Retry)
+				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", upkeepId.String(), ml.time.String(), resp.StatusCode)
 			}
@@ -407,16 +396,16 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			}
 			return nil
 		},
-		// only retry when the error is 404 Not Found
+		// only retry when the error is 404 Not Found or 500 Internal Server Error
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == Retry
+			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError)
 		}),
 		retry.Context(ctx),
 		retry.Delay(RetryDelay),
 		retry.Attempts(TotalAttempt))
 
 	// if all retries fail, return the error and ask the caller to handle cool down and heavyweight retry
-	if retryErr != nil || retryable {
+	if retryErr != nil {
 		mb := MercuryBytes{
 			Index:     0,
 			Retryable: retryable,
