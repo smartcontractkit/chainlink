@@ -1146,62 +1146,6 @@ func (_m *ChainScopedConfig) OCR2AutomationGasLimit() uint32 {
 	return r0
 }
 
-// OCRContractConfirmations provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRContractConfirmations() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// OCRContractTransmitterTransmitTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRDatabaseTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRDatabaseTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRObservationGracePeriod provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRObservationGracePeriod() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OperatorFactoryAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) OperatorFactoryAddress() string {
 	ret := _m.Called()

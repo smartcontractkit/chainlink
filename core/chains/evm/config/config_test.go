@@ -250,11 +250,11 @@ func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-	timeout := cfg.OCRDatabaseTimeout()
+	timeout := cfg.EVM().OCR().DatabaseTimeout()
 	require.Equal(t, 2*time.Second, timeout)
-	timeout = cfg.OCRContractTransmitterTransmitTimeout()
+	timeout = cfg.EVM().OCR().ContractTransmitterTransmitTimeout()
 	require.Equal(t, 2*time.Second, timeout)
-	timeout = cfg.OCRObservationGracePeriod()
+	timeout = cfg.EVM().OCR().ObservationGracePeriod()
 	require.Equal(t, 500*time.Millisecond, timeout)
 }
 
