@@ -718,6 +718,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
+TraceLogging = false # Default
 ```
 
 
@@ -820,6 +821,12 @@ DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in
 SimulateTransactions = false # Default
 ```
 SimulateTransactions enables transaction simulation for OCR2.
+
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
 
 ## OCR
 ```toml
@@ -3182,6 +3189,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'celo'
 FinalityDepth = 1
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3206,17 +3214,17 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = true
+EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
@@ -3412,6 +3420,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'celo'
 FinalityDepth = 1
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3436,24 +3445,24 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = true
+EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 12
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60

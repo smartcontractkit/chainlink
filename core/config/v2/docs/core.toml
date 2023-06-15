@@ -303,6 +303,8 @@ CaptureEATelemetry = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 # SimulateTransactions enables transaction simulation for OCR2.
 SimulateTransactions = false # Default
+# TraceLogging enables trace level logging.
+TraceLogging = false # Default
 
 # This section applies only if you are running off-chain reporting jobs.
 [OCR]

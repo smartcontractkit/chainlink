@@ -12,20 +12,22 @@ import (
 )
 
 type headSaver struct {
-	orm    ORM
-	config Config
-	logger logger.Logger
-	heads  Heads
+	orm      ORM
+	config   Config
+	htConfig HeadTrackerConfig
+	logger   logger.Logger
+	heads    Heads
 }
 
 var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
+func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
 	return &headSaver{
-		orm:    orm,
-		config: config,
-		logger: lggr.Named("HeadSaver"),
-		heads:  NewHeads(),
+		orm:      orm,
+		config:   config,
+		htConfig: htConfig,
+		logger:   lggr.Named("HeadSaver"),
+		heads:    NewHeads(),
 	}
 }
 
@@ -34,14 +36,14 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 		return err
 	}
 
-	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
+	historyDepth := uint(hs.htConfig.HistoryDepth())
 	hs.heads.AddHeads(historyDepth, head)
 
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
 func (hs *headSaver) Load(ctx context.Context) (chain *evmtypes.Head, err error) {
-	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
+	historyDepth := uint(hs.htConfig.HistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
 		return nil, err

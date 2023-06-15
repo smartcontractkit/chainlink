@@ -41,7 +41,7 @@ func newEvmTxm(
 
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
-		estimator = gas.NewEstimator(lggr, client, cfg)
+		estimator = gas.NewEstimator(lggr, client, cfg, cfg.EVM().GasEstimator())
 	} else {
 		estimator = opts.GenGasEstimator(chainID)
 	}

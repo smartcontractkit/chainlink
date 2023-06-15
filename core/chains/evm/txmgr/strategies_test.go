@@ -45,7 +45,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	subject := uuid.New()
 	queueSize := uint32(2)
 	queryTimeout := cfg.Database().DefaultQueryTimeout()
-	mockTxStore := mocks.NewMockEvmTxStore(t)
+	mockTxStore := mocks.NewEvmTxStore(t)
 
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
