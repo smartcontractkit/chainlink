@@ -17,10 +17,11 @@ func TestContextValues(t *testing.T) {
 		len  int
 	}{
 		{name: "full", vals: ContextValues{
-			JobID:      42,
-			JobName:    "name",
-			ContractID: utils.MustParseURL("http://example.com"),
-			FeedID:     big.NewInt(1234567890987654321),
+			JobID:         42,
+			JobName:       "name",
+			ContractID:    utils.MustParseURL("http://example.com"),
+			FeedID:        big.NewInt(1234567890987654321),
+			TransmitterID: "0xfake-test-id",
 		}, len: 8},
 		{name: "feedless", vals: ContextValues{
 			JobID:      42,

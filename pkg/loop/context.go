@@ -9,6 +9,7 @@ const (
 	ctxKeyJobName
 	ctxKeyContractID
 	ctxKeyFeedID
+	ctxKeyTransmitterID
 )
 
 // ContextValues is a helper for passing values via a [context.Context].
@@ -16,8 +17,9 @@ type ContextValues struct {
 	JobID   any
 	JobName any
 
-	ContractID any
-	FeedID     any
+	ContractID    any
+	FeedID        any
+	TransmitterID any
 }
 
 // Args returns a slice of args to pass to [logger.Logger.With].
@@ -33,6 +35,9 @@ func (v *ContextValues) Args() (a []any) {
 	}
 	if v.FeedID != nil {
 		a = append(a, "feedID", v.FeedID)
+	}
+	if v.TransmitterID != nil {
+		a = append(a, "transmitterID", v.TransmitterID)
 	}
 	return
 }
@@ -51,6 +56,9 @@ func (v *ContextValues) ContextWithValues(ctx context.Context) context.Context {
 	if v.FeedID != nil {
 		ctx = context.WithValue(ctx, ctxKeyFeedID, v.FeedID)
 	}
+	if v.TransmitterID != nil {
+		ctx = context.WithValue(ctx, ctxKeyTransmitterID, v.TransmitterID)
+	}
 	return ctx
 }
 
@@ -60,4 +68,5 @@ func (v *ContextValues) SetValues(ctx context.Context) {
 	v.JobName = ctx.Value(ctxKeyJobName)
 	v.ContractID = ctx.Value(ctxKeyContractID)
 	v.FeedID = ctx.Value(ctxKeyFeedID)
+	v.TransmitterID = ctx.Value(ctxKeyTransmitterID)
 }
