@@ -35,7 +35,7 @@ Order = 5
   jobs. These replace the settings `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions`
   for OCR2.
 
-- Add new config parameter to OCR named `TraceLogging` that enables trace logging of OCR jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` to the same value `P2P.TraceLogging` was set.
+- Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
 
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly

@@ -5,15 +5,16 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
-
-// Config contains OCR2 configurations for a job.
-type Config interface {
-	config.OCR2Config
+// OCR2Config contains OCR2 configurations for a job.
+type OCR2Config interface {
+	BlockchainTimeout() time.Duration
+	ContractConfirmations() uint16
+	ContractPollInterval() time.Duration
+	ContractTransmitterTransmitTimeout() time.Duration
+	DatabaseTimeout() time.Duration
 }
 
 type InsecureConfig interface {
@@ -21,27 +22,27 @@ type InsecureConfig interface {
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(config Config, insConf InsecureConfig, spec job.OCR2OracleSpec) types.LocalConfig {
+func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) types.LocalConfig {
 	var (
 		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
 		ccConfirmations       = spec.ContractConfigConfirmations
 		ccTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
 	)
 	if blockchainTimeout == 0 {
-		blockchainTimeout = config.OCR2BlockchainTimeout()
+		blockchainTimeout = ocr2Config.BlockchainTimeout()
 	}
 	if ccConfirmations == 0 {
-		ccConfirmations = config.OCR2ContractConfirmations()
+		ccConfirmations = ocr2Config.ContractConfirmations()
 	}
 	if ccTrackerPollInterval == 0 {
-		ccTrackerPollInterval = config.OCR2ContractPollInterval()
+		ccTrackerPollInterval = ocr2Config.ContractPollInterval()
 	}
 	lc := types.LocalConfig{
 		BlockchainTimeout:                  blockchainTimeout,
 		ContractConfigConfirmations:        ccConfirmations,
 		ContractConfigTrackerPollInterval:  ccTrackerPollInterval,
-		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
+		ContractTransmitterTransmitTimeout: ocr2Config.ContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                    ocr2Config.DatabaseTimeout(),
 	}
 	if insConf.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
