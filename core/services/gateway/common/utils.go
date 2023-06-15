@@ -1,8 +1,11 @@
 package common
 
 import (
+	"crypto/ecdsa"
 	"encoding/binary"
+	"errors"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/exp/slices"
 )
 
@@ -26,4 +29,25 @@ func StringToAlignedBytes(input string, size int) []byte {
 func AlignedBytesToString(data []byte) string {
 	idx := slices.IndexFunc(data, func(b byte) bool { return b == 0 })
 	return string(data[:idx])
+}
+
+func SignData(privateKey *ecdsa.PrivateKey, data ...[]byte) ([]byte, error) {
+	hash := crypto.Keccak256Hash(data...)
+	return crypto.Sign(hash.Bytes(), privateKey)
+}
+
+func ValidateSignature(signature []byte, data ...[]byte) (signerAddress []byte, err error) {
+	hash := crypto.Keccak256Hash(data...)
+	sigPublicKey, err := crypto.Ecrecover(hash.Bytes(), signature)
+	if err != nil {
+		return
+	}
+	ecdsaPubKey, _ := crypto.UnmarshalPubkey(sigPublicKey)
+	signerAddress = crypto.PubkeyToAddress(*ecdsaPubKey).Bytes()
+
+	signatureNoRecoverID := signature[:len(signature)-1]
+	if !crypto.VerifySignature(sigPublicKey, hash.Bytes(), signatureNoRecoverID) {
+		return nil, errors.New("invalid signature")
+	}
+	return
 }
