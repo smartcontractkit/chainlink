@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-contract MockAggregatorProxy {
+import '../HeartbeatRequester.sol';
+
+contract MockAggregatorProxy is IAggregatorProxy, IOffchainAggregator{
   address internal s_aggregator;
 
   constructor(address aggregator) {
@@ -12,7 +14,13 @@ contract MockAggregatorProxy {
     s_aggregator = aggregator;
   }
 
-  function aggregator() external view returns (address) {
+  function aggregator() external override view returns (address) {
     return s_aggregator;
+  }
+
+  function requestNewRound() external override returns (uint80){
+    // do we need the actual logic of requestNewRound?
+    // or is dummy requestNewRound ok?
+    return 1;
   }
 }
