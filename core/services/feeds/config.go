@@ -1,15 +1,10 @@
 package feeds
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
-
-type Config interface {
-	config.OCR2Config
-	OCREnabled() bool
-	OCR2Enabled() bool
-}
 
 type JobConfig interface {
 	DefaultHTTPTimeout() models.Duration
@@ -17,4 +12,18 @@ type JobConfig interface {
 
 type InsecureConfig interface {
 	OCRDevelopmentMode() bool
+}
+
+type OCRConfig interface {
+	Enabled() bool
+}
+
+type OCR2Config interface {
+	Enabled() bool
+	BlockchainTimeout() time.Duration
+	ContractConfirmations() uint16
+	ContractPollInterval() time.Duration
+	ContractTransmitterTransmitTimeout() time.Duration
+	DatabaseTimeout() time.Duration
+	TraceLogging() bool
 }

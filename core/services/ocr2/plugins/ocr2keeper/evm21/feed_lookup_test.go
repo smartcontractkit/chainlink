@@ -424,15 +424,16 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	tests := []struct {
-		name         string
-		index        int
-		ml           *FeedLookup
-		mv           MercuryVersion
-		blob         string
-		statusCode   int
-		retryNumber  int
-		retryable    bool
-		errorMessage string
+		name           string
+		index          int
+		ml             *FeedLookup
+		mv             MercuryVersion
+		blob           string
+		statusCode     int
+		lastStatusCode int
+		retryNumber    int
+		retryable      bool
+		errorMessage   string
 	}{
 		{
 			name:  "success - mercury responds in the first try",
@@ -442,7 +443,6 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "blockNumber",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			mv:   MercuryV02,
 			blob: "0xab2123dc00000012",
@@ -455,12 +455,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "blockNumber",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
-			mv:          MercuryV02,
-			blob:        "0xab2123dcbabbad",
-			retryNumber: 1,
-			statusCode:  http.StatusNotFound,
+			mv:             MercuryV02,
+			blob:           "0xab2123dcbabbad",
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusOK,
 		},
 		{
 			name:  "success - retry for 500",
@@ -470,12 +470,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "blockNumber",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
-			mv:          MercuryV02,
-			blob:        "0xab2123dcbbabad",
-			retryNumber: 2,
-			statusCode:  http.StatusInternalServerError,
+			mv:             MercuryV02,
+			blob:           "0xab2123dcbbabad",
+			retryNumber:    2,
+			statusCode:     http.StatusInternalServerError,
+			lastStatusCode: http.StatusOK,
 		},
 		{
 			name:  "failure - returns retryable",
@@ -485,7 +485,6 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "blockNumber",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			mv:           MercuryV02,
 			blob:         "0xab2123dc",
@@ -495,6 +494,22 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
 		},
 		{
+			name:  "failure - returns retryable and then non-retryable",
+			index: 0,
+			ml: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(123456),
+			},
+			mv:             MercuryV02,
+			blob:           "0xab2123dc",
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusBadGateway,
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+		},
+		{
 			name:  "failure - returns not retryable",
 			index: 0,
 			ml: &FeedLookup{
@@ -502,12 +517,10 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "blockNumber",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			mv:           MercuryV02,
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
-			retryable:    false,
 			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 	}
@@ -543,7 +556,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
 
 				resp := &http.Response{
-					StatusCode: http.StatusOK,
+					StatusCode: tt.lastStatusCode,
 					Body:       io.NopCloser(bytes.NewReader(b)),
 				}
 				hc.On("Do", mock.Anything).Return(resp, nil).Once()
@@ -578,13 +591,14 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	tests := []struct {
-		name         string
-		ml           *FeedLookup
-		blob         string
-		statusCode   int
-		retryNumber  int
-		retryable    bool
-		errorMessage string
+		name           string
+		ml             *FeedLookup
+		blob           string
+		statusCode     int
+		lastStatusCode int
+		retryNumber    int
+		retryable      bool
+		errorMessage   string
 	}{
 		{
 			name: "success - mercury responds in the first try",
@@ -593,7 +607,6 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "timestamp",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			blob: "0xab2123dc00000012",
 		},
@@ -604,11 +617,11 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "timestamp",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
-			blob:        "0xab2123dcbabbad",
-			retryNumber: 1,
-			statusCode:  http.StatusNotFound,
+			blob:           "0xab2123dcbabbad",
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusOK,
 		},
 		{
 			name: "success - retry for 500",
@@ -617,11 +630,11 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "timestamp",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
-			blob:        "0xab2123dcbbabad",
-			retryNumber: 2,
-			statusCode:  http.StatusInternalServerError,
+			blob:           "0xab2123dcbbabad",
+			retryNumber:    2,
+			statusCode:     http.StatusInternalServerError,
+			lastStatusCode: http.StatusOK,
 		},
 		{
 			name: "failure - returns retryable",
@@ -630,7 +643,6 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "timestamp",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			blob:         "0xab2123dc",
 			retryNumber:  TotalAttempt,
@@ -639,17 +651,29 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
 		},
 		{
+			name: "failure - returns retryable and then non-retryable",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+			},
+			blob:           "0xab2123dc",
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusBadGateway,
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
+		},
+		{
 			name: "failure - returns not retryable",
 			ml: &FeedLookup{
 				feedParamKey: "feedID",
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: "timestamp",
 				time:         big.NewInt(123456),
-				extraData:    nil,
 			},
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
-			retryable:    false,
 			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
 		},
 	}
@@ -685,7 +709,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
 
 				resp := &http.Response{
-					StatusCode: http.StatusOK,
+					StatusCode: tt.lastStatusCode,
 					Body:       io.NopCloser(bytes.NewReader(b)),
 				}
 				hc.On("Do", mock.Anything).Return(resp, nil).Once()

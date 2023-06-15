@@ -26,12 +26,19 @@ var _ EvmTxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID  big.Int
-	config   Config
+	config   evmTxAttemptBuilderConfig
 	keystore TxAttemptSigner[common.Address]
 	gas.EvmFeeEstimator
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+type evmTxAttemptBuilderConfig interface {
+	EvmEIP1559DynamicFees() bool
+	EvmGasTipCapMinimum() *assets.Wei
+	EvmMinGasPriceWei() *assets.Wei
+	KeySpecificMaxGasPriceWei(common.Address) *assets.Wei
+}
+
+func NewEvmTxAttemptBuilder(chainID big.Int, config evmTxAttemptBuilderConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
 	return &evmTxAttemptBuilder{chainID, config, keystore, estimator}
 }
 
@@ -158,7 +165,7 @@ var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EvmTx) error {
+func validateDynamicFeeGas(cfg evmTxAttemptBuilderConfig, fee gas.DynamicFee, gasLimit uint32, etx EvmTx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -240,7 +247,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EvmTx) error {
+func validateLegacyGas(cfg evmTxAttemptBuilderConfig, gasPrice *assets.Wei, gasLimit uint32, etx EvmTx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}

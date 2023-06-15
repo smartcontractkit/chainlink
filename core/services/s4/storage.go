@@ -43,6 +43,8 @@ type Metadata struct {
 	Signature []byte
 }
 
+//go:generate mockery --quiet --name Storage --output ./mocks/ --case=underscore
+
 // Storage represents S4 storage access interface.
 // All functions are thread-safe.
 type Storage interface {
@@ -57,6 +59,10 @@ type Storage interface {
 	// Put creates (or updates) a record identified by the specified key.
 	// For signature calculation see envelope.go
 	Put(ctx context.Context, key *Key, record *Record, signature []byte) error
+
+	// List returns a snapshot for the specified address.
+	// Slots having no data are not returned.
+	List(ctx context.Context, address common.Address) ([]*SnapshotRow, error)
 }
 
 type storage struct {
@@ -107,6 +113,11 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 	copy(metadata.Signature, row.Signature)
 
 	return record, metadata, nil
+}
+
+func (s *storage) List(ctx context.Context, address common.Address) ([]*SnapshotRow, error) {
+	bigAddress := utils.NewBig(address.Big())
+	return s.orm.GetSnapshot(NewSingleAddressRange(bigAddress), pg.WithParentCtx(ctx))
 }
 
 func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature []byte) error {

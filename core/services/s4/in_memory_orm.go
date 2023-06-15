@@ -74,7 +74,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt) error {
+func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt) (int64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -91,7 +91,7 @@ func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt)
 		delete(o.rows, k)
 	}
 
-	return nil
+	return int64(len(queue)), nil
 }
 
 func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
@@ -103,10 +103,11 @@ func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) 
 	for _, mrow := range o.rows {
 		if mrow.Row.Expiration > now {
 			rows = append(rows, &SnapshotRow{
-				Address:   utils.NewBig(mrow.Row.Address.ToInt()),
-				SlotId:    mrow.Row.SlotId,
-				Version:   mrow.Row.Version,
-				Confirmed: mrow.Row.Confirmed,
+				Address:    utils.NewBig(mrow.Row.Address.ToInt()),
+				SlotId:     mrow.Row.SlotId,
+				Version:    mrow.Row.Version,
+				Expiration: mrow.Row.Expiration,
+				Confirmed:  mrow.Row.Confirmed,
 			})
 		}
 	}

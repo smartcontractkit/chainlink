@@ -24,11 +24,19 @@ var (
 	MaxAddress          = utils.NewBig(common.BytesToAddress(bytes.Repeat([]byte{0xff}, common.AddressLength)).Big())
 )
 
-// NewFullAddressRange create AddressRange for all address space: 0x00..-0xFF..
+// NewFullAddressRange creates AddressRange for all address space: 0x00..-0xFF..
 func NewFullAddressRange() *AddressRange {
 	return &AddressRange{
 		MinAddress: MinAddress,
 		MaxAddress: MaxAddress,
+	}
+}
+
+// NewSingleAddressRange creates AddressRange for a single address.
+func NewSingleAddressRange(address *utils.Big) *AddressRange {
+	return &AddressRange{
+		MinAddress: address,
+		MaxAddress: address,
 	}
 }
 

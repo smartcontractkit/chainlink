@@ -102,7 +102,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 
 		run := s.newMemoryTaskRun(task, s.vars.Copy())
 
-		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
+		lggr.Tracew("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++
@@ -246,7 +246,7 @@ func (s *scheduler) Run() {
 					// schedule a new attempt
 					run := s.newMemoryTaskRun(result.Task, vars)
 					run.attempts = result.Attempts
-					s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+					s.logger.Tracew("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 					s.taskCh <- run
 				}
 			}(s.vars.Copy()) // must Copy() from current goroutine
@@ -264,7 +264,7 @@ func (s *scheduler) Run() {
 				task := s.pipeline.Tasks[id]
 				run := s.newMemoryTaskRun(task, s.vars.Copy())
 
-				s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+				s.logger.Tracew("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run
 				s.waiting++
 			}

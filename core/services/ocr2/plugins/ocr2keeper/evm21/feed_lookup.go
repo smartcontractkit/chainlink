@@ -27,7 +27,6 @@ const (
 	BlockNumber        = "blockNumber" // valid for v0.2
 	FeedID             = "feedID"      // valid for v0.3
 	FeedIDHex          = "feedIDHex"   // valid for v0.2
-	MercuryHostV3      = ""
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
@@ -281,6 +280,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 	retryable := false
 	retryErr := retry.Do(
 		func() error {
+			retryable = false
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v", upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
@@ -360,6 +360,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 	retryable := false
 	retryErr := retry.Do(
 		func() error {
+			retryable = false
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for multi feed: %v", upkeepId.String(), ml.time.String(), err1)

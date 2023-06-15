@@ -11,7 +11,7 @@ import (
 var verifiableLoad = &cobra.Command{
 	Use:   "verifiable-load",
 	Short: "Print verifiable load testing details to console",
-	Long:  `Print verifiable load testing details to console, including details of every active upkeeps and total result`,
+	Long:  `Print verifiable load testing details to console, including details of every active upkeep and total result`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)

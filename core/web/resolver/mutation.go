@@ -216,7 +216,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -343,7 +343,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -1012,12 +1012,12 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	switch jbt {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
-		if !config.OCREnabled() {
+		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), r.App.GetConfig().Insecure(), args.Input.TOML)
-		if !config.OCR2Enabled() {
+		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML)
+		if !config.OCR2().Enabled() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:

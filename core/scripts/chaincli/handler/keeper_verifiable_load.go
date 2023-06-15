@@ -15,6 +15,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 )
 
+const (
+	// WorkerNum is the total number of workers calculating upkeeps' delay summary
+	WorkerNum = 5
+	// RetryDelay is the time the go routine will wait before calling the same contract function
+	RetryDelay = 1 * time.Second
+	// RetryNum defines how many times the go routine will attempt the same contract call
+	RetryNum = 3
+	// MaxUpkeepNum defines the size of channels. Increase if there are lots of upkeeps.
+	MaxUpkeepNum = 100
+)
+
 type UpkeepInfo struct {
 	mu                    sync.Mutex
 	ID                    *big.Int
@@ -29,14 +40,14 @@ type UpkeepInfo struct {
 
 func (ui *UpkeepInfo) AddBucket(bucketNum uint16, bucketDelays []float64) {
 	ui.mu.Lock()
+	defer ui.mu.Unlock()
 	ui.DelayBuckets[bucketNum] = bucketDelays
-	ui.mu.Unlock()
 }
 
 func (ui *UpkeepInfo) AddTimestampBucket(bucketNum uint16, bucketDelays []float64) {
 	ui.mu.Lock()
+	defer ui.mu.Unlock()
 	ui.DelayTimestampBuckets[bucketNum] = bucketDelays
-	ui.mu.Unlock()
 }
 
 type UpkeepStats struct {
@@ -74,13 +85,13 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 
 	upkeepStats := &UpkeepStats{BlockNumber: blockNum}
 
-	resultsChan := make(chan *UpkeepInfo, 100)
-	idChan := make(chan *big.Int, 100)
+	resultsChan := make(chan *UpkeepInfo, MaxUpkeepNum)
+	idChan := make(chan *big.Int, MaxUpkeepNum)
 
 	var wg sync.WaitGroup
 
 	// create a number of workers to process the upkeep ids in batch
-	for i := 0; i < 5; i++ {
+	for i := 0; i < WorkerNum; i++ {
 		wg.Add(1)
 		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg)
 	}
@@ -140,6 +151,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		var delays []float64
 		var wg1 sync.WaitGroup
 		for i := uint16(0); i <= b; i++ {
+			wg.Add(1)
 			go k.getBucketData(v, opts, false, id, i, &wg1, info)
 		}
 		wg1.Wait()
@@ -151,6 +163,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		}
 		info.TimestampBucket = t
 		for i := uint16(0); i <= t; i++ {
+			wg.Add(1)
 			go k.getBucketData(v, opts, true, id, i, &wg1, info)
 		}
 		wg1.Wait()
@@ -179,27 +192,26 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 }
 
 func (k *Keeper) getBucketData(v *verifiable_load_upkeep_wrapper.VerifiableLoadUpkeep, opts *bind.CallOpts, getTimestampBucket bool, id *big.Int, bucketNum uint16, wg *sync.WaitGroup, info *UpkeepInfo) {
-	wg.Add(1)
 	defer wg.Done()
 
 	var bucketDelays []*big.Int
 	var err error
 	if getTimestampBucket {
-		for i := 0; i < 3; i++ {
+		for i := 0; i < RetryNum; i++ {
 			bucketDelays, err = v.GetTimestampDelays(opts, id, bucketNum)
 			if err != nil {
 				log.Printf("failed to get timestamp bucketed delays for upkeep id %s timestamp bucket %d: %v, retrying...", id.String(), bucketNum, err)
-				time.Sleep(time.Second * 3)
+				time.Sleep(RetryDelay)
 			} else {
 				break
 			}
 		}
 	} else {
-		for i := 0; i < 3; i++ {
+		for i := 0; i < RetryNum; i++ {
 			bucketDelays, err = v.GetBucketedDelays(opts, id, bucketNum)
 			if err != nil {
 				log.Printf("failed to get bucketed delays for upkeep id %s bucket %d: %v, retrying...", id.String(), bucketNum, err)
-				time.Sleep(time.Second * 3)
+				time.Sleep(RetryDelay)
 			} else {
 				break
 			}
