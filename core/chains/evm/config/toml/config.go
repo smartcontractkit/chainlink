@@ -330,6 +330,7 @@ type Chain struct {
 	BlockBackfillSkip        *bool
 	ChainType                *string
 	FinalityDepth            *uint32
+	FinalityTag              *bool
 	FlagsContractAddress     *ethkey.EIP55Address
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32

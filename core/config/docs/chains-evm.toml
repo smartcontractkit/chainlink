@@ -37,6 +37,9 @@ ChainType = 'arbitrum' # Example
 # A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
 # A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
 FinalityDepth = 50 # Default
+# FinalityTag means that the chain supports the finalized block tag when querying for a block. If FinalityTag is set to true for a chain, then FinalityDepth field is ignored.
+# Finality for a block is solely defined by the finality related tags provided by the chain's RPC API. This is a placeholder and hasn't been implemented yet.
+FinalityTag = false # Default
 # **ADVANCED**
 # FlagsContractAddress can optionally point to a [Flags contract](../contracts/src/v0.8/Flags.sol). If set, the node will lookup that contract for each job that supports flags contracts (currently OCR and FM jobs are supported). If the job's contractAddress is set as hibernating in the FlagsContractAddress address, it overrides the standard update parameters (such as heartbeat/threshold).
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example

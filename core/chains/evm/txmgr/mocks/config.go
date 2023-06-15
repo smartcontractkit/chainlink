@@ -40,6 +40,20 @@ func (_m *Config) FinalityDepth() uint32 {
 	return r0
 }
 
+// FinalityTag provides a mock function with given fields:
+func (_m *Config) FinalityTag() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // NonceAutoSync provides a mock function with given fields:
 func (_m *Config) NonceAutoSync() bool {
 	ret := _m.Called()

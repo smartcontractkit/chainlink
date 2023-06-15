@@ -26,6 +26,7 @@ type EVM interface {
 	ChainID() *big.Int
 	ChainType() config.ChainType
 	FinalityDepth() uint32
+	FinalityTag() bool
 	FlagsContractAddress() string
 	LinkContractAddress() string
 	LogBackfillBatchSize() uint32

@@ -98,6 +98,7 @@ var (
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth: ptr[uint32](26),
+					FinalityTag:   ptr[bool](false),
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -446,6 +447,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
+				FinalityTag:          ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
@@ -848,6 +850,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+FinalityTag = false
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17

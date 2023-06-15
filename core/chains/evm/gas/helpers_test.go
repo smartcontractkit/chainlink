@@ -125,6 +125,10 @@ func (m *MockConfig) FinalityDepth() uint32 {
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *MockConfig) FinalityTag() bool {
+	panic("not implemented") // TODO: Implement
+}
+
 type MockGasEstimatorConfig struct {
 	EIP1559DynamicFeesF bool
 	BumpPercentF        uint16

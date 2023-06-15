@@ -38,6 +38,7 @@ CPUProfileRate = 7
 [[EVM]]
 ChainID = '1'
 FinalityDepth = 26
+FinalityTag = false
 
 [[EVM.Nodes]]
 Name = 'primary'
