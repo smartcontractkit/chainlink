@@ -148,7 +148,11 @@ type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+type thresholdConfig interface {
+	ThresholdKeyShare() string
+}
+
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, qconf pg.QConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -832,6 +836,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			pluginService,
 		}, nil
 	case job.OCR2Functions:
+		encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
+		if len(encryptedThresholdKeyShare) == 0 {
+			d.lggr.Warn("ThresholdKeyShare is empty")
+		}
+
 		if spec.Relay != relay.EVM {
 			return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 		}
