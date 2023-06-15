@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -79,227 +79,146 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	return r
 }
 
-// helper for mocking the http requests
-//func (r *EvmRegistry) buildRevertBytesHelper() []byte {
-//	mercuryErr := r.mercury.abi.Errors["FeedLookup"]
-//	mercuryLookupSelector := [4]byte{0x62, 0xe8, 0xa5, 0x0d}
-//	ml := FeedLookup{
-//		feedParamKey:  "feedIDHex",
-//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//		timeParamKey: "blockNumber",
-//		time:      big.NewInt(8586948),
-//		extraData:  []byte{},
-//	}
-//	// check if Pack does not add selector for me
-//	pack, err := mercuryErr.Inputs.Pack(ml.feedParamKey, ml.feeds, ml.timeParamKey, ml.time, ml.extraData)
-//	if err != nil {
-//		log.Fatal("failed to build revert")
-//	}
-//	var payload []byte
-//	payload = append(payload, mercuryLookupSelector[:]...)
-//	payload = append(payload, pack...)
-//	return payload
-//}
-
-func TestEvmRegistry_mercuryLookup(t *testing.T) {
-	//setupRegistry := setupEVMRegistry(t)
-	// load json response for testdata
-	btcBlob, e := os.ReadFile("./testdata/btc-usd.json")
-	assert.Nil(t, e)
-	ethBlob, e := os.ReadFile("./testdata/eth-usd.json")
-	assert.Nil(t, e)
-
-	var block uint32 = 8586948
-	upkeepId, ok := new(big.Int).SetString("520376062160720574742736856650455852347405918082346589375578334001045521721", 10)
+func TestEvmRegistry_FeedLookup(t *testing.T) {
+	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
-
-	// builds revert data with mock server time
-	//revertPerformData := setupRegistry.buildRevertBytesHelper()
-	// prepare input upkeepResult
-	//upkeepResult := EVMAutomationUpkeepResult21{
-	//	Block:            block,
-	//	ID:               upkeepId,
-	//	Eligible:         false,
-	//	FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
-	//	GasUsed:          big.NewInt(27071),
-	//	PerformData:      revertPerformData,
-	//	FastGasWei:       big.NewInt(2000000000),
-	//	LinkNative:       big.NewInt(4391095484380865),
-	//	CheckBlockNumber: 8586947,
-	//	CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
-	//	ExecuteGas:       5000000,
-	//}
-	//upkeepResultReasonMercury := EVMAutomationUpkeepResult21{
-	//	Block:            block,
-	//	ID:               upkeepId,
-	//	Eligible:         false,
-	//	FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
-	//	GasUsed:          big.NewInt(27071),
-	//	PerformData:      revertPerformData,
-	//	FastGasWei:       big.NewInt(2000000000),
-	//	LinkNative:       big.NewInt(4391095484380865),
-	//	CheckBlockNumber: 8586947,
-	//	CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
-	//	ExecuteGas:       5000000,
-	//}
-	//target := common.HexToAddress("0x79D8aDb571212b922089A48956c54A453D889dBe")
-	//callbackResp := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	//upkeepNeededFalseResp, err := setupRegistry.abi.Methods["checkCallback"].Outputs.Pack(false, []byte{})
-	//assert.Nil(t, err, t.Name())
-
-	// desired outcomes
-	//wantPerformData := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 98, 117, 108, 98, 97, 115, 97, 117, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	//wantUpkeepResult := EVMAutomationUpkeepResult21{
-	//	Block:            8586948,
-	//	ID:               upkeepId,
-	//	Eligible:         true,
-	//	FailureReason:    UPKEEP_FAILURE_REASON_NONE,
-	//	GasUsed:          big.NewInt(27071),
-	//	PerformData:      wantPerformData,
-	//	FastGasWei:       big.NewInt(2000000000),
-	//	LinkNative:       big.NewInt(4391095484380865),
-	//	CheckBlockNumber: 8586947,
-	//	CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
-	//	ExecuteGas:       5000000,
-	//}
 	tests := []struct {
-		name           string
-		input          []EVMAutomationUpkeepResult21
-		callbackResp   []byte
-		callbackErr    error
-		want           []EVMAutomationUpkeepResult21
-		wantErr        error
-		hasHttpCalls   bool
-		callbackNeeded bool
-		cachedAdminCfg bool
-		upkeepId       *big.Int
+		name              string
+		input             []EVMAutomationUpkeepResult21
+		blob              string
+		callbackResp      []byte
+		expectedResults   []EVMAutomationUpkeepResult21
+		wantErr           error
+		callbackNeeded    bool
+		extraData         []byte
+		checkCallbackResp []byte
+		values            [][]byte
+		cachedAdminCfg    bool
+		hasError          bool
+		hasPermission     bool
 	}{
-		//{
-		//	name:         "success - cached upkeep",
-		//	input:        []EVMAutomationUpkeepResult21{upkeepResult},
-		//	callbackResp: callbackResp,
-		//
-		//	want:           []EVMAutomationUpkeepResult21{wantUpkeepResult},
-		//	hasHttpCalls:   true,
-		//	callbackNeeded: true,
-		//},
-		//{
-		//	name:         "success - no cached upkeep",
-		//	input:        []EVMAutomationUpkeepResult21{upkeepResult},
-		//	callbackResp: callbackResp,
-		//
-		//	want:           []EVMAutomationUpkeepResult21{wantUpkeepResult},
-		//	hasHttpCalls:   true,
-		//	callbackNeeded: true,
-		//},
 		{
-			name: "skip - failure reason",
+			name: "success - happy path no cache",
 			input: []EVMAutomationUpkeepResult21{
 				{
-					Block:         block,
+					Block:         26046145,
+					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					ID:            upkeepId,
-					Eligible:      false,
-					FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
-					PerformData:   []byte{},
+					PerformData:   []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 			},
-
-			want: []EVMAutomationUpkeepResult21{
+			blob:              "0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f1493726",
+			cachedAdminCfg:    false,
+			extraData:         []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			callbackNeeded:    true,
+			checkCallbackResp: hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000428200000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000003800000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002e000066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f14937260000000000000000000000000000000000000000000000000000000000000008786f657a5a362c01000000000000000000000000000000000000000000000000"),
+			values:            [][]byte{{0, 6, 109, 252, 209, 237, 45, 149, 177, 140, 148, 141, 188, 91, 214, 76, 104, 122, 254, 147, 228, 202, 125, 102, 61, 222, 193, 76, 32, 9, 10, 216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 151, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 32, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 33, 4, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 67, 124, 110, 205, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 197, 153, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 8, 147, 109, 254, 57, 196, 135, 21, 87, 42, 81, 172, 134, 129, 41, 149, 143, 147, 127, 185, 94, 245, 171, 223, 115, 162, 57, 207, 134, 164, 254, 231, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 138, 38, 229, 87, 238, 47, 235, 145, 204, 177, 22, 243, 171, 78, 177, 70, 154, 254, 92, 59, 1, 37, 56, 203, 21, 29, 190, 63, 188, 234, 246, 241, 23, 178, 74, 194, 168, 44, 255, 37, 178, 134, 174, 10, 155, 144, 61, 198, 186, 218, 161, 111, 110, 103, 191, 9, 131, 70, 27, 0, 133, 116, 227, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13, 181, 197, 146, 68, 129, 6, 27, 152, 223, 89, 202, 239, 217, 196, 193, 231, 38, 87, 196, 151, 107, 247, 199, 86, 135, 48, 251, 218, 248, 40, 8, 11, 255, 107, 30, 222, 162, 200, 254, 213, 232, 187, 172, 85, 116, 170, 148, 207, 128, 157, 137, 143, 80, 85, 203, 29, 177, 74, 22, 241, 73, 55, 38}},
+			expectedResults: []EVMAutomationUpkeepResult21{
 				{
-					Block:         block,
+					Block:         26046145,
+					ID:            upkeepId,
+					Eligible:      true,
+					FailureReason: UPKEEP_FAILURE_REASON_NONE,
+					PerformData:   []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 224, 0, 6, 109, 252, 209, 237, 45, 149, 177, 140, 148, 141, 188, 91, 214, 76, 104, 122, 254, 147, 228, 202, 125, 102, 61, 222, 193, 76, 32, 9, 10, 216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 151, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 32, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 33, 4, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 67, 124, 110, 205, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 197, 153, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 8, 147, 109, 254, 57, 196, 135, 21, 87, 42, 81, 172, 134, 129, 41, 149, 143, 147, 127, 185, 94, 245, 171, 223, 115, 162, 57, 207, 134, 164, 254, 231, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 138, 38, 229, 87, 238, 47, 235, 145, 204, 177, 22, 243, 171, 78, 177, 70, 154, 254, 92, 59, 1, 37, 56, 203, 21, 29, 190, 63, 188, 234, 246, 241, 23, 178, 74, 194, 168, 44, 255, 37, 178, 134, 174, 10, 155, 144, 61, 198, 186, 218, 161, 111, 110, 103, 191, 9, 131, 70, 27, 0, 133, 116, 227, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13, 181, 197, 146, 68, 129, 6, 27, 152, 223, 89, 202, 239, 217, 196, 193, 231, 38, 87, 196, 151, 107, 247, 199, 86, 135, 48, 251, 218, 248, 40, 8, 11, 255, 107, 30, 222, 162, 200, 254, 213, 232, 187, 172, 85, 116, 170, 148, 207, 128, 157, 137, 143, 80, 85, 203, 29, 177, 74, 22, 241, 73, 55, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 120, 111, 101, 122, 90, 54, 44, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+			},
+			hasError:      false,
+			hasPermission: true,
+		},
+		{
+			name: "skip - failure reason is insufficient balance",
+			input: []EVMAutomationUpkeepResult21{
+				{
+					Block:         26046145,
 					ID:            upkeepId,
 					Eligible:      false,
 					FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
 					PerformData:   []byte{},
 				},
 			},
+			expectedResults: []EVMAutomationUpkeepResult21{
+				{
+					Block:         26046145,
+					ID:            upkeepId,
+					Eligible:      false,
+					FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
+					PerformData:   []byte{},
+				},
+			},
+			hasError: true,
 		},
-		//{
-		//	name: "skip - revert data does not decode to mercury lookup, not surfacing errors",
-		//	input: []EVMAutomationUpkeepResult21{
-		//		{
-		//			Block:         block,
-		//			ID:            upkeepId,
-		//			Eligible:      false,
-		//			FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
-		//			PerformData:   []byte{},
-		//		},
-		//	},
-		//
-		//	want: []EVMAutomationUpkeepResult21{
-		//		{
-		//			Block:         block,
-		//			ID:            upkeepId,
-		//			Eligible:      false,
-		//			FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
-		//			PerformData:   []byte{},
-		//		},
-		//	},
-		//},
-		//{
-		//	name:         "skip - error - no upkeep",
-		//	input:        []EVMAutomationUpkeepResult21{upkeepResult},
-		//	callbackResp: callbackResp,
-		//
-		//	want:    []EVMAutomationUpkeepResult21{upkeepResultReasonMercury},
-		//	wantErr: errors.New("ouch"),
-		//},
-		//{
-		//	name:         "skip - upkeep not needed",
-		//	input:        []EVMAutomationUpkeepResult21{upkeepResult},
-		//	callbackResp: upkeepNeededFalseResp,
-		//
-		//	want: []EVMAutomationUpkeepResult21{{
-		//		Block:            block,
-		//		ID:               upkeepId,
-		//		Eligible:         false,
-		//		FailureReason:    UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
-		//		GasUsed:          big.NewInt(27071),
-		//		PerformData:      revertPerformData,
-		//		FastGasWei:       big.NewInt(2000000000),
-		//		LinkNative:       big.NewInt(4391095484380865),
-		//		CheckBlockNumber: 8586947,
-		//		CheckBlockHash:   [32]byte{230, 67, 97, 54, 73, 238, 133, 239, 200, 124, 171, 132, 40, 18, 124, 96, 102, 97, 232, 17, 96, 237, 173, 166, 112, 42, 146, 204, 46, 17, 67, 34},
-		//		ExecuteGas:       5000000,
-		//	}},
-		//	hasHttpCalls:   true,
-		//	callbackNeeded: true,
-		//},
+		{
+			name: "skip - no mercury permission",
+			input: []EVMAutomationUpkeepResult21{
+				{
+					Block:         26046145,
+					ID:            upkeepId,
+					Eligible:      false,
+					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
+					PerformData:   []byte{},
+				},
+			},
+			expectedResults: []EVMAutomationUpkeepResult21{
+				{
+					Block:         26046145,
+					ID:            upkeepId,
+					Eligible:      false,
+					FailureReason: UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED,
+					PerformData:   []byte{},
+				},
+			},
+			hasError: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			client := new(evmClientMocks.Client)
-			if tt.callbackNeeded {
-				client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(tt.callbackResp, tt.callbackErr)
-			}
-			r.client = client
 
-			mockHttpClient := mocks.NewHttpClient(t)
-			if tt.hasHttpCalls {
-				// mock the http client with Once() so the first call returns ETH-USD blob and the second call returns BTC-USD blob
-				mockHttpClient.On("Do", mock.Anything).Return(
-					&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(ethBlob)),
-					},
-					nil).Once()
-				mockHttpClient.On("Do", mock.Anything).Return(
-					&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(btcBlob)),
-					},
-					nil).Once()
+			if !tt.cachedAdminCfg && !tt.hasError {
+				mockRegistry := mocks.NewRegistry(t)
+				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
+				b, err := json.Marshal(cfg)
+				assert.Nil(t, err)
+				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+				r.registry = mockRegistry
 			}
-			r.hc = mockHttpClient
+
+			if tt.blob != "" {
+				hc := mocks.NewHttpClient(t)
+				mr := MercuryResponse{ChainlinkBlob: tt.blob}
+				b, err := json.Marshal(mr)
+				assert.Nil(t, err)
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				r.hc = hc
+			}
+
+			if tt.callbackNeeded {
+				payload, err := r.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
+				require.Nil(t, err)
+				args := map[string]interface{}{
+					"to":   r.addr.Hex(),
+					"data": hexutil.Bytes(payload),
+				}
+				client := new(evmClientMocks.Client)
+				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(26046145))).Return(nil).
+					Run(func(args mock.Arguments) {
+						b := args.Get(1).(*hexutil.Bytes)
+						*b = tt.checkCallbackResp
+					}).Once()
+				r.client = client
+			}
 
 			got, err := r.feedLookup(context.Background(), tt.input)
 			if tt.wantErr != nil {
 				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
 				assert.NotNil(t, err, tt.name)
 			} else {
-				assert.Equal(t, tt.want, got, tt.name)
+				assert.Equal(t, tt.expectedResults, got, tt.name)
 			}
 		})
 	}
@@ -656,6 +575,148 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	}
 }
 
+func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	tests := []struct {
+		name         string
+		ml           *FeedLookup
+		blob         string
+		statusCode   int
+		retryNumber  int
+		retryable    bool
+		errorMessage string
+	}{
+		{
+			name: "success - mercury responds in the first try",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob: "0xab2123dc00000012",
+		},
+		{
+			name: "success - retry for 404",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:        "0xab2123dcbabbad",
+			retryNumber: 1,
+			statusCode:  http.StatusNotFound,
+		},
+		{
+			name: "success - retry for 500",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:        "0xab2123dcbbabad",
+			retryNumber: 2,
+			statusCode:  http.StatusInternalServerError,
+		},
+		{
+			name: "failure - returns retryable",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:         "0xab2123dc",
+			retryNumber:  TotalAttempt,
+			statusCode:   http.StatusNotFound,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+		},
+		{
+			name: "failure - returns not retryable",
+			ml: &FeedLookup{
+				feedParamKey: "feedID",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "timestamp",
+				time:         big.NewInt(123456),
+				extraData:    nil,
+			},
+			blob:         "0xab2123dc",
+			statusCode:   http.StatusBadGateway,
+			retryable:    false,
+			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			hc := mocks.NewHttpClient(t)
+
+			mr := MercuryResponse{ChainlinkBlob: tt.blob}
+			b, err := json.Marshal(mr)
+			assert.Nil(t, err)
+
+			if tt.retryNumber == 0 {
+				if tt.errorMessage != "" {
+					resp := &http.Response{
+						StatusCode: tt.statusCode,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				} else {
+					resp := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				}
+			} else if tt.retryNumber > 0 && tt.retryNumber < TotalAttempt {
+				retryResp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
+
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else {
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
+			}
+			r.hc = hc
+
+			ch := make(chan MercuryBytes, 1)
+			r.multiFeedsRequest(context.Background(), ch, upkeepId, tt.ml)
+
+			m := <-ch
+			assert.Equal(t, 0, m.Index)
+			assert.Equal(t, tt.retryable, m.Retryable)
+			if tt.retryNumber >= TotalAttempt || tt.errorMessage != "" {
+				assert.Equal(t, tt.errorMessage, m.Error.Error())
+				assert.Nil(t, m.Bytes)
+			} else {
+				blobBytes, err := hexutil.Decode(tt.blob)
+				assert.Nil(t, err)
+				assert.Nil(t, m.Error)
+				assert.Equal(t, blobBytes, m.Bytes)
+			}
+		})
+	}
+}
+
 func TestEvmRegistry_CheckCallback(t *testing.T) {
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
@@ -673,59 +734,62 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 
 		upkeepNeeded bool
 		performData  []byte
-		wantErr      error
+		wantErr      assert.ErrorAssertionFunc
 	}{
-		//{
-		//	name: "success - empty extra data",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey: "feedIDHex",
-		//		feeds:        []string{"ETD-USD", "BTC-ETH"},
-		//		timeParamKey: "blockNumber",
-		//		time:         big.NewInt(100),
-		//		extraData:    []byte{48, 120, 48, 48},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	upkeepNeeded: true,
-		//	performData:  []byte{48, 120, 48, 48},
-		//},
-		//{
-		//	name: "success - with extra data",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey:  "feedIDHex",
-		//		feeds:      []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-		//		timeParamKey: "blockNumber",
-		//		time:      big.NewInt(18952430),
-		//		// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
-		//		extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	upkeepNeeded: true,
-		//	performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-		//},
-		//{
-		//	name: "failure - bad response",
-		//	mercuryLookup: &FeedLookup{
-		//		feedParamKey:  "feedIDHex",
-		//		feeds:      []string{"ETD-USD", "BTC-ETH"},
-		//		timeParamKey: "blockNumber",
-		//		time:      big.NewInt(100),
-		//		extraData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		//	},
-		//	values:       values,
-		//	statusCode:   http.StatusOK,
-		//	upkeepId:     big.NewInt(123456789),
-		//	blockNumber:  999,
-		//	callbackResp: []byte{},
-		//	wantErr:      errors.New("callback output unpack error: abi: attempting to unmarshall an empty string while arguments are expected"),
-		//},
+		{
+			name: "success - empty extra data",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"ETD-USD", "BTC-ETH"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(100),
+				extraData:    []byte{48, 120, 48, 48},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{48, 120, 48, 48},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "success - with extra data",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(18952430),
+				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "failure - bad response",
+			mercuryLookup: &FeedLookup{
+				feedParamKey: "feedIDHex",
+				feeds:        []string{"ETD-USD", "BTC-ETH"},
+				timeParamKey: "blockNumber",
+				time:         big.NewInt(100),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+			values:       values,
+			statusCode:   http.StatusOK,
+			upkeepId:     big.NewInt(123456789),
+			blockNumber:  999,
+			callbackResp: []byte{},
+			callbackErr:  errors.New("bad response"),
+			wantErr:      assert.Error,
+		},
 	}
 
 	for _, tt := range tests {
@@ -739,18 +803,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				"data": hexutil.Bytes(payload),
 			}
 			// if args don't match, just use mock.Anything
-			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).Return(tt.callbackErr).
 				Run(func(args mock.Arguments) {
-					//b := args.Get(1).(*hexutil.Bytes)
-					//b = &hexutil.Bytes{0, 1}
+					by := args.Get(1).(*hexutil.Bytes)
+					*by = tt.callbackResp
 				}).Once()
 			r.client = client
 
 			_, err = r.checkCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
-			if tt.wantErr != nil {
-				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
-				assert.NotNil(t, err, tt.name)
-			}
+			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
 		})
 	}
 }
