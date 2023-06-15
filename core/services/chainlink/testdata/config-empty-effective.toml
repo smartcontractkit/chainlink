@@ -118,6 +118,7 @@ KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = false

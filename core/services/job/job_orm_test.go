@@ -668,7 +668,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(config, config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 
 	const juelsPerFeeCoinSource = `
@@ -684,7 +684,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
 
-	jb2, err := ocr2validate.ValidatedOracleSpecToml(config, config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
@@ -694,7 +694,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	err = jobORM.CreateJob(&jb2)
 	require.Error(t, err)
 
-	jb3, err := ocr2validate.ValidatedOracleSpecToml(config, config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb3, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
@@ -829,7 +829,7 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	zeroFeedID := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config, config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 	jobOCR2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 
@@ -844,14 +844,14 @@ func Test_FindJob(t *testing.T) {
 	ocr2WithFeedID1 := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	ocr2WithFeedID2 := "0x0000000000000000000000000000000000000000000000000000000000000002"
 	jobOCR2WithFeedID1, err := ocr2validate.ValidatedOracleSpecToml(
-		config,
+		config.OCR2(),
 		config.Insecure(),
 		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID1),
 	)
 	require.NoError(t, err)
 
 	jobOCR2WithFeedID2, err := ocr2validate.ValidatedOracleSpecToml(
-		config,
+		config.OCR2(),
 		config.Insecure(),
 		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID2),
 	)

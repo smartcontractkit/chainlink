@@ -2,6 +2,7 @@ package headtracker_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -15,15 +16,30 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+type headTrackerConfig struct {
+	historyDepth uint32
+}
+
+func (h *headTrackerConfig) HistoryDepth() uint32 {
+	return h.historyDepth
+}
+
+func (h *headTrackerConfig) SamplingInterval() time.Duration {
+	return time.Duration(0)
+}
+
+func (h *headTrackerConfig) MaxBufferSize() uint32 {
+	return uint32(0)
+}
+
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := htmocks.NewConfig(t)
-	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(6))
 	htCfg.On("EvmFinalityDepth").Return(uint32(1))
 	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
-	saver := headtracker.NewHeadSaver(lggr, orm, htCfg)
+	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm
 }
 
