@@ -378,13 +378,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	if s.Config.OCREnabled() {
+	if s.Config.OCR().Enabled() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
-	if s.Config.OCR2Enabled() {
+	if s.Config.OCR2().Enabled() {
 		var enabledChains []chaintype.ChainType
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)
@@ -621,7 +621,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, s.Config.Database())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
 	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, cfg.Database(), keyStore.Eth(), txBuilder, chain.Logger())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {

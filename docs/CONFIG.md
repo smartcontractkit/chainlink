@@ -718,6 +718,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
+TraceLogging = false # Default
 ```
 
 
@@ -821,6 +822,12 @@ SimulateTransactions = false # Default
 ```
 SimulateTransactions enables transaction simulation for OCR2.
 
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
+
 ## OCR
 ```toml
 [OCR]
@@ -834,6 +841,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 CaptureEATelemetry = false # Default
+TraceLogging = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
@@ -905,6 +913,12 @@ TransmitterAddress is the default sending address to use for OCR. If you have an
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
+
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
 
 ## P2P
 ```toml
@@ -1712,16 +1726,16 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
+LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
@@ -1731,37 +1745,37 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
+ResendAfterThreshold = '30s'
 
 [BalanceMonitor]
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
-BumpThreshold = 0
-EIP1559DynamicFees = false
+BumpThreshold = 3
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 10
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
@@ -2245,84 +2259,6 @@ GasLimit = 5300000
 
 </p></details>
 
-<details><summary>Optimism Kovan (69)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimism'
-FinalityDepth = 1
-LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-
-[Transactions]
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '15s'
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'L2Suggested'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 0
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 0
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[HeadTracker]
-HistoryDepth = 10
-MaxBufferSize = 3
-SamplingInterval = '1s'
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-```
-
-</p></details>
-
 <details><summary>xDai Mainnet (100)</summary><p>
 
 ```toml
@@ -2644,10 +2580,10 @@ LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
-MinIncomingConfirmations = 3
+MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
+NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 
@@ -2671,7 +2607,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = true
@@ -2681,7 +2617,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 24
+BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -2698,7 +2634,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 
 [OCR]
-ContractConfirmations = 4
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -3253,6 +3189,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'celo'
 FinalityDepth = 1
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3277,17 +3214,17 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = true
+EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
@@ -3483,6 +3420,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'celo'
 FinalityDepth = 1
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3507,24 +3445,24 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = true
+EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 12
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -4051,9 +3989,10 @@ BlockBackfillSkip enables skipping of very long backfills.
 
 ### ChainType
 ```toml
-ChainType = 'Optimism' # Example
+ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
+Available types: arbitrum, metis, optimismBedrock, xdai
 
 ### FinalityDepth
 ```toml
@@ -4267,7 +4206,7 @@ Mode controls what type of gas estimator is used.
 
 - `FixedPrice` uses static configured values for gas price (can be set via API call).
 - `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `Optimism2`/`L2Suggested` is a special mode only for use with Optimism and Metis blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
+- `L2Suggested` is a special mode only for use with L2 blockchains. This mode will use the gas price suggested by the rpc endpoint via `eth_gasPrice`.
 - `Arbitrum` is a special mode only for use with Arbitrum blockchains. It uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
 
 Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
@@ -4333,7 +4272,7 @@ LimitMultiplier = '1.0' # Default
 ```
 LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 
-This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
+This factor is always applied, so includes L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 
 ### LimitTransfer
 ```toml

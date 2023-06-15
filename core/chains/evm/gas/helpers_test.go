@@ -71,57 +71,60 @@ func SimulateStart(t *testing.T, b *BlockHistoryEstimator) {
 	require.NoError(t, b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil }))
 }
 
+type MockBlockHistoryConfig struct {
+	BatchSizeF                 uint32
+	BlockDelayF                uint16
+	BlockHistorySizeF          uint16
+	CheckInclusionBlocksF      uint16
+	CheckInclusionPercentileF  uint16
+	EIP1559FeeCapBufferBlocksF uint16
+	TransactionPercentileF     uint16
+}
+
+func (m *MockBlockHistoryConfig) BatchSize() uint32 {
+	return m.BatchSizeF
+}
+
+func (m *MockBlockHistoryConfig) BlockDelay() uint16 {
+	return m.BlockDelayF
+}
+
+func (m *MockBlockHistoryConfig) BlockHistorySize() uint16 {
+	return m.BlockHistorySizeF
+}
+
+func (m *MockBlockHistoryConfig) CheckInclusionPercentile() uint16 {
+	return m.CheckInclusionPercentileF
+}
+
+func (m *MockBlockHistoryConfig) CheckInclusionBlocks() uint16 {
+	return m.CheckInclusionBlocksF
+}
+
+func (m *MockBlockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 {
+	return m.EIP1559FeeCapBufferBlocksF
+}
+
+func (m *MockBlockHistoryConfig) TransactionPercentile() uint16 {
+	return m.TransactionPercentileF
+}
+
 type MockConfig struct {
-	BlockHistoryEstimatorBatchSizeF                 uint32
-	BlockHistoryEstimatorBlockDelayF                uint16
-	BlockHistoryEstimatorBlockHistorySizeF          uint16
-	BlockHistoryEstimatorCheckInclusionBlocksF      uint16
-	BlockHistoryEstimatorCheckInclusionPercentileF  uint16
-	BlockHistoryEstimatorEIP1559FeeCapBufferBlocksF uint16
-	BlockHistoryEstimatorTransactionPercentileF     uint16
-	ChainTypeF                                      string
-	EvmEIP1559DynamicFeesF                          bool
-	EvmGasBumpPercentF                              uint16
-	EvmGasBumpThresholdF                            uint64
-	EvmGasBumpWeiF                                  *assets.Wei
-	EvmGasLimitMultiplierF                          float32
-	EvmGasTipCapDefaultF                            *assets.Wei
-	EvmGasTipCapMinimumF                            *assets.Wei
-	EvmMaxGasPriceWeiF                              *assets.Wei
-	EvmMinGasPriceWeiF                              *assets.Wei
-	EvmGasPriceDefaultF                             *assets.Wei
+	ChainTypeF             string
+	EvmEIP1559DynamicFeesF bool
+	EvmGasBumpPercentF     uint16
+	EvmGasBumpThresholdF   uint64
+	EvmGasBumpWeiF         *assets.Wei
+	EvmGasLimitMultiplierF float32
+	EvmGasTipCapDefaultF   *assets.Wei
+	EvmGasTipCapMinimumF   *assets.Wei
+	EvmMaxGasPriceWeiF     *assets.Wei
+	EvmMinGasPriceWeiF     *assets.Wei
+	EvmGasPriceDefaultF    *assets.Wei
 }
 
 func NewMockConfig() *MockConfig {
 	return &MockConfig{}
-}
-
-func (m *MockConfig) BlockHistoryEstimatorBatchSize() uint32 {
-	return m.BlockHistoryEstimatorBatchSizeF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorBlockDelay() uint16 {
-	return m.BlockHistoryEstimatorBlockDelayF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
-	return m.BlockHistoryEstimatorBlockHistorySizeF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
-	return m.BlockHistoryEstimatorCheckInclusionPercentileF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
-	return m.BlockHistoryEstimatorCheckInclusionBlocksF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
-	return m.BlockHistoryEstimatorEIP1559FeeCapBufferBlocksF
-}
-
-func (m *MockConfig) BlockHistoryEstimatorTransactionPercentile() uint16 {
-	return m.BlockHistoryEstimatorTransactionPercentileF
 }
 
 func (m *MockConfig) ChainType() config.ChainType {

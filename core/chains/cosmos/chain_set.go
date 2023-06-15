@@ -9,10 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )

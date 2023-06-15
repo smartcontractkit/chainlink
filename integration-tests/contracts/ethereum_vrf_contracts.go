@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -506,7 +507,11 @@ func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 }
 
 func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 // RequestRandomness request VRFv2 random words
@@ -691,7 +696,11 @@ func (v *EthereumVRFConsumer) Address() string {
 }
 
 func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 // RequestRandomness requests VRF randomness
@@ -806,7 +815,11 @@ type EthereumVRF struct {
 
 // Fund sends specified currencies to the contract
 func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 // ProofLength returns the PROOFLENGTH call from the VRF contract
@@ -1088,7 +1101,7 @@ func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*
 
 func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
 	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
-	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
+	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil)
 	if err != nil {
 		return nil, err
 	}

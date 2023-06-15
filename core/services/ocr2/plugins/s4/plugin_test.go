@@ -348,7 +348,7 @@ func TestPlugin_Observation(t *testing.T) {
 		for _, or := range ormRows {
 			or.Confirmed = false
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows, nil).Once()
 
 		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, []byte{})
@@ -374,7 +374,7 @@ func TestPlugin_Observation(t *testing.T) {
 				Confirmed: or.Confirmed,
 			}
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
 

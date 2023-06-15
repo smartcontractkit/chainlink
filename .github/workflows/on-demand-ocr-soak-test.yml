@@ -11,6 +11,7 @@ on:
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_GOERLI"
           - "CELO_ALFAJORES"
+          - "CELO_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false

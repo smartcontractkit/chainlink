@@ -5,12 +5,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -41,51 +40,18 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 
 func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
-
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	subject := uuid.New()
+	queueSize := uint32(2)
+	queryTimeout := cfg.Database().DefaultQueryTimeout()
+	mockTxStore := mocks.NewEvmTxStore(t)
 
-	subj1 := uuid.New()
-	subj2 := uuid.New()
-
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-
-	var n int64
-
-	cltest.MustInsertFatalErrorEthTx(t, txStore, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(n), fromAddress)
-	n++
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, n, 42, fromAddress)
-	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, n, fromAddress)
-	initialEtxs := []txmgr.EvmTx{
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj2),
-		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, txStore, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, txStore, otherAddress, subj1),
-	}
-
-	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := txmgrcommon.NewDropOldestStrategy(subj1, 2, cfg.Database().DefaultQueryTimeout())
-
-		n, err := s.PruneQueue(txStore, pg.WithQueryer(db))
+	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
+		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
+		mockTxStore.On("PruneUnstartedTxQueue", queueSize, subject, mock.Anything, mock.Anything).Once().Return(int64(2), nil)
+		n, err := strategy1.PruneQueue(mockTxStore, pg.WithQueryer(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
-
-		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
-		cltest.AssertCount(t, db, "eth_txes", 7)
-
-		var dbEtxs []txmgr.DbEthTx
-		require.NoError(t, db.Select(&dbEtxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
-
-		require.Len(t, dbEtxs, 3)
-
-		assert.Equal(t, initialEtxs[1].ID, dbEtxs[0].ID)
-		assert.Equal(t, initialEtxs[3].ID, dbEtxs[1].ID)
-		assert.Equal(t, initialEtxs[4].ID, dbEtxs[2].ID)
 	})
 }

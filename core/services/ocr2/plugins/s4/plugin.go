@@ -85,9 +85,11 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 	promReportingPluginObservation.WithLabelValues(c.config.ProductName).Inc()
 
 	now := time.Now().UTC()
-	if err := c.orm.DeleteExpired(c.config.MaxDeleteExpiredEntries, now, pg.WithParentCtx(ctx)); err != nil {
+	count, err := c.orm.DeleteExpired(c.config.MaxDeleteExpiredEntries, now, pg.WithParentCtx(ctx))
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to DeleteExpired in Observation()")
 	}
+	promReportingPluginsExpiredRows.WithLabelValues(c.config.ProductName).Add(float64(count))
 
 	returnObservation := func(rows []*s4.Row) (types.Observation, error) {
 		promReportingPluginsObservationRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(rows)))

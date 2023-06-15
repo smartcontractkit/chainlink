@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -39,62 +41,110 @@ var (
 // HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
 const HeadsBufferSize = 10
 
-type headTracker struct {
+type headTracker[
+	HTH htrktypes.Head[BLOCK_HASH, ID],
+	S commontypes.Subscription,
+	ID txmgrtypes.ID,
+	BLOCK_HASH commontypes.Hashable,
+] struct {
 	log             logger.Logger
-	headBroadcaster httypes.HeadBroadcaster
-	headSaver       httypes.HeadSaver
+	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH]
+	headSaver       commontypes.HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *utils.MailboxMonitor
-	ethClient       evmclient.Client
-	chainID         big.Int
+	ethClient       htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	chainID         ID
 	config          htrktypes.Config
+	htConfig        htrktypes.HeadTrackerConfig
 
-	backfillMB   *utils.Mailbox[*evmtypes.Head]
-	broadcastMB  *utils.Mailbox[*evmtypes.Head]
-	headListener commontypes.HeadListener[*evmtypes.Head, common.Hash]
+	backfillMB   *utils.Mailbox[HTH]
+	broadcastMB  *utils.Mailbox[HTH]
+	headListener commontypes.HeadListener[HTH, BLOCK_HASH]
 	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
+	getNilHead func() HTH
 }
 
+type evmHeadTracker = headTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
+
+var _ commontypes.HeadTracker[*evmtypes.Head, common.Hash] = (*evmHeadTracker)(nil)
+
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
-func NewHeadTracker(
+func NewHeadTracker[
+	HTH htrktypes.Head[BLOCK_HASH, ID],
+	S commontypes.Subscription,
+	ID txmgrtypes.ID,
+	BLOCK_HASH commontypes.Hashable,
+](
+	lggr logger.Logger,
+	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
+	config htrktypes.Config,
+	htConfig htrktypes.HeadTrackerConfig,
+	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH],
+	headSaver commontypes.HeadSaver[HTH, BLOCK_HASH],
+	mailMon *utils.MailboxMonitor,
+	getNilHead func() HTH,
+) commontypes.HeadTracker[HTH, BLOCK_HASH] {
+	chStop := make(chan struct{})
+	lggr = lggr.Named("HeadTracker")
+	return &headTracker[HTH, S, ID, BLOCK_HASH]{
+		headBroadcaster: headBroadcaster,
+		ethClient:       client,
+		chainID:         client.ConfiguredChainID(),
+		config:          config,
+		htConfig:        htConfig,
+		log:             lggr,
+		backfillMB:      utils.NewSingleMailbox[HTH](),
+		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
+		chStop:          chStop,
+		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
+		headSaver:       headSaver,
+		mailMon:         mailMon,
+		getNilHead:      getNilHead,
+	}
+}
+
+func NewEVMHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config,
+	htConfig HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
-	return &headTracker{
+	return &evmHeadTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
-		chainID:         *ethClient.ConfiguredChainID(),
+		chainID:         ethClient.ConfiguredChainID(),
 		config:          NewWrappedConfig(config),
+		htConfig:        htConfig,
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewEvmHeadListener(lggr, ethClient, config, chStop),
+		headListener:    NewEVMHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
+		getNilHead:      func() *evmtypes.Head { return nil },
 	}
 }
 
 // Start starts HeadTracker service.
-func (ht *headTracker) Start(ctx context.Context) error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
+		ht.log.Debugw("Starting HeadTracker", "chainID", ht.chainID)
 		latestChain, err := ht.headSaver.Load(ctx)
 		if err != nil {
 			return err
 		}
-		if latestChain != nil {
+		if latestChain.IsValid() {
 			ht.log.Debugw(
-				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyBigInt(latestChain.ToInt()), latestChain.Hash.Hex()),
-				"blockNumber", latestChain.Number,
-				"blockHash", latestChain.Hash,
+				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyNumber(latestChain.BlockNumber()), latestChain.BlockHash()),
+				"blockNumber", latestChain.BlockNumber(),
+				"blockHash", latestChain.BlockHash(),
 			)
 		}
 
@@ -111,7 +161,7 @@ func (ht *headTracker) Start(ctx context.Context) error {
 				return nil
 			}
 			ht.log.Errorw("Error getting initial head", "err", err)
-		} else if initialHead != nil {
+		} else if initialHead.IsValid() {
 			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
@@ -131,7 +181,7 @@ func (ht *headTracker) Start(ctx context.Context) error {
 }
 
 // Close stops HeadTracker service.
-func (ht *headTracker) Close() error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
 		close(ht.chStop)
 		ht.wgDone.Wait()
@@ -139,11 +189,11 @@ func (ht *headTracker) Close() error {
 	})
 }
 
-func (ht *headTracker) Name() string {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
 	return ht.log.Name()
 }
 
-func (ht *headTracker) HealthReport() map[string]error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 	report := map[string]error{
 		ht.Name(): ht.StartStopOnce.Healthy(),
 	}
@@ -151,43 +201,43 @@ func (ht *headTracker) HealthReport() map[string]error {
 	return report
 }
 
-func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
 
-	baseHeight := headWithChain.Number - int64(depth-1)
+	baseHeight := headWithChain.BlockNumber() - int64(depth-1)
 	if baseHeight < 0 {
 		baseHeight = 0
 	}
 
-	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
+	return ht.backfill(ctx, headWithChain.EarliestHeadInChain(), baseHeight)
 }
 
-func (ht *headTracker) LatestChain() *evmtypes.Head {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
 	return ht.headSaver.LatestChain()
 }
 
-func (ht *headTracker) getInitialHead(ctx context.Context) (*evmtypes.Head, error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Context) (HTH, error) {
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch initial head")
+		return ht.getNilHead(), errors.Wrap(err, "failed to fetch initial head")
 	}
 	loggerFields := []interface{}{"head", head}
-	if head != nil {
-		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
+	if head.IsValid() {
+		loggerFields = append(loggerFields, "blockNumber", head.BlockNumber(), "blockHash", head.BlockHash())
 	}
 	ht.log.Debugw("Got initial head", loggerFields...)
 	return head, nil
 }
 
-func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
 	prevHead := ht.headSaver.LatestChain()
 
-	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
-		"blockHeight", head.ToInt(),
-		"blockHash", head.Hash,
-		"parentHeadHash", head.ParentHash,
+	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyNumber(head.BlockNumber())),
+		"blockHeight", head,
+		"blockHash", head.BlockHash(),
+		"parentHeadHash", head.GetParentHash(),
 	)
 
 	err := ht.headSaver.Save(ctx, head)
@@ -197,36 +247,36 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		return errors.Wrapf(err, "failed to save head: %#v", head)
 	}
 
-	if prevHead == nil || head.Number > prevHead.Number {
-		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
+	if !prevHead.IsValid() || head.BlockNumber() > prevHead.BlockNumber() {
+		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.BlockNumber()))
 
-		headWithChain := ht.headSaver.Chain(head.Hash)
-		if headWithChain == nil {
+		headWithChain := ht.headSaver.Chain(head.BlockHash())
+		if !headWithChain.IsValid() {
 			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
 		ht.backfillMB.Deliver(headWithChain)
 		ht.broadcastMB.Deliver(headWithChain)
-	} else if head.Number == prevHead.Number {
-		if head.Hash != prevHead.Hash {
-			ht.log.Debugw("Got duplicate head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Hash.Hex())
+	} else if head.BlockNumber() == prevHead.BlockNumber() {
+		if head.BlockHash() != prevHead.BlockHash() {
+			ht.log.Debugw("Got duplicate head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockHash())
 		} else {
-			ht.log.Debugw("Head already in the database", "head", head.Hash.Hex())
+			ht.log.Debugw("Head already in the database", "head", head.BlockHash())
 		}
 	} else {
-		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.FinalityDepth()) {
+		ht.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
+		if head.BlockNumber() < prevHead.BlockNumber()-int64(ht.config.FinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
 		}
 	}
 	return nil
 }
 
-func (ht *headTracker) broadcastLoop() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.config.HeadTrackerSamplingInterval()
+	samplingInterval := ht.htConfig.SamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
@@ -237,7 +287,7 @@ func (ht *headTracker) broadcastLoop() {
 				return
 			case <-debounceHead.C:
 				item := ht.broadcastMB.RetrieveLatestAndClear()
-				if item == nil {
+				if !item.IsValid() {
 					continue
 				}
 				ht.headBroadcaster.BroadcastNewLongestChain(item)
@@ -262,7 +312,7 @@ func (ht *headTracker) broadcastLoop() {
 	}
 }
 
-func (ht *headTracker) backfillLoop() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	defer ht.wgDone.Done()
 
 	ctx, cancel := ht.chStop.NewCtx()
@@ -292,16 +342,16 @@ func (ht *headTracker) backfillLoop() {
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHeight int64) (err error) {
-	if head.Number <= baseHeight {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head commontypes.Head[BLOCK_HASH], baseHeight int64) (err error) {
+	if head.BlockNumber() <= baseHeight {
 		return nil
 	}
 	mark := time.Now()
 	fetched := 0
-	l := ht.log.With("blockNumber", head.Number,
-		"n", head.Number-baseHeight,
+	l := ht.log.With("blockNumber", head.BlockNumber(),
+		"n", head.BlockNumber()-baseHeight,
 		"fromBlockHeight", baseHeight,
-		"toBlockHeight", head.Number-1)
+		"toBlockHeight", head.BlockNumber()-1)
 	l.Debug("Starting backfill")
 	defer func() {
 		if ctx.Err() != nil {
@@ -314,10 +364,10 @@ func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHe
 			"err", err)
 	}()
 
-	for i := head.Number - 1; i >= baseHeight; i-- {
+	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		existingHead := ht.headSaver.Chain(head.ParentHash)
-		if existingHead != nil {
+		existingHead := ht.headSaver.Chain(head.GetParentHash())
+		if existingHead.IsValid() {
 			head = existingHead
 			continue
 		}
@@ -333,17 +383,17 @@ func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHe
 	return
 }
 
-func (ht *headTracker) fetchAndSaveHead(ctx context.Context, n int64) (*evmtypes.Head, error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64) (HTH, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if err != nil {
-		return nil, err
-	} else if head == nil {
-		return nil, errors.New("got nil head")
+		return ht.getNilHead(), err
+	} else if !head.IsValid() {
+		return ht.getNilHead(), errors.New("got nil head")
 	}
 	err = ht.headSaver.Save(ctx, head)
 	if err != nil {
-		return nil, err
+		return ht.getNilHead(), err
 	}
 	return head, nil
 }

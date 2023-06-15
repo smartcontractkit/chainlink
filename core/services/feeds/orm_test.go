@@ -214,7 +214,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -351,7 +351,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -392,7 +392,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 			AdminAddress:      "0x1001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2Config{Enabled: false},
+			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
 		}
 		updateCfg = feeds.ChainConfig{
 			AccountAddress:    "0x0002",
@@ -404,7 +404,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -773,8 +773,8 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	actual, err = orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	assert.Equal(t, feeds.JobProposalStatusPending, actual.Status)
-	assert.Equal(t, uuid.NullUUID{}, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
 	assert.True(t, actual.PendingUpdate)
 
 	// Delete the proposal

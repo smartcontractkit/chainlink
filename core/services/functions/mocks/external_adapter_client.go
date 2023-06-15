@@ -5,8 +5,7 @@ package mocks
 import (
 	context "context"
 
-	json "encoding/json"
-
+	functions "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -50,43 +49,43 @@ func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 	return r0, r1, r2
 }
 
-// RunComputation provides a mock function with given fields: ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData
-func (_m *ExternalAdapterClient) RunComputation(ctx context.Context, requestId string, jobName string, subscriptionOwner string, subscriptionId uint64, nodeProvidedSecrets string, jsonData json.RawMessage) ([]byte, []byte, []string, error) {
-	ret := _m.Called(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+// RunComputation provides a mock function with given fields: ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData
+func (_m *ExternalAdapterClient) RunComputation(ctx context.Context, requestId string, jobName string, subscriptionOwner string, subscriptionId uint64, nodeProvidedSecrets string, requestData *functions.RequestData) ([]byte, []byte, []string, error) {
+	ret := _m.Called(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 
 	var r0 []byte
 	var r1 []byte
 	var r2 []string
 	var r3 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, json.RawMessage) ([]byte, []byte, []string, error)); ok {
-		return rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) ([]byte, []byte, []string, error)); ok {
+		return rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, json.RawMessage) []byte); ok {
-		r0 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []byte); ok {
+		r0 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, uint64, string, json.RawMessage) []byte); ok {
-		r1 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []byte); ok {
+		r1 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string, string, string, uint64, string, json.RawMessage) []string); ok {
-		r2 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []string); ok {
+		r2 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(2) != nil {
 			r2 = ret.Get(2).([]string)
 		}
 	}
 
-	if rf, ok := ret.Get(3).(func(context.Context, string, string, string, uint64, string, json.RawMessage) error); ok {
-		r3 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, jsonData)
+	if rf, ok := ret.Get(3).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) error); ok {
+		r3 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
 	} else {
 		r3 = ret.Error(3)
 	}

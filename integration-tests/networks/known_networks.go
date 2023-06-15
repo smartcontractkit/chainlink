@@ -48,6 +48,7 @@ var (
 		Name:                 "source-chain",
 		Simulated:            true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
+		SupportsEIP1559:      true,
 		ChainID:              1337,
 		PrivateKeys: []string{
 			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -64,6 +65,7 @@ var (
 	SimulatedEVMNonDev2 = blockchain.EVMNetwork{
 		Name:                 "dest-chain",
 		Simulated:            true,
+		SupportsEIP1559:      true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              2337,
 		PrivateKeys: []string{
@@ -80,6 +82,7 @@ var (
 	SimulatedEVMNonDev = blockchain.EVMNetwork{
 		Name:                 "geth",
 		Simulated:            true,
+		SupportsEIP1559:      true,
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              1337,
 		PrivateKeys: []string{
@@ -95,6 +98,7 @@ var (
 
 	EthereumMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Ethereum Mainnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   1,
 		Simulated:                 false,
@@ -107,6 +111,7 @@ var (
 	// sepoliaTestnet https://sepolia.dev/
 	SepoliaTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   11155111,
 		Simulated:                 false,
@@ -119,6 +124,7 @@ var (
 	// goerliTestnet https://goerli.net/
 	GoerliTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Goerli Testnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   5,
 		Simulated:                 false,
@@ -130,6 +136,7 @@ var (
 
 	KlaytnMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Klaytn Mainnet",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.KlaytnClientImplementation,
 		ChainID:                   8217,
 		Simulated:                 false,
@@ -142,6 +149,7 @@ var (
 	// klaytnBaobab https://klaytn.foundation/
 	KlaytnBaobab blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.KlaytnClientImplementation,
 		ChainID:                   1001,
 		Simulated:                 false,
@@ -153,6 +161,7 @@ var (
 
 	MetisAndromeda blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Metis Andromeda",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.MetisClientImplementation,
 		ChainID:                   1088,
 		Simulated:                 false,
@@ -165,6 +174,7 @@ var (
 	// metisStardust https://www.metis.io/
 	MetisStardust blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Metis Stardust",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.MetisClientImplementation,
 		ChainID:                   588,
 		Simulated:                 false,
@@ -176,6 +186,7 @@ var (
 
 	ArbitrumMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Arbitrum Mainnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.ArbitrumClientImplementation,
 		ChainID:                   42161,
 		Simulated:                 false,
@@ -188,6 +199,7 @@ var (
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
 	ArbitrumGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Arbitrum Goerli",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.ArbitrumClientImplementation,
 		ChainID:                   421613,
 		Simulated:                 false,
@@ -199,7 +211,8 @@ var (
 
 	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Optimism Mainnet",
-		ClientImplementation:      blockchain.MetisClientImplementation, // Optimism Bedrock has not been released yet, use Metis for Legacy Tx Support
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   10,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
@@ -211,6 +224,7 @@ var (
 	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
 	OptimismGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Optimism Goerli",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   420,
 		Simulated:                 false,
@@ -222,6 +236,7 @@ var (
 
 	RSKMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "RSK Mainnet",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.RSKClientImplementation,
 		ChainID:                   30,
 		Simulated:                 false,
@@ -234,6 +249,7 @@ var (
 	// rskTestnet https://www.rsk.co/
 	RSKTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "RSK Testnet",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.RSKClientImplementation,
 		ChainID:                   31,
 		Simulated:                 false,
@@ -245,6 +261,7 @@ var (
 
 	PolygonMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Polygon Mainnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.PolygonClientImplementation,
 		ChainID:                   137,
 		Simulated:                 false,
@@ -257,6 +274,7 @@ var (
 	// PolygonMumbai https://mumbai.polygonscan.com/
 	PolygonMumbai blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Polygon Mumbai",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.PolygonClientImplementation,
 		ChainID:                   80001,
 		Simulated:                 false,
@@ -268,6 +286,7 @@ var (
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Avalanche Mainnet",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   43114,
 		Simulated:                 false,
@@ -279,6 +298,7 @@ var (
 
 	AvalancheFuji = blockchain.EVMNetwork{
 		Name:                      "Avalanche Fuji",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
 		ChainID:                   43113,
 		Simulated:                 false,
@@ -290,6 +310,7 @@ var (
 
 	Quorum = blockchain.EVMNetwork{
 		Name:                      "Quorum",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.QuorumClientImplementation,
 		ChainID:                   1337,
 		Simulated:                 false,
@@ -301,6 +322,7 @@ var (
 
 	BaseGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "Base Goerli",
+		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.OptimismClientImplementation,
 		ChainID:                   84531,
 		Simulated:                 false,
@@ -312,8 +334,20 @@ var (
 
 	CeloAlfajores = blockchain.EVMNetwork{
 		Name:                      "Celo Alfajores",
+		SupportsEIP1559:           false,
 		ClientImplementation:      blockchain.CeloClientImplementation,
 		ChainID:                   44787,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
+	CeloMainnet = blockchain.EVMNetwork{
+		Name:                      "Celo",
+		ClientImplementation:      blockchain.CeloClientImplementation,
+		ChainID:                   42220,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
@@ -340,6 +374,7 @@ var (
 		"OPTIMISM_GOERLI":   OptimismGoerli,
 		"BASE_GOERLI":       BaseGoerli,
 		"CELO_ALFAJORES":    CeloAlfajores,
+		"CELO_MAINNET":      CeloMainnet,
 		"RSK":               RSKTestnet,
 		"MUMBAI":            PolygonMumbai,
 		"POLYGON_MAINNET":   PolygonMainnet,
