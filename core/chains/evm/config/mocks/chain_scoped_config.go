@@ -651,48 +651,6 @@ func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *assets.Wei {
 	return r0
 }
 
-// EvmHeadTrackerHistoryDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmHeadTrackerHistoryDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmHeadTrackerMaxBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmHeadTrackerMaxBufferSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmHeadTrackerSamplingInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmHeadTrackerSamplingInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // EvmLogBackfillBatchSize provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 	ret := _m.Called()

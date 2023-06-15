@@ -5,7 +5,10 @@ import "time"
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	FinalityDepth() uint32
-	HeadTrackerHistoryDepth() uint32
-	HeadTrackerMaxBufferSize() uint32
-	HeadTrackerSamplingInterval() time.Duration
+}
+
+type HeadTrackerConfig interface {
+	HistoryDepth() uint32
+	MaxBufferSize() uint32
+	SamplingInterval() time.Duration
 }

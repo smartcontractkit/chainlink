@@ -47,9 +47,6 @@ type ChainScopedOnlyConfig interface {
 	EvmGasPriceDefault() *assets.Wei
 	EvmGasTipCapDefault() *assets.Wei
 	EvmGasTipCapMinimum() *assets.Wei
-	EvmHeadTrackerHistoryDepth() uint32
-	EvmHeadTrackerMaxBufferSize() uint32
-	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
 	EvmLogKeepBlocksDepth() uint32
 	EvmLogPollInterval() time.Duration
@@ -68,6 +65,7 @@ type ChainScopedOnlyConfig interface {
 }
 
 type EVM interface {
+	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor
 	Transactions() Transactions
 	OCR() OCR
@@ -87,6 +85,12 @@ type OCR2 interface {
 
 type OCR2Automation interface {
 	GasLimit() uint32
+}
+
+type HeadTracker interface {
+	HistoryDepth() uint32
+	MaxBufferSize() uint32
+	SamplingInterval() time.Duration
 }
 
 type BalanceMonitor interface {
