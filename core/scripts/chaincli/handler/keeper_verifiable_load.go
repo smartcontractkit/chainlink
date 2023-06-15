@@ -88,7 +88,6 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 	for _, id := range upkeepIds {
 		idChan <- id
 	}
-	time.Sleep(1 * time.Second)
 
 	close(idChan)
 	wg.Wait()
