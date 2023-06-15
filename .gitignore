@@ -72,6 +72,7 @@ MacOSX*
 
 # Test & linter reports
 *report.xml
+*report.csv
 *report.json
 *.out
 
