@@ -256,8 +256,15 @@ const encodeLogTrigger = (
   )
 }
 
-const encodeCronTrigger = (timestamp: number) => {
-  return ethers.utils.defaultAbiCoder.encode(['uint256'], [timestamp])
+const encodeCronTrigger = (
+  timestamp: number,
+  blockNum: number,
+  blockHash: BytesLike,
+) => {
+  return ethers.utils.defaultAbiCoder.encode(
+    ['tuple(uint64, uint32, bytes32)'],
+    [[timestamp, blockNum, blockHash]],
+  )
 }
 
 const decodeBlockTrigger = (trigger: BytesLike) => {
@@ -742,7 +749,11 @@ describe('KeeperRegistry2_1', () => {
           )
           break
         case Trigger.CRON:
-          trigger = encodeCronTrigger(config.timestamp)
+          trigger = encodeCronTrigger(
+            config.timestamp,
+            config.checkBlockNum,
+            config.checkBlockHash,
+          )
           break
       }
       upkeeps.push({
@@ -1120,7 +1131,7 @@ describe('KeeperRegistry2_1', () => {
         assert.equal(staleUpkeepReportLogs.length, 1)
       })
 
-      it('returns early when timestamp is less or eq to last perform (cron)', async () => {
+      it('returns early when timestamp is less than or eq to last perform (cron)', async () => {
         // First perform an upkeep to put last perform block timestamp
         const tx = await getTransmitTx(registry, keeper1, [cronUpkeepId])
         await tx.wait()
@@ -1143,12 +1154,13 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('handles case when check block hash does not match', async () => {
-        const tests: [string, BigNumber, number][] = [
-          ['conditional', upkeepId, 1],
-          ['cron', cronUpkeepId, 0], // reorgs don't matter for cron
-          ['log-trigger', logUpkeepId, 1],
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['rwr', rwrUpkeepId],
+          ['cron', cronUpkeepId],
+          ['log-trigger', logUpkeepId],
         ]
-        for (const [type, id, nLogs] of tests) {
+        for (const [type, id] of tests) {
           const latestBlock = await ethers.provider.getBlock('latest')
           // Try to transmit a report which has incorrect checkBlockHash
           const tx = await getTransmitTx(registry, keeper1, [id], {
@@ -1161,7 +1173,7 @@ describe('KeeperRegistry2_1', () => {
           // exactly 1 ReorgedUpkeepReportLogs log should be emitted
           assert.equal(
             reorgedUpkeepReportLogs.length,
-            nLogs,
+            1,
             `wrong log count for ${type} upkeep`,
           )
         }
@@ -1171,12 +1183,13 @@ describe('KeeperRegistry2_1', () => {
         for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
         }
-        const tests: [string, BigNumber, number][] = [
-          ['conditional', upkeepId, 1],
-          ['cron', cronUpkeepId, 0], // reorgs don't matter for cron
-          ['log-trigger', logUpkeepId, 1],
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['rwr', rwrUpkeepId],
+          ['cron', cronUpkeepId],
+          ['log-trigger', logUpkeepId],
         ]
-        for (const [type, id, nLogs] of tests) {
+        for (const [type, id] of tests) {
           const latestBlock = await ethers.provider.getBlock('latest')
           const old = await ethers.provider.getBlock(latestBlock.number - 256)
           // Try to transmit a report which has incorrect checkBlockHash
@@ -1190,7 +1203,7 @@ describe('KeeperRegistry2_1', () => {
           // exactly 1 ReorgedUpkeepReportLogs log should be emitted
           assert.equal(
             reorgedUpkeepReportLogs.length,
-            nLogs,
+            1,
             `wrong log count for ${type} upkeep`,
           )
         }
