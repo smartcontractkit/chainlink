@@ -81,6 +81,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 
 	// create a number of workers to process the upkeep ids in batch
 	for i := 0; i < 5; i++ {
+		wg.Add(1)
 		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg)
 	}
 
@@ -114,7 +115,6 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 }
 
 func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInfo, v *verifiable_load_upkeep_wrapper.VerifiableLoadUpkeep, opts *bind.CallOpts, wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 
 	for id := range idChan {
