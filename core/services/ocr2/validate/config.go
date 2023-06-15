@@ -15,6 +15,7 @@ type OCR2Config interface {
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
 	DatabaseTimeout() time.Duration
+	TraceLogging() bool
 }
 
 type InsecureConfig interface {
