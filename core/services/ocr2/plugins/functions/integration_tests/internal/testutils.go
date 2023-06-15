@@ -331,7 +331,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	job, err := validate.ValidatedOracleSpecToml(app.Config, app.Config.Insecure(), fmt.Sprintf(`
+	job, err := validate.ValidatedOracleSpecToml(app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
 		schemaVersion      = 1

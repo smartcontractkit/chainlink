@@ -13,7 +13,10 @@ type Config interface {
 	MinimumContractPayment() *assets.Link // Evm
 	EvmGasLimitDefault() uint32           // Evm
 	EvmGasLimitFMJobType() *uint32        // Evm
-	EvmMaxQueuedTransactions() uint64     // Evm
+}
+
+type EvmTransactionsConfig interface {
+	MaxQueued() uint64 // Evm
 }
 
 type FluxMonitorConfig interface {

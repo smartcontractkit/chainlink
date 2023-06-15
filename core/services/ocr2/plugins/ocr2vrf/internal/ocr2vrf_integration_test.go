@@ -265,6 +265,7 @@ func setupNodeOCR2(
 		// Add new sending key.
 		k, err := app.KeyStore.Eth().Create()
 		require.NoError(t, err)
+		require.NoError(t, app.KeyStore.Eth().Add(k.Address, testutils.SimulatedChainID))
 		require.NoError(t, app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID))
 		sendingKeys = append(sendingKeys, k)
 		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
@@ -498,7 +499,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, apps[i].Config.Insecure(), jobSpec)
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
