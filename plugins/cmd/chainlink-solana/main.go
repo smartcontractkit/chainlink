@@ -3,67 +3,56 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"strings"
-	"sync"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/pelletier/go-toml/v2"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsol "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
+)
+
+const (
+	loggerName = "PluginSolana"
 )
 
 func main() {
-	envCfg, err := plugins.GetEnvConfig()
-	if err != nil {
-		fmt.Printf("Failed to get environment configuration: %s\n", err)
-		os.Exit(1)
-	}
-	lggr, closeLggr := plugins.NewLogger(envCfg)
-	defer closeLggr()
+	s := plugins.StartServer(loggerName)
+	defer s.Stop()
 
-	promServer := plugins.NewPromServer(envCfg.PrometheusPort(), lggr)
-	err = promServer.Start()
-	if err != nil {
-		lggr.Fatalf("Unrecoverable error starting prometheus server: %s", err)
-	}
-	defer func() {
-		err := promServer.Close()
-		if err != nil {
-			lggr.Errorf("error closing prometheus server: %s", err)
-		}
-	}()
+	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
+	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	cp := &chainPlugin{lggr: lggr}
-	defer func() {
-		logger.Sugared(lggr).ErrorIfFn(cp.Close, "chainPlugin")
-	}()
+	s.MustRegister(p.Name(), p)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
 
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
-			loop.PluginRelayerName: loop.NewGRPCPluginRelayer(cp, lggr),
+			loop.PluginRelayerName: &loop.GRPCPluginRelayer{
+				PluginServer: p,
+				BrokerConfig: loop.BrokerConfig{
+					StopCh:   stopCh,
+					Logger:   s.Logger,
+					GRPCOpts: s.GRPCOpts,
+				},
+			},
 		},
-		GRPCServer: plugin.DefaultGRPCServer,
+		GRPCServer: s.GRPCOpts.NewServer,
 	})
 }
 
-type chainPlugin struct {
-	lggr logger.Logger
-
-	mu      sync.Mutex
-	closers []io.Closer
+type pluginRelayer struct {
+	plugins.Base
 }
 
-func (c *chainPlugin) NewRelayer(ctx context.Context, config string, keystore loop.Keystore) (loop.Relayer, error) {
+func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore loop.Keystore) (loop.Relayer, error) {
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
@@ -74,29 +63,16 @@ func (c *chainPlugin) NewRelayer(ctx context.Context, config string, keystore lo
 	}
 
 	chainSet, err := solana.NewChainSet(solana.ChainSetOpts{
-		Logger:   c.lggr,
+		Logger:   c.Logger,
 		KeyStore: keystore,
 		Configs:  solana.NewConfigs(cfg.Solana),
 	}, cfg.Solana)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	r := pkgsol.NewRelayer(c.lggr, chainSet)
+	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.Logger, chainSet), chainSet)
 
-	c.mu.Lock()
-	c.closers = append(c.closers, chainSet, r)
-	c.mu.Unlock()
+	c.SubService(ra)
 
-	return &relay.RelayerAdapter{Relayer: r, RelayerExt: chainSet}, nil
-}
-
-func (c *chainPlugin) Close() (err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, cl := range c.closers {
-		if e := cl.Close(); e != nil {
-			err = multierr.Append(err, e)
-		}
-	}
-	return
+	return ra, nil
 }

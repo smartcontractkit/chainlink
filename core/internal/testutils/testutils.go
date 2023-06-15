@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"math"
@@ -79,7 +80,10 @@ func NewRandomEVMChainID() *big.Int {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 
@@ -401,6 +405,15 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	t.Helper()
 	var count int64
 	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	require.NoError(t, err)
+	require.Equal(t, expected, count)
+}
+
+func AssertCountPerSubject(t *testing.T, db *sqlx.DB, expected int64, subject uuid.UUID) {
+	t.Helper()
+	var count int64
+	err := db.Get(&count, `SELECT COUNT(*) FROM eth_txes
+		WHERE state = 'unstarted' AND subject = $1;`, subject)
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

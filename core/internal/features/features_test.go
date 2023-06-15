@@ -167,7 +167,8 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{}`)
+			_, err = io.WriteString(w, `{}`)
+			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
@@ -231,9 +232,9 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -822,7 +823,7 @@ func setupForwarderEnabledNode(
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config)
+	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
 	chainID := utils.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
 	require.NoError(t, err)
@@ -961,7 +962,8 @@ isBootstrapPeer    = true
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 					time.Sleep(5 * time.Second)
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err := res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -975,7 +977,8 @@ isBootstrapPeer    = true
 						metaLock.Unlock()
 					}
 					res.WriteHeader(http.StatusOK)
-					res.Write([]byte(`{"data":10}`))
+					_, err = res.Write([]byte(`{"data":10}`))
+					require.NoError(t, err)
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
@@ -1188,7 +1191,8 @@ isBootstrapPeer    = true
 			slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 				time.Sleep(5 * time.Second)
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err := res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -1202,7 +1206,8 @@ isBootstrapPeer    = true
 					metaLock.Unlock()
 				}
 				res.WriteHeader(http.StatusOK)
-				res.Write([]byte(`{"data":10}`))
+				_, err = res.Write([]byte(`{"data":10}`))
+				require.NoError(t, err)
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)
@@ -1314,7 +1319,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})

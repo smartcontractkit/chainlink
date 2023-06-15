@@ -14,13 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -43,10 +43,12 @@ func TestMercuryConfigPoller(t *testing.T) {
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	proxyAddress, _, _, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
+	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
 	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
+	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
+	require.NoError(t, err)
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)

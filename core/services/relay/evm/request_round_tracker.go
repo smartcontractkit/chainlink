@@ -9,7 +9,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -56,6 +56,7 @@ func NewRequestRoundTracker(
 	db *sqlx.DB,
 	odb RequestRoundDB,
 	chain ocrcommon.Config,
+	qConfig pg.QConfig,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
@@ -66,7 +67,7 @@ func NewRequestRoundTracker(
 		jobID:            jobID,
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
-		q:                pg.NewQ(db, lggr, chain),
+		q:                pg.NewQ(db, lggr, qConfig),
 		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
 		ctx:              ctx,
 		ctxCancel:        cancel,

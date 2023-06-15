@@ -2,11 +2,10 @@ package ocrbootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
-	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -26,13 +25,10 @@ type Delegate struct {
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
 	cfg               validate.Config
+	insecureCfg       validate.InsecureConfig
 	lggr              logger.SugaredLogger
-	relayers          map[relay.Network]func() (loop.Relayer, error)
+	relayers          map[relay.Network]loop.Relayer
 	isNewlyCreatedJob bool
-}
-
-type Config interface {
-	validate.Config
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -41,8 +37,9 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg Config,
-	relayers map[relay.Network]func() (loop.Relayer, error),
+	cfg validate.Config,
+	insecureCfg validate.InsecureConfig,
+	relayers map[relay.Network]loop.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -50,6 +47,7 @@ func NewDelegateBootstrap(
 		peerWrapper: peerWrapper,
 		lggr:        logger.Sugared(lggr),
 		cfg:         cfg,
+		insecureCfg: insecureCfg,
 		relayers:    relayers,
 	}
 }
@@ -74,7 +72,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	relayerFn, exists := d.relayers[spec.Relay]
+	relayer, exists := d.relayers[spec.Relay]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
@@ -82,11 +80,6 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		spec.RelayConfig["feedID"] = *spec.FeedID
 	}
 
-	relayer, err := relayerFn()
-	if err != nil {
-		//TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
-		return nil, fmt.Errorf("failed to get relayer: %w", err)
-	}
 	ctxVals := loop.ContextValues{
 		JobID:      jobSpec.ID,
 		JobName:    jobSpec.Name.ValueOrZero(),
@@ -94,7 +87,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		FeedID:     spec.FeedID,
 	}
 	ctx := ctxVals.ContextWithValues(context.Background())
-	//TODO retry https://smartcontract-it.atlassian.net/browse/BCF-2112
+
 	configProvider, err := relayer.NewConfigProvider(ctx, types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
@@ -105,7 +98,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.cfg, spec.AsOCR2Spec())
+	lc := validate.ToLocalConfig(d.cfg, d.insecureCfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

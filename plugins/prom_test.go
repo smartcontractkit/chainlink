@@ -7,21 +7,23 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 func TestPromServer(t *testing.T) {
 
 	testReg := prometheus.NewRegistry()
+	testHandler := promhttp.HandlerFor(testReg, promhttp.HandlerOpts{})
 	testMetric := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "test_metric",
 	})
 	testReg.MustRegister(testMetric)
 	testMetric.Inc()
 
-	s := NewPromServer(0, logger.TestLogger(t), WithRegistry(testReg))
+	s := NewPromServer(0, logger.Test(t), WithHandler(testHandler))
 	// check that port is not resolved yet
 	require.Equal(t, -1, s.Port())
 	require.NoError(t, s.Start())

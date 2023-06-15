@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initVRFKeysSubCmd(client *Client) cli.Command {
+func initVRFKeysSubCmd(s *Shell) cli.Command {
 	return cli.Command{
 		Name:  "vrf",
 		Usage: "Remote commands for administering the node's vrf keys",
@@ -24,7 +24,7 @@ func initVRFKeysSubCmd(client *Client) cli.Command {
 			{
 				Name:   "create",
 				Usage:  "Create a VRF key",
-				Action: client.CreateVRFKey,
+				Action: s.CreateVRFKey,
 			},
 			{
 				Name:  "import",
@@ -35,7 +35,7 @@ func initVRFKeysSubCmd(client *Client) cli.Command {
 						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 					},
 				},
-				Action: client.ImportVRFKey,
+				Action: s.ImportVRFKey,
 			},
 			{
 				Name:  "export",
@@ -50,7 +50,7 @@ func initVRFKeysSubCmd(client *Client) cli.Command {
 						Usage: "`FILE` where the JSON file will be saved (required)",
 					},
 				},
-				Action: client.ExportVRFKey,
+				Action: s.ExportVRFKey,
 			},
 			{
 				Name: "delete",
@@ -67,11 +67,11 @@ func initVRFKeysSubCmd(client *Client) cli.Command {
 						Usage: "hard-delete the key instead of archiving (irreversible!)",
 					},
 				},
-				Action: client.DeleteVRFKey,
+				Action: s.DeleteVRFKey,
 			},
 			{
 				Name: "list", Usage: "List the VRF keys",
-				Action: client.ListVRFKeys,
+				Action: s.ListVRFKeys,
 			},
 		},
 	}
@@ -117,10 +117,10 @@ func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
 
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the vrf password file provided when starting the chainlink node.
-func (cli *Client) CreateVRFKey(c *cli.Context) error {
-	resp, err := cli.HTTP.Post("/v2/keys/vrf", nil)
+func (s *Shell) CreateVRFKey(_ *cli.Context) error {
+	resp, err := s.HTTP.Post("/v2/keys/vrf", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -129,34 +129,34 @@ func (cli *Client) CreateVRFKey(c *cli.Context) error {
 	}()
 
 	var presenter VRFKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter)
+	return s.renderAPIResponse(resp, &presenter)
 }
 
 // ImportVRFKey reads a file into an EncryptedVRFKey in the db
-func (cli *Client) ImportVRFKey(c *cli.Context) error {
+func (s *Shell) ImportVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
 	keyJSON, err := os.ReadFile(filepath)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/vrf/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post("/v2/keys/vrf/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -165,39 +165,39 @@ func (cli *Client) ImportVRFKey(c *cli.Context) error {
 	}()
 
 	var presenter VRFKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "Imported VRF key")
+	return s.renderAPIResponse(resp, &presenter, "Imported VRF key")
 }
 
 // ExportVRFKey saves encrypted copy of VRF key with given public key to
 // requested file path.
-func (cli *Client) ExportVRFKey(c *cli.Context) error {
+func (s *Shell) ExportVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the ID (compressed public key) of the key to export"))
+		return s.errorOut(errors.New("Must pass the ID (compressed public key) of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(errors.New("Must specify --output/-o flag"))
 	}
 
 	pk, err := getPublicKey(c)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post("/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -206,22 +206,22 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
+		return s.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported VRF key %s to %s\n", pk.String(), filepath))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	return nil
@@ -230,13 +230,13 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 // DeleteVRFKey deletes (hard or soft) the VRF key with given public key from the db
 // and memory. V2 jobs referencing the VRF key will be removed if the key is deleted
 // (no such protection for the V1 jobs exists).
-func (cli *Client) DeleteVRFKey(c *cli.Context) error {
+func (s *Shell) DeleteVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the key ID (compressed public key) to be deleted"))
+		return s.errorOut(errors.New("Must pass the key ID (compressed public key) to be deleted"))
 	}
 	id, err := getPublicKey(c)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	if !confirmAction(c) {
@@ -248,9 +248,9 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/vrf/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(fmt.Sprintf("/v2/keys/vrf/%s%s", id, queryStr))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -259,7 +259,7 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	}()
 
 	var presenter VRFKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "VRF key deleted")
+	return s.renderAPIResponse(resp, &presenter, "VRF key deleted")
 }
 
 func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
@@ -275,10 +275,10 @@ func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 }
 
 // ListKeys Lists the keys in the db
-func (cli *Client) ListVRFKeys(c *cli.Context) error {
-	resp, err := cli.HTTP.Get("/v2/keys/vrf", nil)
+func (s *Shell) ListVRFKeys(_ *cli.Context) error {
+	resp, err := s.HTTP.Get("/v2/keys/vrf", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -287,5 +287,5 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 	}()
 
 	var presenters VRFKeyPresenters
-	return cli.renderAPIResponse(resp, &presenters, "🔑 VRF Keys")
+	return s.renderAPIResponse(resp, &presenters, "🔑 VRF Keys")
 }

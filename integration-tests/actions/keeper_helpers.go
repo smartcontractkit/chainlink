@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -339,17 +341,38 @@ func RegisterUpkeepContracts(
 	numberOfContracts int,
 	upkeepAddresses []string,
 ) []*big.Int {
+	checkData := make([][]byte, 0)
+	for i := 0; i < numberOfContracts; i++ {
+		checkData = append(checkData, []byte("0"))
+	}
+	return RegisterUpkeepContractsWithCheckData(
+		t, linkToken, linkFunds, client, upkeepGasLimit, registry, registrar,
+		numberOfContracts, upkeepAddresses, checkData)
+}
+
+func RegisterUpkeepContractsWithCheckData(
+	t *testing.T,
+	linkToken contracts.LinkToken,
+	linkFunds *big.Int,
+	client blockchain.EVMClient,
+	upkeepGasLimit uint32,
+	registry contracts.KeeperRegistry,
+	registrar contracts.KeeperRegistrar,
+	numberOfContracts int,
+	upkeepAddresses []string,
+	checkData [][]byte,
+) []*big.Int {
 	l := utils.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 	for contractCount, upkeepAddress := range upkeepAddresses {
 		req, err := registrar.EncodeRegisterRequest(
 			fmt.Sprintf("upkeep_%d", contractCount+1),
-			[]byte("0x1234"),
+			[]byte("test@mail.com"),
 			upkeepAddress,
 			upkeepGasLimit,
 			client.GetDefaultWallet().Address(), // upkeep Admin
-			[]byte("0x"),
+			checkData[contractCount],
 			linkFunds,
 			0,
 			client.GetDefaultWallet().Address(),
@@ -362,6 +385,7 @@ func RegisterUpkeepContracts(
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
 			Str("TxHash", tx.Hash().String()).
+			Str("Check Data", hexutil.Encode(checkData[contractCount])).
 			Msg("Registered Keeper Consumer Contract")
 		registrationTxHashes = append(registrationTxHashes, tx.Hash())
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some

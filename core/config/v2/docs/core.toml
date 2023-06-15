@@ -176,6 +176,10 @@ SecureCookies = true # Default
 SessionTimeout = '15m' # Default
 # SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
 SessionReaperExpiration = '240h' # Default
+# HTTPMaxSize defines the maximum size for HTTP requests and responses made by the node server.
+HTTPMaxSize = '32768b' # Default
+# StartTimeout defines the maximum amount of time the node will wait for a server to start.
+StartTimeout = '15s' # Default
 
 [WebServer.RateLimit]
 # Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
@@ -295,6 +299,10 @@ DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 # CaptureEATelemetry toggles collecting extra information from External Adaptares
 CaptureEATelemetry = false # Default
+# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth = 1 # Default
+# SimulateTransactions enables transaction simulation for OCR2.
+SimulateTransactions = false # Default
 
 # This section applies only if you are running off-chain reporting jobs.
 [OCR]

@@ -11,11 +11,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type PromServer struct {
 	port        int
+	srvrDone    chan struct{} // closed when the http server is done
 	srvr        *http.Server
 	tcpListener *net.TCPListener
 	lggr        logger.Logger
@@ -25,23 +26,29 @@ type PromServer struct {
 
 type PromServerOpt func(*PromServer)
 
-func WithRegistry(r *prometheus.Registry) PromServerOpt {
+func WithHandler(h http.Handler) PromServerOpt {
 	return func(s *PromServer) {
-		s.handler = promhttp.HandlerFor(r, promhttp.HandlerOpts{})
+		s.handler = h
 	}
 }
 
 func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromServer {
 
 	s := &PromServer{
-		port: port,
-		lggr: lggr,
+		port:     port,
+		lggr:     lggr,
+		srvrDone: make(chan struct{}),
 		srvr: &http.Server{
 			// reasonable default based on typical prom poll interval of 15s.
 			ReadTimeout: 5 * time.Second,
 		},
 
-		handler: promhttp.Handler(),
+		handler: promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				EnableOpenMetrics: true,
+			},
+		),
 	}
 
 	for _, opt := range opts {
@@ -61,6 +68,7 @@ func (p *PromServer) Start() error {
 	http.Handle("/metrics", p.handler)
 
 	go func() {
+		defer close(p.srvrDone)
 		err := p.srvr.Serve(p.tcpListener)
 		if errors.Is(err, net.ErrClosed) {
 			// ErrClose is expected on gracefully shutdown
@@ -68,13 +76,16 @@ func (p *PromServer) Start() error {
 		} else {
 			p.lggr.Errorf("%s: %s", p.Name(), err)
 		}
+
 	}()
 	return nil
 }
 
 // Close shutdowns down the underlying HTTP server. See [http.Server.Close] for details
 func (p *PromServer) Close() error {
-	return p.srvr.Shutdown(context.Background())
+	err := p.srvr.Shutdown(context.Background())
+	<-p.srvrDone
+	return err
 }
 
 // Name of the server

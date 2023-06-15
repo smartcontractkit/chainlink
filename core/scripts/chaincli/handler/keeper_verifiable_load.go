@@ -117,11 +117,6 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 	defer wg.Done()
 
 	for id := range idChan {
-		// it's possible to do the following to get delays, but it may run into out of gas issues
-		// performDelays, err := v.GetDelays(opts, uid)
-		log.Println()
-		log.Printf("================================== UPKEEP %s SUMMARY =======================================================", id.String())
-
 		// fetch how many times this upkeep has been executed
 		c, err := v.Counters(opts, id)
 		if err != nil {
@@ -134,7 +129,6 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 			log.Fatalf("failed to get current bucket count for %s: %v", id.String(), err)
 		}
 
-		log.Printf("upkeep ID %s has been performed %d times in %d buckets\n", id.String(), c, b+1)
 		info := &UpkeepInfo{
 			ID:                    id,
 			Bucket:                b,
@@ -144,11 +138,11 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		}
 
 		var delays []float64
-		var wg sync.WaitGroup
+		var wg1 sync.WaitGroup
 		for i := uint16(0); i <= b; i++ {
-			go k.getBucketData(v, opts, false, id, i, &wg, info)
+			go k.getBucketData(v, opts, false, id, i, &wg1, info)
 		}
-		wg.Wait()
+		wg1.Wait()
 
 		// get all the timestamp buckets of an upkeep. performs which happen every 1 hour after the first perform fall into the same bucket.
 		t, err := v.TimestampBuckets(opts, id)
@@ -157,9 +151,9 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		}
 		info.TimestampBucket = t
 		for i := uint16(0); i <= t; i++ {
-			go k.getBucketData(v, opts, true, id, i, &wg, info)
+			go k.getBucketData(v, opts, true, id, i, &wg1, info)
 		}
-		wg.Wait()
+		wg1.Wait()
 
 		for i := uint16(0); i <= b; i++ {
 			bucketDelays := info.DelayBuckets[i]
@@ -179,8 +173,7 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *UpkeepInf
 		// TODO sometimes SortedAllDelays is empty
 		maxDelay := info.SortedAllDelays[len(info.SortedAllDelays)-1]
 
-		log.Printf("%d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
-		//log.Printf("All delays: %v", info.SortedAllDelays)
+		log.Printf("upkeep ID %s has %d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", id, info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
 		resultsChan <- info
 	}
 }

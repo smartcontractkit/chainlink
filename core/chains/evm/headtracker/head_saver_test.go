@@ -22,7 +22,7 @@ func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	htCfg := htmocks.NewConfig(t)
 	htCfg.On("EvmHeadTrackerHistoryDepth").Return(uint32(6))
 	htCfg.On("EvmFinalityDepth").Return(uint32(1))
-	orm := headtracker.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg)
 	return saver, orm
 }
@@ -49,7 +49,7 @@ func TestHeadSaver_Save(t *testing.T) {
 	require.Equal(t, int64(1), latest.Number)
 }
 
-func TestHeadSaver_LoadFromDB(t *testing.T) {
+func TestHeadSaver_Load(t *testing.T) {
 	t.Parallel()
 
 	saver, orm := configureSaver(t)
@@ -59,7 +59,7 @@ func TestHeadSaver_LoadFromDB(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	latestHead, err := saver.LoadFromDB(testutils.Context(t))
+	latestHead, err := saver.Load(testutils.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, latestHead)
 	require.Equal(t, int64(4), latestHead.Number)

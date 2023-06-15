@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -17,13 +19,12 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -152,6 +153,10 @@ TurnLookBack = 0
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
+	cd, err := chainlink.NewDeployment(5, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.New(
 		&environment.Config{
 			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
@@ -161,11 +166,8 @@ PerformGasOverhead = 150_000`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"replicas": "5",
-			"toml":     client.AddNetworksConfig(baseTOML, network),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, nil, nil, nil, nil

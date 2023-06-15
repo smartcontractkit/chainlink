@@ -187,7 +187,8 @@ func (r *chainIDResp) newSendOnlyNode(t *testing.T, nodeChainID int64) evmclient
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
 	rpcSrv := rpc.NewServer()
 	t.Cleanup(rpcSrv.Stop)
-	rpcSrv.RegisterName("eth", &chainIDService{*r})
+	err := rpcSrv.RegisterName("eth", &chainIDService{*r})
+	require.NoError(t, err)
 	ts := httptest.NewServer(rpcSrv)
 	t.Cleanup(ts.Close)
 
@@ -226,7 +227,7 @@ func (r *chainIDResps) newNode(t *testing.T, nodeChainID int64) evmclient.Node {
 	}
 
 	defer func() { r.id++ }()
-	return evmclient.NewNode(evmclient.TestNodeConfig{}, logger.TestLogger(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID))
+	return evmclient.NewNode(evmclient.TestNodeConfig{}, logger.TestLogger(t), *wsURL, httpURL, t.Name(), r.id, big.NewInt(nodeChainID), 0)
 }
 
 type chainIDService struct {

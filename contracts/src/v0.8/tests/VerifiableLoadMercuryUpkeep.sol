@@ -2,14 +2,16 @@
 pragma solidity ^0.8.6;
 
 import "./VerifiableLoadBase.sol";
+import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
-contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
-  error MercuryLookup(string feedLabel, string[] feedList, string queryLabel, uint256 query, bytes extraData);
-
-  string[] public feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET", "USDC-USD-ARBITRUM-TESTNET"];
-  string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000", "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"];
-  string public feedLabel = "feedIDStr"; // feedIDHex
-  string public queryLabel = "blockNumber";
+contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
+  string[] public feedsHex = [
+    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+    "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+    "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"
+  ];
+  string public constant feedParamKey = "feedIDHex";
+  string public constant timeParamKey = "blockNumber";
 
   event MercuryPerformEvent(
     address indexed origin,
@@ -21,19 +23,14 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
 
   constructor(address registrarAddress, bool useArb) VerifiableLoadBase(registrarAddress, useArb) {}
 
-  function setFeedLabel(string calldata newFeedLabel) external {
-    feedLabel = newFeedLabel;
+  function setFeedsHex(string[] memory newFeeds) external {
+    feedsHex = newFeeds;
   }
 
-  function setQueryLabel(string calldata newQueryLabel) external {
-    queryLabel = newQueryLabel;
-  }
-
-  function setFeeds(string[] memory newFeeds) external {
-    feeds = newFeeds;
-  }
-
-  function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
+  function checkCallback(
+    bytes[] memory values,
+    bytes memory extraData
+  ) external pure override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
@@ -57,7 +54,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase {
       return (false, pData);
     }
 
-    revert MercuryLookup(feedLabel, feeds, queryLabel, blockNum, abi.encode(upkeepId));
+    revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
   }
 
   function performUpkeep(bytes calldata performData) external {

@@ -22,8 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -34,7 +34,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -43,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -68,10 +66,8 @@ type ocr2vrfUniverse struct {
 
 	beaconAddress      common.Address
 	coordinatorAddress common.Address
-	routerAddress      common.Address
 	beacon             *vrf_beacon.VRFBeacon
 	coordinator        *vrf_wrapper.VRFCoordinator
-	router             *vrf_router.VRFRouter
 
 	linkAddress common.Address
 	link        *link_token_interface.LinkToken
@@ -98,7 +94,6 @@ type ocr2Node struct {
 	transmitter          common.Address
 	effectiveTransmitter common.Address
 	keybundle            ocr2key.KeyBundle
-	config               config.GeneralConfig
 	sendingKeys          []string
 }
 
@@ -117,7 +112,7 @@ func setupOCR2VRFContracts(
 	// * link token
 	// * link/eth feed
 	// * DKG
-	// * VRF (router, coordinator, and beacon)
+	// * VRF (coordinator, and beacon)
 	// * VRF consumer
 	linkAddress, _, link, err := link_token_interface.DeployLinkToken(
 		owner, b)
@@ -133,31 +128,23 @@ func setupOCR2VRFContracts(
 	require.NoError(t, err)
 	b.Commit()
 
-	routerAddress, _, router, err := vrf_router.DeployVRFRouter(owner, b)
-	require.NoError(t, err)
-	b.Commit()
-
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress, feedAddress, routerAddress)
+		owner, b, big.NewInt(beaconPeriod), linkAddress)
 	require.NoError(t, err)
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetConfig(owner, vrf_wrapper.VRFCoordinatorConfig{
+	require.NoError(t, utils.JustError(coordinator.SetCallbackConfig(owner, vrf_wrapper.VRFCoordinatorCallbackConfig{
 		MaxCallbackGasLimit:        2.5e6,
 		MaxCallbackArgumentsLength: 160, // 5 EVM words
 	})))
 	b.Commit()
 
-	require.NoError(t, utils.JustError(coordinator.SetBillingConfig(owner, vrf_wrapper.VRFBeaconTypesBillingConfig{
+	require.NoError(t, utils.JustError(coordinator.SetCoordinatorConfig(owner, vrf_wrapper.VRFBeaconTypesCoordinatorConfig{
 		RedeemableRequestGasOverhead: 50_000,
 		CallbackRequestGasOverhead:   50_000,
 		StalenessSeconds:             60,
-		PremiumPercentage:            0,
 		FallbackWeiPerUnitLink:       assets.GWei(int(1e7)).ToInt(),
 	})))
-	b.Commit()
-
-	require.NoError(t, utils.JustError(router.RegisterCoordinator(owner, coordinatorAddress)))
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
@@ -166,12 +153,12 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
-		owner, b, routerAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
 	loadTestConsumerAddress, _, loadTestConsumer, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(
-		owner, b, routerAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
@@ -215,10 +202,8 @@ func setupOCR2VRFContracts(
 		dkg:                     dkg,
 		beaconAddress:           beaconAddress,
 		coordinatorAddress:      coordinatorAddress,
-		routerAddress:           routerAddress,
 		beacon:                  beacon,
 		coordinator:             coordinator,
-		router:                  router,
 		linkAddress:             linkAddress,
 		link:                    link,
 		consumerAddress:         consumerAddress,
@@ -296,7 +281,7 @@ func setupNodeOCR2(
 		b.Commit()
 
 		// Add the forwarder to the node's forwarder manager.
-		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config)
+		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
 		chainID := utils.Big(*b.Blockchain().Config().ChainID)
 		_, err = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err)
@@ -332,7 +317,6 @@ func setupNodeOCR2(
 		transmitter:          transmitter,
 		effectiveTransmitter: effectiveTransmitter,
 		keybundle:            kb,
-		config:               config,
 		sendingKeys:          sendingKeyStrings,
 	}
 }
@@ -451,6 +435,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	bootstrapJobSpec := fmt.Sprintf(`
 type				= "bootstrap"
 name				= "bootstrap"
+contractConfigTrackerPollInterval = "15s"
 relay				= "evm"
 schemaVersion		= 1
 contractID			= "%s"
@@ -484,6 +469,7 @@ relay                	= "evm"
 pluginType           	= "ocr2vrf"
 transmitterID        	= "%s"
 forwardingAllowed       = %t
+contractConfigTrackerPollInterval = "15s"
 
 [relayConfig]
 chainID              	= 1337
@@ -512,7 +498,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, jobSpec)
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
