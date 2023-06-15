@@ -5,7 +5,6 @@ import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
@@ -14,7 +13,6 @@ import "./SubscriptionAPI.sol";
 contract VRFCoordinatorV2_5 is
   VRF,
   TypeAndVersionInterface,
-  ERC677ReceiverInterface,
   SubscriptionAPI
 {
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -40,7 +38,6 @@ contract VRFCoordinatorV2_5 is
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
-  error Reentrant();
   struct RequestCommitment {
     uint64 blockNum;
     uint64 subId;
@@ -70,8 +67,6 @@ contract VRFCoordinatorV2_5 is
   struct Config {
     uint16 minimumRequestConfirmations;
     uint32 maxGasLimit;
-    // Reentrancy protection.
-    bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
@@ -192,8 +187,7 @@ contract VRFCoordinatorV2_5 is
       minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
-      gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      reentrancyLock: false
+      gasAfterPaymentCalculation: gasAfterPaymentCalculation
     });
     s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
@@ -213,7 +207,7 @@ contract VRFCoordinatorV2_5 is
    * @return maxGasLimit global max for request gas limit
    * @return s_provingKeyHashes list of registered key hashes
    */
-  function getRequestConfig() external view override returns (uint16, uint32, bytes32[] memory) {
+  function getRequestConfig() external view returns (uint16, uint32, bytes32[] memory) {
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
@@ -224,7 +218,7 @@ contract VRFCoordinatorV2_5 is
    * ceilings, so you can select a specific one to bound your maximum per request cost.
    * @param subId  - The ID of the VRF subscription. Must be funded
    * with the minimum subscription balance required for the selected keyHash.
-   * @param minimumRequestConfirmations - How many blocks you'd like the
+   * @param requestConfirmations - How many blocks you'd like the
    * oracle to wait before responding to the request. See SECURITY CONSIDERATIONS
    * for why you may want to request more. The acceptable range is
    * [minimumRequestBlockConfirmations, 200].
@@ -249,7 +243,7 @@ contract VRFCoordinatorV2_5 is
     uint32 callbackGasLimit,
     uint32 numWords,
     bool payInEth
-  ) external override nonReentrant returns (uint256) {
+  ) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -349,17 +343,23 @@ contract VRFCoordinatorV2_5 is
     return success;
   }
 
+  struct Output {
+    bytes32 keyHash;
+    uint256 requestId;
+    uint256 randomness;
+  }
+
   function getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
-  ) private view returns (bytes32 keyHash, uint256 requestId, uint256 randomness) {
-    keyHash = hashOfKey(proof.pk);
+  ) private view returns (Output memory) {
+    bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
     if (oracle == address(0)) {
       revert NoSuchProvingKey(keyHash);
     }
-    requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
+    uint256 requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
     bytes32 commitment = s_requestCommitments[requestId];
     if (commitment == 0) {
       revert NoCorrespondingRequest();
@@ -380,7 +380,8 @@ contract VRFCoordinatorV2_5 is
 
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
-    randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    uint256 randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    return Output(keyHash, requestId, randomness);
   }
 
   /*
@@ -414,71 +415,60 @@ contract VRFCoordinatorV2_5 is
    */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
-    (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
+    Output memory output = getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+      randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
     }
 
-    delete s_requestCommitments[requestId];
+    delete s_requestCommitments[output.requestId];
     VRFConsumerBaseV2 v;
-    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, output.requestId, randomWords);
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
     // Note that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
-    s_config.reentrancyLock = true;
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
-    s_config.reentrancyLock = false;
 
-    // Increment the req count for fee tier selection.
-    uint64 reqCount = s_subscriptions[rc.subId].reqCount;
-    s_subscriptions[rc.subId].reqCount += 1;
+    // stack too deep error
+    {
+      // Increment the req count for fee tier selection.
+      uint64 reqCount = s_subscriptions[rc.subId].reqCount;
+      s_subscriptions[rc.subId].reqCount += 1;
 
-    uint96 payment;
-    if (rc.nativePayment) {
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
-      // We also add the flat eth fee to the payment amount.
-      payment = calculatePaymentAmountNative(
+      uint96 payment = calculatePaymentAmount(
         startGas,
         s_config.gasAfterPaymentCalculation,
         getFeeTier(reqCount),
-        tx.gasprice
+        tx.gasprice,
+        rc.nativePayment
       );
-      if (s_subscriptions[rc.subId].ethBalance < payment) {
-        revert InsufficientBalance();
+      if (rc.nativePayment) {
+        if (s_subscriptions[rc.subId].ethBalance < payment) {
+          revert InsufficientBalance();
+        }
+        s_subscriptions[rc.subId].ethBalance -= payment;
+        s_withdrawableEth[s_provingKeys[output.keyHash]] += payment;
+      } else {
+        if (s_subscriptions[rc.subId].balance < payment) {
+          revert InsufficientBalance();
+        }
+        s_subscriptions[rc.subId].balance -= payment;
+        s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
-      s_subscriptions[rc.subId].ethBalance -= payment;
-      s_withdrawableEth[s_provingKeys[keyHash]] += payment;
-    } else {
-      // We want to charge users exactly for how much gas they use in their callback.
-      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-      // decrement the subscription balance and increment the oracles withdrawable balance.
-      // We also add the flat link fee to the payment amount.
-      // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
-      // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
-      payment = calculatePaymentAmount(
-        startGas,
-        s_config.gasAfterPaymentCalculation,
-        getFeeTier(reqCount),
-        tx.gasprice
-      );
-      if (s_subscriptions[rc.subId].balance < payment) {
-        revert InsufficientBalance();
-      }
-      s_subscriptions[rc.subId].balance -= payment;
-      s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+
+      // Include payment in the event for tracking costs.
+      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
+
+      return payment;
     }
-
-    // Include payment in the event for tracking costs.
-    emit RandomWordsFulfilled(requestId, payment, rc.nativePayment, rc.subId, rc.sender);
-
-    return payment;
   }
 
   function calculatePaymentAmount(
@@ -515,9 +505,9 @@ contract VRFCoordinatorV2_5 is
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
-    uint256 fee = 1e12 * uint256(fulfillmentFlatFeePPM);
+    uint256 flatFeeWei = 1e12 * uint256(fulfillmentFlatFeePPM);
     // return the final fee with the flat fee and l1 cost (if applicable) added
-    return uint96(paymentNoFee + fee + l1CostWei);
+    return uint96(baseFeeWei + flatFeeWei + l1CostWei);
   }
 
   // Get the amount of gas used for fulfillment
@@ -566,7 +556,7 @@ contract VRFCoordinatorV2_5 is
    * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint64 subId) public view override returns (bool) {
+  function pendingRequestExists(uint64 subId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
@@ -584,11 +574,45 @@ contract VRFCoordinatorV2_5 is
     return false;
   }
 
-  modifier nonReentrant() {
-    if (s_config.reentrancyLock) {
-      revert Reentrant();
+  /**
+   * @notice Remove a consumer from a VRF subscription.
+   * @param subId - ID of the subscription
+   * @param consumer - Consumer to remove from the subscription
+   */
+  function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
+    if (pendingRequestExists(subId)) {
+      revert PendingRequestExists();
     }
-    _;
+    if (s_consumers[consumer][subId] == 0) {
+      revert InvalidConsumer(subId, consumer);
+    }
+    // Note bounded by MAX_CONSUMERS
+    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
+    uint256 lastConsumerIndex = consumers.length - 1;
+    for (uint256 i = 0; i < consumers.length; i++) {
+      if (consumers[i] == consumer) {
+        address last = consumers[lastConsumerIndex];
+        // Storage write to preserve last element
+        s_subscriptionConfigs[subId].consumers[i] = last;
+        // Storage remove last element
+        s_subscriptionConfigs[subId].consumers.pop();
+        break;
+      }
+    }
+    delete s_consumers[consumer][subId];
+    emit SubscriptionConsumerRemoved(subId, consumer);
+  }
+
+  /**
+   * @notice Cancel a subscription
+   * @param subId - ID of the subscription
+   * @param to - Where to send the remaining LINK to
+   */
+  function cancelSubscription(uint64 subId, address to) external onlySubOwner(subId) nonReentrant {
+    if (pendingRequestExists(subId)) {
+      revert PendingRequestExists();
+    }
+    cancelSubscriptionHelper(subId, to);
   }
 
   /**

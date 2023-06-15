@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../ConfirmedOwner.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "../interfaces/ERC677ReceiverInterface.sol";
 
-contract SubscriptionAPI is ConfirmedOwner {
+contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
 
@@ -24,6 +26,8 @@ contract SubscriptionAPI is ConfirmedOwner {
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
   event EthFundsRecovered(address to, uint256 amount);
+  error LinkAlreadySet();
+  error FailedToSendEther();
 
   // We use the subscription struct (1 word)
   // at fulfillment time.
@@ -46,9 +50,9 @@ contract SubscriptionAPI is ConfirmedOwner {
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */ private s_consumers;
-  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ private s_subscriptionConfigs;
-  mapping(uint64 => Subscription) /* subId */ /* subscription */ private s_subscriptions;
+  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */ internal s_consumers;
+  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
+  mapping(uint64 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
   uint64 public s_currentSubId;
@@ -62,8 +66,8 @@ contract SubscriptionAPI is ConfirmedOwner {
   // A discrepancy with this contract's eth balance indicates someone
   // sent eth using transfer and so we may need to use recoverEthFunds.
   uint96 public s_totalEthBalance;
-  mapping(address => uint96) /* oracle */ /* LINK balance */ private s_withdrawableTokens;
-  mapping(address => uint96) /* oracle */ /* ETH balance */ private s_withdrawableEth;
+  mapping(address => uint96) /* oracle */ /* LINK balance */ internal s_withdrawableTokens;
+  mapping(address => uint96) /* oracle */ /* ETH balance */ internal s_withdrawableEth;
 
   event SubscriptionCreated(uint64 indexed subId, address owner);
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
@@ -79,7 +83,9 @@ contract SubscriptionAPI is ConfirmedOwner {
 
   function setLINK(address link) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
-    require(address(LINK) == address(0), "link already set");
+    if (address(LINK) != address(0)) {
+      revert LinkAlreadySet();
+    }
     LINK = LinkTokenInterface(link);
   }
 
@@ -126,7 +132,9 @@ contract SubscriptionAPI is ConfirmedOwner {
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
       (bool sent, ) = to.call{value: amount}("");
-      require(sent, "failed to send ether");
+      if (!sent) {
+        revert FailedToSendEther();
+      }
       emit EthFundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -156,7 +164,9 @@ contract SubscriptionAPI is ConfirmedOwner {
     s_withdrawableEth[msg.sender] -= amount;
     s_totalEthBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
-    require(sent, "failed to send ether");
+    if (!sent) {
+      revert FailedToSendEther();
+    }
   }
 
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
@@ -205,7 +215,7 @@ contract SubscriptionAPI is ConfirmedOwner {
    */
   function getSubscription(
     uint64 subId
-  ) external view override returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) {
+  ) external view returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -228,7 +238,7 @@ contract SubscriptionAPI is ConfirmedOwner {
    * @dev    amount,
    * @dev    abi.encode(subId));
    */
-  function createSubscription() external override nonReentrant returns (uint64) {
+  function createSubscription() external nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
@@ -251,7 +261,7 @@ contract SubscriptionAPI is ConfirmedOwner {
   function requestSubscriptionOwnerTransfer(
     uint64 subId,
     address newOwner
-  ) external override onlySubOwner(subId) nonReentrant {
+  ) external onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;
@@ -265,7 +275,7 @@ contract SubscriptionAPI is ConfirmedOwner {
    * @dev will revert if original owner of subId has
    * not requested that msg.sender become the new owner.
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external override nonReentrant {
+  function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -279,40 +289,11 @@ contract SubscriptionAPI is ConfirmedOwner {
   }
 
   /**
-   * @notice Remove a consumer from a VRF subscription.
-   * @param subId - ID of the subscription
-   * @param consumer - Consumer to remove from the subscription
-   */
-  function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
-    if (pendingRequestExists(subId)) {
-      revert PendingRequestExists();
-    }
-    if (s_consumers[consumer][subId] == 0) {
-      revert InvalidConsumer(subId, consumer);
-    }
-    // Note bounded by MAX_CONSUMERS
-    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
-    uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; i++) {
-      if (consumers[i] == consumer) {
-        address last = consumers[lastConsumerIndex];
-        // Storage write to preserve last element
-        s_subscriptionConfigs[subId].consumers[i] = last;
-        // Storage remove last element
-        s_subscriptionConfigs[subId].consumers.pop();
-        break;
-      }
-    }
-    delete s_consumers[consumer][subId];
-    emit SubscriptionConsumerRemoved(subId, consumer);
-  }
-
-  /**
    * @notice Add a consumer to a VRF subscription.
    * @param subId - ID of the subscription
    * @param consumer - New consumer which can use the subscription
    */
-  function addConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
+  function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -329,22 +310,11 @@ contract SubscriptionAPI is ConfirmedOwner {
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  /**
-   * @notice Cancel a subscription
-   * @param subId - ID of the subscription
-   * @param to - Where to send the remaining LINK to
-   */
-  function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
-    if (pendingRequestExists(subId)) {
-      revert PendingRequestExists();
-    }
-    cancelSubscriptionHelper(subId, to);
-  }
-
-  function cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
+  function cancelSubscriptionHelper(uint64 subId, address to) internal nonReentrant {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
+    uint96 ethBalance = sub.ethBalance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
@@ -353,10 +323,16 @@ contract SubscriptionAPI is ConfirmedOwner {
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
     s_totalBalance -= balance;
+    s_totalEthBalance -= ethBalance;
     if (!LINK.transfer(to, uint256(balance))) {
       revert InsufficientBalance();
     }
-    emit SubscriptionCanceled(subId, to, balance);
+    // send eth to the "to" address using call
+    (bool success, ) = to.call{value: uint256(ethBalance)}("");
+    if (!success) {
+      revert FailedToSendEther();
+    }
+    emit SubscriptionCanceled(subId, to, balance, ethBalance);
   }
 
   modifier onlySubOwner(uint64 subId) {
