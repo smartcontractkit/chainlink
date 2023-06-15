@@ -107,7 +107,7 @@ type ChainConfig struct {
 	AdminAddress      string
 	FluxMonitorConfig FluxMonitorConfig
 	OCR1Config        OCR1Config
-	OCR2Config        OCR2Config
+	OCR2Config        OCR2ConfigModel
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -152,8 +152,8 @@ func (c *OCR1Config) Scan(value interface{}) error {
 	return json.Unmarshal(b, &c)
 }
 
-// OCR2Config defines configuration for OCR2 Jobs.
-type OCR2Config struct {
+// OCR2ConfigModel defines configuration for OCR2 Jobs.
+type OCR2ConfigModel struct {
 	Enabled     bool        `json:"enabled"`
 	IsBootstrap bool        `json:"is_bootstrap"`
 	Multiaddr   null.String `json:"multiaddr"`
@@ -162,11 +162,11 @@ type OCR2Config struct {
 	Plugins     Plugins     `json:"plugins"`
 }
 
-func (c OCR2Config) Value() (driver.Value, error) {
+func (c OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR2Config) Scan(value interface{}) error {
+func (c *OCR2ConfigModel) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

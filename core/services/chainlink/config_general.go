@@ -401,52 +401,8 @@ func (g *generalConfig) Log() config.Log {
 	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
-func (g *generalConfig) OCR2ContractConfirmations() uint16 {
-	return uint16(*g.c.OCR2.ContractConfirmations)
-}
-
-func (g *generalConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
-	return g.c.OCR2.ContractTransmitterTransmitTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2BlockchainTimeout() time.Duration {
-	return g.c.OCR2.BlockchainTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2DatabaseTimeout() time.Duration {
-	return g.c.OCR2.DatabaseTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2ContractPollInterval() time.Duration {
-	return g.c.OCR2.ContractPollInterval.Duration()
-}
-
-func (g *generalConfig) OCR2ContractSubscribeInterval() time.Duration {
-	return g.c.OCR2.ContractSubscribeInterval.Duration()
-}
-
-func (g *generalConfig) OCR2KeyBundleID() (string, error) {
-	b := g.c.OCR2.KeyBundleID
-	if *b == zeroSha256Hash {
-		return "", nil
-	}
-	return b.String(), nil
-}
-
-func (g *generalConfig) OCR2TraceLogging() bool {
-	return *g.c.P2P.TraceLogging
-}
-
-func (g *generalConfig) OCR2CaptureEATelemetry() bool {
-	return *g.c.OCR2.CaptureEATelemetry
-}
-
-func (g *generalConfig) OCR2DefaultTransactionQueueDepth() uint32 {
-	return *g.c.OCR2.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) OCR2SimulateTransactions() bool {
-	return *g.c.OCR2.SimulateTransactions
+func (g *generalConfig) OCR2() config.OCR2 {
+	return &ocr2Config{c: g.c.OCR2}
 }
 
 func (g *generalConfig) P2P() config.P2P {

@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -327,58 +326,59 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 		return
 	}
 
-	requestData, cborParseErr := cbor.ParseDietCBOR(request.Data)
+	var requestData RequestData
+	cborParseErr := cbor.ParseDietCBORToStruct(request.Data, &requestData)
 	if cborParseErr != nil {
 		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
 		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
 		return
 	}
 
-	jsonRequestData, err := json.Marshal(requestData)
-	if err != nil {
-		l.logger.Errorw("failed to encode CBOR back to JSON", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR re-encoding error"))
-		return
-	}
+	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, &requestData)
+}
+
+func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestData *RequestData) {
+	requestIDStr := formatRequestId(requestID)
+	l.logger.Infow("processing request", "requestID", requestIDStr)
 
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
-		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", formatRequestId(request.RequestId), "err", err)
-		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
+		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
+		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
 		return
 	}
 
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, formatRequestId(request.RequestId), l.job.Name.ValueOrZero(), request.SubscriptionOwner.Hex(), request.SubscriptionId, "", jsonRequestData)
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, "", requestData)
 
 	if err != nil {
-		l.logger.Errorw("internal adapter error", "requestID", formatRequestId(request.RequestId), "err", err)
-		l.setError(ctx, request.RequestId, 0, INTERNAL_ERROR, []byte(err.Error()))
+		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)
+		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
 		return
 	}
 
 	if len(computationError) == 0 && len(computationResult) == 0 {
-		l.logger.Errorw("both result and error are empty - saving result", "requestID", formatRequestId(request.RequestId))
+		l.logger.Errorw("both result and error are empty - saving result", "requestID", requestIDStr)
 		computationResult = []byte{}
 		computationError = []byte{}
 	}
 
 	if len(domains) > 0 {
-		l.reportSourceCodeDomains(request.RequestId, domains)
+		l.reportSourceCodeDomains(requestID, domains)
 	}
 
 	if len(computationError) != 0 {
 		if len(computationResult) != 0 {
-			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
+			l.logger.Warnw("both result and error are non-empty - using error", "requestID", requestIDStr)
 		}
-		l.logger.Debugw("saving computation error", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, computationError)
+		l.logger.Debugw("saving computation error", "requestID", requestIDStr)
+		l.setError(ctx, requestID, 0, USER_ERROR, computationError)
 		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
 		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
-		l.logger.Debugw("saving computation result", "requestID", formatRequestId(request.RequestId))
-		if err2 := l.pluginORM.SetResult(request.RequestId, 0, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
+		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
+		if err2 := l.pluginORM.SetResult(requestID, 0, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
 		}
 	}
 }

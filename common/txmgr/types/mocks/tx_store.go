@@ -244,84 +244,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransac
 	return r0, r1
 }
 
-// FindTxAttempt provides a mock function with given fields: hash
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttempt(hash TX_HASH) (*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(hash)
-
-	var r0 *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(TX_HASH) (*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(hash)
-	}
-	if rf, ok := ret.Get(0).(func(TX_HASH) *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(hash)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(TX_HASH) error); ok {
-		r1 = rf(hash)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindTxAttemptConfirmedByTxIDs provides a mock function with given fields: ids
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptConfirmedByTxIDs(ids []int64) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ids)
-
-	var r0 []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func([]int64) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ids)
-	}
-	if rf, ok := ret.Get(0).(func([]int64) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ids)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func([]int64) error); ok {
-		r1 = rf(ids)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindTxAttemptsByTxIDs provides a mock function with given fields: ids
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsByTxIDs(ids []int64) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ids)
-
-	var r0 []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func([]int64) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ids)
-	}
-	if rf, ok := ret.Get(0).(func([]int64) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ids)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func([]int64) error); ok {
-		r1 = rf(ids)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindTxAttemptsConfirmedMissingReceipt provides a mock function with given fields: chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsConfirmedMissingReceipt(chainID CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(chainID)
@@ -393,56 +315,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttem
 
 	if rf, ok := ret.Get(1).(func(time.Time, uint32, CHAIN_ID, ADDR) error); ok {
 		r1 = rf(olderThan, maxInFlightTransactions, chainID, address)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindTxByHash provides a mock function with given fields: hash
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxByHash(hash TX_HASH) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(hash)
-
-	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(TX_HASH) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(hash)
-	}
-	if rf, ok := ret.Get(0).(func(TX_HASH) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(hash)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(TX_HASH) error); ok {
-		r1 = rf(hash)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindTxWithAttempts provides a mock function with given fields: etxID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithAttempts(etxID int64) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(etxID)
-
-	var r0 txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(int64) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(etxID)
-	}
-	if rf, ok := ret.Get(0).(func(int64) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(etxID)
-	} else {
-		r0 = ret.Get(0).(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-	}
-
-	if rf, ok := ret.Get(1).(func(int64) error); ok {
-		r1 = rf(etxID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -625,20 +497,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 	return r0, r1
 }
 
-// InsertTxAttempt provides a mock function with given fields: attempt
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) InsertTxAttempt(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ret := _m.Called(attempt)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
-		r0 = rf(attempt)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // LoadTxAttempts provides a mock function with given fields: etx, qopts
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -653,27 +511,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttem
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], ...pg.QOpt) error); ok {
 		r0 = rf(etx, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// LoadTxesAttempts provides a mock function with given fields: etxs, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxesAttempts(etxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, etxs)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], ...pg.QOpt) error); ok {
-		r0 = rf(etxs, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -885,105 +722,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcas
 	}
 
 	return r0
-}
-
-// Transactions provides a mock function with given fields: offset, limit
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Transactions(offset int, limit int) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error) {
-	ret := _m.Called(offset, limit)
-
-	var r0 []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)); ok {
-		return rf(offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(int, int) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(int, int) int); ok {
-		r1 = rf(offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(int, int) error); ok {
-		r2 = rf(offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// TransactionsWithAttempts provides a mock function with given fields: offset, limit
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TransactionsWithAttempts(offset int, limit int) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error) {
-	ret := _m.Called(offset, limit)
-
-	var r0 []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)); ok {
-		return rf(offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(int, int) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(int, int) int); ok {
-		r1 = rf(offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(int, int) error); ok {
-		r2 = rf(offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// TxAttempts provides a mock function with given fields: offset, limit
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) TxAttempts(offset int, limit int) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error) {
-	ret := _m.Called(offset, limit)
-
-	var r0 []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(int, int) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)); ok {
-		return rf(offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(int, int) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(int, int) int); ok {
-		r1 = rf(offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(int, int) error); ok {
-		r2 = rf(offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // UpdateBroadcastAts provides a mock function with given fields: now, etxIDs

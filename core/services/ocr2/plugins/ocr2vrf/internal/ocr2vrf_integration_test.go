@@ -499,7 +499,7 @@ linkEthFeedAddress     	= "%s"
 			uni.feedAddress.String(),
 		)
 		t.Log("Creating OCR2VRF job with spec:", jobSpec)
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, apps[i].Config.Insecure(), jobSpec)
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
