@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -12,13 +13,15 @@ import (
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	EvmFinalityDepth() uint32
-	EvmHeadTrackerHistoryDepth() uint32
-	EvmHeadTrackerMaxBufferSize() uint32
-	EvmHeadTrackerSamplingInterval() time.Duration
+}
+
+type HeadTrackerConfig interface {
+	config.HeadTracker
 }
 
 var _ types.Config = (*wrappedConfig)(nil)
 
+// Deprecated - this should be removed once config has been refactored.
 type wrappedConfig struct {
 	Config
 }
@@ -29,16 +32,4 @@ func NewWrappedConfig(c Config) *wrappedConfig {
 
 func (c *wrappedConfig) FinalityDepth() uint32 {
 	return c.EvmFinalityDepth()
-}
-
-func (c *wrappedConfig) HeadTrackerHistoryDepth() uint32 {
-	return c.EvmHeadTrackerHistoryDepth()
-}
-
-func (c *wrappedConfig) HeadTrackerMaxBufferSize() uint32 {
-	return c.EvmHeadTrackerMaxBufferSize()
-}
-
-func (c *wrappedConfig) HeadTrackerSamplingInterval() time.Duration {
-	return c.EvmHeadTrackerSamplingInterval()
 }

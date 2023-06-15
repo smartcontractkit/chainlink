@@ -313,6 +313,17 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	}
 }
 
+func TestChainScopedConfig_HeadTracker(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	ht := cfg.EVM().HeadTracker()
+	assert.Equal(t, uint32(100), ht.HistoryDepth())
+	assert.Equal(t, uint32(3), ht.MaxBufferSize())
+	assert.Equal(t, time.Second, ht.SamplingInterval())
+}
+
 func Test_chainScopedConfig_Validate(t *testing.T) {
 	configWithChains := func(t *testing.T, id int64, chains ...*v2.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
