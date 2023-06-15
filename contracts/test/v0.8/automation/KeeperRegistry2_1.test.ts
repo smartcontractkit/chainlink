@@ -2506,7 +2506,7 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it('returns false, gasUsed, and executeGas when perform fails', async () => {
+    it('returns false and gasUsed when perform fails', async () => {
       await mock.setCanPerform(false)
 
       const simulatePerformResult = await registry
@@ -2514,7 +2514,6 @@ describe('KeeperRegistry2_1', () => {
         .callStatic.simulatePerformUpkeep(upkeepId, '0x')
 
       assert.equal(simulatePerformResult.success, false)
-      expect(simulatePerformResult.gasLimit).to.equal(executeGas)
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
@@ -2526,7 +2525,6 @@ describe('KeeperRegistry2_1', () => {
         .callStatic.simulatePerformUpkeep(upkeepId, '0x')
 
       assert.equal(simulatePerformResult.success, true)
-      expect(simulatePerformResult.gasLimit).to.equal(executeGas)
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
@@ -2571,7 +2569,8 @@ describe('KeeperRegistry2_1', () => {
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.UPKEEP_CANCELLED,
       )
-      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
     })
 
     it('returns false and error code if the upkeep is cancelled by owner', async () => {
@@ -2587,7 +2586,8 @@ describe('KeeperRegistry2_1', () => {
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.UPKEEP_CANCELLED,
       )
-      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
     })
 
     it('returns false and error code if the upkeep is paused', async () => {
@@ -2603,7 +2603,8 @@ describe('KeeperRegistry2_1', () => {
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.UPKEEP_PAUSED,
       )
-      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
     })
 
     it('returns false and error code if user is out of funds', async () => {
@@ -2617,7 +2618,8 @@ describe('KeeperRegistry2_1', () => {
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.INSUFFICIENT_BALANCE,
       )
-      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
     })
 
     context('when the registration is funded', () => {
@@ -2643,6 +2645,7 @@ describe('KeeperRegistry2_1', () => {
           UpkeepFailureReason.TARGET_CHECK_REVERTED,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
       })
 
       it('returns false and error code if the upkeep is not needed', async () => {
@@ -2658,6 +2661,7 @@ describe('KeeperRegistry2_1', () => {
           UpkeepFailureReason.UPKEEP_NOT_NEEDED,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
       })
 
       it('returns false and error code if the performData exceeds limit', async () => {
@@ -2679,6 +2683,7 @@ describe('KeeperRegistry2_1', () => {
           UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
       })
 
       it('returns true with gas used if the target can execute', async () => {
@@ -2700,6 +2705,7 @@ describe('KeeperRegistry2_1', () => {
           UpkeepFailureReason.NONE,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
         assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
       })
@@ -2707,7 +2713,7 @@ describe('KeeperRegistry2_1', () => {
       it('always returns true if pipeline is disabled', async () => {
         await registry.connect(owner).addFunds(rwrUpkeepId, toWei('100'))
         await rwrUpkeep.setCanCheck(false) // dosn't matter
-        assert.isFalse(await registry.getPipelineEnabled(rwrUpkeepId))
+        assert.isFalse(await registry.hasPipelineEnabled(rwrUpkeepId))
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic['checkUpkeep(uint256)'](rwrUpkeepId)

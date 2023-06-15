@@ -55,6 +55,7 @@ contract KeeperRegistryLogicA2_1 is
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
+      uint256 gasLimit,
       uint256 fastGasWei,
       uint256 linkNative
     )
@@ -62,6 +63,10 @@ contract KeeperRegistryLogicA2_1 is
     return checkUpkeep(id, s_pipelineData[id]);
   }
 
+  /**
+   * @dev there is an incongruency on what gets returned during failure modes
+   * ex sometimes we include price data, some times we omit it depending on the failure
+   */
   function checkUpkeep(
     uint256 id,
     bytes memory checkData
@@ -73,6 +78,7 @@ contract KeeperRegistryLogicA2_1 is
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
+      uint256 gasLimit,
       uint256 fastGasWei,
       uint256 linkNative
     )
@@ -81,8 +87,8 @@ contract KeeperRegistryLogicA2_1 is
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed, 0, 0);
-    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed, 0, 0);
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.executeGas, 0, 0);
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.executeGas, 0, 0);
 
     (fastGasWei, linkNative) = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
@@ -94,7 +100,7 @@ contract KeeperRegistryLogicA2_1 is
       false
     );
     if (upkeep.balance < maxLinkPayment) {
-      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
+      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.executeGas, 0, 0);
     }
 
     upkeepNeeded = true;
@@ -115,14 +121,30 @@ contract KeeperRegistryLogicA2_1 is
       } else {
         (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
         if (!upkeepNeeded)
-          return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
+          return (
+            false,
+            bytes(""),
+            UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+            gasUsed,
+            upkeep.executeGas,
+            fastGasWei,
+            linkNative
+          );
       }
     }
 
     if (performData.length > s_storage.maxPerformDataSize)
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
 
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.executeGas, fastGasWei, linkNative);
   }
 
   /**

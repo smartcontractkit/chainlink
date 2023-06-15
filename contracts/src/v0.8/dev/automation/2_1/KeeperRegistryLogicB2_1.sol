@@ -410,7 +410,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
    * @notice returns whether the upkeep has a a pipeline enabled or not
    */
-  function getPipelineEnabled(uint256 upkeepId) external view returns (bool) {
+  function hasPipelineEnabled(uint256 upkeepId) external view returns (bool) {
     return s_upkeep[upkeepId].pipelineEnabled;
   }
 }
