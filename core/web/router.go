@@ -34,6 +34,7 @@ import (
 	"github.com/unrolled/secure"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -55,7 +56,20 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionStore.Options(config.WebServer().SessionOptions())
 	cors := uiCorsHandler(config.WebServer().AllowOrigins())
 	if prometheus != nil {
-		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true})
+		pluginMetricMiddlewareFn := func(gc *gin.Context) {
+			// no-op
+			gc.Next()
+		}
+		if v2.EnvPluginSkipDiscovery.IsTrue() {
+			pluginMetricMiddlewareFn = func(gc *gin.Context) {
+				app.GetLogger().Debug("skipping plugin discovery")
+				lr := NewLoopRegistryServer(app)
+				lr.getAllPluginMetrics(gc)
+				gc.Next()
+			}
+
+		}
+		prometheusUse(prometheus, engine, promhttp.HandlerOpts{EnableOpenMetrics: true}, pluginMetricMiddlewareFn)
 	}
 
 	tls := config.WebServer().TLS()
@@ -632,7 +646,7 @@ func isBlacklisted(k string) bool {
 
 // prometheusUse is adapted from ginprom.Prometheus.Use
 // until merged upstream: https://github.com/Depado/ginprom/pull/48
-func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.HandlerOpts) {
+func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.HandlerOpts, aggregatePluginMetricsFn func(gc *gin.Context)) {
 	var (
 		r prometheus.Registerer = p.Registry
 		g prometheus.Gatherer   = p.Registry
@@ -642,6 +656,11 @@ func prometheusUse(p *ginprom.Prometheus, e *gin.Engine, handlerOpts promhttp.Ha
 		g = prometheus.DefaultGatherer
 	}
 	h := promhttp.InstrumentMetricHandler(r, promhttp.HandlerFor(g, handlerOpts))
+	handlers := []gin.HandlerFunc{}
+	if aggregatePluginMetricsFn != nil {
+		handlers = append(handlers, aggregatePluginMetricsFn)
+	}
+	handlers = append(handlers, prometheusHandler(p.Token, h))
 	e.GET(p.MetricsPath, prometheusHandler(p.Token, h))
 	p.Engine = e
 }

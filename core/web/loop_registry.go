@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,8 @@ type LoopRegistryServer struct {
 	client          *http.Client
 
 	jsonMarshalFn func(any) ([]byte, error)
+
+	mu sync.Mutex
 }
 
 func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
@@ -96,23 +99,46 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 		return
 	}
 
+	l.getPluginMetric(gc, p)
+}
+
+func (l *LoopRegistryServer) getPluginMetric(gc *gin.Context, p *plugins.RegisteredLoop) {
+
 	pluginURL := fmt.Sprintf("http://%s:%d/metrics", "localhost", p.EnvCfg.PrometheusPort())
-	l.logger.Debugf("routing to %s", pluginURL)
+	l.logger.Debug("getting plugin metrics at %s", pluginURL)
 	res, err := l.client.Get(pluginURL) //nolint
 	if err != nil {
-		l.logger.Errorw(fmt.Sprintf("plugin metric handler failed to get plugin url %s:", pluginURL), "err", err)
+		l.logger.Errorw(fmt.Sprintf("failed to get plugin metrics at %q", html.EscapeString(pluginURL)), "err", err)
+		l.mu.Lock()
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
+		l.mu.Unlock()
 		return
 	}
+
 	defer res.Body.Close()
 	b, err := io.ReadAll(res.Body)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if err != nil {
-		err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginName), err)
+		err = fmt.Errorf("error reading plugin %q metrics: %w", html.EscapeString(pluginURL), err)
+		l.logger.Error(err, "err", err)
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(err.Error()))
 		return
 	}
 	gc.Data(http.StatusOK, "text/plain", b)
+}
 
+func (l *LoopRegistryServer) getAllPluginMetrics(gc *gin.Context) {
+	wg := sync.WaitGroup{}
+	for _, p := range l.registry.List() {
+		wg.Add(1)
+		go func(plug *plugins.RegisteredLoop) {
+			defer wg.Done()
+			l.getPluginMetric(gc, p)
+		}(p)
+	}
+	wg.Wait()
 }
 
 func pluginMetricPath(name string) string {

@@ -11,10 +11,11 @@ var (
 	EnvConfig = Env("CL_CONFIG")
 
 	// LOOPP commands
-	EnvMedianPluginCmd   = Env("CL_MEDIAN_CMD")
-	EnvSolanaPluginCmd   = Env("CL_SOLANA_CMD")
-	EnvStarknetPluginCmd = Env("CL_STARKNET_CMD")
-	EnvPluginPromTarget  = Env("CL_PROMETHEUS_TARGET_HOSTNAME")
+	EnvMedianPluginCmd     = Env("CL_MEDIAN_CMD")
+	EnvSolanaPluginCmd     = Env("CL_SOLANA_CMD")
+	EnvStarknetPluginCmd   = Env("CL_STARKNET_CMD")
+	EnvPluginPromTarget    = Env("CL_PROMETHEUS_TARGET_HOSTNAME")
+	EnvPluginSkipDiscovery = Env("CL_SKIP_DISCOVERY")
 
 	EnvDatabaseAllowSimplePasswords = Env("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	EnvDatabaseURL                  = EnvSecret("CL_DATABASE_URL")
