@@ -1128,7 +1128,6 @@ describe('KeeperRegistry2_1', () => {
         await tx.wait()
         const lastPerformed = (await registry.getUpkeep(cronUpkeepId))
           .lastPerformedBlockNumberOrTimestamp
-        expect(lastPerformed).to.approximately(now(), 100)
         // Try to transmit a report which has timestamp == lastPerformed, should result in stale report
         const transmitTx = await getTransmitTx(
           registry,

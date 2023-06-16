@@ -34,16 +34,6 @@ import (
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
-var extraDataEncoder *abi.Type
-
-func init() {
-	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
-	if err != nil {
-		panic(err)
-	}
-	extraDataEncoder = method.Inputs
-}
-
 // Keeper is the keepers commands handler
 type Keeper struct {
 	*baseHandler
@@ -529,12 +519,10 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		var deployUpkeepTx *types.Transaction
 		var registerUpkeepTx *types.Transaction
 		var checkData []byte
-		var extraData []byte
 		var err error
 		switch k.cfg.UpkeepType {
 		case config.Conditional:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -559,14 +547,13 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			k.waitDeployment(ctx, deployUpkeepTx)
 			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, extraData,
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
 			)
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
 		case config.Mercury:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -583,7 +570,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			k.waitDeployment(ctx, deployUpkeepTx)
 			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, extraData,
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
 			)
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
