@@ -269,6 +269,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         if (transmitter.active) revert RepeatedTransmitter();
         transmitter.active = true;
         transmitter.index = uint8(i);
+        // new transmitters start afresh from current totalPremium
+        // some spare change of premium from previoius pool will be forfeited
         transmitter.lastCollected = totalPremium;
         s_transmitters[temp] = transmitter;
       }

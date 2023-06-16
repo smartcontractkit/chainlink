@@ -699,6 +699,36 @@ describe('KeeperRegistry2_1', () => {
     }
   }
 
+  const verifyConsistentAccounting = async (
+    maxAllowedSpareChange: BigNumber,
+  ) => {
+    let expectedLinkBalance = (await registry.getState()).state
+      .expectedLinkBalance
+    let linkTokenBalance = await linkToken.balanceOf(registry.address)
+    let upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
+    let totalKeeperBalance = BigNumber.from(0)
+    for (let i = 0; i < keeperAddresses.length; i++) {
+      totalKeeperBalance = totalKeeperBalance.add(
+        (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
+      )
+    }
+    let ownerBalance = (await registry.getState()).state.ownerLinkBalance
+    assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
+    assert.isTrue(
+      upkeepIdBalance
+        .add(totalKeeperBalance)
+        .add(ownerBalance)
+        .lte(expectedLinkBalance),
+    )
+    assert.isTrue(
+      expectedLinkBalance
+        .sub(upkeepIdBalance)
+        .sub(totalKeeperBalance)
+        .sub(ownerBalance)
+        .lte(maxAllowedSpareChange),
+    )
+  }
+
   interface GetTransmitTXOptions {
     numSigners?: number
     startingSignerIndex?: number
@@ -5068,36 +5098,6 @@ describe('KeeperRegistry2_1', () => {
       assert.isTrue(k1New.lastCollected.eq(registryPremium))
       assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
     })
-
-    const verifyConsistentAccounting = async (
-      maxAllowedSpareChange: BigNumber,
-    ) => {
-      let expectedLinkBalance = (await registry.getState()).state
-        .expectedLinkBalance
-      let linkTokenBalance = await linkToken.balanceOf(registry.address)
-      let upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
-      let totalKeeperBalance = BigNumber.from(0)
-      for (let i = 0; i < keeperAddresses.length; i++) {
-        totalKeeperBalance = totalKeeperBalance.add(
-          (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
-        )
-      }
-      let ownerBalance = (await registry.getState()).state.ownerLinkBalance
-      assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
-      assert.isTrue(
-        upkeepIdBalance
-          .add(totalKeeperBalance)
-          .add(ownerBalance)
-          .lte(expectedLinkBalance),
-      )
-      assert.isTrue(
-        expectedLinkBalance
-          .sub(upkeepIdBalance)
-          .sub(totalKeeperBalance)
-          .sub(ownerBalance)
-          .lte(maxAllowedSpareChange),
-      )
-    }
 
     it('maintains consistent balance information across all parties', async () => {
       // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance

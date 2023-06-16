@@ -663,7 +663,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       uint96 uncollected = totalPremium - transmitter.lastCollected;
       uint96 due = uncollected / payeeCount;
       transmitter.balance += due;
-      transmitter.lastCollected = totalPremium; // transmitter forfeits some spare change
+      transmitter.lastCollected += due * payeeCount;
       s_transmitters[transmitterAddress] = transmitter;
     }
 
