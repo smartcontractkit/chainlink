@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -20,10 +20,6 @@ import (
 
 type ValidationConfig interface {
 	ChainType() config.ChainType
-	OCRContractConfirmations() uint16
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
 }
 
 type OCRValidationConfig interface {
@@ -42,7 +38,7 @@ type insecureConfig interface {
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
-	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (config2.ChainScopedConfig, error) {
+	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 		c, err := chainSet.Get(id)
 		if err != nil {
 			return nil, err
@@ -51,7 +47,7 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	}, tomlString)
 }
 
-func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedConfig, error), tomlString string) (job.Job, error) {
+func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -106,7 +102,7 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 	} else if err := validateNonBootstrapSpec(tree, jb, cfg.OCR().ObservationTimeout()); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg, cfg.Insecure(), spec, cfg.OCR()); err != nil {
+	if err := validateTimingParameters(cfg, cfg.EVM().OCR(), cfg.Insecure(), spec, cfg.OCR()); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -129,8 +125,8 @@ var (
 	}
 )
 
-func validateTimingParameters(cfg ValidationConfig, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrCfg job.OCRConfig) error {
-	lc := toLocalConfig(cfg, insecureCfg, spec, ocrCfg)
+func validateTimingParameters(cfg ValidationConfig, evmOcrCfg evmconfig.OCR, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrCfg job.OCRConfig) error {
+	lc := toLocalConfig(cfg, evmOcrCfg, insecureCfg, spec, ocrCfg)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
