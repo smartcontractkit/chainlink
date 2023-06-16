@@ -517,7 +517,7 @@ StartTimeout defines the maximum amount of time the node will wait for a server 
 ```toml
 ListenIP = '0.0.0.0' # Default
 ```
-ListenIP specifies the port to bind the HTTP server to
+ListenIP specifies the IP to bind the HTTP server to
 
 ## WebServer.RateLimit
 ```toml
@@ -619,7 +619,7 @@ ForceRedirect forces TLS redirect for unencrypted connections.
 ```toml
 ListenIP = '0.0.0.0' # Default
 ```
-ListenIP specifies the port to bind the HTTPS server to
+ListenIP specifies the IP to bind the HTTPS server to
 
 ## JobPipeline
 ```toml
