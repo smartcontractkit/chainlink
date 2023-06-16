@@ -36,16 +36,6 @@ import (
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
 
-var extraDataEncoder *abi.Type
-
-func init() {
-	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
-	if err != nil {
-		panic(err)
-	}
-	extraDataEncoder = method.Inputs
-}
-
 // Keeper is the keepers commands handler
 type Keeper struct {
 	*baseHandler
@@ -529,13 +519,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		// Deploy
 		var upkeepAddr common.Address
 		var deployUpkeepTx *types.Transaction
+		var registerUpkeepTx *types.Transaction
 		var checkData []byte
-		var extraData []byte
 		var err error
 		switch k.cfg.UpkeepType {
 		case config.Conditional:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -564,9 +553,16 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
 			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
 		case config.Mercury:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -589,6 +585,14 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
 			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
 		case config.LogTrigger:
 			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 				k.buildTxOpts(ctx),
@@ -610,20 +614,16 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal("failed to encode log trigger config", err)
 			}
-			extraData, err = extraDataEncoder.Encode([]interface{}{1, logTriggerConfig, "0x"})
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeepV2(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, 1, []byte{}, logTriggerConfig, []byte{},
+			)
 			if err != nil {
-				log.Fatal("failed to encode extra data", err)
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
-		}
-		k.waitDeployment(ctx, deployUpkeepTx)
-		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
-
-		// Register
-		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, extraData,
-		)
-		if err != nil {
-			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+		default:
+			log.Fatal("unexpected upkeep type")
 		}
 
 		if err := k.waitTx(ctx, registerUpkeepTx); err != nil {
