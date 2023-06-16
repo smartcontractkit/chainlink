@@ -15,9 +15,6 @@ contract HeartbeatRequesterTest is Test {
     MockAggregator public aggregator;
     IAggregatorProxy public aggregatorProxy;
 
-    // MockAggregator public aggregator2;
-    // IAggregatorProxy public aggregatorProxy2;
-
     address internal constant USER = address(2);
 
     event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
@@ -43,7 +40,7 @@ contract HeartbeatRequesterTest is Test {
 
     }
 
-    function test_permitHeartbeat2() public {
+    function test_permitHeartbeat_NotFromOwner() public {
         // Try adding permit from non-owner, fail is expected behavior
         vm.expectRevert(bytes("Only callable by owner"));
         vm.prank(USER);
@@ -69,23 +66,29 @@ contract HeartbeatRequesterTest is Test {
         heartbeatRequester.removeHeartbeat(address(this));
     }
 
-    // REVERTING on getAggregatorAndRequestHeartbeat()'s call to aggregator.requestNewRound()
-    // WHY? Need to fix
-    function test_getAggregatorRequestHeartbeat() public {
-        // getAggregatorRequestHeartbeat() has no return type, so how to test?
+    function test_removeHeartbeat_NotFromOwner() public {
+        // Try removing proxy from non-owner, fail is expected behavior
+        vm.expectRevert();
+        vm.prank(USER);
+        heartbeatRequester.removeHeartbeat(address(this));
+    }
 
+
+    function test_getAggregatorRequestHeartbeat() public {
         vm.expectEmit(true, true, true, true);
         emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
         heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
-
         heartbeatRequester.getAggregatorAndRequestHeartbeat(address(aggregatorProxy));
+        // getter for newRoundCalled value
+        bool val = aggregator.newRoundCalled();
+        assertEq(val, true);
     }
 
     function testRevert_getAggregatorRequestHeartbeat() public {
-        // getAggregatorRequestHeartbeat() has no return type, so how to test?
-
         vm.expectRevert();
-        heartbeatRequester.getAggregatorAndRequestHeartbeat(address(aggregatorProxy)); 
+        heartbeatRequester.getAggregatorAndRequestHeartbeat(address(aggregatorProxy));
+        bool val = aggregator.newRoundCalled();
+        assertFalse(val);
     }
 
 }
