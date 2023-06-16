@@ -1,10 +1,12 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 
-	"github.com/ethereum/go-ethereum/common"
+	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -55,8 +57,57 @@ func (m *Message) Validate() error {
 	if len(m.Body.DonId) == 0 || len(m.Body.DonId) > MessageDonIdMaxLen {
 		return errors.New("invalid DON ID length")
 	}
-	if len(m.Body.Sender) != MessageSenderHexEncodedLen || !common.IsHexAddress(m.Body.Sender) {
-		return errors.New("invalid hex-encoded sender address")
+	signerBytes, err := m.ValidateSignature()
+	if err != nil {
+		return err
 	}
+	hexSigner := utils.StringToHex(string(signerBytes))
+	if m.Body.Sender != "" && m.Body.Sender != hexSigner {
+		return errors.New("sender doesn't match signer")
+	}
+	m.Body.Sender = hexSigner
 	return nil
+}
+
+// Message signatures are over the following data:
+//  1. MessageId aligned to 128 bytes
+//  2. Method aligned to 64 bytes
+//  3. DonId aligned to 64 bytes
+//  4. Payload (before parsing)
+func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
+	rawData, err := getRawMessageBody(&m.Body)
+	if err != nil {
+		return err
+	}
+	signature, err := gw_common.SignData(privateKey, rawData...)
+	if err != nil {
+		return err
+	}
+	m.Signature = utils.StringToHex(string(signature))
+	return nil
+}
+
+func (m *Message) ValidateSignature() (signerAddress []byte, err error) {
+	rawData, err := getRawMessageBody(&m.Body)
+	if err != nil {
+		return
+	}
+	signatureBytes, err := utils.TryParseHex(m.Signature)
+	if err != nil {
+		return
+	}
+	return gw_common.ValidateSignature(signatureBytes, rawData...)
+}
+
+func getRawMessageBody(msgBody *MessageBody) ([][]byte, error) {
+	if msgBody == nil {
+		return nil, errors.New("nil message")
+	}
+	alignedMessageId := make([]byte, MessageIdMaxLen)
+	copy(alignedMessageId, msgBody.MessageId)
+	alignedMethod := make([]byte, MessageMethodMaxLen)
+	copy(alignedMethod, msgBody.Method)
+	alignedDonId := make([]byte, MessageDonIdMaxLen)
+	copy(alignedDonId, msgBody.DonId)
+	return [][]byte{alignedMessageId, alignedMethod, alignedDonId, msgBody.Payload}, nil
 }
