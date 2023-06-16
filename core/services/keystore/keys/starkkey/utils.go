@@ -14,11 +14,6 @@ var (
 	byteLen = 32
 )
 
-// PubToStarkKey implements the pubkey to starkkey functionality: https://github.com/0xs34n/starknet.js/blob/cd61356974d355aa42f07a3d63f7ccefecbd913c/src/utils/ellipticCurve.ts#L49
-func PubKeyToStarkKey(pubkey PublicKey) []byte {
-	return padBytes(pubkey.X.Bytes(), byteLen)
-}
-
 // reimplements parts of https://github.com/smartcontractkit/caigo/blob/main/utils.go#L85
 // generate the PK as a pseudo-random number in the interval [1, CurveOrder - 1]
 // using io.Reader, and Key struct
