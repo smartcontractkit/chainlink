@@ -35,7 +35,6 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common link balance used for all consumer requests.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
-    uint64 reqCount; // For fee tiers
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -209,20 +208,18 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
    * @param subId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
    * @return ethBalance - ETH balance of the subscription in wei.
-   * @return reqCount - number of requests for this subscription, determines fee tier.
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(
     uint64 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) {
+  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].ethBalance,
-      s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
       s_subscriptionConfigs[subId].consumers
     );
@@ -242,7 +239,7 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentSubId] = Subscription({balance: 0, ethBalance : 0, reqCount: 0});
+    s_subscriptions[currentSubId] = Subscription({balance: 0, ethBalance : 0});
     s_subscriptionConfigs[currentSubId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),

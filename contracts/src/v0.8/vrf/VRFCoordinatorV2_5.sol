@@ -80,15 +80,8 @@ contract VRFCoordinatorV2_5 is
   struct FeeConfig {
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeLinkPPMTier1;
-    uint32 fulfillmentFlatFeeLinkPPMTier2;
-    uint32 fulfillmentFlatFeeLinkPPMTier3;
-    uint32 fulfillmentFlatFeeLinkPPMTier4;
-    uint32 fulfillmentFlatFeeLinkPPMTier5;
-    uint24 reqsForTier2;
-    uint24 reqsForTier3;
-    uint24 reqsForTier4;
-    uint24 reqsForTier5;
+    uint32 fulfillmentFlatFeeLinkPPM;
+    uint32 fulfillmentFlatFeeEthPPM;
   }
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -163,7 +156,7 @@ contract VRFCoordinatorV2_5 is
    * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
-   * @param feeConfig fee tier configuration
+   * @param feeConfig fee configuration
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -385,28 +378,6 @@ contract VRFCoordinatorV2_5 is
   }
 
   /*
-   * @notice Compute fee based on the request count
-   * @param reqCount number of requests
-   * @return feePPM fee in LINK PPM
-   */
-  function getFeeTier(uint64 reqCount) public view returns (uint32) {
-    FeeConfig memory fc = s_feeConfig;
-    if (0 <= reqCount && reqCount <= fc.reqsForTier2) {
-      return fc.fulfillmentFlatFeeLinkPPMTier1;
-    }
-    if (fc.reqsForTier2 < reqCount && reqCount <= fc.reqsForTier3) {
-      return fc.fulfillmentFlatFeeLinkPPMTier2;
-    }
-    if (fc.reqsForTier3 < reqCount && reqCount <= fc.reqsForTier4) {
-      return fc.fulfillmentFlatFeeLinkPPMTier3;
-    }
-    if (fc.reqsForTier4 < reqCount && reqCount <= fc.reqsForTier5) {
-      return fc.fulfillmentFlatFeeLinkPPMTier4;
-    }
-    return fc.fulfillmentFlatFeeLinkPPMTier5;
-  }
-
-  /*
    * @notice Fulfill a randomness request
    * @param proof contains the proof and randomness
    * @param rc request commitment pre-image, committed to at request time
@@ -435,17 +406,12 @@ contract VRFCoordinatorV2_5 is
 
     // stack too deep error
     {
-      // Increment the req count for fee tier selection.
-      uint64 reqCount = s_subscriptions[rc.subId].reqCount;
-      s_subscriptions[rc.subId].reqCount += 1;
-
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
       uint96 payment = calculatePaymentAmount(
         startGas,
         s_config.gasAfterPaymentCalculation,
-        getFeeTier(reqCount),
         tx.gasprice,
         rc.nativePayment
       );
@@ -474,7 +440,6 @@ contract VRFCoordinatorV2_5 is
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
-    uint32 fulfillmentFlatFeePPM,
     uint256 weiPerUnitGas,
     bool nativePayment
   ) internal view returns (uint96) {
@@ -482,14 +447,14 @@ contract VRFCoordinatorV2_5 is
       return calculatePaymentAmountEth(
         startGas,
         gasAfterPaymentCalculation,
-        fulfillmentFlatFeePPM,
+        s_feeConfig.fulfillmentFlatFeeEthPPM,
         weiPerUnitGas
       );
     }
     return calculatePaymentAmountLink(
       startGas,
       gasAfterPaymentCalculation,
-      fulfillmentFlatFeePPM,
+      s_feeConfig.fulfillmentFlatFeeLinkPPM,
       weiPerUnitGas
     );
   }
