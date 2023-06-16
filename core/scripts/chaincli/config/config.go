@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
-// Upkeep type
+// UpkeepType represents an upkeep type
 type UpkeepType int
 
 const (
@@ -72,6 +72,9 @@ type Config struct {
 	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	VerifiableLoadTest              bool                   `mapstructure:"VERIFIABLE_LOAD_TEST"`
+	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
+	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 
 	// Node config scraping and verification

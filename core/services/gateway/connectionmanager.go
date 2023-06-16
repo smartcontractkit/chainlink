@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -182,7 +183,7 @@ func (m *connectionManager) parseAuthHeader(authHeader []byte) (nodeAddress stri
 		return "", nil, errors.New("unable to parse auth header")
 	}
 	signature := authHeader[n-network.HandshakeSignatureLen:]
-	signer, err := api.ValidateSignature(signature, authHeader[:n-network.HandshakeSignatureLen])
+	signer, err := common.ValidateSignature(signature, authHeader[:n-network.HandshakeSignatureLen])
 	nodeAddress = "0x" + hex.EncodeToString(signer)
 	return
 }
@@ -209,7 +210,7 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if !ok {
 		return errors.New("connection attempt not found")
 	}
-	signer, err := api.ValidateSignature(response, attempt.challenge)
+	signer, err := common.ValidateSignature(response, attempt.challenge)
 	if err != nil {
 		return errors.New("invalid challenge response")
 	}

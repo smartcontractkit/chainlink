@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 )
 
@@ -32,7 +33,7 @@ func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConn
 }
 
 func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
-	return api.SignData(h.signerKey, data...)
+	return common.SignData(h.signerKey, data...)
 }
 
 func (h *functionsConnectorHandler) HandleGatewayMessage(gatewayId string, msg *api.Message) {
