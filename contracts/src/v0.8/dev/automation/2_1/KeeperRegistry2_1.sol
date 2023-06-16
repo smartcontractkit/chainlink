@@ -474,12 +474,12 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    bytes32 logID = keccak256(abi.encodePacked(trigger.txHash, trigger.logIndex));
-    if (s_observedLogTriggers[logID]) {
+    bytes32 logTriggerID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
+    if (s_observedLogTriggers[logTriggerID]) {
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    s_observedLogTriggers[logID] = true;
+    s_observedLogTriggers[logTriggerID] = true;
     return true;
   }
 

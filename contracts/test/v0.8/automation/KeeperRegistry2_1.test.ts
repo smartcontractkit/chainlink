@@ -709,6 +709,9 @@ describe('KeeperRegistry2_1', () => {
     performData?: string
     checkBlockNum?: number
     checkBlockHash?: string
+    txHash?: BytesLike
+    logIndex?: number
+
     timestamp?: number
   }
   const getTransmitTx = async (
@@ -725,9 +728,11 @@ describe('KeeperRegistry2_1', () => {
       executeGas,
       checkBlockNum: latestBlock.number,
       checkBlockHash: latestBlock.hash,
+      txHash: ethers.utils.randomBytes(32),
+      logIndex: 0,
+      timestamp: now(),
       gasLimit: undefined,
       gasPrice: undefined,
-      timestamp: now(),
     }
     Object.assign(config, overrides)
     const upkeeps: UpkeepData[] = []
@@ -742,8 +747,8 @@ describe('KeeperRegistry2_1', () => {
           break
         case Trigger.LOG:
           trigger = encodeLogTrigger(
-            ethers.utils.randomBytes(32),
-            0,
+            config.txHash,
+            config.logIndex,
             config.checkBlockNum,
             config.checkBlockHash,
           )
@@ -1111,6 +1116,20 @@ describe('KeeperRegistry2_1', () => {
             `wrong log count for ${type} upkeep`,
           )
         }
+      })
+
+      it('handles duplicate logTriggerIDs', async () => {
+        const tx = await getTransmitTx(
+          registry,
+          keeper1,
+          [logUpkeepId, logUpkeepId],
+          { txHash: ethers.utils.randomBytes(32), logIndex: 0 }, // will result in the same logTriggerID
+        )
+        const receipt = await tx.wait()
+        const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
+        const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+        assert.equal(staleUpkeepReport.length, 1)
+        assert.equal(upkeepPerformedLogs.length, 1)
       })
 
       it('returns early when check block number is less than last perform (block)', async () => {
