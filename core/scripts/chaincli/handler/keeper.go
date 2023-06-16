@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
@@ -544,6 +546,13 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 				)
+			} else if k.cfg.VerifiableLoadTest {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_upkeep_wrapper.DeployVerifiableLoadUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
+				)
 			} else {
 				upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(
 					k.buildTxOpts(ctx),
@@ -561,13 +570,22 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(err)
 			}
-			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
-				k.buildTxOpts(ctx),
-				k.client,
-				big.NewInt(k.cfg.UpkeepTestRange),
-				big.NewInt(k.cfg.UpkeepInterval),
-				false,
-			)
+			if k.cfg.VerifiableLoadTest {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_mercury_upkeep_wrapper.DeployVerifiableLoadMercuryUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
+				)
+			} else {
+				upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					big.NewInt(k.cfg.UpkeepTestRange),
+					big.NewInt(k.cfg.UpkeepInterval),
+					false,
+				)
+			}
 			if err != nil {
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
 			}

@@ -13,6 +13,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/shopspring/decimal v1.3.1

@@ -44,6 +44,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_0.bin KeeperRegistry keeper_registry_wrapper2_0
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin KeeperRegistryLogic keeper_registry_logic2_0
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/UpkeepTranscoder.abi ../../contracts/solc/v0.8.6/UpkeepTranscoder.bin UpkeepTranscoder upkeep_transcoder
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VerifiableLoadUpkeep.abi ../../contracts/solc/v0.8.6/VerifiableLoadUpkeep.bin VerifiableLoadUpkeep verifiable_load_upkeep_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VerifiableLoadMercuryUpkeep.abi ../../contracts/solc/v0.8.6/VerifiableLoadMercuryUpkeep.bin VerifiableLoadMercuryUpkeep verifiable_load_mercury_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.15/MercuryUpkeep.abi ../../contracts/solc/v0.8.15/MercuryUpkeep.bin MercuryUpkeep mercury_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.15/FeedLookupCompatibleInterface.abi ../../contracts/solc/v0.8.15/FeedLookupCompatibleInterface.bin FeedLookupCompatibleInterface feed_lookup_compatible_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin AutomationConsumerBenchmark automation_consumer_benchmark
