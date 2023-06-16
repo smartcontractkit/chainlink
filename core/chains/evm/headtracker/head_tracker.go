@@ -34,6 +34,7 @@ func NewHeadTracker(
 		lggr,
 		ethClient,
 		NewWrappedConfig(config),
+		htConfig,
 		headBroadcaster,
 		headSaver,
 		mailMon,
