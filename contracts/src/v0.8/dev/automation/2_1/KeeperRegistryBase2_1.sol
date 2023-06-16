@@ -548,14 +548,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ) internal returns (uint96) {
     Transmitter memory transmitter = s_transmitters[transmitterAddress];
 
-    uint96 uncollected = totalPremium - transmitter.lastCollected;
-    uint96 due = uncollected / payeeCount;
-    transmitter.balance += due;
-    transmitter.lastCollected = totalPremium;
-
-    // Transfer spare change to owner
-    s_storage.ownerLinkBalance += (uncollected - due * payeeCount);
-    s_transmitters[transmitterAddress] = transmitter;
+    if (transmitter.active) {
+      uint96 uncollected = totalPremium - transmitter.lastCollected;
+      uint96 due = uncollected / payeeCount;
+      transmitter.balance += due;
+      transmitter.lastCollected = totalPremium; // transmitter forfeits some spare change
+      s_transmitters[transmitterAddress] = transmitter;
+    }
 
     return transmitter.balance;
   }

@@ -4940,17 +4940,15 @@ describe('KeeperRegistry2_1', () => {
 
       // registry total premium should not change
       assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
-      // Last collected should be updated
+
+      // Last collected should be updated to premium
       assert.equal(
         keeperAfter.lastCollected.toString(),
         registryPremiumBefore.toString(),
       )
 
-      const spareChange = registryPremiumBefore.mod(
-        BigNumber.from(keeperAddresses.length),
-      )
-      // spare change should go to owner
-      assert.isTrue(ownerAfter.sub(spareChange).eq(ownerBefore))
+      // owner balance should remain unchanged
+      assert.isTrue(ownerAfter.eq(ownerBefore))
 
       assert.isTrue(keeperAfter.balance.eq(BigNumber.from(0)))
       assert.isTrue(registrationBefore.eq(registrationAfter))
