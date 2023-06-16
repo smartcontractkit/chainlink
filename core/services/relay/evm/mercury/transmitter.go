@@ -14,15 +14,15 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
-
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
@@ -78,6 +78,7 @@ type mercuryTransmitter struct {
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
 	cfgTracker         ConfigTracker
+	orm                *ORM
 	initialBlockNumber int64
 
 	feedID      [32]byte
@@ -112,13 +113,14 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
+		NewORM(db, lggr, cfg),
 		initialBlockNumber,
 		feedID,
 		feedIDHex,
@@ -141,7 +143,16 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 			return err
 		}
 		mt.wg.Add(1)
-		go mt.runloop()
+
+		transmissions, err := mt.orm.GetTransmitRequests()
+		if err != nil {
+			return err
+		}
+		for _, transmission := range transmissions {
+			mt.queue.Push(transmission.Req, transmission.ReportCtx)
+		}
+
+		go mt.runLoop()
 		return nil
 	})
 }
@@ -154,7 +165,9 @@ func (mt *mercuryTransmitter) Close() error {
 		return mt.rpcClient.Close()
 	})
 }
+
 func (mt *mercuryTransmitter) Ready() error { return mt.StartStopOnce.Ready() }
+
 func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
@@ -164,7 +177,7 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) runloop() {
+func (mt *mercuryTransmitter) runLoop() {
 	defer mt.wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
@@ -185,7 +198,7 @@ func (mt *mercuryTransmitter) runloop() {
 		res, err := mt.rpcClient.Transmit(ctx, t.Req)
 		if ctx.Err() != nil {
 			// context only canceled on transmitter close so we can exit
-			// the runloop here
+			// the runLoop here
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()
@@ -239,6 +252,11 @@ func (mt *mercuryTransmitter) runloop() {
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
+
+		if err := mt.orm.DeleteTransmitRequest(t.Req); err != nil {
+			mt.lggr.Error("Failed to delete transmit request record")
+			return
+		}
 	}
 }
 
@@ -269,6 +287,9 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	mt.lggr.Debugw("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
+	if err := mt.orm.InsertTransmitRequest(req, reportCtx); err != nil {
+		return err
+	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {
 		return errors.New("transmit queue is closed")
 	}

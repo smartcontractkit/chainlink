@@ -42,20 +42,17 @@ import (
 
 var _ relaytypes.Relayer = &Relayer{}
 
-type RelayerConfig interface {
-}
-
 type Relayer struct {
 	db               *sqlx.DB
 	chainSet         evm.ChainSet
 	lggr             logger.Logger
-	cfg              RelayerConfig
+	cfg              pg.QConfig
 	ks               keystore.Master
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg pg.QConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
 		chainSet:         chainSet,
@@ -126,7 +123,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if err != nil {
 		return nil, err
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID, mercuryConfig.InitialBlockNumber)
+	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID, mercuryConfig.InitialBlockNumber, r.db, r.cfg)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil
 }

@@ -406,7 +406,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		relayers := make(map[relay.Network]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore, eventBroadcaster)
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg.Database(), keyStore, eventBroadcaster)
 			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {

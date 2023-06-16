@@ -12,6 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
@@ -50,6 +51,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
 
 	t.Run("transmission successfully enqueued", func(t *testing.T) {
 		c := MockWSRPCClient{
@@ -62,7 +64,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0, db, pgtest.NewQConfig(true))
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
 
 		require.NoError(t, err)
@@ -73,6 +75,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
 
 	t.Run("successful query", func(t *testing.T) {
 		c := MockWSRPCClient{
@@ -86,7 +89,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0, db, pgtest.NewQConfig(true))
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -101,7 +104,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 					return out, nil
 				},
 			}
-			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
+			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0, db, pgtest.NewQConfig(true))
 			bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 			require.NoError(t, err)
 
@@ -115,7 +118,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 					return out, nil
 				},
 			}
-			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 42)
+			mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 42, db, pgtest.NewQConfig(true))
 			bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 			require.NoError(t, err)
 
@@ -128,7 +131,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0, db, pgtest.NewQConfig(true))
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -145,7 +148,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, 0, db, pgtest.NewQConfig(true))
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")
