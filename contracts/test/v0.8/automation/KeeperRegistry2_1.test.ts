@@ -661,6 +661,7 @@ describe('KeeperRegistry2_1', () => {
 
   interface GetTransmitTXOptions {
     numSigners?: number
+    startingSignerIndex?: number
     gasLimit?: BigNumberish
     gasPrice?: BigNumberish
     executeGas?: BigNumberish
@@ -678,6 +679,7 @@ describe('KeeperRegistry2_1', () => {
     const configDigest = (await registry.getState()).state.latestConfigDigest
     const config = {
       numSigners: f + 1,
+      startingSignerIndex: 0,
       performData: '0x',
       executeGas,
       checkBlockNum: latestBlock.number,
@@ -704,7 +706,10 @@ describe('KeeperRegistry2_1', () => {
     const sigs = signReport(
       reportContext,
       report,
-      signers.slice(0, config.numSigners),
+      signers.slice(
+        config.startingSignerIndex,
+        config.startingSignerIndex + config.numSigners,
+      ),
     )
 
     return registry
@@ -5058,6 +5063,219 @@ describe('KeeperRegistry2_1', () => {
 
       const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
       assert.equal(cfg, '0x1234')
+    })
+  })
+
+  describe('transmitterPremiumSplit', () => {
+    beforeEach(async () => {
+      await linkToken.connect(owner).approve(registry.address, toWei('100'))
+      await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+    })
+
+    it('splits premium evenly across transmitters', async () => {
+      // Do a transmit from keeper1
+      await getTransmitTx(registry, keeper1, [upkeepId])
+
+      const registryPremium = (await registry.getState()).state.totalPremium
+      assert.isTrue(registryPremium.gt(BigNumber.from(0)))
+
+      const premiumPerTransmitter = registryPremium.div(
+        BigNumber.from(keeperAddresses.length),
+      )
+      const k1Balance = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      // transmitter should be reimbursed for gas and get the premium
+      assert.isTrue(k1Balance.gt(premiumPerTransmitter))
+      const k1GasReimbursement = k1Balance.sub(premiumPerTransmitter)
+
+      const k2Balance = (
+        await registry.getTransmitterInfo(await keeper2.getAddress())
+      ).balance
+      // non transmitter should get its share of premium
+      assert.isTrue(k2Balance.eq(premiumPerTransmitter))
+
+      // Now do a transmit from keeper 2
+      await getTransmitTx(registry, keeper2, [upkeepId])
+      const registryPremiumNew = (await registry.getState()).state.totalPremium
+      assert.isTrue(registryPremiumNew.gt(registryPremium))
+      const premiumPerTransmitterNew = registryPremiumNew.div(
+        BigNumber.from(keeperAddresses.length),
+      )
+      const additionalPremium = premiumPerTransmitterNew.sub(
+        premiumPerTransmitter,
+      )
+
+      const k1BalanceNew = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      // k1 should get the new premium
+      assert.isTrue(
+        k1BalanceNew.eq(k1GasReimbursement.add(premiumPerTransmitterNew)),
+      )
+
+      const k2BalanceNew = (
+        await registry.getTransmitterInfo(await keeper2.getAddress())
+      ).balance
+      // k2 should get gas reimbursement in addition to new premium
+      assert.isTrue(k2BalanceNew.gt(k2Balance.add(additionalPremium)))
+    })
+
+    it('updates last collected upon payment withdrawn', async () => {
+      // Do a transmit from keeper1
+      await getTransmitTx(registry, keeper1, [upkeepId])
+
+      const registryPremium = (await registry.getState()).state.totalPremium
+      let k1 = await registry.getTransmitterInfo(await keeper1.getAddress())
+      let k2 = await registry.getTransmitterInfo(await keeper2.getAddress())
+
+      // Withdrawing for first time, last collected = 0
+      assert.isTrue(k1.lastCollected.eq(BigNumber.from(0)))
+      assert.isTrue(k2.lastCollected.eq(BigNumber.from(0)))
+
+      //// Do the thing
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+
+      const k1New = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
+      const k2New = await registry.getTransmitterInfo(
+        await keeper2.getAddress(),
+      )
+
+      // transmitter info lastCollected should be updated for k1, not for k2
+      assert.isTrue(k1New.lastCollected.eq(registryPremium))
+      assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
+    })
+
+    const verifyConsistentAccounting = async (
+      maxAllowedSpareChange: BigNumber,
+    ) => {
+      let expectedLinkBalance = (await registry.getState()).state
+        .expectedLinkBalance
+      let linkTokenBalance = await linkToken.balanceOf(registry.address)
+      let upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
+      let totalKeeperBalance = BigNumber.from(0)
+      for (let i = 0; i < keeperAddresses.length; i++) {
+        totalKeeperBalance = totalKeeperBalance.add(
+          (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
+        )
+      }
+      let ownerBalance = (await registry.getState()).state.ownerLinkBalance
+      assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
+      assert.isTrue(
+        upkeepIdBalance
+          .add(totalKeeperBalance)
+          .add(ownerBalance)
+          .lte(expectedLinkBalance),
+      )
+      assert.isTrue(
+        expectedLinkBalance
+          .sub(upkeepIdBalance)
+          .sub(totalKeeperBalance)
+          .sub(ownerBalance)
+          .lte(maxAllowedSpareChange),
+      )
+    }
+
+    it('maintains consistent balance information across all parties', async () => {
+      // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
+      // some spare change can get lost but it should be less than maxAllowedSpareChange
+
+      let maxAllowedSpareChange = BigNumber.from('0')
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee2)
+        .withdrawPayment(
+          await keeper2.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfig(
+        signerAddresses.slice(2, 15), // only use 2-14th index keepers
+        keeperAddresses.slice(2, 15),
+        f,
+        encodeConfig(config),
+        offchainVersion,
+        offchainBytes,
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper3, [upkeepId], {
+        startingSignerIndex: 2,
+      })
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee3)
+        .withdrawPayment(
+          await keeper3.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfig(
+        signerAddresses.slice(0, 4), // only use 0-3rd index keepers
+        keeperAddresses.slice(0, 4),
+        f,
+        encodeConfig(config),
+        offchainVersion,
+        offchainBytes,
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await getTransmitTx(registry, keeper3, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await registry
+        .connect(payee5)
+        .withdrawPayment(
+          await keeper5.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
     })
   })
 })
