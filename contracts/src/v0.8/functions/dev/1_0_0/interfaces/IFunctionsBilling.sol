@@ -17,12 +17,6 @@ interface IFunctionsBilling {
     uint256 gasPrice;
   }
 
-  enum FulfillResult {
-    USER_SUCCESS,
-    USER_ERROR,
-    INVALID_REQUEST_ID
-  }
-
   /**
    * @notice Gets the configuration of the Chainlink Functions billing registry
    * @return maxGasLimit global max for request gas limit

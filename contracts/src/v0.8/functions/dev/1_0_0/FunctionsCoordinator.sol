@@ -2,11 +2,12 @@
 pragma solidity ^0.8.6;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {IFunctionsBilling, FunctionsBilling, Route, ITypeAndVersion} from "./FunctionsBilling.sol";
+import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {Functions} from "./Functions.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
+import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -26,7 +27,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   );
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
+  // event RawError(bytes32 indexed requestId, bytes lowLevelData); TODO
   event InvalidRequestID(bytes32 indexed requestId);
+  event ResponseTransmitted(bytes32 indexed requestId, address transmitter);
+  event InsufficientGasProvided(bytes32 indexed requestId);
 
   error UnsupportedRequestDataVersion();
   error EmptyRequestData();
@@ -130,22 +134,27 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     returns (
       bytes32 requestId,
       uint96 estimatedCost,
+      uint256 gasAfterPaymentCalculation,
       uint256 requestTimeoutSeconds
     )
   {
-    if (data.length == 0) {
-      revert EmptyRequestData();
+    {
+      if (data.length == 0) {
+        revert EmptyRequestData();
+      }
+
+      (uint16 version, ) = Functions.decodeRequest(data);
+
+      if (version != REQUEST_DATA_VERSION) {
+        revert UnsupportedRequestDataVersion();
+      }
     }
 
-    (uint16 version, bytes memory requestCBOR) = Functions.decodeRequest(data);
-
-    if (version != REQUEST_DATA_VERSION) {
-      revert UnsupportedRequestDataVersion();
-    }
+    (, bytes memory requestCBOR) = Functions.decodeRequest(data);
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice);
 
-    (requestId, estimatedCost, requestTimeoutSeconds) = startBilling(requestCBOR, billing);
+    (requestId, estimatedCost, gasAfterPaymentCalculation, requestTimeoutSeconds) = _startBilling(requestCBOR, billing);
 
     emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
   }
@@ -164,7 +173,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   function _report(
-    uint256 initialGas,
+    uint256 , /*initialGas*/
     address transmitter,
     uint8 signerCount,
     address[maxNumOracles] memory signers,
@@ -183,27 +192,31 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid();
     }
 
-    // The cost of validating the report is split across all request fulfillments within the report
-    uint256 reportValidationGasShare = (initialGas - gasleft()) / requestIds.length;
-
     for (uint256 i = 0; i < requestIds.length; i++) {
-      IFunctionsBilling.FulfillResult result = fulfillAndBill(
+      IFunctionsRouter.FulfillResult result = _fulfillAndBill(
         requestIds[i],
         results[i],
         errors[i],
         /* metadata[i], */
         transmitter,
         signers,
-        signerCount,
-        reportValidationGasShare + gasleft()
+        signerCount
       );
-      if (result == IFunctionsBilling.FulfillResult.USER_SUCCESS) {
+
+      if (result == IFunctionsRouter.FulfillResult.USER_SUCCESS) {
         emit OracleResponse(requestIds[i]);
-      } else if (result == IFunctionsBilling.FulfillResult.USER_ERROR) {
+        emit ResponseTransmitted(requestIds[i], transmitter);
+      } else if (result == IFunctionsRouter.FulfillResult.USER_ERROR) {
         emit UserCallbackError(requestIds[i], "error in callback");
-      } else if (result == IFunctionsBilling.FulfillResult.INVALID_REQUEST_ID) {
+        emit ResponseTransmitted(requestIds[i], transmitter);
+      } else if (result == IFunctionsRouter.FulfillResult.INVALID_REQUEST_ID) {
         emit InvalidRequestID(requestIds[i]);
+      } else if (result == IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS) {
+        emit InsufficientGasProvided(requestIds[i]);
       }
+      // else if (result == IFunctionsRouter.FulfillResult.RAW) {
+      //   emit RawError(requestIds[i]);
+      // }
     }
   }
 

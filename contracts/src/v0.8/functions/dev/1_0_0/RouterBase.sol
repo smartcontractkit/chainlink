@@ -118,7 +118,15 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function version() external view returns (uint16, uint16, uint16) {
+  function version()
+    external
+    view
+    returns (
+      uint16,
+      uint16,
+      uint16
+    )
+  {
     return (s_majorVersion, s_minorVersion, s_patchVersion);
   }
 
@@ -126,19 +134,22 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                        Route methods                         |
   // ================================================================
 
-  function getLatestRoute(bytes32 jobId) internal view returns (address) {
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function getRoute(bytes32 jobId) public view returns (address) {
+    return _getLatestRoute(jobId);
+  }
+
+  /**
+   * @dev Helper function to get a contract from the current routes
+   */
+  function _getLatestRoute(bytes32 jobId) internal view returns (address) {
     address currentImplementation = s_route[jobId];
     if (currentImplementation == address(0)) {
       revert RouteNotFound(jobId);
     }
     return currentImplementation;
-  }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getRoute(bytes32 jobId) public view returns (address) {
-    return getLatestRoute(jobId);
   }
 
   /**
@@ -156,7 +167,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         }
       }
     }
-    return getLatestRoute(jobId);
+    return _getLatestRoute(jobId);
   }
 
   // ================================================================
@@ -166,10 +177,22 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getProposalSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory) {
+  function getProposalSet()
+    external
+    view
+    returns (
+      uint,
+      bytes32[] memory,
+      address[] memory,
+      address[] memory
+    )
+  {
     return (s_proposalSet.proposedAtBlock, s_proposalSet.jobIds, s_proposalSet.from, s_proposalSet.to);
   }
 
+  /**
+   * @dev Helper function to validate a proposal set
+   */
   function _validateProposal(
     bytes32[] memory proposalSetJobIds,
     address[] memory proposalSetFromAddresses,
@@ -223,17 +246,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   }
 
   /**
-   * @dev Must be implemented by inheriting contract
-   * Use to test an end to end request through the system
-   */
-  function _smoke(bytes32 jobId, bytes calldata data) internal virtual returns (bytes32);
-
-  /**
    * @inheritdoc IRouterBase
    */
   function validateProposal(bytes32 jobId, bytes calldata data) external override {
     _smoke(jobId, data);
   }
+
+  /**
+   * @dev Must be implemented by inheriting contract
+   * Use to test an end to end request through the system
+   */
+  function _smoke(bytes32 jobId, bytes calldata data) internal virtual returns (bytes32);
 
   /**
    * @inheritdoc IRouterBase
@@ -262,13 +285,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                   Config Proposal methods                    |
   // ================================================================
   /**
-   * @notice Get the hash of the current configuration
+   * @notice Get the hash of the Router's current configuration
    * @return config hash of config bytes
    */
   function getConfigHash() external view returns (bytes32 config) {
     return s_config_hash;
   }
 
+  /**
+   * @dev Must be implemented by inheriting contract
+   * Use to set configuration state
+   */
   function _setConfig(bytes memory config) internal virtual;
 
   /**

@@ -3,12 +3,16 @@ pragma solidity ^0.8.6;
 
 import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
-import {IVersioned} from "./interfaces/IVersioned.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {AuthorizedOriginReceiver} from "./accessControl/AuthorizedOriginReceiver.sol";
 import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
+  event RequestStart(bytes32 indexed requestId, Request commitment);
+  event RequestEnd(bytes32 indexed requestId, uint64 subscriptionId, bool success);
+
+  error OnlyCallableFromCoordinator();
+
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
@@ -87,15 +91,26 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
 
-    (bytes32 requestId, uint96 estimatedCost, uint256 requestTimeoutSeconds) = coordinator.sendRequest(
-      subscriptionId,
-      data,
-      gasLimit,
+    (
+      bytes32 requestId,
+      uint96 estimatedCost,
+      uint256 gasAfterPaymentCalculation,
+      uint256 requestTimeoutSeconds
+    ) = coordinator.sendRequest(subscriptionId, data, gasLimit, msg.sender, owner);
+
+    _blockBalance(
       msg.sender,
-      owner
+      subscriptionId,
+      gasLimit,
+      estimatedCost,
+      requestId,
+      route,
+      requestTimeoutSeconds,
+      gasAfterPaymentCalculation,
+      s_config.adminFee
     );
 
-    _blockBalance(msg.sender, subscriptionId, gasLimit, estimatedCost, requestId, route, requestTimeoutSeconds);
+    emit RequestStart(requestId, s_requests[requestId]);
 
     return requestId;
   }
@@ -120,12 +135,36 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function callback(
+  function fulfill(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
-  ) external override onlyCoordinator(requestId) nonReentrant returns (bool success) {
+    bytes memory err,
+    uint96 juelsPerGas,
+    address transmitter,
+    address[] memory to,
+    uint96[] memory amount
+  ) external override nonReentrant returns (FulfillResult) {
     Request memory request = s_requests[requestId];
+
+    if (request.client == address(0)) {
+      return FulfillResult.INVALID_REQUEST_ID;
+    }
+    if (msg.sender != request.coordinator) {
+      revert OnlyCallableFromCoordinator();
+    }
+
+    _checkBalance(
+      request.estimatedCost,
+      request.gasAfterPaymentCalculation,
+      request.adminFee,
+      request.gasLimit,
+      juelsPerGas,
+      to,
+      amount
+    );
+
+    delete s_requests[requestId];
+
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,
@@ -139,8 +178,26 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_reentrancyLock = true;
-    success = callWithExactGas(request.gasLimit, request.client, encodedCallback);
+    (bool success, uint256 gasUsed) = callWithExactGas(request.gasLimit, request.client, encodedCallback);
     s_reentrancyLock = false;
+
+    _pay(
+      request.subscriptionId,
+      request.estimatedCost,
+      request.client,
+      request.adminFee,
+      this.owner(),
+      transmitter,
+      juelsPerGas,
+      gasUsed,
+      to,
+      amount
+    );
+
+    // TODO: payment amounts
+    emit RequestEnd(requestId, request.subscriptionId, success);
+
+    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   /**
@@ -151,7 +208,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     uint256 gasAmount,
     address target,
     bytes memory data
-  ) private returns (bool success) {
+  ) private returns (bool success, uint256 gasUsed) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -178,8 +235,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
+      gasUsed := sub(g, gas())
     }
-    return success;
+    return (success, gasUsed);
   }
 
   // ================================================================

@@ -7,6 +7,15 @@ import {IRouterBase} from "./IRouterBase.sol";
  * @title Chainlink Functions Router interface.
  */
 interface IFunctionsRouter is IRouterBase {
+  enum FulfillResult {
+    USER_SUCCESS,
+    USER_ERROR,
+    INVALID_REQUEST_ID,
+    INSUFFICIENT_GAS,
+    INSUFFICIENT_SUBSCRIPTION_BALANCE,
+    INTERNAL_ERROR
+  }
+
   /**
    * @notice The fee that will be paid to the Router owner for operating the network
    * @return fee Cost in Juels (1e18) of LINK
@@ -35,11 +44,18 @@ interface IFunctionsRouter is IRouterBase {
    * @param requestId The identifier for the request
    * @param response response data from DON consensus
    * @param err error from DON consensus
-   * @return success If the callback to the client contract was successful or not
+   * @param juelsPerGas -
+   * @param transmitter -
+   * @param to -
+   * @param amount -
    */
-  function callback(
+  function fulfill(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
-  ) external returns (bool success);
+    bytes memory err,
+    uint96 juelsPerGas,
+    address transmitter,
+    address[] memory to,
+    uint96[] memory amount
+  ) external returns (FulfillResult);
 }
