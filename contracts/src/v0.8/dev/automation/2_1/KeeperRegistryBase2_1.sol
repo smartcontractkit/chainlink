@@ -500,7 +500,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param id the id of the upkeep
    * @param upkeep the upkeep to create
    * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param pipelineData data the optional input data to the first pipeline task (either "check data" or "perform data")
+   * @param checkData data the optional input data to the first pipeline task (either "check data" or "perform data")
    * @param triggerConfig the trigger config for this upkeep
    * @param offchainConfig the off-chain config of this upkeep
    */
@@ -508,19 +508,19 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 id,
     Upkeep memory upkeep,
     address admin,
-    bytes memory pipelineData,
+    bytes memory checkData,
     bytes memory triggerConfig,
     bytes memory offchainConfig
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!upkeep.target.isContract()) revert NotAContract();
-    if (pipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    if (checkData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
     if (upkeep.executeGas < PERFORM_GAS_MIN || upkeep.executeGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
-    s_checkData[id] = pipelineData;
+    s_checkData[id] = checkData;
     s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;

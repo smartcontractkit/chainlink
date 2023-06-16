@@ -194,7 +194,7 @@ contract KeeperRegistryLogicA2_1 is
     uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
     address admin,
     Trigger triggerType,
-    bytes calldata pipelineData,
+    bytes calldata checkData,
     bytes memory triggerConfig,
     bytes memory offchainConfig
   ) public returns (uint256 id) {
@@ -214,13 +214,13 @@ contract KeeperRegistryLogicA2_1 is
         forwarder: forwarder
       }),
       admin,
-      pipelineData,
+      checkData,
       triggerConfig,
       offchainConfig
     );
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepPipelineDataSet(id, pipelineData);
+    emit UpkeepPipelineDataSet(id, checkData);
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
@@ -338,7 +338,7 @@ contract KeeperRegistryLogicA2_1 is
     uint256 totalBalanceRemaining;
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
-    bytes[] memory pipelineDatas = new bytes[](ids.length);
+    bytes[] memory checkDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
@@ -348,7 +348,7 @@ contract KeeperRegistryLogicA2_1 is
       upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
       admins[idx] = s_upkeepAdmin[id];
-      pipelineDatas[idx] = s_checkData[id];
+      checkDatas[idx] = s_checkData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
@@ -362,7 +362,7 @@ contract KeeperRegistryLogicA2_1 is
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, admins, pipelineDatas, triggerConfigs, offchainConfigs);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, admins, checkDatas, triggerConfigs, offchainConfigs);
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -387,7 +387,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256[] memory ids,
       Upkeep[] memory upkeeps,
       address[] memory upkeepAdmins,
-      bytes[] memory pipelineDatas,
+      bytes[] memory checkDatas,
       bytes[] memory triggerConfigs,
       bytes[] memory offchainConfigs
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], bytes[], bytes[], bytes[]));
@@ -396,7 +396,7 @@ contract KeeperRegistryLogicA2_1 is
         ids[idx],
         upkeeps[idx],
         upkeepAdmins[idx],
-        pipelineDatas[idx],
+        checkDatas[idx],
         triggerConfigs[idx],
         offchainConfigs[idx]
       );
