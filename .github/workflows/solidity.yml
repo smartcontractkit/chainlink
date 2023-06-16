@@ -1,6 +1,7 @@
 name: Solidity
 
 on:
+  merge_group:
   push:
 
 env:
