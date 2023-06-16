@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,6 +39,7 @@ type canceller interface {
 // upkeepDeployer contains functions needed to deploy an upkeep
 type upkeepDeployer interface {
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error)
+	RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
 	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
 }
 
@@ -60,6 +62,10 @@ func (d *v11KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 }
 
+func (d *v11KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
+}
+
 type v12KeeperDeployer struct {
 	registry12.KeeperRegistryInterface
 }
@@ -70,6 +76,10 @@ func (d *v12KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClie
 
 func (d *v12KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
+}
+
+func (d *v12KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
 }
 
 type v20KeeperDeployer struct {
@@ -209,6 +219,10 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
+func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	panic("not implemented")
+}
+
 type v21KeeperDeployer struct {
 	iregistry21.IKeeperRegistryMasterInterface
 	cfg *config.Config
@@ -323,25 +337,53 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
-		"paymentPremiumPPB":    d.cfg.PaymentPremiumPBB,
-		"flatFeeMicroLink":     d.cfg.FlatFeeMicroLink,
-		"checkGasLimit":        d.cfg.CheckGasLimit,
-		"stalenessSeconds":     d.cfg.StalenessSeconds,
-		"gasCeilingMultiplier": d.cfg.GasCeilingMultiplier,
-		"minUpkeepSpend":       d.cfg.MinUpkeepSpend,
-		"maxPerformGas":        d.cfg.MaxPerformGas,
-		"maxCheckDataSize":     d.cfg.MaxCheckDataSize,
-		"maxPerformDataSize":   d.cfg.MaxPerformDataSize,
-		"fallbackGasPrice":     big.NewInt(d.cfg.FallbackGasPrice),
-		"fallbackLinkPrice":    big.NewInt(d.cfg.FallbackLinkPrice),
-		"transcoder":           common.HexToAddress(d.cfg.Transcoder),
-		"registrar":            common.HexToAddress(d.cfg.Registrar),
-	}, configType)
+	onchainConfigType, err := gethabi.NewType("tuple", "", []gethabi.ArgumentMarshaling{
+		{Name: "payment_premiumPPB", Type: "uint32"},
+		{Name: "flat_fee_micro_link", Type: "uint32"},
+		{Name: "check_gas_limit", Type: "uint32"},
+		{Name: "staleness_seconds", Type: "uint24"},
+		{Name: "gas_ceiling_multiplier", Type: "uint16"},
+		{Name: "min_upkeep_spend", Type: "uint96"},
+		{Name: "max_perform_gas", Type: "uint32"},
+		{Name: "max_check_data_size", Type: "uint32"},
+		{Name: "max_perform_data_size", Type: "uint32"},
+		{Name: "fallback_gas_price", Type: "uint256"},
+		{Name: "fallback_link_price", Type: "uint256"},
+		{Name: "transcoder", Type: "address"},
+		{Name: "registrars", Type: "address[]"},
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating onChainConfigType: %v", err)
+	}
+	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
+	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
+		PaymentPremiumPPB:    d.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:     d.cfg.PaymentPremiumPBB,
+		CheckGasLimit:        d.cfg.CheckGasLimit,
+		StalenessSeconds:     big.NewInt(d.cfg.StalenessSeconds),
+		GasCeilingMultiplier: d.cfg.GasCeilingMultiplier,
+		MinUpkeepSpend:       big.NewInt(d.cfg.MinUpkeepSpend),
+		MaxPerformGas:        d.cfg.MaxPerformGas,
+		MaxCheckDataSize:     d.cfg.MaxCheckDataSize,
+		MaxPerformDataSize:   d.cfg.MaxPerformDataSize,
+		FallbackGasPrice:     big.NewInt(d.cfg.FallbackGasPrice),
+		FallbackLinkPrice:    big.NewInt(d.cfg.FallbackLinkPrice),
+		Transcoder:           common.HexToAddress(d.cfg.Transcoder),
+		Registrars:           []common.Address{common.HexToAddress(d.cfg.Registrar)},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error packing onChainConfigType: %v", err)
 	}
 
 	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+// legacy support function
+func (d *v21KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return d.IKeeperRegistryMasterInterface.RegisterUpkeep0(opts, target, gasLimit, admin, checkData, offchainConfig)
+}
+
+// the new registerUpkeep function only available on version 2.1 and above
+func (d *v21KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return d.IKeeperRegistryMasterInterface.RegisterUpkeep(opts, target, gasLimit, admin, triggerType, pipelineData, triggerConfig, offchainConfig)
 }

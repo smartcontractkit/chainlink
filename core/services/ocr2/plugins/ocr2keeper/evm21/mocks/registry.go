@@ -124,18 +124,18 @@ func (_m *Registry) GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrap
 }
 
 // GetUpkeep provides a mock function with given fields: opts, id
-func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error) {
+func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21UpkeepInfo, error) {
 	ret := _m.Called(opts, id)
 
-	var r0 i_keeper_registry_master_wrapper_2_1.UpkeepInfo
+	var r0 i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21UpkeepInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_keeper_registry_master_wrapper_2_1.UpkeepInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21UpkeepInfo, error)); ok {
 		return rf(opts, id)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_keeper_registry_master_wrapper_2_1.UpkeepInfo); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21UpkeepInfo); ok {
 		r0 = rf(opts, id)
 	} else {
-		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.UpkeepInfo)
+		r0 = ret.Get(0).(i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21UpkeepInfo)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {

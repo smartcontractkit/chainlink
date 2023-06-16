@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -61,6 +62,7 @@ type Events[EVENT any, EVENTOPS any] interface {
 	FilterEvents(ctx context.Context, query EVENTOPS) ([]EVENT, error)
 }
 
+// TxmClient is a superset of all the methods needed for the txm
 type TxmClient[
 	CHAIN_ID ID,
 	ADDR types.Hashable,
@@ -70,10 +72,30 @@ type TxmClient[
 	SEQ Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	ConfiguredChainID() CHAIN_ID
+	ChainClient[CHAIN_ID, ADDR, SEQ]
+	TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+
+	// receipt fetching used by confirmer
+	BatchGetReceipts(
+		ctx context.Context,
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	) (txReceipt []R, txErr []error, err error)
+}
+
+// TransactionClient contains the methods for building, simulating, broadcasting transactions
+type TransactionClient[
+	CHAIN_ID ID,
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	SEQ Sequence,
+	FEE feetypes.Fee,
+] interface {
+	ChainClient[CHAIN_ID, ADDR, SEQ]
+
 	BatchSendTransactions(
 		ctx context.Context,
-		store TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+		updateBroadcastTime func(now time.Time, txIDs []int64) error,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		bathSize int,
 		lggr logger.Logger,
@@ -84,12 +106,6 @@ type TxmClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		lggr logger.Logger,
 	) (clienttypes.SendTxReturnCode, error)
-	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
-	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
-	BatchGetReceipts(
-		ctx context.Context,
-		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	) (txReceipt []R, txErr []error, err error)
 	SendEmptyTransaction(
 		ctx context.Context,
 		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error),
@@ -103,4 +119,15 @@ type TxmClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		blockNumber *big.Int,
 	) (rpcErr fmt.Stringer, extractErr error)
+}
+
+// ChainClient contains the interfaces for reading chain parameters (chain id, sequences, etc)
+type ChainClient[
+	CHAIN_ID ID,
+	ADDR types.Hashable,
+	SEQ Sequence,
+] interface {
+	ConfiguredChainID() CHAIN_ID
+	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
+	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 }
