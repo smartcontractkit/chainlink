@@ -294,7 +294,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
-		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jb)
+		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
 	}
 	if !spec.TransmitterID.Valid {
 		return nil, errors.Errorf("expected a transmitterID to be specified")
@@ -302,18 +302,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	transmitterID := spec.TransmitterID.String
 	effectiveTransmitterID := transmitterID
 
-	ctxVals := loop.ContextValues{
+	lggrCtx := loop.ContextValues{
 		JobID:   jb.ID,
 		JobName: jb.Name.ValueOrZero(),
 
-		ContractID: spec.ContractID,
-		FeedID:     spec.FeedID,
+		ContractID:    spec.ContractID,
+		FeedID:        spec.FeedID,
+		TransmitterID: transmitterID,
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(ctxVals.Args()...))
-	feedID := spec.FeedID
-	if feedID != (common.Hash{}) {
-		lggr = logger.Sugared(lggr.With("feedID", spec.FeedID))
-		spec.RelayConfig["feedID"] = feedID
+	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
+
+	if spec.FeedID != (common.Hash{}) {
+		spec.RelayConfig["feedID"] = spec.FeedID
 	}
 
 	if spec.Relay == relay.EVM {
@@ -322,10 +322,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
-		}
 
 		if spec.PluginType != job.Mercury {
 			if !common.IsHexAddress(transmitterID) {
@@ -333,6 +329,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 			if spec.RelayConfig["sendingKeys"] == nil {
 				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
+			}
+
+			chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 			}
 
 			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
@@ -348,7 +349,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
-	lggr = logger.Sugared(lggr.With("transmitterID", transmitterID))
 
 	ocrDB := NewDB(d.db, spec.ID, 0, lggr, d.cfg.Database())
 	if d.peerWrapper == nil {
@@ -394,7 +394,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 
-	ctx := ctxVals.ContextWithValues(context.Background())
+	ctx := lggrCtx.ContextWithValues(context.Background())
 	switch spec.PluginType {
 	case job.Mercury:
 		return d.newServicesMercury(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
