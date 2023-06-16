@@ -2,6 +2,8 @@ name: Integration Tests
 on:
   merge_group:
   pull_request:
+  schedule:
+    - cron: "0 0 * * *"
   push:
     tags:
       - "*"
@@ -574,7 +576,7 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix:
-    if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
+    if: startsWith(github.ref, 'refs/tags/') || ${{ github.event_name == 'schedule' }} ## Only run live tests on new tags and nightly
     environment: integration
     permissions:
       checks: write
@@ -589,14 +591,17 @@ jobs:
       TEST_LOG_LEVEL: debug
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
       TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+
       GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
       TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
       GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
       TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+
       OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       TEST_OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
       TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+
       ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
       TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
       ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
