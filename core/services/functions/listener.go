@@ -351,11 +351,9 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	fmt.Println("THRESHOLD heard request")
 	nodeProvidedSecrets := ""
 	// If ThresholdKeyShare is not provided, then threshold decryption is disabled and l.decryptor is nil
 	if l.decryptor != nil && requestData.SecretsLocation == 1 && len(requestData.Secrets) > 0 {
-		fmt.Println("THRESHOLD requestData.secrets: ", requestData.Secrets)
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
 
 		// To avoid a breaking change, if secrets fetching is unsuccessful,
@@ -383,7 +381,6 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 				// return
 			} else {
 				nodeProvidedSecrets = string(decryptedSecrets)
-				fmt.Println("THRESHOLD SUCCESSFUL DECRYPTION: ", nodeProvidedSecrets)
 			}
 		}
 	}
