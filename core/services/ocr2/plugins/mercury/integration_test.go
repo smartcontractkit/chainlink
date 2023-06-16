@@ -4,13 +4,11 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"math"
 	"math/big"
 	"math/rand"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,9 +25,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/smartcontractkit/wsrpc/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -53,7 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -98,10 +94,10 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	reqs := make(chan request)
+	reqs := make(chan mocks.Request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	srv := mocks.NewServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 	min := big.NewInt(0)
 	max := big.NewInt(math.MaxInt64)
 
@@ -113,7 +109,7 @@ func TestIntegration_Mercury(t *testing.T) {
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
-	serverURL := startMercuryServer(t, srv, clientPubKeys)
+	serverURL := srv.Start(t, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
 	// Setup blockchain
@@ -305,7 +301,7 @@ func TestIntegration_Mercury(t *testing.T) {
 
 		for req := range reqs {
 			v := make(map[string]interface{})
-			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.Req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
@@ -344,9 +340,9 @@ func TestIntegration_Mercury(t *testing.T) {
 			assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 			assert.LessOrEqual(t, initialBlockNumber, int64(reportElems["validFromBlockNum"].(uint64)))
 
-			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.PK, feed.name, feed.id)
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][req.PK] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -369,7 +365,7 @@ func TestIntegration_Mercury(t *testing.T) {
 
 		for req := range reqs {
 			v := make(map[string]interface{})
-			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.Req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
@@ -407,9 +403,9 @@ func TestIntegration_Mercury(t *testing.T) {
 			assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
 			assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
 
-			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.PK, feed.name, feed.id)
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][req.PK] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -419,66 +415,6 @@ func TestIntegration_Mercury(t *testing.T) {
 			}
 		}
 	})
-}
-
-var _ pb.MercuryServer = &mercuryServer{}
-
-type request struct {
-	pk  credentials.StaticSizedPublicKey
-	req *pb.TransmitRequest
-}
-
-type mercuryServer struct {
-	privKey ed25519.PrivateKey
-	reqsCh  chan request
-	t       *testing.T
-}
-
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t}
-}
-
-func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	r := request{p.PublicKey, req}
-	s.reqsCh <- r
-
-	return &pb.TransmitResponse{
-		Code:  1,
-		Error: "",
-	}, nil
-}
-
-func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	// not implemented in test
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	s.t.Logf("mercury server got latest report from %x for feed id 0x%x", p.PublicKey, lrr.FeedId)
-	return nil, nil
-}
-
-func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
-	// Set up the wsrpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("[MAIN] failed to listen: %v", err)
-	}
-	serverURL = fmt.Sprintf("%s", lis.Addr().String())
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
-
-	// Register mercury implementation with the wsrpc server
-	pb.RegisterMercuryServer(s, srv)
-
-	// Start serving
-	go s.Serve(lis)
-	t.Cleanup(s.Stop)
-
-	return
 }
 
 type Node struct {
