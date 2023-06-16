@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
 import {IERC165} from "../../shared/vendor/IERC165.sol";
@@ -9,14 +9,18 @@ interface IFeeManager is IERC165 {
      * @notice Adds a subscriber to the fee manager
      * @param subscriber address of the subscriber
      * @param discount discount to be applied to the fee
+     * @param feedId feed id to apply the discount to
+     * @param token token to apply the discount to
      */
-    function setSubscriberDiscount(address subscriber, uint16 discount) external;
+    function setSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint16 discount) external;
 
     /**
      * @notice Removes a subscriber from the fee manager
      * @param subscriber address of the subscriber
+     * @param feedId feed id to apply the discount to
+     * @param token token to apply the discount to
      */
-    function removeSubscriberDiscount(address subscriber) external;
+    function removeSubscriberDiscount(address subscriber, bytes32 feedId, address token) external;
 
     /**
      * @notice Gets the fee from a report. If the sender is a subscriber, they will receive a discount.
