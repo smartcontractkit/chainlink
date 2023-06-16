@@ -551,7 +551,6 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 }
 
 func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []ocr2keepers.UpkeepKey, chResult chan checkResult) {
-	r.lggr.Infof("doCheck mercuryEnabled=%v keys=%v", mercuryEnabled, keys)
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -561,7 +560,6 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 	}
 
 	if mercuryEnabled {
-		r.lggr.Infof("doCheck mercury=%v", r.mercury.cred.URL)
 		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
 			chResult <- checkResult{
 				err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
@@ -577,7 +575,6 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 		}
 	}
 
-	r.lggr.Infof("doCheck upkeepResults=%v", upkeepResults)
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
