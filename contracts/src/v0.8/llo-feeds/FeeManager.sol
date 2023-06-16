@@ -23,8 +23,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //the total discount that can be applied to a fee, 10000 = 100% discount
     uint16 private constant TOTAL_DISCOUNT = 10000;
 
-    //the length of the fee data in bytes
+    //the link token address
     address private immutable LINK_ADDRESS;
+
+    //the native token address
+    address private immutable NATIVE_ADDRESS;
 
     //the index of the link fee data in the report
     uint16 private constant LINK_FEE_INDEX = 32 + 4 + 24 +  24 + 24 + 8 + 32 + 8;
@@ -46,36 +49,15 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         uint256 amount;
     }
 
-    struct Report {
-        // The feed ID the report has data for
-        bytes32 feedId;
-        // The time the median value was observed on
-        uint32 observationsTimestamp;
-        // The median value agreed in an OCR round
-        int192 median;
-        // The best bid value agreed in an OCR round
-        int192 bid;
-        // The best ask value agreed in an OCR round
-        int192 ask;
-        // The upper bound of the block range the median value was observed within
-        uint64 blocknumberUpperBound;
-        // The blockhash for the upper bound of block range (ensures correct blockchain)
-        bytes32 upperBlockhash;
-        // The lower bound of the block range the median value was observed within
-        uint64 blocknumberLowerBound;
-        // The fee for the report in link
-        uint256 linkFee;
-        // The fee for the report in native
-        uint256 nativeFee;
-    }
-
     /**
      * @notice Construct the FeeManager contract
      * @param linkAddress The address of the LINK token
      */
-    constructor(address linkAddress) ConfirmedOwner(msg.sender) {
+    constructor(address linkAddress, address nativeAddress) ConfirmedOwner(msg.sender) {
         //set the link address
         LINK_ADDRESS = linkAddress;
+        //set the native address
+        NATIVE_ADDRESS = nativeAddress;
     }
 
     /// @inheritdoc TypeAndVersionInterface
@@ -125,7 +107,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
             fee.token = LINK_ADDRESS;
             fee.amount = signedReport.readUint256(LINK_FEE_INDEX);
         } else {
-            fee.token = address(0);
+            fee.token = NATIVE_ADDRESS;
             fee.amount = signedReport.readUint256(NATIVE_FEE_INDEX);
         }
 
