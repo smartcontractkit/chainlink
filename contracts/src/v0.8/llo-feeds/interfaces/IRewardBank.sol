@@ -6,6 +6,12 @@ import {IERC165} from "../../shared/vendor/IERC165.sol";
 interface IRewardBank is IERC165 {
 
     /**
+     * @notice Updates the verifier proxy address
+     * @param _verifierProxyAddr address of the new verifier proxy
+     */
+    function setVerifierProxy(address _verifierProxyAddr) external;
+
+    /**
     * @notice Record the fee received for a `verify` request
     * @param configDigest config digest of the report being verified
     * @param fee struct with the asset address and amount forwarded to the FeeManager

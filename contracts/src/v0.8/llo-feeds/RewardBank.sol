@@ -7,6 +7,7 @@ import {IERC20} from "../shared/vendor/IERC20.sol";
 import {SafeERC20} from "../shared/vendor/SafeERC20.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../shared/vendor/IERC165.sol";
+import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 
 /*
  * @title FeeManager
@@ -23,7 +24,7 @@ contract RewardBank is IRewardBank, ConfirmedOwner, TypeAndVersionInterface{
     mapping(bytes32 => RewardRecipientAndWeight[]) private rewardRecipientsAndWeights;
 
     // @dev The address of the verifier proxy
-    address private immutable i_verifierProxyAddr;
+    address private verifierProxyAddr;
 
     // The total weight of all RewardRecipients
     uint8 private constant TOTAL_WEIGHT = 100;
@@ -37,18 +38,23 @@ contract RewardBank is IRewardBank, ConfirmedOwner, TypeAndVersionInterface{
     // @notice Thrown whenever their are no fees to claim
     error ZeroFees();
 
+    // @notice Thrown when the VerifierProxy address is invalid
+    error VerifierProxyInvalid();
+
     // @notice This event is emitted when the RewardRecipients are updated
     event RewardRecipientsUpdated(bytes32 configDigest, address indexed recipient);
 
     // @param verifierProxyAddr The address of the VerifierProxy contract
-    constructor(address verifierProxyAddr) ConfirmedOwner(msg.sender) {
-        if (verifierProxyAddr == address(0)) revert ZeroAddress();
-        i_verifierProxyAddr = verifierProxyAddr;
+    constructor(address _verifierProxyAddr) ConfirmedOwner(msg.sender) {
+        if (_verifierProxyAddr == address(0)) revert ZeroAddress();
+        if (!IERC165(_verifierProxyAddr).supportsInterface(IVerifierProxy.verify.selector)) revert VerifierProxyInvalid();
+
+        verifierProxyAddr = _verifierProxyAddr;
     }
 
     // @notice This modifier is used to ensure that only the VerifierProxy contract can call the function
     modifier onlyAdminOrProxy() {
-        if (msg.sender != i_verifierProxyAddr && msg.sender != owner()) revert ZeroAddress();
+        if (msg.sender != verifierProxyAddr && msg.sender != owner()) revert ZeroAddress();
         _;
     }
 
@@ -68,7 +74,15 @@ contract RewardBank is IRewardBank, ConfirmedOwner, TypeAndVersionInterface{
     }
 
     // @inheritdoc IRewardBank
-    function onFeePaid(bytes32 configDigest, Asset calldata fee) external override onlyAdminOrProxy {
+    function setVerifierProxy(address _verifierProxyAddr) external onlyOwner {
+        if (_verifierProxyAddr == address(0)) revert ZeroAddress();
+        if (!IERC165(_verifierProxyAddr).supportsInterface(IVerifierProxy.verify.selector)) revert VerifierProxyInvalid();
+
+        verifierProxyAddr = _verifierProxyAddr;
+    }
+
+    // @inheritdoc IRewardBank
+    function onFeePaid(bytes32 configDigest, Asset calldata fee) external override {
         //update the total fees collected for this pot
         unchecked {
             // the total amount for any ERC20 token cannot exceed 2^256 - 1
