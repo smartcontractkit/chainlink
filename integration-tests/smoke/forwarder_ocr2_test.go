@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -63,6 +64,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, chainClient, authorizedForwarders[i], workerNodes[i])
+		fmt.Println("Node name ", workerNodes[i].Name())
+		fmt.Println("Forwarder addr  ", authorizedForwarders[i].Hex())
 		fwdrs, _, err := workerNodes[i].GetForwarders()
 		require.NoError(t, err)
 		require.NotEmpty(t, fwdrs.Data)
