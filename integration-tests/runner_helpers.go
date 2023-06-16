@@ -124,7 +124,15 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 		if err != nil {
 			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
 		}
-		branchChan <- strings.Split(stdOut.String(), "\n")
+		branches := strings.Split(stdOut.String(), "\n")
+		cleanBranches := []string{}
+		for _, branch := range branches {
+			trimmed := strings.TrimSpace(branch)
+			if branch != "" {
+				cleanBranches = append(cleanBranches, trimmed)
+			}
+		}
+		branchChan <- cleanBranches
 	}()
 
 	// tags
@@ -133,7 +141,15 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 		if err != nil {
 			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
 		}
-		tagChan <- strings.Split(stdOut.String(), "\n")
+		tags := strings.Split(stdOut.String(), "\n")
+		cleanTags := []string{}
+		for _, tag := range tags {
+			trimmed := strings.TrimSpace(tag)
+			if tag != "" {
+				cleanTags = append(cleanTags, trimmed)
+			}
+		}
+		tagChan <- cleanTags
 	}()
 
 	// combine results
