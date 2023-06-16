@@ -60,7 +60,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, s_pipelineData[id]);
+    return checkUpkeep(id, s_checkData[id]);
   }
 
   /**
@@ -104,33 +104,30 @@ contract KeeperRegistryLogicA2_1 is
     }
 
     upkeepNeeded = true;
-    performData = checkData; // pass data through in case no pipeline is configured
 
-    if (upkeep.pipelineEnabled) {
-      bytes memory callData;
-      if (triggerType == Trigger.BLOCK || triggerType == Trigger.CRON) {
-        callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-      } else {
-        callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
-      }
-      gasUsed = gasleft();
-      (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
-      gasUsed = gasUsed - gasleft();
-      if (!upkeepNeeded) {
-        upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-      } else {
-        (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
-        if (!upkeepNeeded)
-          return (
-            false,
-            bytes(""),
-            UpkeepFailureReason.UPKEEP_NOT_NEEDED,
-            gasUsed,
-            upkeep.executeGas,
-            fastGasWei,
-            linkNative
-          );
-      }
+    bytes memory callData;
+    if (triggerType == Trigger.CONDITION || triggerType == Trigger.CRON) {
+      callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
+    } else {
+      callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
+    }
+    gasUsed = gasleft();
+    (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    gasUsed = gasUsed - gasleft();
+    if (!upkeepNeeded) {
+      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
+    } else {
+      (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
+      if (!upkeepNeeded)
+        return (
+          false,
+          bytes(""),
+          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+          gasUsed,
+          upkeep.executeGas,
+          fastGasWei,
+          linkNative
+        );
     }
 
     if (performData.length > s_storage.maxPerformDataSize)
@@ -194,10 +191,8 @@ contract KeeperRegistryLogicA2_1 is
 
   function registerUpkeep(
     address target,
-    bytes4 receiver,
     uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
     address admin,
-    bool pipelineEnabled,
     Trigger triggerType,
     bytes calldata pipelineData,
     bytes memory triggerConfig,
@@ -210,14 +205,12 @@ contract KeeperRegistryLogicA2_1 is
       id,
       Upkeep({
         target: target,
-        receiver: receiver,
         executeGas: gasLimit,
         balance: 0,
         maxValidBlocknumber: UINT32_MAX,
         lastPerformedBlockNumberOrTimestamp: 0,
         amountSpent: 0,
         paused: false,
-        pipelineEnabled: pipelineEnabled,
         forwarder: forwarder
       }),
       admin,
@@ -247,11 +240,9 @@ contract KeeperRegistryLogicA2_1 is
     return
       registerUpkeep(
         target,
-        PERFORM_SELECTOR,
         gasLimit,
         admin,
-        true,
-        Trigger.BLOCK,
+        Trigger.CONDITION,
         checkData,
         abi.encode(BlockTriggerConfig({checkCadance: 1})),
         offchainConfig
@@ -357,12 +348,12 @@ contract KeeperRegistryLogicA2_1 is
       upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
       admins[idx] = s_upkeepAdmin[id];
-      pipelineDatas[idx] = s_pipelineData[id];
+      pipelineDatas[idx] = s_checkData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
-      delete s_pipelineData[id];
+      delete s_checkData[id];
       delete s_upkeepTriggerConfig[id];
       delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated

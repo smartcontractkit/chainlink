@@ -112,7 +112,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
         upkeepTransmitInfo[i].upkeep.forwarder,
         report.gasLimits[i],
-        upkeepTransmitInfo[i].upkeep.receiver,
         report.performDatas[i]
       );
 
@@ -196,7 +195,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (s_hotVars.paused) revert RegistryPaused();
 
     Upkeep memory upkeep = s_upkeep[id];
-    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.executeGas, upkeep.receiver, performData);
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.executeGas, performData);
     return (success, gasUsed);
   }
 
@@ -419,7 +418,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep,
     uint96 maxLinkPayment
   ) internal returns (bool) {
-    if (triggerType == Trigger.BLOCK) {
+    if (triggerType == Trigger.CONDITION) {
       if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
       if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
@@ -532,7 +531,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    * @dev we don't update anything for log triggers because log triggered txs can be performed out of order
    */
   function _updateLastPerformed(uint256 upkeepID, Trigger triggerType) private {
-    if (triggerType == Trigger.BLOCK) {
+    if (triggerType == Trigger.CONDITION) {
       s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(_blockNum());
     } else if (triggerType == Trigger.CRON) {
       s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(block.timestamp);
@@ -546,11 +545,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   function _performUpkeep(
     AutomationForwarder forwarder,
     uint256 executeGas,
-    bytes4 selector,
     bytes memory performData
   ) private nonReentrant returns (bool success, uint256 gasUsed) {
     gasUsed = gasleft();
-    performData = abi.encodeWithSelector(selector, performData);
+    performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     success = forwarder.forward(executeGas, performData);
     gasUsed = gasUsed - gasleft();
     return (success, gasUsed);

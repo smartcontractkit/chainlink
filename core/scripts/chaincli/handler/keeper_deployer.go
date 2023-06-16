@@ -39,7 +39,7 @@ type canceller interface {
 // upkeepDeployer contains functions needed to deploy an upkeep
 type upkeepDeployer interface {
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error)
-	RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
+	RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
 	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
 }
 
@@ -62,7 +62,7 @@ func (d *v11KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 }
 
-func (d *v11KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+func (d *v11KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
 	panic("not implemented")
 }
 
@@ -78,7 +78,7 @@ func (d *v12KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 }
 
-func (d *v12KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+func (d *v12KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
 	panic("not implemented")
 }
 
@@ -219,7 +219,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
-func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
 	panic("not implemented")
 }
 
@@ -384,6 +384,6 @@ func (d *v21KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target commo
 }
 
 // the new registerUpkeep function only available on version 2.1 and above
-func (d *v21KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, receiver [4]byte, gasLimit uint32, admin common.Address, pipelineEnabled bool, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return d.IKeeperRegistryMasterInterface.RegisterUpkeep(opts, target, receiver, gasLimit, admin, pipelineEnabled, triggerType, pipelineData, triggerConfig, offchainConfig)
+func (d *v21KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return d.IKeeperRegistryMasterInterface.RegisterUpkeep(opts, target, gasLimit, admin, triggerType, pipelineData, triggerConfig, offchainConfig)
 }

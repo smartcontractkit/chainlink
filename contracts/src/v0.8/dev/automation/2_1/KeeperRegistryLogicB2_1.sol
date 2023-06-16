@@ -80,7 +80,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function setUpkeepPipelineData(uint256 id, bytes calldata newPipelineData) external {
     _requireAdminAndNotCancelled(id);
     if (newPipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
-    s_pipelineData[id] = newPipelineData;
+    s_checkData[id] = newPipelineData;
     emit UpkeepPipelineDataSet(id, newPipelineData);
   }
 
@@ -208,7 +208,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       target: reg.target,
       forwarder: address(reg.forwarder),
       executeGas: reg.executeGas,
-      checkData: s_pipelineData[id],
+      checkData: s_checkData[id],
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
@@ -405,12 +405,5 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getUpkeepAdminOffchainConfig(uint256 upkeepId) external view returns (bytes memory) {
     return s_upkeepAdminOffchainConfig[upkeepId];
-  }
-
-  /**
-   * @notice returns whether the upkeep has a a pipeline enabled or not
-   */
-  function hasPipelineEnabled(uint256 upkeepId) external view returns (bool) {
-    return s_upkeep[upkeepId].pipelineEnabled;
   }
 }

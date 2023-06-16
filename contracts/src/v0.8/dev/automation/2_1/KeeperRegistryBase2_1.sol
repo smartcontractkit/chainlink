@@ -74,7 +74,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
-  mapping(uint256 => bytes) internal s_pipelineData;
+  mapping(uint256 => bytes) internal s_checkData;
   mapping(bytes32 => bool) internal s_observedLogTriggers;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
@@ -160,7 +160,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   enum Trigger {
-    BLOCK,
+    CONDITION,
     LOG,
     CRON
   }
@@ -272,22 +272,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member executeGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
-   * @member receiver the receiver function to call on the target contract
    * @member paused if this upkeep has been paused
-   * @member pipelineEnabled if this upkeep has a pipeline of pre-processors
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
    * @member target the contract which needs to be serviced
    */
   struct Upkeep {
+    bool paused;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
     AutomationForwarder forwarder;
-    bytes4 receiver;
     // 0 bytes left in 1st EVM word - not written to in transmit
-    bool paused;
-    bool pipelineEnabled;
     uint96 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
@@ -524,7 +520,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
-    s_pipelineData[id] = pipelineData;
+    s_checkData[id] = pipelineData;
     s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
@@ -682,7 +678,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     for (uint256 idx = 4; idx < 15; idx++) {
       if (rawID[idx] != empty) {
         // old IDs that were created before this standard and migrated to this registry
-        return Trigger.BLOCK;
+        return Trigger.CONDITION;
       }
     }
     return Trigger(uint8(rawID[15]));

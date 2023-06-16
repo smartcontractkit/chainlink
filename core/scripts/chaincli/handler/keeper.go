@@ -35,7 +35,6 @@ import (
 )
 
 var extraDataEncoder *abi.Type
-var performUpkeepSelector [4]byte
 
 func init() {
 	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
@@ -43,8 +42,6 @@ func init() {
 		panic(err)
 	}
 	extraDataEncoder = method.Inputs
-	performBytes := common.Hex2Bytes("4585e33b")
-	copy(performUpkeepSelector[:], performBytes)
 }
 
 // Keeper is the keepers commands handler
@@ -615,7 +612,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			k.waitDeployment(ctx, deployUpkeepTx)
 			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 			registerUpkeepTx, err = deployer.RegisterUpkeepV2(k.buildTxOpts(ctx),
-				upkeepAddr, performUpkeepSelector, k.cfg.UpkeepGasLimit, k.fromAddr, true, 1, []byte{}, logTriggerConfig, []byte{},
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, 1, []byte{}, logTriggerConfig, []byte{},
 			)
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)

@@ -67,7 +67,7 @@ enum Mode {
 
 // copied from KeeperRegistryBase2_1.sol
 enum Trigger {
-  BLOCK,
+  CONDITION,
   LOG,
   CRON,
 }
@@ -173,7 +173,6 @@ let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: UpkeepMock
 let cronUpkeep: UpkeepMock
-let rwrUpkeep: UpkeepMock
 let transcoder: UpkeepTranscoder
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
@@ -204,7 +203,7 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
   const bytes = ethers.utils.arrayify(upkeepId.toHexString())
   for (let idx = 4; idx < 15; idx++) {
     if (bytes[idx] != 0) {
-      return Trigger.BLOCK
+      return Trigger.CONDITION
     }
   }
   return bytes[15] as Trigger
@@ -468,8 +467,7 @@ describe('KeeperRegistry2_1', () => {
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
   let cronUpkeepId: BigNumber // cron trigger upkeepID
-  let rwrUpkeepId: BigNumber // run-when-ready upkeepID
-  const numUpkeps = 5 // see above
+  const numUpkeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -711,9 +709,9 @@ describe('KeeperRegistry2_1', () => {
     checkBlockHash?: string
     txHash?: BytesLike
     logIndex?: number
-
     timestamp?: number
   }
+
   const getTransmitTx = async (
     registry: IKeeperRegistry,
     transmitter: Signer,
@@ -728,8 +726,8 @@ describe('KeeperRegistry2_1', () => {
       executeGas,
       checkBlockNum: latestBlock.number,
       checkBlockHash: latestBlock.hash,
-      txHash: ethers.utils.randomBytes(32),
       logIndex: 0,
+      txHash: undefined, // assigned uniquely below
       timestamp: now(),
       gasLimit: undefined,
       gasPrice: undefined,
@@ -739,7 +737,7 @@ describe('KeeperRegistry2_1', () => {
     for (let i = 0; i < upkeepIds.length; i++) {
       let trigger: string
       switch (getTriggerType(upkeepIds[i])) {
-        case Trigger.BLOCK:
+        case Trigger.CONDITION:
           trigger = encodeBlockTrigger(
             config.checkBlockNum,
             config.checkBlockHash,
@@ -747,7 +745,7 @@ describe('KeeperRegistry2_1', () => {
           break
         case Trigger.LOG:
           trigger = encodeLogTrigger(
-            config.txHash,
+            config.txHash || ethers.utils.randomBytes(32),
             config.logIndex,
             config.checkBlockNum,
             config.checkBlockHash,
@@ -954,14 +952,10 @@ describe('KeeperRegistry2_1', () => {
     ltUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
-      ](
+      ['registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'](
         ltUpkeep.address,
-        PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
-        true,
         Trigger.LOG,
         '0x',
         logTriggerConfig,
@@ -972,38 +966,16 @@ describe('KeeperRegistry2_1', () => {
     cronUpkeep = await upkeepMockFactory.deploy()
     tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
-      ](
+      ['registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'](
         cronUpkeep.address,
-        PERFORM_SELECTOR,
         executeGas,
         await admin.getAddress(),
-        false,
         Trigger.CRON,
         '0x',
         cronTriggerConfig,
         emptyBytes,
       )
     cronUpkeepId = await getUpkeepID(tx)
-
-    rwrUpkeep = await upkeepMockFactory.deploy()
-    tx = await registry
-      .connect(owner)
-      [
-        'registerUpkeep(address,bytes4,uint32,address,bool,uint8,bytes,bytes,bytes)'
-      ](
-        rwrUpkeep.address,
-        PERFORM_SELECTOR,
-        executeGas,
-        await admin.getAddress(),
-        false,
-        Trigger.BLOCK,
-        '0x',
-        blockTriggerConfig,
-        emptyBytes,
-      )
-    rwrUpkeepId = await getUpkeepID(tx)
 
     await autoFunderUpkeep.setUpkeepId(afUpkeepId)
     // Give enough funds for upkeep as well as to the upkeep contract
@@ -1089,7 +1061,6 @@ describe('KeeperRegistry2_1', () => {
           registry.connect(admin).addFunds(upkeepId, toWei('100')),
           registry.connect(admin).addFunds(cronUpkeepId, toWei('100')),
           registry.connect(admin).addFunds(logUpkeepId, toWei('100')),
-          registry.connect(admin).addFunds(rwrUpkeepId, toWei('100')),
         ])
       })
 
@@ -1176,7 +1147,6 @@ describe('KeeperRegistry2_1', () => {
       it('handles case when check block hash does not match', async () => {
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['rwr', rwrUpkeepId],
           ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
@@ -1205,7 +1175,6 @@ describe('KeeperRegistry2_1', () => {
         }
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['rwr', rwrUpkeepId],
           ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
@@ -1236,7 +1205,6 @@ describe('KeeperRegistry2_1', () => {
         }
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['rwr', rwrUpkeepId],
           ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
@@ -2769,16 +2737,6 @@ describe('KeeperRegistry2_1', () => {
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
       })
 
-      it('always returns true if pipeline is disabled', async () => {
-        await registry.connect(owner).addFunds(rwrUpkeepId, toWei('100'))
-        await rwrUpkeep.setCanCheck(false) // dosn't matter
-        assert.isFalse(await registry.hasPipelineEnabled(rwrUpkeepId))
-        const checkUpkeepResult = await registry
-          .connect(zeroAddress)
-          .callStatic['checkUpkeep(uint256)'](rwrUpkeepId)
-        assert.isTrue(checkUpkeepResult.upkeepNeeded)
-      })
-
       itMaybe(
         'has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]',
         async () => {
@@ -2866,12 +2824,11 @@ describe('KeeperRegistry2_1', () => {
       let upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
-        Trigger.BLOCK,
+        Trigger.CONDITION,
       )
-      assert(upkeepIds.length == 3)
+      assert(upkeepIds.length == 2)
       assert(upkeepIds[0].eq(upkeepId))
       assert(upkeepIds[1].eq(afUpkeepId))
-      assert(upkeepIds[2].eq(rwrUpkeepId))
       upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
@@ -4962,11 +4919,7 @@ describe('KeeperRegistry2_1', () => {
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic['checkCallback(uint256,bytes[],bytes)'](
-          upkeepId,
-          values,
-          '0x',
-        )
+        .callStatic.checkCallback(upkeepId, values, '0x')
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
         [values, '0x'],
