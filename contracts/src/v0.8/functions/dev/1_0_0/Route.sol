@@ -35,6 +35,10 @@ abstract contract Route is ITypeAndVersion, IConfigurable {
     return s_config_hash;
   }
 
+  /**
+   * @dev Must be implemented by inheriting contract
+   * Use to set configuration state
+   */
   function _setConfig(bytes memory config) internal virtual;
 
   /**

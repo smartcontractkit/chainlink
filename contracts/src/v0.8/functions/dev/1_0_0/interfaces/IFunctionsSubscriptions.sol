@@ -57,15 +57,6 @@ interface IFunctionsSubscriptions {
   ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
 
   /**
-   * @notice Moves funds from one subscription account to another.
-   * @dev Only callable by the Coordinator contract that is saved in the request commitment  
-   * @param requestId - The ID of the request
-   * @param to - The address to pay funds to, allowing them to withdraw
-   * @param amount - The amount to transfer
-   */
-  function pay(bytes32 requestId, address[] memory to, uint96[] memory amount) external;
-
-  /**
    * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
    * @param requestIdsToTimeout - A list of request IDs to time out
    */

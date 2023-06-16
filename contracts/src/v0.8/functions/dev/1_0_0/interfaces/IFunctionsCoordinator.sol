@@ -59,5 +59,5 @@ interface IFunctionsCoordinator {
     uint32 gasLimit,
     address caller,
     address subscriptionOwner
-  ) external returns (bytes32, uint96, uint256);
+  ) external returns (bytes32, uint96, uint256, uint256);
 }
