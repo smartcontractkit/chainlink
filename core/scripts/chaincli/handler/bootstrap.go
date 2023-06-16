@@ -5,13 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"strconv"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"io"
+	"log"
 )
 
 const (
@@ -30,21 +28,23 @@ ListenAddresses = ["0.0.0.0:%s"]`
 )
 
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address, returns the tcp address of the node
-func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPort, p2pv2Port int, force bool) string {
+func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, _, _ int, _ bool) string {
 	lggr, closeLggr := logger.NewLogger()
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
 
-	const containerName = "bootstrap"
-
-	urlRaw, _, err := h.launchChainlinkNode(
-		ctx,
-		uiPort,
-		containerName,
-		fmt.Sprintf(bootstrapTOML, strconv.Itoa(p2pv2Port)),
-		force,
-	)
+	node, err := h.launchChainlinkNodeKurtosis(ctx)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)
+	}
+	lggr.Info("Chainlink node spin up successfully")
+
+	urlRaw, err := h.getNodeUiUrl(node)
+	if err != nil {
+		lggr.Fatal("Failed to get chainlink node URL, ", err)
+	}
+	p2pv2Port, err := h.getNodeP2PPort(node)
+	if err != nil {
+		lggr.Fatal("Failed to get chainlink node P2P port, ", err)
 	}
 
 	cl, err := authenticate(urlRaw, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
@@ -61,7 +61,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Failed to create keeper job: ", err)
 	}
 
-	tcpAddr := fmt.Sprintf("%s@%s:%d", p2pKeyID, containerName, p2pv2Port)
+	tcpAddr := fmt.Sprintf("%s@%s:%d", p2pKeyID, "localhost", p2pv2Port)
 	lggr.Info("Bootstrap job has been successfully created in the Chainlink node with address ", urlRaw, ", tcp: ", tcpAddr)
 
 	return tcpAddr

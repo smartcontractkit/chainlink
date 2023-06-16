@@ -1,6 +1,7 @@
 package command
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -33,6 +34,7 @@ var BootstrapNodeCmd = &cobra.Command{
 			log.Fatal("failed to get p2pv2-port flag: ", err)
 		}
 
+		fmt.Print(cfg)
 		baseHandler.StartBootstrapNode(cmd.Context(), cfg.RegistryAddress, uiPort, p2pv2Port, force)
 	},
 }

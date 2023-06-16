@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
+	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 	"io"
 	"log"
 	"math/big"
@@ -43,8 +45,8 @@ import (
 )
 
 const (
-	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs~#"
+	defaultChainlinkNodeLogin    = "apiuser@chainlink.test"
+	defaultChainlinkNodePassword = "16charlengthp4SsW0rD1!@#_"
 	ethKeysEndpoint              = "/v2/keys/eth"
 	ocr2KeysEndpoint             = "/v2/keys/ocr2"
 	p2pKeysEndpoint              = "/v2/keys/p2p"
@@ -221,6 +223,56 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) erro
 	}
 
 	return nil
+}
+
+func (h *baseHandler) launchChainlinkNodeKurtosis(ctx context.Context) (*services.ServiceContext, error) {
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	defer cancelCtxFunc()
+
+	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
+	if err != nil {
+		return nil, err
+	}
+
+	enclaveId := fmt.Sprintf("%s-%d", "bootstrap", time.Now().Unix())
+	enclaveCtx, err := kurtosisCtx.CreateEnclave(ctx, enclaveId, false)
+	if err != nil {
+		return nil, err
+	}
+	packageParams := fmt.Sprintf(`
+{
+    "chain_name": "Chain",
+    "chain_id": "%d",
+    "wss_url": "%s",
+    "http_url": "%s",
+	"node_image": "chainlink:local"
+}
+`, h.cfg.ChainID, h.cfg.NodeURL, h.cfg.NodeHttpURL)
+	_, err = enclaveCtx.RunStarlarkRemotePackageBlocking(ctx, "github.com/kurtosis-tech/chainlink-node-package", "", "", packageParams, false, 4)
+	if err != nil {
+		return nil, err
+	}
+	chainLink, err := enclaveCtx.GetServiceContext("chainlink")
+	if err != nil {
+		return nil, err
+	}
+	return chainLink, nil
+}
+
+func (*baseHandler) getNodeUiUrl(node *services.ServiceContext) (string, error) {
+	chainLinkHttpPort, found := node.GetPublicPorts()["http"]
+	if !found {
+		return "", errors.New("Port 'http' was not found. This is a bug in 'chainlink-node-package' package")
+	}
+	return fmt.Sprintf("http://127.0.0.1:%d", chainLinkHttpPort.GetNumber()), nil
+}
+
+func (*baseHandler) getNodeP2PPort(node *services.ServiceContext) (uint16, error) {
+	chainLinkP2PPort, found := node.GetPublicPorts()["p2p"]
+	if !found {
+		return 0, errors.New("Port 'p2p' was not found. This is a bug in 'chainlink-node-package' package")
+	}
+	return chainLinkP2PPort.GetNumber(), nil
 }
 
 func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string, force bool) (string, func(bool), error) {
