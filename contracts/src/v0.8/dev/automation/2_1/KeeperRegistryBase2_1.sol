@@ -8,7 +8,7 @@ import "../../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OV
 import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/AutomationRegistryInterface2_1.sol";
-import "./interfaces/MercuryLookupCompatibleInterface.sol";
+import "./interfaces/FeedLookupCompatibleInterface.sol";
 import "./interfaces/ILogAutomation.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
@@ -54,7 +54,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
-  bytes4 internal constant MERCURY_CALLBACK_SELECTOR = MercuryLookupCompatibleInterface.mercuryCallback.selector;
+  bytes4 internal constant CHECK_CALLBACK_SELECTOR = FeedLookupCompatibleInterface.checkCallback.selector;
   bytes4 internal constant CHECK_LOG_SELECTOR = ILogAutomation.checkLog.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;

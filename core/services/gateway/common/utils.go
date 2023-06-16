@@ -2,28 +2,9 @@ package common
 
 import (
 	"encoding/binary"
-	"time"
 
 	"golang.org/x/exp/slices"
 )
-
-// An easily-mockable clock interface.
-//
-//go:generate mockery --quiet --name Clock --output ./mocks/ --case=underscore
-type Clock interface {
-	Now() time.Time
-}
-
-type realClock struct {
-}
-
-func NewRealClock() Clock {
-	return &realClock{}
-}
-
-func (*realClock) Now() time.Time {
-	return time.Now()
-}
 
 func Uint32ToBytes(val uint32) []byte {
 	result := make([]byte, 4)
