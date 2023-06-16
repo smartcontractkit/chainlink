@@ -37,6 +37,8 @@ Order = 5
 
 - Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
 
+- Add two new config parameters `WebServer.ListenIP` and `WebServer.TLS.ListenIP` which allows binding Chainlink HTTP/HTTPS servers to a particular IP. This can be handy for local development to prevent listening on publicly accessible ports, or for server deployments with multiple IP addresses.
+
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 
