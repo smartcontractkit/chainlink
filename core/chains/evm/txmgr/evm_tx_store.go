@@ -40,10 +40,35 @@ var (
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
+// EvmTxStore combines the txmgr tx store interface and the interface needed for the the API to read from the tx DB
+//
+//go:generate mockery --quiet --name EvmTxStore --output ./mocks/ --case=underscore
+type EvmTxStore interface {
+	// redeclare TxStore for mockery
+	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	TxStoreWebApi
+}
+
+// TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers and readers
+type TxStoreWebApi interface {
+	FindTxAttemptConfirmedByTxIDs(ids []int64) ([]EvmTxAttempt, error)
+	FindTxByHash(hash common.Hash) (*EvmTx, error)
+	Transactions(offset, limit int) ([]EvmTx, int, error)
+	TxAttempts(offset, limit int) ([]EvmTxAttempt, int, error)
+	TransactionsWithAttempts(offset, limit int) ([]EvmTx, int, error)
+	FindTxAttempt(hash common.Hash) (*EvmTxAttempt, error)
+}
+
 type TestEvmTxStore interface {
 	EvmTxStore
-	InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) // only used for testing purposes
-	InsertTx(etx *EvmTx) error                                 // only used for testing purposes
+
+	// methods only used for testing purposes
+	InsertReceipt(receipt *evmtypes.Receipt) (int64, error)
+	InsertTx(etx *EvmTx) error
+	FindTxAttemptsByTxIDs(ids []int64) ([]EvmTxAttempt, error)
+	FindTxWithAttempts(etxID int64) (etx EvmTx, err error)
+	InsertTxAttempt(attempt *EvmTxAttempt) error
+	LoadTxesAttempts(etxs []*EvmTx, qopts ...pg.QOpt) error
 }
 
 type evmTxStore struct {
@@ -486,8 +511,8 @@ func (o *evmTxStore) InsertTxAttempt(attempt *EvmTxAttempt) error {
 	return pkgerrors.Wrap(err, "InsertTxAttempt failed")
 }
 
-// InsertEthReceipt only used in tests. Use SaveFetchedReceipts instead
-func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) {
+// InsertReceipt only used in tests. Use SaveFetchedReceipts instead
+func (o *evmTxStore) InsertReceipt(receipt *evmtypes.Receipt) (int64, error) {
 	// convert to database representation
 	r := DbReceiptFromEvmReceipt(receipt)
 
@@ -496,7 +521,7 @@ func (o *evmTxStore) InsertEthReceipt(receipt *evmtypes.Receipt) (int64, error) 
 ) RETURNING *`
 	err := o.q.GetNamed(insertEthReceiptSQL, &r, &r)
 
-	return r.ID, pkgerrors.Wrap(err, "InsertEthReceipt failed")
+	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
 }
 
 // FindTxWithAttempts finds the EvmTx with its attempts and receipts preloaded
@@ -866,8 +891,8 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
-// FindTxWithNonce returns any broadcast ethtx with the given nonce
-func (o *evmTxStore) FindTxWithNonce(fromAddress common.Address, nonce evmtypes.Nonce) (etx *EvmTx, err error) {
+// FindTxWithSequence returns any broadcast ethtx with the given nonce
+func (o *evmTxStore) FindTxWithSequence(fromAddress common.Address, nonce evmtypes.Nonce) (etx *EvmTx, err error) {
 	etx = new(EvmTx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx

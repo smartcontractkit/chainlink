@@ -1,7 +1,6 @@
 package s4_test
 
 import (
-	"crypto/ecdsa"
 	"testing"
 	"time"
 
@@ -11,10 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -24,29 +22,18 @@ var (
 	}
 )
 
-func setupTestStorage(t *testing.T) (*mocks.ORM, s4.Storage) {
+func setupTestStorage(t *testing.T, now time.Time) (*mocks.ORM, s4.Storage) {
 	logger := logger.TestLogger(t)
 	orm := mocks.NewORM(t)
-	storage := s4.NewStorage(logger, constraints, orm)
+	clock := utils.NewFixedClock(now)
+	storage := s4.NewStorage(logger, constraints, orm, clock)
 	return orm, storage
-}
-
-func generateCryptoEntity(t *testing.T) (*ecdsa.PrivateKey, *ecdsa.PublicKey, common.Address) {
-	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	assert.True(t, ok)
-
-	address := crypto.PubkeyToAddress(*publicKeyECDSA)
-	return privateKey, publicKeyECDSA, address
 }
 
 func TestStorage_Constraints(t *testing.T) {
 	t.Parallel()
 
-	_, storage := setupTestStorage(t)
+	_, storage := setupTestStorage(t, time.Now())
 	c := storage.Constraints()
 	assert.Equal(t, constraints, c)
 }
@@ -54,7 +41,8 @@ func TestStorage_Constraints(t *testing.T) {
 func TestStorage_Errors(t *testing.T) {
 	t.Parallel()
 
-	ormMock, storage := setupTestStorage(t)
+	now := time.Now()
+	ormMock, storage := setupTestStorage(t, now)
 
 	t.Run("ErrNotFound", func(t *testing.T) {
 		key := &s4.Key{
@@ -78,7 +66,7 @@ func TestStorage_Errors(t *testing.T) {
 
 		record := &s4.Record{
 			Payload:    make([]byte, 10),
-			Expiration: time.Now().UnixMilli() + 1,
+			Expiration: now.Add(time.Minute).UnixMilli(),
 		}
 		err = storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrSlotIdTooBig)
@@ -92,7 +80,7 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		record := &s4.Record{
 			Payload:    make([]byte, constraints.MaxPayloadSizeBytes+1),
-			Expiration: time.Now().UnixMilli() + 1,
+			Expiration: now.Add(time.Minute).UnixMilli(),
 		}
 		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPayloadTooBig)
@@ -106,14 +94,14 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		record := &s4.Record{
 			Payload:    make([]byte, 10),
-			Expiration: time.Now().UnixMilli() - 1,
+			Expiration: now.UnixMilli() - 1,
 		}
 		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPastExpiration)
 	})
 
 	t.Run("ErrWrongSignature", func(t *testing.T) {
-		privateKey, _, address := generateCryptoEntity(t)
+		privateKey, address := testutils.NewPrivateKeyAndAddress(t)
 		key := &s4.Key{
 			Address: address,
 			SlotId:  2,
@@ -121,7 +109,7 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Expiration: time.Now().UnixMilli() + 1,
+			Expiration: now.Add(time.Minute).UnixMilli(),
 		}
 		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
@@ -132,35 +120,8 @@ func TestStorage_Errors(t *testing.T) {
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
-	/* to be reworked
-	t.Run("ErrNotFound if expired", func(t *testing.T) {
-		privateKey, _, address := generateCryptoEntity(t)
-		key := &s4.Key{
-			Address: address,
-			SlotId:  2,
-			Version: 0,
-		}
-		record := &s4.Record{
-			Payload:    []byte("foobar"),
-			Expiration: time.Now().UnixMilli() + 1,
-		}
-		env := s4.NewEnvelopeFromRecord(key, record)
-		signature, err := env.Sign(privateKey)
-		assert.NoError(t, err)
-
-		ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
-
-		err = storage.Put(testutils.Context(t), key, record, signature)
-		assert.NoError(t, err)
-
-		_, _, err = storage.Get(testutils.Context(t), key)
-		assert.ErrorIs(t, err, s4.ErrNotFound)
-	})
-	*/
-
 	t.Run("ErrVersionTooLow", func(t *testing.T) {
-		privateKey, _, address := generateCryptoEntity(t)
+		privateKey, address := testutils.NewPrivateKeyAndAddress(t)
 		key := &s4.Key{
 			Address: address,
 			SlotId:  2,
@@ -168,7 +129,7 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		record := &s4.Record{
 			Payload:    []byte("foobar"),
-			Expiration: time.Now().Add(time.Hour).UnixMilli(),
+			Expiration: now.Add(time.Hour).UnixMilli(),
 		}
 		env := s4.NewEnvelopeFromRecord(key, record)
 		signature, err := env.Sign(privateKey)
@@ -185,41 +146,74 @@ func TestStorage_Errors(t *testing.T) {
 func TestStorage_PutAndGet(t *testing.T) {
 	t.Parallel()
 
-	ormMock, storage := setupTestStorage(t)
+	now := time.Now()
+	ormMock, storage := setupTestStorage(t, now)
 
-	t.Run("Happy Put then Get", func(t *testing.T) {
-		privateKey, _, address := generateCryptoEntity(t)
-		key := &s4.Key{
-			Address: address,
-			SlotId:  2,
-			Version: 0,
+	privateKey, address := testutils.NewPrivateKeyAndAddress(t)
+	key := &s4.Key{
+		Address: address,
+		SlotId:  2,
+		Version: 0,
+	}
+	record := &s4.Record{
+		Payload:    []byte("foobar"),
+		Expiration: now.Add(time.Hour).UnixMilli(),
+	}
+	env := s4.NewEnvelopeFromRecord(key, record)
+	signature, err := env.Sign(privateKey)
+	assert.NoError(t, err)
+
+	ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
+	ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(2), mock.Anything).Return(&s4.Row{
+		Address:    utils.NewBig(key.Address.Big()),
+		SlotId:     key.SlotId,
+		Version:    key.Version,
+		Payload:    record.Payload,
+		Expiration: record.Expiration,
+		Signature:  signature,
+	}, nil)
+
+	err = storage.Put(testutils.Context(t), key, record, signature)
+	assert.NoError(t, err)
+
+	rec, metadata, err := storage.Get(testutils.Context(t), key)
+	assert.NoError(t, err)
+	assert.Equal(t, false, metadata.Confirmed)
+	assert.Equal(t, signature, metadata.Signature)
+	assert.Equal(t, record.Expiration, rec.Expiration)
+	assert.Equal(t, record.Payload, rec.Payload)
+}
+
+func TestStorage_List(t *testing.T) {
+	t.Parallel()
+
+	ormMock, storage := setupTestStorage(t, time.Now())
+	address := testutils.NewAddress()
+	ormRows := []*s4.SnapshotRow{
+		{
+			SlotId:     1,
+			Version:    1,
+			Expiration: 1,
+		},
+		{
+			SlotId:     5,
+			Version:    5,
+			Expiration: 5,
+		},
+	}
+
+	addressRange := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	ormMock.On("GetSnapshot", addressRange, mock.Anything).Return(ormRows, nil)
+
+	rows, err := storage.List(testutils.Context(t), address)
+	require.NoError(t, err)
+	assert.Len(t, rows, 2)
+	for _, row := range rows {
+		if row.SlotId == ormRows[0].SlotId {
+			assert.Equal(t, ormRows[0], row)
 		}
-		record := &s4.Record{
-			Payload:    []byte("foobar"),
-			Expiration: time.Now().Add(time.Hour).UnixMilli(),
+		if row.SlotId == ormRows[1].SlotId {
+			assert.Equal(t, ormRows[1], row)
 		}
-		env := s4.NewEnvelopeFromRecord(key, record)
-		signature, err := env.Sign(privateKey)
-		assert.NoError(t, err)
-
-		ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(2), mock.Anything).Return(&s4.Row{
-			Address:    utils.NewBig(key.Address.Big()),
-			SlotId:     key.SlotId,
-			Version:    key.Version,
-			Payload:    record.Payload,
-			Expiration: record.Expiration,
-			Signature:  signature,
-		}, nil)
-
-		err = storage.Put(testutils.Context(t), key, record, signature)
-		assert.NoError(t, err)
-
-		rec, metadata, err := storage.Get(testutils.Context(t), key)
-		assert.NoError(t, err)
-		assert.Equal(t, false, metadata.Confirmed)
-		assert.Equal(t, signature, metadata.Signature)
-		assert.Equal(t, record.Expiration, rec.Expiration)
-		assert.Equal(t, record.Payload, rec.Payload)
-	})
+	}
 }

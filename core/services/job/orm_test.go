@@ -33,7 +33,7 @@ func TestLoadEnvConfigVarsLocalOCR(t *testing.T) {
 	chainConfig := evmtest.NewChainScopedConfig(t, config)
 	jobSpec := &job.OCROracleSpec{}
 
-	jobSpec = job.LoadEnvConfigVarsLocalOCR(chainConfig, *jobSpec)
+	jobSpec = job.LoadEnvConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, chainConfig.OCR())
 
 	require.True(t, jobSpec.ObservationTimeoutEnv)
 	require.True(t, jobSpec.BlockchainTimeoutEnv)

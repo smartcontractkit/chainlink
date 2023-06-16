@@ -17,7 +17,6 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -279,7 +278,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -364,7 +363,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
@@ -380,7 +379,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		ID:       int64(1),
 		TxID:     ethTxID,
 		Hash:     ethTxHash,
-		Receipts: []*evmtypes.Receipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
+		Receipts: []txmgr.EvmChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
 	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{

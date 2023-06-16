@@ -58,7 +58,7 @@ func TestChainScopedConfig(t *testing.T) {
 
 	t.Run("EvmGasBumpTxDepthDefault", func(t *testing.T) {
 		t.Run("uses MaxInFlightTransactions when not set", func(t *testing.T) {
-			assert.Equal(t, cfg.EvmMaxInFlightTransactions(), cfg.EvmGasBumpTxDepth())
+			assert.Equal(t, cfg.EVM().Transactions().MaxInFlight(), cfg.EvmGasBumpTxDepth())
 		})
 
 		t.Run("uses customer configured value when set", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestChainScopedConfig(t *testing.T) {
 			}
 			gcfg2 := configtest.NewGeneralConfig(t, gasBumpOverrides)
 			cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
-			assert.NotEqual(t, cfg2.EvmMaxInFlightTransactions(), cfg2.EvmGasBumpTxDepth())
+			assert.NotEqual(t, cfg2.EVM().Transactions().MaxInFlight(), cfg2.EvmGasBumpTxDepth())
 			assert.Equal(t, override, cfg2.EvmGasBumpTxDepth())
 		})
 	})
@@ -237,6 +237,21 @@ func TestChainScopedConfig(t *testing.T) {
 	})
 }
 
+func TestChainScopedConfig_BlockHistory(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	bh := cfg.EVM().GasEstimator().BlockHistory()
+	assert.Equal(t, uint32(25), bh.BatchSize())
+	assert.Equal(t, uint16(8), bh.BlockHistorySize())
+	assert.Equal(t, uint16(60), bh.TransactionPercentile())
+	assert.Equal(t, uint16(90), bh.CheckInclusionPercentile())
+	assert.Equal(t, uint16(12), bh.CheckInclusionBlocks())
+	assert.Equal(t, uint16(1), bh.BlockDelay())
+	assert.Equal(t, uint16(4), bh.EIP1559FeeCapBufferBlocks())
+}
+
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	chainID := big.NewInt(56)
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
@@ -250,11 +265,11 @@ func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-	timeout := cfg.OCRDatabaseTimeout()
+	timeout := cfg.EVM().OCR().DatabaseTimeout()
 	require.Equal(t, 2*time.Second, timeout)
-	timeout = cfg.OCRContractTransmitterTransmitTimeout()
+	timeout = cfg.EVM().OCR().ContractTransmitterTransmitTimeout()
 	require.Equal(t, 2*time.Second, timeout)
-	timeout = cfg.OCRObservationGracePeriod()
+	timeout = cfg.EVM().OCR().ObservationGracePeriod()
 	require.Equal(t, 500*time.Millisecond, timeout)
 }
 
@@ -311,6 +326,17 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
 		})
 	}
+}
+
+func TestChainScopedConfig_HeadTracker(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	ht := cfg.EVM().HeadTracker()
+	assert.Equal(t, uint32(100), ht.HistoryDepth())
+	assert.Equal(t, uint32(3), ht.MaxBufferSize())
+	assert.Equal(t, time.Second, ht.SamplingInterval())
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {

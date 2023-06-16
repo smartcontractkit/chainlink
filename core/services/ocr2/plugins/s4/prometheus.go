@@ -50,4 +50,9 @@ var (
 		Name: "s4_reporting_plugin_wrong_sig_count",
 		Help: "Metric to track number of rows having wrong signature",
 	}, []string{"product"})
+
+	promReportingPluginsExpiredRows = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "s4_reporting_plugin_expired_rows",
+		Help: "Metric to track number of expired rows",
+	}, []string{"product"})
 )

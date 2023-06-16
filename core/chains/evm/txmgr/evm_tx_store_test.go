@@ -150,9 +150,9 @@ func TestORM(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
 	var r txmgr.EvmReceipt
-	t.Run("InsertEthReceipt", func(t *testing.T) {
+	t.Run("InsertReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
-		id, err := orm.InsertEthReceipt(&r.Receipt)
+		id, err := orm.InsertReceipt(&r.Receipt)
 		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
@@ -166,7 +166,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
 		require.Len(t, etx.TxAttempts[1].Receipts, 0)
-		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 	t.Run("FindTxByHash", func(t *testing.T) {
 		foundEtx, err := orm.FindTxByHash(attemptD.Hash)
@@ -182,7 +182,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
 		require.Len(t, etx.TxAttempts[1].Receipts, 0)
-		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].BlockHash)
+		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 }
 
@@ -207,7 +207,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 
 	// add receipt for the second attempt
 	r := cltest.NewEthReceipt(t, 4, utils.NewHash(), attempt.Hash, 0x1)
-	_, err := orm.InsertEthReceipt(&r.Receipt)
+	_, err := orm.InsertReceipt(&r.Receipt)
 	require.NoError(t, err)
 
 	// tx 3 has no attempts
@@ -231,7 +231,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 	require.Len(t, confirmedAttempts, 1)
 	assert.Equal(t, confirmedAttempts[0].ID, attempt.ID)
 	require.Len(t, confirmedAttempts[0].Receipts, 1, "should have only one EthRecipts for a confirmed transaction")
-	assert.Equal(t, confirmedAttempts[0].Receipts[0].BlockHash, r.BlockHash)
+	assert.Equal(t, confirmedAttempts[0].Receipts[0].GetBlockHash(), r.BlockHash)
 	assert.Equal(t, confirmedAttempts[0].Hash, attempt.Hash, "confirmed Recieipt Hash should match the attempt hash")
 }
 
@@ -415,6 +415,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
 		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.DefaultChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
@@ -531,7 +532,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, etx0.TxAttempts, 1)
 	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
-	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].BlockHash)
+	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].GetBlockHash())
 	require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 }
 
@@ -665,7 +666,7 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
 }
 
-func TestORM_FindTxWithNonce(t *testing.T) {
+func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -675,7 +676,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -684,7 +685,7 @@ func TestORM_FindTxWithNonce(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
 
-		res, err := txStore.FindTxWithNonce(fromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindTxWithSequence(fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 	})
@@ -1257,9 +1258,10 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 			c.EVM[0].Chain.Transactions.ResendAfterThreshold = zero
 		})
 
-		evmTxmCfg := txmgr.NewEvmTxmConfig(evmtest.NewChainScopedConfig(t, evmCfg))
+		ccfg := evmtest.NewChainScopedConfig(t, evmCfg)
+		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg)
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
-		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, nil, logger.TestLogger(t), nil, nil,
+		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)

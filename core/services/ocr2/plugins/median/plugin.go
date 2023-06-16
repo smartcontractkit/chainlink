@@ -3,11 +3,12 @@ package median
 import (
 	"context"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"

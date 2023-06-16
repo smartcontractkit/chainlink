@@ -43,10 +43,10 @@ type TxManager[
 	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
-	CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error)
+	CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
 	RegisterResumeCallback(fn ResumeCallback)
-	SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error)
+	SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	Reset(f func(), addr ADDR, abandon bool) error
 }
 
@@ -72,10 +72,11 @@ type Txm[
 	utils.StartStopOnce
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TxmConfig
+	config         txmgrtypes.TransactionManagerConfig
+	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID        CHAIN_ID
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
 	chHeads        chan HEAD
 	trigger        chan ADDR
@@ -91,8 +92,8 @@ type Txm[
 	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	nonceSyncer      NonceSyncer[ADDR, TX_HASH, BLOCK_HASH]
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	sequenceSyncer   SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -113,14 +114,15 @@ func NewTxm[
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
-	cfg txmgrtypes.TxmConfig,
+	cfg txmgrtypes.TransactionManagerConfig,
+	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	nonceSyncer NonceSyncer[ADDR, TX_HASH, BLOCK_HASH],
+	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH],
 	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R],
@@ -129,6 +131,7 @@ func NewTxm[
 		logger:           lggr,
 		txStore:          txStore,
 		config:           cfg,
+		txConfig:         txCfg,
 		keyStore:         keyStore,
 		chainID:          chainId,
 		checkerFactory:   checkerFactory,
@@ -139,17 +142,17 @@ func NewTxm[
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
-		nonceSyncer:      nonceSyncer,
+		sequenceSyncer:   sequenceSyncer,
 		broadcaster:      broadcaster,
 		confirmer:        confirmer,
 		resender:         resender,
 	}
 
-	if cfg.TxResendAfterThreshold() <= 0 {
+	if txCfg.ResendAfterThreshold() <= 0 {
 		b.logger.Info("Resender: Disabled")
 	}
-	if cfg.TxReaperThreshold() > 0 && cfg.TxReaperInterval() > 0 {
-		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, chainId)
+	if txCfg.ReaperThreshold() > 0 && txCfg.ReaperInterval() > 0 {
+		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, txCfg, chainId)
 	} else {
 		b.logger.Info("TxReaper: Disabled")
 	}
@@ -264,7 +267,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 		maps.Copy(report, b.txAttemptBuilder.HealthReport())
 	})
 
-	if b.config.UseForwarders() {
+	if b.txConfig.ForwardersEnabled() {
 		maps.Copy(report, b.fwdMgr.HealthReport())
 	}
 	return report
@@ -432,12 +435,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 }
 
 // CreateTransaction inserts a new transaction
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
 		return tx, err
 	}
 
-	if b.config.UseForwarders() && (!utils.IsZero(txRequest.ForwarderAddress)) {
+	if b.txConfig.ForwardersEnabled() && (!utils.IsZero(txRequest.ForwarderAddress)) {
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(txRequest.ToAddress, txRequest.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
@@ -455,7 +458,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		}
 	}
 
-	err = b.txStore.CheckTxQueueCapacity(txRequest.FromAddress, b.config.MaxQueuedTransactions(), b.chainID, qs...)
+	err = b.txStore.CheckTxQueueCapacity(txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateTransaction")
 	}
@@ -466,7 +469,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
-	if !b.config.UseForwarders() {
+	if !b.txConfig.ForwardersEnabled() {
 		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
@@ -479,7 +482,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabl
 }
 
 // SendNativeToken creates a transaction that transfers the given value of ether
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send native token to zero address")
 	}
@@ -524,7 +527,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ADDR) {
 	panic(n.ErrMsg)
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
@@ -535,7 +538,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) 
 }
 
 // SendNativeToken does nothing, null functionality
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 

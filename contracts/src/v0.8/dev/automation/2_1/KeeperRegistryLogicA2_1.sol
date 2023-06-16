@@ -124,9 +124,9 @@ contract KeeperRegistryLogicA2_1 is
   }
 
   /**
-   * @dev core node calls this function to call user contracts' mercury callback functions with proper gas limit
+   * @dev core node calls this function to call user contracts' checkCallback functions with proper gas limit
    */
-  function mercuryCallback(
+  function checkCallback(
     uint256 id,
     bytes[] memory values,
     bytes memory extraData
@@ -138,14 +138,17 @@ contract KeeperRegistryLogicA2_1 is
     Upkeep memory upkeep = s_upkeep[id];
 
     gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(MERCURY_CALLBACK_SELECTOR, values, extraData);
+    bytes memory callData = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.MERCURY_CALLBACK_REVERTED;
+      upkeepFailureReason = UpkeepFailureReason.CHECK_CALLBACK_REVERTED;
     } else {
       (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    }
+    if (!upkeepNeeded) {
+      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
     }
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }

@@ -30,11 +30,15 @@ func NewEvmTxmClient(c evmclient.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
+func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
+	return c.PendingNonceAt(ctx, addr)
+}
+
 func (c *evmTxmClient) ConfiguredChainID() *big.Int {
 	return c.client.ConfiguredChainID()
 }
 
-func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore EvmTxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
+func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore TxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
 	// preallocate
 	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))

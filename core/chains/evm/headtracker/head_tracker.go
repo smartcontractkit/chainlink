@@ -54,6 +54,7 @@ type headTracker[
 	ethClient       htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
 	config          htrktypes.Config
+	htConfig        htrktypes.HeadTrackerConfig
 
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
@@ -78,6 +79,7 @@ func NewHeadTracker[
 	lggr logger.Logger,
 	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
 	config htrktypes.Config,
+	htConfig htrktypes.HeadTrackerConfig,
 	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver commontypes.HeadSaver[HTH, BLOCK_HASH],
 	mailMon *utils.MailboxMonitor,
@@ -90,6 +92,7 @@ func NewHeadTracker[
 		ethClient:       client,
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
+		htConfig:        htConfig,
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[HTH](),
 		broadcastMB:     utils.NewMailbox[HTH](HeadsBufferSize),
@@ -105,6 +108,7 @@ func NewEVMHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config,
+	htConfig HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,
@@ -116,6 +120,7 @@ func NewEVMHeadTracker(
 		ethClient:       ethClient,
 		chainID:         ethClient.ConfiguredChainID(),
 		config:          NewWrappedConfig(config),
+		htConfig:        htConfig,
 		log:             lggr,
 		backfillMB:      utils.NewSingleMailbox[*evmtypes.Head](),
 		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
@@ -271,7 +276,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.config.HeadTrackerSamplingInterval()
+	samplingInterval := ht.htConfig.SamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
