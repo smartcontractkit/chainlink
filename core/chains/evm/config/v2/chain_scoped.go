@@ -43,13 +43,13 @@ func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      c.OCR().BlockchainTimeout(),
-		ContractConfigConfirmations:            c.OCRContractConfirmations(),
+		ContractConfigConfirmations:            c.EVM().OCR().ContractConfirmations(),
 		ContractConfigTrackerPollInterval:      c.OCR().ContractPollInterval(),
 		ContractConfigTrackerSubscribeInterval: c.OCR().ContractSubscribeInterval(),
-		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		ContractTransmitterTransmitTimeout:     c.EVM().OCR().ContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.EVM().OCR().DatabaseTimeout(),
 		DataSourceTimeout:                      c.OCR().ObservationTimeout(),
-		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
+		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
 		err = multierr.Append(err, ocrerr)
@@ -71,6 +71,14 @@ func (e *evmConfig) Transactions() config.Transactions {
 
 func (e *evmConfig) HeadTracker() config.HeadTracker {
 	return &headTrackerConfig{c: e.c.HeadTracker}
+}
+
+func (e *evmConfig) OCR() config.OCR {
+	return &ocrConfig{c: e.c.OCR}
+}
+
+func (e *evmConfig) OCR2() config.OCR2 {
+	return &ocr2Config{c: e.c.OCR2}
 }
 
 func (e *evmConfig) GasEstimator() config.GasEstimator {
@@ -281,26 +289,6 @@ func (c *ChainScoped) NodeSelectionMode() string {
 
 func (c *ChainScoped) NodeSyncThreshold() uint32 {
 	return *c.cfg.NodePool.SyncThreshold
-}
-
-func (c *ChainScoped) OCRContractConfirmations() uint16 {
-	return *c.cfg.OCR.ContractConfirmations
-}
-
-func (c *ChainScoped) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.cfg.OCR.ContractTransmitterTransmitTimeout.Duration()
-}
-
-func (c *ChainScoped) OCRObservationGracePeriod() time.Duration {
-	return c.cfg.OCR.ObservationGracePeriod.Duration()
-}
-
-func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
-	return c.cfg.OCR.DatabaseTimeout.Duration()
-}
-
-func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
-	return *c.cfg.OCR2.Automation.GasLimit
 }
 
 type balanceMonitorConfig struct {

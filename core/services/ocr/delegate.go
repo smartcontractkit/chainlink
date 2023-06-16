@@ -95,7 +95,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), chain.Config().OCR(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config().EVM().OCR(), chain.Config().OCR(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
-	lc := toLocalConfig(chain.Config(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
+	lc := toLocalConfig(chain.Config(), chain.Config().EVM().OCR(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
