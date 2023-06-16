@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 )
 
 // RegistrarConfig generates contains static configuration inher
@@ -46,7 +45,6 @@ func (pc *registarConfig) RegisterLOOP(loopID string, cmdName string) (func() *e
 // are fully resolved and static and passed via the environment.
 type EnvConfig interface {
 	PrometheusPort() int
-	Hostname() string
 }
 
 // SetCmdEnvFromConfig sets LOOP-specific vars in the env of the given cmd.
@@ -57,7 +55,6 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 		}
 	}
 	forward("CL_LOG_SQL_MIGRATIONS")
-	forward(string(v2.EnvPrometheusDiscoveryHostName))
 	cmd.Env = append(cmd.Env,
 		"CL_PROMETHEUS_PORT="+strconv.FormatInt(int64(cfg.PrometheusPort()), 10),
 	)
@@ -87,12 +84,4 @@ func NewEnvConfig(prometheusPort int) EnvConfig {
 
 func (e *envConfig) PrometheusPort() int {
 	return e.prometheusPort
-}
-
-func (e *envConfig) Hostname() string {
-	h := os.Getenv("CL_PROMETHEUS_TARGET_HOSTNAME")
-	if h == "" {
-		h = os.Getenv("HOSTNAME")
-	}
-	return h
 }
