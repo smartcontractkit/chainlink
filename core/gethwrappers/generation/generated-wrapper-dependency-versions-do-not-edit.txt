@@ -38,7 +38,7 @@ mercury_lookup_compatible_interface: ../../contracts/solc/v0.8.15/MercuryLookupC
 mercury_upkeep_wrapper: ../../contracts/solc/v0.8.15/MercuryUpkeep.abi ../../contracts/solc/v0.8.15/MercuryUpkeep.bin 7ec791b91cf0e8e3470ca9ef903fa4a18f188da2447dee4844fcc43b45c7592a
 mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin 24b2db0d5db8e0198bb7eae2ecde65f2596df4bcc7b17d604d25300546c1694e
 mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
-mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin 22ea93fc25a620183fc2a03664c1fbb631566d4667d1e6237846979f938bf29b
+mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba

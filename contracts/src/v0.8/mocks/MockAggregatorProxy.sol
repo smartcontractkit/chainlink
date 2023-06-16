@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import {IAggregatorProxy} from '../HeartbeatRequester.sol';
+import {IAggregatorProxy} from "../HeartbeatRequester.sol";
 
 contract MockAggregatorProxy is IAggregatorProxy {
   address internal s_aggregator;
@@ -14,7 +14,7 @@ contract MockAggregatorProxy is IAggregatorProxy {
     s_aggregator = _aggregator;
   }
 
-  function aggregator() external override view returns (address) {
+  function aggregator() external view override returns (address) {
     return s_aggregator;
   }
 }
