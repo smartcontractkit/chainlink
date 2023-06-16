@@ -1719,7 +1719,7 @@ describe('KeeperRegistry2_1', () => {
           it(
             'When f=' +
               newF +
-              'calculates gas overhead appropriately within a margin for different scenarios',
+              ' calculates gas overhead appropriately within a margin for different scenarios',
             async () => {
               // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
               let tx = await getTransmitTx(registry, keeper1, [upkeepId])
