@@ -15,16 +15,16 @@ type ExternalAdapterClient struct {
 }
 
 // FetchEncryptedSecrets provides a mock function with given fields: ctx, encryptedSecretsUrls, requestId, jobName
-func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) ([]byte, []byte, error) {
+func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls string, requestId string, jobName string) ([]byte, []byte, error) {
 	ret := _m.Called(ctx, encryptedSecretsUrls, requestId, jobName)
 
 	var r0 []byte
 	var r1 []byte
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, string, string) ([]byte, []byte, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) ([]byte, []byte, error)); ok {
 		return rf(ctx, encryptedSecretsUrls, requestId, jobName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, string, string) []byte); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) []byte); ok {
 		r0 = rf(ctx, encryptedSecretsUrls, requestId, jobName)
 	} else {
 		if ret.Get(0) != nil {
@@ -32,7 +32,7 @@ func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []byte, string, string) []byte); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) []byte); ok {
 		r1 = rf(ctx, encryptedSecretsUrls, requestId, jobName)
 	} else {
 		if ret.Get(1) != nil {
@@ -40,7 +40,7 @@ func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, []byte, string, string) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, string) error); ok {
 		r2 = rf(ctx, encryptedSecretsUrls, requestId, jobName)
 	} else {
 		r2 = ret.Error(2)

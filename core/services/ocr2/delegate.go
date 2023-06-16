@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	functionsRelayConfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -412,7 +413,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case job.OCR2Functions:
-		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		thresholdPluginDB := NewDB(d.db, spec.ID, 1, lggr, d.cfg.Database())
+		return d.newServicesOCR2Functions(
+			lggr,
+			jb,
+			runResults,
+			bootstrapPeers,
+			kb,
+			ocrDB,
+			thresholdPluginDB,
+			lc,
+			ocrLogger,
+		)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -928,19 +940,16 @@ func (d *Delegate) newServicesOCR2Functions(
 	runResults chan pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
-	ocrDB *db,
+	functionsOcrDB *db,
+	thresholdOcrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
-	if len(encryptedThresholdKeyShare) == 0 {
-		d.lggr.Warn("ThresholdKeyShare is empty")
-	}
 	spec := jb.OCR2OracleSpec
 	if spec.Relay != relay.EVM {
 		return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 	}
-	functionsProvider, err2 := evmrelay.NewFunctionsProvider(
+	functionsProvider, err := evmrelay.NewFunctionsProvider(
 		d.chainSet,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
@@ -955,28 +964,63 @@ func (d *Delegate) newServicesOCR2Functions(
 		},
 		lggr.Named("FunctionsRelayer"),
 		d.ethKs,
-		d.eventBroadcaster,
+		functionsRelayConfig.FunctionsPlugin,
 	)
-	if err2 != nil {
-		return nil, err2
+	if err != nil {
+		return nil, err
+	}
+
+	var thresholdKeyShare []byte
+	var thresholdProvider types.PluginProvider
+	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
+	if len(encryptedThresholdKeyShare) == 0 {
+		d.lggr.Warn("ThresholdKeyShare is empty. Threshold decryption is disabled.")
+	} else {
+		encryptedThresholdKeyShareBytes, err := hex.DecodeString(encryptedThresholdKeyShare)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode ThresholdKeyShare hex string")
+		}
+
+		thresholdKeyShare, err = kb.NaclBoxOpenAnonymous(encryptedThresholdKeyShareBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decrypt ThresholdKeyShare")
+		}
+
+		thresholdProvider, err = evmrelay.NewFunctionsProvider(
+			d.chainSet,
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+				New:           d.isNewlyCreatedJob,
+			},
+			types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			},
+			lggr.Named("FunctionsRelayer"),
+			d.ethKs,
+			functionsRelayConfig.ThresholdPlugin,
+		)
 	}
 
 	var relayConfig evmrelaytypes.RelayConfig
-	err2 = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
-	if err2 != nil {
-		return nil, err2
+	err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
+	if err != nil {
+		return nil, err
 	}
-	chain, err2 := d.chainSet.Get(relayConfig.ChainID.ToInt())
-	if err2 != nil {
-		return nil, err2
+	chain, err := d.chainSet.Get(relayConfig.ChainID.ToInt())
+	if err != nil {
+		return nil, err
 	}
 
-	sharedOracleArgs := libocr2.OCR2OracleArgs{
+	functionsOracleArgs := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          functionsProvider.ContractTransmitter(),
 		ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
-		Database:                     ocrDB,
+		Database:                     functionsOcrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
@@ -986,21 +1030,37 @@ func (d *Delegate) newServicesOCR2Functions(
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 	}
 
-	functionsServicesConfig := functions.FunctionsServicesConfig{
-		Job:             jb,
-		JobORM:          d.jobORM,
-		BridgeORM:       d.bridgeORM,
-		OCR2JobConfig:   d.cfg.Database(),
-		DB:              d.db,
-		Chain:           chain,
-		ContractID:      spec.ContractID,
-		Lggr:            lggr,
-		MailMon:         d.mailMon,
-		URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
-		EthKeystore:     d.ethKs,
+	thresholdOracleArgs := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          thresholdProvider.ContractTransmitter(),
+		ContractConfigTracker:        thresholdProvider.ContractConfigTracker(),
+		Database:                     thresholdOcrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
+		OffchainConfigDigester:       thresholdProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 	}
 
-	functionsServices, err := functions.NewFunctionsServices(&sharedOracleArgs, &functionsServicesConfig)
+	functionsServicesConfig := functions.FunctionsServicesConfig{
+		Job:               jb,
+		JobORM:            d.jobORM,
+		BridgeORM:         d.bridgeORM,
+		OCR2JobConfig:     d.cfg.Database(),
+		DB:                d.db,
+		Chain:             chain,
+		ContractID:        spec.ContractID,
+		Lggr:              lggr,
+		MailMon:           d.mailMon,
+		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
+		EthKeystore:       d.ethKs,
+		ThresholdKeyShare: thresholdKeyShare,
+	}
+
+	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &functionsServicesConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}

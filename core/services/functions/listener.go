@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -127,13 +128,14 @@ type FunctionsListener struct {
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
+	decryptor         threshold.Decryptor
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint, decryptor threshold.Decryptor) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
@@ -147,6 +149,7 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridg
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
+		decryptor:       decryptor,
 	}
 }
 
@@ -348,7 +351,44 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, "", requestData)
+	fmt.Println("THRESHOLD heard request")
+	nodeProvidedSecrets := ""
+	// If ThresholdKeyShare is not provided, then threshold decryption is disabled and l.decryptor is nil
+	if l.decryptor != nil && requestData.SecretsLocation == 1 && len(requestData.Secrets) > 0 {
+		fmt.Println("THRESHOLD requestData.secrets: ", requestData.Secrets)
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+
+		// To avoid a breaking change, if secrets fetching is unsuccessful,
+		// proceed by allowing the adapter handle secrets as before.
+		// Eventually, this will be deprecated and the error will be returned to the user on-chain
+		// by uncommenting the lines within the following if statements.
+
+		if err != nil {
+			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err)
+			// l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
+			// return
+		}
+
+		if len(userError) != 0 {
+			l.logger.Debugw("user error while fetching threshold encrypted secrets", "requestID", requestIDStr, "err", string(userError))
+			// l.setError(ctx, requestID, 0, USER_ERROR, userError)
+			// return
+		}
+
+		if len(thresholdEncSecrets) != 0 {
+			decryptedSecrets, err := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
+			if err != nil {
+				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err)
+				// l.setError(ctx, requestID, 0, USER_ERROR, []byte("failed to decrypt secrets"))
+				// return
+			} else {
+				nodeProvidedSecrets = string(decryptedSecrets)
+				fmt.Println("THRESHOLD SUCCESSFUL DECRYPTION: ", nodeProvidedSecrets)
+			}
+		}
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, nodeProvidedSecrets, requestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)

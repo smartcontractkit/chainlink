@@ -147,11 +147,9 @@ func (ea *externalAdapterClient) RunComputation(
 }
 
 func (ea *externalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
-	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
-
 	data := secretsData{
 		RequestType:          "fetchThresholdEncryptedSecrets",
-		EncryptedSecretsUrls: encodedSecretsUrls,
+		EncryptedSecretsUrls: base64.StdEncoding.EncodeToString(encryptedSecretsUrls),
 	}
 
 	payload := secretsPayload{

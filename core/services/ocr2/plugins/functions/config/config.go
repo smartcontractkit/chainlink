@@ -1,9 +1,12 @@
 package config
 
 import (
-	"google.golang.org/protobuf/proto"
+	"errors"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
+	"google.golang.org/protobuf/proto"
 )
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
@@ -41,4 +44,31 @@ func DecodeReportingPluginConfig(raw []byte) (*ReportingPluginConfigWrapper, err
 
 func EncodeReportingPluginConfig(rpConfig *ReportingPluginConfigWrapper) ([]byte, error) {
 	return proto.Marshal(rpConfig.Config)
+}
+
+var _ decryptionPluginConfig.ConfigParser = &ThresholdConfigParser{}
+
+type ThresholdConfigParser struct{}
+
+func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig.ReportingPluginConfigWrapper, error) {
+	reportingPluginConfigWrapper, err := DecodeReportingPluginConfig(config)
+	if err != nil {
+		return nil, errors.New("failed to decode Functions Threshold plugin config")
+	}
+	thresholdPluginConfig := reportingPluginConfigWrapper.Config.ThresholdPluginConfig
+
+	if thresholdPluginConfig == nil {
+		return nil, fmt.Errorf("PluginConfig bytes %x did not contain threshold plugin config", config)
+	}
+
+	return &decryptionPluginConfig.ReportingPluginConfigWrapper{
+		Config: &decryptionPluginConfig.ReportingPluginConfig{
+			MaxQueryLengthBytes:       thresholdPluginConfig.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: thresholdPluginConfig.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      thresholdPluginConfig.MaxReportLengthBytes,
+			RequestCountLimit:         thresholdPluginConfig.RequestCountLimit,
+			RequestTotalBytesLimit:    thresholdPluginConfig.RequestTotalBytesLimit,
+			RequireLocalRequestCheck:  thresholdPluginConfig.RequireLocalRequestCheck,
+		},
+	}, nil
 }
