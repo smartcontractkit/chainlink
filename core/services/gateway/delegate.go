@@ -47,7 +47,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	gateway, err := NewGatewayFromConfig(&gatewayConfig, d.lggr)
+	handlerFactory := NewHandlerFactory(d.lggr)
+	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
 	if err != nil {
 		return nil, err
 	}

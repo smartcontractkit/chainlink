@@ -23,6 +23,20 @@ func TestAddressRange_NewFullAddressRange(t *testing.T) {
 	})
 }
 
+func TestAddressRange_NewSingleAddressRange(t *testing.T) {
+	t.Parallel()
+
+	addr := utils.NewBigI(0x123)
+	sar := s4.NewSingleAddressRange(addr)
+	assert.Equal(t, addr, sar.MinAddress)
+	assert.Equal(t, addr, sar.MaxAddress)
+	assert.True(t, sar.Contains(addr))
+	assert.Equal(t, int64(1), sar.Interval().Int64())
+
+	sar.Advance()
+	assert.False(t, sar.Contains(addr))
+}
+
 func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 	t.Parallel()
 

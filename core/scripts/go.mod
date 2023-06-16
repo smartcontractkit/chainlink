@@ -13,6 +13,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/shopspring/decimal v1.3.1
@@ -290,7 +291,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230613131043-acb07f2c0f79 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230615205306-31dec2180682 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect

@@ -13,21 +13,17 @@ import (
 	"testing"
 	"time"
 
-	evmconfigmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	ocr2mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	pkgconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -54,15 +50,6 @@ import (
 
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-type insecureConfig struct {
-	config.Insecure
-	ocrDevMode bool
-}
-
-func (i *insecureConfig) OCRDevelopmentMode() bool {
-	return i.ocrDevMode
-}
-
 func TestRunner(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
@@ -83,7 +70,12 @@ func TestRunner(t *testing.T) {
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
+		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
+		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
+
+	chainScopedConfig := evmtest.NewChainScopedConfig(t, config)
 
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
@@ -199,13 +191,8 @@ func TestRunner(t *testing.T) {
 		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 		// Reference a different one
-		cfg := new(evmconfigmocks.ChainScopedConfig)
-		ocrCfg := config.OCR()
-		cfg.On("Insecure").Return(&insecureConfig{ocrDevMode: true})
-		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
-		cfg.On("OCR").Return(ocrCfg)
 		c := new(evmmocks.Chain)
-		c.On("Config").Return(cfg)
+		c.On("Config").Return(chainScopedConfig)
 		cs := evmmocks.NewChainSet(t)
 		cs.On("Get", mock.Anything).Return(c, nil)
 
@@ -238,10 +225,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := ocr2mocks.NewConfig(t)
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb2, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -275,9 +259,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		jb3, err := validate.ValidatedOracleSpecToml(cfg2, &insecureConfig{ocrDevMode: true}, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -1128,3 +1110,5 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

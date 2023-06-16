@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
@@ -49,6 +50,7 @@ type ORM interface {
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
 	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
+	FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -652,7 +654,7 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		if err != nil {
 			return err
 		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), ch.Config().OCR(), *jb.OCROracleSpec)
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
 		if err != nil {
 			return err
 		}
@@ -697,13 +699,6 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 	return &drs
 }
 
-type OCRSpecConfig interface {
-	OCRContractConfirmations() uint16
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-}
-
 type OCRConfig interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
@@ -715,7 +710,7 @@ type OCRConfig interface {
 }
 
 // LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
+func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
@@ -734,19 +729,19 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec, ocrCfg OCRCo
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmationsEnv = true
-		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
+		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
 		os.DatabaseTimeoutEnv = true
-		os.DatabaseTimeout = models.NewInterval(cfg.OCRDatabaseTimeout())
+		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
 		os.ObservationGracePeriodEnv = true
-		os.ObservationGracePeriod = models.NewInterval(cfg.OCRObservationGracePeriod())
+		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
 		os.ContractTransmitterTransmitTimeoutEnv = true
-		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
+		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
 
@@ -754,7 +749,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec, ocrCfg OCRCo
 }
 
 // LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
+func LoadEnvConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := ocrCfg.TransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
@@ -779,7 +774,7 @@ func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, ocrCfg OCRConfig, os OCROracleSpec)
 		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
 	}
 
-	return LoadEnvConfigVarsLocalOCR(cfg, os, ocrCfg), nil
+	return LoadEnvConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -855,6 +850,31 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	})
 
 	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
+}
+
+func (o *orm) FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (jobID int32, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT jobs.id
+FROM jobs
+LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.feed_id = $2 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
+LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.feed_id = $2 AND bs.id = jobs.bootstrap_spec_id
+WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
+`
+		err = tx.Get(&jobID, stmt, contractID, feedID)
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			if err != nil {
+				return errors.Wrap(err, "error searching for job by contract id and feed id")
+			}
+			return nil
+		}
+
+		return err
+	})
+
+	return jobID, errors.Wrap(err, "FindOCR2JobIDByAddress failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {

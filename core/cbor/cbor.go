@@ -34,6 +34,13 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 	return output, nil
 }
 
+// Similar to ParseDietCBOR but outputs to a concrete struct, which meets the
+// "top-level map" requirement of "diet" CBOR.
+func ParseDietCBORToStruct(b []byte, v interface{}) error {
+	b = autoAddMapDelimiters(b)
+	return cbor.Unmarshal(b, v)
+}
+
 // ParseStandardCBOR parses CBOR in "standards compliant" mode.
 // Literal values are passed through "as-is".
 // The input is not assumed to be a map.

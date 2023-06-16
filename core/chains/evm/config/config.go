@@ -19,13 +19,6 @@ type ChainScopedOnlyConfig interface {
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
-	BlockHistoryEstimatorBatchSize() (size uint32)
-	BlockHistoryEstimatorBlockDelay() uint16
-	BlockHistoryEstimatorBlockHistorySize() uint16
-	BlockHistoryEstimatorCheckInclusionBlocks() uint16
-	BlockHistoryEstimatorCheckInclusionPercentile() uint16
-	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
-	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
@@ -47,9 +40,6 @@ type ChainScopedOnlyConfig interface {
 	EvmGasPriceDefault() *assets.Wei
 	EvmGasTipCapDefault() *assets.Wei
 	EvmGasTipCapMinimum() *assets.Wei
-	EvmHeadTrackerHistoryDepth() uint32
-	EvmHeadTrackerMaxBufferSize() uint32
-	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
 	EvmLogKeepBlocksDepth() uint32
 	EvmLogPollInterval() time.Duration
@@ -65,20 +55,36 @@ type ChainScopedOnlyConfig interface {
 	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
-
-	// OCR1 chain specific config
-	OCRContractConfirmations() uint16
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-	OCRDatabaseTimeout() time.Duration
-
-	// OCR2 chain specific config
-	OCR2AutomationGasLimit() uint32
 }
 
 type EVM interface {
+	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor
 	Transactions() Transactions
+	GasEstimator() GasEstimator
+	OCR() OCR
+	OCR2() OCR2
+}
+
+type OCR interface {
+	ContractConfirmations() uint16
+	ContractTransmitterTransmitTimeout() time.Duration
+	ObservationGracePeriod() time.Duration
+	DatabaseTimeout() time.Duration
+}
+
+type OCR2 interface {
+	Automation() OCR2Automation
+}
+
+type OCR2Automation interface {
+	GasLimit() uint32
+}
+
+type HeadTracker interface {
+	HistoryDepth() uint32
+	MaxBufferSize() uint32
+	SamplingInterval() time.Duration
 }
 
 type BalanceMonitor interface {
@@ -92,6 +98,20 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
+}
+
+type GasEstimator interface {
+	BlockHistory() BlockHistory
+}
+
+type BlockHistory interface {
+	BatchSize() uint32
+	BlockHistorySize() uint16
+	BlockDelay() uint16
+	CheckInclusionBlocks() uint16
+	CheckInclusionPercentile() uint16
+	EIP1559FeeCapBufferBlocks() uint16
+	TransactionPercentile() uint16
 }
 
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore

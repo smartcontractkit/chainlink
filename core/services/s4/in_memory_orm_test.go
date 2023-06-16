@@ -89,8 +89,9 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	}
 
 	deadline := baseTime.Add(100 * time.Second)
-	err := orm.DeleteExpired(200, deadline)
+	count, err := orm.DeleteExpired(200, deadline)
 	assert.NoError(t, err)
+	assert.Equal(t, int64(100), count)
 
 	rows, err := orm.GetUnconfirmedRows(200)
 	assert.NoError(t, err)

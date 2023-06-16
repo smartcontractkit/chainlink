@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -11,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/umbracle/ethgo/abi"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -26,20 +29,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/umbracle/ethgo/abi"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 )
-
-var extraDataEncoder *abi.Type
-
-func init() {
-	method, err := abi.NewMethod("foo(uint8,bytes,bytes)") // foo is arbitrary, we just want the encoded values
-	if err != nil {
-		panic(err)
-	}
-	extraDataEncoder = method.Inputs
-}
 
 // Keeper is the keepers commands handler
 type Keeper struct {
@@ -201,7 +196,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx, true)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		case keeper.RegistryVersion_2_1:
-			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx, true)
+			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx, false)
 			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
 			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
@@ -524,13 +519,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		// Deploy
 		var upkeepAddr common.Address
 		var deployUpkeepTx *types.Transaction
+		var registerUpkeepTx *types.Transaction
 		var checkData []byte
-		var extraData []byte
 		var err error
 		switch k.cfg.UpkeepType {
 		case config.Conditional:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -540,6 +534,13 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					k.client,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+				)
+			} else if k.cfg.VerifiableLoadTest {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_upkeep_wrapper.DeployVerifiableLoadUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
 				)
 			} else {
 				upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(
@@ -552,21 +553,45 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
 			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
 		case config.Mercury:
 			checkData = []byte(k.cfg.UpkeepCheckData)
-			extraData, err = extraDataEncoder.Encode([]interface{}{0, "0x", "0x"})
 			if err != nil {
 				log.Fatal(err)
 			}
-			upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
-				k.buildTxOpts(ctx),
-				k.client,
-				big.NewInt(k.cfg.UpkeepTestRange),
-				big.NewInt(k.cfg.UpkeepInterval),
-				false,
-			)
+			if k.cfg.VerifiableLoadTest {
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_mercury_upkeep_wrapper.DeployVerifiableLoadMercuryUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					common.HexToAddress(k.cfg.Registrar),
+					k.cfg.UseArbBlockNumber,
+				)
+			} else {
+				upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					big.NewInt(k.cfg.UpkeepTestRange),
+					big.NewInt(k.cfg.UpkeepInterval),
+					false,
+				)
+			}
 			if err != nil {
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeep(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
 		case config.LogTrigger:
 			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
@@ -589,20 +614,16 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal("failed to encode log trigger config", err)
 			}
-			extraData, err = extraDataEncoder.Encode([]interface{}{1, logTriggerConfig, "0x"})
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeepV2(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, 1, []byte{}, logTriggerConfig, []byte{},
+			)
 			if err != nil {
-				log.Fatal("failed to encode extra data", err)
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
-		}
-		k.waitDeployment(ctx, deployUpkeepTx)
-		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
-
-		// Register
-		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, checkData, extraData,
-		)
-		if err != nil {
-			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+		default:
+			log.Fatal("unexpected upkeep type")
 		}
 
 		if err := k.waitTx(ctx, registerUpkeepTx); err != nil {
@@ -665,6 +686,49 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
+
+	// set administrative offchain config for mercury upkeeps
+	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
+		if err != nil {
+			log.Fatalf("cannot create registry 2.1: %v", err)
+		}
+		v, err := reg21.TypeAndVersion(nil)
+		if err != nil {
+			log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
+		}
+		log.Printf("registry version is %s", v)
+		log.Printf("active upkeep ids: %v", activeUpkeepIds)
+
+		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+			MercuryEnabled: true,
+		})
+		if err != nil {
+			log.Fatalf("failed to marshal admin offchain config: %v", err)
+		}
+
+		for _, id := range activeUpkeepIds {
+			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			if err != nil {
+				log.Fatalf("failed to set admin offchain config: %v", err)
+			}
+			err = k.waitTx(ctx, tx)
+			if err != nil {
+				log.Fatalf("failed to wait for tx: %v", err)
+			} else {
+				log.Printf("admin offchain config is set for %s", id.String())
+			}
+
+			info, err := reg21.GetUpkeep(nil, id)
+			if err != nil {
+				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err)
+			}
+			min, err := reg21.GetMinBalanceForUpkeep(nil, id)
+			log.Printf("    Balance: %s", info.Balance)
+			log.Printf("Min Balance: %s", min.String())
+		}
+	}
+
 	fmt.Println()
 }
 

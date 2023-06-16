@@ -43,13 +43,13 @@ func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      c.OCR().BlockchainTimeout(),
-		ContractConfigConfirmations:            c.OCRContractConfirmations(),
+		ContractConfigConfirmations:            c.EVM().OCR().ContractConfirmations(),
 		ContractConfigTrackerPollInterval:      c.OCR().ContractPollInterval(),
 		ContractConfigTrackerSubscribeInterval: c.OCR().ContractSubscribeInterval(),
-		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		ContractTransmitterTransmitTimeout:     c.EVM().OCR().ContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.EVM().OCR().DatabaseTimeout(),
 		DataSourceTimeout:                      c.OCR().ObservationTimeout(),
-		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
+		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
 		err = multierr.Append(err, ocrerr)
@@ -69,6 +69,22 @@ func (e *evmConfig) Transactions() config.Transactions {
 	return &transactionsConfig{c: e.c.Transactions}
 }
 
+func (e *evmConfig) HeadTracker() config.HeadTracker {
+	return &headTrackerConfig{c: e.c.HeadTracker}
+}
+
+func (e *evmConfig) OCR() config.OCR {
+	return &ocrConfig{c: e.c.OCR}
+}
+
+func (e *evmConfig) OCR2() config.OCR2 {
+	return &ocr2Config{c: e.c.OCR2}
+}
+
+func (e *evmConfig) GasEstimator() config.GasEstimator {
+	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay}
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
 }
@@ -85,75 +101,12 @@ func (c *ChainScoped) BlockBackfillSkip() bool {
 	return *c.cfg.BlockBackfillSkip
 }
 
-type balanceMonitorConfig struct {
-	c BalanceMonitor
-}
-
-func (b *balanceMonitorConfig) Enabled() bool {
-	return *b.c.Enabled
-}
-
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.NodeNoNewHeadsThreshold()
 }
 
-func (c *ChainScoped) BlockHistoryEstimatorBatchSize() (size uint32) {
-	return *c.cfg.GasEstimator.BlockHistory.BatchSize
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorBlockDelay() uint16 {
-	return *c.cfg.RPCBlockQueryDelay
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorBlockHistorySize() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.BlockHistorySize
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionBlocks
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.CheckInclusionPercentile
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
-	if c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks == nil {
-		return uint16(c.EvmGasBumpThreshold()) + 1
-	}
-	return *c.cfg.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks
-}
-
-func (c *ChainScoped) BlockHistoryEstimatorTransactionPercentile() uint16 {
-	return *c.cfg.GasEstimator.BlockHistory.TransactionPercentile
-}
-
 func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 	return *c.cfg.GasEstimator.EIP1559DynamicFees
-}
-
-type transactionsConfig struct {
-	c Transactions
-}
-
-func (t *transactionsConfig) ForwardersEnabled() bool {
-	return *t.c.ForwardersEnabled
-}
-
-func (t *transactionsConfig) ReaperInterval() time.Duration {
-	return t.c.ReaperInterval.Duration()
-}
-
-func (t *transactionsConfig) ReaperThreshold() time.Duration {
-	return t.c.ReaperThreshold.Duration()
-}
-
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
-	return t.c.ResendAfterThreshold.Duration()
-}
-
-func (t *transactionsConfig) MaxInFlight() uint32 {
-	return *t.c.MaxInFlight
 }
 
 func (t *transactionsConfig) MaxQueued() uint64 {
@@ -248,18 +201,6 @@ func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
 	return c.cfg.GasEstimator.TipCapMin
 }
 
-func (c *ChainScoped) EvmHeadTrackerHistoryDepth() uint32 {
-	return *c.cfg.HeadTracker.HistoryDepth
-}
-
-func (c *ChainScoped) EvmHeadTrackerMaxBufferSize() uint32 {
-	return *c.cfg.HeadTracker.MaxBufferSize
-}
-
-func (c *ChainScoped) EvmHeadTrackerSamplingInterval() time.Duration {
-	return c.cfg.HeadTracker.SamplingInterval.Duration()
-}
-
 func (c *ChainScoped) EvmLogBackfillBatchSize() uint32 {
 	return *c.cfg.LogBackfillBatchSize
 }
@@ -350,22 +291,96 @@ func (c *ChainScoped) NodeSyncThreshold() uint32 {
 	return *c.cfg.NodePool.SyncThreshold
 }
 
-func (c *ChainScoped) OCRContractConfirmations() uint16 {
-	return *c.cfg.OCR.ContractConfirmations
+type balanceMonitorConfig struct {
+	c BalanceMonitor
 }
 
-func (c *ChainScoped) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.cfg.OCR.ContractTransmitterTransmitTimeout.Duration()
+func (b *balanceMonitorConfig) Enabled() bool {
+	return *b.c.Enabled
 }
 
-func (c *ChainScoped) OCRObservationGracePeriod() time.Duration {
-	return c.cfg.OCR.ObservationGracePeriod.Duration()
+type transactionsConfig struct {
+	c Transactions
 }
 
-func (c *ChainScoped) OCRDatabaseTimeout() time.Duration {
-	return c.cfg.OCR.DatabaseTimeout.Duration()
+func (t *transactionsConfig) ForwardersEnabled() bool {
+	return *t.c.ForwardersEnabled
 }
 
-func (c *ChainScoped) OCR2AutomationGasLimit() uint32 {
-	return *c.cfg.OCR2.Automation.GasLimit
+func (t *transactionsConfig) ReaperInterval() time.Duration {
+	return t.c.ReaperInterval.Duration()
+}
+
+func (t *transactionsConfig) ReaperThreshold() time.Duration {
+	return t.c.ReaperThreshold.Duration()
+}
+
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
+	return t.c.ResendAfterThreshold.Duration()
+}
+
+func (t *transactionsConfig) MaxInFlight() uint32 {
+	return *t.c.MaxInFlight
+}
+
+type headTrackerConfig struct {
+	c HeadTracker
+}
+
+func (h *headTrackerConfig) HistoryDepth() uint32 {
+	return *h.c.HistoryDepth
+}
+
+func (h *headTrackerConfig) MaxBufferSize() uint32 {
+	return *h.c.MaxBufferSize
+}
+
+func (h *headTrackerConfig) SamplingInterval() time.Duration {
+	return h.c.SamplingInterval.Duration()
+}
+
+type blockHistoryConfig struct {
+	c             BlockHistoryEstimator
+	blockDelay    *uint16
+	bumpThreshold *uint32
+}
+
+func (b *blockHistoryConfig) BatchSize() uint32 {
+	return *b.c.BatchSize
+}
+
+func (b *blockHistoryConfig) BlockHistorySize() uint16 {
+	return *b.c.BlockHistorySize
+}
+
+func (b *blockHistoryConfig) CheckInclusionBlocks() uint16 {
+	return *b.c.CheckInclusionBlocks
+}
+
+func (b *blockHistoryConfig) CheckInclusionPercentile() uint16 {
+	return *b.c.CheckInclusionPercentile
+}
+
+func (b *blockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 {
+	if b.c.EIP1559FeeCapBufferBlocks == nil {
+		return uint16(*b.bumpThreshold) + 1
+	}
+	return *b.c.EIP1559FeeCapBufferBlocks
+}
+
+func (b *blockHistoryConfig) TransactionPercentile() uint16 {
+	return *b.c.TransactionPercentile
+}
+
+func (b *blockHistoryConfig) BlockDelay() uint16 {
+	return *b.blockDelay
+}
+
+type gasEstimatorConfig struct {
+	c          GasEstimator
+	blockDelay *uint16
+}
+
+func (g *gasEstimatorConfig) BlockHistory() config.BlockHistory {
+	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
 }

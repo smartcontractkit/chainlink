@@ -1,12 +1,11 @@
 package s4_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,26 +27,6 @@ func createPluginConfig(maxEntries uint) *s4.PluginConfig {
 		MaxDeleteExpiredEntries: maxEntries,
 		NSnapshotShards:         1,
 	}
-}
-
-func mustRandomBytes(t *testing.T, n int) []byte {
-	b := make([]byte, n)
-	k, err := rand.Read(b)
-	assert.NoError(t, err)
-	assert.Equal(t, n, k)
-	return b
-}
-
-func generateCryptoEntity(t *testing.T) (*ecdsa.PrivateKey, *ecdsa.PublicKey, common.Address) {
-	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	assert.True(t, ok)
-
-	address := crypto.PubkeyToAddress(*publicKeyECDSA)
-	return privateKey, publicKeyECDSA, address
 }
 
 func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
@@ -68,14 +46,14 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 }
 
 func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_svc.Row {
-	priv, _, addr := generateCryptoEntity(t)
+	priv, addr := testutils.NewPrivateKeyAndAddress(t)
 	row := &s4_svc.Row{
 		Address:    utils.NewBig(addr.Big()),
 		SlotId:     0,
 		Version:    version,
 		Confirmed:  confimed,
 		Expiration: time.Now().Add(ttl).UnixMilli(),
-		Payload:    mustRandomBytes(t, 64),
+		Payload:    cltest.MustRandomBytes(t, 64),
 	}
 	env := &s4_svc.Envelope{
 		Address:    addr.Bytes(),
@@ -348,7 +326,7 @@ func TestPlugin_Observation(t *testing.T) {
 		for _, or := range ormRows {
 			or.Confirmed = false
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows, nil).Once()
 
 		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, []byte{})
@@ -374,7 +352,7 @@ func TestPlugin_Observation(t *testing.T) {
 				Confirmed: or.Confirmed,
 			}
 		}
-		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(nil).Once()
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
 

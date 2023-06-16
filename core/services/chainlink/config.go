@@ -197,5 +197,8 @@ func (s *Secrets) setEnv() error {
 	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
 		s.Prometheus.AuthToken = &prometheusAuthToken
 	}
+	if thresholdKeyShare := config.EnvThresholdKeyShare.Get(); thresholdKeyShare != "" {
+		s.Threshold.ThresholdKeyShare = &thresholdKeyShare
+	}
 	return nil
 }

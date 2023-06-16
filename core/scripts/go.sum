@@ -1143,6 +1143,8 @@ github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3Rllmb
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/modocache/gover v0.0.0-20171022184752-b58185e213c5/go.mod h1:caMODM3PzxT8aQXRPkAt8xlV/e7d7w8GM5g0fa5F0D8=
+github.com/montanaflynn/stats v0.7.1 h1:etflOAAHORrCC44V+aR6Ftzort912ZU+YLiSTuV8eaE=
+github.com/montanaflynn/stats v0.7.1/go.mod h1:etXPPgVO6n31NxCd9KQUMvCM+ve0ruNzt6R8Bnaayow=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 h1:mPMvm6X6tf4w8y7j9YIt6V9jfWhL6QlbEc7CCmeQlWk=
 github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1/go.mod h1:ye2e/VUEtE2BHE+G/QcKkcLQVAEJoYRFj5VUOQatCRE=
@@ -1387,8 +1389,8 @@ github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e h1:XY8DncHI
 github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906 h1:u7Lw7oqLEjADlJPJQnzlCLNSbj038QttaKY0lCa3V78=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906/go.mod h1:MH+MRJaG4SZAbRq5g7//AFY9H9sg5+lLDQnm85aHP6A=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230613131043-acb07f2c0f79 h1:NDH2pGff6i5qhtxk0FFQGiJN9m16T0x2UmgylDgKi90=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230613131043-acb07f2c0f79/go.mod h1:MfZBUifutkv3aK7abyw5YmTJbqt8iFwcQDFikrxC/uI=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230615205306-31dec2180682 h1:64rRfZdrojeqd30s4nJbE2bfWavQlJxlLRc+4L4IEsc=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230615205306-31dec2180682/go.mod h1:MfZBUifutkv3aK7abyw5YmTJbqt8iFwcQDFikrxC/uI=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592 h1:3Ul/LkULxrolCVguHUFnWJamgUDsSGISlm/DzclstmE=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592/go.mod h1:km46XAo6xebV4Q+WyRFfo3E2t80YqTkegJM4FEfo5/Y=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482 h1:ZblU/X27pIHAZ7c/37TZf7ykZ4jkfVUmvIcchyO2rnw=
