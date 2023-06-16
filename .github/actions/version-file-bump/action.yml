@@ -1,5 +1,10 @@
 name: version-file-bump
 description: "Ensure that the VERSION file has been bumped since the last release."
+inputs:
+  github-token:
+    description: "Github access token"
+    default: ${{ github.token }}
+    required: true
 outputs:
   result:
     value: ${{ steps.compare.outputs.result }}
@@ -12,7 +17,7 @@ runs:
       shell: bash
       run: |
         untrimmed_ver=$(
-          curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          curl --header "Authorization: token ${{ inputs.github-token }}" \
             --request GET \
             "https://api.github.com/repos/${{ github.repository }}/releases/latest?draft=false&prerelease=false" \
             | jq -r .name

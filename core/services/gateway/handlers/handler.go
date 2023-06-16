@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -43,19 +41,4 @@ type Handler interface {
 type DON interface {
 	// Thread-safe
 	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
-}
-
-type HandlerType = string
-
-const (
-	Dummy HandlerType = "dummy"
-)
-
-func NewHandler(handlerType HandlerType, donConfig *config.DONConfig, don DON) (Handler, error) {
-	switch handlerType {
-	case Dummy:
-		return NewDummyHandler(donConfig, don)
-	default:
-		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
-	}
 }
