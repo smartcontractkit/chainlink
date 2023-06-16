@@ -34,13 +34,13 @@ type TxStore[
 	UnstartedTxQueuePruner
 	TxHistoryReaper[CHAIN_ID]
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	SequenceStore[ADDR, CHAIN_ID, SEQ]
 
 	// methods for saving & retreiving receipts
 	FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
 	SaveFetchedReceipts(receipts []R, chainID CHAIN_ID) (err error)
 
-	// additional methods for tx store management and sequence management
-	UpdateKeyNextSequence(newNextSequence, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error
+	// additional methods for tx store management
 	CheckTxQueueCapacity(fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID, qopts ...pg.QOpt) (err error)
 	Close()
 	Abandon(id CHAIN_ID, addr ADDR) error
@@ -94,6 +94,14 @@ type TxHistoryReaper[CHAIN_ID ID] interface {
 
 type UnstartedTxQueuePruner interface {
 	PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error)
+}
+
+type SequenceStore[
+	ADDR types.Hashable,
+	CHAIN_ID ID,
+	SEQ Sequence,
+] interface {
+	UpdateKeyNextSequence(newNextSequence, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error
 }
 
 // R is the raw unparsed transaction receipt

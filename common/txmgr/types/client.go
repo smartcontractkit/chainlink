@@ -72,6 +72,7 @@ type TxmClient[
 	SEQ Sequence,
 	FEE feetypes.Fee,
 ] interface {
+	ChainClient[CHAIN_ID, ADDR, SEQ]
 	TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
 	// receipt fetching used by confirmer
@@ -90,9 +91,8 @@ type TransactionClient[
 	SEQ Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	ConfiguredChainID() CHAIN_ID
-	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
-	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
+	ChainClient[CHAIN_ID, ADDR, SEQ]
+
 	BatchSendTransactions(
 		ctx context.Context,
 		updateBroadcastTime func(now time.Time, txIDs []int64) error,
@@ -119,4 +119,15 @@ type TransactionClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		blockNumber *big.Int,
 	) (rpcErr fmt.Stringer, extractErr error)
+}
+
+// ChainClient contains the interfaces for reading chain parameters (chain id, sequences, etc)
+type ChainClient[
+	CHAIN_ID ID,
+	ADDR types.Hashable,
+	SEQ Sequence,
+] interface {
+	ConfiguredChainID() CHAIN_ID
+	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
+	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 }
