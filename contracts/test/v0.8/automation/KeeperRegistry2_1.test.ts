@@ -3429,9 +3429,11 @@ describe('KeeperRegistry2_1', () => {
           )
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
           assert(
-            (
-              await registry.getTransmitterInfo(transmitter)
-            ).lastCollected.toString() == oldState.totalPremium.toString(),
+            (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
+              oldState.totalPremium.sub(
+                oldState.totalPremium.mod(keeperAddresses.length),
+              ),
+            ),
           )
         }
       }
@@ -3441,9 +3443,9 @@ describe('KeeperRegistry2_1', () => {
         assert((await registry.getTransmitterInfo(transmitter)).active == true)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
         assert(
-          (
-            await registry.getTransmitterInfo(transmitter)
-          ).lastCollected.toString() == oldState.totalPremium.toString(),
+          (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
+            oldState.totalPremium,
+          ),
         )
       }
 
@@ -4896,10 +4898,13 @@ describe('KeeperRegistry2_1', () => {
       // registry total premium should not change
       assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
 
-      // Last collected should be updated to premium
-      assert.equal(
-        keeperAfter.lastCollected.toString(),
-        registryPremiumBefore.toString(),
+      // Last collected should be updated to premium-change
+      assert.isTrue(
+        keeperAfter.lastCollected.eq(
+          registryPremiumBefore.sub(
+            registryPremiumBefore.mod(keeperAddresses.length),
+          ),
+        ),
       )
 
       // owner balance should remain unchanged
@@ -4945,13 +4950,13 @@ describe('KeeperRegistry2_1', () => {
           randomBytes,
           '0x',
         )
-      upkeepId = await getUpkeepID(tx)
+      let mercuryUpkeepId = await getUpkeepID(tx)
 
       const values: any[] = ['0x1234', '0xabcd']
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(upkeepId, values, '0x')
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
         [values, '0x'],
@@ -5095,7 +5100,11 @@ describe('KeeperRegistry2_1', () => {
       )
 
       // transmitter info lastCollected should be updated for k1, not for k2
-      assert.isTrue(k1New.lastCollected.eq(registryPremium))
+      assert.isTrue(
+        k1New.lastCollected.eq(
+          registryPremium.sub(registryPremium.mod(keeperAddresses.length)),
+        ),
+      )
       assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
     })
 
