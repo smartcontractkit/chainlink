@@ -374,7 +374,4 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
-
-	// until libocr takes max query duration timeout
-	github.com/smartcontractkit/libocr => github.com/jmank88/libocr v0.0.0-20230612221310-b34d1ec22335
 )

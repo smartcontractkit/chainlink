@@ -11,7 +11,7 @@ import (
 
 func TestHostname(t *testing.T) {
 	t.Run("override host", func(t *testing.T) {
-		t.Setenv(string(v2.EnvPluginPromTarget), "fakeHost")
+		t.Setenv(string(v2.EnvPrometheusDiscoveryHostName), "fakeHost")
 		c := plugins.NewEnvConfig(22)
 		require.Equal(t, 22, c.PrometheusPort())
 		require.Equal(t, "fakeHost", c.Hostname())
