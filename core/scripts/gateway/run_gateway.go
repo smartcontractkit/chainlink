@@ -48,7 +48,8 @@ func main() {
 
 	lggr, _ := logger.NewLogger()
 
-	gw, err := gateway.NewGatewayFromConfig(&cfg, lggr)
+	handlerFactory := gateway.NewHandlerFactory(lggr)
+	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr)
 	if err != nil {
 		fmt.Println("error creating Gateway object:", err)
 		return
