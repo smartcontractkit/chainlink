@@ -45,7 +45,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	store, err := blockhash_store.NewBlockhashStore(bhsAddress, chain.Client())
 	require.NoError(t, err)
 	bhs, err := blockhashstore.NewBulletproofBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		chain.Config().Database(),
 		fromAddresses,
 		txm,

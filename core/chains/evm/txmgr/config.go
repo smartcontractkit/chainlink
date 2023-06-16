@@ -10,28 +10,28 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-// Config encompasses config used by txmgr package
+// ChainConfig encompasses config used by txmgr package
 // Unless otherwise specified, these should support changing at runtime
 //
-//go:generate mockery --quiet --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
-type Config interface {
+//go:generate mockery --quiet --recursive --name ChainConfig --output ./mocks/ --case=underscore --structname Config --filename config.go
+type ChainConfig interface {
 	ChainType() coreconfig.ChainType
-	EvmEIP1559DynamicFees() bool
-	EvmFinalityDepth() uint32
-	EvmGasBumpPercent() uint16
-	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasPriceDefault() *assets.Wei
-	EvmGasTipCapMinimum() *assets.Wei
-	EvmMaxGasPriceWei() *assets.Wei
-	EvmMinGasPriceWei() *assets.Wei
+	FinalityDepth() uint32
+	NonceAutoSync() bool
+	RPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 }
 
-type ChainConfig interface {
-	NonceAutoSync() bool
-	RPCDefaultBatchSize() uint32
+type FeeConfig interface {
+	EIP1559DynamicFees() bool
+	BumpPercent() uint16
+	BumpThreshold() uint64
+	BumpTxDepth() uint32
+	LimitDefault() uint32
+	PriceDefault() *assets.Wei
+	TipCapMin() *assets.Wei
+	PriceMax() *assets.Wei
+	PriceMin() *assets.Wei
 }
 
 type DatabaseConfig interface {
@@ -44,35 +44,36 @@ type ListenerConfig interface {
 }
 
 type (
-	EvmTxmConfig         txmgrtypes.TransactionManagerConfig
-	EvmBroadcasterConfig txmgrtypes.BroadcasterConfig
-	EvmConfirmerConfig   txmgrtypes.ConfirmerConfig
+	EvmTxmConfig         txmgrtypes.TransactionManagerChainConfig
+	EvmTxmFeeConfig      txmgrtypes.TransactionManagerFeeConfig
+	EvmBroadcasterConfig txmgrtypes.BroadcasterChainConfig
+	EvmConfirmerConfig   txmgrtypes.ConfirmerChainConfig
 	EvmResenderConfig    txmgrtypes.ResenderChainConfig
-	EvmReaperConfig      txmgrtypes.ReaperConfig
+	EvmReaperConfig      txmgrtypes.ReaperChainConfig
 )
 
 var _ EvmTxmConfig = (*evmTxmConfig)(nil)
 
 type evmTxmConfig struct {
-	Config
+	ChainConfig
 }
 
-func NewEvmTxmConfig(c Config) *evmTxmConfig {
+func NewEvmTxmConfig(c ChainConfig) *evmTxmConfig {
 	return &evmTxmConfig{c}
 }
 
 func (c evmTxmConfig) IsL2() bool { return c.ChainType().IsL2() }
 
-func (c evmTxmConfig) MaxFeePrice() string { return c.EvmMaxGasPriceWei().String() }
+var _ EvmTxmFeeConfig = (*evmTxmFeeConfig)(nil)
 
-func (c evmTxmConfig) FeePriceDefault() string { return c.EvmGasPriceDefault().String() }
+type evmTxmFeeConfig struct {
+	FeeConfig
+}
 
-func (c evmTxmConfig) FeeBumpTxDepth() uint32 { return c.EvmGasBumpTxDepth() }
+func NewEvmTxmFeeConfig(c FeeConfig) *evmTxmFeeConfig {
+	return &evmTxmFeeConfig{c}
+}
 
-func (c evmTxmConfig) FeeLimitDefault() uint32 { return c.EvmGasLimitDefault() }
+func (c evmTxmFeeConfig) MaxFeePrice() string { return c.PriceMax().String() }
 
-func (c evmTxmConfig) FeeBumpThreshold() uint64 { return c.EvmGasBumpThreshold() }
-
-func (c evmTxmConfig) FinalityDepth() uint32 { return c.EvmFinalityDepth() }
-
-func (c evmTxmConfig) FeeBumpPercent() uint16 { return c.EvmGasBumpPercent() }
+func (c evmTxmFeeConfig) FeePriceDefault() string { return c.PriceDefault().String() }

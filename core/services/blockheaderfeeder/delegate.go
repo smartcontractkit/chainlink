@@ -123,13 +123,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
 	batchBHS, err := blockhashstore.NewBatchBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		fromAddresses,
 		chain.TxManager(),
 		batchBlockhashStore,
