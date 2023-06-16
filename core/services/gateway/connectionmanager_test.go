@@ -2,12 +2,13 @@ package gateway_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-	common_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultConfig = `
@@ -36,7 +37,7 @@ func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 
 	tomlConfig := parseTOMLConfig(t, defaultConfig)
 
-	_, err := gateway.NewConnectionManager(tomlConfig, common_mocks.NewClock(t), logger.TestLogger(t))
+	_, err := gateway.NewConnectionManager(tomlConfig, utils.NewFixedClock(time.Now()), logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
@@ -68,7 +69,7 @@ Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 			fullConfig := `
 [nodeServerConfig]
 Path = "/node"` + config
-			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), common_mocks.NewClock(t), logger.TestLogger(t))
+			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), utils.NewFixedClock(time.Now()), logger.TestLogger(t))
 			require.Error(t, err)
 		})
 	}
@@ -77,7 +78,7 @@ Path = "/node"` + config
 func TestConnectionManager_StartHandshake_TooShort(t *testing.T) {
 	t.Parallel()
 
-	mgr, err := gateway.NewConnectionManager(parseTOMLConfig(t, defaultConfig), common_mocks.NewClock(t), logger.TestLogger(t))
+	mgr, err := gateway.NewConnectionManager(parseTOMLConfig(t, defaultConfig), utils.NewFixedClock(time.Now()), logger.TestLogger(t))
 	require.NoError(t, err)
 
 	_, _, err = mgr.StartHandshake([]byte("ab"))

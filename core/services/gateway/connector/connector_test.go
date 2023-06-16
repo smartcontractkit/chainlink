@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	common_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultConfig = `
@@ -36,13 +36,13 @@ func parseTOMLConfig(t *testing.T, tomlConfig string) *connector.ConnectorConfig
 	return &cfg
 }
 
-func newTestConnector(t *testing.T, config *connector.ConnectorConfig) (connector.GatewayConnector, *mocks.Signer, *mocks.GatewayConnectorHandler, *common_mocks.Clock) {
+func newTestConnector(t *testing.T, config *connector.ConnectorConfig) (connector.GatewayConnector, *mocks.Signer, *mocks.GatewayConnectorHandler) {
 	signer := mocks.NewSigner(t)
 	handler := mocks.NewGatewayConnectorHandler(t)
-	clock := common_mocks.NewClock(t)
+	clock := utils.NewFixedClock(time.Now())
 	connector, err := connector.NewGatewayConnector(config, signer, handler, clock, logger.TestLogger(t))
 	require.NoError(t, err)
-	return connector, signer, handler, clock
+	return connector, signer, handler
 }
 
 func TestGatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
@@ -88,7 +88,7 @@ URL = "ws://localhost:8081/node"
 
 	signer := mocks.NewSigner(t)
 	handler := mocks.NewGatewayConnectorHandler(t)
-	clock := common_mocks.NewClock(t)
+	clock := utils.NewFixedClock(time.Now())
 	for name, config := range invalidCases {
 		config := config
 		t.Run(name, func(t *testing.T) {
@@ -101,8 +101,7 @@ URL = "ws://localhost:8081/node"
 func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	t.Parallel()
 
-	connector, signer, _, clock := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	clock.On("Now").Return(time.Now())
+	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
 	signer.On("Sign", mock.Anything).Return(nil, errors.New("cannot sign"))
 
 	url, err := url.Parse("ws://localhost:8081/node")
