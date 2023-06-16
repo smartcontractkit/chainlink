@@ -69,21 +69,6 @@ func (mes *MockSubscription) Unsubscribe() {
 	close(mes.Errors)
 }
 
-// InstantClock an InstantClock
-type InstantClock struct{}
-
-// Now returns the current local time
-func (InstantClock) Now() time.Time {
-	return time.Now()
-}
-
-// After return channel of time
-func (InstantClock) After(_ time.Duration) <-chan time.Time {
-	c := make(chan time.Time, 100)
-	c <- time.Now()
-	return c
-}
-
 // RendererMock a mock renderer
 type RendererMock struct {
 	Renders []interface{}
