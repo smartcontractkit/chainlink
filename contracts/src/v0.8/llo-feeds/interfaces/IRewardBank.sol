@@ -13,18 +13,18 @@ interface IRewardBank is IERC165 {
     function onFeePaid(bytes32 configDigest, Asset calldata fee) external;
 
     /**
-    * @notice Distributes all the rewards in the specified pot to the Payees
+    * @notice Distributes all the rewards in the specified pot to the RewardRecipients
     * @param configDigest config digest of the report being verified
     * @param assetAddress address of the assetAddress to distribute
     */
-    function payPayees(bytes32 configDigest, address assetAddress) external;
+    function payRewardRecipients(bytes32 configDigest, address assetAddress) external;
 
     /**
-    * @notice Set the Payees and weights for a specific feed config
-    * @param configDigest config digest to set Payees and weights for
-    * @param PayeeAndWeights array of each Payee and associated weight
+    * @notice Set the RewardRecipients and weights for a specific feed config
+    * @param configDigest config digest to set RewardRecipients and weights for
+    * @param rewardRecipientAndWeights array of each RewardRecipient and associated weight
     */
-    function setPayees(bytes32 configDigest, PayeeAndWeight[] calldata PayeeAndWeights) external;
+    function setRewardRecipients(bytes32 configDigest, RewardRecipientAndWeight[] calldata rewardRecipientAndWeights) external;
 
     // @notice The asset struct to hold the address of the asset and the amount
     struct Asset {
@@ -32,9 +32,9 @@ interface IRewardBank is IERC165 {
         uint256 amount;
     }
 
-    // @notice Struct to hold the address of a Payee and its weight to determine what percentage of the pot it receives
-    struct PayeeAndWeight {
-        address PayeeAddress;
+    // @notice Struct to hold the address of a RewardRecipient and its weight to determine what percentage of the pot it receives
+    struct RewardRecipientAndWeight {
+        address rewardRecipientAddress;
         uint8 weight;
     }
 }
