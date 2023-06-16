@@ -64,6 +64,8 @@ type_and_version_interface_wrapper: ../../contracts/solc/v0.8.6/TypeAndVersionIn
 upkeep_counter_wrapper: ../../contracts/solc/v0.7/UpkeepCounter.abi ../../contracts/solc/v0.7/UpkeepCounter.bin 901961ebf18906febc1c350f02da85c7ea1c2a68da70cfd94efa27c837a48663
 upkeep_perform_counter_restrictive_wrapper: ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin 8975a058fba528e16d8414dc6f13946d17a145fcbc66cf25a32449b6fe1ce878
 upkeep_transcoder: ../../contracts/solc/v0.8.6/UpkeepTranscoder.abi ../../contracts/solc/v0.8.6/UpkeepTranscoder.bin 336c92a981597be26508455f81a908a0784a817b129a59686c5b2c4afcba730a
+verifiable_load_mercury_upkeep_wrapper: ../../contracts/solc/v0.8.6/VerifiableLoadMercuryUpkeep.abi ../../contracts/solc/v0.8.6/VerifiableLoadMercuryUpkeep.bin f94c56c37fb64fab4201e4b218ebdb85602c98e1faa79948a27e4598b9432f30
+verifiable_load_upkeep_wrapper: ../../contracts/solc/v0.8.6/VerifiableLoadUpkeep.abi ../../contracts/solc/v0.8.6/VerifiableLoadUpkeep.bin 0e0cf6c7f4540dcc84b77acaf68487b61656efcd6e39105b19686063084c78e6
 vrf_consumer_v2: ../../contracts/solc/v0.8.6/VRFConsumerV2.abi ../../contracts/solc/v0.8.6/VRFConsumerV2.bin 9ef258bf8e9f8d880fd229ceb145593d91e24fc89366baa0bf19169c5787d15f
 vrf_consumer_v2_upgradeable_example: ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.abi ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.bin f1790a9a2f2a04c730593e483459709cb89e897f8a19d7a3ac0cfe6a97265e6e
 vrf_coordinator_mock: ../../contracts/solc/v0.8.6/VRFCoordinatorMock.abi ../../contracts/solc/v0.8.6/VRFCoordinatorMock.bin 5c495cf8df1f46d8736b9150cdf174cce358cb8352f60f0d5bb9581e23920501
