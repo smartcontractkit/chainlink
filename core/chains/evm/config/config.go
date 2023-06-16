@@ -55,15 +55,6 @@ type ChainScopedOnlyConfig interface {
 	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
-
-	// OCR1 chain specific config
-	OCRContractConfirmations() uint16
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-	OCRDatabaseTimeout() time.Duration
-
-	// OCR2 chain specific config
-	OCR2AutomationGasLimit() uint32
 }
 
 type EVM interface {
@@ -71,6 +62,23 @@ type EVM interface {
 	BalanceMonitor() BalanceMonitor
 	Transactions() Transactions
 	GasEstimator() GasEstimator
+	OCR() OCR
+	OCR2() OCR2
+}
+
+type OCR interface {
+	ContractConfirmations() uint16
+	ContractTransmitterTransmitTimeout() time.Duration
+	ObservationGracePeriod() time.Duration
+	DatabaseTimeout() time.Duration
+}
+
+type OCR2 interface {
+	Automation() OCR2Automation
+}
+
+type OCR2Automation interface {
+	GasLimit() uint32
 }
 
 type HeadTracker interface {
