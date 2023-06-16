@@ -1084,6 +1084,7 @@ describe('KeeperRegistry2_1', () => {
           registry.connect(admin).addFunds(upkeepId, toWei('100')),
           registry.connect(admin).addFunds(cronUpkeepId, toWei('100')),
           registry.connect(admin).addFunds(logUpkeepId, toWei('100')),
+          registry.connect(admin).addFunds(rwrUpkeepId, toWei('100')),
         ])
       })
 
@@ -1203,6 +1204,32 @@ describe('KeeperRegistry2_1', () => {
           // exactly 1 ReorgedUpkeepReportLogs log should be emitted
           assert.equal(
             reorgedUpkeepReportLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
+      it('allows bypassing reorg protection with empty blockhash / bocknumber', async () => {
+        // mine enough blocks so that blockhash(0) is unavailable
+        for (let i = 0; i < 256; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['rwr', rwrUpkeepId],
+          ['cron', cronUpkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        for (const [type, id] of tests) {
+          const tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: 0,
+            checkBlockHash: emptyBytes32,
+          })
+          const receipt = await tx.wait()
+          const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          assert.equal(
+            upkeepPerformedLogs.length,
             1,
             `wrong log count for ${type} upkeep`,
           )

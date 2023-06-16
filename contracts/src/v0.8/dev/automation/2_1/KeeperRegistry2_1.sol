@@ -458,7 +458,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if (_blockHash(trigger.blockNum) != trigger.blockHash) {
+    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
@@ -470,7 +470,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash) {
+    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
@@ -489,7 +489,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep
   ) internal returns (bool) {
     CronTrigger memory trigger = abi.decode(rawTrigger, (CronTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash) {
+    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.timestamp > block.timestamp) {
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
