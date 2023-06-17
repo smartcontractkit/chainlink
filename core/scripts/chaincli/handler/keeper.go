@@ -708,7 +708,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		}
 
 		for _, id := range activeUpkeepIds {
-			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			tx, err := reg21.SetUpkeepAdministrativeConfig(k.buildTxOpts(ctx), id, adminBytes)
 			if err != nil {
 				log.Fatalf("failed to set admin offchain config: %v", err)
 			}

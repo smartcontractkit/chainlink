@@ -175,22 +175,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepAdminOffchainConfig(uint256 upkeepId, bytes calldata newAdminOffchainConfig) external {
-    if (msg.sender != s_upkeepManager) {
-      revert OnlyCallableByUpkeepManager();
+  function setUpkeepAdministrativeConfig(uint256 upkeepId, bytes calldata newAdministrativeConfig) external {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
     }
-    s_upkeepAdminOffchainConfig[upkeepId] = newAdminOffchainConfig;
-    emit UpkeepAdminOffchainConfigSet(upkeepId, newAdminOffchainConfig);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepManager(address newUpkeepManager) external onlyOwner {
-    s_upkeepManager = newUpkeepManager;
+    s_upkeepAdministrativeConfig[upkeepId] = newAdministrativeConfig;
+    emit UpkeepAdministrativeConfigSet(upkeepId, newAdministrativeConfig);
   }
 
   /////////////
@@ -362,7 +352,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
-      registrars: s_registrars.values()
+      registrars: s_registrars.values(),
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
@@ -394,16 +385,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice returns the upkeep manager address
+   * @notice returns the upkeep administrative config
    */
-  function getUpkeepManager() external view returns (address) {
-    return s_upkeepManager;
-  }
-
-  /**
-   * @notice returns the upkeep administrative offchain config
-   */
-  function getUpkeepAdminOffchainConfig(uint256 upkeepId) external view returns (bytes memory) {
-    return s_upkeepAdminOffchainConfig[upkeepId];
+  function getUpkeepAdministrativeConfig(uint256 upkeepId) external view returns (bytes memory) {
+    return s_upkeepAdministrativeConfig[upkeepId];
   }
 }
