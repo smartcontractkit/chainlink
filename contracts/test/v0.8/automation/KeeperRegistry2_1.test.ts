@@ -1823,20 +1823,14 @@ describe('KeeperRegistry2_1', () => {
                 const registrationPassingBefore = await Promise.all(
                   passingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(
-                      reg.lastPerformedBlockNumber.toString(),
-                      '0',
-                    )
+                    assert.equal(reg.lastPerformedBlockNumber.toString(), '0')
                     return reg
                   }),
                 )
                 const registrationFailingBefore = await Promise.all(
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
-                    assert.equal(
-                      reg.lastPerformedBlockNumber.toString(),
-                      '0',
-                    )
+                    assert.equal(reg.lastPerformedBlockNumber.toString(), '0')
                     return reg
                   }),
                 )
