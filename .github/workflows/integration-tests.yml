@@ -18,7 +18,6 @@ env:
   TEST_SUITE: smoke
   TEST_ARGS: -test.timeout 12m
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-  CI: false
 
 jobs:
   changes:
@@ -522,7 +521,7 @@ jobs:
       [
         build-chainlink,
         solana-build-contracts,
-        solana-test-image-exists,
+        solana-build-test-image,
         changes,
         get_solana_sha,
       ]
