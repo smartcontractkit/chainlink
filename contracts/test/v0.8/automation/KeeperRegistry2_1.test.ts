@@ -69,7 +69,6 @@ enum Mode {
 enum Trigger {
   CONDITION,
   LOG,
-  CRON,
 }
 
 const PERFORM_SELECTOR = '0x4585e33b'
@@ -135,11 +134,6 @@ const logTriggerConfig = ethers.utils.defaultAbiCoder.encode(
   ],
 )
 
-const cronTriggerConfig = ethers.utils.defaultAbiCoder.encode(
-  ['tuple(string)'],
-  [['* * * 0 0']],
-)
-
 const blockTriggerConfig = ethers.utils.defaultAbiCoder.encode(
   ['tuple(uint32)'],
   [[1]],
@@ -172,7 +166,6 @@ let blankRegistry: IKeeperRegistry // used to test initial configurations
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: UpkeepMock
-let cronUpkeep: UpkeepMock
 let transcoder: UpkeepTranscoder
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
@@ -252,17 +245,6 @@ const encodeLogTrigger = (
   return ethers.utils.defaultAbiCoder.encode(
     ['tuple(bytes32, uint32, uint32, bytes32)'],
     [[txHash, logIndex, blockNum, blockHash]],
-  )
-}
-
-const encodeCronTrigger = (
-  timestamp: number,
-  blockNum: number,
-  blockHash: BytesLike,
-) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    ['tuple(uint64, uint32, bytes32)'],
-    [[timestamp, blockNum, blockHash]],
   )
 }
 
@@ -466,8 +448,7 @@ describe('KeeperRegistry2_1', () => {
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
-  let cronUpkeepId: BigNumber // cron trigger upkeepID
-  const numUpkeps = 4 // see above
+  const numUpkeps = 3 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -751,13 +732,6 @@ describe('KeeperRegistry2_1', () => {
             config.checkBlockHash,
           )
           break
-        case Trigger.CRON:
-          trigger = encodeCronTrigger(
-            config.timestamp,
-            config.checkBlockNum,
-            config.checkBlockHash,
-          )
-          break
       }
       upkeeps.push({
         Id: upkeepIds[i],
@@ -963,20 +937,6 @@ describe('KeeperRegistry2_1', () => {
       )
     logUpkeepId = await getUpkeepID(tx)
 
-    cronUpkeep = await upkeepMockFactory.deploy()
-    tx = await registry
-      .connect(owner)
-      ['registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'](
-        cronUpkeep.address,
-        executeGas,
-        await admin.getAddress(),
-        Trigger.CRON,
-        '0x',
-        cronTriggerConfig,
-        emptyBytes,
-      )
-    cronUpkeepId = await getUpkeepID(tx)
-
     await autoFunderUpkeep.setUpkeepId(afUpkeepId)
     // Give enough funds for upkeep as well as to the upkeep contract
     await linkToken
@@ -1059,7 +1019,6 @@ describe('KeeperRegistry2_1', () => {
         // Fund the upkeep
         await Promise.all([
           registry.connect(admin).addFunds(upkeepId, toWei('100')),
-          registry.connect(admin).addFunds(cronUpkeepId, toWei('100')),
           registry.connect(admin).addFunds(logUpkeepId, toWei('100')),
         ])
       })
@@ -1068,7 +1027,6 @@ describe('KeeperRegistry2_1', () => {
         const tests: [string, BigNumber, number, number][] = [
           // [name, upkeep, num stale, num performed]
           ['conditional', upkeepId, 1, 1], // checkBlocks must be sequential
-          ['cron', cronUpkeepId, 1, 1], // timestamps must be sequential
           ['log-trigger', logUpkeepId, 0, 2], // logs are deduped based on the "trigger ID"
         ]
         for (const [type, id, nStale, nPerformed] of tests) {
@@ -1108,7 +1066,7 @@ describe('KeeperRegistry2_1', () => {
         const tx = await getTransmitTx(registry, keeper1, [upkeepId])
         await tx.wait()
         const lastPerformed = (await registry.getUpkeep(upkeepId))
-          .lastPerformedBlockNumberOrTimestamp
+          .lastPerformedBlockNumber
         const lastPerformBlock = await ethers.provider.getBlock(lastPerformed)
         assert.equal(lastPerformed.toString(), tx.blockNumber?.toString())
         // Try to transmit a report which has checkBlockNumber = lastPerformed-1, should result in stale report
@@ -1122,31 +1080,9 @@ describe('KeeperRegistry2_1', () => {
         assert.equal(staleUpkeepReportLogs.length, 1)
       })
 
-      it('returns early when timestamp is less than or eq to last perform (cron)', async () => {
-        // First perform an upkeep to put last perform block timestamp
-        const tx = await getTransmitTx(registry, keeper1, [cronUpkeepId])
-        await tx.wait()
-        const lastPerformed = (await registry.getUpkeep(cronUpkeepId))
-          .lastPerformedBlockNumberOrTimestamp
-        // Try to transmit a report which has timestamp == lastPerformed, should result in stale report
-        const transmitTx = await getTransmitTx(
-          registry,
-          keeper1,
-          [cronUpkeepId],
-          {
-            timestamp: lastPerformed,
-          },
-        )
-        const receipt = await transmitTx.wait()
-        const staleUpkeepReportLogs = parseStaleUpkeepReportLogs(receipt)
-        // exactly 1 StaleUpkeepReportLogs log should be emitted
-        assert.equal(staleUpkeepReportLogs.length, 1)
-      })
-
       it('handles case when check block hash does not match', async () => {
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
         for (const [type, id] of tests) {
@@ -1174,7 +1110,6 @@ describe('KeeperRegistry2_1', () => {
         }
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
         for (const [type, id] of tests) {
@@ -1204,7 +1139,6 @@ describe('KeeperRegistry2_1', () => {
         }
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
-          ['cron', cronUpkeepId],
           ['log-trigger', logUpkeepId],
         ]
         for (const [type, id] of tests) {
@@ -1703,7 +1637,7 @@ describe('KeeperRegistry2_1', () => {
             )
             // Last perform block number should be updated
             assert.equal(
-              registrationAfter.lastPerformedBlockNumberOrTimestamp.toString(),
+              registrationAfter.lastPerformedBlockNumber.toString(),
               tx.blockNumber?.toString(),
             )
 
@@ -1890,7 +1824,7 @@ describe('KeeperRegistry2_1', () => {
                   passingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
                     assert.equal(
-                      reg.lastPerformedBlockNumberOrTimestamp.toString(),
+                      reg.lastPerformedBlockNumber.toString(),
                       '0',
                     )
                     return reg
@@ -1900,7 +1834,7 @@ describe('KeeperRegistry2_1', () => {
                   failingUpkeepIds.map(async (id) => {
                     const reg = await registry.getUpkeep(BigNumber.from(id))
                     assert.equal(
-                      reg.lastPerformedBlockNumberOrTimestamp.toString(),
+                      reg.lastPerformedBlockNumber.toString(),
                       '0',
                     )
                     return reg
@@ -1977,7 +1911,7 @@ describe('KeeperRegistry2_1', () => {
                   assert.equal(
                     registrationPassingAfter[
                       i
-                    ].lastPerformedBlockNumberOrTimestamp.toString(),
+                    ].lastPerformedBlockNumber.toString(),
                     tx.blockNumber?.toString(),
                   )
 
@@ -2003,7 +1937,7 @@ describe('KeeperRegistry2_1', () => {
                   assert.equal(
                     registrationFailingAfter[
                       i
-                    ].lastPerformedBlockNumberOrTimestamp.toString(),
+                    ].lastPerformedBlockNumber.toString(),
                     '0',
                   )
                 }
@@ -2835,13 +2769,6 @@ describe('KeeperRegistry2_1', () => {
       )
       assert(upkeepIds.length == 1)
       assert(upkeepIds[0].eq(logUpkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDsByType(
-        0,
-        numUpkeps,
-        Trigger.CRON,
-      )
-      assert(upkeepIds.length == 1)
-      assert(upkeepIds[0].eq(cronUpkeepId))
     })
   })
 
@@ -3594,7 +3521,7 @@ describe('KeeperRegistry2_1', () => {
           assert.equal(await admin.getAddress(), registration.admin)
           assert.equal(0, registration.balance.toNumber())
           assert.equal(0, registration.amountSpent.toNumber())
-          assert.equal(0, registration.lastPerformedBlockNumberOrTimestamp)
+          assert.equal(0, registration.lastPerformedBlockNumber)
           assert.equal(checkData, registration.checkData)
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')
