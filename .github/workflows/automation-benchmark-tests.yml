@@ -97,7 +97,7 @@ jobs:
             done
           done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ env.REF_NAME }}
       - name: Build Test Image
@@ -107,7 +107,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab7c0b6189783e8ee29ca4cefbec896b30819831 # v2.1.7
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc6e3b5cf369b76e361d372ceb7d144525635ce0 # v2.2.0
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
