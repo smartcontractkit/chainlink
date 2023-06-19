@@ -163,6 +163,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   enum Trigger {
     CONDITION,
     LOG
+    LOG
   }
 
   enum UpkeepFailureReason {
@@ -248,7 +249,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member balance the balance of this upkeep
    * @member admin for this upkeep
    * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumber the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member amountSpent the amount this upkeep has spent
    * @member paused if this upkeep has been paused
    * @member skipSigVerification skip signature verification in transmit for a low security low cost model
@@ -275,7 +276,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paused if this upkeep has been paused
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
-   * @member lastPerformedBlockNumber the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member target the contract which needs to be serviced
    */
   struct Upkeep {

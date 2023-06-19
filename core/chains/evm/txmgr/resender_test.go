@@ -36,7 +36,6 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
-	evmcfg := txmgr.NewEvmTxmConfig(ccfg)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -66,7 +65,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, evmcfg, ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
 		resentHex := make([]string, len(elems))
@@ -116,14 +115,13 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 		}
 	})
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
-	evmcfg := txmgr.NewEvmTxmConfig(ccfg)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	txStore := cltest.NewTestTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, evmcfg, ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
@@ -153,14 +151,13 @@ func Test_EthResender_Start(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
-	evmcfg := txmgr.NewEvmTxmConfig(ccfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	lggr := logger.TestLogger(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, evmcfg, ccfg.EVM().Transactions())
+		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, originalBroadcastAt)
