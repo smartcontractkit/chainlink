@@ -100,6 +100,8 @@ interface IVRFCoordinatorV2_5 {
  */
 abstract contract VRFConsumerBaseV2_5 {
   error OnlyCoordinatorCanFulfill(address have, address want);
+  error OnlySubOwnerCanSetVRFCoordinator(address have, address want);
+
   IVRFCoordinatorV2_5 private vrfCoordinator;
   address private subOwner;
 
@@ -133,8 +135,8 @@ abstract contract VRFConsumerBaseV2_5 {
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
   function rawFulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external {
-    if (msg.sender != vrfCoordinator) {
-      revert OnlyCoordinatorCanFulfill(msg.sender, vrfCoordinator);
+    if (msg.sender != address(vrfCoordinator)) {
+      revert OnlyCoordinatorCanFulfill(msg.sender, address(vrfCoordinator));
     }
     fulfillRandomWords(requestId, randomWords);
   }

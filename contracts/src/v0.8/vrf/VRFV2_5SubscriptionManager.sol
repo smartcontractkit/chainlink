@@ -77,7 +77,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
     s_vrfCoordinator.removeConsumer(s_subId, consumer);
   }
 
-  function cancelSubscription() external onlyOwner {
+  function cancelSubscription() public onlyOwner {
     s_vrfCoordinator.cancelSubscription(s_subId, address(this));
   }
 
@@ -93,7 +93,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
   }
 
   function withdrawLink() external onlyOwner {
-    require(s_linkToken.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+    require(s_linkToken.transfer(msg.sender, s_linkToken.balanceOf(address(this))), "Unable to transfer");
   }
 
   function withdrawEth() external onlyOwner {
