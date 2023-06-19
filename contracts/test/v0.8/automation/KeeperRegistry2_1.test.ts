@@ -195,11 +195,13 @@ const getTriggerType = (upkeepIdParam: BigNumber): Trigger => {
   // 4th to 15th bytes (0-index) of upkeepID signify the trigger type
   const h = upkeepIdParam.toHexString()
   for (let idx = 4; idx < 15; idx++) {
+    // Also account for 0x
     let byte = parseInt(h.substring(2 * idx + 2, 2 * idx + 4), 16)
     if (byte != 0) {
       return Trigger.CONDITION
     }
   }
+  // 15th byte is the trigger. (Also account for 0x in the hex string)
   return parseInt(h.substring(32, 34), 16) as Trigger
 }
 
