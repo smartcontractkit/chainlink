@@ -2003,9 +2003,9 @@ describe('KeeperRegistry2_1', () => {
             it(
               '[Conditional:' +
                 numPassingConditionalUpkeeps +
-                ':Log:' +
+                ',Log:' +
                 numPassingLogUpkeeps +
-                ':Failures:' +
+                ',Failures:' +
                 numFailingUpkeeps +
                 '] performs successful upkeeps and does not charge failing upkeeps',
               async () => {
@@ -2228,11 +2228,11 @@ describe('KeeperRegistry2_1', () => {
             )
 
             it(
-              '[Conditional' +
+              '[Conditional:' +
                 numPassingConditionalUpkeeps +
-                ':Log' +
+                ',Log' +
                 numPassingLogUpkeeps +
-                ':Failures:' +
+                ',Failures:' +
                 numFailingUpkeeps +
                 '] splits gas overhead appropriately among performed upkeeps [ @skip-coverage ]',
               async () => {
