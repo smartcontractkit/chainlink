@@ -1,7 +1,7 @@
 package mercury
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -85,6 +85,6 @@ func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
 }
 
 func hashPayload(payload []byte) string {
-	checksum := md5.Sum(payload)
+	checksum := sha256.Sum256(payload)
 	return hexutil.Encode(checksum[:])
 }
