@@ -1992,8 +1992,8 @@ describe('KeeperRegistry2_1', () => {
           for (let kdx = 0; kdx < numFailingUpkeepsArray.length; kdx++) {
             const numPassingConditionalUpkeeps =
               numPassingConditionalUpkeepsArray[idx]
-            const numPassingLogUpkeeps = numPassingLogUpkeepsArray[idx]
-            const numFailingUpkeeps = numFailingUpkeepsArray[idx]
+            const numPassingLogUpkeeps = numPassingLogUpkeepsArray[jdx]
+            const numFailingUpkeeps = numFailingUpkeepsArray[kdx]
             if (
               numPassingConditionalUpkeeps == 0 &&
               numPassingLogUpkeeps == 0
@@ -2001,9 +2001,9 @@ describe('KeeperRegistry2_1', () => {
               continue
             }
             it(
-              '[Conditional' +
+              '[Conditional:' +
                 numPassingConditionalUpkeeps +
-                ':Log' +
+                ':Log:' +
                 numPassingLogUpkeeps +
                 ':Failures:' +
                 numFailingUpkeeps +
