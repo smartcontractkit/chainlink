@@ -104,8 +104,6 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.executeGas, 0, 0);
     }
 
-    upkeepNeeded = true;
-
     bytes memory callData;
     if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
@@ -115,6 +113,7 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
+
     if (!success) {
       // User's target check reverted. We capture the revert data here and pass it within
       // performData.
@@ -154,6 +153,7 @@ contract KeeperRegistryLogicA2_1 is
         linkNative
       );
     }
+
     if (!upkeepNeeded)
       return (
         false,
@@ -227,7 +227,7 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
     }
     if (performData.length > s_storage.maxPerformDataSize) {
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, );
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
     }
 
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
