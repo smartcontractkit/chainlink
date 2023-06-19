@@ -87,18 +87,6 @@ func configDigest(
 ) (configDigest types.ConfigDigest, err error) {
 	chainIDBig := new(big.Int)
 	chainIDBig.SetUint64(chainID)
-	fmt.Printf(
-		"configDigest()\nchainIDBig: %v\ncontractAddress %v\nconfigCount %v\noracles %v\ntransmitters %v\nf %v\nonchainConfig %v\noffchainConfigVersion %v\noffchainConfig %v\n",
-		chainIDBig,
-		contractAddress,
-		configCount,
-		oracles,
-		transmitters,
-		f,
-		onchainConfig,
-		offchainConfigVersion,
-		offchainConfig,
-	)
 	msg, err := configDigestArgs.Pack(
 		chainIDBig,
 		contractAddress,
@@ -131,7 +119,6 @@ func configDigest(
 		return configDigest, errors.New("unknown plugin type")
 	}
 
-	fmt.Printf("configDigest() config digest: %v", rawHash)
 	binary.BigEndian.PutUint16(configDigest[:2], uint16(prefix))
 	return configDigest, nil
 }
