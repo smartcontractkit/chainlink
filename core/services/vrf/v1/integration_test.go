@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -233,7 +233,7 @@ func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse,
 		CoordinatorAddress:       u.RootContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfKey.PublicKey.String()}).Toml()
-	jb, err := vrf.ValidatedVRFSpec(s)
+	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
 

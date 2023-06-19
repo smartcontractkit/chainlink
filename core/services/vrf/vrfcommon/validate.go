@@ -1,4 +1,4 @@
-package vrf
+package vrfcommon
 
 import (
 	"bytes"
@@ -43,8 +43,8 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 
-	if spec.CoordinatorV25Address != "" && spec.CoordinatorAddress != "" {
-		return jb, errors.New("cannot specify both coordinatorAddress and coordinatorV25Address")
+	if spec.VRFVersion != string(V2) && spec.VRFVersion != string(V2_5) {
+		return jb, fmt.Errorf("vrf version must be V2 or V2_5, got: %s", spec.VRFVersion)
 	}
 
 	var empty secp256k1.PublicKey

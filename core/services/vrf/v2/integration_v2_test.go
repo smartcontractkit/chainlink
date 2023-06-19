@@ -71,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -527,9 +528,9 @@ func createVRFJobs(
 			GasLanePrice:             gasLanePrices[i],
 			VRFOwnerAddress:          uni.vrfOwnerAddress.Hex(),
 		}).Toml()
-		jb, err := vrf.ValidatedVRFSpec(s)
-		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
+		jb, err := vrfcommon.ValidatedVRFSpec(s)
 		require.NoError(t, err)
+		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		err = app.JobSpawner().CreateJob(&jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni, coordinator, vrfkey)
@@ -2079,7 +2080,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		PublicKey:                vrfkey.PublicKey.String(),
 		V2:                       true,
 	}).Toml()
-	jb, err := vrf.ValidatedVRFSpec(s)
+	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	err = app.JobSpawner().CreateJob(&jb)
 	require.NoError(t, err)

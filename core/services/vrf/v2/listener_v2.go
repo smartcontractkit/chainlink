@@ -449,7 +449,9 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		} else {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
-			startEthBalance = sub.EthBalance()
+			if sub.VRFVersion == vrfcommon.V2_5 {
+				startEthBalance = sub.EthBalance()
+			}
 			subIsActive = true
 		}
 

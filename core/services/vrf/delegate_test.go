@@ -36,6 +36,7 @@ import (
 	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -153,7 +154,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		cfg.Database(),
 		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
-	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
+	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
@@ -493,7 +494,7 @@ submit_tx  [type=ethtx to="%s"
 decode_log->vrf->encode_tx->submit_tx
 """
 `
-		jb, err := vrf.ValidatedVRFSpec(spec)
+		jb, err := vrfcommon.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
 		cfg := vrf_mocks.NewConfig(t)
@@ -512,7 +513,7 @@ decode_log->vrf->encode_tx->submit_tx
 		}
 		defer cfg.AssertExpectations(tt)
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -540,7 +541,7 @@ decode_log->vrf->encode_tx->submit_tx
 		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
 		defer cfg.AssertExpectations(tt)
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -570,7 +571,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -600,7 +601,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		}
 		// add an address that isn't in the keystore
 		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -624,7 +625,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
 		}
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 			FromAddresses:       fromAddresses,
 			ChunkSize:           25,
@@ -651,7 +652,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			"0x86E7c45Bf013Bf1Df3C22c14d5fd6fc3051AC569",
 		}
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 			FromAddresses:       fromAddresses,
 			ChunkSize:           25,

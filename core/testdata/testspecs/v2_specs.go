@@ -240,6 +240,7 @@ type VRFSpecParams struct {
 	JobID                         string
 	Name                          string
 	CoordinatorAddress            string
+	VRFVersion                    string
 	BatchCoordinatorAddress       string
 	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
@@ -274,6 +275,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	name := "vrf-primary"
 	if params.Name != "" {
 		name = params.Name
+	}
+	vrfVersion := "V2"
+	if params.VRFVersion != "" {
+		vrfVersion = params.VRFVersion
 	}
 	coordinatorAddress := "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 	if params.CoordinatorAddress != "" {
@@ -364,6 +369,7 @@ decode_log->vrf->estimate_gas->simulate
 externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
+vrfVersion = "%s"
 name = "%s"
 coordinatorAddress = "%s"
 batchCoordinatorAddress = "%s"
@@ -383,7 +389,7 @@ observationSource = """
 """
 `
 	toml := fmt.Sprintf(template,
-		jobID, name, coordinatorAddress, batchCoordinatorAddress,
+		jobID, vrfVersion, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		vrfOwnerAddress, confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
@@ -410,6 +416,7 @@ observationSource = """
 		BackoffInitialDelay:      params.BackoffInitialDelay,
 		BackoffMaxDelay:          params.BackoffMaxDelay,
 		VRFOwnerAddress:          vrfOwnerAddress,
+		VRFVersion:               vrfVersion,
 	}, toml: toml}
 }
 

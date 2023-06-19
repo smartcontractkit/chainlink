@@ -92,6 +92,13 @@ func (r *RandomWordsRequested) CallbackGasLimit() uint32 {
 	return r.V25.CallbackGasLimit
 }
 
+func (r *RandomWordsRequested) NativePayment() bool {
+	if r.V2 != nil {
+		return false
+	}
+	return r.V25.NativePayment
+}
+
 type GetSubscription struct {
 	VRFVersion vrfcommon.Version
 	V2         *vrf_coordinator_v2.GetSubscription
