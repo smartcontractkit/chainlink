@@ -175,12 +175,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
-  function setUpkeepAdministrativeConfig(uint256 upkeepId, bytes calldata newAdministrativeConfig) external {
+  function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
     if (msg.sender != s_storage.upkeepPrivilegeManager) {
       revert OnlyCallableByUpkeepPrivilegeManager();
     }
-    s_upkeepAdministrativeConfig[upkeepId] = newAdministrativeConfig;
-    emit UpkeepAdministrativeConfigSet(upkeepId, newAdministrativeConfig);
+    s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
+    emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
   }
 
   /////////////
@@ -385,9 +385,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice returns the upkeep administrative config
+   * @notice returns the upkeep privilege config
    */
-  function getUpkeepAdministrativeConfig(uint256 upkeepId) external view returns (bytes memory) {
-    return s_upkeepAdministrativeConfig[upkeepId];
+  function getUpkeepPrivilegeConfig(uint256 upkeepId) external view returns (bytes memory) {
+    return s_upkeepPrivilegeConfig[upkeepId];
   }
 }

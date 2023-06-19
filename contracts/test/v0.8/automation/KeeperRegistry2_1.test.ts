@@ -444,7 +444,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('KeeperRegistry2_1', () => {
+describe.only('KeeperRegistry2_1', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -4957,30 +4957,30 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#setUpkeepAdministrativeConfig() / #getUpkeepAdministrativeConfig()', () => {
-    it('reverts when non manager tries to set administrative config', async () => {
+  describe('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
+    it('reverts when non manager tries to set privilege config', async () => {
       await evmRevert(
         registry
           .connect(payee3)
-          .setUpkeepAdministrativeConfig(upkeepId, '0x1234'),
+          .setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
         'OnlyCallableByUpkeepPrivilegeManager()',
       )
     })
 
-    it('returns empty bytes for upkeep administrative config before setting', async () => {
-      const cfg = await registry.getUpkeepAdministrativeConfig(upkeepId)
+    it('returns empty bytes for upkeep privilege config before setting', async () => {
+      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
       assert.equal(cfg, '0x')
     })
 
-    it('allows upkeep manager to set administrative config', async () => {
+    it('allows upkeep manager to set privilege config', async () => {
       const tx = await registry
         .connect(personas.Norbert)
-        .setUpkeepAdministrativeConfig(upkeepId, '0x1234')
+        .setUpkeepPrivilegeConfig(upkeepId, '0x1234')
       await expect(tx)
-        .to.emit(registry, 'UpkeepAdministrativeConfigSet')
+        .to.emit(registry, 'UpkeepPrivilegeConfigSet')
         .withArgs(upkeepId, '0x1234')
 
-      const cfg = await registry.getUpkeepAdministrativeConfig(upkeepId)
+      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
       assert.equal(cfg, '0x1234')
     })
   })

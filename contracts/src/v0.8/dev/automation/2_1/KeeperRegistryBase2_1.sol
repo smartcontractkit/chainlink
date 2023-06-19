@@ -93,7 +93,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
-  mapping(uint256 => bytes) internal s_upkeepAdministrativeConfig; // general config set by an administrative role
+  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -428,7 +428,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
-  event UpkeepAdministrativeConfigSet(uint256 indexed id, bytes administrativeConfig);
+  event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
