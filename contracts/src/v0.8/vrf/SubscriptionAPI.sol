@@ -77,8 +77,7 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
 
-  constructor() ConfirmedOwner(msg.sender) {
-  }
+  constructor() ConfirmedOwner(msg.sender) {}
 
   function setLINK(address link) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
@@ -119,9 +118,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-    * @notice Recover eth sent with transfer/call/send instead of fundSubscription.
-    * @param to address to send eth to
-  */
+   * @notice Recover eth sent with transfer/call/send instead of fundSubscription.
+   * @param to address to send eth to
+   */
   function recoverEthFunds(address payable to) external onlyOwner {
     uint256 externalBalance = address(this).balance;
     uint256 internalBalance = uint256(s_totalEthBalance);
@@ -188,9 +187,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-    * @notice Fund a subscription with ETH.
-    * @param subId - ID of the subscription
-  */
+   * @notice Fund a subscription with ETH.
+   * @param subId - ID of the subscription
+   */
   function fundSubscriptionWithEth(uint64 subId) external payable nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -239,7 +238,7 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentSubId] = Subscription({balance: 0, ethBalance : 0});
+    s_subscriptions[currentSubId] = Subscription({balance: 0, ethBalance: 0});
     s_subscriptionConfigs[currentSubId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
@@ -255,10 +254,7 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
    * @param subId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(
-    uint64 subId,
-    address newOwner
-  ) external onlySubOwner(subId) nonReentrant {
+  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;

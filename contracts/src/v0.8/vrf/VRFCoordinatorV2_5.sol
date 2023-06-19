@@ -10,11 +10,7 @@ import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 
-contract VRFCoordinatorV2_5 is
-  VRF,
-  TypeAndVersionInterface,
-  SubscriptionAPI
-{
+contract VRFCoordinatorV2_5 is VRF, TypeAndVersionInterface, SubscriptionAPI {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
@@ -62,7 +58,13 @@ contract VRFCoordinatorV2_5 is
     bool nativePayment,
     address indexed sender
   );
-  event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
+  event RandomWordsFulfilled(
+    uint256 indexed requestId,
+    uint256 outputSeed,
+    uint96 payment,
+    bool nativePayment,
+    bool success
+  );
 
   struct Config {
     uint16 minimumRequestConfirmations;
@@ -110,9 +112,9 @@ contract VRFCoordinatorV2_5 is
   }
 
   /**
-    * @notice set the link eth feed to be used by this coordinator
-    * @param linkEthFeed address of the link eth feed
-  */
+   * @notice set the link eth feed to be used by this coordinator
+   * @param linkEthFeed address of the link eth feed
+   */
   function setLinkEthFeed(address linkEthFeed) external onlyOwner {
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
@@ -461,19 +463,21 @@ contract VRFCoordinatorV2_5 is
     bool nativePayment
   ) internal view returns (uint96) {
     if (nativePayment) {
-      return calculatePaymentAmountEth(
+      return
+        calculatePaymentAmountEth(
+          startGas,
+          gasAfterPaymentCalculation,
+          s_feeConfig.fulfillmentFlatFeeEthPPM,
+          weiPerUnitGas
+        );
+    }
+    return
+      calculatePaymentAmountLink(
         startGas,
         gasAfterPaymentCalculation,
-        s_feeConfig.fulfillmentFlatFeeEthPPM,
+        s_feeConfig.fulfillmentFlatFeeLinkPPM,
         weiPerUnitGas
       );
-    }
-    return calculatePaymentAmountLink(
-      startGas,
-      gasAfterPaymentCalculation,
-      s_feeConfig.fulfillmentFlatFeeLinkPPM,
-      weiPerUnitGas
-    );
   }
 
   function calculatePaymentAmountEth(
@@ -529,7 +533,7 @@ contract VRFCoordinatorV2_5 is
     return weiPerUnitLink;
   }
 
-   /*
+  /*
    * @notice Check to see if there exists a request commitment consumers
    * for all consumers and keyhashes for a given sub.
    * @param subId - ID of the subscription

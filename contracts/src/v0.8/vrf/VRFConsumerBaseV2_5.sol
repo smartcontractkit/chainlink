@@ -140,10 +140,10 @@ abstract contract VRFConsumerBaseV2_5 {
   }
 
   /**
-    * @notice getRequestPayment returns the amount paid for the given request ID.
-    * @notice this can be in LINK (juels) or in ETH (wei), depending on how the request
-    * @notice was made. It is expected that the consumer keeps track of this detail.
-  */
+   * @notice getRequestPayment returns the amount paid for the given request ID.
+   * @notice this can be in LINK (juels) or in ETH (wei), depending on how the request
+   * @notice was made. It is expected that the consumer keeps track of this detail.
+   */
   function getRequestPayment(uint256 requestId) internal view returns (uint256) {
     return vrfCoordinator.s_requestPayments(requestId);
   }

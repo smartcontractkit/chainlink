@@ -6,12 +6,21 @@ import "../interfaces/LinkTokenInterface.sol";
 
 interface ISubscriptionV2_5 {
   function addConsumer(uint64 subId, address consumer) external;
+
   function removeConsumer(uint64 subId, address consumer) external;
+
   function cancelSubscription(uint64 subId, address to) external;
+
   function acceptSubscriptionOwnerTransfer(uint64 subId) external;
+
   function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external;
+
   function createSubscription() external returns (uint64 subId);
-  function getSubscription(uint64 subId) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers);
+
+  function getSubscription(
+    uint64 subId
+  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers);
+
   function fundSubscriptionWithEth(uint64 subId) external payable;
 }
 
@@ -41,7 +50,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
   /// @notice funding is used.
   LinkTokenInterface public s_linkToken;
 
-  function setVRFCoordinator(address vrfCoordinator) external onlyOwner() {
+  function setVRFCoordinator(address vrfCoordinator) external onlyOwner {
     require(vrfCoordinator != address(0), "Invalid address");
     s_vrfCoordinator = ISubscriptionV2_5(vrfCoordinator);
   }
@@ -50,29 +59,29 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
   /// @notice the subscription and withdraw any LINK funds.
   /// @notice no integrity checks are done on the given address other than checking
   /// @notice that it is nonzero.
-  function setLinkToken(address linkToken) external onlyOwner() {
+  function setLinkToken(address linkToken) external onlyOwner {
     require(linkToken != address(0), "Invalid address");
     s_linkToken = LinkTokenInterface(linkToken);
   }
 
-  function createSubscription() external onlyOwner() returns (uint64 subId) {
+  function createSubscription() external onlyOwner returns (uint64 subId) {
     subId = s_vrfCoordinator.createSubscription();
     s_subId = subId;
   }
 
-  function addConsumer(address consumer) external onlyOwner() {
+  function addConsumer(address consumer) external onlyOwner {
     s_vrfCoordinator.addConsumer(s_subId, consumer);
   }
 
-  function removeConsumer(address consumer) external onlyOwner() {
+  function removeConsumer(address consumer) external onlyOwner {
     s_vrfCoordinator.removeConsumer(s_subId, consumer);
   }
 
-  function cancelSubscription() external onlyOwner() {
+  function cancelSubscription() external onlyOwner {
     s_vrfCoordinator.cancelSubscription(s_subId, address(this));
   }
 
-  function fundSubscriptionWithEth() external payable onlyOwner() {
+  function fundSubscriptionWithEth() external payable onlyOwner {
     s_vrfCoordinator.fundSubscriptionWithEth{value: msg.value}(s_subId);
   }
 
@@ -83,11 +92,11 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
     require(success, "Transfer failed");
   }
 
-  function withdrawLink() external onlyOwner() {
+  function withdrawLink() external onlyOwner {
     require(s_linkToken.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
-  function withdrawEth() external onlyOwner() {
+  function withdrawEth() external onlyOwner {
     (bool success, ) = payable(msg.sender).call{value: address(this).balance}("");
     require(success, "Unable to transfer");
   }
@@ -95,17 +104,19 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
   /// @notice acceptSubscriptionOwnerTransfer accepts the transfer of
   /// @notice ownership of the subscription to this contract.
   /// @notice it then sets the s_subId to the new subscription id.
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external onlyOwner() {
+  function acceptSubscriptionOwnerTransfer(uint64 subId) external onlyOwner {
     s_vrfCoordinator.acceptSubscriptionOwnerTransfer(subId);
     s_subId = subId;
   }
 
-  function requestSubscriptionOwnerTransfer(address newOwner) external onlyOwner() {
+  function requestSubscriptionOwnerTransfer(address newOwner) external onlyOwner {
     s_vrfCoordinator.requestSubscriptionOwnerTransfer(s_subId, newOwner);
   }
 
-  function migrateToNewCoordinator(address newCoordinator) external onlyOwner() {
-    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = s_vrfCoordinator.getSubscription(s_subId);
+  function migrateToNewCoordinator(address newCoordinator) external onlyOwner {
+    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = s_vrfCoordinator.getSubscription(
+      s_subId
+    );
     require(owner == address(this), "Not owner");
     // cancel the subscription so that we can get all of the funds here
     // note that this can only be done if there are no pending requests
