@@ -359,17 +359,18 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @param id the upkeep id to calculate minimum balance for
    */
   function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(s_upkeep[id].executeGas);
+    return getMaxPaymentForGas(getTriggerType(id), s_upkeep[id].executeGas);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
+    return
+      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
   }
 
   /**
