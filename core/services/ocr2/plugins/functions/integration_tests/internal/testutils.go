@@ -59,6 +59,15 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxRequestBatchSize:       uint32(batchSize),
 			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
+			S4PluginConfig: &drconfig.S4ReportingPluginConfig{
+				MaxQueryLengthBytes:       10_000,
+				MaxObservationLengthBytes: 10_000,
+				MaxReportLengthBytes:      10_000,
+				NSnapshotShards:           1,
+				MaxObservationEntries:     1000,
+				MaxReportEntries:          1000,
+				MaxDeleteExpiredEntries:   1000,
+			},
 		},
 	})
 	require.NoError(t, err)

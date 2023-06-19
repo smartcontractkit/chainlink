@@ -13,6 +13,8 @@ import (
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -119,7 +121,7 @@ func rowsToShapshotRows(rows []*s4_svc.Row) []*s4_svc.SnapshotRow {
 func TestPlugin_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	orm := s4_mocks.NewORM(t)
 
 	t.Run("ErrInvalidIntervals", func(t *testing.T) {
@@ -165,7 +167,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 func TestPlugin_Close(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
@@ -178,7 +180,7 @@ func TestPlugin_Close(t *testing.T) {
 func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
@@ -192,7 +194,7 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
@@ -238,7 +240,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 func TestPlugin_Query(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
@@ -315,7 +317,7 @@ func TestPlugin_Query(t *testing.T) {
 func TestPlugin_Observation(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
@@ -391,7 +393,7 @@ func TestPlugin_Observation(t *testing.T) {
 func TestPlugin_Report(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
+	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
