@@ -1,163 +1,24 @@
-package vrf_test
+package solidity_cross_tests_test
 
 import (
 	"math/big"
-	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id_v08"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
-
-const defaultGasLimit uint32 = 500000
-
-// coordinatorUniverse represents the universe in which a randomness request occurs and
-// is fulfilled.
-type coordinatorUniverse struct {
-	// Golang wrappers ofr solidity contracts
-	rootContract               *solidity_vrf_coordinator_interface.VRFCoordinator
-	linkContract               *link_token_interface.LinkToken
-	bhsContract                *blockhash_store.BlockhashStore
-	consumerContract           *solidity_vrf_consumer_interface.VRFConsumer
-	requestIDBase              *solidity_vrf_request_id.VRFRequestIDBaseTestHelper
-	consumerContractV08        *solidity_vrf_consumer_interface_v08.VRFConsumer
-	requestIDBaseV08           *solidity_vrf_request_id_v08.VRFRequestIDBaseTestHelper
-	rootContractAddress        common.Address
-	consumerContractAddress    common.Address
-	consumerContractAddressV08 common.Address
-	linkContractAddress        common.Address
-	bhsContractAddress         common.Address
-
-	// Abstraction representation of the ethereum blockchain
-	backend        *backends.SimulatedBackend
-	coordinatorABI *abi.ABI
-	consumerABI    *abi.ABI
-	// Cast of participants
-	sergey *bind.TransactOpts // Owns all the LINK initially
-	neil   *bind.TransactOpts // Node operator running VRF service
-	ned    *bind.TransactOpts // Secondary node operator
-	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
-}
-
-var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
-
-func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) coordinatorUniverse {
-	cu := newVRFCoordinatorUniverse(t, key)
-	consumerContractAddress, _, consumerContract, err :=
-		solidity_vrf_consumer_interface_v08.DeployVRFConsumer(
-			cu.carol, cu.backend, cu.rootContractAddress, cu.linkContractAddress)
-	require.NoError(t, err, "failed to deploy v08 VRFConsumer contract to simulated ethereum blockchain")
-	_, _, requestIDBase, err :=
-		solidity_vrf_request_id_v08.DeployVRFRequestIDBaseTestHelper(cu.neil, cu.backend)
-	require.NoError(t, err, "failed to deploy v08 VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
-	cu.consumerContractAddressV08 = consumerContractAddress
-	cu.requestIDBaseV08 = requestIDBase
-	cu.consumerContractV08 = consumerContract
-	_, err = cu.linkContract.Transfer(cu.sergey, consumerContractAddress, oneEth) // Actually, LINK
-	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
-	cu.backend.Commit()
-	return cu
-}
-
-// newVRFCoordinatorUniverse sets up all identities and contracts associated with
-// testing the solidity VRF contracts involved in randomness request workflow
-func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUniverse {
-	var oracleTransactors []*bind.TransactOpts
-	for _, key := range keys {
-		oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-		require.NoError(t, err)
-		oracleTransactors = append(oracleTransactors, oracleTransactor)
-	}
-
-	var (
-		sergey = testutils.MustNewSimTransactor(t)
-		neil   = testutils.MustNewSimTransactor(t)
-		ned    = testutils.MustNewSimTransactor(t)
-		carol  = testutils.MustNewSimTransactor(t)
-	)
-	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: assets.Ether(1000).ToInt()},
-		neil.From:   {Balance: assets.Ether(1000).ToInt()},
-		ned.From:    {Balance: assets.Ether(1000).ToInt()},
-		carol.From:  {Balance: assets.Ether(1000).ToInt()},
-	}
-
-	for _, t := range oracleTransactors {
-		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
-	}
-
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
-	consumerABI, err := abi.JSON(strings.NewReader(
-		solidity_vrf_consumer_interface.VRFConsumerABI))
-	require.NoError(t, err)
-	coordinatorABI, err := abi.JSON(strings.NewReader(
-		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
-	require.NoError(t, err)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		sergey, backend)
-	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
-	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
-	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
-	coordinatorAddress, _, coordinatorContract, err :=
-		solidity_vrf_coordinator_interface.DeployVRFCoordinator(
-			neil, backend, linkAddress, bhsAddress)
-	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
-	consumerContractAddress, _, consumerContract, err :=
-		solidity_vrf_consumer_interface.DeployVRFConsumer(
-			carol, backend, coordinatorAddress, linkAddress)
-	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
-	_, _, requestIDBase, err :=
-		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
-	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
-	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
-	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
-	backend.Commit()
-	return coordinatorUniverse{
-		rootContract:            coordinatorContract,
-		rootContractAddress:     coordinatorAddress,
-		linkContract:            linkContract,
-		linkContractAddress:     linkAddress,
-		bhsContract:             bhsContract,
-		bhsContractAddress:      bhsAddress,
-		consumerContract:        consumerContract,
-		requestIDBase:           requestIDBase,
-		consumerContractAddress: consumerContractAddress,
-		backend:                 backend,
-		coordinatorABI:          &coordinatorABI,
-		consumerABI:             &consumerABI,
-		sergey:                  sergey,
-		neil:                    neil,
-		ned:                     ned,
-		carol:                   carol,
-	}
-}
 
 func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
@@ -166,7 +27,7 @@ func TestRequestIDMatches(t *testing.T) {
 	var seed = big.NewInt(1)
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
-	goRequestLog := &vrf.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
+	goRequestLog := &solidity_cross_tests.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
 	assert.Equal(t, common.Hash(solidityRequestID), goRequestLog.ComputedRequestID(),
 		"solidity VRF requestID differs from golang requestID!")
 }
@@ -234,7 +95,7 @@ func TestFailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
 // given keyHash and seed, and paying the given fee. It returns the log emitted
 // from the VRFCoordinator in response to the request
 func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
-	keyHash common.Hash, fee *big.Int) *vrf.RandomnessRequestLog {
+	keyHash common.Hash, fee *big.Int) *solidity_cross_tests.RandomnessRequestLog {
 	_, err := coordinator.consumerContract.TestRequestRandomness(coordinator.carol,
 		keyHash, fee)
 	require.NoError(t, err, "problem during initial VRF randomness request")
@@ -246,12 +107,12 @@ func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 		logCount++
 	}
 	require.Equal(t, 1, logCount, "unexpected log generated by randomness request to VRFCoordinator")
-	return vrf.RawRandomnessRequestLogToRandomnessRequestLog(
-		(*vrf.RawRandomnessRequestLog)(log.Event))
+	return solidity_cross_tests.RawRandomnessRequestLogToRandomnessRequestLog(
+		(*solidity_cross_tests.RawRandomnessRequestLog)(log.Event))
 }
 
 func requestRandomnessV08(t *testing.T, coordinator coordinatorUniverse,
-	keyHash common.Hash, fee *big.Int) *vrf.RandomnessRequestLog {
+	keyHash common.Hash, fee *big.Int) *solidity_cross_tests.RandomnessRequestLog {
 	_, err := coordinator.consumerContractV08.DoRequestRandomness(coordinator.carol,
 		keyHash, fee)
 	require.NoError(t, err, "problem during initial VRF randomness request")
@@ -265,8 +126,8 @@ func requestRandomnessV08(t *testing.T, coordinator coordinatorUniverse,
 		}
 	}
 	require.Equal(t, 1, logCount, "unexpected log generated by randomness request to VRFCoordinator")
-	return vrf.RawRandomnessRequestLogToRandomnessRequestLog(
-		(*vrf.RawRandomnessRequestLog)(log.Event))
+	return solidity_cross_tests.RawRandomnessRequestLogToRandomnessRequestLog(
+		(*solidity_cross_tests.RawRandomnessRequestLog)(log.Event))
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
@@ -277,7 +138,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	jobID := common.BytesToHash(jobID_[:])
 	var tt = []struct {
 		rr func(t *testing.T, coordinator coordinatorUniverse,
-			keyHash common.Hash, fee *big.Int) *vrf.RandomnessRequestLog
+			keyHash common.Hash, fee *big.Int) *solidity_cross_tests.RandomnessRequestLog
 		ms              func() (*big.Int, error)
 		consumerAddress common.Address
 	}{
@@ -313,14 +174,14 @@ func TestRandomnessRequestLog(t *testing.T) {
 		assert.Equal(t, jobID, log.JobID, "VRFCoordinator logged different JobID from randomness request!")
 		assert.Equal(t, tc.consumerAddress, log.Sender, "VRFCoordinator logged different requester address from randomness request!")
 		assert.True(t, fee.Cmp((*big.Int)(log.Fee)) == 0, "VRFCoordinator logged different fee from randomness request!")
-		parsedLog, err := vrf.ParseRandomnessRequestLog(log.Raw.Raw)
+		parsedLog, err := solidity_cross_tests.ParseRandomnessRequestLog(log.Raw.Raw)
 		assert.NoError(t, err, "could not parse randomness request log generated by VRFCoordinator")
 		assert.True(t, parsedLog.Equal(*log), "got a different randomness request log by parsing the raw data than reported by simulated backend")
 	}
 }
 
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
-func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log vrf.RandomnessRequestLog) vrfkey.Proof {
+func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log solidity_cross_tests.RandomnessRequestLog) vrfkey.Proof {
 	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := proof2.PreSeedData{
@@ -331,7 +192,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log
 	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
-	proofBlob, err := GenerateProofResponseFromProof(proof, s)
+	proofBlob, err := vrftesthelpers.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	// Seems to be a bug in the simulated backend: without this extra Commit, the
 	// EVM seems to think it's still on the block in which the request was made,

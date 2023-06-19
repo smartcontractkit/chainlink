@@ -1,4 +1,4 @@
-package vrf_test
+package v2_test
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -206,7 +207,7 @@ func testMultipleConsumersNeedBHS(
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	_ = createAndStartBHSJob(
+	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
 		coordinatorAddress.String())
 
@@ -538,7 +539,7 @@ func testBlockHeaderFeeder(
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	_ = createAndStartBlockHeaderFeederJob(
+	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(), "",
 		coordinatorAddress.String())
 

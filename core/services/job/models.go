@@ -490,6 +490,12 @@ type VRFSpec struct {
 	// V2 only.
 	VRFOwnerAddress *ethkey.EIP55Address `toml:"vrfOwnerAddress"`
 
+	// CoordinatorV25Address is the address of the VRFCoordinatorV2_5 contract to use.
+	//
+	// V2.5 only.
+	// Note that only one of coordinatorV25Address and coordinatorAddress can be set simultaneously.
+	CoordinatorV25Address ethkey.EIP55Address `toml:"coordinatorV25Address"`
+
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`

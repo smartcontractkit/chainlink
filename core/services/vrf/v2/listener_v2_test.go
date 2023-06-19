@@ -1,4 +1,4 @@
-package vrf
+package v2
 
 import (
 	"math/big"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -133,7 +134,7 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 }
 
 func TestListener_GetConfirmedAt(t *testing.T) {
-	j, err := ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+	j, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
@@ -157,7 +158,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 
 	// Requester asks for 100 confirmations, we have a delay of 0,
 	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 100 confirmations
-	j, err = ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+	j, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 0,
 	}).Toml())
 	require.NoError(t, err)

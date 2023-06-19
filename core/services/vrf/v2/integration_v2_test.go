@@ -1,4 +1,4 @@
-package vrf_test
+package v2_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -69,6 +70,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -321,7 +323,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		uint16(1),                              // minRequestConfirmations
 		uint32(2.5e6),                          // gas limit
 		uint32(60*60*24),                       // stalenessSeconds
-		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
+		uint32(v22.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
 		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: uint32(1000),
@@ -343,7 +345,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		uint16(1),                              // minRequestConfirmations
 		uint32(2.5e6),                          // gas limit
 		uint32(60*60*24),                       // stalenessSeconds
-		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
+		uint32(v22.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
 		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: uint32(1000),
@@ -2587,3 +2589,21 @@ func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkTok
 }
 
 func ptr[T any](t T) *T { return &t }
+
+func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
+
+// estimateGas returns the estimated gas cost of running the given method on the
+// contract at address to, on the given backend, with the given args, and given
+// that the transaction is sent from the from address.
+func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
+	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
+) uint64 {
+	rawData, err := abi.Pack(method, args...)
+	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
+		method, args)
+	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
+	estimate, err := backend.EstimateGas(testutils.Context(t), callMsg)
+	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
+		method, args)
+	return estimate
+}

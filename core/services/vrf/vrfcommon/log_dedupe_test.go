@@ -1,4 +1,4 @@
-package vrf
+package vrfcommon
 
 import (
 	"testing"

@@ -1,4 +1,4 @@
-package vrf
+package vrfcommon
 
 import (
 	"sync"
@@ -10,16 +10,15 @@ import (
 // pruneInterval is the interval in blocks at which to prune old data from the delivered set.
 const pruneInterval = 100
 
-func newLogDeduper(lookback int) *logDeduper {
-	return &logDeduper{
+func NewLogDeduper(lookback int) *LogDeduper {
+	return &LogDeduper{
 		delivered: make(map[logKey]struct{}),
 		lookback:  lookback,
 	}
 }
 
-// logDeduper prevents duplicate logs from being reprocessed.
-type logDeduper struct {
-
+// LogDeduper prevents duplicate logs from being reprocessed.
+type LogDeduper struct {
 	// delivered is the set of logs within the lookback that have already been delivered.
 	delivered map[logKey]struct{}
 
@@ -47,10 +46,10 @@ type logKey struct {
 	logIndex uint
 }
 
-func (l *logDeduper) shouldDeliver(log types.Log) bool {
+func (l *LogDeduper) ShouldDeliver(log types.Log) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock() // unlock in the last defer, so that we hold the lock when pruning.
-	defer l.prune(log.BlockNumber)
+	defer l.Prune(log.BlockNumber)
 
 	key := logKey{
 		blockHash:   log.BlockHash,
@@ -66,7 +65,7 @@ func (l *logDeduper) shouldDeliver(log types.Log) bool {
 	return true
 }
 
-func (l *logDeduper) prune(logBlock uint64) {
+func (l *LogDeduper) Prune(logBlock uint64) {
 	// Only prune every pruneInterval blocks
 	if int(logBlock)-int(l.lastPruneHeight) < pruneInterval {
 		return
@@ -81,8 +80,8 @@ func (l *logDeduper) prune(logBlock uint64) {
 	l.lastPruneHeight = logBlock
 }
 
-// clear clears the log deduper's internal cache.
-func (l *logDeduper) clear() {
+// Clear clears the log deduper's internal cache.
+func (l *LogDeduper) Clear() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

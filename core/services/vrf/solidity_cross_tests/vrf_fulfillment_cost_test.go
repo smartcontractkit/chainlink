@@ -1,10 +1,11 @@
-package vrf_test
+package solidity_cross_tests_test
 
 import (
 	"math/big"
 	"testing"
 
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
-	proofBlob, err := GenerateProofResponseFromProof(proof, s)
+	proofBlob, err := vrftesthelpers.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	coordinator.backend.Commit() // Work around simbackend/EVM block number bug
 	estimate := estimateGas(t, coordinator.backend, coordinator.neil.From,

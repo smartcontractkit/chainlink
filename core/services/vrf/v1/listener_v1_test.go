@@ -1,4 +1,4 @@
-package vrf
+package v1
 
 import (
 	"testing"
@@ -11,8 +11,8 @@ import (
 )
 
 func TestConfirmedLogExtraction(t *testing.T) {
-	lsn := listenerV1{}
-	lsn.reqs = []request{
+	lsn := Listener{}
+	lsn.Reqs = []request{
 		{
 			confirmedAtBlock: 2,
 			req: &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{
@@ -33,44 +33,44 @@ func TestConfirmedLogExtraction(t *testing.T) {
 		},
 	}
 	// None are confirmed
-	lsn.latestHead = 0
+	lsn.LatestHead = 0
 	logs := lsn.extractConfirmedLogs()
 	assert.Equal(t, 0, len(logs))     // None ready
-	assert.Equal(t, 3, len(lsn.reqs)) // All pending
-	lsn.latestHead = 2
+	assert.Equal(t, 3, len(lsn.Reqs)) // All pending
+	lsn.LatestHead = 2
 	logs = lsn.extractConfirmedLogs()
 	assert.Equal(t, 2, len(logs))     // 1 and 2 should be confirmed
-	assert.Equal(t, 1, len(lsn.reqs)) // 3 is still pending
-	assert.Equal(t, uint64(3), lsn.reqs[0].confirmedAtBlock)
+	assert.Equal(t, 1, len(lsn.Reqs)) // 3 is still pending
+	assert.Equal(t, uint64(3), lsn.Reqs[0].confirmedAtBlock)
 	// Another block way in the future should clear it
-	lsn.latestHead = 10
+	lsn.LatestHead = 10
 	logs = lsn.extractConfirmedLogs()
 	assert.Equal(t, 1, len(logs))     // remaining log
-	assert.Equal(t, 0, len(lsn.reqs)) // all processed
+	assert.Equal(t, 0, len(lsn.Reqs)) // all processed
 }
 
 func TestResponsePruning(t *testing.T) {
-	lsn := listenerV1{}
-	lsn.latestHead = 10000
-	lsn.respCount = map[[32]byte]uint64{
+	lsn := Listener{}
+	lsn.LatestHead = 10000
+	lsn.RespCount = map[[32]byte]uint64{
 		utils.PadByteToHash(0x00): 1,
 		utils.PadByteToHash(0x01): 1,
 	}
-	lsn.blockNumberToReqID = pairing.New()
-	lsn.blockNumberToReqID.Insert(fulfilledReq{
+	lsn.BlockNumberToReqID = pairing.New()
+	lsn.BlockNumberToReqID.Insert(fulfilledReq{
 		blockNumber: 1,
 		reqID:       utils.PadByteToHash(0x00),
 	})
-	lsn.blockNumberToReqID.Insert(fulfilledReq{
+	lsn.BlockNumberToReqID.Insert(fulfilledReq{
 		blockNumber: 2,
 		reqID:       utils.PadByteToHash(0x01),
 	})
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 2, len(lsn.respCount))
-	lsn.latestHead = 10001
+	assert.Equal(t, 2, len(lsn.RespCount))
+	lsn.LatestHead = 10001
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 1, len(lsn.respCount))
-	lsn.latestHead = 10002
+	assert.Equal(t, 1, len(lsn.RespCount))
+	lsn.LatestHead = 10002
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 0, len(lsn.respCount))
+	assert.Equal(t, 0, len(lsn.RespCount))
 }

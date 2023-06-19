@@ -6,14 +6,12 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
@@ -26,6 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -37,19 +38,6 @@ type Delegate struct {
 	cc      evm.ChainSet
 	lggr    logger.Logger
 	mailMon *utils.MailboxMonitor
-}
-
-type GethKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
-}
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-type Config interface {
-	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	MinIncomingConfirmations() uint32
 }
 
 func NewDelegate(
@@ -159,14 +147,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
 
-			return []job.ServiceCtx{newListenerV2(
+			return []job.ServiceCtx{v2.New(
 				chain.Config(),
 				lV2,
 				chain.Client(),
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				coordinatorV2,
+				v2.NewCoordinatorV2(coordinatorV2),
 				batchCoordinatorV2,
 				vrfOwner,
 				aggregator,
@@ -179,31 +167,31 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				func() {},
 				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				chain.HeadBroadcaster(),
-				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.ServiceCtx{&listenerV1{
-				cfg:             chain.Config(),
-				l:               logger.Sugared(lV1),
-				headBroadcaster: chain.HeadBroadcaster(),
-				logBroadcaster:  chain.LogBroadcaster(),
-				q:               d.q,
-				txm:             chain.TxManager(),
-				coordinator:     coordinator,
-				pipelineRunner:  d.pr,
-				gethks:          d.ks.Eth(),
-				job:             jb,
-				mailMon:         d.mailMon,
+			return []job.ServiceCtx{&v1.Listener{
+				Cfg:             chain.Config(),
+				L:               logger.Sugared(lV1),
+				HeadBroadcaster: chain.HeadBroadcaster(),
+				LogBroadcaster:  chain.LogBroadcaster(),
+				Q:               d.q,
+				Txm:             chain.TxManager(),
+				Coordinator:     coordinator,
+				PipelineRunner:  d.pr,
+				GethKs:          d.ks.Eth(),
+				Job:             jb,
+				MailMon:         d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
-				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
+				ReqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				ChStop:             make(chan struct{}),
+				WaitOnStop:         make(chan struct{}),
+				NewHead:            make(chan struct{}, 1),
+				RespCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				BlockNumberToReqID: pairing.New(),
+				ReqAdded:           func() {},
+				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())),
 			}}, nil
 		}
 	}
@@ -224,7 +212,7 @@ func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 // matches what is set for the  provided from addresses.
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
 // not match the provided gas lane price.
-func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+func CheckFromAddressMaxGasPrices(jb job.Job, cfg vrfcommon.Config) (err error) {
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
 			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
@@ -241,7 +229,7 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 // FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
 // addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
 // gas price.
-func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg vrfcommon.Config) (allEqual bool) {
 	allEqual = true
 	for i := range jb.VRFSpec.FromAddresses {
 		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(

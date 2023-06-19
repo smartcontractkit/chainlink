@@ -34,6 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -134,7 +136,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
+func setup(t *testing.T) (vrfUniverse, *v1.ListenerV1, job.Job) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
@@ -158,7 +160,7 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
-	listener := vl[0].(*vrf.ListenerV1)
+	listener := vl[0].(*v1.ListenerV1)
 	// Start the listenerV1
 	go func() {
 		listener.RunLogListener([]func(){}, 6)
@@ -201,7 +203,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics: []common.Hash{
-			vrf.VRFRandomnessRequestLogTopic(),
+			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeStringToTopic(), // jobID
 		},
 		BlockNumber: 10,
@@ -248,7 +250,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
-					vrf.VRFRandomnessRequestLogTopic(),
+					solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 					jb.ExternalIDEncodeStringToTopic(), // jobID STRING
 				},
 				TxHash:      txHash,
@@ -269,7 +271,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					reqID2.Bytes()},                          // requestID
 					[]byte{}),
 				Topics: []common.Hash{
-					vrf.VRFRandomnessRequestLogTopic(),
+					solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 					jb.ExternalIDEncodeBytesToTopic(), // jobID BYTES
 				},
 				TxHash:      txHash,
@@ -376,7 +378,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			utils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
-			vrf.VRFRandomnessRequestLogTopic(),
+			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeBytesToTopic(), // jobID
 		},
 		Address:     common.Address{},
@@ -441,7 +443,7 @@ func TestFulfilledCheck(t *testing.T) {
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
-				vrf.VRFRandomnessRequestLogTopic(),
+				solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
 			},
 			//TxHash:      utils.NewHash().Bytes(),

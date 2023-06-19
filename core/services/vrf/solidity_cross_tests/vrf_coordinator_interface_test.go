@@ -1,4 +1,4 @@
-package vrf_test
+package solidity_cross_tests_test
 
 import (
 	"math/big"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
 	fee       = assets.NewLinkFromJuels(100)
 	requestID = common.HexToHash("0xcafe")
-	raw       = vrf.RawRandomnessRequestLog{
+	raw       = solidity_cross_tests.RawRandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      seed,
 		JobID:     jobID,
@@ -41,13 +41,13 @@ var (
 )
 
 func TestVRFParseRandomnessRequestLog(t *testing.T) {
-	r := vrf.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
+	r := solidity_cross_tests.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := vrf.ParseRandomnessRequestLog(types.Log{
+	nR, err := solidity_cross_tests.ParseRandomnessRequestLog(types.Log{
 		Data:   rawLog,
-		Topics: []common.Hash{vrf.VRFRandomnessRequestLogTopic(), jobID},
+		Topics: []common.Hash{solidity_cross_tests.VRFRandomnessRequestLogTopic(), jobID},
 	})
 	require.NoError(t, err)
 	require.True(t, r.Equal(*nR),

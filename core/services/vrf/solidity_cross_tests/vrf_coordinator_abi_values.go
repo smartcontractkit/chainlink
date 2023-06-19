@@ -1,4 +1,4 @@
-package vrf
+package solidity_cross_tests
 
 import (
 	"fmt"

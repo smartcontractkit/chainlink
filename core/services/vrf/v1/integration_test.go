@@ -1,4 +1,4 @@
-package vrf_test
+package v1_test
 
 import (
 	"encoding/hex"
@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
@@ -49,37 +50,37 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			})
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
-			cu := newVRFCoordinatorUniverse(t, key1, key2)
+			cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key1, key2)
 			incomingConfs := 2
-			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.backend, key1, key2)
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.Backend, key1, key2)
 			require.NoError(t, app.Start(testutils.Context(t)))
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 			require.NoError(t, app.JobSpawner().CreateJob(&jb))
 
-			_, err := cu.consumerContract.TestRequestRandomness(cu.carol,
+			_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,
 				vrfKey.PublicKey.MustHash(), big.NewInt(100))
 			require.NoError(t, err)
 
-			_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
+			_, err = cu.ConsumerContract.TestRequestRandomness(cu.Carol,
 				vrfKey.PublicKey.MustHash(), big.NewInt(100))
 			require.NoError(t, err)
-			cu.backend.Commit()
+			cu.Backend.Commit()
 			t.Log("Sent 2 test requests")
 			// Mine the required number of blocks
 			// So our request gets confirmed.
 			for i := 0; i < incomingConfs; i++ {
-				cu.backend.Commit()
+				cu.Backend.Commit()
 			}
 			var runs []pipeline.Run
 			gomega.NewWithT(t).Eventually(func() bool {
 				runs, err = app.PipelineORM().GetAllRuns()
 				require.NoError(t, err)
 				// It possible that we send the test request
-				// before the job spawner has started the vrf services, which is fine
+				// before the Job spawner has started the vrf services, which is fine
 				// the lb will backfill the logs. However we need to
 				// keep blocks coming in for the lb to send the backfilled logs.
-				cu.backend.Commit()
+				cu.Backend.Commit()
 				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
 			}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
@@ -99,7 +100,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Assert the request was fulfilled on-chain.
 			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 			gomega.NewWithT(t).Eventually(func() bool {
-				rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
+				rfIterator, err := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
 				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 				rf = nil
 				for rfIterator.Next() {
@@ -109,11 +110,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
 			// Check that each sending address sent one transaction
-			n1, err := cu.backend.PendingNonceAt(testutils.Context(t), key1.Address)
+			n1, err := cu.Backend.PendingNonceAt(testutils.Context(t), key1.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n1)
 
-			n2, err := cu.backend.PendingNonceAt(testutils.Context(t), key2.Address)
+			n2, err := cu.Backend.PendingNonceAt(testutils.Context(t), key2.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n2)
 		})
@@ -130,41 +131,41 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
 	})
 	key := cltest.MustGenerateRandomKey(t)
-	cu := newVRFCoordinatorUniverse(t, key)
+	cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	incomingConfs := 2
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.Backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	// Create VRF job but do not start it yet
+	// Create VRF Job but do not start it yet
 	jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 
 	sendingKeys := []string{key.Address.String()}
 
-	// Create BHS job and start it
-	_ = createAndStartBHSJob(t, sendingKeys, app, cu.bhsContractAddress.String(),
-		cu.rootContractAddress.String(), "")
+	// Create BHS Job and start it
+	_ = vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
+		cu.RootContractAddress.String(), "")
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	// Create a VRF request
-	_, err := cu.consumerContract.TestRequestRandomness(cu.carol,
+	_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,
 		vrfKey.PublicKey.MustHash(), big.NewInt(100))
 	require.NoError(t, err)
 
-	cu.backend.Commit()
-	requestBlock := cu.backend.Blockchain().CurrentHeader().Number
+	cu.Backend.Commit()
+	requestBlock := cu.Backend.Blockchain().CurrentHeader().Number
 
 	// Wait 101 blocks.
 	for i := 0; i < 100; i++ {
-		cu.backend.Commit()
+		cu.Backend.Commit()
 	}
 
 	// Wait for the blockhash to be stored
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		cu.backend.Commit()
-		_, err := cu.bhsContract.GetBlockhash(&bind.CallOpts{
+		cu.Backend.Commit()
+		_, err := cu.BHSContract.GetBlockhash(&bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
@@ -182,17 +183,17 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Wait another 160 blocks so that the request is outside the 256 block window
 	for i := 0; i < 160; i++ {
-		cu.backend.Commit()
+		cu.Backend.Commit()
 	}
 
-	// Start the VRF job and wait until it's processed
+	// Start the VRF Job and wait until it's processed
 	require.NoError(t, app.JobSpawner().CreateJob(&jb))
 
 	var runs []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
-		cu.backend.Commit()
+		cu.Backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
@@ -209,7 +210,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Assert the request was fulfilled on-chain.
 	gomega.NewWithT(t).Eventually(func() bool {
-		rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
+		rfIterator, err := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
 		require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 		var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 		for rfIterator.Next() {
@@ -219,7 +220,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 }
 
-func createVRFJobRegisterKey(t *testing.T, u coordinatorUniverse, app *cltest.TestApplication, incomingConfs int) (job.Job, vrfkey.KeyV2) {
+func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse, app *cltest.TestApplication, incomingConfs int) (job.Job, vrfkey.KeyV2) {
 	vrfKey, err := app.KeyStore.VRF().Create()
 	require.NoError(t, err)
 
@@ -229,7 +230,7 @@ func createVRFJobRegisterKey(t *testing.T, u coordinatorUniverse, app *cltest.Te
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
-		CoordinatorAddress:       u.rootContractAddress.String(),
+		CoordinatorAddress:       u.RootContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfKey.PublicKey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -238,9 +239,13 @@ func createVRFJobRegisterKey(t *testing.T, u coordinatorUniverse, app *cltest.Te
 
 	p, err := vrfKey.PublicKey.Point()
 	require.NoError(t, err)
-	_, err = u.rootContract.RegisterProvingKey(
-		u.neil, big.NewInt(7), u.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDEncodeStringToTopic())
+	_, err = u.RootContract.RegisterProvingKey(
+		u.Neil, big.NewInt(7), u.Neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDEncodeStringToTopic())
 	require.NoError(t, err)
-	u.backend.Commit()
+	u.Backend.Commit()
 	return jb, vrfKey
 }
+
+func ptr[T any](t T) *T { return &t }
+
+func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }

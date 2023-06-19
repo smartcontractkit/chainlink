@@ -1,4 +1,4 @@
-package vrf_test
+package solidity_cross_tests_test
 
 import (
 	"crypto/ecdsa"

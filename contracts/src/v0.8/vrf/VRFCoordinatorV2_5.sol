@@ -72,6 +72,15 @@ contract VRFCoordinatorV2_5 is
     uint32 stalenessSeconds;
     // Gas to cover oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
+    // The recommended number is below, though it may vary slightly
+    // if certain chains do not implement certain EIP's.
+    // 21000 + // base cost of the transaction
+    // 100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+    // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
+    // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
+    // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+    // 21000  // cost of a cold storage write to update the request payments mapping.
+    // Total: 58,815 gas.
     uint32 gasAfterPaymentCalculation;
   }
   int256 public s_fallbackWeiPerUnitLink;
@@ -81,6 +90,8 @@ contract VRFCoordinatorV2_5 is
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeLinkPPM;
+    // Flat fee charged per fulfillment in millionths of eth.
+    // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeEthPPM;
   }
   event ConfigSet(
@@ -91,6 +102,8 @@ contract VRFCoordinatorV2_5 is
     int256 fallbackWeiPerUnitLink,
     FeeConfig feeConfig
   );
+
+  mapping(uint256 /* requestId */ => uint96 /* payment */) public s_requestPayments;
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
@@ -432,6 +445,10 @@ contract VRFCoordinatorV2_5 is
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
       emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
+
+      // Update the payment field in the request payments mapping so that
+      // consumers know how much they've paid and can charge end-users accordingly.
+      s_requestPayments[output.requestId] = payment;
 
       return payment;
     }

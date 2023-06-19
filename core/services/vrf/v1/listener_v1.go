@@ -1,4 +1,4 @@
-package vrf
+package v1
 
 import (
 	"context"
@@ -23,13 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var (
-	_ log.Listener   = &listenerV1{}
-	_ job.ServiceCtx = &listenerV1{}
+	_ log.Listener   = &Listener{}
+	_ job.ServiceCtx = &Listener{}
 )
 
 const callbacksTimeout = 10 * time.Second
@@ -41,83 +42,83 @@ type request struct {
 	utcTimestamp     time.Time
 }
 
-type listenerV1 struct {
+type Listener struct {
 	utils.StartStopOnce
 
-	cfg             Config
-	l               logger.SugaredLogger
-	logBroadcaster  log.Broadcaster
-	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
-	pipelineRunner  pipeline.Runner
-	job             job.Job
-	q               pg.Q
-	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             txmgr.EvmTxManager
-	gethks          GethKeyStore
-	mailMon         *utils.MailboxMonitor
-	reqLogs         *utils.Mailbox[log.Broadcast]
-	chStop          utils.StopChan
-	waitOnStop      chan struct{}
-	newHead         chan struct{}
-	latestHead      uint64
-	latestHeadMu    sync.RWMutex
+	Cfg             vrfcommon.Config
+	L               logger.SugaredLogger
+	LogBroadcaster  log.Broadcaster
+	Coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
+	PipelineRunner  pipeline.Runner
+	Job             job.Job
+	Q               pg.Q
+	HeadBroadcaster httypes.HeadBroadcasterRegistry
+	Txm             txmgr.EvmTxManager
+	GethKs          vrfcommon.GethKeyStore
+	MailMon         *utils.MailboxMonitor
+	ReqLogs         *utils.Mailbox[log.Broadcast]
+	ChStop          utils.StopChan
+	WaitOnStop      chan struct{}
+	NewHead         chan struct{}
+	LatestHead      uint64
+	LatestHeadMu    sync.RWMutex
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
-	reqsMu   sync.Mutex // Both goroutines write to reqs
-	reqs     []request
-	reqAdded func() // A simple debug helper
+	ReqsMu   sync.Mutex // Both goroutines write to Reqs
+	Reqs     []request
+	ReqAdded func() // A simple debug helper
 
 	// Data structures for reorg attack protection
 	// We want a map so we can do an O(1) count update every fulfillment log we get.
-	respCountMu sync.Mutex
-	respCount   map[[32]byte]uint64
+	RespCountMu sync.Mutex
+	RespCount   map[[32]byte]uint64
 	// This auxiliary heap is to used when we need to purge the
-	// respCount map - we repeatedly want remove the minimum log.
+	// RespCount map - we repeatedly want remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
-	blockNumberToReqID *pairing.PairHeap
+	BlockNumberToReqID *pairing.PairHeap
 
-	// deduper prevents processing duplicate requests from the log broadcaster.
-	deduper *logDeduper
+	// Deduper prevents processing duplicate requests from the log broadcaster.
+	Deduper *vrfcommon.LogDeduper
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
+func (lsn *Listener) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	lsn.setLatestHead(head)
 	select {
-	case lsn.newHead <- struct{}{}:
+	case lsn.NewHead <- struct{}{}:
 	default:
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h *evmtypes.Head) {
-	lsn.latestHeadMu.Lock()
-	defer lsn.latestHeadMu.Unlock()
+func (lsn *Listener) setLatestHead(h *evmtypes.Head) {
+	lsn.LatestHeadMu.Lock()
+	defer lsn.LatestHeadMu.Unlock()
 	num := uint64(h.Number)
-	if num > lsn.latestHead {
-		lsn.latestHead = num
+	if num > lsn.LatestHead {
+		lsn.LatestHead = num
 	}
 }
 
-func (lsn *listenerV1) getLatestHead() uint64 {
-	lsn.latestHeadMu.RLock()
-	defer lsn.latestHeadMu.RUnlock()
-	return lsn.latestHead
+func (lsn *Listener) getLatestHead() uint64 {
+	lsn.LatestHeadMu.RLock()
+	defer lsn.LatestHeadMu.RUnlock()
+	return lsn.LatestHead
 }
 
 // Start complies with job.Service
-func (lsn *listenerV1) Start(context.Context) error {
+func (lsn *Listener) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
-		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+		spec := job.LoadEnvConfigVarsVRF(lsn.Cfg, *lsn.Job.VRFSpec)
 
-		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
-			Contract: lsn.coordinator.Address(),
-			ParseLog: lsn.coordinator.ParseLog,
+		unsubscribeLogs := lsn.LogBroadcaster.Register(lsn, log.ListenerOpts{
+			Contract: lsn.Coordinator.Address(),
+			ParseLog: lsn.Coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
 					{
-						log.Topic(lsn.job.ExternalIDEncodeStringToTopic()),
-						log.Topic(lsn.job.ExternalIDEncodeBytesToTopic()),
+						log.Topic(lsn.Job.ExternalIDEncodeStringToTopic()),
+						log.Topic(lsn.Job.ExternalIDEncodeBytesToTopic()),
 					},
 				},
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(): {},
@@ -132,33 +133,33 @@ func (lsn *listenerV1) Start(context.Context) error {
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.HeadBroadcaster.Subscribe(lsn)
 		if latestHead != nil {
 			lsn.setLatestHead(latestHead)
 		}
 		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 
-		lsn.mailMon.Monitor(lsn.reqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.job.ID))
+		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.Job.ID))
 		return nil
 	})
 }
 
 // Removes and returns all the confirmed logs from
 // the pending queue.
-func (lsn *listenerV1) extractConfirmedLogs() []request {
-	lsn.reqsMu.Lock()
-	defer lsn.reqsMu.Unlock()
-	updateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, len(lsn.reqs))
+func (lsn *Listener) extractConfirmedLogs() []request {
+	lsn.ReqsMu.Lock()
+	defer lsn.ReqsMu.Unlock()
+	vrfcommon.UpdateQueueSize(lsn.Job.Name.ValueOrZero(), lsn.Job.ExternalJobID, vrfcommon.V1, len(lsn.Reqs))
 	var toProcess, toKeep []request
-	for i := 0; i < len(lsn.reqs); i++ {
-		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
-			toProcess = append(toProcess, lsn.reqs[i])
+	for i := 0; i < len(lsn.Reqs); i++ {
+		if lsn.Reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
+			toProcess = append(toProcess, lsn.Reqs[i])
 		} else {
-			toKeep = append(toKeep, lsn.reqs[i])
+			toKeep = append(toKeep, lsn.Reqs[i])
 		}
 	}
-	lsn.reqs = toKeep
+	lsn.Reqs = toKeep
 	return toProcess
 }
 
@@ -182,34 +183,34 @@ func (a fulfilledReq) Compare(b heaps.Item) int {
 
 // Remove all entries 10000 blocks or older
 // to avoid a memory leak.
-func (lsn *listenerV1) pruneConfirmedRequestCounts() {
-	lsn.respCountMu.Lock()
-	defer lsn.respCountMu.Unlock()
-	min := lsn.blockNumberToReqID.FindMin()
+func (lsn *Listener) pruneConfirmedRequestCounts() {
+	lsn.RespCountMu.Lock()
+	defer lsn.RespCountMu.Unlock()
+	min := lsn.BlockNumberToReqID.FindMin()
 	for min != nil {
 		m := min.(fulfilledReq)
 		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
-		delete(lsn.respCount, m.reqID)
-		lsn.blockNumberToReqID.DeleteMin()
-		min = lsn.blockNumberToReqID.FindMin()
+		delete(lsn.RespCount, m.reqID)
+		lsn.BlockNumberToReqID.DeleteMin()
+		min = lsn.BlockNumberToReqID.FindMin()
 	}
 }
 
 // Listen for new heads
-func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
-	ctx, cancel := lsn.chStop.NewCtx()
+func (lsn *Listener) runHeadListener(unsubscribe func()) {
+	ctx, cancel := lsn.ChStop.NewCtx()
 	defer cancel()
 
 	for {
 		select {
 		case <-ctx.Done():
 			unsubscribe()
-			lsn.waitOnStop <- struct{}{}
+			lsn.WaitOnStop <- struct{}{}
 			return
-		case <-lsn.newHead:
-			recovery.WrapRecover(lsn.l, func() {
+		case <-lsn.NewHead:
+			recovery.WrapRecover(lsn.L, func() {
 				toProcess := lsn.extractConfirmedLogs()
 				var toRetry []request
 				for _, r := range toProcess {
@@ -217,35 +218,35 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 						toRetry = append(toRetry, r)
 					}
 				}
-				lsn.reqsMu.Lock()
-				defer lsn.reqsMu.Unlock()
-				lsn.reqs = append(lsn.reqs, toRetry...)
+				lsn.ReqsMu.Lock()
+				defer lsn.ReqsMu.Unlock()
+				lsn.Reqs = append(lsn.Reqs, toRetry...)
 				lsn.pruneConfirmedRequestCounts()
 			})
 		}
 	}
 }
 
-func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
-	lsn.l.Infow("Listening for run requests",
-		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
+func (lsn *Listener) runLogListener(unsubscribes []func(), minConfs uint32) {
+	lsn.L.Infow("Listening for run requests",
+		"gasLimit", lsn.Cfg.EvmGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
 		select {
-		case <-lsn.chStop:
+		case <-lsn.ChStop:
 			for _, f := range unsubscribes {
 				f()
 			}
-			lsn.waitOnStop <- struct{}{}
+			lsn.WaitOnStop <- struct{}{}
 			return
-		case <-lsn.reqLogs.Notify():
+		case <-lsn.ReqLogs.Notify():
 			// Process all the logs in the queue if one is added
 			for {
-				lb, exists := lsn.reqLogs.Retrieve()
+				lb, exists := lsn.ReqLogs.Retrieve()
 				if !exists {
 					break
 				}
-				recovery.WrapRecover(lsn.l, func() {
+				recovery.WrapRecover(lsn.L, func() {
 					lsn.handleLog(lb, minConfs)
 				})
 			}
@@ -253,8 +254,8 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 	}
 }
 
-func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
-	lggr := lsn.l.With(
+func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
+	lggr := lsn.L.With(
 		"log", lb.String(),
 		"decodedLog", lb.DecodedLog(),
 		"blockNumber", lb.RawLog().BlockNumber,
@@ -269,18 +270,18 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
-		lsn.respCountMu.Lock()
-		lsn.respCount[v.RequestId]++
-		lsn.blockNumberToReqID.Insert(fulfilledReq{
+		lsn.RespCountMu.Lock()
+		lsn.RespCount[v.RequestId]++
+		lsn.BlockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
 		})
-		lsn.respCountMu.Unlock()
+		lsn.RespCountMu.Unlock()
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
-	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
+	req, err := lsn.Coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		lggr.Errorw("Failed to parse RandomnessRequest log", "err", err)
 		if !lsn.shouldProcessLog(lb) {
@@ -291,15 +292,15 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	}
 
 	confirmedAt := lsn.getConfirmedAt(req, minConfs)
-	lsn.reqsMu.Lock()
-	lsn.reqs = append(lsn.reqs, request{
+	lsn.ReqsMu.Lock()
+	lsn.Reqs = append(lsn.Reqs, request{
 		confirmedAtBlock: confirmedAt,
 		req:              req,
 		lb:               lb,
 		utcTimestamp:     time.Now().UTC(),
 	})
-	lsn.reqAdded()
-	lsn.reqsMu.Unlock()
+	lsn.ReqAdded()
+	lsn.ReqsMu.Unlock()
 	lggr.Infow("Enqueued randomness request",
 		"requestID", hex.EncodeToString(req.RequestID[:]),
 		"requestJobID", hex.EncodeToString(req.JobID[:]),
@@ -309,25 +310,25 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 		"txHash", lb.RawLog().TxHash)
 }
 
-func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+func (lsn *Listener) shouldProcessLog(lb log.Broadcast) bool {
+	consumed, err := lsn.LogBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.L.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
 	return !consumed
 }
 
-func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
-	err := lsn.logBroadcaster.MarkConsumed(lb)
-	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
+func (lsn *Listener) markLogAsConsumed(lb log.Broadcast) {
+	err := lsn.LogBroadcaster.MarkConsumed(lb)
+	lsn.L.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
-func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
-	lsn.respCountMu.Lock()
-	defer lsn.respCountMu.Unlock()
-	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
+func (lsn *Listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
+	lsn.RespCountMu.Lock()
+	defer lsn.RespCountMu.Unlock()
+	newConfs := uint64(minConfs) * (1 << lsn.RespCount[req.RequestID])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
 	// in the contract so if it was older than that, fulfillments would start failing
 	// without the blockhash store feeder. We use 200 to give the node plenty of time
@@ -335,27 +336,27 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 	if newConfs > 200 {
 		newConfs = 200
 	}
-	if lsn.respCount[req.RequestID] > 0 {
-		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
+	if lsn.RespCount[req.RequestID] > 0 {
+		lsn.L.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
 			"requestID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
-		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+		vrfcommon.IncDupeReqs(lsn.Job.Name.ValueOrZero(), lsn.Job.ExternalJobID, vrfcommon.V1)
 	}
 	return req.Raw.BlockNumber + newConfs
 }
 
 // ProcessRequest attempts to process the VRF request. Returns true if successful, false otherwise.
-func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
+func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
 	if !lsn.shouldProcessLog(req.lb) {
 		return true
 	}
 
-	lggr := lsn.l.With(
+	lggr := lsn.L.With(
 		"log", req.lb.String(),
 		"requestID", hex.EncodeToString(req.req.RequestID[:]),
 		"txHash", req.req.Raw.TxHash,
@@ -383,7 +384,7 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	m := mathutil.Max(req.confirmedAtBlock, lsn.getLatestHead()-5)
 	ctx, cancel := context.WithTimeout(ctx, callbacksTimeout)
 	defer cancel()
-	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
+	callback, err := lsn.Coordinator.Callbacks(&bind.CallOpts{
 		BlockNumber: big.NewInt(int64(m)),
 		Context:     ctx,
 	}, req.req.RequestID)
@@ -398,7 +399,7 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	}
 
 	// Check if we can ignore the request due to its age.
-	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
+	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.Job.VRFSpec.RequestTimeout {
 		lggr.Infow("Request too old, dropping it")
 		lsn.markLogAsConsumed(req.lb)
 		return true
@@ -408,10 +409,10 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"databaseID":    lsn.job.ID,
-			"externalJobID": lsn.job.ExternalJobID,
-			"name":          lsn.job.Name.ValueOrZero(),
-			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
+			"databaseID":    lsn.Job.ID,
+			"externalJobID": lsn.Job.ExternalJobID,
+			"name":          lsn.Job.Name.ValueOrZero(),
+			"publicKey":     lsn.Job.VRFSpec.PublicKey[:],
 			"from":          lsn.fromAddresses(),
 		},
 		"jobRun": map[string]interface{}{
@@ -423,11 +424,11 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 		},
 	})
 
-	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
+	run := pipeline.NewRun(*lsn.Job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.pipelineRunner.Run(ctx, &run, lggr, true, func(tx pg.Queryer) error {
+	if _, err = lsn.PipelineRunner.Run(ctx, &run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.LogBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
@@ -450,49 +451,49 @@ func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	// At this point, the pipeline run executed successfully, and we mark
 	// the request as processed.
 	lggr.Infow("Executed VRFV1 fulfillment run")
-	incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+	vrfcommon.IncProcessedReqs(lsn.Job.Name.ValueOrZero(), lsn.Job.ExternalJobID, vrfcommon.V1)
 	return true
 }
 
 // Close complies with job.Service
-func (lsn *listenerV1) Close() error {
+func (lsn *Listener) Close() error {
 	return lsn.StopOnce("VRFListener", func() error {
-		close(lsn.chStop)
-		<-lsn.waitOnStop // Log listenerV1
-		<-lsn.waitOnStop // Head listenerV1
-		return lsn.reqLogs.Close()
+		close(lsn.ChStop)
+		<-lsn.WaitOnStop // Log Listener
+		<-lsn.WaitOnStop // Head Listener
+		return lsn.ReqLogs.Close()
 	})
 }
 
-func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
-	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
-		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+func (lsn *Listener) HandleLog(lb log.Broadcast) {
+	if !lsn.Deduper.ShouldDeliver(lb.RawLog()) {
+		lsn.L.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
 		return
 	}
 
-	wasOverCapacity := lsn.reqLogs.Deliver(lb)
+	wasOverCapacity := lsn.ReqLogs.Deliver(lb)
 	if wasOverCapacity {
-		lsn.l.Error("log mailbox is over capacity - dropped the oldest log")
-		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
+		lsn.L.Error("log mailbox is over capacity - dropped the oldest log")
+		vrfcommon.IncDroppedReqs(lsn.Job.Name.ValueOrZero(), lsn.Job.ExternalJobID, vrfcommon.V1, vrfcommon.ReasonMailboxSize)
 	}
 }
 
-func (lsn *listenerV1) fromAddresses() []common.Address {
+func (lsn *Listener) fromAddresses() []common.Address {
 	var addresses []common.Address
-	for _, a := range lsn.job.VRFSpec.FromAddresses {
+	for _, a := range lsn.Job.VRFSpec.FromAddresses {
 		addresses = append(addresses, a.Address())
 	}
 	return addresses
 }
 
 // Job complies with log.Listener
-func (lsn *listenerV1) JobID() int32 {
-	return lsn.job.ID
+func (lsn *Listener) JobID() int32 {
+	return lsn.Job.ID
 }
 
 // ReplayStartedCallback is called by the log broadcaster when a replay is about to start.
-func (lsn *listenerV1) ReplayStartedCallback() {
-	// Clear the log deduper cache so that we don't incorrectly ignore logs that have been sent that
+func (lsn *Listener) ReplayStartedCallback() {
+	// Clear the log Deduper cache so that we don't incorrectly ignore logs that have been sent that
 	// are already in the cache.
-	lsn.deduper.clear()
+	lsn.Deduper.Clear()
 }

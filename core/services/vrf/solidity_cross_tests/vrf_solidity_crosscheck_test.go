@@ -1,19 +1,23 @@
-package vrf_test
+package solidity_cross_tests_test
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	mrand "math/rand"
+	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -22,41 +26,50 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// Note these tests are identical to the ones in vrf_solidity_crosscheck_test.go,
-// (with the exception of TestVRFV08_InvalidPointCoordinates which is a new check in v0.8)
-// except we are testing against the v0.8 implementation of VRF.sol.
-func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
+// Cross-checks of golang implementation details vs corresponding solidity
+// details.
+//
+// It's worth automatically checking these implementation details because they
+// can help to quickly locate any disparity between the solidity and golang
+// implementations.
+
+// deployVRFContract returns the wrapper of the EVM verifier contract.
+//
+// NB: For changes to the VRF solidity code to be reflected here, "go generate"
+// must be run in core/services/vrf.
+//
+// TODO(alx): This suit used to be much faster, presumably because all tests
+// were sharing a common global verifier (which is fine, because all methods are
+// pure.) Revert to that, and see if it helps.
+func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	auth := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return verifier
 }
 
-func TestVRFV08_InvalidPointCoordinates(t *testing.T) {
-	verifier := deployVRFV08TestHelper(t)
-	// A value outside [0, ..., FIELD_SIZE-1] should fail
-	_, err := verifier.IsOnCurve(nil,
-		[2]*big.Int{big.NewInt(10), secp256k1.FieldSize})
-	require.Error(t, err)
-	assert.Equal(t, err.Error(), "execution reverted: invalid y-ordinate")
-	_, err = verifier.IsOnCurve(nil,
-		[2]*big.Int{secp256k1.FieldSize, big.NewInt(10)})
-	require.Error(t, err)
-	assert.Equal(t, err.Error(), "execution reverted: invalid x-ordinate")
-	// Values inside should succeed
-	_, err = verifier.IsOnCurve(nil,
-		[2]*big.Int{big.NewInt(10), big.NewInt(0).Sub(secp256k1.FieldSize, big.NewInt(1))})
-	require.NoError(t, err)
-	_, err = verifier.IsOnCurve(nil,
-		[2]*big.Int{big.NewInt(0).Sub(secp256k1.FieldSize, big.NewInt(1)), big.NewInt(10)})
-	require.NoError(t, err)
+// randomUint256 deterministically simulates a uniform sample of uint256's,
+// given r's seed
+//
+// Never use this if cryptographic security is required
+func randomUint256(t *testing.T, r *mrand.Rand) *big.Int {
+	b := make([]byte, 32)
+	_, err := r.Read(b)
+	require.NoError(t, err, "failed to read random sample") // deterministic, though
+	return big.NewInt(0).SetBytes(b)
 }
 
-func TestVRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
+// numSamples returns the number of examples which should be checked, in
+// generative tests
+func numSamples() int {
+	return 10
+}
+
+func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(11))
 	for j := 0; j < numSamples(); j++ {
@@ -65,7 +78,7 @@ func TestVRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
 		px, py := secp256k1.Coordinates(p)
 		qx, qy := secp256k1.Coordinates(q)
 		actualX, actualY, actualZ := vrfkey.ProjectiveECAdd(p, q)
-		verifier := deployVRFV08TestHelper(t)
+		verifier := deployVRFTestHelper(t)
 		expectedX, expectedY, expectedZ, err := verifier.ProjectiveECAdd(
 			nil, px, py, qx, qy)
 		require.NoError(t, err, "failed to compute secp256k1 sum in projective coords")
@@ -75,13 +88,13 @@ func TestVRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareBigModExpToVerifier(t *testing.T) {
+func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(0))
 	for j := 0; j < numSamples(); j++ {
 		base := randomUint256(t, r)
 		exponent := randomUint256(t, r)
-		actual, err := deployVRFV08TestHelper(t).BigModExp(nil, base, exponent)
+		actual, err := deployVRFTestHelper(t).BigModExp(nil, base, exponent)
 		require.NoError(t, err, "while computing bigmodexp on-chain")
 		expected := big.NewInt(0).Exp(base, exponent, vrfkey.FieldSize)
 		assert.Equal(t, expected, actual,
@@ -90,12 +103,12 @@ func TestVRFV08_CompareBigModExpToVerifier(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareSquareRoot(t *testing.T) {
+func TestVRF_CompareSquareRoot(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(1))
 	for j := 0; j < numSamples(); j++ {
 		maybeSquare := randomUint256(t, r) // Might not be square; should get same result anyway
-		squareRoot, err := deployVRFV08TestHelper(t).SquareRoot(nil, maybeSquare)
+		squareRoot, err := deployVRFTestHelper(t).SquareRoot(nil, maybeSquare)
 		require.NoError(t, err, "failed to compute square root on-chain")
 		golangSquareRoot := vrfkey.SquareRoot(maybeSquare)
 		assert.Equal(t, golangSquareRoot, squareRoot,
@@ -111,26 +124,26 @@ func TestVRFV08_CompareSquareRoot(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareYSquared(t *testing.T) {
+func TestVRF_CompareYSquared(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(2))
 	for i := 0; i < numSamples(); i++ {
 		x := randomUint256(t, r)
-		actual, err := deployVRFV08TestHelper(t).YSquared(nil, x)
+		actual, err := deployVRFTestHelper(t).YSquared(nil, x)
 		require.NoError(t, err, "failed to compute y² given x, on-chain")
 		assert.Equal(t, vrfkey.YSquared(x), actual,
 			"different answers for y², on-chain vs off-chain")
 	}
 }
 
-func TestVRFV08_CompareFieldHash(t *testing.T) {
+func TestVRF_CompareFieldHash(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(3))
 	msg := make([]byte, 32)
 	for j := 0; j < numSamples(); j++ {
 		_, err := r.Read(msg)
 		require.NoError(t, err, "failed to randomize intended hash message")
-		actual, err := deployVRFV08TestHelper(t).FieldHash(nil, msg)
+		actual, err := deployVRFTestHelper(t).FieldHash(nil, msg)
 		require.NoError(t, err, "failed to compute fieldHash on-chain")
 		expected := vrfkey.FieldHash(msg)
 		require.Equal(t, expected, actual,
@@ -141,28 +154,28 @@ func TestVRFV08_CompareFieldHash(t *testing.T) {
 // randomKey deterministically generates a secp256k1 key.
 //
 // Never use this if cryptographic security is required
-//func randomKey(t *testing.T, r *mrand.Rand) *ecdsa.PrivateKey {
-//	secretKey := vrfkey.FieldSize
-//	for secretKey.Cmp(vrfkey.FieldSize) >= 0 { // Keep picking until secretKey < fieldSize
-//		secretKey = randomUint256(t, r)
-//	}
-//	cKey := crypto.ToECDSAUnsafe(secretKey.Bytes())
-//	return cKey
-//}
-//
+func randomKey(t *testing.T, r *mrand.Rand) *ecdsa.PrivateKey {
+	secretKey := vrfkey.FieldSize
+	for secretKey.Cmp(vrfkey.FieldSize) >= 0 { // Keep picking until secretKey < fieldSize
+		secretKey = randomUint256(t, r)
+	}
+	cKey := crypto.ToECDSAUnsafe(secretKey.Bytes())
+	return cKey
+}
+
 // pair returns the inputs as a length-2 big.Int array. Useful for translating
 // coordinates to the uint256[2]'s VRF.sol uses to represent secp256k1 points.
-//func pair(x, y *big.Int) [2]*big.Int   { return [2]*big.Int{x, y} }
-//func asPair(p kyber.Point) [2]*big.Int { return pair(secp256k1.Coordinates(p)) }
+func pair(x, y *big.Int) [2]*big.Int   { return [2]*big.Int{x, y} }
+func asPair(p kyber.Point) [2]*big.Int { return pair(secp256k1.Coordinates(p)) }
 
-func TestVRFV08_CompareHashToCurve(t *testing.T) {
+func TestVRF_CompareHashToCurve(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(4))
 	for i := 0; i < numSamples(); i++ {
 		input := randomUint256(t, r)
 		cKey := randomKey(t, r)
 		pubKeyCoords := pair(cKey.X, cKey.Y)
-		actual, err := deployVRFV08TestHelper(t).HashToCurve(nil, pubKeyCoords, input)
+		actual, err := deployVRFTestHelper(t).HashToCurve(nil, pubKeyCoords, input)
 		require.NoError(t, err, "failed to compute hashToCurve on-chain")
 		pubKeyPoint := secp256k1.SetCoordinates(cKey.X, cKey.Y)
 		expected, err := vrfkey.HashToCurve(pubKeyPoint, input, func(*big.Int) {})
@@ -176,37 +189,37 @@ func TestVRFV08_CompareHashToCurve(t *testing.T) {
 // given r's seed
 //
 // Never use this if cryptographic security is required
-//func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
-//	p, err := vrfkey.HashToCurve(vrfkey.Generator, randomUint256(t, r), func(*big.Int) {})
-//	require.NoError(t, err,
-//		"failed to hash random value to secp256k1 while generating random point")
-//	if r.Int63n(2) == 1 { // Uniform sample of ±p
-//		p.Neg(p)
-//	}
-//	return p
-//}
-//
-//// randomPointWithPair returns a random secp256k1, both as a kyber.Point and as
-//// a pair of *big.Int's. Useful for translating between the types needed by the
-//// golang contract wrappers.
-//func randomPointWithPair(t *testing.T, r *mrand.Rand) (kyber.Point, [2]*big.Int) {
-//	p := randomPoint(t, r)
-//	return p, asPair(p)
-//}
+func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
+	p, err := vrfkey.HashToCurve(vrfkey.Generator, randomUint256(t, r), func(*big.Int) {})
+	require.NoError(t, err,
+		"failed to hash random value to secp256k1 while generating random point")
+	if r.Int63n(2) == 1 { // Uniform sample of ±p
+		p.Neg(p)
+	}
+	return p
+}
+
+// randomPointWithPair returns a random secp256k1, both as a kyber.Point and as
+// a pair of *big.Int's. Useful for translating between the types needed by the
+// golang contract wrappers.
+func randomPointWithPair(t *testing.T, r *mrand.Rand) (kyber.Point, [2]*big.Int) {
+	p := randomPoint(t, r)
+	return p, asPair(p)
+}
 
 // randomScalar deterministically simulates a uniform sample of secp256k1
 // scalars, given r's seed
 //
 // Never use this if cryptographic security is required
-//func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
-//	s := randomUint256(t, r)
-//	for s.Cmp(secp256k1.GroupOrder) >= 0 {
-//		s = randomUint256(t, r)
-//	}
-//	return secp256k1.IntToScalar(s)
-//}
+func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
+	s := randomUint256(t, r)
+	for s.Cmp(secp256k1.GroupOrder) >= 0 {
+		s = randomUint256(t, r)
+	}
+	return secp256k1.IntToScalar(s)
+}
 
-func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
+func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(5))
 	for j := 0; j < numSamples(); j++ {
@@ -214,7 +227,7 @@ func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
 		p2 := randomPoint(t, r)
 		p1x, p1y := secp256k1.Coordinates(p1)
 		p2x, p2y := secp256k1.Coordinates(p2)
-		psx, psy, psz, err := deployVRFV08TestHelper(t).ProjectiveECAdd(
+		psx, psy, psz, err := deployVRFTestHelper(t).ProjectiveECAdd(
 			nil, p1x, p1y, p2x, p2y)
 		require.NoError(t, err, "failed to compute ProjectiveECAdd, on-chain")
 		apx, apy, apz := vrfkey.ProjectiveECAdd(p1, p2)
@@ -224,7 +237,7 @@ func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
 		require.Equal(t, big.NewInt(1).Mod(big.NewInt(1).Mul(psz, zInv),
 			vrfkey.FieldSize), big.NewInt(1),
 			"failed to calculate correct inverse of z ordinate")
-		actualSum, err := deployVRFV08TestHelper(t).AffineECAdd(
+		actualSum, err := deployVRFTestHelper(t).AffineECAdd(
 			nil, pair(p1x, p1y), pair(p2x, p2y), zInv)
 		require.NoError(t, err,
 			"failed to deploy VRF contract to simulated blockchain")
@@ -234,7 +247,7 @@ func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CheckSolidityECMulVerify(t *testing.T) {
+func TestVRF_CheckSolidityECMulVerify(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(6))
 	for j := 0; j < numSamples(); j++ {
@@ -242,12 +255,12 @@ func TestVRFV08_CheckSolidityECMulVerify(t *testing.T) {
 		pxy := pair(secp256k1.Coordinates(p))
 		s := randomScalar(t, r)
 		product := asPair((&secp256k1.Secp256k1{}).Point().Mul(s, p))
-		actual, err := deployVRFV08TestHelper(t).EcmulVerify(nil, pxy, secp256k1.ToInt(s),
+		actual, err := deployVRFTestHelper(t).EcmulVerify(nil, pxy, secp256k1.ToInt(s),
 			product)
 		require.NoError(t, err, "failed to check on-chain that s*p=product")
 		assert.True(t, actual,
 			"EcmulVerify rejected a valid secp256k1 scalar product relation")
-		shouldReject, err := deployVRFV08TestHelper(t).EcmulVerify(nil, pxy,
+		shouldReject, err := deployVRFTestHelper(t).EcmulVerify(nil, pxy,
 			big.NewInt(0).Add(secp256k1.ToInt(s), big.NewInt(1)), product)
 		require.NoError(t, err, "failed to check on-chain that (s+1)*p≠product")
 		assert.False(t, shouldReject,
@@ -255,7 +268,7 @@ func TestVRFV08_CheckSolidityECMulVerify(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
+func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(7))
 	for j := 0; j < numSamples(); j++ {
@@ -267,13 +280,13 @@ func TestVRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) 
 			(&secp256k1.Secp256k1{}).Point().Mul(s, vrfkey.Generator)) // cp+sg
 		expectedAddress := secp256k1.EthereumAddress(expectedPoint)
 		pPair := asPair(p)
-		actual, err := deployVRFV08TestHelper(t).VerifyLinearCombinationWithGenerator(nil,
+		actual, err := deployVRFTestHelper(t).VerifyLinearCombinationWithGenerator(nil,
 			secp256k1.ToInt(c), pPair, secp256k1.ToInt(s), expectedAddress)
 		require.NoError(t, err,
 			"failed to check on-chain that secp256k1 linear relationship holds")
 		assert.True(t, actual,
 			"VerifyLinearCombinationWithGenerator rejected a valid secp256k1 linear relationship")
-		shouldReject, err := deployVRFV08TestHelper(t).VerifyLinearCombinationWithGenerator(nil,
+		shouldReject, err := deployVRFTestHelper(t).VerifyLinearCombinationWithGenerator(nil,
 			big.NewInt(0).Add(secp256k1.ToInt(c), big.NewInt(1)), pPair,
 			secp256k1.ToInt(s), expectedAddress)
 		require.NoError(t, err,
@@ -283,7 +296,7 @@ func TestVRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) 
 	}
 }
 
-func TestVRFV08_CheckSolidityLinearComination(t *testing.T) {
+func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(8))
 	for j := 0; j < numSamples(); j++ {
@@ -300,27 +313,27 @@ func TestVRFV08_CheckSolidityLinearComination(t *testing.T) {
 		expected := asPair((&secp256k1.Secp256k1{}).Point().Add(cp1, sp2))
 		_, _, z := vrfkey.ProjectiveECAdd(cp1, sp2)
 		zInv := big.NewInt(0).ModInverse(z, vrfkey.FieldSize)
-		actual, err := deployVRFV08TestHelper(t).LinearCombination(nil, cNum, p1Pair,
+		actual, err := deployVRFTestHelper(t).LinearCombination(nil, cNum, p1Pair,
 			cp1Pair, sNum, p2Pair, sp2Pair, zInv)
 		require.NoError(t, err, "failed to compute c*p1+s*p2, on-chain")
 		assert.Equal(t, expected, actual,
 			"on-chain computation of c*p1+s*p2 gave wrong answer")
-		_, err = deployVRFV08TestHelper(t).LinearCombination(nil, big.NewInt(0).Add(
+		_, err = deployVRFTestHelper(t).LinearCombination(nil, big.NewInt(0).Add(
 			cNum, big.NewInt(1)), p1Pair, cp1Pair, sNum, p2Pair, sp2Pair, zInv)
 		assert.Error(t, err,
 			"on-chain LinearCombination accepted a bad product relation! ((c+1)*p1)")
-		assert.Contains(t, err.Error(), "First mul check failed",
+		assert.Contains(t, err.Error(), "First multiplication check failed",
 			"revert message wrong.")
-		_, err = deployVRFV08TestHelper(t).LinearCombination(nil, cNum, p1Pair,
+		_, err = deployVRFTestHelper(t).LinearCombination(nil, cNum, p1Pair,
 			cp1Pair, big.NewInt(0).Add(sNum, big.NewInt(1)), p2Pair, sp2Pair, zInv)
 		assert.Error(t, err,
 			"on-chain LinearCombination accepted a bad product relation! ((s+1)*p2)")
-		assert.Contains(t, err.Error(), "Second mul check failed",
+		assert.Contains(t, err.Error(), "Second multiplication check failed",
 			"revert message wrong.")
 	}
 }
 
-func TestVRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
+func TestVRF_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(9))
 	for j := 0; j < numSamples(); j++ {
@@ -332,7 +345,7 @@ func TestVRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 			"failed to randomize uWitness")
 		v, vPair := randomPointWithPair(t, r)
 		expected := vrfkey.ScalarFromCurvePoints(hash, pk, gamma, uWitness, v)
-		actual, err := deployVRFV08TestHelper(t).ScalarFromCurvePoints(nil, hashPair, pkPair,
+		actual, err := deployVRFTestHelper(t).ScalarFromCurvePoints(nil, hashPair, pkPair,
 			gammaPair, uWitness, vPair)
 		require.NoError(t, err, "on-chain ScalarFromCurvePoints calculation failed")
 		assert.Equal(t, expected, actual,
@@ -340,7 +353,7 @@ func TestVRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	}
 }
 
-func TestVRFV08_MarshalProof(t *testing.T) {
+func TestVRF_MarshalProof(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(10))
 	for j := 0; j < numSamples(); j++ {
@@ -351,27 +364,33 @@ func TestVRFV08_MarshalProof(t *testing.T) {
 		randomSeed := randomUint256(t, r)
 		proof, err := pk.GenerateProofWithNonce(randomSeed, secp256k1.ToInt(nonce))
 		require.NoError(t, err, "failed to generate VRF proof!")
+		mproof, err := proof2.MarshalForSolidityVerifier(&proof)
 		require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
-		seed, err := proof2.BigToSeed(randomSeed)
-		require.NoError(t, err)
-		// Don't care about the request commitment for this test.
-		solProof, _, err := proof2.GenerateProofResponseFromProofV2(proof, proof2.PreSeedDataV2{
-			PreSeed: seed,
-		})
-		require.NoError(t, err)
-		response, err := deployVRFV08TestHelper(t).RandomValueFromVRFProof(nil, solidity_vrf_v08_verifier_wrapper.VRFProof{
-			Pk:            solProof.Pk,
-			Gamma:         solProof.Gamma,
-			C:             solProof.C,
-			S:             solProof.S,
-			Seed:          solProof.Seed,
-			UWitness:      solProof.UWitness,
-			CGammaWitness: solProof.CGammaWitness,
-			SHashWitness:  solProof.SHashWitness,
-			ZInv:          solProof.ZInv,
-		}, randomSeed)
+		response, err := deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
 		require.True(t, response.Cmp(proof.Output) == 0,
 			"on-chain VRF output differs from off-chain!")
+		corruptionTargetByte := r.Int63n(int64(len(mproof)))
+		// Only the lower 160 bits of the word containing uWitness have any effect
+		inAddressZeroBytes := func(b int64) bool { return b >= 224 && b < 236 }
+		originalByte := mproof[corruptionTargetByte]
+		mproof[corruptionTargetByte]++
+		_, err = deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
+		require.True(t, inAddressZeroBytes(corruptionTargetByte) || err != nil,
+			"VRF verification accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
+			corruptionTargetByte, originalByte, mproof[corruptionTargetByte],
+			mproof.String(), len(mproof))
+		require.True(t,
+			inAddressZeroBytes(corruptionTargetByte) ||
+				strings.Contains(err.Error(), "invZ must be inverse of z") ||
+				strings.Contains(err.Error(), "First multiplication check failed") ||
+				strings.Contains(err.Error(), "Second multiplication check failed") ||
+				strings.Contains(err.Error(), "cGammaWitness is not on curve") ||
+				strings.Contains(err.Error(), "sHashWitness is not on curve") ||
+				strings.Contains(err.Error(), "gamma is not on curve") ||
+				strings.Contains(err.Error(), "addr(c*pk+s*g)≠_uWitness") ||
+				strings.Contains(err.Error(), "public key is not on curve"),
+			"VRF verification returned an unknown error: %s", err,
+		)
 	}
 }

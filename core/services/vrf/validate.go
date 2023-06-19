@@ -42,6 +42,11 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
+
+	if spec.CoordinatorV25Address != "" && spec.CoordinatorAddress != "" {
+		return jb, errors.New("cannot specify both coordinatorAddress and coordinatorV25Address")
+	}
+
 	var empty secp256k1.PublicKey
 	if bytes.Equal(spec.PublicKey[:], empty[:]) {
 		return jb, errors.Wrap(ErrKeyNotSet, "publicKey")

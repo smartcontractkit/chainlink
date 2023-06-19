@@ -1,4 +1,4 @@
-package vrf
+package v2
 
 import (
 	"math/big"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -44,7 +45,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address) *
 			&result.run,
 		},
 		reqIDs: []*big.Int{
-			result.req.req.RequestId,
+			result.req.req.RequestID(),
 		},
 		lbs: []log.Broadcast{
 			result.req.lb,
@@ -53,7 +54,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address) *
 			result.maxLink,
 		},
 		txHashes: []common.Hash{
-			result.req.req.Raw.TxHash,
+			result.req.req.Raw().TxHash,
 		},
 		fromAddress: fromAddress,
 	}
@@ -93,10 +94,10 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			currBatch.commitments = append(currBatch.commitments, batch_vrf_coordinator_v2.VRFTypesRequestCommitment(result.reqCommitment))
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, &result.run)
-			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestId)
+			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
 			currBatch.lbs = append(currBatch.lbs, result.req.lb)
 			currBatch.maxLinks = append(currBatch.maxLinks, result.maxLink)
-			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw.TxHash)
+			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw().TxHash)
 		}
 	}
 }
@@ -181,7 +182,7 @@ func (lsn *listenerV2) processBatch(
 	// to the txm.
 	for _, reqID := range batch.reqIDs {
 		processedRequestIDs = append(processedRequestIDs, reqID.String())
-		incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
+		vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2)
 	}
 
 	ll.Infow("Successfully enqueued batch", "duration", time.Since(start))
@@ -196,11 +197,11 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 		// Check if we can ignore the request due to its age.
 		if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
 			l.Infow("Request too old, dropping it",
-				"reqID", req.req.RequestId.String(),
-				"txHash", req.req.Raw.TxHash)
+				"reqID", req.req.RequestID().String(),
+				"txHash", req.req.Raw().TxHash)
 			lsn.markLogAsConsumed(req.lb)
-			processed = append(processed, req.req.RequestId.String())
-			incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, reasonAge)
+			processed = append(processed, req.req.RequestID().String())
+			vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, vrfcommon.ReasonAge)
 			continue
 		}
 
@@ -210,11 +211,11 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 		if err != nil {
 			// Do not process for now, retry on next iteration.
 			l.Errorw("Could not determine if log was already consumed",
-				"reqID", req.req.RequestId.String(),
-				"txHash", req.req.Raw.TxHash,
+				"reqID", req.req.RequestID().String(),
+				"txHash", req.req.Raw().TxHash,
 				"error", err)
 		} else if consumed {
-			processed = append(processed, req.req.RequestId.String())
+			processed = append(processed, req.req.RequestID().String())
 		} else {
 			unconsumed = append(unconsumed, req)
 		}
