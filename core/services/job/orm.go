@@ -241,6 +241,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			if jb.OCR2OracleSpec.PluginType == Mercury {
+				if jb.ForwardingAllowed {
+					return errors.New("forwarding is not currently supported for mercury jobs")
+				}
 				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
