@@ -192,13 +192,15 @@ async function getUpkeepID(tx: ContractTransaction): Promise<BigNumber> {
 }
 
 const getTriggerType = (upkeepIdParam: BigNumber): Trigger => {
-  const bytes = ethers.utils.arrayify(upkeepIdParam.toHexString())
+  // 4th to 15th bytes (0-index) of upkeepID signify the trigger type
+  const h = upkeepIdParam.toHexString()
   for (let idx = 4; idx < 15; idx++) {
-    if (bytes[idx] != 0) {
+    let byte = parseInt(h.substring(2 * idx + 2, 2 * idx + 4), 16)
+    if (byte != 0) {
       return Trigger.CONDITION
     }
   }
-  return bytes[15] as Trigger
+  return parseInt(h.substring(32, 34), 16) as Trigger
 }
 
 type OnchainConfig = {
