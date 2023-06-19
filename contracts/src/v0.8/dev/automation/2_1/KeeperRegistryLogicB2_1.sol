@@ -202,7 +202,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
-      lastPerformedBlockNumberOrTimestamp: reg.lastPerformedBlockNumberOrTimestamp,
+      lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
       amountSpent: reg.amountSpent,
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
@@ -278,11 +278,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
     require(getTriggerType(upkeepId) == Trigger.LOG);
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
-  }
-
-  function getCronTriggerConfig(uint256 upkeepId) public view returns (CronTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.CRON);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (CronTriggerConfig));
   }
 
   /**

@@ -160,8 +160,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   enum Trigger {
     CONDITION,
-    LOG,
-    CRON
+    LOG
   }
 
   enum UpkeepFailureReason {
@@ -249,7 +248,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member balance the balance of this upkeep
    * @member admin for this upkeep
    * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member amountSpent the amount this upkeep has spent
    * @member paused if this upkeep has been paused
    * @member skipSigVerification skip signature verification in transmit for a low security low cost model
@@ -262,7 +261,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 balance;
     address admin;
     uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumberOrTimestamp;
+    uint32 lastPerformedBlockNumber;
     uint96 amountSpent;
     bool paused;
     bytes offchainConfig;
@@ -276,7 +275,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paused if this upkeep has been paused
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
-   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member target the contract which needs to be serviced
    */
   struct Upkeep {
@@ -287,7 +286,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumber; // TODO time expires in 2100
     // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -384,13 +383,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice structure of trigger for cron triggers
-   */
-  struct CronTriggerConfig {
-    string cron; // cron string such as "* * * 0 0"
-  }
-
-  /**
    * @notice the trigger structure for both conditional and ready trigger types
    */
   struct BlockTrigger {
@@ -406,17 +398,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   struct LogTrigger {
     bytes32 txHash;
     uint32 logIndex;
-    uint32 blockNum;
-    bytes32 blockHash;
-  }
-
-  /**
-   * @notice the trigger structure of cron upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number where the cron tick occured
-   */
-  struct CronTrigger {
-    uint64 timestamp;
     uint32 blockNum;
     bytes32 blockHash;
   }
