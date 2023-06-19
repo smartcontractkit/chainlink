@@ -124,8 +124,8 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		BlockBackfillSkip() bool
-		EvmFinalityDepth() uint32
-		EvmLogBackfillBatchSize() uint32
+		FinalityDepth() uint32
+		LogBackfillBatchSize() uint32
 	}
 
 	ListenerOpts struct {
@@ -561,7 +561,7 @@ func (b *broadcaster) onNewHeads() {
 
 		b.lastSeenHeadNumber.Store(latestHead.Number)
 
-		keptLogsDepth := uint32(b.config.EvmFinalityDepth())
+		keptLogsDepth := uint32(b.config.FinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}

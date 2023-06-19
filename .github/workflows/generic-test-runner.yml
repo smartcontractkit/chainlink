@@ -50,10 +50,10 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@bc6e3b5cf369b76e361d372ceb7d144525635ce0 #v2.2.0
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -61,7 +61,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@2c9f401149f6c25fb632067b7e6626aebeee5d69
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@bc6e3b5cf369b76e361d372ceb7d144525635ce0 # v2.2.0
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -85,7 +85,7 @@ jobs:
       TEST_SUITE: ${{ github.event.inputs.directory }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Build Test Image
         uses: ./.github/actions/build-test-image
         with:
@@ -124,9 +124,9 @@ jobs:
       - name: Debug Input
         run: echo ${{ github.event.inputs.testInputs }}
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab7c0b6189783e8ee29ca4cefbec896b30819831 #v2.1.7
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc6e3b5cf369b76e361d372ceb7d144525635ce0 # v2.2.0
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 1h -count=1 ./${{ github.event.inputs.directory }} -run ${{ github.event.inputs.test }} -v -args ${{ github.event.inputs.test-inputs }}
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

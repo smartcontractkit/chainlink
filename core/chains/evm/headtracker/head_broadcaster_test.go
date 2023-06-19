@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -66,11 +67,11 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hb := headtracker.NewEVMHeadBroadcaster(logger)
+	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg, evmCfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewEVMHeadTracker(logger, ethClient, headtracker.NewWrappedConfig(evmCfg), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(logger, ethClient, headtracker.NewWrappedConfig(evmCfg), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
 	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
@@ -100,7 +101,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewEVMHeadBroadcaster(lggr)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -142,7 +143,7 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewEVMHeadBroadcaster(lggr)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -151,8 +152,8 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 
 	slowAwaiter := cltest.NewAwaiter()
 	fastAwaiter := cltest.NewAwaiter()
-	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: headtracker.TrackableCallbackTimeout * 2}
-	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: headtracker.TrackableCallbackTimeout / 2}
+	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: commonhtrk.TrackableCallbackTimeout * 2}
+	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: commonhtrk.TrackableCallbackTimeout / 2}
 	_, unsubscribe1 := broadcaster.Subscribe(slow)
 	_, unsubscribe2 := broadcaster.Subscribe(fast)
 
