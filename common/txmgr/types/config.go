@@ -5,10 +5,7 @@ import "time"
 type TransactionManagerConfig interface {
 	BroadcasterConfig
 	ConfirmerConfig
-	ResenderConfig
 	ReaperConfig
-
-	SequenceAutoSync() bool
 }
 
 type TransactionManagerTransactionsConfig interface {
@@ -37,7 +34,6 @@ type BroadcasterListenerConfig interface {
 }
 
 type ConfirmerConfig interface {
-	RPCDefaultBatchSize() uint32
 	FeeBumpTxDepth() uint32
 	FeeLimitDefault() uint32
 
@@ -46,6 +42,10 @@ type ConfirmerConfig interface {
 	FinalityDepth() uint32
 	MaxFeePrice() string // logging value
 	FeeBumpPercent() uint16
+}
+
+type ConfirmerChainConfig interface {
+	RPCDefaultBatchSize() uint32
 }
 
 type ConfirmerDatabaseConfig interface {
@@ -58,7 +58,7 @@ type ConfirmerTransactionsConfig interface {
 	ForwardersEnabled() bool
 }
 
-type ResenderConfig interface {
+type ResenderChainConfig interface {
 	RPCDefaultBatchSize() uint32
 }
 
