@@ -163,7 +163,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   enum Trigger {
     CONDITION,
     LOG
-    LOG
   }
 
   enum UpkeepFailureReason {
