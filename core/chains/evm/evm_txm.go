@@ -35,7 +35,7 @@ func newEvmTxm(
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
 		"maxInFlightTransactions", cfg.EVM().Transactions().MaxInFlight(),
 		"maxQueuedTransactions", cfg.EVM().Transactions().MaxQueued(),
-		"nonceAutoSync", cfg.EvmNonceAutoSync(),
+		"nonceAutoSync", cfg.EVM().NonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
 
@@ -50,6 +50,7 @@ func newEvmTxm(
 		txm, err = txmgr.NewTxm(
 			db,
 			cfg,
+			cfg.EVM(),
 			cfg.EVM().Transactions(),
 			cfg.Database(),
 			cfg.Database().Listener(),

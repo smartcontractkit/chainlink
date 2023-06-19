@@ -212,7 +212,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
-      lastPerformedBlockNumberOrTimestamp: reg.lastPerformedBlockNumberOrTimestamp,
+      lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
       amountSpent: reg.amountSpent,
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
@@ -288,11 +288,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
     require(getTriggerType(upkeepId) == Trigger.LOG);
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
-  }
-
-  function getCronTriggerConfig(uint256 upkeepId) public view returns (CronTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.CRON);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (CronTriggerConfig));
   }
 
   /**
@@ -377,17 +372,18 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @param id the upkeep id to calculate minimum balance for
    */
   function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(s_upkeep[id].executeGas);
+    return getMaxPaymentForGas(getTriggerType(id), s_upkeep[id].executeGas);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
+    return
+      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
   }
 
   /**

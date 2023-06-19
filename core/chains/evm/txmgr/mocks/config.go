@@ -178,34 +178,6 @@ func (_m *Config) EvmMinGasPriceWei() *assets.Wei {
 	return r0
 }
 
-// EvmNonceAutoSync provides a mock function with given fields:
-func (_m *Config) EvmNonceAutoSync() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// EvmRPCDefaultBatchSize provides a mock function with given fields:
-func (_m *Config) EvmRPCDefaultBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
 // KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
 func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	ret := _m.Called(addr)

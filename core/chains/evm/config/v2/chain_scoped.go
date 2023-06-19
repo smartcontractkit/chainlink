@@ -85,20 +85,44 @@ func (e *evmConfig) GasEstimator() config.GasEstimator {
 	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay}
 }
 
+func (e *evmConfig) AutoCreateKey() bool {
+	return *e.c.AutoCreateKey
+}
+
+func (e *evmConfig) BlockBackfillDepth() uint64 {
+	return uint64(*e.c.BlockBackfillDepth)
+}
+
+func (e *evmConfig) BlockBackfillSkip() bool {
+	return *e.c.BlockBackfillSkip
+}
+
+func (e *evmConfig) LogBackfillBatchSize() uint32 {
+	return *e.c.LogBackfillBatchSize
+}
+
+func (e *evmConfig) LogPollInterval() time.Duration {
+	return e.c.LogPollInterval.Duration()
+}
+
+func (e *evmConfig) FinalityDepth() uint32 {
+	return *e.c.FinalityDepth
+}
+
+func (e *evmConfig) LogKeepBlocksDepth() uint32 {
+	return *e.c.LogKeepBlocksDepth
+}
+
+func (e *evmConfig) NonceAutoSync() bool {
+	return *e.c.NonceAutoSync
+}
+
+func (e *evmConfig) RPCDefaultBatchSize() uint32 {
+	return *e.c.RPCDefaultBatchSize
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
-}
-
-func (c *ChainScoped) AutoCreateKey() bool {
-	return *c.cfg.AutoCreateKey
-}
-
-func (c *ChainScoped) BlockBackfillDepth() uint64 {
-	return uint64(*c.cfg.BlockBackfillDepth)
-}
-
-func (c *ChainScoped) BlockBackfillSkip() bool {
-	return *c.cfg.BlockBackfillSkip
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
@@ -107,10 +131,6 @@ func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 
 func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
 	return *c.cfg.GasEstimator.EIP1559DynamicFees
-}
-
-func (t *transactionsConfig) MaxQueued() uint64 {
-	return uint64(*t.c.MaxQueued)
 }
 
 func (c *ChainScoped) EvmFinalityDepth() uint32 {
@@ -199,26 +219,6 @@ func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
 
 func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
 	return c.cfg.GasEstimator.TipCapMin
-}
-
-func (c *ChainScoped) EvmLogBackfillBatchSize() uint32 {
-	return *c.cfg.LogBackfillBatchSize
-}
-
-func (c *ChainScoped) EvmLogPollInterval() time.Duration {
-	return c.cfg.LogPollInterval.Duration()
-}
-
-func (c *ChainScoped) EvmLogKeepBlocksDepth() uint32 {
-	return *c.cfg.LogKeepBlocksDepth
-}
-
-func (c *ChainScoped) EvmNonceAutoSync() bool {
-	return *c.cfg.NonceAutoSync
-}
-
-func (c *ChainScoped) EvmRPCDefaultBatchSize() uint32 {
-	return *c.cfg.RPCDefaultBatchSize
 }
 
 func (c *ChainScoped) FlagsContractAddress() string {
@@ -321,6 +321,10 @@ func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
 
 func (t *transactionsConfig) MaxInFlight() uint32 {
 	return *t.c.MaxInFlight
+}
+
+func (t *transactionsConfig) MaxQueued() uint64 {
+	return uint64(*t.c.MaxQueued)
 }
 
 type headTrackerConfig struct {

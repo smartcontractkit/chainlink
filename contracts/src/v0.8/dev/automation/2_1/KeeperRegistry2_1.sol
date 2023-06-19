@@ -88,6 +88,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       upkeepTransmitInfo[i].triggerType = getTriggerType(report.upkeepIds[i]);
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
+        upkeepTransmitInfo[i].triggerType,
         upkeepTransmitInfo[i].upkeep.executeGas,
         uint32(report.performDatas[i].length),
         report.fastGasWei,
@@ -144,6 +145,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
           upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
             gasOverhead,
+            upkeepTransmitInfo[i].triggerType,
             uint32(report.performDatas[i].length),
             hotVars.f
           );
@@ -424,8 +426,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
       if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
-    } else if (triggerType == Trigger.CRON) {
-      if (!_validateCronTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else {
       revert InvalidTriggerType();
     }
@@ -454,7 +454,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     Upkeep memory upkeep
   ) internal returns (bool) {
     BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
-    if (trigger.blockNum < upkeep.lastPerformedBlockNumberOrTimestamp) {
+    if (trigger.blockNum < upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
@@ -481,23 +481,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       return false;
     }
     s_observedLogTriggers[logTriggerID] = true;
-    return true;
-  }
-
-  function _validateCronTrigger(
-    uint256 upkeepId,
-    bytes memory rawTrigger,
-    Upkeep memory upkeep
-  ) internal returns (bool) {
-    CronTrigger memory trigger = abi.decode(rawTrigger, (CronTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.timestamp > block.timestamp) {
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
-      return false;
-    }
-    if (trigger.timestamp <= upkeep.lastPerformedBlockNumberOrTimestamp) {
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
-      return false;
-    }
     return true;
   }
 
@@ -534,9 +517,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    */
   function _updateLastPerformed(uint256 upkeepID, Trigger triggerType) private {
     if (triggerType == Trigger.CONDITION) {
-      s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(_blockNum());
-    } else if (triggerType == Trigger.CRON) {
-      s_upkeep[upkeepID].lastPerformedBlockNumberOrTimestamp = uint32(block.timestamp);
+      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
     }
   }
 
@@ -591,10 +572,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    */
   function _getCappedGasOverhead(
     uint256 calculatedGasOverhead,
+    Trigger triggerType,
     uint32 performDataLength,
     uint8 f
   ) private pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(performDataLength, f);
+    cappedGasOverhead = _getMaxGasOverhead(triggerType, performDataLength, f);
     if (calculatedGasOverhead < cappedGasOverhead) {
       return calculatedGasOverhead;
     }
