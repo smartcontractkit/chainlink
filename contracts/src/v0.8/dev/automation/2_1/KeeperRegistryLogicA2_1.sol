@@ -116,20 +116,54 @@ contract KeeperRegistryLogicA2_1 is
     (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
     if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
-      if (!upkeepNeeded)
+      // User's target check reverted. We capture the revert data here and pass it within
+      // performData. @dev performData is exploited here to refer to revert data
+      if (performData.length > s_storage.maxRevertDataSize) {
         return (
           false,
           bytes(""),
-          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
           gasUsed,
           upkeep.executeGas,
           fastGasWei,
           linkNative
         );
+      }
+      return (
+        upkeepNeeded,
+        performData,
+        UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
     }
+
+    try abi.decode(performData, (bool, bytes)) returns (bool un, bytes pd) {
+      upkeepNeeded = un;
+      performData = pd;
+    } catch {
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.INVALID_PAYLOAD,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
+    }
+    if (!upkeepNeeded)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
 
     if (performData.length > s_storage.maxPerformDataSize)
       return (
@@ -180,13 +214,22 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.CALLBACK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed, );
     }
+    try abi.decode(performData, (bool, bytes)) returns (bool un, bytes pd) {
+      upkeepNeeded = un;
+      performData = pd;
+    } catch {
+      return (false, bytes(""), UpkeepFailureReason.INVALID_PAYLOAD, gasUsed, );
+    }
+
     if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, );
     }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, );
+    }
+
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 
