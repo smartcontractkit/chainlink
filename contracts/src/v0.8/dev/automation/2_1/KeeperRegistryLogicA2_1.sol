@@ -113,12 +113,12 @@ contract KeeperRegistryLogicA2_1 is
       callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
     }
     gasUsed = gasleft();
-    (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
-    if (!upkeepNeeded) {
+    if (!success) {
       // User's target check reverted. We capture the revert data here and pass it within
-      // performData. @dev performData is exploited here to refer to revert data
-      if (performData.length > s_storage.maxRevertDataSize) {
+      // performData.
+      if (result.length > s_storage.maxRevertDataSize) {
         return (
           false,
           bytes(""),
@@ -131,7 +131,7 @@ contract KeeperRegistryLogicA2_1 is
       }
       return (
         upkeepNeeded,
-        performData,
+        result,
         UpkeepFailureReason.TARGET_CHECK_REVERTED,
         gasUsed,
         upkeep.executeGas,
@@ -140,7 +140,7 @@ contract KeeperRegistryLogicA2_1 is
       );
     }
 
-    try abi.decode(performData, (bool, bytes)) returns (bool un, bytes pd) {
+    try abi.decode(result, (bool, bytes)) returns (bool un, bytes pd) {
       upkeepNeeded = un;
       performData = pd;
     } catch {
@@ -214,17 +214,17 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed, );
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
     }
-    try abi.decode(performData, (bool, bytes)) returns (bool un, bytes pd) {
+    try abi.decode(result, (bool, bytes)) returns (bool un, bytes pd) {
       upkeepNeeded = un;
       performData = pd;
     } catch {
-      return (false, bytes(""), UpkeepFailureReason.INVALID_PAYLOAD, gasUsed, );
+      return (false, bytes(""), UpkeepFailureReason.INVALID_PAYLOAD, gasUsed);
     }
 
     if (!upkeepNeeded) {
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, );
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
     }
     if (performData.length > s_storage.maxPerformDataSize) {
       return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, );
