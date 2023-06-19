@@ -426,7 +426,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe.only('KeeperRegistry2_1', () => {
+describe('KeeperRegistry2_1', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -4881,9 +4881,7 @@ describe.only('KeeperRegistry2_1', () => {
   describe('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
     it('reverts when non manager tries to set privilege config', async () => {
       await evmRevert(
-        registry
-          .connect(payee3)
-          .setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
+        registry.connect(payee3).setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
         'OnlyCallableByUpkeepPrivilegeManager()',
       )
     })
