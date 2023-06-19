@@ -106,7 +106,7 @@ contract KeeperRegistryLogicA2_1 is
     upkeepNeeded = true;
 
     bytes memory callData;
-    if (triggerType == Trigger.CONDITION || triggerType == Trigger.CRON) {
+    if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
     } else {
       callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
@@ -208,7 +208,7 @@ contract KeeperRegistryLogicA2_1 is
         executeGas: gasLimit,
         balance: 0,
         maxValidBlocknumber: UINT32_MAX,
-        lastPerformedBlockNumberOrTimestamp: 0,
+        lastPerformedBlockNumber: 0,
         amountSpent: 0,
         paused: false,
         forwarder: forwarder
