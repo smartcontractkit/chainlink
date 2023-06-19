@@ -317,34 +317,32 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	if spec.Relay == relay.EVM {
-		chainID, err2 := spec.RelayConfig.EVMChainID()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
+		chainID, err := spec.RelayConfig.EVMChainID()
+		if err != nil {
+			return nil, errors.Wrap(err, "ServicesForSpec failed to get chainID")
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 
 		if spec.PluginType != job.Mercury {
-			if !common.IsHexAddress(transmitterID) {
-				return nil, errors.Errorf("transmitterID is not valid EVM hex address, got: %v", transmitterID)
-			}
 			if spec.RelayConfig["sendingKeys"] == nil {
 				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
 			}
+		}
 
-			chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-			if err2 != nil {
-				return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
+		// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+		// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
+		if jb.ForwardingAllowed {
+			chain, err := d.chainSet.Get(big.NewInt(chainID))
+			if err != nil {
+				return nil, errors.Wrap(err, "ServicesForSpec failed to get chainset")
 			}
 
-			// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
-			// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-			if jb.ForwardingAllowed { // FIXME: ForwardingAllowed cannot be set with Mercury, validate this
-				fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
-				if fwderr == nil {
-					effectiveTransmitterID = fwdrAddress.String()
-				} else {
-					lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
-				}
+			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
+			if fwderr == nil {
+				effectiveTransmitterID = fwdrAddress.String()
+			} else {
+				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
 			}
 		}
 	}
