@@ -36,7 +36,7 @@ func TestFunctionsConfigPoller(t *testing.T) {
 	// Test config poller for FunctionsPlugin
 	runTest(t, functions.FunctionsPlugin)
 	// Test config poller for ThresholdPlugin
-	//runTest(t, functions.ThresholdPlugin)
+	runTest(t, functions.ThresholdPlugin)
 	// TODO: Test config poller for S4Plugin (requires S4Plugin to be implemented & corresponding updates to pluginConfig)
 }
 
