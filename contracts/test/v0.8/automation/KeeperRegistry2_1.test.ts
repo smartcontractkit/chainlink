@@ -5301,7 +5301,7 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('transmitterPremiumSplit', () => {
+  describe('transmitterPremiumSplit [ @skip-coverage ]', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
       await registry.connect(owner).addFunds(upkeepId, toWei('100'))
