@@ -180,7 +180,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
 				b, err := json.Marshal(cfg)
 				assert.Nil(t, err)
-				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+				mockRegistry.On("GetUpkeepAdministrativeConfig", mock.Anything, upkeepId).Return(b, nil)
 				r.registry = mockRegistry
 			}
 
@@ -302,7 +302,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 
 			if tt.errorMessage != "" {
 				mockRegistry := mocks.NewRegistry(t)
-				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
+				mockRegistry.On("GetUpkeepAdministrativeConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
 				r.registry = mockRegistry
 			} else {
 				if tt.cached {
@@ -312,7 +312,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 					cfg := AdminOffchainConfig{MercuryEnabled: tt.allowed}
 					b, err := json.Marshal(cfg)
 					assert.Nil(t, err)
-					mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+					mockRegistry.On("GetUpkeepAdministrativeConfig", mock.Anything, upkeepId).Return(b, nil)
 					r.registry = mockRegistry
 				}
 			}
