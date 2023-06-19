@@ -183,14 +183,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint32(21000)
 	)
 
-	txm.On("CreateTransaction", txmgr.EvmTxRequest{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
 		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(txmgr.EvmTx{}, nil).Once()
+	}).Return(txmgr.Tx{}, nil).Once()
 
 	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

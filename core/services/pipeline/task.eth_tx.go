@@ -136,7 +136,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	txRequest := txmgr.EvmTxRequest{
+	txRequest := txmgr.TxRequest{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
@@ -165,8 +165,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	return Result{Value: nil}, runInfo
 }
 
-func decodeMeta(metaMap MapParam) (*txmgr.EvmTxMeta, error) {
-	var txMeta txmgr.EvmTxMeta
+func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
+	var txMeta txmgr.TxMeta
 	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
@@ -231,7 +231,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, e
 }
 
 // txMeta is really only used for logging, so this is best-effort
-func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EvmTxMeta) {
+func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.TxMeta) {
 	jobID, err := vars.Get("jobSpec.databaseID")
 	if err != nil {
 		return

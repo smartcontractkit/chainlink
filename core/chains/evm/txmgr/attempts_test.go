@@ -100,7 +100,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
 		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM(), newFeeConfig(), kst, nil)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
-		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
+		a, _, err := cks.NewCustomTxAttempt(txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 			DynamicTipCap: dynamicFee.TipCap,
 			DynamicFeeCap: dynamicFee.FeeCap,
 		}, 100, 0x2, lggr)
@@ -142,7 +142,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
 				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM(), cfg.EVM().GasEstimator(), kst, nil)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
-				_, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
+				_, _, err := cks.NewCustomTxAttempt(txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 					DynamicTipCap: dynamicFee.TipCap,
 					DynamicFeeCap: dynamicFee.FeeCap,
 				}, 100, 0x2, lggr)
@@ -172,7 +172,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n evmtypes.Nonce
-		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
+		a, _, err := cks.NewCustomTxAttempt(txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
 		assert.NotNil(t, a.TxFee.Legacy)
@@ -182,7 +182,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	})
 
 	t.Run("verifies max gas price", func(t *testing.T) {
-		_, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(100)}, 100, 0x0, lggr)
+		_, _, err := cks.NewCustomTxAttempt(txmgr.Tx{FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(100)}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 wei would exceed max configured gas price of 50 wei for key %s", addr.String()))
 	})
@@ -200,7 +200,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 	legacyFee := assets.NewWeiI(100)
 
 	t.Run("dynamic fee with legacy tx type", func(t *testing.T) {
-		_, retryable, err := cks.NewCustomTxAttempt(txmgr.EvmTx{}, gas.EvmFee{
+		_, retryable, err := cks.NewCustomTxAttempt(txmgr.Tx{}, gas.EvmFee{
 			DynamicTipCap: dynamicFee.TipCap,
 			DynamicFeeCap: dynamicFee.FeeCap,
 		}, 100, 0x0, lggr)
@@ -208,13 +208,13 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 		assert.False(t, retryable)
 	})
 	t.Run("legacy fee with dynamic tx type", func(t *testing.T) {
-		_, retryable, err := cks.NewCustomTxAttempt(txmgr.EvmTx{}, gas.EvmFee{Legacy: legacyFee}, 100, 0x2, lggr)
+		_, retryable, err := cks.NewCustomTxAttempt(txmgr.Tx{}, gas.EvmFee{Legacy: legacyFee}, 100, 0x2, lggr)
 		require.Error(t, err)
 		assert.False(t, retryable)
 	})
 
 	t.Run("invalid type", func(t *testing.T) {
-		_, retryable, err := cks.NewCustomTxAttempt(txmgr.EvmTx{}, gas.EvmFee{}, 100, 0xA, lggr)
+		_, retryable, err := cks.NewCustomTxAttempt(txmgr.Tx{}, gas.EvmFee{}, 100, 0xA, lggr)
 		require.Error(t, err)
 		assert.False(t, retryable)
 	})
@@ -234,19 +234,19 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, &feeConfig{eip1559DynamicFees: true}, kst, est)
 
 	t.Run("NewAttempt", func(t *testing.T) {
-		_, _, _, retryable, err := cks.NewTxAttempt(ctx, txmgr.EvmTx{}, lggr)
+		_, _, _, retryable, err := cks.NewTxAttempt(ctx, txmgr.Tx{}, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get fee")
 		assert.True(t, retryable)
 	})
 	t.Run("NewAttemptWithType", func(t *testing.T) {
-		_, _, _, retryable, err := cks.NewTxAttemptWithType(ctx, txmgr.EvmTx{}, lggr, 0x0)
+		_, _, _, retryable, err := cks.NewTxAttemptWithType(ctx, txmgr.Tx{}, lggr, 0x0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get fee")
 		assert.True(t, retryable)
 	})
 	t.Run("NewBumpAttempt", func(t *testing.T) {
-		_, _, _, retryable, err := cks.NewBumpTxAttempt(ctx, txmgr.EvmTx{}, txmgr.EvmTxAttempt{}, nil, lggr)
+		_, _, _, retryable, err := cks.NewBumpTxAttempt(ctx, txmgr.Tx{}, txmgr.TxAttempt{}, nil, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to bump fee")
 		assert.True(t, retryable)

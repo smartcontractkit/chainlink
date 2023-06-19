@@ -64,7 +64,7 @@ func NewPipelineTransmitter(
 	}
 }
 
-func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, _ *txmgr.EvmTxMeta) error {
+func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, _ *txmgr.TxMeta) error {
 	// t.strategy is ignored currently as pipeline does not support passing this (sc-55115)
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
