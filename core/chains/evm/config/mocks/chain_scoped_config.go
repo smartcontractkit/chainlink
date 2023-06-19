@@ -59,20 +59,6 @@ func (_m *ChainScopedConfig) AuditLogger() coreconfig.AuditLogger {
 	return r0
 }
 
-// AutoCreateKey provides a mock function with given fields:
-func (_m *ChainScopedConfig) AutoCreateKey() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // AutoPprof provides a mock function with given fields:
 func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	ret := _m.Called()
@@ -84,34 +70,6 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.AutoPprof)
 		}
-	}
-
-	return r0
-}
-
-// BlockBackfillDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) BlockBackfillDepth() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// BlockBackfillSkip provides a mock function with given fields:
-func (_m *ChainScopedConfig) BlockBackfillSkip() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -553,48 +511,6 @@ func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *assets.Wei {
 	return r0
 }
 
-// EvmLogBackfillBatchSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmLogBackfillBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmLogKeepBlocksDepth provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmLogKeepBlocksDepth() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmLogPollInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmLogPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // EvmMaxGasPriceWei provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmMaxGasPriceWei() *assets.Wei {
 	ret := _m.Called()
@@ -622,34 +538,6 @@ func (_m *ChainScopedConfig) EvmMinGasPriceWei() *assets.Wei {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Wei)
 		}
-	}
-
-	return r0
-}
-
-// EvmNonceAutoSync provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmNonceAutoSync() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// EvmRPCDefaultBatchSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmRPCDefaultBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0

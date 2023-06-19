@@ -23,6 +23,7 @@ import (
 func NewTxm(
 	db *sqlx.DB,
 	cfg Config,
+	chainConfig ChainConfig,
 	txConfig config.Transactions,
 	dbConfig DatabaseConfig,
 	listenerConfig ListenerConfig,
@@ -50,11 +51,11 @@ func NewTxm(
 
 	txmCfg := NewEvmTxmConfig(cfg)       // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client) // wrap Evm specific client
-	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, txConfig, listenerConfig, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, cfg.EvmNonceAutoSync())
-	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, txConfig, listenerConfig, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
+	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, chainConfig, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var ethResender *EvmResender
 	if txConfig.ResendAfterThreshold() > 0 {
-		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, txmCfg, txConfig)
+		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
 	txm = NewEvmTxm(txmClient.ConfiguredChainID(), txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, ethBroadcaster, ethConfirmer, ethResender)
 	return txm, nil
@@ -102,13 +103,14 @@ func NewEvmConfirmer(
 	txStore TxStore,
 	client EvmTxmClient,
 	config txmgrtypes.ConfirmerConfig,
+	chainConfig txmgrtypes.ConfirmerChainConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore EvmKeyStore,
 	txAttemptBuilder EvmTxAttemptBuilder,
 	lggr logger.Logger,
 ) *EvmConfirmer {
-	return txmgr.NewConfirmer(txStore, client, config, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+	return txmgr.NewConfirmer(txStore, client, config, chainConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
 }
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster

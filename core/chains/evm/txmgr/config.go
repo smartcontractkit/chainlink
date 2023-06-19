@@ -26,9 +26,12 @@ type Config interface {
 	EvmGasTipCapMinimum() *assets.Wei
 	EvmMaxGasPriceWei() *assets.Wei
 	EvmMinGasPriceWei() *assets.Wei
-	EvmNonceAutoSync() bool
-	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
+}
+
+type ChainConfig interface {
+	NonceAutoSync() bool
+	RPCDefaultBatchSize() uint32
 }
 
 type DatabaseConfig interface {
@@ -44,7 +47,7 @@ type (
 	EvmTxmConfig         txmgrtypes.TransactionManagerConfig
 	EvmBroadcasterConfig txmgrtypes.BroadcasterConfig
 	EvmConfirmerConfig   txmgrtypes.ConfirmerConfig
-	EvmResenderConfig    txmgrtypes.ResenderConfig
+	EvmResenderConfig    txmgrtypes.ResenderChainConfig
 	EvmReaperConfig      txmgrtypes.ReaperConfig
 )
 
@@ -58,15 +61,11 @@ func NewEvmTxmConfig(c Config) *evmTxmConfig {
 	return &evmTxmConfig{c}
 }
 
-func (c evmTxmConfig) SequenceAutoSync() bool { return c.EvmNonceAutoSync() }
-
 func (c evmTxmConfig) IsL2() bool { return c.ChainType().IsL2() }
 
 func (c evmTxmConfig) MaxFeePrice() string { return c.EvmMaxGasPriceWei().String() }
 
 func (c evmTxmConfig) FeePriceDefault() string { return c.EvmGasPriceDefault().String() }
-
-func (c evmTxmConfig) RPCDefaultBatchSize() uint32 { return c.EvmRPCDefaultBatchSize() }
 
 func (c evmTxmConfig) FeeBumpTxDepth() uint32 { return c.EvmGasBumpTxDepth() }
 
