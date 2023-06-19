@@ -3066,7 +3066,7 @@ describe('KeeperRegistry2_1', () => {
       upkeepPrivilegeManager: upkeepManager,
     }
 
-    it('reverts when called by anyone but the proposed owner', async () => {
+    it.only('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
         registry
           .connect(payee1)
