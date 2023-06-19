@@ -5234,7 +5234,7 @@ describe('KeeperRegistry2_1', () => {
           randomBytes,
           '0x',
         )
-      upkeepId = await getUpkeepID(tx)
+      const mercuryUpkeepId = await getUpkeepID(tx)
 
       const values: any[] = ['0x1234', '0xabcd']
 
