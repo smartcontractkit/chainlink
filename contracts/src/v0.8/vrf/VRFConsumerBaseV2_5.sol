@@ -148,7 +148,7 @@ abstract contract VRFConsumerBaseV2_5 {
     return vrfCoordinator.s_requestPayments(requestId);
   }
 
-  function setVRFCoordinator(address _vrfCoordinator) external onlySubOwner {
+  function setVRFCoordinator(address _vrfCoordinator) external {
     if (msg.sender != subOwner) {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
     }
