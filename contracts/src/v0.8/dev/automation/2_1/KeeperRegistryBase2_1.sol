@@ -138,7 +138,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IncorrectNumberOfFaultyOracles();
   error RepeatedSigner();
   error RepeatedTransmitter();
-  error PipelineDataExceedsLimit();
+  error CheckDataExceedsLimit();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
   error InvalidReport();
@@ -411,7 +411,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event UpkeepPipelineDataSet(uint256 indexed id, bytes newPipelineData);
+  event UpkeepCheckDataSet(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
@@ -481,7 +481,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param id the id of the upkeep
    * @param upkeep the upkeep to create
    * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data the optional input data to the first pipeline task (either "check data" or "perform data")
+   * @param checkData data which is passed to user's checkUpkeep
    * @param triggerConfig the trigger config for this upkeep
    * @param offchainConfig the off-chain config of this upkeep
    */
@@ -495,7 +495,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!upkeep.target.isContract()) revert NotAContract();
-    if (checkData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (upkeep.executeGas < PERFORM_GAS_MIN || upkeep.executeGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
