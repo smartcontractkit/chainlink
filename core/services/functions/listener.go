@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sync"
@@ -351,11 +352,13 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
+	fmt.Printf("THRESHOLD heard request %s \n", requestIDStr)
 	nodeProvidedSecrets := ""
 	// If ThresholdKeyShare is not provided, then threshold decryption is disabled and l.decryptor is nil
 	if l.decryptor != nil && requestData.SecretsLocation == 1 && len(requestData.Secrets) > 0 {
+		fmt.Printf("THRESHOLD fetching secrets %s \n", base64.StdEncoding.EncodeToString(requestData.Secrets))
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
-
+		fmt.Println("THRESHOLD secrets fetch response: ", string(thresholdEncSecrets), " error: ", string(userError), " err: ", err)
 		// To avoid a breaking change, if secrets fetching is unsuccessful,
 		// proceed by allowing the adapter handle secrets as before.
 		// Eventually, this will be deprecated and the error will be returned to the user on-chain
@@ -380,6 +383,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 				// l.setError(ctx, requestID, 0, USER_ERROR, []byte("failed to decrypt secrets"))
 				// return
 			} else {
+				fmt.Println("THRESHOLD successful decryption of secrets: ", string(decryptedSecrets))
 				nodeProvidedSecrets = string(decryptedSecrets)
 			}
 		}

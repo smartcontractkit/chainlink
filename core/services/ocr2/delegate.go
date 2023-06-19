@@ -973,6 +973,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	var thresholdKeyShare []byte
 	var thresholdProvider types.PluginProvider
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
+	fmt.Println("THRESHOLD encryptedThresholdKeyShare: ", encryptedThresholdKeyShare)
 	if len(encryptedThresholdKeyShare) == 0 {
 		d.lggr.Warn("ThresholdKeyShare is empty. Threshold decryption is disabled.")
 	} else {

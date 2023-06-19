@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -74,6 +76,8 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 		return ocrtypes.ContractConfig{}, err
 	}
 
+	fmt.Println("THRESHOLD offchainConfig hex string: ", hex.EncodeToString(unpacked.OffchainConfig))
+
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.Transmitters {
 		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.String()))
@@ -95,6 +99,8 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 	default:
 		return ocrtypes.ContractConfig{}, errors.New("unknown plugin type")
 	}
+
+	fmt.Println("THRESHOLD pluginType: ", pluginType, " unpacked.ConfigDigest: ", hex.EncodeToString(unpacked.ConfigDigest[:]))
 
 	return ocrtypes.ContractConfig{
 		ConfigDigest:          unpacked.ConfigDigest,

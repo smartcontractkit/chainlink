@@ -2,6 +2,7 @@ package threshold
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -22,6 +23,7 @@ type ThresholdServicesConfig struct {
 }
 
 func NewThresholdService(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *ThresholdServicesConfig) (job.ServiceCtx, error) {
+	fmt.Println("THRESHOLD public key: ", conf.KeyshareWithPubKey, "private key share: ", conf.KeyshareWithPubKey)
 	publicKey, privKeyShare, err := UnmarshalKeys(conf.KeyshareWithPubKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal threshold key share with public key")

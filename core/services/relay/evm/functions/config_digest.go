@@ -2,6 +2,7 @@ package functions
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -76,6 +77,8 @@ func configDigest(
 	default:
 		return configDigest, errors.New("unknown plugin type")
 	}
+
+	fmt.Println("THRESHOLD pluginType: ", pluginType, " unpacked.ConfigDigest: ", hex.EncodeToString(configDigest[:]))
 
 	binary.BigEndian.PutUint16(configDigest[:2], uint16(prefix))
 	return configDigest, nil
