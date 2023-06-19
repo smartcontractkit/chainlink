@@ -3485,7 +3485,7 @@ describe('KeeperRegistry2_1', () => {
             longBytes,
             '0x',
           ),
-        'checkDataExceedsLimit()',
+        'CheckDataExceedsLimit()',
       )
     })
 
@@ -3687,7 +3687,7 @@ describe('KeeperRegistry2_1', () => {
 
       await evmRevert(
         registry.connect(admin).setUpkeepCheckData(upkeepId, longBytes),
-        'checkDataExceedsLimit()',
+        'CheckDataExceedsLimit()',
       )
     })
 
