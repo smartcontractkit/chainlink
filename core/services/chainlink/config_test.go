@@ -300,6 +300,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
 		StartTimeout:            models.MustNewDuration(15 * time.Second),
+		ListenIP:                mustIP("192.158.1.37"),
 		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -316,6 +317,7 @@ func TestConfig_Marshal(t *testing.T) {
 			KeyPath:       ptr("tls/key/path"),
 			HTTPSPort:     ptr[uint16](6789),
 			ForceRedirect: ptr(true),
+			ListenIP:      mustIP("192.158.1.38"),
 		},
 	}
 	full.JobPipeline = config.JobPipeline{
@@ -708,6 +710,7 @@ SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -725,6 +728,7 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 `},
 		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
