@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -94,10 +93,10 @@ func TestIntegration_Mercury(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	reqs := make(chan mocks.Request)
+	reqs := make(chan Request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := mocks.NewServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	srv := NewServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 	min := big.NewInt(0)
 	max := big.NewInt(math.MaxInt64)
 

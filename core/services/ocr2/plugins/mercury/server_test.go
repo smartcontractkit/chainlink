@@ -1,4 +1,4 @@
-package mocks
+package mercury_test
 
 import (
 	"context"
