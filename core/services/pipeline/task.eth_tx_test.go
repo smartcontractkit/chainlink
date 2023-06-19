@@ -89,7 +89,7 @@ func TestETHTxTask(t *testing.T) {
 					FeeLimit:       gasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
-					Checker: txmgr.EvmTransmitCheckerSpec{
+					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &addr,
 					},

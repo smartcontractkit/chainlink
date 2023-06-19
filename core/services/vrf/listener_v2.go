@@ -980,7 +980,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
-					Checker: txmgr.EvmTransmitCheckerSpec{
+					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),

@@ -37,13 +37,13 @@ func TestFactory(t *testing.T) {
 	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{})
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{})
 		require.NoError(t, err)
 		require.Equal(t, txmgr.NoChecker, c)
 	})
 
 	t.Run("vrf v1 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV1,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
@@ -52,7 +52,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("vrf v2 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 			VRFRequestBlockNumber: big.NewInt(1),
@@ -61,7 +61,7 @@ func TestFactory(t *testing.T) {
 		require.IsType(t, &txmgr.VRFV2Checker{}, c)
 
 		// request block number not provided should error out.
-		c, err = factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
@@ -70,7 +70,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		})
 		require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("invalid checker type", func(t *testing.T) {
-		_, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		_, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType: "invalid",
 		})
 		require.EqualError(t, err, "unrecognized checker type: invalid")

@@ -337,7 +337,7 @@ func EvmTxRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequ
 	}
 }
 
-func EvmTxRequestWithChecker(checker txmgr.EvmTransmitCheckerSpec) func(*txmgr.TxRequest) {
+func EvmTxRequestWithChecker(checker txmgr.TransmitCheckerSpec) func(*txmgr.TxRequest) {
 	return func(tx *txmgr.TxRequest) {
 		tx.Checker = checker
 	}

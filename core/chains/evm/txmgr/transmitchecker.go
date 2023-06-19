@@ -25,18 +25,18 @@ import (
 )
 
 type (
-	EvmTransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
+	TransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	TransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
 )
 
 var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
-	NoChecker EvmTransmitChecker = noChecker{}
+	NoChecker TransmitChecker = noChecker{}
 
 	_ TransmitCheckerFactory = &CheckerFactory{}
-	_ EvmTransmitChecker     = &SimulateChecker{}
-	_ EvmTransmitChecker     = &VRFV1Checker{}
-	_ EvmTransmitChecker     = &VRFV2Checker{}
+	_ TransmitChecker        = &SimulateChecker{}
+	_ TransmitChecker        = &VRFV1Checker{}
+	_ TransmitChecker        = &VRFV2Checker{}
 )
 
 // CheckerFactory is a real implementation of TransmitCheckerFactory.
@@ -45,7 +45,7 @@ type CheckerFactory struct {
 }
 
 // BuildChecker satisfies the TransmitCheckerFactory interface.
-func (c *CheckerFactory) BuildChecker(spec EvmTransmitCheckerSpec) (EvmTransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil

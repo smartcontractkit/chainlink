@@ -175,7 +175,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = txmmocks.NewMockEvmTxManager(t)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.EvmTransmitCheckerSpec{})
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()

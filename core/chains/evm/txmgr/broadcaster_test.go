@@ -159,7 +159,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	encodedPayload := []byte{1, 2, 3}
 	value := big.Int(assets.NewEthValue(142))
 	gasLimit := uint32(242)
-	checker := txmgr.EvmTransmitCheckerSpec{
+	checker := txmgr.TransmitCheckerSpec{
 		CheckerType: txmgr.TransmitCheckerTypeSimulate,
 	}
 
@@ -402,7 +402,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				Value:          big.Int(assets.NewEthValue(442)),
 				FeeLimit:       gasLimit,
 				Strategy:       txmgrcommon.NewSendEveryStrategy(),
-				Checker: txmgr.EvmTransmitCheckerSpec{
+				Checker: txmgr.TransmitCheckerSpec{
 					CheckerType: txmgr.TransmitCheckerTypeSimulate,
 				},
 			}
@@ -503,7 +503,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	eb, err := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
 	require.NoError(t, err)
 
-	checker := txmgr.EvmTransmitCheckerSpec{
+	checker := txmgr.TransmitCheckerSpec{
 		CheckerType: txmgr.TransmitCheckerTypeSimulate,
 	}
 	t.Run("when transmit checking times out, sends tx as normal", func(t *testing.T) {
@@ -1870,7 +1870,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 }
 
-func checkerToJson(t *testing.T, checker txmgr.EvmTransmitCheckerSpec) *datatypes.JSON {
+func checkerToJson(t *testing.T, checker txmgr.TransmitCheckerSpec) *datatypes.JSON {
 	b, err := json.Marshal(checker)
 	require.NoError(t, err)
 	j := datatypes.JSON(b)
@@ -1881,7 +1881,7 @@ type testCheckerFactory struct {
 	err error
 }
 
-func (t *testCheckerFactory) BuildChecker(spec txmgr.EvmTransmitCheckerSpec) (txmgr.EvmTransmitChecker, error) {
+func (t *testCheckerFactory) BuildChecker(spec txmgr.TransmitCheckerSpec) (txmgr.TransmitChecker, error) {
 	return &testChecker{t.err}, nil
 }
 

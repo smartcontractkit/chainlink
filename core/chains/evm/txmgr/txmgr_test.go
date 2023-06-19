@@ -220,7 +220,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("simulate transmit checker", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 
-		checker := txmgr.EvmTransmitCheckerSpec{
+		checker := txmgr.TransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
 		evmConfig.maxQueued = uint64(1)
@@ -237,7 +237,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		var c txmgr.EvmTransmitCheckerSpec
+		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
@@ -258,7 +258,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			SubID:         &testDefaultSubID,
 		}
 		evmConfig.maxQueued = uint64(1)
-		checker := txmgr.EvmTransmitCheckerSpec{
+		checker := txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
@@ -280,7 +280,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, meta, m)
 
-		var c txmgr.EvmTransmitCheckerSpec
+		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
