@@ -597,7 +597,6 @@ linkEthFeedAddress     	= "%s"
 	// poll until we're able to redeem the randomness without reverting
 	// at that point, it's been fulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		fmt.Println("REDEEMING RANDOMNESS")
 		_, err := uni.consumer.TestRedeemRandomness(uni.owner, uni.subID, redemptionRequestID)
 		t.Logf("TestRedeemRandomness err: %+v", err)
 		return err == nil
