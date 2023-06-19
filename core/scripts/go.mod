@@ -321,7 +321,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/ulule/limiter/v3 v3.11.2 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
-	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3 // indirect
+	github.com/unrolled/secure v1.13.0 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect

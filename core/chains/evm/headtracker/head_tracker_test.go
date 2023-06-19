@@ -970,12 +970,12 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewEVMHeadBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewEVMHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(config), htConfig, hb, hs, mailMon),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(config), htConfig, hb, hs, mailMon),
 		headBroadcaster: hb,
 		headSaver:       hs,
 		mailMon:         mailMon,
@@ -985,10 +985,10 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client, cfg chainlink.GeneralConfig, orm headtracker.ORM) *headTrackerUniverse {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewEVMHeadBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg, evmcfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewEVMHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), evmcfg.EVM().HeadTracker(), hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(evmcfg), evmcfg.EVM().HeadTracker(), hb, hs, mailMon)
 	_, err := hs.Load(testutils.Context(t))
 	require.NoError(t, err)
 	return &headTrackerUniverse{
@@ -1002,11 +1002,11 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 
 func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewEVMHeadBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
 	hb.Subscribe(checker)
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewEVMHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(config), htConfig, hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(lggr, ethClient, headtracker.NewWrappedConfig(config), htConfig, hb, hs, mailMon)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
 		headTracker:     ht,
