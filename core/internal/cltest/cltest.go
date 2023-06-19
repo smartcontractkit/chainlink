@@ -217,9 +217,9 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) (*txmgr.EvmConfirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, config.EVM().GasEstimator().BlockHistory(), lggr), config.EvmEIP1559DynamicFees())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ks, estimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM(), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
 	return ec, nil

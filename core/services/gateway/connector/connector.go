@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -49,7 +48,7 @@ type gatewayConnector struct {
 
 	config      *ConnectorConfig
 	codec       api.Codec
-	clock       common.Clock
+	clock       utils.Clock
 	nodeAddress []byte
 	signer      Signer
 	handler     GatewayConnectorHandler
@@ -66,7 +65,7 @@ type gatewayState struct {
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock common.Clock, lggr logger.Logger) (GatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
 	if signer == nil || handler == nil || clock == nil {
 		return nil, errors.New("nil dependency")
 	}

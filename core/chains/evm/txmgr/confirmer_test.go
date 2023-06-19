@@ -120,9 +120,9 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	estimator := gasmocks.NewEvmEstimator(t)
 	lggr := logger.TestLogger(t)
-	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config)
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config.EvmEIP1559DynamicFees())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ethKeyStore, feeEstimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM(), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance
@@ -1643,12 +1643,12 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM(), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -1688,11 +1688,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg)
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM(), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)

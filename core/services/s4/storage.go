@@ -2,7 +2,6 @@ package s4
 
 import (
 	"context"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -69,15 +68,17 @@ type storage struct {
 	lggr       logger.Logger
 	contraints Constraints
 	orm        ORM
+	clock      utils.Clock
 }
 
 var _ Storage = (*storage)(nil)
 
-func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM) Storage {
+func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM, clock utils.Clock) Storage {
 	return &storage{
 		lggr:       lggr.Named("s4_storage"),
 		contraints: contraints,
 		orm:        orm,
+		clock:      clock,
 	}
 }
 
@@ -96,7 +97,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, err
 	}
 
-	if row.Expiration <= time.Now().UnixMilli() {
+	if row.Expiration <= s.clock.Now().UnixMilli() {
 		return nil, nil, ErrNotFound
 	}
 
@@ -127,7 +128,7 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	if len(record.Payload) > int(s.contraints.MaxPayloadSizeBytes) {
 		return ErrPayloadTooBig
 	}
-	if time.Now().UnixMilli() > record.Expiration {
+	if s.clock.Now().UnixMilli() > record.Expiration {
 		return ErrPastExpiration
 	}
 

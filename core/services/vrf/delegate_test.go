@@ -69,7 +69,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewEVMHeadBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())

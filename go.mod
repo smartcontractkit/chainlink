@@ -47,7 +47,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.24.1
+	github.com/onsi/gomega v1.27.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.0.8
@@ -65,7 +65,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230525203711-20bed74ac906
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230613131043-acb07f2c0f79
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230615205306-31dec2180682
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20230601080524-3d8186742482
 	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
@@ -82,7 +82,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/umbracle/ethgo v0.1.3
-	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
+	github.com/unrolled/secure v1.13.0
 	github.com/urfave/cli v1.22.13
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.1.0
@@ -133,7 +133,6 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230209160836-829675f94811 // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
-	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-alpha8 // indirect

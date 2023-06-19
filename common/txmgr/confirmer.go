@@ -120,6 +120,7 @@ type Confirmer[
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	resumeCallback ResumeCallback
 	config         txmgrtypes.ConfirmerConfig
+	chainConfig    txmgrtypes.ConfirmerChainConfig
 	txConfig       txmgrtypes.ConfirmerTransactionsConfig
 	dbConfig       txmgrtypes.ConfirmerDatabaseConfig
 	chainID        CHAIN_ID
@@ -151,6 +152,7 @@ func NewConfirmer[
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	config txmgrtypes.ConfirmerConfig,
+	chainConfig txmgrtypes.ConfirmerChainConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
@@ -166,6 +168,7 @@ func NewConfirmer[
 		TxAttemptBuilder: txAttemptBuilder,
 		resumeCallback:   nil,
 		config:           config,
+		chainConfig:      chainConfig,
 		txConfig:         txConfig,
 		dbConfig:         dbConfig,
 		chainID:          client.ConfiguredChainID(),
@@ -345,7 +348,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore, attempts, int(ec.config.RPCDefaultBatchSize()), ec.lggr)
+	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore.UpdateBroadcastAts, attempts, int(ec.chainConfig.RPCDefaultBatchSize()), ec.lggr)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -461,7 +464,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sep
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockNum int64) error {
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
-	batchSize := int(ec.config.RPCDefaultBatchSize())
+	batchSize := int(ec.chainConfig.RPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}

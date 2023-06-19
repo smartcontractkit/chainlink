@@ -16,104 +16,6 @@ type Config struct {
 	mock.Mock
 }
 
-// BlockHistoryEstimatorBatchSize provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorBlockDelay provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorBlockDelay() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorBlockHistorySize provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorBlockHistorySize() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorCheckInclusionBlocks provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorCheckInclusionBlocks() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorCheckInclusionPercentile provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorCheckInclusionPercentile() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
-// BlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
-func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	return r0
-}
-
 // ChainType provides a mock function with given fields:
 func (_m *Config) ChainType() config.ChainType {
 	ret := _m.Called()
@@ -198,38 +100,6 @@ func (_m *Config) EvmGasBumpTxDepth() uint32 {
 	return r0
 }
 
-// EvmGasBumpWei provides a mock function with given fields:
-func (_m *Config) EvmGasBumpWei() *assets.Wei {
-	ret := _m.Called()
-
-	var r0 *assets.Wei
-	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Wei)
-		}
-	}
-
-	return r0
-}
-
-// EvmGasFeeCapDefault provides a mock function with given fields:
-func (_m *Config) EvmGasFeeCapDefault() *assets.Wei {
-	ret := _m.Called()
-
-	var r0 *assets.Wei
-	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Wei)
-		}
-	}
-
-	return r0
-}
-
 // EvmGasLimitDefault provides a mock function with given fields:
 func (_m *Config) EvmGasLimitDefault() uint32 {
 	ret := _m.Called()
@@ -244,52 +114,8 @@ func (_m *Config) EvmGasLimitDefault() uint32 {
 	return r0
 }
 
-// EvmGasLimitMax provides a mock function with given fields:
-func (_m *Config) EvmGasLimitMax() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EvmGasLimitMultiplier provides a mock function with given fields:
-func (_m *Config) EvmGasLimitMultiplier() float32 {
-	ret := _m.Called()
-
-	var r0 float32
-	if rf, ok := ret.Get(0).(func() float32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(float32)
-	}
-
-	return r0
-}
-
 // EvmGasPriceDefault provides a mock function with given fields:
 func (_m *Config) EvmGasPriceDefault() *assets.Wei {
-	ret := _m.Called()
-
-	var r0 *assets.Wei
-	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Wei)
-		}
-	}
-
-	return r0
-}
-
-// EvmGasTipCapDefault provides a mock function with given fields:
-func (_m *Config) EvmGasTipCapDefault() *assets.Wei {
 	ret := _m.Called()
 
 	var r0 *assets.Wei
@@ -347,48 +173,6 @@ func (_m *Config) EvmMinGasPriceWei() *assets.Wei {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Wei)
 		}
-	}
-
-	return r0
-}
-
-// EvmNonceAutoSync provides a mock function with given fields:
-func (_m *Config) EvmNonceAutoSync() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// EvmRPCDefaultBatchSize provides a mock function with given fields:
-func (_m *Config) EvmRPCDefaultBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// GasEstimatorMode provides a mock function with given fields:
-func (_m *Config) GasEstimatorMode() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
