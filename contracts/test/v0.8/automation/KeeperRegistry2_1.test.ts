@@ -961,6 +961,71 @@ describe('KeeperRegistry2_1', () => {
       .transfer(autoFunderUpkeep.address, toWei('1000'))
   }
 
+  const getMultipleUpkeepsDeployedAndFunded = async (
+    numPassingConditionalUpkeeps: number,
+    numPassingLogUpkeeps: number,
+    numFailingUpkeeps: number,
+  ) => {
+    let passingConditionalUpkeepIds = []
+    let passingLogUpkeepIds = []
+    let failingUpkeepIds = []
+    for (let i = 0; i < numPassingConditionalUpkeeps; i++) {
+      const mock = await upkeepMockFactory.deploy()
+      const tx = await registry
+        .connect(owner)
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          randomBytes,
+          '0x',
+        )
+      const condUpkeepId = await getUpkeepID(tx)
+      passingConditionalUpkeepIds.push(condUpkeepId)
+
+      // Add funds to passing upkeeps
+      await registry.connect(admin).addFunds(condUpkeepId, toWei('100'))
+    }
+    for (let i = 0; i < numPassingLogUpkeeps; i++) {
+      const mock = await upkeepMockFactory.deploy()
+      const tx = await registry
+        .connect(owner)
+        ['registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'](
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          Trigger.LOG,
+          '0x',
+          logTriggerConfig,
+          emptyBytes,
+        )
+      const logUpkeepId = await getUpkeepID(tx)
+      passingLogUpkeepIds.push(logUpkeepId)
+
+      // Add funds to passing upkeeps
+      await registry.connect(admin).addFunds(logUpkeepId, toWei('100'))
+    }
+    for (let i = 0; i < numFailingUpkeeps; i++) {
+      const mock = await upkeepMockFactory.deploy()
+      const tx = await registry
+        .connect(owner)
+        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          randomBytes,
+          '0x',
+        )
+      const upkeepId = await getUpkeepID(tx)
+      failingUpkeepIds.push(upkeepId)
+    }
+    return {
+      passingConditionalUpkeepIds,
+      passingLogUpkeepIds,
+      failingUpkeepIds,
+    }
+  }
+
   beforeEach(async () => {
     await loadFixture(setup)
   })
@@ -1920,74 +1985,17 @@ describe('KeeperRegistry2_1', () => {
                 ) {
                   return
                 }
-
-                let passingConditionalUpkeepIds: BigNumber[]
-                let passingLogUpkeepIds: BigNumber[]
-                let failingUpkeepIds: BigNumber[]
-
-                beforeEach(async () => {
-                  passingConditionalUpkeepIds = []
-                  passingLogUpkeepIds = []
-                  failingUpkeepIds = []
-                  for (let i = 0; i < numPassingConditionalUpkeeps; i++) {
-                    const mock = await upkeepMockFactory.deploy()
-                    const tx = await registry
-                      .connect(owner)
-                      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-                        mock.address,
-                        executeGas,
-                        await admin.getAddress(),
-                        randomBytes,
-                        '0x',
-                      )
-                    const condUpkeepId = await getUpkeepID(tx)
-                    passingConditionalUpkeepIds.push(condUpkeepId)
-
-                    // Add funds to passing upkeeps
-                    await registry
-                      .connect(admin)
-                      .addFunds(condUpkeepId, toWei('100'))
-                  }
-                  for (let i = 0; i < numPassingLogUpkeeps; i++) {
-                    const mock = await upkeepMockFactory.deploy()
-                    const tx = await registry
-                      .connect(owner)
-                      [
-                        'registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'
-                      ](
-                        mock.address,
-                        executeGas,
-                        await admin.getAddress(),
-                        Trigger.LOG,
-                        '0x',
-                        logTriggerConfig,
-                        emptyBytes,
-                      )
-                    const logUpkeepId = await getUpkeepID(tx)
-                    passingLogUpkeepIds.push(logUpkeepId)
-
-                    // Add funds to passing upkeeps
-                    await registry
-                      .connect(admin)
-                      .addFunds(logUpkeepId, toWei('100'))
-                  }
-                  for (let i = 0; i < numFailingUpkeeps; i++) {
-                    const mock = await upkeepMockFactory.deploy()
-                    const tx = await registry
-                      .connect(owner)
-                      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-                        mock.address,
-                        executeGas,
-                        await admin.getAddress(),
-                        randomBytes,
-                        '0x',
-                      )
-                    const upkeepId = await getUpkeepID(tx)
-                    failingUpkeepIds.push(upkeepId)
-                  }
-                })
-
                 it('performs successful upkeeps and does not charge failing upkeeps', async () => {
+                  let allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
+                    numPassingConditionalUpkeeps,
+                    numPassingLogUpkeeps,
+                    numFailingUpkeeps,
+                  )
+                  let passingConditionalUpkeepIds =
+                    allUpkeeps.passingConditionalUpkeepIds
+                  let passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
+                  let failingUpkeepIds = allUpkeeps.failingUpkeepIds
+
                   const keeperBefore = await registry.getTransmitterInfo(
                     await keeper1.getAddress(),
                   )
@@ -2203,6 +2211,16 @@ describe('KeeperRegistry2_1', () => {
                 })
 
                 it('splits gas overhead appropriately among performed upkeeps [ @skip-coverage ]', async () => {
+                  let allUpkeeps = await getMultipleUpkeepsDeployedAndFunded(
+                    numPassingConditionalUpkeeps,
+                    numPassingLogUpkeeps,
+                    numFailingUpkeeps,
+                  )
+                  let passingConditionalUpkeepIds =
+                    allUpkeeps.passingConditionalUpkeepIds
+                  let passingLogUpkeepIds = allUpkeeps.passingLogUpkeepIds
+                  let failingUpkeepIds = allUpkeeps.failingUpkeepIds
+
                   // Perform the upkeeps once to remove non-zero storage slots and have predictable gas measurement
                   let tx = await getTransmitTx(
                     registry,
