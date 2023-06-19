@@ -115,8 +115,7 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      // User's target check reverted. We capture the revert data here and pass it within
-      // performData.
+      // User's target check reverted. We capture the revert data here and pass it within performData
       if (result.length > s_storage.maxRevertDataSize) {
         return (
           false,
