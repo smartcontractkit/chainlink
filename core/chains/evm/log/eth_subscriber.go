@@ -100,7 +100,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		// request data limit.
 		// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
-		batchSize := int64(sub.config.EvmLogBackfillBatchSize())
+		batchSize := int64(sub.config.LogBackfillBatchSize())
 		for from := q.FromBlock.Int64(); from <= latestHeight; from += batchSize {
 
 			to := from + batchSize - 1
@@ -122,7 +122,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			}
 			if err != nil {
 				if ctx.Err() != nil {
-					sub.logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs. Consider setting EvmLogBackfillBatchSize to a lower value", "err", err, "elapsed", elapsed, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+					sub.logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs. Consider setting EVM.LogBackfillBatchSize to a lower value", "err", err, "elapsed", elapsed, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				} else {
 					sub.logger.Errorw("LogBroadcaster: Unable to backfill a batch of logs after retries", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				}
@@ -176,7 +176,7 @@ func (sub *ethSubscriber) fetchLogBatch(ctx context.Context, query ethereum.Filt
 
 		if err != nil {
 			if ctx.Err() != nil {
-				sub.logger.Errorw("LogBroadcaster: Inner deadline exceeded, unable to backfill a batch of logs. Consider setting EvmLogBackfillBatchSize to a lower value", "err", err, "elapsed", time.Since(start),
+				sub.logger.Errorw("LogBroadcaster: Inner deadline exceeded, unable to backfill a batch of logs. Consider setting EVM.LogBackfillBatchSize to a lower value", "err", err, "elapsed", time.Since(start),
 					"fromBlock", query.FromBlock.String(), "toBlock", query.ToBlock.String())
 			} else {
 				sub.logger.Errorw("LogBroadcaster: Unable to backfill a batch of logs", "err", err,

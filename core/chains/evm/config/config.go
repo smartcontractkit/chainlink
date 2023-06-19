@@ -15,9 +15,6 @@ import (
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
 
-	AutoCreateKey() bool
-	BlockBackfillDepth() uint64
-	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
 	EvmEIP1559DynamicFees() bool
@@ -40,13 +37,8 @@ type ChainScopedOnlyConfig interface {
 	EvmGasPriceDefault() *assets.Wei
 	EvmGasTipCapDefault() *assets.Wei
 	EvmGasTipCapMinimum() *assets.Wei
-	EvmLogBackfillBatchSize() uint32
-	EvmLogKeepBlocksDepth() uint32
-	EvmLogPollInterval() time.Duration
 	EvmMaxGasPriceWei() *assets.Wei
 	EvmMinGasPriceWei() *assets.Wei
-	EvmNonceAutoSync() bool
-	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
 	ChainType() config.ChainType
@@ -64,6 +56,16 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+
+	AutoCreateKey() bool
+	BlockBackfillDepth() uint64
+	BlockBackfillSkip() bool
+	FinalityDepth() uint32
+	LogBackfillBatchSize() uint32
+	LogPollInterval() time.Duration
+	LogKeepBlocksDepth() uint32
+	NonceAutoSync() bool
+	RPCDefaultBatchSize() uint32
 }
 
 type OCR interface {
