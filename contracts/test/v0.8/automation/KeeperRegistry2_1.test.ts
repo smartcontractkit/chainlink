@@ -766,6 +766,18 @@ describe('KeeperRegistry2_1', () => {
       signers.slice(0, config.numSigners),
     )
 
+    type txOverride = {
+      gasLimit?: BigNumberish | Promise<BigNumberish>
+      gasPrice?: BigNumberish | Promise<BigNumberish>
+    }
+    const txOverrides: txOverride = {}
+    if (config.gasLimit) {
+      txOverrides.gasLimit = config.gasLimit
+    }
+    if (config.gasPrice) {
+      txOverrides.gasPrice = config.gasPrice
+    }
+
     return registry
       .connect(transmitter)
       .transmit(
@@ -774,7 +786,7 @@ describe('KeeperRegistry2_1', () => {
         sigs.rs,
         sigs.ss,
         sigs.vs,
-        { gasLimit: config.gasLimit, gasPrice: config.gasPrice },
+        txOverrides,
       )
   }
 
@@ -1016,8 +1028,8 @@ describe('KeeperRegistry2_1', () => {
           randomBytes,
           '0x',
         )
-      const upkeepId = await getUpkeepID(tx)
-      failingUpkeepIds.push(upkeepId)
+      const failingUpkeepId = await getUpkeepID(tx)
+      failingUpkeepIds.push(failingUpkeepId)
     }
     return {
       passingConditionalUpkeepIds,
@@ -1413,14 +1425,14 @@ describe('KeeperRegistry2_1', () => {
             randomBytes,
             '0x',
           )
-        const upkeepId = await getUpkeepID(tx)
-        await arbRegistry.connect(owner).addFunds(upkeepId, toWei('100'))
+        const testUpkeepId = await getUpkeepID(tx)
+        await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
 
         // Do the thing
         tx = await getTransmitTx(
           arbRegistry,
           keeper1,
-          [upkeepId],
+          [testUpkeepId],
 
           { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
         )
@@ -1599,8 +1611,8 @@ describe('KeeperRegistry2_1', () => {
               randomBytes,
               '0x',
             )
-          const upkeepId = await getUpkeepID(tx)
-          await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+          const testUpkeepId = await getUpkeepID(tx)
+          await registry.connect(admin).addFunds(testUpkeepId, toWei('100'))
 
           let performData = '0x'
           for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
@@ -1610,7 +1622,7 @@ describe('KeeperRegistry2_1', () => {
           await mock.setCanPerform(true)
           await mock.setPerformGasToBurn(maxPerformGas)
 
-          await getTransmitTx(registry, keeper1, [upkeepId], {
+          await getTransmitTx(registry, keeper1, [testUpkeepId], {
             gasLimit: maxPerformGas.add(transmitGasOverhead),
             numSigners: 11,
             performData,
@@ -2385,11 +2397,11 @@ describe('KeeperRegistry2_1', () => {
               randomBytes,
               '0x',
             )
-          const upkeepId = await getUpkeepID(tx)
-          upkeepIds.push(upkeepId)
+          const testUpkeepId = await getUpkeepID(tx)
+          upkeepIds.push(testUpkeepId)
 
           // Add funds to passing upkeeps
-          await registry.connect(owner).addFunds(upkeepId, toWei('10'))
+          await registry.connect(owner).addFunds(testUpkeepId, toWei('10'))
 
           await mock.setCanPerform(true)
           await mock.setPerformGasToBurn(executeGas)
@@ -2426,11 +2438,11 @@ describe('KeeperRegistry2_1', () => {
               randomBytes,
               '0x',
             )
-          const upkeepId = await getUpkeepID(tx)
-          upkeepIds.push(upkeepId)
+          const testUpkeepId = await getUpkeepID(tx)
+          upkeepIds.push(testUpkeepId)
 
           // Add funds to passing upkeeps
-          await arbRegistry.connect(owner).addFunds(upkeepId, toWei('100'))
+          await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
         }
 
         // Do the thing
@@ -3831,19 +3843,19 @@ describe('KeeperRegistry2_1', () => {
             )
 
           //confirm the upkeep details and verify emitted events
-          const upkeepId = await getUpkeepID(tx)
+          const testUpkeepId = await getUpkeepID(tx)
           await expect(tx)
             .to.emit(registry, 'UpkeepRegistered')
-            .withArgs(upkeepId, executeGas, await admin.getAddress())
+            .withArgs(testUpkeepId, executeGas, await admin.getAddress())
 
           await expect(tx)
             .to.emit(registry, 'UpkeepPipelineDataSet')
-            .withArgs(upkeepId, checkData)
+            .withArgs(testUpkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
-            .withArgs(upkeepId, blockTriggerConfig)
+            .withArgs(testUpkeepId, blockTriggerConfig)
 
-          const registration = await registry.getUpkeep(upkeepId)
+          const registration = await registry.getUpkeep(testUpkeepId)
 
           assert.equal(mock.address, registration.target)
           assert.notEqual(ethers.constants.AddressZero, registration.forwarder)
@@ -5172,13 +5184,13 @@ describe('KeeperRegistry2_1', () => {
           randomBytes,
           '0x',
         )
-      upkeepId = await getUpkeepID(tx)
+      const mercuryUpkeepId = await getUpkeepID(tx)
 
       const values: any[] = ['0x1234', '0xabcd']
 
       const res = await registry
         .connect(zeroAddress)
-        .callStatic.checkCallback(upkeepId, values, '0x')
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
       const expectedPerformData = ethers.utils.defaultAbiCoder.encode(
         ['bytes[]', 'bytes'],
         [values, '0x'],
