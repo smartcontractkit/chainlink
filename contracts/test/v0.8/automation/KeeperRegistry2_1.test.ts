@@ -3048,6 +3048,7 @@ describe('KeeperRegistry2_1', () => {
     const fbLinkEth = BigNumber.from(8)
     const newTranscoder = randomAddress()
     const newRegistrars = [randomAddress(), randomAddress()]
+    const upkeepManager = randomAddress()
 
     const newConfig: OnchainConfig = {
       paymentPremiumPPB: payment,
@@ -3142,6 +3143,7 @@ describe('KeeperRegistry2_1', () => {
 
       assert.equal(updatedConfig.transcoder, newTranscoder)
       assert.deepEqual(updatedConfig.registrars, newRegistrars)
+      assert.equal(updatedConfig.upkeepPrivilegeManager, upkeepManager)
     })
 
     it('emits an event', async () => {
