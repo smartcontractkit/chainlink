@@ -152,7 +152,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return allowed.(bool), nil
 	}
 
-	cfg, err := r.registry.GetUpkeepAdminOffchainConfig(opts, upkeepId)
+	cfg, err := r.registry.GetUpkeepAdministrativeConfig(opts, upkeepId)
 	if err != nil {
 		return false, fmt.Errorf("failed to get upkeep admin offchain config for upkeep ID %s: %v", upkeepId, err)
 	}
