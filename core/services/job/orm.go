@@ -248,7 +248,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
 			} else {
-				if jb.OCR2OracleSpec.Relay == relay.EVM {
+				// transmitter id gets set later if forwarders are enabled, so no need to validate it
+				if !jb.ForwardingAllowed && jb.OCR2OracleSpec.Relay == relay.EVM {
 					if !jb.OCR2OracleSpec.TransmitterID.Valid {
 						return errors.Errorf("expected a transmitterID to be specified")
 					}

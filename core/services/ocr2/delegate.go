@@ -296,9 +296,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
 	}
-	if !spec.TransmitterID.Valid {
-		return nil, errors.Errorf("expected a transmitterID to be specified")
-	}
+
 	transmitterID := spec.TransmitterID.String
 	effectiveTransmitterID := transmitterID
 
@@ -341,8 +339,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
 			if fwderr == nil {
 				effectiveTransmitterID = fwdrAddress.String()
-			} else {
+			} else if spec.TransmitterID.Valid {
 				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			} else {
+				return nil, errors.New("ServicesForSpec failed to get forwarder address and transmitterID is not set")
 			}
 		}
 	}
