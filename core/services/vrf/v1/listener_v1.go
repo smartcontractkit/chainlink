@@ -71,10 +71,10 @@ type Listener struct {
 
 	// Data structures for reorg attack protection
 	// We want a map so we can do an O(1) count update every fulfillment log we get.
-	RespCountMu sync.Mutex
-	RespCount   map[[32]byte]uint64
+	RespCountMu   sync.Mutex
+	ResponseCount map[[32]byte]uint64
 	// This auxiliary heap is to used when we need to purge the
-	// RespCount map - we repeatedly want remove the minimum log.
+	// ResponseCount map - we repeatedly want remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	BlockNumberToReqID *pairing.PairHeap
 
@@ -137,8 +137,8 @@ func (lsn *Listener) Start(context.Context) error {
 		if latestHead != nil {
 			lsn.setLatestHead(latestHead)
 		}
-		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
+		go lsn.RunLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
+		go lsn.RunHeadListener(unsubscribeHeadBroadcaster)
 
 		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.Job.ID))
 		return nil
@@ -192,14 +192,14 @@ func (lsn *Listener) pruneConfirmedRequestCounts() {
 		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
-		delete(lsn.RespCount, m.reqID)
+		delete(lsn.ResponseCount, m.reqID)
 		lsn.BlockNumberToReqID.DeleteMin()
 		min = lsn.BlockNumberToReqID.FindMin()
 	}
 }
 
 // Listen for new heads
-func (lsn *Listener) runHeadListener(unsubscribe func()) {
+func (lsn *Listener) RunHeadListener(unsubscribe func()) {
 	ctx, cancel := lsn.ChStop.NewCtx()
 	defer cancel()
 
@@ -227,7 +227,7 @@ func (lsn *Listener) runHeadListener(unsubscribe func()) {
 	}
 }
 
-func (lsn *Listener) runLogListener(unsubscribes []func(), minConfs uint32) {
+func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.L.Infow("Listening for run requests",
 		"gasLimit", lsn.Cfg.EvmGasLimitDefault(),
 		"minConfs", minConfs)
@@ -271,7 +271,7 @@ func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
 			return
 		}
 		lsn.RespCountMu.Lock()
-		lsn.RespCount[v.RequestId]++
+		lsn.ResponseCount[v.RequestId]++
 		lsn.BlockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
@@ -328,7 +328,7 @@ func (lsn *Listener) markLogAsConsumed(lb log.Broadcast) {
 func (lsn *Listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
 	lsn.RespCountMu.Lock()
 	defer lsn.RespCountMu.Unlock()
-	newConfs := uint64(minConfs) * (1 << lsn.RespCount[req.RequestID])
+	newConfs := uint64(minConfs) * (1 << lsn.ResponseCount[req.RequestID])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
 	// in the contract so if it was older than that, fulfillments would start failing
 	// without the blockhash store feeder. We use 200 to give the node plenty of time
@@ -336,7 +336,7 @@ func (lsn *Listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 	if newConfs > 200 {
 		newConfs = 200
 	}
-	if lsn.RespCount[req.RequestID] > 0 {
+	if lsn.ResponseCount[req.RequestID] > 0 {
 		lsn.L.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,

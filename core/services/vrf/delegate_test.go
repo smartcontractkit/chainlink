@@ -136,7 +136,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *v1.ListenerV1, job.Job) {
+func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
@@ -160,7 +160,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.ListenerV1, job.Job) {
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
-	listener := vl[0].(*v1.ListenerV1)
+	listener := vl[0].(*v1.Listener)
 	// Start the listenerV1
 	go func() {
 		listener.RunLogListener([]func(){}, 6)

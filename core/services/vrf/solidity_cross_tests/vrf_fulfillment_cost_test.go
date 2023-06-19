@@ -17,7 +17,7 @@ import (
 // providing a proof to the VRF coordinator.
 func TestMeasureFulfillmentGasCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	coordinator := newVRFCoordinatorUniverse(t, key)
+	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
 	log := requestRandomness(t, coordinator, keyHash, fee)
@@ -33,9 +33,9 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	require.NoError(t, err)
 	proofBlob, err := vrftesthelpers.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
-	coordinator.backend.Commit() // Work around simbackend/EVM block number bug
-	estimate := estimateGas(t, coordinator.backend, coordinator.neil.From,
-		coordinator.rootContractAddress, coordinator.coordinatorABI,
+	coordinator.Backend.Commit() // Work around simbackend/EVM block number bug
+	estimate := estimateGas(t, coordinator.Backend, coordinator.Neil.From,
+		coordinator.RootContractAddress, coordinator.CoordinatorABI,
 		"fulfillRandomnessRequest", proofBlob[:])
 
 	assert.Greater(t, estimate, uint64(108000),

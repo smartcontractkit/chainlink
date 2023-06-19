@@ -188,7 +188,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				ChStop:             make(chan struct{}),
 				WaitOnStop:         make(chan struct{}),
 				NewHead:            make(chan struct{}, 1),
-				RespCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				ResponseCount:      GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
 				BlockNumberToReqID: pairing.New(),
 				ReqAdded:           func() {},
 				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())),

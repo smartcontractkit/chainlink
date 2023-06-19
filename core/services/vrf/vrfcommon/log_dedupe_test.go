@@ -156,10 +156,10 @@ func TestLogDeduper(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			deduper := newLogDeduper(100)
+			deduper := NewLogDeduper(100)
 
 			for i := range test.logs {
-				require.Equal(t, test.results[i], deduper.shouldDeliver(test.logs[i]),
+				require.Equal(t, test.results[i], deduper.ShouldDeliver(test.logs[i]),
 					"expected shouldDeliver for log %d to be %t", i, test.results[i])
 			}
 		})

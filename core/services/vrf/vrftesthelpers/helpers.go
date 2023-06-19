@@ -117,8 +117,6 @@ func CreateAndStartBlockHeaderFeederJob(
 	return jb
 }
 
-const defaultGasLimit uint32 = 500000
-
 // CoordinatorUniverse represents the universe in which a randomness request occurs and
 // is fulfilled.
 type CoordinatorUniverse struct {

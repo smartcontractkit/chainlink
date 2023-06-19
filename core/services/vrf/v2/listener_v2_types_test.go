@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
 func Test_BatchFulfillments_AddRun(t *testing.T) {
@@ -22,10 +23,13 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 		bfs.addRun(vrfPipelineResult{
 			gasLimit: 500,
 			req: pendingRequest{
-				req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
-					RequestId: big.NewInt(1),
-					Raw: types.Log{
-						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+				req: &RandomWordsRequested{
+					VRFVersion: vrfcommon.V2,
+					V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+						RequestId: big.NewInt(1),
+						Raw: types.Log{
+							TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+						},
 					},
 				},
 				lb: mocks.NewBroadcast(t),
@@ -41,10 +45,13 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 	bfs.addRun(vrfPipelineResult{
 		gasLimit: 500,
 		req: pendingRequest{
-			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
-				RequestId: big.NewInt(1),
-				Raw: types.Log{
-					TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+			req: &RandomWordsRequested{
+				VRFVersion: vrfcommon.V2,
+				V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+					RequestId: big.NewInt(1),
+					Raw: types.Log{
+						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+					},
 				},
 			},
 			lb: mocks.NewBroadcast(t),

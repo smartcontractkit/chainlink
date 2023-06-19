@@ -52,7 +52,7 @@ func TestConfirmedLogExtraction(t *testing.T) {
 func TestResponsePruning(t *testing.T) {
 	lsn := Listener{}
 	lsn.LatestHead = 10000
-	lsn.RespCount = map[[32]byte]uint64{
+	lsn.ResponseCount = map[[32]byte]uint64{
 		utils.PadByteToHash(0x00): 1,
 		utils.PadByteToHash(0x01): 1,
 	}
@@ -66,11 +66,11 @@ func TestResponsePruning(t *testing.T) {
 		reqID:       utils.PadByteToHash(0x01),
 	})
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 2, len(lsn.RespCount))
+	assert.Equal(t, 2, len(lsn.ResponseCount))
 	lsn.LatestHead = 10001
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 1, len(lsn.RespCount))
+	assert.Equal(t, 1, len(lsn.ResponseCount))
 	lsn.LatestHead = 10002
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 0, len(lsn.RespCount))
+	assert.Equal(t, 0, len(lsn.ResponseCount))
 }

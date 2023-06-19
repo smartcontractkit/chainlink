@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -147,13 +148,13 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	// Requester asks for 100 confirmations, we have a delay of 10,
 	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 110 confirmations
 	nodeMinConfs := 10
-	confirmedAt := listener.getConfirmedAt(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+	confirmedAt := listener.getConfirmedAt(&RandomWordsRequested{VRFVersion: vrfcommon.V2, V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
 		RequestId:                   big.NewInt(1),
 		MinimumRequestConfirmations: 100,
 		Raw: types.Log{
 			BlockNumber: 100,
 		},
-	}, uint32(nodeMinConfs))
+	}}, uint32(nodeMinConfs))
 	require.Equal(t, uint64(210), confirmedAt) // log block number + # of confirmations
 
 	// Requester asks for 100 confirmations, we have a delay of 0,
@@ -163,13 +164,13 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	}).Toml())
 	require.NoError(t, err)
 	listener.job = j
-	confirmedAt = listener.getConfirmedAt(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+	confirmedAt = listener.getConfirmedAt(&RandomWordsRequested{VRFVersion: vrfcommon.V2, V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
 		RequestId:                   big.NewInt(1),
 		MinimumRequestConfirmations: 100,
 		Raw: types.Log{
 			BlockNumber: 100,
 		},
-	}, uint32(nodeMinConfs))
+	}}, uint32(nodeMinConfs))
 	require.Equal(t, uint64(200), confirmedAt) // log block number + # of confirmations
 }
 

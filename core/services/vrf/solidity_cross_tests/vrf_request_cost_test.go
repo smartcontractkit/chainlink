@@ -7,15 +7,16 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	coordinator := newVRFCoordinatorUniverse(t, key)
+	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
-	estimate := estimateGas(t, coordinator.backend, common.Address{},
-		coordinator.consumerContractAddress, coordinator.consumerABI,
+	estimate := estimateGas(t, coordinator.Backend, common.Address{},
+		coordinator.ConsumerContractAddress, coordinator.ConsumerABI,
 		"testRequestRandomness", common.BytesToHash(keyHash_[:]), fee)
 
 	assert.Greater(t, estimate, uint64(134000),
