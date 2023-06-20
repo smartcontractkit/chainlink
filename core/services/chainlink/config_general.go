@@ -110,9 +110,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		}
 	}
 
-	if nil == o.Secrets.Database.AllowSimplePasswords {
-		o.Secrets.Database.AllowSimplePasswords = new(bool)
-	}
+	o.Secrets.setDefaults()
 
 	input, err := o.Config.TOMLString()
 	if err != nil {
