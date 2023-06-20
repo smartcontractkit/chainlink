@@ -492,6 +492,7 @@ type WebServer struct {
 	SessionReaperExpiration *models.Duration
 	HTTPMaxSize             *utils.FileSize
 	StartTimeout            *models.Duration
+	ListenIP                *net.IP
 
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
@@ -510,6 +511,9 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.HTTPWriteTimeout; v != nil {
 		w.HTTPWriteTimeout = v
+	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
 	}
 	if v := f.HTTPPort; v != nil {
 		w.HTTPPort = v
@@ -577,6 +581,7 @@ type WebServerTLS struct {
 	Host          *string
 	HTTPSPort     *uint16
 	KeyPath       *string
+	ListenIP      *net.IP
 }
 
 func (w *WebServerTLS) setFrom(f *WebServerTLS) {
@@ -594,6 +599,9 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	}
 	if v := f.KeyPath; v != nil {
 		w.KeyPath = v
+	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
 	}
 }
 
