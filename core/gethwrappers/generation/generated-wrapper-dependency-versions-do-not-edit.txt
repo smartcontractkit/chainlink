@@ -80,7 +80,6 @@ vrf_malicious_consumer_v2: ../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.ab
 vrf_owner: ../../contracts/solc/v0.8.6/VRFOwner.abi ../../contracts/solc/v0.8.6/VRFOwner.bin eccfae5ee295b5850e22f61240c469f79752b8d9a3bac5d64aec7ac8def2f6cb
 vrf_ownerless_consumer_example: ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.abi ../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.bin 9893b3805863273917fb282eed32274e32aa3d5c2a67a911510133e1218132be
 vrf_single_consumer_example: ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece
-vrf_subscription_api_v2plus: ../../contracts/solc/v0.8.6/SubscriptionAPI.abi ../../contracts/solc/v0.8.6/SubscriptionAPI.bin 3fc7f5a6dd0dcb992c9666631bef3b203409e7e9a107de9dbef3fb4a0c93c7e4
 vrfv2_proxy_admin: ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.abi ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin.bin 30b6d1af9c4ae05daddda2afdab1877d857ab5321afe3540a01e94d5ded9bcef
 vrfv2_reverting_example: ../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin 1ae46f80351d428bd85ba58b9041b2a608a1845300d79a8fed83edf96606de87
 vrfv2_transparent_upgradeable_proxy: ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.abi ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy.bin 84be44ffac513ef5b009d53846b76d3247ceb9fa0545dec2a0dd11606a915850

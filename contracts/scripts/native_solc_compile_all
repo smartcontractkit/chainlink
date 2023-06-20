@@ -93,7 +93,6 @@ $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.so
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol 10000
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2Plus.sol 1000
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFOwner.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/SubscriptionAPI.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
