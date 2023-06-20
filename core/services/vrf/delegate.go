@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -46,10 +47,13 @@ type GethKeyStore interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasLimitVRFJobType() *uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
+}
+
+type FeeConfig interface {
+	LimitDefault() uint32
+	LimitJobType() config.LimitJobType
 }
 
 func NewDelegate(
@@ -142,11 +146,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().KeySpecificMaxGasPriceWei) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().KeySpecificMaxGasPriceWei); err != nil {
 				return nil, err
 			}
 
@@ -161,6 +165,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 			return []job.ServiceCtx{newListenerV2(
 				chain.Config(),
+				chain.Config().EVM().GasEstimator(),
 				lV2,
 				chain.Client(),
 				chain.ID(),
@@ -184,6 +189,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&listenerV1{
 				cfg:             chain.Config(),
+				feeCfg:          chain.Config().EVM().GasEstimator(),
 				l:               logger.Sugared(lV1),
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
@@ -224,10 +230,10 @@ func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 // matches what is set for the  provided from addresses.
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
 // not match the provided gas lane price.
-func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGasFn) (err error) {
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
-			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
 				err = multierr.Append(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
@@ -238,14 +244,16 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 	return
 }
 
+type keySpecificMaxGasFn func(common.Address) *assets.Wei
+
 // FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
 // addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
 // gas price.
-func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySpecificMaxGasFn) (allEqual bool) {
 	allEqual = true
 	for i := range jb.VRFSpec.FromAddresses {
-		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
-			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		allEqual = allEqual && keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
 		)
 	}
 	return
