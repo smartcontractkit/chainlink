@@ -904,6 +904,7 @@ describe('KeeperRegistry2_1', () => {
       minUpkeepSpend,
       maxCheckDataSize,
       maxPerformDataSize,
+      maxRevertDataSize,
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
