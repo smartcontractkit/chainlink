@@ -138,7 +138,7 @@ contract KeeperRegistryLogicA2_1 is
       );
     }
 
-    (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded)
       return (
         false,
