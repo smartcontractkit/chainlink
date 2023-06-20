@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-interface IVRFCoordinatorV2Plus {
-  function s_requestPayments(uint256 requestId) external view returns (uint96);
-}
+import "../interfaces/IVRFCoordinatorV2Plus.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -139,15 +137,6 @@ abstract contract VRFConsumerBaseV2Plus {
       revert OnlyCoordinatorCanFulfill(msg.sender, address(vrfCoordinator));
     }
     fulfillRandomWords(requestId, randomWords);
-  }
-
-  /**
-   * @notice getRequestPayment returns the amount paid for the given request ID.
-   * @notice this can be in LINK (juels) or in ETH (wei), depending on how the request
-   * @notice was made. It is expected that the consumer keeps track of this detail.
-   */
-  function getRequestPayment(uint256 requestId) internal view returns (uint256) {
-    return vrfCoordinator.s_requestPayments(requestId);
   }
 
   function setVRFCoordinator(address _vrfCoordinator) external {

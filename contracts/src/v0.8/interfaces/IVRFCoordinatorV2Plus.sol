@@ -30,7 +30,7 @@ interface IVRFCoordinatorV2Plus {
    * @param numWords - The number of uint256 random values you'd like to receive
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
-   * @param nativePayment - Whether payment should be made in LINK or ETH
+   * @param nativePayment - Whether payment should be made in ETH or LINK.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
@@ -111,4 +111,11 @@ interface IVRFCoordinatorV2Plus {
    * otherwise.
    */
   function pendingRequestExists(uint64 subId) external view returns (bool);
+
+  /*
+   * @notice Check to see the payment made for the provided request id.
+   * @param requestId - ID of the request
+   * @return amountPaid - amount paid for the request
+  */
+  function s_requestPayments(uint256 requestId) external view returns (uint96);
 }

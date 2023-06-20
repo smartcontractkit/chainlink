@@ -8,7 +8,7 @@ pragma solidity 0.8.6;
  */
 library VRFTypes {
   // ABI-compatible with VRF.Proof.
-  // This proof is used for VRF V2 and V2.5.
+  // This proof is used for VRF V2 and V2Plus.
   struct Proof {
     uint256[2] pk;
     uint256[2] gamma;
@@ -32,7 +32,7 @@ library VRFTypes {
   }
 
   // ABI-compatible with VRFCoordinatorV2Plus.RequestCommitment.
-  // This is only used for VRF V2.5.
+  // This is only used for VRF V2Plus.
   struct RequestCommitmentV2Plus {
     uint64 blockNum;
     uint64 subId;
