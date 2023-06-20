@@ -1,4 +1,4 @@
 {
   "type": "golang",
-  "numOfSplits": 8
+  "numOfSplits": 32
 }
