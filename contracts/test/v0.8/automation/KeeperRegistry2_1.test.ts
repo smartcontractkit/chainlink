@@ -56,6 +56,7 @@ enum UpkeepFailureReason {
   PERFORM_DATA_EXCEEDS_LIMIT,
   INSUFFICIENT_BALANCE,
   CHECK_CALLBACK_REVERTED,
+  REVERT_DATA_EXCEEDS_LIMIT,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -2975,6 +2976,9 @@ describe('KeeperRegistry2_1', () => {
 
       it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
+        await mock.setCheckRevertReason(
+          'custom revert error, clever way to insert offchain data',
+        )
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic['checkUpkeep(uint256)'](upkeepId)
@@ -2983,11 +2987,35 @@ describe('KeeperRegistry2_1', () => {
         const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
         assert.equal(
           ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
-          'shouldRevertCheck should be false',
+          'custom revert error, clever way to insert offchain data',
         )
         assert.equal(
           checkUpkeepResult.upkeepFailureReason,
           UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        )
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
+        // Feed data should be returned here
+        assert.isTrue(checkUpkeepResult.fastGasWei.gt(BigNumber.from('0')))
+        assert.isTrue(checkUpkeepResult.linkNative.gt(BigNumber.from('0')))
+      })
+
+      it('returns false, error code, and no revert data if the target check revert data exceeds maxRevertDataSize', async () => {
+        await mock.setShouldRevertCheck(true)
+        let longRevertReason = ''
+        for (let i = 0; i <= maxRevertDataSize.toNumber(); i++) {
+          longRevertReason += 'x'
+        }
+        await mock.setCheckRevertReason(longRevertReason)
+        const checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic['checkUpkeep(uint256)'](upkeepId)
+        assert.equal(checkUpkeepResult.upkeepNeeded, false)
+
+        assert.equal(checkUpkeepResult.performData, '0x')
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
         expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
