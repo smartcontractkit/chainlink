@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -49,7 +48,6 @@ var (
 	_                       log.Listener   = &listenerV2{}
 	_                       job.ServiceCtx = &listenerV2{}
 	coordinatorV2ABI                       = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	coordinatorV2_5ABI                     = evmtypes.MustGetABI(vrf_coordinator_v2_5.VRFCoordinatorV25ABI)
 	batchCoordinatorV2ABI                  = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2_5ABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2_5.BatchVRFCoordinatorV25ABI)
 	vrfOwnerABI                            = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
@@ -1290,9 +1288,9 @@ func (lsn *listenerV2) estimateFee(
 	// In the event we are using LINK we need to estimate the fee in juels
 	if req.VRFVersion == vrfcommon.V2 || (req.V25 != nil && !req.V25.NativePayment) {
 		// Don't use up too much time to get this info, it's not critical for operating vrf.
-		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
-		roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
+		roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: callCtx})
 		if err != nil {
 			return nil, errors.Wrap(err, "get aggregator latestAnswer")
 		}
