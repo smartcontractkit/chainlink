@@ -62,9 +62,11 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, chainClient, contractLoader)
-		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
+		require.NoError(t, err, "Accepting Authorized Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, chainClient, authorizedForwarders[i], workerNodes[i])
 		log.Println("**** Node name ", workerNodes[i].Name())
+		log.Println("**** Node url ", workerNodes[i].URL())
+
 		log.Println("**** Forwarder addr  ", authorizedForwarders[i].Hex())
 		err = chainClient.WaitForEvents()
 
