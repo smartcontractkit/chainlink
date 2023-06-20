@@ -51,6 +51,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	log.Println("**** Link contract address ", linkTokenContract.Address())
 
 	err = actions.FundChainlinkNodes(workerNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
