@@ -146,12 +146,20 @@ func (e *evmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	return e.GasEstimator().PriceMax()
 }
 
+func (e *evmConfig) NodePool() config.NodePool {
+	return &nodePoolConfig{c: e.c.NodePool}
+}
+
+func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return e.c.NoNewHeadsThreshold.Duration()
+}
+
 func (c *ChainScoped) EVM() config.EVM {
 	return &evmConfig{c: c.cfg}
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
-	return c.NodeNoNewHeadsThreshold()
+	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
 func (c *ChainScoped) EvmFinalityDepth() uint32 {
@@ -203,24 +211,4 @@ func (c *ChainScoped) MinIncomingConfirmations() uint32 {
 
 func (c *ChainScoped) MinimumContractPayment() *assets.Link {
 	return c.cfg.MinContractPayment
-}
-
-func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {
-	return c.cfg.NoNewHeadsThreshold.Duration()
-}
-
-func (c *ChainScoped) NodePollFailureThreshold() uint32 {
-	return *c.cfg.NodePool.PollFailureThreshold
-}
-
-func (c *ChainScoped) NodePollInterval() time.Duration {
-	return c.cfg.NodePool.PollInterval.Duration()
-}
-
-func (c *ChainScoped) NodeSelectionMode() string {
-	return *c.cfg.NodePool.SelectionMode
-}
-
-func (c *ChainScoped) NodeSyncThreshold() uint32 {
-	return *c.cfg.NodePool.SyncThreshold
 }

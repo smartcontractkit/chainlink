@@ -7,14 +7,11 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // Deprecated, use EVM below
 type ChainScopedOnlyConfig interface {
-	evmclient.NodeConfig
-
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
 	EvmFinalityDepth() uint32
@@ -34,6 +31,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+	NodePool() NodePool
 
 	ChainType() config.ChainType
 	AutoCreateKey() bool
@@ -46,6 +44,7 @@ type EVM interface {
 	NonceAutoSync() bool
 	RPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
+	NodeNoNewHeadsThreshold() time.Duration
 }
 
 type OCR interface {
