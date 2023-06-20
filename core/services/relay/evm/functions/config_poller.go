@@ -15,17 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-var _ ConfigPoller = &configPoller{}
-
-type ConfigPoller interface {
-	ocrtypes.ContractConfigTracker
-
-	Start()
-	Close() error
-	Replay(ctx context.Context, fromBlock int64) error
-}
+var _ types.ConfigPoller = &configPoller{}
 
 type FunctionsPluginType int
 
@@ -113,7 +106,7 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, lggr logger.Logger) (ConfigPoller, error) {
+func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, lggr logger.Logger) (types.ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
