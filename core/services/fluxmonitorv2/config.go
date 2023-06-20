@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -11,8 +12,11 @@ import (
 type Config interface {
 	FlagsContractAddress() string         // Evm
 	MinimumContractPayment() *assets.Link // Evm
-	EvmGasLimitDefault() uint32           // Evm
-	EvmGasLimitFMJobType() *uint32        // Evm
+}
+
+type EvmFeeConfig interface {
+	LimitDefault() uint32 // Evm
+	LimitJobType() config.LimitJobType
 }
 
 type EvmTransactionsConfig interface {
