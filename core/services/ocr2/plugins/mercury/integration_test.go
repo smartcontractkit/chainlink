@@ -290,7 +290,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	// Bury it with finality depth
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
-	finalityDepth := ch.Config().EvmFinalityDepth()
+	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}

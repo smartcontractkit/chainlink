@@ -87,16 +87,16 @@ func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (
 }
 
 func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.Node, opts ChainSetOpts) (*chain, error) {
-	chainID := cfg.ChainID()
+	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, cfg.ChainID(), cfg.ChainType(), nodes)
+		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.ChainID().String())
+			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.EVM().ChainID().String())
 		}
 	} else {
 		client = opts.GenEthClient(chainID)
@@ -110,8 +110,8 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg, cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewHeadTracker(l, client, headtracker.NewWrappedConfig(cfg), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -126,9 +126,9 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(db, cfg, client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to instantiate EvmTxm for chain with ID %s", cfg.ChainID().String())
+		return nil, errors.Wrapf(err, "failed to instantiate EvmTxm for chain with ID %s", chainID.String())
 	}
 
 	headBroadcaster.Subscribe(txm)
@@ -279,7 +279,7 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(nodePoolCfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 	for i, node := range nodes {
@@ -287,22 +287,22 @@ func newEthClientFromChain(nodePoolCfg evmconfig.NodePool, noNewHeadsThreshold t
 			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(nodePoolCfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
+			primary, err := newPrimary(cfg, lggr, node, int32(i), chainID)
 			if err != nil {
 				return nil, err
 			}
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	return evmclient.NewClientWithNodes(lggr, cfg, primaries, sendonlys, chainID, chainType)
 }
 
-func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
 	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
 
-	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
+	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
 }
 
 func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {

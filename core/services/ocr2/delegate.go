@@ -706,7 +706,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		common.HexToAddress(cfg.DKGContractAddress),
 		chain.Client(),
 		chain.LogPoller(),
-		chain.Config().EvmFinalityDepth(),
+		chain.Config().EVM().FinalityDepth(),
 	)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "create ocr2vrf coordinator")

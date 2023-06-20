@@ -28,17 +28,6 @@ type ChainScoped struct {
 	cfg *EVMConfig
 }
 
-func (c *ChainScoped) ChainID() *big.Int {
-	return c.cfg.ChainID.ToInt()
-}
-
-func (c *ChainScoped) ChainType() gencfg.ChainType {
-	if c.cfg.ChainType == nil {
-		return ""
-	}
-	return gencfg.ChainType(*c.cfg.ChainType)
-}
-
 func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
@@ -121,11 +110,19 @@ func (e *evmConfig) RPCDefaultBatchSize() uint32 {
 	return *e.c.RPCDefaultBatchSize
 }
 
+func (e *evmConfig) BlockEmissionIdleWarningThreshold() time.Duration {
+	return e.c.NoNewHeadsThreshold.Duration()
+}
+
 func (e *evmConfig) ChainType() gencfg.ChainType {
 	if e.c.ChainType == nil {
 		return ""
 	}
 	return gencfg.ChainType(*e.c.ChainType)
+}
+
+func (e *evmConfig) ChainID() *big.Int {
+	return e.c.ChainID.ToInt()
 }
 
 func (e *evmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
@@ -146,6 +143,10 @@ func (e *evmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	return e.GasEstimator().PriceMax()
 }
 
+func (e *evmConfig) MinIncomingConfirmations() uint32 {
+	return *e.c.MinIncomingConfirmations
+}
+
 func (e *evmConfig) NodePool() config.NodePool {
 	return &nodePoolConfig{c: e.c.NodePool}
 }
@@ -162,53 +163,31 @@ func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
-func (c *ChainScoped) EvmFinalityDepth() uint32 {
-	return *c.cfg.FinalityDepth
+func (e *evmConfig) MinContractPayment() *assets.Link {
+	return e.c.MinContractPayment
 }
 
-func (c *ChainScoped) FlagsContractAddress() string {
-	if c.cfg.FlagsContractAddress == nil {
+func (e *evmConfig) FlagsContractAddress() string {
+	if e.c.FlagsContractAddress == nil {
 		return ""
 	}
-	return c.cfg.FlagsContractAddress.String()
+	return e.c.FlagsContractAddress.String()
 }
 
-func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
-	var keySpecific *assets.Wei
-	for i := range c.cfg.KeySpecific {
-		ks := c.cfg.KeySpecific[i]
-		if ks.Key.Address() == addr {
-			keySpecific = ks.GasEstimator.PriceMax
-			break
-		}
-	}
-
-	chainSpecific := c.EVM().GasEstimator().PriceMax()
-	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
-		return keySpecific
-	}
-
-	return c.EVM().GasEstimator().PriceMax()
-}
-
-func (c *ChainScoped) LinkContractAddress() string {
-	if c.cfg.LinkContractAddress == nil {
+func (e *evmConfig) LinkContractAddress() string {
+	if e.c.LinkContractAddress == nil {
 		return ""
 	}
-	return c.cfg.LinkContractAddress.String()
+	return e.c.LinkContractAddress.String()
 }
 
-func (c *ChainScoped) OperatorFactoryAddress() string {
-	if c.cfg.OperatorFactoryAddress == nil {
+func (e *evmConfig) OperatorFactoryAddress() string {
+	if e.c.OperatorFactoryAddress == nil {
 		return ""
 	}
-	return c.cfg.OperatorFactoryAddress.String()
+	return e.c.OperatorFactoryAddress.String()
 }
 
-func (c *ChainScoped) MinIncomingConfirmations() uint32 {
-	return *c.cfg.MinIncomingConfirmations
-}
-
-func (c *ChainScoped) MinimumContractPayment() *assets.Link {
-	return c.cfg.MinContractPayment
+func (c *ChainScoped) EVM() config.EVM {
+	return &evmConfig{c: c.cfg}
 }

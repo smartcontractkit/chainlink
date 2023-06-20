@@ -7,22 +7,10 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-// Deprecated, use EVM below
-type ChainScopedOnlyConfig interface {
-	BlockEmissionIdleWarningThreshold() time.Duration
-	ChainID() *big.Int
-	EvmFinalityDepth() uint32
-	FlagsContractAddress() string
-	ChainType() config.ChainType
-	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
-	LinkContractAddress() string
-	OperatorFactoryAddress() string
-	MinIncomingConfirmations() uint32
-	MinimumContractPayment() *assets.Link
-}
 
 type EVM interface {
 	HeadTracker() HeadTracker
@@ -33,17 +21,24 @@ type EVM interface {
 	OCR2() OCR2
 	NodePool() NodePool
 
-	ChainType() config.ChainType
 	AutoCreateKey() bool
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
+	BlockEmissionIdleWarningThreshold() time.Duration
+	ChainID() *big.Int
+	ChainType() config.ChainType
 	FinalityDepth() uint32
-	LogBackfillBatchSize() uint32
-	LogPollInterval() time.Duration
-	LogKeepBlocksDepth() uint32
-	NonceAutoSync() bool
-	RPCDefaultBatchSize() uint32
+	FlagsContractAddress() string
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
+	LinkContractAddress() string
+	LogBackfillBatchSize() uint32
+	LogKeepBlocksDepth() uint32
+	LogPollInterval() time.Duration
+	MinContractPayment() *assets.Link
+	MinIncomingConfirmations() uint32
+	NonceAutoSync() bool
+	OperatorFactoryAddress() string
+	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
 }
 
@@ -125,7 +120,6 @@ type BlockHistory interface {
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig
-	ChainScopedOnlyConfig // Deprecated, to be replaced by EVM() below
 	Validate() error
 
 	EVM() EVM

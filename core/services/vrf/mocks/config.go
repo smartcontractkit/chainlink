@@ -14,8 +14,8 @@ type Config struct {
 	mock.Mock
 }
 
-// EvmFinalityDepth provides a mock function with given fields:
-func (_m *Config) EvmFinalityDepth() uint32 {
+// FinalityDepth provides a mock function with given fields:
+func (_m *Config) FinalityDepth() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32
