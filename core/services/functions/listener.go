@@ -121,7 +121,6 @@ type FunctionsListener struct {
 	mbOracleEvents    *utils.Mailbox[log.Broadcast]
 	serviceContext    context.Context
 	serviceCancel     context.CancelFunc
-	chStop            chan struct{}
 	pluginORM         ORM
 	pluginConfig      config.PluginConfig
 	logger            logger.Logger
@@ -141,7 +140,6 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridg
 		bridgeAccessor:  bridgeAccessor,
 		logBroadcaster:  logBroadcaster,
 		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:          make(chan struct{}),
 		pluginORM:       pluginORM,
 		pluginConfig:    pluginConfig,
 		logger:          lggr,
@@ -174,7 +172,7 @@ func (l *FunctionsListener) Start(context.Context) error {
 		go l.timeoutRequests()
 		go l.pruneRequests()
 		go func() {
-			<-l.chStop
+			<-l.serviceContext.Done()
 			unsubscribeLogs()
 			l.shutdownWaitGroup.Done()
 		}()
@@ -189,7 +187,6 @@ func (l *FunctionsListener) Start(context.Context) error {
 func (l *FunctionsListener) Close() error {
 	return l.StopOnce("FunctionsListener", func() error {
 		l.serviceCancel()
-		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 
 		return l.mbOracleEvents.Close()
@@ -224,12 +221,12 @@ func (l *FunctionsListener) processOracleEvents() {
 	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
-		case <-l.chStop:
+		case <-l.serviceContext.Done():
 			return
 		case <-l.mbOracleEvents.Notify():
 			for {
 				select {
-				case <-l.chStop:
+				case <-l.serviceContext.Done():
 					return
 				default:
 				}
@@ -413,7 +410,7 @@ func (l *FunctionsListener) timeoutRequests() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-l.chStop:
+		case <-l.serviceContext.Done():
 			return
 		case <-ticker.C:
 			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
@@ -458,7 +455,7 @@ func (l *FunctionsListener) pruneRequests() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-l.chStop:
+		case <-l.serviceContext.Done():
 			return
 		case <-ticker.C:
 			ctx, cancel := l.getNewHandlerContext()
