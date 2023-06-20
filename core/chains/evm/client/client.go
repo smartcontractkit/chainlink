@@ -30,10 +30,6 @@ const queryTimeout = 10 * time.Second
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
 	commontypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
-	commontypes.Accounts[common.Address, evmtypes.Nonce]
-	commontypes.Transactions[types.Transaction, common.Hash, types.Receipt]
-	commontypes.Blocks[types.Block, common.Hash]
-	commontypes.Events[types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
