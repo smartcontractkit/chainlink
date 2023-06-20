@@ -138,21 +138,7 @@ contract KeeperRegistryLogicA2_1 is
       );
     }
 
-    try abi.decode(result, (bool, bytes)) returns (bool un, bytes pd) {
-      upkeepNeeded = un;
-      performData = pd;
-    } catch {
-      return (
-        false,
-        bytes(""),
-        UpkeepFailureReason.INVALID_PAYLOAD,
-        gasUsed,
-        upkeep.executeGas,
-        fastGasWei,
-        linkNative
-      );
-    }
-
+    (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
     if (!upkeepNeeded)
       return (
         false,
@@ -215,12 +201,7 @@ contract KeeperRegistryLogicA2_1 is
     if (!success) {
       return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
     }
-    try abi.decode(result, (bool, bytes)) returns (bool un, bytes pd) {
-      upkeepNeeded = un;
-      performData = pd;
-    } catch {
-      return (false, bytes(""), UpkeepFailureReason.INVALID_PAYLOAD, gasUsed);
-    }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
 
     if (!upkeepNeeded) {
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
