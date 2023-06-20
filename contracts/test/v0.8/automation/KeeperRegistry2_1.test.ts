@@ -451,6 +451,7 @@ describe('KeeperRegistry2_1', () => {
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
+  let mercuryUpkeepId: BigNumber // mercury upkeep
   const numUpkeps = 3 // see above
   let keeperAddresses: string[]
   let payees: string[]
@@ -1012,6 +1013,17 @@ describe('KeeperRegistry2_1', () => {
     await linkToken
       .connect(owner)
       .transfer(autoFunderUpkeep.address, toWei('1000'))
+
+    tx = await registry
+      .connect(owner)
+      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
+        mercuryUpkeep.address,
+        executeGas,
+        await admin.getAddress(),
+        randomBytes,
+        '0x',
+      )
+    mercuryUpkeepId = await getUpkeepID(tx)
   }
 
   const getMultipleUpkeepsDeployedAndFunded = async (
@@ -5267,18 +5279,24 @@ describe('KeeperRegistry2_1', () => {
   })
 
   describe('#checkCallback', () => {
-    it('succeeds with upkeep needed', async () => {
-      const tx = await registry
-        .connect(owner)
-        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-          mercuryUpkeep.address,
-          executeGas,
-          await admin.getAddress(),
-          randomBytes,
-          '0x',
-        )
-      const mercuryUpkeepId = await getUpkeepID(tx)
+    it('returns false with appropriate failure reason when target callback reverts', async () => {
+      mercuryUpkeep.setShouldRevertCallback(true)
 
+      const values: any[] = ['0x1234', '0xabcd']
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.CHECK_CALLBACK_REVERTED,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('succeeds with upkeep needed', async () => {
       const values: any[] = ['0x1234', '0xabcd']
 
       const res = await registry
@@ -5291,6 +5309,8 @@ describe('KeeperRegistry2_1', () => {
 
       assert.isTrue(res.upkeepNeeded)
       assert.equal(res.performData, expectedPerformData)
+      assert.equal(res.upkeepFailureReason, UpkeepFailureReason.NONE)
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
   })
 
