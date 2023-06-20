@@ -362,6 +362,31 @@ simulate [type=ethcall
 decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
+	if vrfVersion == "V2_5" {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"]
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"]
+decode_log->vrf->estimate_gas->simulate
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
 	}
@@ -369,7 +394,6 @@ decode_log->vrf->estimate_gas->simulate
 externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
-vrfVersion = "%s"
 name = "%s"
 coordinatorAddress = "%s"
 batchCoordinatorAddress = "%s"
@@ -389,7 +413,7 @@ observationSource = """
 """
 `
 	toml := fmt.Sprintf(template,
-		jobID, vrfVersion, name, coordinatorAddress, batchCoordinatorAddress,
+		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		vrfOwnerAddress, confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)

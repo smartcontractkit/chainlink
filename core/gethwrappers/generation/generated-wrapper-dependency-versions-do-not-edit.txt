@@ -6,6 +6,7 @@ authorized_receiver: ../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../cont
 automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin f52c76f1aaed4be541d82d97189d70f5aa027fc9838037dd7a7d21910c8c488e
 batch_blockhash_store: ../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../contracts/solc/v0.8.6/BatchBlockhashStore.bin c5ab26709a01050402615659403f32d5cd1b85f3ad6bb6bfe021692f4233cf19
 batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
+batch_vrf_coordinator_v2_5: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2_5.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2_5.bin f2a0385ff17f60310bd2aa44fd2879fb724e80d8f02b6e56ce08dd087e34a8f3
 blockhash_store: ../../contracts/solc/v0.6/BlockhashStore.abi ../../contracts/solc/v0.6/BlockhashStore.bin a0dc60bcc4bf071033d23fddf7ae936c6a4d1dd81488434b7e24b7aa1fabc37c
 consumer_wrapper: ../../contracts/solc/v0.7/Consumer.abi ../../contracts/solc/v0.7/Consumer.bin 894d1cbd920dccbd36d92918c1037c6ded34f66f417ccb18ec3f33c64ef83ec5
 cron_upkeep_factory_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - dacb0f8cdf54ae9d2781c5e720fc314b32ed5e58eddccff512c75d6067292cd7

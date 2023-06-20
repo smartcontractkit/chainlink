@@ -490,11 +490,6 @@ type VRFSpec struct {
 	// V2 only.
 	VRFOwnerAddress *ethkey.EIP55Address `toml:"vrfOwnerAddress"`
 
-	// VRFVersion indicates the version of VRF to use.
-	//
-	// V2 only.
-	VRFVersion string `toml:"vrfVersion"`
-
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`

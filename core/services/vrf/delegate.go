@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -91,6 +92,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+	coordinatorV2_5, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
 
 	// If the batch coordinator address is not provided, we will fall back to non-batched
 	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
@@ -125,6 +130,50 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	for _, task := range pl.Tasks {
+		if _, ok := task.(*pipeline.VRFTaskV2_5); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+				return nil, err
+			}
+
+			linkEthFeedAddress, err := coordinatorV2_5.LINKETHFEED(nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "LINKETHFEED")
+			}
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+
+			return []job.ServiceCtx{v2.New(
+				chain.Config(),
+				lV2,
+				chain.Client(),
+				chain.ID(),
+				chain.LogBroadcaster(),
+				d.q,
+				v2.NewCoordinatorV2_5(coordinatorV2_5),
+				batchCoordinatorV2,
+				vrfOwner,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				d.mailMon,
+				utils.NewHighCapacityMailbox[log.Broadcast](),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				chain.HeadBroadcaster(),
+				vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
 				return nil, err

@@ -15,30 +15,30 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // batchFulfillment contains all the information needed in order to
 // perform a batch fulfillment operation on the batch VRF coordinator.
 type batchFulfillment struct {
 	proofs        []batch_vrf_coordinator_v2.VRFTypesProof
-	commitments   []batch_vrf_coordinator_v2.VRFTypesRequestCommitment
+	commitments   []RequestCommitment
 	totalGasLimit uint32
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
-	maxLinks      []*big.Int
+	maxFees       []*big.Int
 	txHashes      []common.Hash
 	fromAddress   common.Address
+	version       vrfcommon.Version
 }
 
-func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address) *batchFulfillment {
+func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, version vrfcommon.Version) *batchFulfillment {
 	return &batchFulfillment{
 		proofs: []batch_vrf_coordinator_v2.VRFTypesProof{
 			batch_vrf_coordinator_v2.VRFTypesProof(result.proof),
 		},
-		commitments: []batch_vrf_coordinator_v2.VRFTypesRequestCommitment{
-			batch_vrf_coordinator_v2.VRFTypesRequestCommitment(result.reqCommitment),
+		commitments: []RequestCommitment{
+			NewRequestCommitment(result.reqCommitment),
 		},
 		totalGasLimit: result.gasLimit,
 		runs: []*pipeline.Run{
@@ -50,13 +50,14 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address) *
 		lbs: []log.Broadcast{
 			result.req.lb,
 		},
-		maxLinks: []*big.Int{
-			result.maxLink,
+		maxFees: []*big.Int{
+			result.maxFee,
 		},
 		txHashes: []common.Hash{
 			result.req.req.Raw().TxHash,
 		},
 		fromAddress: fromAddress,
+		version:     version,
 	}
 }
 
@@ -67,13 +68,15 @@ type batchFulfillments struct {
 	fulfillments  []*batchFulfillment
 	batchGasLimit uint32
 	currIndex     int
+	version       vrfcommon.Version
 }
 
-func newBatchFulfillments(batchGasLimit uint32) *batchFulfillments {
+func newBatchFulfillments(batchGasLimit uint32, version vrfcommon.Version) *batchFulfillments {
 	return &batchFulfillments{
 		fulfillments:  []*batchFulfillment{},
 		batchGasLimit: batchGasLimit,
 		currIndex:     0,
+		version:       version,
 	}
 }
 
@@ -81,22 +84,22 @@ func newBatchFulfillments(batchGasLimit uint32) *batchFulfillments {
 // batch if the batchGasLimit that has been configured was exceeded.
 func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.Address) {
 	if len(b.fulfillments) == 0 {
-		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress))
+		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 	} else {
 		currBatch := b.fulfillments[b.currIndex]
 		if (currBatch.totalGasLimit + result.gasLimit) >= b.batchGasLimit {
 			// don't add to curr batch, add new batch and increment index
-			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress))
+			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 			b.currIndex++
 		} else {
 			// we're okay on gas, add to current batch
 			currBatch.proofs = append(currBatch.proofs, batch_vrf_coordinator_v2.VRFTypesProof(result.proof))
-			currBatch.commitments = append(currBatch.commitments, batch_vrf_coordinator_v2.VRFTypesRequestCommitment(result.reqCommitment))
+			currBatch.commitments = append(currBatch.commitments, NewRequestCommitment(result.reqCommitment))
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, &result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
 			currBatch.lbs = append(currBatch.lbs, result.req.lb)
-			currBatch.maxLinks = append(currBatch.maxLinks, result.maxLink)
+			currBatch.maxFees = append(currBatch.maxFees, result.maxFee)
 			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw().TxHash)
 		}
 	}
@@ -114,12 +117,28 @@ func (lsn *listenerV2) processBatch(
 
 	// Enqueue a single batch tx for requests that we're able to fulfill based on whether
 	// they passed simulation or not.
-	payload, err := batchCoordinatorV2ABI.Pack("fulfillRandomWords", batch.proofs, batch.commitments)
-	if err != nil {
-		// should never happen
-		l.Errorw("Failed to pack batch fulfillRandomWords payload",
-			"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
-		return
+	var (
+		payload []byte
+		err     error
+	)
+	if batch.version == vrfcommon.V2 {
+		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", batch.proofs, ToV2Commitments(batch.commitments))
+		if err != nil {
+			// should never happen
+			l.Errorw("Failed to pack batch fulfillRandomWords payload",
+				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
+			return
+		}
+	} else if batch.version == vrfcommon.V2_5 {
+		payload, err = batchCoordinatorV2_5ABI.Pack("fulfillRandomWords", batch.proofs, ToV2_5Commitments(batch.commitments))
+		if err != nil {
+			// should never happen
+			l.Errorw("Failed to pack batch fulfillRandomWords payload",
+				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
+			return
+		}
+	} else {
+		panic("batch version should be v2 or v2_5")
 	}
 
 	// Bump the total gas limit by a bit so that we account for the overhead of the batch
@@ -149,7 +168,18 @@ func (lsn *listenerV2) processBatch(
 			return errors.Wrap(err, "mark logs consumed")
 		}
 
-		maxLinkStr := bigmath.Accumulate(batch.maxLinks).String()
+		maxLink, maxEth := accumulateMaxLinkAndMaxEth(batch)
+		// check if maxLink is zero, if it is, no need to set it
+		// in the meta below
+		var maxLinkStr, maxEthStr *string
+		if maxLink.Cmp(big.NewInt(0)) > 0 {
+			tmp := maxLink.String()
+			maxLinkStr = &tmp
+		}
+		if maxEth.Cmp(big.NewInt(0)) > 0 {
+			tmp := maxEth.String()
+			maxEthStr = &tmp
+		}
 		txHashes := []common.Hash{}
 		copy(txHashes, batch.txHashes)
 		reqIDHashes := []common.Hash{}
@@ -164,7 +194,8 @@ func (lsn *listenerV2) processBatch(
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.EvmTxMeta{
 				RequestIDs:      reqIDHashes,
-				MaxLink:         &maxLinkStr,
+				MaxLink:         maxLinkStr,
+				MaxEth:          maxEthStr,
 				SubID:           &subID,
 				RequestTxHashes: txHashes,
 			},
@@ -231,4 +262,23 @@ func batchFulfillmentGasEstimate(
 	return uint32(
 		gasMultiplier * float64((uint64(maxCallbackGasLimit)+400_000)+batchSize*BatchFulfillmentIterationGasCost),
 	)
+}
+
+func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLink *big.Int, maxEth *big.Int) {
+	maxLink = big.NewInt(0)
+	maxEth = big.NewInt(0)
+	for i := range batch.commitments {
+		if batch.commitments[i].VRFVersion == vrfcommon.V2 {
+			// v2 always bills in link
+			maxLink = maxLink.Add(maxLink, batch.maxFees[i])
+		} else {
+			// v2_5 can bill in link or eth, depending on the commitment
+			if batch.commitments[i].NativePayment() {
+				maxEth = maxEth.Add(maxEth, batch.maxFees[i])
+			} else {
+				maxLink = maxLink.Add(maxLink, batch.maxFees[i])
+			}
+		}
+	}
+	return
 }

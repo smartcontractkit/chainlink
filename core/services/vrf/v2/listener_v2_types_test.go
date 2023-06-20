@@ -17,7 +17,7 @@ import (
 
 func Test_BatchFulfillments_AddRun(t *testing.T) {
 	batchLimit := uint32(2500)
-	bfs := newBatchFulfillments(batchLimit)
+	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
 	fromAddress := testutils.NewAddress()
 	for i := 0; i < 4; i++ {
 		bfs.addRun(vrfPipelineResult{

@@ -43,14 +43,6 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 
-	// Check if the vrfVersion field is specified.
-	// If not, V2 is assumed for backwards compatibility.
-	if spec.VRFVersion != "" {
-		if spec.VRFVersion != string(V2) && spec.VRFVersion != string(V2_5) {
-			return jb, fmt.Errorf("vrf version must be V2 or V2_5, got: %s", spec.VRFVersion)
-		}
-	}
-
 	var empty secp256k1.PublicKey
 	if bytes.Equal(spec.PublicKey[:], empty[:]) {
 		return jb, errors.Wrap(ErrKeyNotSet, "publicKey")
@@ -92,7 +84,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
-		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
+		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2_5 {
 			foundVRFTask = true
 		}
 
