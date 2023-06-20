@@ -7,7 +7,7 @@ import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/Arb
 import "../../../automation/2_0/KeeperRegistrar2_0.sol";
 import "../../../tests/VerifiableLoadBase.sol";
 
-contract VerifiableLoadLogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
+contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
   event TriggerMercury(uint256 indexed upkeepId, uint256 indexed logBlockNumber); // keccak256(TriggerMercury(uint256,uint256)) => 0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6
   event DoNotTriggerMercury(uint256 indexed bn, uint256 indexed ts); // keccak256(DoNotTriggerMercury(uint256,uint256)) => 0x3338104ccab396f091b767e17a2a863f70d777261982306eeb72053c94b9cd47
   event PerformingLogTriggerUpkeep(
@@ -31,7 +31,6 @@ contract VerifiableLoadLogTriggeredFeedLookup is ILogAutomation, FeedLookupCompa
 
   uint256 public testRange;
   uint256 public interval;
-  uint256 public lastBlock;
   uint256 public previousPerformBlock;
   uint256 public initialBlock;
   uint256 public counter;
@@ -42,7 +41,6 @@ contract VerifiableLoadLogTriggeredFeedLookup is ILogAutomation, FeedLookupCompa
     interval = _interval;
     useArbitrumBlockNum = _useArbitrumBlockNum;
     previousPerformBlock = 0;
-    lastBlock = getBlockNumber();
     initialBlock = 0;
     counter = 0;
   }
@@ -96,9 +94,8 @@ contract VerifiableLoadLogTriggeredFeedLookup is ILogAutomation, FeedLookupCompa
     if (initialBlock == 0) {
       initialBlock = blockNumber;
     }
-    lastBlock = blockNumber;
     counter = counter + 1;
-    previousPerformBlock = lastBlock;
+    previousPerformBlock = blockNumber;
 
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
@@ -131,7 +128,7 @@ contract VerifiableLoadLogTriggeredFeedLookup is ILogAutomation, FeedLookupCompa
     }
 
     uint256 blockNumber = getBlockNumber();
-    return (blockNumber - initialBlock) < testRange && (blockNumber - lastBlock) >= interval;
+    return (blockNumber - initialBlock) < testRange && (blockNumber - previousPerformBlock) >= interval;
   }
 
   function setSpread(uint256 _testRange, uint256 _interval) external {
