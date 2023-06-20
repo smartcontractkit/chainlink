@@ -102,7 +102,7 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (evmconfig.ChainScope
 	} else if err := validateNonBootstrapSpec(tree, jb, cfg.OCR().ObservationTimeout()); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg, cfg.EVM().OCR(), cfg.Insecure(), spec, cfg.OCR()); err != nil {
+	if err := validateTimingParameters(cfg.EVM(), cfg.EVM().OCR(), cfg.Insecure(), spec, cfg.OCR()); err != nil {
 		return jb, err
 	}
 	return jb, nil

@@ -118,7 +118,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
 

@@ -83,7 +83,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	delegate, testData := createTestDelegate(t)
 
 	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EvmFinalityDepth())
+	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks}}
@@ -148,7 +148,7 @@ func TestDelegate_StartStop(t *testing.T) {
 	delegate, testData := createTestDelegate(t)
 
 	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EvmFinalityDepth())
+	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EVM().FinalityDepth())
 	spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
