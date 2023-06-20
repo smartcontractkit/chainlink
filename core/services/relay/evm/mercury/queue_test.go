@@ -117,4 +117,31 @@ func Test_Queue(t *testing.T) {
 		}()
 		wg.Wait()
 	})
+
+	t.Run("initializes transmissions", func(t *testing.T) {
+		for _, tt := range testTransmissions {
+			ok := transmitQueue.Push(tt.tr, tt.ctx)
+			require.True(t, ok)
+		}
+
+		newTransmissions := []*Transmission{
+			{
+				Req: &pb.TransmitRequest{
+					Payload: []byte("new1"),
+				},
+				ReportCtx: ocrtypes.ReportContext{
+					ReportTimestamp: ocrtypes.ReportTimestamp{
+						Epoch:        1,
+						Round:        1,
+						ConfigDigest: ocrtypes.ConfigDigest{},
+					},
+				},
+			},
+		}
+		transmitQueue.InitTransmissions(newTransmissions)
+
+		transmission := transmitQueue.BlockingPop()
+		assert.Equal(t, transmission.Req.Payload, []byte("new1"))
+		assert.True(t, transmitQueue.IsEmpty())
+	})
 }
