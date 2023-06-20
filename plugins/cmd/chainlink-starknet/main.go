@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
+	"os"
 	"strings"
 
 	"github.com/hashicorp/go-plugin"
@@ -57,6 +60,7 @@ type pluginRelayer struct {
 // loopKs must be an implementation that can construct a starknet keystore adapter
 // [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs loop.Keystore) (loop.Relayer, error) {
+	c.Logger.Info("Launching Starknet LOOPp relayer")
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
@@ -77,6 +81,16 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chainSet), chainSet)
 
 	c.SubService(ra)
-
+	go c.demoChaos()
 	return ra, nil
+}
+
+func (c *pluginRelayer) demoChaos() {
+	r, err := rand.Int(rand.Reader, big.NewInt(10))
+	if err != nil {
+		r = big.NewInt(10)
+	}
+	r = r.Add(r, big.NewInt(7))
+	c.Logger.Panic("Starknet panic: oops")
+	os.Exit(1)
 }
