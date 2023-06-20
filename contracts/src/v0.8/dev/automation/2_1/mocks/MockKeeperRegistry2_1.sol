@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "../interfaces/IAutomationRegistryConsumer.sol";
 
@@ -23,7 +23,7 @@ contract MockKeeperRegistry2_1 is IAutomationRegistryConsumer {
 
   function unpauseUpkeep(uint256 id) external override {}
 
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {}
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external {}
 
   function addFunds(uint256 id, uint96 amount) external override {}
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import {AutomationForwarder} from "../../AutomationForwarder.sol";
@@ -24,7 +24,7 @@ contract AutomationForwarderSetUp is Test {
     default_target.setCanCheck(true);
     default_target.setCanPerform(true);
     vm.startPrank(address(default_registry));
-    forwarder = new AutomationForwarder(1, address(default_target));
+    forwarder = new AutomationForwarder(1, address(default_target), address(default_registry));
     OWNER = address(default_registry);
   }
 
