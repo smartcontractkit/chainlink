@@ -110,17 +110,7 @@ func (m *MockBlockHistoryConfig) TransactionPercentile() uint16 {
 }
 
 type MockConfig struct {
-	ChainTypeF             string
-	EvmEIP1559DynamicFeesF bool
-	EvmGasBumpPercentF     uint16
-	EvmGasBumpThresholdF   uint64
-	EvmGasBumpWeiF         *assets.Wei
-	EvmGasLimitMultiplierF float32
-	EvmGasTipCapDefaultF   *assets.Wei
-	EvmGasTipCapMinimumF   *assets.Wei
-	EvmMaxGasPriceWeiF     *assets.Wei
-	EvmMinGasPriceWeiF     *assets.Wei
-	EvmGasPriceDefaultF    *assets.Wei
+	ChainTypeF string
 }
 
 func NewMockConfig() *MockConfig {
@@ -131,58 +121,74 @@ func (m *MockConfig) ChainType() config.ChainType {
 	return config.ChainType(m.ChainTypeF)
 }
 
-func (m *MockConfig) EvmEIP1559DynamicFees() bool {
-	return m.EvmEIP1559DynamicFeesF
-}
-
-func (m *MockConfig) EvmFinalityDepth() uint32 {
+func (m *MockConfig) FinalityDepth() uint32 {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *MockConfig) EvmGasBumpPercent() uint16 {
-	return m.EvmGasBumpPercentF
+type MockGasEstimatorConfig struct {
+	EIP1559DynamicFeesF bool
+	BumpPercentF        uint16
+	BumpThresholdF      uint64
+	BumpMinF            *assets.Wei
+	LimitMultiplierF    float32
+	TipCapDefaultF      *assets.Wei
+	TipCapMinF          *assets.Wei
+	PriceMaxF           *assets.Wei
+	PriceMinF           *assets.Wei
+	PriceDefaultF       *assets.Wei
+	FeeCapDefaultF      *assets.Wei
+	LimitMaxF           uint32
+	ModeF               string
 }
 
-func (m *MockConfig) EvmGasBumpThreshold() uint64 {
-	return m.EvmGasBumpThresholdF
+func (m *MockGasEstimatorConfig) BumpPercent() uint16 {
+	return m.BumpPercentF
 }
 
-func (m *MockConfig) EvmGasBumpWei() *assets.Wei {
-	return m.EvmGasBumpWeiF
+func (m *MockGasEstimatorConfig) BumpThreshold() uint64 {
+	return m.BumpThresholdF
 }
 
-func (m *MockConfig) EvmGasFeeCapDefault() *assets.Wei {
-	panic("not implemented") // TODO: Implement
+func (m *MockGasEstimatorConfig) BumpMin() *assets.Wei {
+	return m.BumpMinF
 }
 
-func (m *MockConfig) EvmGasLimitMax() uint32 {
-	panic("not implemented") // TODO: Implement
+func (m *MockGasEstimatorConfig) EIP1559DynamicFees() bool {
+	return m.EIP1559DynamicFeesF
 }
 
-func (m *MockConfig) EvmGasLimitMultiplier() float32 {
-	return m.EvmGasLimitMultiplierF
+func (m *MockGasEstimatorConfig) LimitMultiplier() float32 {
+	return m.LimitMultiplierF
 }
 
-func (m *MockConfig) EvmGasPriceDefault() *assets.Wei {
-	return m.EvmGasPriceDefaultF
+func (m *MockGasEstimatorConfig) PriceDefault() *assets.Wei {
+	return m.PriceDefaultF
 }
 
-func (m *MockConfig) EvmGasTipCapDefault() *assets.Wei {
-	return m.EvmGasTipCapDefaultF
+func (m *MockGasEstimatorConfig) TipCapDefault() *assets.Wei {
+	return m.TipCapDefaultF
 }
 
-func (m *MockConfig) EvmGasTipCapMinimum() *assets.Wei {
-	return m.EvmGasTipCapMinimumF
+func (m *MockGasEstimatorConfig) TipCapMin() *assets.Wei {
+	return m.TipCapMinF
 }
 
-func (m *MockConfig) EvmMaxGasPriceWei() *assets.Wei {
-	return m.EvmMaxGasPriceWeiF
+func (m *MockGasEstimatorConfig) PriceMax() *assets.Wei {
+	return m.PriceMaxF
 }
 
-func (m *MockConfig) EvmMinGasPriceWei() *assets.Wei {
-	return m.EvmMinGasPriceWeiF
+func (m *MockGasEstimatorConfig) PriceMin() *assets.Wei {
+	return m.PriceMinF
 }
 
-func (m *MockConfig) GasEstimatorMode() string {
-	panic("not implemented") // TODO: Implement
+func (m *MockGasEstimatorConfig) FeeCapDefault() *assets.Wei {
+	return m.FeeCapDefaultF
+}
+
+func (m *MockGasEstimatorConfig) LimitMax() uint32 {
+	return m.LimitMaxF
+}
+
+func (m *MockGasEstimatorConfig) Mode() string {
+	return m.ModeF
 }

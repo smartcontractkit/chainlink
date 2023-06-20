@@ -89,7 +89,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		lggr,
 		db,
 		uni.db,
-		chain,
+		chain.EVM(),
 		chain.Database(),
 	)
 
