@@ -62,10 +62,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
-	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
+	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EVM().FinalityDepth()) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EvmFinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
+			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
 	}
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())

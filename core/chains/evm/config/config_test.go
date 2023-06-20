@@ -97,7 +97,7 @@ func TestChainScopedConfig(t *testing.T) {
 		cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
 
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, assets.NewWeiI(100000000000000), cfg2.KeySpecificMaxGasPriceWei(addr))
+			assert.Equal(t, assets.NewWeiI(100000000000000), cfg2.EVM().KeySpecificMaxGasPriceWei(addr))
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set", func(t *testing.T) {
 			val := assets.GWei(250)
@@ -122,7 +122,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than chain specific config", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
@@ -139,7 +139,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, keySpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, keySpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses chain-specific value when higher than key-specific value", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(1400)
@@ -156,7 +156,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, chainSpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, chainSpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than global config", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
@@ -171,7 +171,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, keySpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, keySpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses global value when higher than key-specific value", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(1400)
@@ -188,7 +188,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, chainSpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, chainSpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses global value when there is no key-specific price", func(t *testing.T) {
 			val := assets.NewWeiI(rand.Int63())
@@ -198,13 +198,13 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(unsetAddr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(unsetAddr).String())
 		})
 	})
 
 	t.Run("LinkContractAddress", func(t *testing.T) {
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, "", cfg.LinkContractAddress())
+			assert.Equal(t, "", cfg.EVM().LinkContractAddress())
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -215,13 +215,13 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.LinkContractAddress())
+			assert.Equal(t, val.String(), cfg3.EVM().LinkContractAddress())
 		})
 	})
 
 	t.Run("OperatorFactoryAddress", func(t *testing.T) {
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, "", cfg.OperatorFactoryAddress())
+			assert.Equal(t, "", cfg.EVM().OperatorFactoryAddress())
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -232,7 +232,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.OperatorFactoryAddress())
+			assert.Equal(t, val.String(), cfg3.EVM().OperatorFactoryAddress())
 		})
 	})
 }
@@ -348,7 +348,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().VRF())
 			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().FM())
 			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().Keeper())
-			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
+			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.EVM().MinContractPayment().Link(), "0"))
 		})
 	}
 }

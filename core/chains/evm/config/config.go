@@ -14,17 +14,6 @@ import (
 // Deprecated, use EVM below
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
-
-	BlockEmissionIdleWarningThreshold() time.Duration
-	ChainID() *big.Int
-	EvmFinalityDepth() uint32
-	FlagsContractAddress() string
-	ChainType() config.ChainType
-	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
-	LinkContractAddress() string
-	OperatorFactoryAddress() string
-	MinIncomingConfirmations() uint32
-	MinimumContractPayment() *assets.Link
 }
 
 type EVM interface {
@@ -35,17 +24,24 @@ type EVM interface {
 	OCR() OCR
 	OCR2() OCR2
 
-	ChainType() config.ChainType
 	AutoCreateKey() bool
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
+	BlockEmissionIdleWarningThreshold() time.Duration
+	ChainID() *big.Int
+	ChainType() config.ChainType
 	FinalityDepth() uint32
-	LogBackfillBatchSize() uint32
-	LogPollInterval() time.Duration
-	LogKeepBlocksDepth() uint32
-	NonceAutoSync() bool
-	RPCDefaultBatchSize() uint32
+	FlagsContractAddress() string
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
+	LinkContractAddress() string
+	LogBackfillBatchSize() uint32
+	LogKeepBlocksDepth() uint32
+	LogPollInterval() time.Duration
+	MinContractPayment() *assets.Link
+	MinIncomingConfirmations() uint32
+	NonceAutoSync() bool
+	OperatorFactoryAddress() string
+	RPCDefaultBatchSize() uint32
 }
 
 type OCR interface {

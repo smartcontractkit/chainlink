@@ -209,7 +209,7 @@ func NewFromJobSpec(
 	)
 
 	paymentChecker := &PaymentChecker{
-		MinContractPayment: cfg.MinimumContractPayment(),
+		MinContractPayment: cfg.MinContractPayment(),
 		MinJobPayment:      fmSpec.MinPayment,
 	}
 

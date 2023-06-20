@@ -48,10 +48,22 @@ type Chainlink struct {
 func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	rc := resty.New().SetBaseURL(c.URL)
 	session := &Session{Email: c.Email, Password: c.Password}
-	resp, err := rc.R().SetBody(session).Post("/sessions")
+
+	// Retry the connection on boot up, sometimes pods can still be starting up and not ready to accept connections
+	var resp *resty.Response
+	var err error
+	retryCount := 5
+	for i := 0; i < retryCount; i++ {
+		resp, err = rc.R().SetBody(session).Post("/sessions")
+		if err != nil {
+			log.Debug().Err(err).Str("URL", c.URL).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
+			time.Sleep(3 * time.Second)
+		} else { // Connection successful
+			break
+		}
+	}
 	if err != nil {
-		log.Info().Interface("session", session).Msg("session used")
-		return nil, err
+		return nil, fmt.Errorf("error connecting to chainlink node after %d attempts: %w", retryCount, err)
 	}
 	rc.SetCookies(resp.Cookies())
 	return &Chainlink{
