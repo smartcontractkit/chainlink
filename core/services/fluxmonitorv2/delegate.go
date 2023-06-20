@@ -85,6 +85,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
 		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		chain.Config().EVM().Transactions(),
 		chain.Config().FluxMonitor(),
 		chain.Config().JobPipeline(),

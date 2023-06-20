@@ -1259,7 +1259,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		})
 
 		ccfg := evmtest.NewChainScopedConfig(t, evmCfg)
-		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg)
+		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.TestLogger(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil)
