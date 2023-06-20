@@ -75,7 +75,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	svcLogger.Info("Registry version is: ", registryWrapper.Version)
 
-	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+	minIncomingConfirmations := chain.Config().EVM().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}

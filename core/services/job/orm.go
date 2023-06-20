@@ -664,13 +664,13 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		if err != nil {
 			return err
 		}
-		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config(), *jb.VRFSpec)
+		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config().EVM(), *jb.VRFSpec)
 	} else if jb.DirectRequestSpec != nil {
 		ch, err := o.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
 		if err != nil {
 			return err
 		}
-		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config(), *jb.DirectRequestSpec)
+		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config().EVM(), *jb.DirectRequestSpec)
 	}
 	return nil
 }
