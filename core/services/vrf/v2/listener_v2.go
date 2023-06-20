@@ -292,7 +292,7 @@ func (lsn *listenerV2) getLatestHead() uint64 {
 func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
-	vrfcommon.UpdateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, uniqueReqs(lsn.reqs))
+	vrfcommon.UpdateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), uniqueReqs(lsn.reqs))
 	var toProcess = make(map[uint64][]pendingRequest)
 	var toKeep []pendingRequest
 	for i := 0; i < len(lsn.reqs); i++ {
@@ -527,7 +527,10 @@ func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint
 		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
 	}
 
-	return new(big.Int).Set(startBalance), nil
+	if startBalance != nil {
+		return new(big.Int).Set(startBalance), nil
+	}
+	return big.NewInt(0), nil
 }
 
 type fulfilledReqV2 struct {
@@ -548,21 +551,16 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 	}
 }
 
-func (lsn *listenerV2) processRequestsPerSubBatch(
+func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	ctx context.Context,
 	subID uint64,
 	startBalance *big.Int,
+	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
 	subIsActive bool,
-) map[string]struct{} {
+) (processed map[string]struct{}) {
 	start := time.Now()
-	var processed = make(map[string]struct{})
-	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startBalance, lsn.chainID.Uint64(), subID)
-	if err != nil {
-		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
-		return processed
-	}
+	processed = make(map[string]struct{})
 
 	// Base the max gas for a batch on the max gas limit for a single callback.
 	// Since the max gas limit for a single callback is usually quite large already,
@@ -581,17 +579,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	batchMaxGas := uint32(config.MaxGasLimit() + 400_000)
 
 	l := lsn.l.With(
-		"subID", reqs[0].req.SubID(),
+		"subID", subID,
 		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
-		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
+		"startBalanceNoReservedLink", startBalanceNoReserved.String(),
 		"batchMaxGas", batchMaxGas,
 		"subIsActive", subIsActive,
 	)
 
 	defer func() {
 		l.Infow("Finished processing for sub",
-			"endBalance", startBalanceNoReserveLink.String(),
+			"endBalance", startBalanceNoReserved.String(),
 			"totalProcessed", len(processed),
 			"totalUnique", uniqueReqs(reqs),
 			"time", time.Since(start).String())
@@ -641,7 +639,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
 		// in which case we'd want to use that as a relative point from when we last tried
 		// the request.
-		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, unfulfilled)
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas, lsn.coordinator.Version())
@@ -654,7 +652,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"maxFee", p.maxFee.String(),
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
-				"remainingBalance", startBalanceNoReserveLink.String(),
+				"remainingBalance", startBalanceNoReserved.String(),
 				"consumerAddress", p.req.req.Sender,
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
@@ -691,7 +689,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 						continue
 					}
 
-					if startBalanceNoReserveLink.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
 						ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
 						outOfBalance = true
 
@@ -714,23 +712,23 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				continue
 			}
 
-			if startBalanceNoReserveLink.Cmp(p.maxFee) < 0 {
+			if startBalanceNoReserved.Cmp(p.maxFee) < 0 {
 				// Insufficient funds, have to wait for a user top up.
 				// Break out of the loop now and process what we are able to process
 				// in the constructed batches.
-				ll.Infow("Insufficient link balance to fulfill a request, breaking")
+				ll.Infow("Insufficient balance to fulfill a request, breaking")
 				break
 			}
 
 			batches.addRun(p, fromAddress)
 
-			startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, p.maxFee)
+			startBalanceNoReserved.Sub(startBalanceNoReserved, p.maxFee)
 		}
 
 		var processedRequestIDs []string
 		for _, batch := range batches.fulfillments {
 			l.Debugw("Processing batch", "batchSize", len(batch.proofs))
-			p := lsn.processBatch(l, subID, startBalanceNoReserveLink, batchMaxGas, batch, batch.fromAddress)
+			p := lsn.processBatch(l, subID, startBalanceNoReserved, batchMaxGas, batch, batch.fromAddress)
 			processedRequestIDs = append(processedRequestIDs, p...)
 		}
 
@@ -745,6 +743,64 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		if outOfBalance {
 			break
 		}
+	}
+
+	return
+}
+
+func (lsn *listenerV2) processRequestsPerSubBatch(
+	ctx context.Context,
+	subID uint64,
+	startLinkBalance *big.Int,
+	startEthBalance *big.Int,
+	reqs []pendingRequest,
+	subIsActive bool,
+) map[string]struct{} {
+	var processed = make(map[string]struct{})
+	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
+		lsn.q, startLinkBalance, lsn.chainID.Uint64(), subID)
+	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
+		return processed
+	}
+	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
+		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID)
+	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved ether for subscription", "sub", reqs[0].req.SubID(), "err", err)
+		return processed
+	}
+
+	// Split the requests into native and LINK requests.
+	var (
+		nativeRequests []pendingRequest
+		linkRequests   []pendingRequest
+	)
+	for _, req := range reqs {
+		if req.req.NativePayment() {
+			nativeRequests = append(nativeRequests, req)
+		} else {
+			linkRequests = append(linkRequests, req)
+		}
+	}
+	// process the native and link requests in parallel
+	var wg sync.WaitGroup
+	var nativeProcessed, linkProcessed map[string]struct{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		nativeProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startEthBalance, startBalanceNoReserveEth, nativeRequests, subIsActive)
+	}()
+	go func() {
+		defer wg.Done()
+		linkProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startLinkBalance, startBalanceNoReserveLink, linkRequests, subIsActive)
+	}()
+	wg.Wait()
+	// combine the processed link and native requests into the processed map
+	for k, v := range nativeProcessed {
+		processed[k] = v
+	}
+	for k, v := range linkProcessed {
+		processed[k] = v
 	}
 
 	return processed
@@ -844,45 +900,32 @@ func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Cont
 	return true // valid consumer, or finality depth has not elapsed
 }
 
-func (lsn *listenerV2) processRequestsPerSub(
+// processRequestsPerSubHelper processes a set of pending requests for the provided sub id.
+// It returns a set of request IDs that were processed.
+// Note that the provided startBalanceNoReserve is the balance of the subscription
+// minus any pending requests that have already been processed and not yet fulfilled onchain.
+func (lsn *listenerV2) processRequestsPerSubHelper(
 	ctx context.Context,
 	subID uint64,
-	startLinkBalance *big.Int,
-	startEthBalance *big.Int,
+	startBalance *big.Int,
+	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
 	subIsActive bool,
-) map[string]struct{} {
-	if lsn.job.VRFSpec.BatchFulfillmentEnabled && lsn.batchCoordinator != nil {
-		return lsn.processRequestsPerSubBatch(ctx, subID, startLinkBalance, reqs, subIsActive)
-	}
-
+) (processed map[string]struct{}) {
 	start := time.Now()
-	var processed = make(map[string]struct{})
-	chainId := lsn.ethClient.ConfiguredChainID()
-	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startLinkBalance, chainId.Uint64(), subID)
-	if err != nil {
-		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
-		return processed
-	}
-	//startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
-	//	lsn.q, startEthBalance, lsn.chainID.Uint64(), subID)
-	//if err != nil {
-	//	lsn.l.Errorw("Couldn't get reserved ETH for subscription", "sub", reqs[0].req.SubID(), "err", err)
-	//	return processed
-	//}
+	processed = make(map[string]struct{})
 
 	l := lsn.l.With(
-		"subID", reqs[0].req.SubID(),
+		"subID", subID,
 		"eligibleSubReqs", len(reqs),
-		"startLinkBalance", startLinkBalance.String(),
-		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
+		"startLinkBalance", startBalance.String(),
+		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"subIsActive", subIsActive,
 	)
 
 	defer func() {
 		l.Infow("Finished processing for sub",
-			"endBalance", startBalanceNoReserveLink.String(),
+			"endBalance", startBalanceNoReserved.String(),
 			"totalProcessed", len(processed),
 			"totalUnique", uniqueReqs(reqs),
 			"time", time.Since(start).String())
@@ -923,7 +966,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
 		fromAddresses := lsn.fromAddresses()
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
-		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, unfulfilled)
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestID().String(),
@@ -933,7 +976,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"maxFee", p.maxFee.String(),
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
-				"remainingBalance", startBalanceNoReserveLink.String(),
+				"remainingBalance", startBalanceNoReserved.String(),
 				"consumerAddress", p.req.req.Sender,
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
@@ -970,7 +1013,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						continue
 					}
 
-					if startBalanceNoReserveLink.Cmp(p.fundsNeeded) < 0 {
+					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 {
 						ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
 						return processed
 					}
@@ -990,7 +1033,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				continue
 			}
 
-			if startBalanceNoReserveLink.Cmp(p.maxFee) < 0 {
+			if startBalanceNoReserved.Cmp(p.maxFee) < 0 {
 				// Insufficient funds, have to wait for a user top up. Leave it unprocessed for now
 				ll.Infow("Insufficient link balance to fulfill a request, returning")
 				return processed
@@ -1006,7 +1049,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 					return err
 				}
 
-				maxLinkString := p.maxFee.String()
+				var maxLink, maxEth *string
+				tmp := p.maxFee.String()
+				if p.reqCommitment.NativePayment() {
+					maxEth = &tmp
+				} else {
+					maxLink = &tmp
+				}
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				subID := p.req.req.SubID()
@@ -1018,7 +1067,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 					FeeLimit:       p.gasLimit,
 					Meta: &txmgr.EvmTxMeta{
 						RequestID:     &requestID,
-						MaxLink:       &maxLinkString,
+						MaxLink:       maxLink,
+						MaxEth:        maxEth,
 						SubID:         &subID,
 						RequestTxHash: &requestTxHash,
 					},
@@ -1039,10 +1089,87 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment
-			startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, p.maxFee)
+			startBalanceNoReserved.Sub(startBalanceNoReserved, p.maxFee)
 			processed[p.req.req.RequestID().String()] = struct{}{}
-			vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2)
+			vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version())
 		}
+	}
+
+	return
+}
+
+func (lsn *listenerV2) processRequestsPerSub(
+	ctx context.Context,
+	subID uint64,
+	startLinkBalance *big.Int,
+	startEthBalance *big.Int,
+	reqs []pendingRequest,
+	subIsActive bool,
+) map[string]struct{} {
+	if lsn.job.VRFSpec.BatchFulfillmentEnabled && lsn.batchCoordinator != nil {
+		return lsn.processRequestsPerSubBatch(ctx, subID, startLinkBalance, startEthBalance, reqs, subIsActive)
+	}
+
+	var processed = make(map[string]struct{})
+	chainId := lsn.ethClient.ConfiguredChainID()
+	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
+		lsn.q, startLinkBalance, chainId.Uint64(), subID)
+	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
+		return processed
+	}
+	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
+		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID)
+	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved ETH for subscription", "sub", reqs[0].req.SubID(), "err", err)
+		return processed
+	}
+
+	// Split the requests into native and LINK requests.
+	var (
+		nativeRequests []pendingRequest
+		linkRequests   []pendingRequest
+	)
+	for _, req := range reqs {
+		if req.req.NativePayment() {
+			nativeRequests = append(nativeRequests, req)
+		} else {
+			linkRequests = append(linkRequests, req)
+		}
+	}
+	// process the native and link requests in parallel
+	var (
+		wg                             sync.WaitGroup
+		nativeProcessed, linkProcessed map[string]struct{}
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		nativeProcessed = lsn.processRequestsPerSubHelper(
+			ctx,
+			subID,
+			startEthBalance,
+			startBalanceNoReserveEth,
+			nativeRequests,
+			subIsActive)
+	}()
+	go func() {
+		defer wg.Done()
+		linkProcessed = lsn.processRequestsPerSubHelper(
+			ctx,
+			subID,
+			startLinkBalance,
+			startBalanceNoReserveLink,
+			linkRequests,
+			subIsActive)
+	}()
+	wg.Wait()
+	// combine the native and link processed requests into the processed map
+	for k, v := range nativeProcessed {
+		processed[k] = v
+	}
+	for k, v := range linkProcessed {
+		processed[k] = v
 	}
 
 	return processed
@@ -1352,7 +1479,7 @@ func (lsn *listenerV2) getConfirmedAt(req *RandomWordsRequested, nodeMinConfs ui
 			"blockHash", req.Raw().BlockHash,
 			"reqID", req.RequestID().String(),
 			"newConfs", newConfs)
-		vrfcommon.IncDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2)
+		vrfcommon.IncDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version())
 	}
 	return req.Raw().BlockNumber + newConfs
 }
@@ -1429,7 +1556,7 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("Log mailbox is over capacity - dropped the oldest log")
-		vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, vrfcommon.ReasonMailboxSize)
+		vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), vrfcommon.ReasonMailboxSize)
 	}
 }
 

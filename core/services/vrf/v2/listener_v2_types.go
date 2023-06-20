@@ -38,7 +38,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, v
 			batch_vrf_coordinator_v2.VRFTypesProof(result.proof),
 		},
 		commitments: []RequestCommitment{
-			NewRequestCommitment(result.reqCommitment),
+			result.reqCommitment,
 		},
 		totalGasLimit: result.gasLimit,
 		runs: []*pipeline.Run{
@@ -94,7 +94,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 		} else {
 			// we're okay on gas, add to current batch
 			currBatch.proofs = append(currBatch.proofs, batch_vrf_coordinator_v2.VRFTypesProof(result.proof))
-			currBatch.commitments = append(currBatch.commitments, NewRequestCommitment(result.reqCommitment))
+			currBatch.commitments = append(currBatch.commitments, result.reqCommitment)
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, &result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
