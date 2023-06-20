@@ -2,10 +2,8 @@ package mercury
 
 import (
 	"crypto/sha256"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -22,7 +20,6 @@ type transmitRequest struct {
 	Epoch        uint32
 	Round        uint8
 	ExtraHash    common.Hash
-	CreatedAt    time.Time
 }
 
 type ORM struct {
@@ -37,16 +34,18 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
 	}
 }
 
+// InsertTransmitRequest inserts one transmit request if the payload does not exist already.
 func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
-		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (payload_hash) DO NOTHING
 	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
 	return err
 }
 
+// DeleteTransmitRequest deletes one transmit request if it exists.
 func (o *ORM) DeleteTransmitRequest(req *pb.TransmitRequest, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
@@ -56,13 +55,16 @@ func (o *ORM) DeleteTransmitRequest(req *pb.TransmitRequest, qopts ...pg.QOpt) e
 	return err
 }
 
+// GetTransmitRequests returns all transmit requests in chronologically descending order.
 func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
 	q := o.q.WithOpts(qopts...)
 	rows := make([]transmitRequest, 0)
+	// The priority queue uses epoch and round to sort transmissions so order by
+	// the same fields here for optimal insertion into the pq.
 	err := q.Select(&rows, `
-		SELECT payload, config_digest, epoch, round, extra_hash, created_at
+		SELECT payload, config_digest, epoch, round, extra_hash
 		FROM mercury_transmit_requests
-		ORDER BY created_at
+		ORDER BY epoch DESC, round DESC
 	`)
 	if err != nil {
 		return nil, err
@@ -85,7 +87,7 @@ func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
 	return transmissions, nil
 }
 
-func hashPayload(payload []byte) string {
+func hashPayload(payload []byte) []byte {
 	checksum := sha256.Sum256(payload)
-	return hexutil.Encode(checksum[:])
+	return checksum[:]
 }

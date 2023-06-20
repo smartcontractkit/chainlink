@@ -72,6 +72,24 @@ func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int) *TransmitQu
 	}
 }
 
+// InitTransmissions initializes the priority queue with the given transmissions. Any
+// previously pushed transmissions are dropped.
+func (tq *TransmitQueue) InitTransmissions(transmissions []*Transmission) {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	if tq.closed {
+		return
+	}
+
+	pq := new(priorityQueue)
+	for _, t := range transmissions {
+		pq.Push(t)
+	}
+	heap.Init(pq)
+	tq.pq = pq
+}
+
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
 	tq.cond.L.Lock()
 	defer tq.cond.L.Unlock()

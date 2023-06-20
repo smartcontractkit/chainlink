@@ -150,9 +150,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		for _, transmission := range transmissions {
-			mt.queue.Push(transmission.Req, transmission.ReportCtx)
-		}
+		mt.queue.InitTransmissions(transmissions)
 
 		go mt.runLoop()
 		return nil
