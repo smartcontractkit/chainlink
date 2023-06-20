@@ -683,8 +683,8 @@ func (d *Delegate) newServicesOCR2VRF(
 	reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
 		chain.GasEstimator(),
 		timeout,
-		chain.Config().EvmMaxGasPriceWei(),
-		chain.Config().EvmEIP1559DynamicFees(),
+		chain.Config().EVM().GasEstimator().PriceMax(),
+		chain.Config().EVM().GasEstimator().EIP1559DynamicFees(),
 	)
 
 	encryptionSecretKey, err2 := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
@@ -707,7 +707,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		common.HexToAddress(cfg.DKGContractAddress),
 		chain.Client(),
 		chain.LogPoller(),
-		chain.Config().EvmFinalityDepth(),
+		chain.Config().EVM().FinalityDepth(),
 	)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
