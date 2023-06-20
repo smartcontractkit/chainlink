@@ -192,7 +192,8 @@ async function getUpkeepID(tx: ContractTransaction): Promise<BigNumber> {
 }
 
 const getTriggerType = (upkeepId: BigNumber): Trigger => {
-  const bytes = ethers.utils.arrayify(upkeepId.toHexString())
+  const hexBytes = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
+  const bytes = ethers.utils.arrayify(hexBytes)
   for (let idx = 4; idx < 15; idx++) {
     if (bytes[idx] != 0) {
       return Trigger.CONDITION
