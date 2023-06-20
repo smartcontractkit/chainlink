@@ -5280,7 +5280,7 @@ describe('KeeperRegistry2_1', () => {
 
   describe('#checkCallback', () => {
     it('returns false with appropriate failure reason when target callback reverts', async () => {
-      mercuryUpkeep.setShouldRevertCallback(true)
+      await mercuryUpkeep.setShouldRevertCallback(true)
 
       const values: any[] = ['0x1234', '0xabcd']
       const res = await registry
@@ -5292,6 +5292,25 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(
         res.upkeepFailureReason,
         UpkeepFailureReason.CHECK_CALLBACK_REVERTED,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns false with appropriate failure reason when target callback returns big performData', async () => {
+      let longBytes = '0x'
+      for (let i = 0; i <= maxPerformDataSize.toNumber(); i++) {
+        longBytes += '11'
+      }
+      const values: any[] = [longBytes, longBytes]
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
       )
       assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
