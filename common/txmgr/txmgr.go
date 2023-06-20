@@ -71,7 +71,7 @@ type Txm[
 	utils.StartStopOnce
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TransactionManagerConfig
+	config         txmgrtypes.TransactionManagerChainConfig
 	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID        CHAIN_ID
@@ -113,7 +113,7 @@ func NewTxm[
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
-	cfg txmgrtypes.TransactionManagerConfig,
+	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	lggr logger.Logger,

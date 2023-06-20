@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -57,6 +58,10 @@ func (t *tlsConfig) KeyFile() string {
 		return filepath.Join(t.Dir(), "server.key")
 	}
 	return t.keyPath()
+}
+
+func (t *tlsConfig) ListenIP() net.IP {
+	return *t.c.ListenIP
 }
 
 type rateLimitConfig struct {
@@ -158,4 +163,8 @@ func (w *webServerConfig) SessionOptions() sessions.Options {
 
 func (w *webServerConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(w.c.SessionTimeout.Duration())
+}
+
+func (w *webServerConfig) ListenIP() net.IP {
+	return *w.c.ListenIP
 }

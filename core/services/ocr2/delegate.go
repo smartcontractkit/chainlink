@@ -682,8 +682,8 @@ func (d *Delegate) newServicesOCR2VRF(
 	reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
 		chain.GasEstimator(),
 		timeout,
-		chain.Config().EvmMaxGasPriceWei(),
-		chain.Config().EvmEIP1559DynamicFees(),
+		chain.Config().EVM().GasEstimator().PriceMax(),
+		chain.Config().EVM().GasEstimator().EIP1559DynamicFees(),
 	)
 
 	encryptionSecretKey, err2 := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)

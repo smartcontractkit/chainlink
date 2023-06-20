@@ -72,6 +72,7 @@ SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -89,6 +90,7 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = true
