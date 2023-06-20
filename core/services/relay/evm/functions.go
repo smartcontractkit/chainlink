@@ -75,7 +75,7 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	offchainConfigDigester := functionsRelay.FunctionsOffchainConfigDigester{
 		PluginType: pluginType,
 		BaseDigester: evmutil.EVMOffchainConfigDigester{
-			ChainID:         chain.Config().ChainID().Uint64(),
+			ChainID:         chain.ID().Uint64(),
 			ContractAddress: contractAddress,
 		},
 	}
