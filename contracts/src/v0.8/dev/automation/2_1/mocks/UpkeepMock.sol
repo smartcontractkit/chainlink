@@ -2,6 +2,7 @@
 pragma solidity 0.8.6;
 
 contract UpkeepMock {
+  bool public performed;
   bool public shouldRevertCheck;
   bool public canCheck;
   bool public canPerform;
@@ -72,11 +73,9 @@ contract UpkeepMock {
 
   function performUpkeep(bytes calldata data) external {
     // uint256 startGas = gasleft();
-
     require(canPerform, "Cannot perform");
-
     emit UpkeepPerformedWith(data);
-
+    performed = true;
     // while (startGas - gasleft() < performGasToBurn) {} // burn gas
   }
 }

@@ -39,12 +39,15 @@ contract AutomationForwarderTest_forward is AutomationForwarderSetUp {
     bytes memory selector = getSelector("performUpkeep(bytes)", "performDataHere");
     bool val = forwarder.forward(GAS, selector);
     assertEq(val, true);
+    bool performed = default_target.performed();
+    assertEq(performed, true);
   }
 
   function testWrongFunctionSelectorSuccess() public {
     bytes memory selector = getSelector("performUpkeep(bytes calldata data)", "");
     bool val = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertFalse(default_target.performed());
   }
 
   function testNotAuthorizedReverts() public {
@@ -53,6 +56,7 @@ contract AutomationForwarderTest_forward is AutomationForwarderSetUp {
     vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
     bool val = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertFalse(default_target.performed());
   }
 }
 
