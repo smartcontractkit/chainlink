@@ -37,6 +37,16 @@ Order = 5
 
 - Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
 
+- Add two new config parameters `WebServer.ListenIP` and `WebServer.TLS.ListenIP` which allows binding Chainlink HTTP/HTTPS servers to a particular IP. The default is '0.0.0.0' which listens to all IP addresses (same behavior as before). Set to '127.0.0.1' to only allow connections from the local machine (this can be handy for local development).
+- Add several new metrics for mercury feeds, related to WSRPC connections:
+    - `mercury_transmit_timeout_count`
+    - `mercury_dial_count`
+    - `mercury_dial_success_count`
+    - `mercury_dial_error_count`
+    - `mercury_connection_reset_count`
+
+Node operators may wish to add alerting based around these metrics.
+
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 

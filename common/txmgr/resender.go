@@ -49,7 +49,7 @@ type Resender[
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID             CHAIN_ID
 	interval            time.Duration
-	config              txmgrtypes.ResenderConfig
+	config              txmgrtypes.ResenderChainConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
 	logger              logger.Logger
 	lastAlertTimestamps map[string]time.Time
@@ -72,7 +72,7 @@ func NewResender[
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	pollInterval time.Duration,
-	config txmgrtypes.ResenderConfig,
+	config txmgrtypes.ResenderChainConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
 ) *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	if txConfig.ResendAfterThreshold() == 0 {
