@@ -129,8 +129,8 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
-	} else if batch.version == vrfcommon.V2_5 {
-		payload, err = batchCoordinatorV2_5ABI.Pack("fulfillRandomWords", batch.proofs, ToV2_5Commitments(batch.commitments))
+	} else if batch.version == vrfcommon.V2Plus {
+		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", batch.proofs, ToV2PlusCommitments(batch.commitments))
 		if err != nil {
 			// should never happen
 			l.Errorw("Failed to pack batch fulfillRandomWords payload",
@@ -138,7 +138,7 @@ func (lsn *listenerV2) processBatch(
 			return
 		}
 	} else {
-		panic("batch version should be v2 or v2_5")
+		panic("batch version should be v2 or v2plus")
 	}
 
 	// Bump the total gas limit by a bit so that we account for the overhead of the batch
@@ -272,7 +272,7 @@ func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLink *big.Int, maxE
 			// v2 always bills in link
 			maxLink = maxLink.Add(maxLink, batch.maxFees[i])
 		} else {
-			// v2_5 can bill in link or eth, depending on the commitment
+			// v2plus can bill in link or eth, depending on the commitment
 			if batch.commitments[i].NativePayment() {
 				maxEth = maxEth.Add(maxEth, batch.maxFees[i])
 			} else {

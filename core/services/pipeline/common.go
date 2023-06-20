@@ -393,7 +393,7 @@ const (
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeVRF              TaskType = "vrf"
 	TaskTypeVRFV2            TaskType = "vrfv2"
-	TaskTypeVRFV2_5          TaskType = "vrfv2_5"
+	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"

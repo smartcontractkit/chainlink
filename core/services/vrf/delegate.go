@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -92,7 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	coordinatorV2_5, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	coordinatorV2Plus, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	for _, task := range pl.Tasks {
-		if _, ok := task.(*pipeline.VRFTaskV2_5); ok {
+		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
 			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, err
 			}
 
-			linkEthFeedAddress, err := coordinatorV2_5.LINKETHFEED(nil)
+			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
@@ -159,7 +159,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				v2.NewCoordinatorV2_5(coordinatorV2_5),
+				v2.NewCoordinatorV2Plus(coordinatorV2Plus),
 				batchCoordinatorV2,
 				vrfOwner,
 				aggregator,

@@ -84,7 +84,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
-		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2_5 {
+		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
 			foundVRFTask = true
 		}
 

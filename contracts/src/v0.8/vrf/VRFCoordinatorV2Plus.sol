@@ -10,7 +10,7 @@ import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 
-contract VRFCoordinatorV2_5 is VRF, TypeAndVersionInterface, SubscriptionAPI {
+contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available

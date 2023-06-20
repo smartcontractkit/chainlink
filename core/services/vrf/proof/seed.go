@@ -45,7 +45,7 @@ type PreSeedDataV2 struct {
 	Sender           common.Address
 }
 
-type PreSeedDataV2_5 struct {
+type PreSeedDataV2Plus struct {
 	PreSeed          Seed        // Seed to be mixed with hash of containing block
 	BlockHash        common.Hash // Hash of block containing VRF request
 	BlockNum         uint64      // Cardinal number of block containing VRF request

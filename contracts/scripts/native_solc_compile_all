@@ -87,9 +87,10 @@ $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2TransparentUpgradeablePr
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2UpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2Plus.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2.sol 10000
-$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2_5.sol 1000
+$SCRIPTPATH/native_solc8_6_compile vrf/VRFCoordinatorV2Plus.sol 1000
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFOwner.sol
 
 # VRF V2 Wrapper

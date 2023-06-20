@@ -31,7 +31,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -45,12 +45,12 @@ import (
 )
 
 var (
-	_                       log.Listener   = &listenerV2{}
-	_                       job.ServiceCtx = &listenerV2{}
-	coordinatorV2ABI                       = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	batchCoordinatorV2ABI                  = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
-	batchCoordinatorV2_5ABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2_5.BatchVRFCoordinatorV25ABI)
-	vrfOwnerABI                            = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
+	_                         log.Listener   = &listenerV2{}
+	_                         job.ServiceCtx = &listenerV2{}
+	coordinatorV2ABI                         = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
+	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
+	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
 )
 
 const (
@@ -449,7 +449,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		} else {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
-			if sub.VRFVersion == vrfcommon.V2_5 {
+			if sub.VRFVersion == vrfcommon.V2Plus {
 				startEthBalance = sub.EthBalance()
 			}
 			subIsActive = true
@@ -1286,7 +1286,7 @@ func (lsn *listenerV2) estimateFee(
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
 	// In the event we are using LINK we need to estimate the fee in juels
-	if req.VRFVersion == vrfcommon.V2 || (req.V25 != nil && !req.V25.NativePayment) {
+	if req.VRFVersion == vrfcommon.V2 || (req.V2Plus != nil && !req.V2Plus.NativePayment) {
 		// Don't use up too much time to get this info, it's not critical for operating vrf.
 		callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()

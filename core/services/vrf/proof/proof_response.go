@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -135,26 +135,26 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 		}, nil
 }
 
-func GenerateProofResponseFromProofV2_5(
+func GenerateProofResponseFromProofV2Plus(
 	p vrfkey.Proof,
 	s PreSeedDataV2,
 	nativePayment bool) (
-	vrf_coordinator_v2_5.VRFProof,
-	vrf_coordinator_v2_5.VRFCoordinatorV25RequestCommitment,
+	vrf_coordinator_v2plus.VRFProof,
+	vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment,
 	error) {
-	var proof vrf_coordinator_v2_5.VRFProof
-	var rc vrf_coordinator_v2_5.VRFCoordinatorV25RequestCommitment
+	var proof vrf_coordinator_v2plus.VRFProof
+	var rc vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment
 	solidityProof, err := SolidityPrecalculations(&p)
 	if err != nil {
 		return proof, rc, errors.Wrap(err,
-			"while marshaling proof for VRFCoordinatorV2_5")
+			"while marshaling proof for VRFCoordinatorV2Plus")
 	}
 	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
 	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
 	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	return vrf_coordinator_v2_5.VRFProof{
+	return vrf_coordinator_v2plus.VRFProof{
 			Pk:            [2]*big.Int{x, y},
 			Gamma:         [2]*big.Int{gx, gy},
 			C:             solidityProof.P.C,
@@ -164,7 +164,7 @@ func GenerateProofResponseFromProofV2_5(
 			CGammaWitness: [2]*big.Int{cgx, cgy},
 			SHashWitness:  [2]*big.Int{shx, shy},
 			ZInv:          solidityProof.ZInv,
-		}, vrf_coordinator_v2_5.VRFCoordinatorV25RequestCommitment{
+		}, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment{
 			BlockNum:         s.BlockNum,
 			SubId:            s.SubId,
 			CallbackGasLimit: s.CallbackGasLimit,

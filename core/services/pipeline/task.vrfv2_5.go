@@ -13,17 +13,17 @@ import (
 	"go.uber.org/multierr"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
 var (
-	vrfCoordinatorV2_5ABI = evmtypes.MustGetABI(vrf_coordinator_v2_5.VRFCoordinatorV25ABI)
+	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
 )
 
-type VRFTaskV2_5 struct {
+type VRFTaskV2Plus struct {
 	BaseTask           `mapstructure:",squash"`
 	PublicKey          string `json:"publicKey"`
 	RequestBlockHash   string `json:"requestBlockHash"`
@@ -33,13 +33,13 @@ type VRFTaskV2_5 struct {
 	keyStore VRFKeyStore
 }
 
-var _ Task = (*VRFTaskV2_5)(nil)
+var _ Task = (*VRFTaskV2Plus)(nil)
 
-func (t *VRFTaskV2_5) Type() TaskType {
-	return TaskTypeVRFV2_5
+func (t *VRFTaskV2Plus) Type() TaskType {
+	return TaskTypeVRFV2Plus
 }
 
-func (t *VRFTaskV2_5) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) != 1 {
 		return Result{Error: ErrWrongInputCardinality}, runInfo
 	}
@@ -129,11 +129,11 @@ func (t *VRFTaskV2_5) Run(_ context.Context, _ logger.Logger, vars Vars, inputs 
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2_5(p, preSeedData, nativePayment)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData, nativePayment)
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	b, err := vrfCoordinatorV2_5ABI.Pack("fulfillRandomWords", onChainProof, rc)
+	b, err := vrfCoordinatorV2PlusABI.Pack("fulfillRandomWords", onChainProof, rc)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

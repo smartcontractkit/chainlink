@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 )
 
@@ -240,7 +241,7 @@ type VRFSpecParams struct {
 	JobID                         string
 	Name                          string
 	CoordinatorAddress            string
-	VRFVersion                    string
+	VRFVersion                    vrfcommon.Version
 	BatchCoordinatorAddress       string
 	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
@@ -276,7 +277,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
-	vrfVersion := "V2"
+	vrfVersion := vrfcommon.V2
 	if params.VRFVersion != "" {
 		vrfVersion = params.VRFVersion
 	}
@@ -362,7 +363,7 @@ simulate [type=ethcall
 decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
-	if vrfVersion == "V2_5" {
+	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
               abi="event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"

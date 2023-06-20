@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "../ConfirmedOwner.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
-interface ISubscriptionV2_5 {
+interface ISubscriptionV2Plus {
   function addConsumer(uint64 subId, address consumer) external;
 
   function removeConsumer(uint64 subId, address consumer) external;
@@ -34,7 +34,7 @@ interface IMigrateableConsumer {
 /// @notice and is able to perform the administrative operations pertaining
 /// @notice to a subscription owner, such as adding and removing a consumer,
 /// @notice and canceling the subscription and recovering it's funds.
-contract VRFV2_5SubscriptionManager is ConfirmedOwner {
+contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
   constructor() ConfirmedOwner(msg.sender) {}
 
   /// @notice the subscription ID that is owned by this contract.
@@ -44,7 +44,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
   /// @notice the VRF coordinator that this the subscription ID above is for.
   /// @notice in the event a migration occurs, both s_subId and s_vrfCoordinator
   /// @notice will have to change accordingly.
-  ISubscriptionV2_5 public s_vrfCoordinator;
+  ISubscriptionV2Plus public s_vrfCoordinator;
   /// @notice the LINK token contract that is used to fund the subscription.
   /// @notice it may not be available on some chains, in which case ether
   /// @notice funding is used.
@@ -52,7 +52,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
 
   function setVRFCoordinator(address vrfCoordinator) external onlyOwner {
     require(vrfCoordinator != address(0), "Invalid address");
-    s_vrfCoordinator = ISubscriptionV2_5(vrfCoordinator);
+    s_vrfCoordinator = ISubscriptionV2Plus(vrfCoordinator);
   }
 
   /// @notice setLinkToken sets the LINK token contract that is used to fund
@@ -123,7 +123,7 @@ contract VRFV2_5SubscriptionManager is ConfirmedOwner {
     // on the subscription.
     cancelSubscription();
     // create a new subscription on the new coordinator
-    ISubscriptionV2_5 newCoord = ISubscriptionV2_5(newCoordinator);
+    ISubscriptionV2Plus newCoord = ISubscriptionV2Plus(newCoordinator);
     uint64 newSubId = newCoord.createSubscription();
     // at this point we should have all the funds in this contract, so
     // transfer the funds to the new subscription

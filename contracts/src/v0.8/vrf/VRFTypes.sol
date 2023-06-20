@@ -31,9 +31,9 @@ library VRFTypes {
     address sender;
   }
 
-  // ABI-compatible with VRFCoordinatorV2_5.RequestCommitment.
+  // ABI-compatible with VRFCoordinatorV2Plus.RequestCommitment.
   // This is only used for VRF V2.5.
-  struct RequestCommitmentV2_5 {
+  struct RequestCommitmentV2Plus {
     uint64 blockNum;
     uint64 subId;
     uint32 callbackGasLimit;

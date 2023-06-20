@@ -12,9 +12,9 @@ import (
 type Version string
 
 const (
-	V1   Version = "V1"
-	V2   Version = "V2"
-	V2_5 Version = "V2_5"
+	V1     Version = "V1"
+	V2     Version = "V2"
+	V2Plus Version = "V2Plus"
 )
 
 // dropReason describes a reason why a VRF request is dropped from the queue.

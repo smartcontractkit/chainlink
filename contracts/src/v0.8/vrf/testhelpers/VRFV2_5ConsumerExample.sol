@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/VRFCoordinatorV2Interface.sol";
-import "../VRFConsumerBaseV2_5.sol";
+import "../VRFConsumerBaseV2Plus.sol";
 
-contract VRFExternalSubOwnerExample is VRFConsumerBaseV2_5 {
+contract VRFExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   VRFCoordinatorV2Interface COORDINATOR;
   LinkTokenInterface LINKTOKEN;
 
@@ -13,7 +13,7 @@ contract VRFExternalSubOwnerExample is VRFConsumerBaseV2_5 {
   uint256 public s_requestId;
   address s_owner;
 
-  constructor(address vrfCoordinator, address link, address subOwner) VRFConsumerBaseV2_5(vrfCoordinator, subOwner) {
+  constructor(address vrfCoordinator, address link, address subOwner) VRFConsumerBaseV2Plus(vrfCoordinator, subOwner) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
     s_owner = msg.sender;

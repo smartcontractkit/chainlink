@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-interface IVRFCoordinatorV2_5 {
+interface IVRFCoordinatorV2Plus {
   function s_requestPayments(uint256 requestId) external view returns (uint96);
 }
 
@@ -98,11 +98,11 @@ interface IVRFCoordinatorV2_5 {
  * @dev responding to the request (however this is not enforced in the contract
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
-abstract contract VRFConsumerBaseV2_5 {
+abstract contract VRFConsumerBaseV2Plus {
   error OnlyCoordinatorCanFulfill(address have, address want);
   error OnlySubOwnerCanSetVRFCoordinator(address have, address want);
 
-  IVRFCoordinatorV2_5 private vrfCoordinator;
+  IVRFCoordinatorV2Plus private vrfCoordinator;
   address private subOwner;
 
   /**
@@ -111,7 +111,7 @@ abstract contract VRFConsumerBaseV2_5 {
   constructor(address _vrfCoordinator, address _subOwner) {
     require(_vrfCoordinator != address(0), "zero address");
     require(_subOwner != address(0), "zero address");
-    vrfCoordinator = IVRFCoordinatorV2_5(_vrfCoordinator);
+    vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
     subOwner = _subOwner;
   }
 
@@ -154,6 +154,6 @@ abstract contract VRFConsumerBaseV2_5 {
     if (msg.sender != subOwner) {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
     }
-    vrfCoordinator = IVRFCoordinatorV2_5(_vrfCoordinator);
+    vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 }
