@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
+	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
