@@ -5315,6 +5315,22 @@ describe('KeeperRegistry2_1', () => {
       assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
+    it('returns false with appropriate failure reason when target callback returns false', async () => {
+      await mercuryUpkeep.setCallbackReturnBool(false)
+      const values: any[] = ['0x1234', '0xabcd']
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
     it('succeeds with upkeep needed', async () => {
       const values: any[] = ['0x1234', '0xabcd']
 

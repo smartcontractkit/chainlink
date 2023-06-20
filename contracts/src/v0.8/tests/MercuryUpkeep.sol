@@ -37,6 +37,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
   string public timeParamKey;
   bool public immutable useL1BlockNumber;
   bool public shouldRevertCallback;
+  bool public callbackReturnBool;
 
   constructor(uint256 _testRange, uint256 _interval, bool _useL1BlockNumber) {
     testRange = _testRange;
@@ -51,17 +52,22 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     ];
     timeParamKey = "blockNumber"; // timestamp not supported yet
     useL1BlockNumber = _useL1BlockNumber;
+    callbackReturnBool = true;
   }
 
   function setShouldRevertCallback(bool value) public {
     shouldRevertCallback = value;
   }
 
+  function setCallbackReturnBool(bool value) public {
+    callbackReturnBool = value;
+  }
+
   function checkCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
     require(!shouldRevertCallback, "shouldRevertCallback is true");
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
-    return (true, performData);
+    return (callbackReturnBool, performData);
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
