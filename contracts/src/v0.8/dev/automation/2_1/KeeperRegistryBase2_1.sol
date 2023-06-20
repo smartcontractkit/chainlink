@@ -50,13 +50,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
-  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
+  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 26_900; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 27_500; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Used in actual payment. overhead per upkeep performed
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
@@ -161,8 +162,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   enum Trigger {
     CONDITION,
-    LOG,
-    CRON
+    LOG
   }
 
   enum UpkeepFailureReason {
@@ -248,7 +248,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member balance the balance of this upkeep
    * @member admin for this upkeep
    * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member amountSpent the amount this upkeep has spent
    * @member paused if this upkeep has been paused
    * @member skipSigVerification skip signature verification in transmit for a low security low cost model
@@ -261,7 +261,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 balance;
     address admin;
     uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumberOrTimestamp;
+    uint32 lastPerformedBlockNumber;
     uint96 amountSpent;
     bool paused;
     bytes offchainConfig;
@@ -275,7 +275,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paused if this upkeep has been paused
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
-   * @member lastPerformedBlockNumberOrTimestamp the last block number or timestamp when this upkeep was performed
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    * @member target the contract which needs to be serviced
    */
   struct Upkeep {
@@ -286,7 +286,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformedBlockNumberOrTimestamp; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumber; // TODO time expires in 2100
     // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -382,13 +382,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice structure of trigger for cron triggers
-   */
-  struct CronTriggerConfig {
-    string cron; // cron string such as "* * * 0 0"
-  }
-
-  /**
    * @notice the trigger structure for both conditional and ready trigger types
    */
   struct BlockTrigger {
@@ -404,17 +397,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   struct LogTrigger {
     bytes32 txHash;
     uint32 logIndex;
-    uint32 blockNum;
-    bytes32 blockHash;
-  }
-
-  /**
-   * @notice the trigger structure of cron upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number where the cron tick occured
-   */
-  struct CronTrigger {
-    uint64 timestamp;
     uint32 blockNum;
     bytes32 blockHash;
   }
@@ -618,13 +600,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
+    Trigger triggerType,
     uint32 executeGas,
     uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
-    uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
+    uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       executeGas,
@@ -641,10 +624,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   /**
    * @dev returns the max gas overhead that can be charged for an upkeep
    */
-  function _getMaxGasOverhead(uint32 performDataLength, uint8 f) internal pure returns (uint256) {
+  function _getMaxGasOverhead(Trigger triggerType, uint32 performDataLength, uint8 f) internal pure returns (uint256) {
     // performData causes additional overhead in report length and memory operations
+    uint256 baseOverhead;
+    if (triggerType == Trigger.CONDITION) {
+      baseOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+    } else if (triggerType == Trigger.LOG) {
+      baseOverhead = REGISTRY_LOG_OVERHEAD;
+    } else {
+      revert InvalidTriggerType();
+    }
     return
-      REGISTRY_GAS_OVERHEAD +
+      baseOverhead +
       (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
       (REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD * performDataLength);
   }
