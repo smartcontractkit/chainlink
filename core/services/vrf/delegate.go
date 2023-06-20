@@ -46,7 +46,7 @@ type GethKeyStore interface {
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
-	EvmFinalityDepth() uint32
+	FinalityDepth() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
@@ -146,11 +146,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().KeySpecificMaxGasPriceWei) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().KeySpecificMaxGasPriceWei); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei); err != nil {
 				return nil, err
 			}
 
@@ -164,7 +164,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 
 			return []job.ServiceCtx{newListenerV2(
-				chain.Config(),
+				chain.Config().EVM(),
 				chain.Config().EVM().GasEstimator(),
 				lV2,
 				chain.Client(),
@@ -182,13 +182,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
-				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				newLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&listenerV1{
-				cfg:             chain.Config(),
+				cfg:             chain.Config().EVM(),
 				feeCfg:          chain.Config().EVM().GasEstimator(),
 				l:               logger.Sugared(lV1),
 				headBroadcaster: chain.HeadBroadcaster(),
@@ -206,10 +206,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
-				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
+				deduper:            newLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 			}}, nil
 		}
 	}
