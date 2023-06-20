@@ -1230,7 +1230,7 @@ func (c *Chainlink) TrackForwarder(chainID *big.Int, address common.Address) (*F
 		return nil, nil, err
 	}
 
-	logdebug.Println(fmt.Sprintf("**** track response status body:%s, code %s", resp.String(), resp.Status()))
+	logdebug.Println(fmt.Sprintf("**** track response status body:%s, code %s, url:%s", resp.String(), resp.Status(), c.Config.URL))
 
 	return response, resp.RawResponse, err
 }
@@ -1249,6 +1249,9 @@ func (c *Chainlink) GetForwarders() (*Forwarders, *http.Response, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	logdebug.Println(fmt.Sprintf("**** Get Forwarders response status body:%s, code %s, url:%s", resp.String(), resp.Status(), c.Config.URL))
+
 	return response, resp.RawResponse, err
 }
 

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 
@@ -32,7 +34,7 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-
+	log.Println("****** forwarders indexed ", fwds)
 	var resources []presenters.EVMForwarderResource
 	for _, fwd := range fwds {
 		resources = append(resources, presenters.NewEVMForwarderResource(fwd))
@@ -55,6 +57,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	fmt.Println("****** I am tracking a new forwarder! ", request.Address)
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
 	fwd, err := orm.CreateForwarder(request.Address, *request.EVMChainID)
 
