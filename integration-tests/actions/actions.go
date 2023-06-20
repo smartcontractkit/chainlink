@@ -41,7 +41,10 @@ func FundChainlinkNodes(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		convertedTo := common.HexToAddress(toAddress)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &convertedTo,
+		})
 		if err != nil {
 			return err
 		}
@@ -61,15 +64,18 @@ func FundChainlinkNodesAddress(
 	keyIndex int,
 ) error {
 	for _, cl := range nodes {
-		toAddress, err := cl.EthAddresses()
+		toAddresses, err := cl.EthAddresses()
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		convertedTo := common.HexToAddress(toAddresses[keyIndex])
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &convertedTo,
+		})
 		if err != nil {
 			return err
 		}
-		err = client.Fund(toAddress[keyIndex], amount, gasEstimates)
+		err = client.Fund(toAddresses[keyIndex], amount, gasEstimates)
 		if err != nil {
 			return err
 		}
@@ -84,12 +90,15 @@ func FundChainlinkNodesAddresses(
 	amount *big.Float,
 ) error {
 	for _, cl := range nodes {
-		toAddress, err := cl.EthAddressesForChain(client.GetChainID().String())
+		toAddresses, err := cl.EthAddressesForChain(client.GetChainID().String())
 		if err != nil {
 			return err
 		}
-		for _, addr := range toAddress {
-			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		for _, addr := range toAddresses {
+			convertedTo := common.HexToAddress(addr)
+			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+				To: &convertedTo,
+			})
 			if err != nil {
 				return err
 			}
@@ -368,7 +377,10 @@ func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain
 // FundAddresses will fund a list of addresses with an amount of native currency
 func FundAddresses(blockchain blockchain.EVMClient, amount *big.Float, addresses ...string) error {
 	for _, address := range addresses {
-		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{})
+		convertedTo := common.HexToAddress(address)
+		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{
+			To: &convertedTo,
+		})
 		if err != nil {
 			return err
 		}
