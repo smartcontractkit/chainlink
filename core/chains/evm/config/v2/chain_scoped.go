@@ -61,6 +61,10 @@ type evmConfig struct {
 	c *EVMConfig
 }
 
+func (e *evmConfig) NodePool() config.NodePool {
+	return &nodePoolConfig{c: e.c.NodePool}
+}
+
 func (e *evmConfig) BalanceMonitor() config.BalanceMonitor {
 	return &balanceMonitorConfig{c: e.c.BalanceMonitor}
 }
@@ -83,6 +87,10 @@ func (e *evmConfig) OCR2() config.OCR2 {
 
 func (e *evmConfig) GasEstimator() config.GasEstimator {
 	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay}
+}
+
+func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return e.c.NoNewHeadsThreshold.Duration()
 }
 
 func (c *ChainScoped) EVM() config.EVM {
@@ -273,22 +281,6 @@ func (c *ChainScoped) MinimumContractPayment() *assets.Link {
 
 func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {
 	return c.cfg.NoNewHeadsThreshold.Duration()
-}
-
-func (c *ChainScoped) NodePollFailureThreshold() uint32 {
-	return *c.cfg.NodePool.PollFailureThreshold
-}
-
-func (c *ChainScoped) NodePollInterval() time.Duration {
-	return c.cfg.NodePool.PollInterval.Duration()
-}
-
-func (c *ChainScoped) NodeSelectionMode() string {
-	return *c.cfg.NodePool.SelectionMode
-}
-
-func (c *ChainScoped) NodeSyncThreshold() uint32 {
-	return *c.cfg.NodePool.SyncThreshold
 }
 
 type balanceMonitorConfig struct {

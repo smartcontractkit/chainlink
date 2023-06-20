@@ -7,14 +7,11 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // Deprecated, use EVM below
 type ChainScopedOnlyConfig interface {
-	evmclient.NodeConfig
-
 	AutoCreateKey() bool
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
@@ -58,12 +55,14 @@ type ChainScopedOnlyConfig interface {
 }
 
 type EVM interface {
-	HeadTracker() HeadTracker
+	NodeNoNewHeadsThreshold() time.Duration
 	BalanceMonitor() BalanceMonitor
-	Transactions() Transactions
 	GasEstimator() GasEstimator
+	HeadTracker() HeadTracker
+	NodePool() NodePool
 	OCR() OCR
 	OCR2() OCR2
+	Transactions() Transactions
 }
 
 type OCR interface {
