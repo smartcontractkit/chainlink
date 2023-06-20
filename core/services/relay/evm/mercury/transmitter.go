@@ -291,7 +291,8 @@ func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (c
 	panic("not needed for OCR3")
 }
 
-func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (int64, error) {
+func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (*int64, error) {
+	deflt := int64(0)
 	mt.lggr.Debug("FetchInitialMaxFinalizedBlockNumber")
 	req := &pb.LatestReportRequest{
 		FeedId: mt.feedID[:],
@@ -299,15 +300,15 @@ func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Co
 	resp, err := mt.rpcClient.LatestReport(ctx, req)
 	if err != nil {
 		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-		return 0, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+		return &deflt, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
 	}
 	if resp == nil {
-		return 0, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
+		return &deflt, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
 	}
 	if resp.Error != "" {
 		err = errors.New(resp.Error)
 		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed; mercury server returned error", "err", err)
-		return 0, err
+		return &deflt, err
 	}
 	if resp.Report == nil {
 		maxFinalizedBlockNumber := mt.initialBlockNumber - 1
@@ -318,12 +319,12 @@ func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Co
 		// ought to be zero.
 		//
 		// If "initialBlockNumber" is unset, this will give a starting block of zero.
-		return maxFinalizedBlockNumber, nil
+		return &maxFinalizedBlockNumber, nil
 	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
-		return 0, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
+		return &deflt, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
 	}
 
 	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", resp.Report.CurrentBlockNumber)
 
-	return resp.Report.CurrentBlockNumber, nil
+	return &resp.Report.CurrentBlockNumber, nil
 }
