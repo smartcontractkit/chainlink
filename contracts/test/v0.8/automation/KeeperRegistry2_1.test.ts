@@ -110,6 +110,7 @@ const fallbackGasPrice = gasWei.mul(BigNumber.from('2'))
 const fallbackLinkPrice = linkEth.div(BigNumber.from('2'))
 const maxCheckDataSize = BigNumber.from(1000)
 const maxPerformDataSize = BigNumber.from(1000)
+const maxRevertDataSize = BigNumber.from(1000)
 const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from(0)
 const f = 1
@@ -211,6 +212,7 @@ type OnchainConfig = {
   minUpkeepSpend: BigNumberish
   maxCheckDataSize: BigNumberish
   maxPerformDataSize: BigNumberish
+  maxRevertDataSize: BigNumberish
   maxPerformGas: BigNumberish
   fallbackGasPrice: BigNumberish
   fallbackLinkPrice: BigNumberish
@@ -223,7 +225,7 @@ const encodeConfig = (config: OnchainConfig) => {
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
       ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
-      uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
+      uint32 maxPerformDataSize,uint32 maxRevertDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
       address[] registrars)',
     ],
     [config],
@@ -659,6 +661,7 @@ describe('KeeperRegistry2_1', () => {
           minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
+          maxRevertDataSize,
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
@@ -3358,6 +3361,7 @@ describe('KeeperRegistry2_1', () => {
     const newMinUpkeepSpend = BigNumber.from(9)
     const newMaxCheckDataSize = BigNumber.from(10000)
     const newMaxPerformDataSize = BigNumber.from(10000)
+    const newMaxRevertDataSize = BigNumber.from(10000)
     const newMaxPerformGas = BigNumber.from(10000000)
     const fbGasEth = BigNumber.from(7)
     const fbLinkEth = BigNumber.from(8)
@@ -3373,6 +3377,7 @@ describe('KeeperRegistry2_1', () => {
       minUpkeepSpend: newMinUpkeepSpend,
       maxCheckDataSize: newMaxCheckDataSize,
       maxPerformDataSize: newMaxPerformDataSize,
+      maxRevertDataSize: newMaxRevertDataSize,
       maxPerformGas: newMaxPerformGas,
       fallbackGasPrice: fbGasEth,
       fallbackLinkPrice: fbLinkEth,
@@ -3434,6 +3439,10 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(
         updatedConfig.maxPerformDataSize,
         newMaxPerformDataSize.toNumber(),
+      )
+      assert.equal(
+        updatedConfig.maxRevertDataSize,
+        newMaxRevertDataSize.toNumber(),
       )
       assert.equal(updatedConfig.maxPerformGas, newMaxPerformGas.toNumber())
       assert.equal(updatedConfig.checkGasLimit, maxGas.toNumber())
@@ -4364,6 +4373,7 @@ describe('KeeperRegistry2_1', () => {
           minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
+          maxRevertDataSize,
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
@@ -4992,6 +5002,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
@@ -5043,6 +5054,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
@@ -5089,6 +5101,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
