@@ -59,7 +59,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendNativeToken(chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendNativeToken(chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EVM().GasEstimator().LimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return
@@ -96,7 +96,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 
 	var fees gas.EvmFee
 
-	gasLimit := chain.Config().EvmGasLimitTransfer()
+	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
 	fees, gasLimit, err = estimator.GetFee(c, nil, gasLimit, chain.Config().KeySpecificMaxGasPriceWei(fromAddr))
