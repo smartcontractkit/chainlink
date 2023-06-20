@@ -31,7 +31,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const MaxTransmitQueueSize = 10_000
+const (
+	MaxTransmitQueueSize = 10_000
+	TransmitTimeout      = 5 * time.Second
+)
+
 const (
 	// Mercury server error codes
 	DuplicateReport = 2
@@ -187,7 +191,7 @@ func (mt *mercuryTransmitter) runLoop() {
 		Factor: 2,
 		Jitter: true,
 	}
-	ctx, cancel := mt.stopCh.Ctx(context.Background())
+	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
 	defer cancel()
 	for {
 		t := mt.queue.BlockingPop()
@@ -195,10 +199,12 @@ func (mt *mercuryTransmitter) runLoop() {
 			// queue was closed
 			return
 		}
+		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(TransmitTimeout))
 		res, err := mt.rpcClient.Transmit(ctx, t.Req)
-		if ctx.Err() != nil {
-			// context only canceled on transmitter close so we can exit
-			// the runLoop here
+		cancel()
+		if runloopCtx.Err() != nil {
+			// runloop context is only canceled on transmitter close so we can
+			// exit the runloop here
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()

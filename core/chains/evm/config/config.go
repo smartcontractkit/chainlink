@@ -14,47 +14,6 @@ import (
 // Deprecated, use EVM below
 type ChainScopedOnlyConfig interface {
 	evmclient.NodeConfig
-
-	AutoCreateKey() bool
-	BlockBackfillDepth() uint64
-	BlockBackfillSkip() bool
-	BlockEmissionIdleWarningThreshold() time.Duration
-	ChainID() *big.Int
-	EvmEIP1559DynamicFees() bool
-	EvmFinalityDepth() uint32
-	EvmGasBumpPercent() uint16
-	EvmGasBumpThreshold() uint64
-	EvmGasBumpTxDepth() uint32
-	EvmGasBumpWei() *assets.Wei
-	EvmGasFeeCapDefault() *assets.Wei
-	EvmGasLimitDefault() uint32
-	EvmGasLimitMax() uint32
-	EvmGasLimitMultiplier() float32
-	EvmGasLimitTransfer() uint32
-	EvmGasLimitOCRJobType() *uint32
-	EvmGasLimitOCR2JobType() *uint32
-	EvmGasLimitDRJobType() *uint32
-	EvmGasLimitVRFJobType() *uint32
-	EvmGasLimitFMJobType() *uint32
-	EvmGasLimitKeeperJobType() *uint32
-	EvmGasPriceDefault() *assets.Wei
-	EvmGasTipCapDefault() *assets.Wei
-	EvmGasTipCapMinimum() *assets.Wei
-	EvmLogBackfillBatchSize() uint32
-	EvmLogKeepBlocksDepth() uint32
-	EvmLogPollInterval() time.Duration
-	EvmMaxGasPriceWei() *assets.Wei
-	EvmMinGasPriceWei() *assets.Wei
-	EvmNonceAutoSync() bool
-	EvmRPCDefaultBatchSize() uint32
-	FlagsContractAddress() string
-	GasEstimatorMode() string
-	ChainType() config.ChainType
-	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
-	LinkContractAddress() string
-	OperatorFactoryAddress() string
-	MinIncomingConfirmations() uint32
-	MinimumContractPayment() *assets.Link
 }
 
 type EVM interface {
@@ -64,6 +23,25 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+
+	AutoCreateKey() bool
+	BlockBackfillDepth() uint64
+	BlockBackfillSkip() bool
+	BlockEmissionIdleWarningThreshold() time.Duration
+	ChainID() *big.Int
+	ChainType() config.ChainType
+	FinalityDepth() uint32
+	FlagsContractAddress() string
+	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *assets.Wei
+	LinkContractAddress() string
+	LogBackfillBatchSize() uint32
+	LogKeepBlocksDepth() uint32
+	LogPollInterval() time.Duration
+	MinContractPayment() *assets.Link
+	MinIncomingConfirmations() uint32
+	NonceAutoSync() bool
+	OperatorFactoryAddress() string
+	RPCDefaultBatchSize() uint32
 }
 
 type OCR interface {
@@ -102,6 +80,33 @@ type Transactions interface {
 
 type GasEstimator interface {
 	BlockHistory() BlockHistory
+	LimitJobType() LimitJobType
+
+	EIP1559DynamicFees() bool
+	BumpPercent() uint16
+	BumpThreshold() uint64
+	BumpTxDepth() uint32
+	BumpMin() *assets.Wei
+	FeeCapDefault() *assets.Wei
+	LimitDefault() uint32
+	LimitMax() uint32
+	LimitMultiplier() float32
+	LimitTransfer() uint32
+	PriceDefault() *assets.Wei
+	TipCapDefault() *assets.Wei
+	TipCapMin() *assets.Wei
+	PriceMax() *assets.Wei
+	PriceMin() *assets.Wei
+	Mode() string
+}
+
+type LimitJobType interface {
+	OCR() *uint32
+	OCR2() *uint32
+	DR() *uint32
+	FM() *uint32
+	Keeper() *uint32
+	VRF() *uint32
 }
 
 type BlockHistory interface {

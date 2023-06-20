@@ -291,11 +291,11 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	var offchainConfigDigester ocrtypes.OffchainConfigDigester
 	if relayConfig.FeedID != nil {
 		// Mercury
-		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().ChainID().Uint64(), contractAddress)
+		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID().Uint64(), contractAddress)
 	} else {
 		// Non-mercury
 		offchainConfigDigester = evmutil.EVMOffchainConfigDigester{
-			ChainID:         chain.Config().ChainID().Uint64(),
+			ChainID:         chain.Config().EVM().ChainID().Uint64(),
 			ContractAddress: contractAddress,
 		}
 	}
@@ -325,7 +325,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().ChainID()); err != nil {
+		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
 			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
@@ -339,9 +339,10 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -389,9 +390,10 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 	if pluginGasLimit != nil {
 		gasLimit = *pluginGasLimit
