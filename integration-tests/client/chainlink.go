@@ -6,7 +6,6 @@ import (
 	logdebug "log"
 	"math/big"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"regexp"
 	"strings"
@@ -1231,12 +1230,7 @@ func (c *Chainlink) TrackForwarder(chainID *big.Int, address common.Address) (*F
 		return nil, nil, err
 	}
 
-	b, err := httputil.DumpResponse(resp.RawResponse, true)
-	if err != nil {
-		logdebug.Println("dump response err ", err)
-	}
-
-	logdebug.Println(fmt.Sprintf("**** track response status body:%s, code %s", b, resp.Status()))
+	logdebug.Println(fmt.Sprintf("**** track response status body:%s, code %s", resp.String(), resp.Status()))
 
 	return response, resp.RawResponse, err
 }
