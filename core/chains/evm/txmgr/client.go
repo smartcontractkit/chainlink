@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -38,12 +39,12 @@ func (c *evmTxmClient) ConfiguredChainID() *big.Int {
 	return c.client.ConfiguredChainID()
 }
 
-func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, txStore TxStore, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
+func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcastTime func(now time.Time, txIDs []int64) error, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
 	// preallocate
 	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))
 
-	reqs, batchErr := batchSendTransactions(ctx, txStore, attempts, batchSize, lggr, c.client)
+	reqs, batchErr := batchSendTransactions(ctx, updateBroadcastTime, attempts, batchSize, lggr, c.client)
 	err = errors.Join(err, batchErr) // this error does not block processing
 
 	// safety check - exits before processing

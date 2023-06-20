@@ -128,6 +128,7 @@ SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '0.0.0.0'
 
 [WebServer.MFA]
 RPID = ''
@@ -145,6 +146,7 @@ ForceRedirect = false
 Host = ''
 HTTPSPort = 6689
 KeyPath = ''
+ListenIP = '0.0.0.0'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false

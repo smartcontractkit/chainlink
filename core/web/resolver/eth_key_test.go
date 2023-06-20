@@ -11,11 +11,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type mockEvmConfig struct {
+	config.EVM
+	linkAddr    string
+	maxGasPrice *assets.Wei
+}
+
+func (m *mockEvmConfig) LinkContractAddress() string { return m.linkAddr }
+func (m *mockEvmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
+	return m.maxGasPrice
+}
 
 func TestResolver_ETHKeys(t *testing.T) {
 	t.Parallel()
@@ -76,11 +88,9 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), nil)
-				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
@@ -88,6 +98,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.Mocks.scfg.On("EVM").Return(&mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", maxGasPrice: assets.NewWeiI(1)})
 			},
 			query: query,
 			result: `
@@ -277,17 +288,16 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), gError)
-				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.Mocks.scfg.On("EVM").Return(&mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", maxGasPrice: assets.NewWeiI(1)})
 			},
 			query: query,
 			result: `
@@ -330,10 +340,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), nil)
-				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.chain.On("BalanceMonitor").Return(nil)
-				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address).Return(assets.NewWeiI(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
@@ -341,6 +349,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.Mocks.scfg.On("EVM").Return(&mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", maxGasPrice: assets.NewWeiI(1)})
 			},
 			query: query,
 			result: `

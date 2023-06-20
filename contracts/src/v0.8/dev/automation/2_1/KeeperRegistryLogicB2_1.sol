@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "./KeeperRegistryBase2_1.sol";
-import {UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
 
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @dev see KeeperRegistry master contract for constructor description
@@ -77,12 +77,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepUnpaused(id);
   }
 
-  // TODO rename
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+  function setUpkeepPipelineData(uint256 id, bytes calldata newPipelineData) external {
     _requireAdminAndNotCancelled(id);
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataUpdated(id, newCheckData);
+    if (newPipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    s_checkData[id] = newPipelineData;
+    emit UpkeepPipelineDataSet(id, newPipelineData);
   }
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
@@ -200,6 +199,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
 
   /**
    * @notice read all of the details about an upkeep
+   * @dev this function may be deprecated in a future version of automation in favor of individual
+   * getters for each field
    */
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
@@ -211,7 +212,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
-      lastPerformed: reg.lastPerformed,
+      lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
       amountSpent: reg.amountSpent,
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
@@ -284,9 +285,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
   }
 
-  function getCronTriggerConfig(uint256 upkeepId) public view returns (CronTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.CRON);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (CronTriggerConfig));
+  function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
+    require(getTriggerType(upkeepId) == Trigger.LOG);
+    return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
   }
 
   /**
@@ -296,8 +297,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     address query
   ) external view returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) {
     Transmitter memory transmitter = s_transmitters[query];
-    uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
-    uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
+
+    uint96 pooledShare = 0;
+    if (transmitter.active) {
+      uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
+      pooledShare = totalDifference / uint96(s_transmittersList.length);
+    }
 
     return (
       transmitter.active,
@@ -356,7 +361,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
-      registrar: s_storage.registrar
+      registrars: s_registrars.values()
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
@@ -367,17 +372,18 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @param id the upkeep id to calculate minimum balance for
    */
   function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(s_upkeep[id].executeGas);
+    return getMaxPaymentForGas(getTriggerType(id), s_upkeep[id].executeGas);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
+    return
+      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
   }
 
   /**

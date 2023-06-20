@@ -25,21 +25,32 @@ type TxAttemptSigner[ADDR commontypes.Hashable] interface {
 var _ EvmTxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
-	chainID  big.Int
-	config   Config
-	keystore TxAttemptSigner[common.Address]
+	chainID   big.Int
+	config    evmTxAttemptBuilderConfig
+	feeConfig evmTxAttemptBuilderFeeConfig
+	keystore  TxAttemptSigner[common.Address]
 	gas.EvmFeeEstimator
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, config Config, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
-	return &evmTxAttemptBuilder{chainID, config, keystore, estimator}
+type evmTxAttemptBuilderConfig interface {
+	KeySpecificMaxGasPriceWei(common.Address) *assets.Wei
+}
+
+type evmTxAttemptBuilderFeeConfig interface {
+	EIP1559DynamicFees() bool
+	TipCapMin() *assets.Wei
+	PriceMin() *assets.Wei
+}
+
+func NewEvmTxAttemptBuilder(chainID big.Int, config evmTxAttemptBuilderConfig, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+	return &evmTxAttemptBuilder{chainID, config, feeConfig, keystore, estimator}
 }
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
 // used for when a brand new transaction is being created in the txm
 func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx EvmTx, lggr logger.Logger, opts ...feetypes.Opt) (attempt EvmTxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
 	txType := 0x0
-	if c.config.EvmEIP1559DynamicFees() {
+	if c.feeConfig.EIP1559DynamicFees() {
 		txType = 0x2
 	}
 	return c.NewTxAttemptWithType(ctx, etx, lggr, txType, opts...)
@@ -126,7 +137,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 }
 
 func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx EvmTx, fee gas.DynamicFee, gasLimit uint32) (attempt EvmTxAttempt, err error) {
-	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
+	if err = validateDynamicFeeGas(c.config, c.feeConfig.TipCapMin(), fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -158,7 +169,7 @@ var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EvmTx) error {
+func validateDynamicFeeGas(cfg evmTxAttemptBuilderConfig, tipCapMinimum *assets.Wei, fee gas.DynamicFee, gasLimit uint32, etx EvmTx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -186,7 +197,7 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx 
 		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
 	// Tip must be above minimum
-	minTip := cfg.EvmGasTipCapMinimum()
+	minTip := tipCapMinimum
 	if gasTipCap.Cmp(minTip) < 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas tip cap of %s is below min configured gas tip of %s for key %s", gasTipCap.String(), minTip.String(), etx.FromAddress.String())
 	}
@@ -207,7 +218,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 }
 
 func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, gasLimit uint32) (attempt EvmTxAttempt, err error) {
-	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
+	if err = validateLegacyGas(c.config, c.feeConfig.PriceMin(), gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -240,7 +251,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx EvmTx, gasPrice *assets.Wei, 
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx EvmTx) error {
+func validateLegacyGas(cfg evmTxAttemptBuilderConfig, minGasPriceWei, gasPrice *assets.Wei, gasLimit uint32, etx EvmTx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
@@ -248,7 +259,7 @@ func validateLegacyGas(cfg Config, gasPrice *assets.Wei, gasLimit uint32, etx Ev
 	if gasPrice.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}
-	min := cfg.EvmMinGasPriceWei()
+	min := minGasPriceWei
 	if gasPrice.Cmp(min) < 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.String())
 	}
