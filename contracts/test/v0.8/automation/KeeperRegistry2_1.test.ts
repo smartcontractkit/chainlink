@@ -3184,9 +3184,10 @@ describe('KeeperRegistry2_1', () => {
         numUpkeps,
         Trigger.CONDITION,
       )
-      assert(upkeepIds.length == 2)
+      assert(upkeepIds.length == 3)
       assert(upkeepIds[0].eq(upkeepId))
       assert(upkeepIds[1].eq(afUpkeepId))
+      assert(upkeepIds[2].eq(mercuryUpkeepId))
       upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
