@@ -31,12 +31,12 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
 	BLOCK_HASH commontypes.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ commontypes.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
@@ -59,13 +59,13 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
 	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ commontypes.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	utils.StartStopOnce
@@ -103,13 +103,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH commontypes.Hashable,
 	BLOCK_HASH commontypes.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ commontypes.Sequence,
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
@@ -498,11 +498,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 }
 
 type NullTxManager[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID commontypes.ID,
 	HEAD commontypes.Head[BLOCK_HASH],
 	ADDR commontypes.Hashable,
 	TX_HASH, BLOCK_HASH commontypes.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ commontypes.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ErrMsg string

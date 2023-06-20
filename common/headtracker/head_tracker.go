@@ -13,8 +13,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -37,13 +36,13 @@ const HeadsBufferSize = 10
 
 type HeadTracker[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S commontypes.Subscription,
-	ID txmgrtypes.ID,
-	BLOCK_HASH commontypes.Hashable,
+	S types.Subscription,
+	ID types.ID,
+	BLOCK_HASH types.Hashable,
 ] struct {
 	log             logger.Logger
-	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH]
-	headSaver       commontypes.HeadSaver[HTH, BLOCK_HASH]
+	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
+	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *utils.MailboxMonitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
@@ -52,7 +51,7 @@ type HeadTracker[
 
 	backfillMB   *utils.Mailbox[HTH]
 	broadcastMB  *utils.Mailbox[HTH]
-	headListener commontypes.HeadListener[HTH, BLOCK_HASH]
+	headListener types.HeadListener[HTH, BLOCK_HASH]
 	chStop       utils.StopChan
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
@@ -62,19 +61,19 @@ type HeadTracker[
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
 func NewHeadTracker[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S commontypes.Subscription,
-	ID txmgrtypes.ID,
-	BLOCK_HASH commontypes.Hashable,
+	S types.Subscription,
+	ID types.ID,
+	BLOCK_HASH types.Hashable,
 ](
 	lggr logger.Logger,
 	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
 	config htrktypes.Config,
 	htConfig htrktypes.HeadTrackerConfig,
-	headBroadcaster commontypes.HeadBroadcaster[HTH, BLOCK_HASH],
-	headSaver commontypes.HeadSaver[HTH, BLOCK_HASH],
+	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
+	headSaver types.HeadSaver[HTH, BLOCK_HASH],
 	mailMon *utils.MailboxMonitor,
 	getNilHead func() HTH,
-) commontypes.HeadTracker[HTH, BLOCK_HASH] {
+) types.HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
 	return &HeadTracker[HTH, S, ID, BLOCK_HASH]{
@@ -305,7 +304,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head commontypes.Head[BLOCK_HASH], baseHeight int64) (err error) {
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head types.Head[BLOCK_HASH], baseHeight int64) (err error) {
 	headBlockNumber := head.BlockNumber()
 	if headBlockNumber <= baseHeight {
 		return nil
