@@ -256,7 +256,7 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 }
 
 func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	var height *big.Int
+	var height big.Int
 	h, err := client.pool.BlockNumber(ctx)
 	return height.SetUint64(h), err
 }
