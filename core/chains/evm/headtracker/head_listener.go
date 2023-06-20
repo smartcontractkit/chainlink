@@ -22,9 +22,8 @@ func NewHeadListener(
 	ethClient evmclient.Client,
 	config Config, chStop chan struct{},
 ) *headListener {
-	wrappedConfig := NewWrappedConfig(config)
 	return headtracker.NewHeadListener[
 		*evmtypes.Head,
 		ethereum.Subscription, *big.Int, common.Hash,
-	](lggr, ethClient, wrappedConfig, chStop)
+	](lggr, ethClient, config, chStop)
 }

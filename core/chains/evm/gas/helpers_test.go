@@ -121,19 +121,7 @@ func (m *MockConfig) ChainType() config.ChainType {
 	return config.ChainType(m.ChainTypeF)
 }
 
-func (m *MockConfig) EvmFinalityDepth() uint32 {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *MockConfig) EvmGasFeeCapDefault() *assets.Wei {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *MockConfig) EvmGasLimitMax() uint32 {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *MockConfig) GasEstimatorMode() string {
+func (m *MockConfig) FinalityDepth() uint32 {
 	panic("not implemented") // TODO: Implement
 }
 

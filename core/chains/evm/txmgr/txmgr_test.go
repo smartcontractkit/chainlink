@@ -429,21 +429,20 @@ func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.r
 func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.resendAfterThreshold }
 
 type mockConfig struct {
-	evmConfig              *evmConfig
-	evmRPCDefaultBatchSize uint32
-	evmFinalityDepth       uint32
+	evmConfig           *evmConfig
+	rpcDefaultBatchSize uint32
+	finalityDepth       uint32
 }
 
 func (c *mockConfig) EVM() evmconfig.EVM {
 	return c.evmConfig
 }
 
-func (c *mockConfig) EvmGasBumpTxDepth() uint32                            { return 42 }
-func (c *mockConfig) EvmNonceAutoSync() bool                               { return true }
+func (c *mockConfig) NonceAutoSync() bool                                  { return true }
 func (c *mockConfig) ChainType() config.ChainType                          { return "" }
-func (c *mockConfig) EvmFinalityDepth() uint32                             { return c.evmFinalityDepth }
+func (c *mockConfig) FinalityDepth() uint32                                { return c.finalityDepth }
 func (c *mockConfig) KeySpecificMaxGasPriceWei(common.Address) *assets.Wei { return assets.NewWeiI(0) }
-func (c *mockConfig) EvmRPCDefaultBatchSize() uint32                       { return c.evmRPCDefaultBatchSize }
+func (c *mockConfig) RPCDefaultBatchSize() uint32                          { return c.rpcDefaultBatchSize }
 
 func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {
 	db := &databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
@@ -550,8 +549,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 
 	config, dbConfig, evmConfig := makeConfigs(t)
-	config.evmFinalityDepth = uint32(42)
-	config.evmRPCDefaultBatchSize = uint32(4)
+	config.finalityDepth = uint32(42)
+	config.rpcDefaultBatchSize = uint32(4)
 
 	evmConfig.resendAfterThreshold = 1 * time.Hour
 	evmConfig.reaperThreshold = 1 * time.Hour
@@ -643,7 +642,7 @@ func TestTxm_Reset(t *testing.T) {
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg, cfg.EVM().GasEstimator())
+	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 

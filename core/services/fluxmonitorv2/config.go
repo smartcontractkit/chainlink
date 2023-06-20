@@ -10,8 +10,8 @@ import (
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	FlagsContractAddress() string         // Evm
-	MinimumContractPayment() *assets.Link // Evm
+	FlagsContractAddress() string     // Evm
+	MinContractPayment() *assets.Link // Evm
 }
 
 type EvmFeeConfig interface {
