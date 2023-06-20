@@ -2,85 +2,94 @@
 pragma solidity ^0.8.6;
 
 import "forge-std/Test.sol";
-import {HeartbeatRequester} from "../HeartbeatRequester.sol";
-import "../mocks/MockAggregator.sol";
-import "../mocks/MockAggregatorProxy.sol";
-import "../mocks/MockOffchainAggregator.sol";
+import {HeartbeatRequester, IAggregatorProxy, IOffchainAggregator} from "../HeartbeatRequester.sol";
+import {MockAggregator} from "../mocks/MockAggregator.sol";
+import {MockAggregatorProxy} from "../mocks/MockAggregatorProxy.sol";
+import {MockOffchainAggregator} from "../mocks/MockOffchainAggregator.sol";
 
 // from contracts directory,
 // forge test --match-path src/v0.8/test/HeartbeatRequester.t.sol
 
-contract HeartbeatRequesterTest is Test {
-  HeartbeatRequester public heartbeatRequester;
-  MockAggregator public aggregator;
-  IAggregatorProxy public aggregatorProxy;
-  MockAggregator public aggregator2;
-  IAggregatorProxy public aggregatorProxy2;
-
-  address internal constant USER = address(2);
+contract HeartbeatRequesterSetUp is Test {
+  HeartbeatRequester internal heartbeatRequester;
+  MockAggregator internal aggregator;
+  IAggregatorProxy internal aggregatorProxy;
+  MockAggregator internal aggregator2;
+  IAggregatorProxy internal aggregatorProxy2;
+  address internal OWNER;
+  address internal constant STRANGER = address(999);
 
   event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
   event HeartbeatRemoved(address indexed permittedCaller, address removedProxy);
   error HeartbeatNotPermitted();
 
   function setUp() public {
+    OWNER = address(this);
+    deal(OWNER, 1e20);
+    vm.startPrank(OWNER);
     heartbeatRequester = new HeartbeatRequester();
     aggregator = new MockAggregator();
     aggregatorProxy = IAggregatorProxy(new MockAggregatorProxy(address(aggregator)));
     aggregator2 = new MockAggregator();
     aggregatorProxy2 = IAggregatorProxy(new MockAggregatorProxy(address(aggregator2)));
   }
+}
 
-  function test_permitHeartbeat_ArbitraryUser() public {
-    vm.expectEmit(true, true, true, true);
-    emit HeartbeatPermitted(USER, address(aggregatorProxy), address(0));
-    heartbeatRequester.permitHeartbeat(USER, aggregatorProxy);
+contract HeartbeatRequester_permitHeartbeat is HeartbeatRequesterSetUp {
+  function testBasicSuccess() public {
+    vm.expectEmit();
+    emit HeartbeatPermitted(STRANGER, address(aggregatorProxy), address(0));
+    heartbeatRequester.permitHeartbeat(STRANGER, aggregatorProxy);
 
-    vm.expectEmit(true, true, true, true);
-    emit HeartbeatPermitted(USER, address(aggregatorProxy2), address(aggregatorProxy));
-    heartbeatRequester.permitHeartbeat(USER, aggregatorProxy2);
+    vm.expectEmit();
+    emit HeartbeatPermitted(STRANGER, address(aggregatorProxy2), address(aggregatorProxy));
+    heartbeatRequester.permitHeartbeat(STRANGER, aggregatorProxy2);
   }
 
-  function test_permitHeartbeat_Deployer() public {
-    vm.expectEmit(true, true, true, true);
+  function testBasicDeployerSuccess() public {
+    vm.expectEmit();
     emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
     heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit HeartbeatPermitted(address(this), address(aggregatorProxy2), address(aggregatorProxy));
     heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy2);
   }
 
-  function test_permitHeartbeat_NotFromOwner() public {
+  function testOnlyCallableByOwnerReverts() public {
     vm.expectRevert(bytes("Only callable by owner"));
-    vm.prank(USER);
-    heartbeatRequester.permitHeartbeat(USER, aggregatorProxy);
+    changePrank(STRANGER);
+    heartbeatRequester.permitHeartbeat(STRANGER, aggregatorProxy);
   }
+}
 
-  function test_removeHeartbeat() public {
-    vm.expectEmit(true, true, true, true);
+contract HeartbeatRequester_removeHeartbeat is HeartbeatRequesterSetUp {
+  function testBasicSuccess() public {
+    vm.expectEmit();
     emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
     heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit HeartbeatRemoved(address(this), address(aggregatorProxy));
     heartbeatRequester.removeHeartbeat(address(this));
   }
 
-  function test_removeHeartbeat_WithNoPermits() public {
-    vm.expectEmit(true, true, true, true);
+  function testRemoveNoPermitsSuccess() public {
+    vm.expectEmit();
     emit HeartbeatRemoved(address(this), address(0));
     heartbeatRequester.removeHeartbeat(address(this));
   }
 
-  function test_removeHeartbeat_NotFromOwner() public {
+  function testOnlyCallableByOwnerReverts() public {
     vm.expectRevert(bytes("Only callable by owner"));
-    vm.prank(USER);
+    changePrank(STRANGER);
     heartbeatRequester.removeHeartbeat(address(this));
   }
+}
 
-  function test_getAggregatorRequestHeartbeat() public {
-    vm.expectEmit(true, true, true, true);
+contract HeartbeatRequester_getAggregatorRequestHeartbeat is HeartbeatRequesterSetUp {
+  function testBasicSuxxess() public {
+    vm.expectEmit();
     emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
     heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
     heartbeatRequester.getAggregatorAndRequestHeartbeat(address(aggregatorProxy));
@@ -89,7 +98,7 @@ contract HeartbeatRequesterTest is Test {
     assertEq(val, true);
   }
 
-  function testRevert_getAggregatorRequestHeartbeat() public {
+  function testHeartbeatNotPermittedReverts() public {
     bytes32 hashedReason = keccak256(abi.encodePacked("HeartbeatNotPermitted()"));
     bytes memory revertMessage = bytes32ToBytes(hashedReason);
     vm.expectRevert(revertMessage);
@@ -100,7 +109,7 @@ contract HeartbeatRequesterTest is Test {
 
   function bytes32ToBytes(bytes32 _bytes32) public pure returns (bytes memory) {
     bytes memory bytesArray = new bytes(4);
-    for (uint256 i; i < 4; i++) {
+    for (uint256 i; i < 4; ++i) {
       bytesArray[i] = _bytes32[i];
     }
     return bytesArray;
