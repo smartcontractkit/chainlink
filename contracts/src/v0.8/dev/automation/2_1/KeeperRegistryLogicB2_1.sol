@@ -287,8 +287,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     address query
   ) external view returns (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) {
     Transmitter memory transmitter = s_transmitters[query];
-    uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
-    uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
+
+    uint96 pooledShare = 0;
+    if (transmitter.active) {
+      uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
+      pooledShare = totalDifference / uint96(s_transmittersList.length);
+    }
 
     return (
       transmitter.active,
