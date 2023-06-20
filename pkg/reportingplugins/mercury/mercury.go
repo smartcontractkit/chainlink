@@ -181,7 +181,7 @@ type ReportCodec interface {
 type Fetcher interface {
 	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max
 	// finalized block number from the mercury server.
-	FetchInitialMaxFinalizedBlockNumber(context.Context) (int64, error)
+	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 }
 
 type Transmitter interface {
