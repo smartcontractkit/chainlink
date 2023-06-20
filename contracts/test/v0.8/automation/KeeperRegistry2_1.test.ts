@@ -452,7 +452,7 @@ describe('KeeperRegistry2_1', () => {
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
   let mercuryUpkeepId: BigNumber // mercury upkeep
-  const numUpkeps = 3 // see above
+  const numUpkeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
