@@ -25,6 +25,7 @@ import (
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_feed_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
@@ -622,6 +623,39 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
+		case config.LogTriggeredFeedLookup:
+			upkeepAddr, deployUpkeepTx, _, err = log_triggered_feed_lookup_wrapper.DeployLogTriggeredFeedLookup(
+				k.buildTxOpts(ctx),
+				k.client,
+				big.NewInt(k.cfg.UpkeepTestRange),
+				big.NewInt(50),
+				k.cfg.UseArbBlockNumber,
+			)
+			if err != nil {
+				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
+
+			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
+			logTriggerConfig, err := abi.Encode(map[string]interface{}{
+				"contractAddress": upkeepAddr,
+				"filterSelector":  0,                                                                    // no indexed topics filtered
+				"topic0":          "0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6", // event sig for TriggerMercury(uint256,uint256)
+				"topic1":          "0x",
+				"topic2":          "0x",
+				"topic3":          "0x",
+			}, logTriggerConfigType)
+			if err != nil {
+				log.Fatal("failed to encode log trigger config", err)
+			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeepV2(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, 1, []byte{}, logTriggerConfig, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
+
 		default:
 			log.Fatal("unexpected upkeep type")
 		}
@@ -688,7 +722,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	}
 
 	// set administrative offchain config for mercury upkeeps
-	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
 		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
 		if err != nil {
 			log.Fatalf("cannot create registry 2.1: %v", err)

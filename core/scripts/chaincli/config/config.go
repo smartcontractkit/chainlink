@@ -16,6 +16,7 @@ const (
 	Conditional UpkeepType = iota
 	Mercury
 	LogTrigger
+	LogTriggeredFeedLookup
 )
 
 // Config represents configuration fields
