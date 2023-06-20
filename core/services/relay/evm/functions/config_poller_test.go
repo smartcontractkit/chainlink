@@ -34,14 +34,16 @@ import (
 )
 
 func TestFunctionsConfigPoller(t *testing.T) {
-	// Test config poller for FunctionsPlugin
-	runTest(t, functions.FunctionsPlugin)
-	// Test config poller for ThresholdPlugin
-	runTest(t, functions.ThresholdPlugin)
+	t.Run("FunctionsPlugin", func(t *testing.T) {
+		runTest(t, functions.FunctionsPlugin, functions.FunctionsDigestPrefix)
+	})
+	t.Run("ThresholdPlugin", func(t *testing.T) {
+		runTest(t, functions.ThresholdPlugin, functions.ThresholdDigestPrefix)
+	})
 	// TODO: Test config poller for S4Plugin (requires S4Plugin to be implemented & corresponding updates to pluginConfig)
 }
 
-func runTest(t *testing.T, pluginType functions.FunctionsPluginType) {
+func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDigestPrefix ocrtypes2.ConfigDigestPrefix) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
@@ -78,7 +80,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	defer lp.Close()
 	require.NoError(t, lp.Start(ctx))
-	logPoller, err := functions.NewFunctionsConfigPoller(pluginType, lggr, lp, ocrAddress)
+	logPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, ocrAddress, lggr)
 	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
@@ -105,7 +107,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType) {
 	}
 
 	// Set the config
-	contractConfig := SetFunctionsConfig(t, pluginConfig, ocrContract, user)
+	contractConfig := setFunctionsConfig(t, pluginConfig, ocrContract, user)
 	b.Commit()
 	latest, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -139,22 +141,13 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType) {
 
 	var expectedConfigDigest [32]byte
 	copy(expectedConfigDigest[:], onChainConfigDigest[:])
-	switch pluginType {
-	case functions.FunctionsPlugin:
-		// no-op since the FunctionsPlugin does not have a modified config digest prefix
-	case functions.ThresholdPlugin:
-		binary.BigEndian.PutUint16(expectedConfigDigest[:2], uint16(functions.ThresholdDigestPrefix))
-	case functions.S4Plugin:
-		binary.BigEndian.PutUint16(expectedConfigDigest[:2], uint16(functions.S4DigestPrefix))
-	default:
-		t.Errorf("Unknown plugin type: %v", pluginType)
-	}
+	binary.BigEndian.PutUint16(expectedConfigDigest[:2], uint16(expectedDigestPrefix))
 
 	assert.Equal(t, expectedConfigDigest, digest)
 	assert.Equal(t, expectedConfigDigest, [32]byte(newConfig.ConfigDigest))
 }
 
-func SetFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPluginConfigWrapper, ocrContract *ocr2aggregator.OCR2Aggregator, user *bind.TransactOpts) ocrtypes2.ContractConfig {
+func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPluginConfigWrapper, ocrContract *ocr2aggregator.OCR2Aggregator, user *bind.TransactOpts) ocrtypes2.ContractConfig {
 	// Create minimum number of nodes.
 	var oracles []confighelper2.OracleIdentityExtra
 	for i := 0; i < 4; i++ {

@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -159,21 +158,13 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	return filterNames, err
 }
 
-type ConfigPoller interface {
-	ocrtypes.ContractConfigTracker
-
-	Start()
-	Close() error
-	Replay(ctx context.Context, fromBlock int64) error
-}
-
 type configWatcher struct {
 	utils.StartStopOnce
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     ConfigPoller
+	configPoller     types.ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -186,7 +177,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller ConfigPoller,
+	configPoller types.ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -272,7 +263,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	var cp ConfigPoller
+	var cp types.ConfigPoller
 
 	if relayConfig.FeedID != nil {
 		cp, err = mercury.NewConfigPoller(
@@ -303,40 +294,6 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 			ContractAddress: contractAddress,
 		}
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
-}
-
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig types.RelayConfig
-	err := json.Unmarshal(args.RelayConfig, &relayConfig)
-	if err != nil {
-		return nil, err
-	}
-	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
-	if err != nil {
-		return nil, err
-	}
-	if !common.IsHexAddress(args.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
-	}
-
-	contractAddress := common.HexToAddress(args.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get contract ABI JSON")
-	}
-
-	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, lggr, chain.LogPoller(), contractAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	offchainConfigDigester := functionsRelay.FunctionsOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
-		ContractAddress: contractAddress,
-		PluginType:      pluginType,
-	}
-
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 
