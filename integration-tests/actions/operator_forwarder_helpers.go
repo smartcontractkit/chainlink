@@ -197,10 +197,11 @@ func TrackForwarder(
 ) {
 	l := utils.GetTestLogger(t)
 	chainID := chainClient.GetChainID()
-	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+	forwarder, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
 	l.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
+	log.Println("track forwarder parsed response ", forwarder)
 }
