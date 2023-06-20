@@ -187,7 +187,3 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 	}
 	return e.c.OperatorFactoryAddress.String()
 }
-
-func (c *ChainScoped) EVM() config.EVM {
-	return &evmConfig{c: c.cfg}
-}
