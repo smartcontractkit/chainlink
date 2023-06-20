@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/big"
 	"testing"
@@ -62,13 +63,16 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, chainClient, contractLoader)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, chainClient, authorizedForwarders[i], workerNodes[i])
-		log.Println("Node name ", workerNodes[i].Name())
-		log.Println("Forwarder addr  ", authorizedForwarders[i].Hex())
-		fwdrs, _, err := workerNodes[i].GetForwarders()
-		log.Println("fwdrs   ", fwdrs)
-		log.Println("fwdrserr   ", err)
+		log.Println("**** Node name ", workerNodes[i].Name())
+		log.Println("**** Forwarder addr  ", authorizedForwarders[i].Hex())
 		err = chainClient.WaitForEvents()
+
 		require.NoError(t, err, "Error waiting for events")
+		fwdrs, _, err := workerNodes[i].GetForwarders()
+		for _, fwd := range fwdrs.Data {
+			log.Println(fmt.Sprintf("addr: %s, id:%s, chainID:%s, createdAt:%s, updated at:%s", fwd.Data.ID, fwd.Data.Address, fwd.Data.ChainID, fwd.Data.CreatedAt.String(), fwd.Data.UpdatedAt.String()))
+		}
+		log.Println("**** fwdrserr   ", err)
 	}
 
 	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
@@ -107,4 +111,12 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Error getting latest OCRv2 answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCRv2 contract to be 10 but got %d", answer.Int64())
 
+	for _, node := range workerNodes {
+		log.Println("Node name ", node.Name())
+		fwdrs, _, err := node.GetForwarders()
+		for _, fwd := range fwdrs.Data {
+			log.Println(fmt.Sprintf("**** addr: %s, id:%s chainID:%s, createdAt:%s, updated at:%s", fwd.Data.ID, fwd.Data.Address, fwd.Data.ChainID, fwd.Data.CreatedAt.String(), fwd.Data.UpdatedAt.String()))
+		}
+		log.Println("**** fwdrserr   ", err)
+	}
 }

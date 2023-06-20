@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"log"
 	"math/big"
 	"testing"
 
@@ -31,18 +32,26 @@ func DeployForwarderContracts(
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
+	log.Println("**** operator factory instance address: ", operatorFactoryInstance.Address())
 	operatorCreated := make(chan *operator_factory.OperatorFactoryOperatorCreated)
+
 	authorizedForwarderCreated := make(chan *operator_factory.OperatorFactoryAuthorizedForwarderCreated)
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
+		log.Println("------------------------------------")
 		SubscribeOperatorFactoryEvents(t, authorizedForwarderCreated, operatorCreated, chainClient, operatorFactoryInstance)
-		_, err = operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		tx, err := operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		log.Println("**** operator and fwd deploy tx hash: ", tx.Hash())
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for events in nodes shouldn't fail")
 		eventDataAuthorizedForwarder, eventDataOperatorCreated := <-authorizedForwarderCreated, <-operatorCreated
 		operator, authorizedForwarder := eventDataOperatorCreated.Operator, eventDataAuthorizedForwarder.Forwarder
+		log.Println("**** operator contract address: ", operator.String())
+		log.Println("**** authorized forwarder contract address: ", authorizedForwarder.String())
 		operators = append(operators, operator)
 		authorizedForwarders = append(authorizedForwarders, authorizedForwarder)
+		log.Println("------------------------------------")
+
 	}
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
