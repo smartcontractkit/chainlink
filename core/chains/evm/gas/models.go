@@ -204,7 +204,7 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	ChainType() config.ChainType
-	EvmFinalityDepth() uint32
+	FinalityDepth() uint32
 }
 
 type GasEstimatorConfig interface {

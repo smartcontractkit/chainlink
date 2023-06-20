@@ -58,14 +58,14 @@ func TestLoadEnvConfigVarsDR(t *testing.T) {
 		MinIncomingConfirmations: clnull.Uint32From(10),
 	}
 
-	drs10 := job.LoadEnvConfigVarsDR(chainConfig, jobSpec10)
+	drs10 := job.LoadEnvConfigVarsDR(chainConfig.EVM(), jobSpec10)
 	assert.True(t, drs10.MinIncomingConfirmationsEnv)
 
 	jobSpec200 := job.DirectRequestSpec{
 		MinIncomingConfirmations: clnull.Uint32From(200),
 	}
 
-	drs200 := job.LoadEnvConfigVarsDR(chainConfig, jobSpec200)
+	drs200 := job.LoadEnvConfigVarsDR(chainConfig.EVM(), jobSpec200)
 	assert.False(t, drs200.MinIncomingConfirmationsEnv)
 	assert.True(t, drs200.MinIncomingConfirmations.Valid)
 	assert.Equal(t, uint32(200), drs200.MinIncomingConfirmations.Uint32)

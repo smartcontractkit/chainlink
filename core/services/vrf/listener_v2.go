@@ -796,7 +796,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 // otherwise true.
 func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
 	latestHead := lsn.getLatestHead()
-	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.FinalityDepth()) {
 		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
 		if err != nil {
 			lsn.l.Warnw("Failed to fetch contract code", "err", err)

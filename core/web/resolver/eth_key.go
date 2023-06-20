@@ -80,7 +80,7 @@ func (r *ETHKeyResolver) LINKBalance(ctx context.Context) *string {
 	}
 
 	client := r.key.chain.Client()
-	linkAddr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
+	linkAddr := common.HexToAddress(r.key.chain.Config().EVM().LinkContractAddress())
 	balance, err := client.LINKBalance(ctx, r.key.state.Address.Address(), linkAddr)
 	if err != nil {
 		return nil
@@ -99,7 +99,7 @@ func (r *ETHKeyResolver) MaxGasPriceWei() *string {
 		return nil
 	}
 
-	gasPrice := r.key.chain.Config().KeySpecificMaxGasPriceWei(r.key.addr.Address())
+	gasPrice := r.key.chain.Config().EVM().KeySpecificMaxGasPriceWei(r.key.addr.Address())
 
 	if gasPrice != nil {
 		val := gasPrice.ToInt().String()
