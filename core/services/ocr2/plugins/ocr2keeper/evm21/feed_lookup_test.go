@@ -180,7 +180,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
 				b, err := json.Marshal(cfg)
 				assert.Nil(t, err)
-				mockRegistry.On("GetUpkeepAdministrativeConfig", mock.Anything, upkeepId).Return(b, nil)
+				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
 				r.registry = mockRegistry
 			}
 
