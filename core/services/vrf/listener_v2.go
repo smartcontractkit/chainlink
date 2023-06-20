@@ -79,6 +79,7 @@ func (errBlockhashNotInStore) Error() string {
 
 func newListenerV2(
 	cfg Config,
+	feeCfg FeeConfig,
 	l logger.Logger,
 	ethClient evmclient.Client,
 	chainID *big.Int,
@@ -101,6 +102,7 @@ func newListenerV2(
 ) *listenerV2 {
 	return &listenerV2{
 		cfg:                cfg,
+		feeCfg:             feeCfg,
 		l:                  logger.Sugared(l),
 		ethClient:          ethClient,
 		chainID:            chainID,
@@ -153,6 +155,7 @@ type vrfPipelineResult struct {
 type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
+	feeCfg         FeeConfig
 	l              logger.SugaredLogger
 	ethClient      evmclient.Client
 	chainID        *big.Int
@@ -208,9 +211,10 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
-		gasLimit := lsn.cfg.EvmGasLimitDefault()
-		if lsn.cfg.EvmGasLimitVRFJobType() != nil {
-			gasLimit = *lsn.cfg.EvmGasLimitVRFJobType()
+		gasLimit := lsn.feeCfg.LimitDefault()
+		vrfLimit := lsn.feeCfg.LimitJobType().VRF()
+		if vrfLimit != nil {
+			gasLimit = *vrfLimit
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)

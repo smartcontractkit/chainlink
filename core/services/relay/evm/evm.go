@@ -342,9 +342,10 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -392,9 +393,10 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCR2JobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCR2JobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 	if pluginGasLimit != nil {
 		gasLimit = *pluginGasLimit
