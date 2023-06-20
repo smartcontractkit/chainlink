@@ -238,7 +238,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	lggr := w.logger.With("req.Payload", hexutil.Encode(req.Payload))
 	lggr.Trace("Transmit")
 	start := time.Now()
-	if err := w.waitForReady(ctx); err != nil {
+	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "Transmit failed")
 	}
 	resp, err = w.client.Transmit(ctx, req)
@@ -286,7 +286,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
 	lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
 	lggr.Trace("LatestReport")
-	if err := w.waitForReady(ctx); err != nil {
+	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
 	resp, err = w.client.LatestReport(ctx, req)

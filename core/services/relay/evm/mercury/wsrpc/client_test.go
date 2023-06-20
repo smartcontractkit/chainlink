@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Client_Transmit(t *testing.T) {
@@ -33,7 +34,7 @@ func Test_Client_Transmit(t *testing.T) {
 		c := newClient(lggr, csakey.KeyV2{}, nil, "")
 		c.conn = conn
 		c.client = wsrpcClient
-		c.StartOnce("Mock WSRPC Client", func() error { return nil })
+		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
 		for i := 1; i < MaxConsecutiveTransmitFailures; i++ {
 			_, err := c.Transmit(ctx, req)
 			require.EqualError(t, err, "context deadline exceeded")
