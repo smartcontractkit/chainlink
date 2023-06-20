@@ -326,6 +326,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		)
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
+		for _, b := range blocks {
+			assert.False(t, b.ShouldStore)
+		}
 		assert.Len(t, callbacks, 3)
 		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
@@ -695,6 +698,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		// for the coordinator overhead.
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 99)
+		for _, b := range blocks {
+			assert.True(t, b.ShouldStore)
+		}
 		assert.Len(t, callbacks, 0)
 		assert.Equal(t, uint64(latestHeadNumber-blockhashLookback+1), recentHeightStart)
 		assert.Len(t, recentBlocks, int(blockhashLookback))
@@ -759,6 +765,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		// then reject the last callback for being out of gas.
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
+		for _, b := range blocks {
+			assert.True(t, b.ShouldStore)
+		}
 		assert.Len(t, callbacks, 2)
 		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
