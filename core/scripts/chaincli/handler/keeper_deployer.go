@@ -152,7 +152,6 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	offC, err := json.Marshal(offchain.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
-		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
 	})
 	if err != nil {
 		panic(err)
@@ -293,7 +292,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	offC, err := json.Marshal(offchain.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
-		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
+		MercuryLookup:        d.cfg.UpkeepType == config.Mercury || d.cfg.UpkeepType == config.LogTriggeredFeedLookup,
 	})
 	if err != nil {
 		panic(err)
@@ -351,6 +350,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		{Name: "fallback_link_price", Type: "uint256"},
 		{Name: "transcoder", Type: "address"},
 		{Name: "registrars", Type: "address[]"},
+		{Name: "upkeep_privilege_manager", Type: "address"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating onChainConfigType: %v", err)
