@@ -31,6 +31,23 @@ func NewEvmAddress() gethcommon.Address {
 	return testutils.NewAddress()
 }
 
+type feeConfig struct {
+	eip1559DynamicFees bool
+	tipCapMin          *assets.Wei
+	priceMin           *assets.Wei
+}
+
+func newFeeConfig() *feeConfig {
+	return &feeConfig{
+		tipCapMin: assets.NewWeiI(0),
+		priceMin:  assets.NewWeiI(0),
+	}
+}
+
+func (g *feeConfig) EIP1559DynamicFees() bool { return g.eip1559DynamicFees }
+func (g *feeConfig) TipCapMin() *assets.Wei   { return g.tipCapMin }
+func (g *feeConfig) PriceMin() *assets.Wei    { return g.priceMin }
+
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
 
@@ -50,7 +67,7 @@ func TestTxm_SignTx(t *testing.T) {
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -62,7 +79,7 @@ func TestTxm_SignTx(t *testing.T) {
 		cfg := txmmocks.NewConfig(t)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, cfg, newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -81,7 +98,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		gcfg := configtest.NewGeneralConfig(t, nil)
 		cfg := evmtest.NewChainScopedConfig(t, gcfg)
-		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM(), newFeeConfig(), kst, nil)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 		a, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 			DynamicTipCap: dynamicFee.TipCap,
@@ -123,7 +140,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
-				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
+				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM(), cfg.EVM().GasEstimator(), kst, nil)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
 				_, _, err := cks.NewCustomTxAttempt(txmgr.EvmTx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 					DynamicTipCap: dynamicFee.TipCap,
@@ -143,13 +160,14 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	addr := NewEvmAddress()
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(50)
-		c.EVM[0].GasEstimator.PriceMin = assets.NewWeiI(10)
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := ksmocks.NewEth(t)
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
+	gc := newFeeConfig()
+	gc.priceMin = assets.NewWeiI(10)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM(), gc, kst, nil)
 	lggr := logger.TestLogger(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -176,7 +194,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 	cfg := txmmocks.NewConfig(t)
 	kst := ksmocks.NewEth(t)
 	lggr := logger.TestLogger(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, newFeeConfig(), kst, nil)
 
 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 	legacyFee := assets.NewWeiI(100)
@@ -208,13 +226,12 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
 
 	cfg := txmmocks.NewConfig(t)
-	cfg.On("EvmEIP1559DynamicFees").Return(true)
 	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(assets.NewWeiI(100))
 
 	kst := ksmocks.NewEth(t)
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, kst, est)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg, &feeConfig{eip1559DynamicFees: true}, kst, est)
 
 	t.Run("NewAttempt", func(t *testing.T) {
 		_, _, _, retryable, err := cks.NewTxAttempt(ctx, txmgr.EvmTx{}, lggr)

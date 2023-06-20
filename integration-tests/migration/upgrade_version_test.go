@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-env/environment"

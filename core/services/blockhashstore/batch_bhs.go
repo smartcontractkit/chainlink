@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -18,7 +19,7 @@ import (
 )
 
 type batchBHSConfig interface {
-	EvmGasLimitDefault() uint32
+	LimitDefault() uint32
 }
 
 type BatchBlockhashStore struct {
@@ -69,7 +70,7 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		FeeLimit:       b.config.EvmGasLimitDefault(),
+		FeeLimit:       b.config.LimitDefault(),
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 

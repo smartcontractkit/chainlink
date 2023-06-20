@@ -603,10 +603,10 @@ linkEthFeedAddress     	= "%s"
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 
 	gomega.NewWithT(t).Eventually(func() bool {
-		// Ensure a refund is provided. Refund amount comes out to ~20_500_000 GJuels.
+		// Ensure a refund is provided. Refund amount comes out to ~15_700_000 GJuels.
 		// We use an upper and lower bound such that this part of the test is not excessively brittle to upstream tweaks.
-		refundUpperBound := big.NewInt(0).Add(assets.GWei(21_500_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
-		refundLowerBound := big.NewInt(0).Add(assets.GWei(19_500_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundUpperBound := big.NewInt(0).Add(assets.GWei(17_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
+		refundLowerBound := big.NewInt(0).Add(assets.GWei(15_000_000).ToInt(), subAfterBatchFulfillmentRequest.Balance)
 		subAfterRefund, err := uni.coordinator.GetSubscription(nil, uni.subID)
 		require.NoError(t, err)
 		balanceAfterRefund = subAfterRefund.Balance
