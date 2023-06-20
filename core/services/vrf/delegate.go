@@ -6,12 +6,14 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
@@ -135,11 +137,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei); err != nil {
 				return nil, err
 			}
 
@@ -153,7 +155,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 
 			return []job.ServiceCtx{v2.New(
-				chain.Config(),
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
 				lV2,
 				chain.Client(),
 				chain.ID(),
@@ -170,20 +173,20 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
-				vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei); err != nil {
 				return nil, err
 			}
 
@@ -197,7 +200,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 
 			return []job.ServiceCtx{v2.New(
-				chain.Config(),
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
 				lV2,
 				chain.Client(),
 				chain.ID(),
@@ -214,13 +218,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
-				vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&v1.Listener{
-				Cfg:             chain.Config(),
+				Cfg:             chain.Config().EVM(),
+				FeeCfg:          chain.Config().EVM().GasEstimator(),
 				L:               logger.Sugared(lV1),
 				HeadBroadcaster: chain.HeadBroadcaster(),
 				LogBroadcaster:  chain.LogBroadcaster(),
@@ -237,10 +242,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				ChStop:             make(chan struct{}),
 				WaitOnStop:         make(chan struct{}),
 				NewHead:            make(chan struct{}, 1),
-				ResponseCount:      GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				ResponseCount:      GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				BlockNumberToReqID: pairing.New(),
 				ReqAdded:           func() {},
-				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EvmFinalityDepth())),
+				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 			}}, nil
 		}
 	}
@@ -261,10 +266,10 @@ func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 // matches what is set for the  provided from addresses.
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
 // not match the provided gas lane price.
-func CheckFromAddressMaxGasPrices(jb job.Job, cfg vrfcommon.Config) (err error) {
+func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGasFn) (err error) {
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
-			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
 				err = multierr.Append(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
@@ -275,14 +280,16 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg vrfcommon.Config) (err error) 
 	return
 }
 
+type keySpecificMaxGasFn func(common.Address) *assets.Wei
+
 // FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
 // addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
 // gas price.
-func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg vrfcommon.Config) (allEqual bool) {
+func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySpecificMaxGasFn) (allEqual bool) {
 	allEqual = true
 	for i := range jb.VRFSpec.FromAddresses {
-		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
-			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		allEqual = allEqual && keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
 		)
 	}
 	return

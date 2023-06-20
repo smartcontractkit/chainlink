@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
 type GethKeyStore interface {
@@ -14,9 +15,12 @@ type GethKeyStore interface {
 
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
 type Config interface {
-	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasLimitVRFJobType() *uint32
+	FinalityDepth() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
+}
+
+type FeeConfig interface {
+	LimitDefault() uint32
+	LimitJobType() config.LimitJobType
 }

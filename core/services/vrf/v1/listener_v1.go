@@ -46,6 +46,7 @@ type Listener struct {
 	utils.StartStopOnce
 
 	Cfg             vrfcommon.Config
+	FeeCfg          vrfcommon.FeeConfig
 	L               logger.SugaredLogger
 	LogBroadcaster  log.Broadcaster
 	Coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
@@ -62,6 +63,7 @@ type Listener struct {
 	NewHead         chan struct{}
 	LatestHead      uint64
 	LatestHeadMu    sync.RWMutex
+
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -229,7 +231,7 @@ func (lsn *Listener) RunHeadListener(unsubscribe func()) {
 
 func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.L.Infow("Listening for run requests",
-		"gasLimit", lsn.Cfg.EvmGasLimitDefault(),
+		"gasLimit", lsn.FeeCfg.LimitDefault(),
 		"minConfs", minConfs)
 	for {
 		select {

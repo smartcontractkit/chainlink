@@ -83,6 +83,7 @@ func (errBlockhashNotInStore) Error() string {
 
 func New(
 	cfg vrfcommon.Config,
+	feeCfg vrfcommon.FeeConfig,
 	l logger.Logger,
 	ethClient evmclient.Client,
 	chainID *big.Int,
@@ -105,6 +106,7 @@ func New(
 ) job.ServiceCtx {
 	return &listenerV2{
 		cfg:                cfg,
+		feeCfg:             feeCfg,
 		l:                  logger.Sugared(l),
 		ethClient:          ethClient,
 		chainID:            chainID,
@@ -161,6 +163,7 @@ type vrfPipelineResult struct {
 type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            vrfcommon.Config
+	feeCfg         vrfcommon.FeeConfig
 	l              logger.SugaredLogger
 	ethClient      evmclient.Client
 	chainID        *big.Int
@@ -216,9 +219,10 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
-		gasLimit := lsn.cfg.EvmGasLimitDefault()
-		if lsn.cfg.EvmGasLimitVRFJobType() != nil {
-			gasLimit = *lsn.cfg.EvmGasLimitVRFJobType()
+		gasLimit := lsn.feeCfg.LimitDefault()
+		vrfLimit := lsn.feeCfg.LimitJobType().VRF()
+		if vrfLimit != nil {
+			gasLimit = *vrfLimit
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
@@ -884,7 +888,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 // otherwise true.
 func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
 	latestHead := lsn.getLatestHead()
-	if latestHead-req.req.Raw().BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+	if latestHead-req.req.Raw().BlockNumber > uint64(lsn.cfg.FinalityDepth()) {
 		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender(), big.NewInt(int64(latestHead)))
 		if err != nil {
 			lsn.l.Warnw("Failed to fetch contract code", "err", err)

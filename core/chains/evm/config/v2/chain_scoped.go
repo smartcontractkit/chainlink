@@ -28,17 +28,6 @@ type ChainScoped struct {
 	cfg *EVMConfig
 }
 
-func (c *ChainScoped) ChainID() *big.Int {
-	return c.cfg.ChainID.ToInt()
-}
-
-func (c *ChainScoped) ChainType() gencfg.ChainType {
-	if c.cfg.ChainType == nil {
-		return ""
-	}
-	return gencfg.ChainType(*c.cfg.ChainType)
-}
-
 func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
@@ -82,7 +71,7 @@ func (e *evmConfig) OCR2() config.OCR2 {
 }
 
 func (e *evmConfig) GasEstimator() config.GasEstimator {
-	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay}
+	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight}
 }
 
 func (e *evmConfig) AutoCreateKey() bool {
@@ -121,154 +110,70 @@ func (e *evmConfig) RPCDefaultBatchSize() uint32 {
 	return *e.c.RPCDefaultBatchSize
 }
 
-func (c *ChainScoped) EVM() config.EVM {
-	return &evmConfig{c: c.cfg}
+func (e *evmConfig) BlockEmissionIdleWarningThreshold() time.Duration {
+	return e.c.NoNewHeadsThreshold.Duration()
 }
 
-func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
-	return c.NodeNoNewHeadsThreshold()
-}
-
-func (c *ChainScoped) EvmEIP1559DynamicFees() bool {
-	return *c.cfg.GasEstimator.EIP1559DynamicFees
-}
-
-func (c *ChainScoped) EvmFinalityDepth() uint32 {
-	return *c.cfg.FinalityDepth
-}
-
-func (c *ChainScoped) EvmGasBumpPercent() uint16 {
-	return *c.cfg.GasEstimator.BumpPercent
-}
-
-func (c *ChainScoped) EvmGasBumpThreshold() uint64 {
-	return uint64(*c.cfg.GasEstimator.BumpThreshold)
-}
-
-func (c *ChainScoped) EvmGasBumpTxDepth() uint32 {
-	if c.cfg.GasEstimator.BumpTxDepth != nil {
-		return *c.cfg.GasEstimator.BumpTxDepth
-	}
-	return *c.cfg.Transactions.MaxInFlight
-}
-
-func (c *ChainScoped) EvmGasBumpWei() *assets.Wei {
-	return c.cfg.GasEstimator.BumpMin
-}
-
-func (c *ChainScoped) EvmGasFeeCapDefault() *assets.Wei {
-	return c.cfg.GasEstimator.FeeCapDefault
-}
-
-func (c *ChainScoped) EvmGasLimitDefault() uint32 {
-	return *c.cfg.GasEstimator.LimitDefault
-}
-
-func (c *ChainScoped) EvmGasLimitMax() uint32 {
-	return *c.cfg.GasEstimator.LimitMax
-}
-
-func (c *ChainScoped) EvmGasLimitMultiplier() float32 {
-	f, _ := c.cfg.GasEstimator.LimitMultiplier.BigFloat().Float32()
-	return f
-}
-
-func (c *ChainScoped) EvmGasLimitTransfer() uint32 {
-	return *c.cfg.GasEstimator.LimitTransfer
-}
-
-func (c *ChainScoped) EvmGasLimitOCRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.OCR
-}
-
-func (c *ChainScoped) EvmGasLimitOCR2JobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.OCR2
-}
-
-func (c *ChainScoped) EvmGasLimitDRJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.DR
-}
-
-func (c *ChainScoped) EvmGasLimitVRFJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.VRF
-}
-
-func (c *ChainScoped) EvmGasLimitFMJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.FM
-}
-
-func (c *ChainScoped) EvmGasLimitKeeperJobType() *uint32 {
-	return c.cfg.GasEstimator.LimitJobType.Keeper
-}
-
-func (c *ChainScoped) EvmGasPriceDefault() *assets.Wei {
-	return c.cfg.GasEstimator.PriceDefault
-}
-
-func (c *ChainScoped) EvmMinGasPriceWei() *assets.Wei {
-	return c.cfg.GasEstimator.PriceMin
-}
-
-func (c *ChainScoped) EvmMaxGasPriceWei() *assets.Wei {
-	return c.cfg.GasEstimator.PriceMax
-}
-
-func (c *ChainScoped) EvmGasTipCapDefault() *assets.Wei {
-	return c.cfg.GasEstimator.TipCapDefault
-}
-
-func (c *ChainScoped) EvmGasTipCapMinimum() *assets.Wei {
-	return c.cfg.GasEstimator.TipCapMin
-}
-
-func (c *ChainScoped) FlagsContractAddress() string {
-	if c.cfg.FlagsContractAddress == nil {
+func (e *evmConfig) ChainType() gencfg.ChainType {
+	if e.c.ChainType == nil {
 		return ""
 	}
-	return c.cfg.FlagsContractAddress.String()
+	return gencfg.ChainType(*e.c.ChainType)
 }
 
-func (c *ChainScoped) GasEstimatorMode() string {
-	return *c.cfg.GasEstimator.Mode
+func (e *evmConfig) ChainID() *big.Int {
+	return e.c.ChainID.ToInt()
 }
-func (c *ChainScoped) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
+
+func (e *evmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
 	var keySpecific *assets.Wei
-	for i := range c.cfg.KeySpecific {
-		ks := c.cfg.KeySpecific[i]
+	for i := range e.c.KeySpecific {
+		ks := e.c.KeySpecific[i]
 		if ks.Key.Address() == addr {
 			keySpecific = ks.GasEstimator.PriceMax
 			break
 		}
 	}
 
-	chainSpecific := c.EvmMaxGasPriceWei()
+	chainSpecific := e.GasEstimator().PriceMax()
 	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
 		return keySpecific
 	}
 
-	return c.EvmMaxGasPriceWei()
+	return e.GasEstimator().PriceMax()
 }
 
-func (c *ChainScoped) LinkContractAddress() string {
-	if c.cfg.LinkContractAddress == nil {
+func (e *evmConfig) MinIncomingConfirmations() uint32 {
+	return *e.c.MinIncomingConfirmations
+}
+
+func (e *evmConfig) MinContractPayment() *assets.Link {
+	return e.c.MinContractPayment
+}
+
+func (e *evmConfig) FlagsContractAddress() string {
+	if e.c.FlagsContractAddress == nil {
 		return ""
 	}
-	return c.cfg.LinkContractAddress.String()
+	return e.c.FlagsContractAddress.String()
 }
 
-func (c *ChainScoped) OperatorFactoryAddress() string {
-	if c.cfg.OperatorFactoryAddress == nil {
+func (e *evmConfig) LinkContractAddress() string {
+	if e.c.LinkContractAddress == nil {
 		return ""
 	}
-	return c.cfg.OperatorFactoryAddress.String()
+	return e.c.LinkContractAddress.String()
 }
 
-func (c *ChainScoped) MinIncomingConfirmations() uint32 {
-	return *c.cfg.MinIncomingConfirmations
+func (e *evmConfig) OperatorFactoryAddress() string {
+	if e.c.OperatorFactoryAddress == nil {
+		return ""
+	}
+	return e.c.OperatorFactoryAddress.String()
 }
 
-func (c *ChainScoped) MinimumContractPayment() *assets.Link {
-	return c.cfg.MinContractPayment
+func (c *ChainScoped) EVM() config.EVM {
+	return &evmConfig{c: c.cfg}
 }
 
 func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {
@@ -289,102 +194,4 @@ func (c *ChainScoped) NodeSelectionMode() string {
 
 func (c *ChainScoped) NodeSyncThreshold() uint32 {
 	return *c.cfg.NodePool.SyncThreshold
-}
-
-type balanceMonitorConfig struct {
-	c BalanceMonitor
-}
-
-func (b *balanceMonitorConfig) Enabled() bool {
-	return *b.c.Enabled
-}
-
-type transactionsConfig struct {
-	c Transactions
-}
-
-func (t *transactionsConfig) ForwardersEnabled() bool {
-	return *t.c.ForwardersEnabled
-}
-
-func (t *transactionsConfig) ReaperInterval() time.Duration {
-	return t.c.ReaperInterval.Duration()
-}
-
-func (t *transactionsConfig) ReaperThreshold() time.Duration {
-	return t.c.ReaperThreshold.Duration()
-}
-
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration {
-	return t.c.ResendAfterThreshold.Duration()
-}
-
-func (t *transactionsConfig) MaxInFlight() uint32 {
-	return *t.c.MaxInFlight
-}
-
-func (t *transactionsConfig) MaxQueued() uint64 {
-	return uint64(*t.c.MaxQueued)
-}
-
-type headTrackerConfig struct {
-	c HeadTracker
-}
-
-func (h *headTrackerConfig) HistoryDepth() uint32 {
-	return *h.c.HistoryDepth
-}
-
-func (h *headTrackerConfig) MaxBufferSize() uint32 {
-	return *h.c.MaxBufferSize
-}
-
-func (h *headTrackerConfig) SamplingInterval() time.Duration {
-	return h.c.SamplingInterval.Duration()
-}
-
-type blockHistoryConfig struct {
-	c             BlockHistoryEstimator
-	blockDelay    *uint16
-	bumpThreshold *uint32
-}
-
-func (b *blockHistoryConfig) BatchSize() uint32 {
-	return *b.c.BatchSize
-}
-
-func (b *blockHistoryConfig) BlockHistorySize() uint16 {
-	return *b.c.BlockHistorySize
-}
-
-func (b *blockHistoryConfig) CheckInclusionBlocks() uint16 {
-	return *b.c.CheckInclusionBlocks
-}
-
-func (b *blockHistoryConfig) CheckInclusionPercentile() uint16 {
-	return *b.c.CheckInclusionPercentile
-}
-
-func (b *blockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 {
-	if b.c.EIP1559FeeCapBufferBlocks == nil {
-		return uint16(*b.bumpThreshold) + 1
-	}
-	return *b.c.EIP1559FeeCapBufferBlocks
-}
-
-func (b *blockHistoryConfig) TransactionPercentile() uint16 {
-	return *b.c.TransactionPercentile
-}
-
-func (b *blockHistoryConfig) BlockDelay() uint16 {
-	return *b.blockDelay
-}
-
-type gasEstimatorConfig struct {
-	c          GasEstimator
-	blockDelay *uint16
-}
-
-func (g *gasEstimatorConfig) BlockHistory() config.BlockHistory {
-	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
 }
