@@ -37,19 +37,19 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
 
 // TODO: remove for 2.1
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result21 ocr2keepers.CheckResult
+	var result ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result21, err
+		return result, err
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result21, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	result21 = ocr2keepers.CheckResult{
+	result = ocr2keepers.CheckResult{
 		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:    false,
 		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
@@ -60,15 +60,15 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
 		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
-	result21.Extension = ext
+	result.Extension = ext
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
 	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
-		result21.PerformData = rawPerformData
+		result.PerformData = rawPerformData
 	}
 
-	return result21, nil
+	return result, nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {

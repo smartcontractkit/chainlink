@@ -69,9 +69,9 @@ type AdminOffchainConfig struct {
 }
 
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	// TODO (AUTO-2862): parallelize the feed lookup work for all upkeeps
-	for i, res := range upkeepResults21 {
+	for i, res := range upkeepResults {
 		ext := res.Extension.(EVMAutomationResultExtension21)
 		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
@@ -94,7 +94,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keep
 
 		if !allowed {
 			ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-			upkeepResults21[i].Extension = ext
+			upkeepResults[i].Extension = ext
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
 			continue
 		}
@@ -109,7 +109,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keep
 		values, retryable, err := r.doMercuryRequest(ctx, feedLookup, upkeepId)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d retryable %v doMercuryRequest: %v", upkeepId, block, retryable, err)
-			upkeepResults21[i].Retryable = retryable
+			upkeepResults[i].Retryable = retryable
 			continue
 		}
 
@@ -127,7 +127,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keep
 		}
 
 		ext.FailureReason = failureReason
-		upkeepResults21[i].Extension = ext
+		upkeepResults[i].Extension = ext
 		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
 			r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", upkeepId, block)
 			continue
@@ -139,12 +139,12 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keep
 		}
 
 		// only eligible upkeeps will reach here
-		upkeepResults21[i].Eligible = true
-		upkeepResults21[i].PerformData = performData
+		upkeepResults[i].Eligible = true
+		upkeepResults[i].PerformData = performData
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, performData)
 	}
 
-	return upkeepResults21, nil
+	return upkeepResults, nil
 }
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if

@@ -206,9 +206,9 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
 				},
 			},
-			Eligible:    true,
-			GasUsed:     100,
-			PerformData: []byte("data0"),
+			Eligible:     true,
+			GasAllocated: 100,
+			PerformData:  []byte("data0"),
 			Extension: EVMAutomationResultExtension21{
 				FastGasWei: big.NewInt(100),
 				LinkNative: big.NewInt(100),

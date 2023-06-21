@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,11 +16,12 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 // LogEventProviderOptions holds the options for the log event provider.
@@ -241,7 +243,7 @@ func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
 		log := l.log
 		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
 		trig := ocr2keepers.NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
-		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
+		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), ocr2keepers.BlockKey(strconv.FormatInt(log.BlockNumber, 10)), trig, log.Data)
 		payloads = append(payloads, payload)
 	}
 
