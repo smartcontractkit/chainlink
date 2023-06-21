@@ -987,13 +987,13 @@ func (d *Delegate) newServicesOCR2Functions(
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
 	var thresholdKeyShare []byte
 	if len(encryptedThresholdKeyShare) > 0 {
-		encryptedThresholdKeyShareBytes, err := hex.DecodeString(encryptedThresholdKeyShare)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to decode ThresholdKeyShare hex string")
+		encryptedThresholdKeyShareBytes, err2 := hex.DecodeString(encryptedThresholdKeyShare)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to decode ThresholdKeyShare hex string")
 		}
-		thresholdKeyShare, err = kb.NaclBoxOpenAnonymous(encryptedThresholdKeyShareBytes)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to decrypt ThresholdKeyShare")
+		thresholdKeyShare, err2 = kb.NaclBoxOpenAnonymous(encryptedThresholdKeyShareBytes)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to decrypt ThresholdKeyShare")
 		}
 	}
 
