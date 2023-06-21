@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
@@ -738,8 +739,8 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, names, 2)
-	assert.Equal(t, logpoller.FilterName("OCR2KeeperRegistry - LogProvider", address), names[0])
-	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
+	assert.Equal(t, logpoller.FilterName("KeepersRegistry LogProvider", address), names[0])
+	assert.Equal(t, logpoller.FilterName("KeeperRegistry Events", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
 		PluginType: job.OCR2Keeper,
