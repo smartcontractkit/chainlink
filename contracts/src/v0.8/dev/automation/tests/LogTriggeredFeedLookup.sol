@@ -7,6 +7,16 @@ import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/Arb
 import "../../../automation/2_0/KeeperRegistrar2_0.sol";
 import "../../../tests/VerifiableLoadBase.sol";
 
+interface IVerifierProxy {
+  /**
+   * @notice Verifies that the data encoded has been signed
+   * correctly by routing to the correct verifier.
+   * @param signedReport The encoded data to be verified.
+   * @return verifierResponse The encoded response from the verifier.
+   */
+  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
+}
+
 contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
   event TriggerMercury(uint256 indexed upkeepId, uint256 indexed logBlockNumber); // keccak256(TriggerMercury(uint256,uint256)) => 0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6
   event DoNotTriggerMercury(uint256 indexed bn, uint256 indexed ts); // keccak256(DoNotTriggerMercury(uint256,uint256)) => 0x3338104ccab396f091b767e17a2a863f70d777261982306eeb72053c94b9cd47
@@ -15,10 +25,13 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     uint256 upkeepId,
     uint256 counter,
     uint256 logBlockNumber,
-    uint256 blockNumber
+    uint256 blockNumber,
+    bytes blob,
+    bytes verified
   );
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
+  IVerifierProxy internal constant VERIFIER = IVerifierProxy(0xa4D813064dc6E2eFfaCe02a060324626d4C5667f);
 
   // for log trigger
   bytes32 constant triggerSig = 0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6;
@@ -100,9 +113,9 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
 
-    emit TriggerMercury(upkeepId, blockNumber);
-    emit DoNotTriggerMercury(blockNumber, block.timestamp);
-    emit PerformingLogTriggerUpkeep(tx.origin, upkeepId, counter, logBlockNumber, blockNumber);
+    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
+
+    emit PerformingLogTriggerUpkeep(tx.origin, upkeepId, counter, logBlockNumber, blockNumber, values[0], verifiedResponse);
   }
 
   function checkCallback(
