@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -93,7 +94,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg, l, chainID, chainType, nodes)
+		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.EVM().ChainID().String())
 		}
@@ -278,7 +279,7 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 	for i, node := range nodes {
@@ -286,22 +287,22 @@ func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID
 			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(cfg, lggr, node, int32(i), chainID)
+			primary, err := newPrimary(cfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
 			if err != nil {
 				return nil, err
 			}
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, cfg, primaries, sendonlys, chainID, chainType)
+	return evmclient.NewClientWithNodes(lggr, cfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 }
 
-func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
 	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
 
-	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
+	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
 }
 
 func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {

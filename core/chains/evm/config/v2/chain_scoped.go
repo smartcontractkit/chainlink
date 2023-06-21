@@ -147,6 +147,22 @@ func (e *evmConfig) MinIncomingConfirmations() uint32 {
 	return *e.c.MinIncomingConfirmations
 }
 
+func (e *evmConfig) NodePool() config.NodePool {
+	return &nodePoolConfig{c: e.c.NodePool}
+}
+
+func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return e.c.NoNewHeadsThreshold.Duration()
+}
+
+func (c *ChainScoped) EVM() config.EVM {
+	return &evmConfig{c: c.cfg}
+}
+
+func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
+	return c.EVM().NodeNoNewHeadsThreshold()
+}
+
 func (e *evmConfig) MinContractPayment() *assets.Link {
 	return e.c.MinContractPayment
 }
@@ -170,28 +186,4 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 		return ""
 	}
 	return e.c.OperatorFactoryAddress.String()
-}
-
-func (c *ChainScoped) EVM() config.EVM {
-	return &evmConfig{c: c.cfg}
-}
-
-func (c *ChainScoped) NodeNoNewHeadsThreshold() time.Duration {
-	return c.cfg.NoNewHeadsThreshold.Duration()
-}
-
-func (c *ChainScoped) NodePollFailureThreshold() uint32 {
-	return *c.cfg.NodePool.PollFailureThreshold
-}
-
-func (c *ChainScoped) NodePollInterval() time.Duration {
-	return c.cfg.NodePool.PollInterval.Duration()
-}
-
-func (c *ChainScoped) NodeSelectionMode() string {
-	return *c.cfg.NodePool.SelectionMode
-}
-
-func (c *ChainScoped) NodeSyncThreshold() uint32 {
-	return *c.cfg.NodePool.SyncThreshold
 }
