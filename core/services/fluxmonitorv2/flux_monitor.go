@@ -156,6 +156,7 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	fcfg EvmFeeConfig,
 	ecfg EvmTransactionsConfig,
 	fmcfg FluxMonitorConfig,
 	jcfg JobPipelineConfig,
@@ -182,11 +183,12 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
-	gasLimit := cfg.EvmGasLimitDefault()
+	gasLimit := fcfg.LimitDefault()
+	fmLimit := fcfg.LimitJobType().FM()
 	if jobSpec.GasLimit.Valid {
 		gasLimit = jobSpec.GasLimit.Uint32
-	} else if cfg.EvmGasLimitFMJobType() != nil {
-		gasLimit = *cfg.EvmGasLimitFMJobType()
+	} else if fmLimit != nil {
+		gasLimit = *fmLimit
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
@@ -207,7 +209,7 @@ func NewFromJobSpec(
 	)
 
 	paymentChecker := &PaymentChecker{
-		MinContractPayment: cfg.MinimumContractPayment(),
+		MinContractPayment: cfg.MinContractPayment(),
 		MinJobPayment:      fmSpec.MinPayment,
 	}
 

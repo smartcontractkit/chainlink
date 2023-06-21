@@ -478,7 +478,7 @@ func (d *Delegate) newServicesMercury(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR2Mercury),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR3Mercury),
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -682,8 +682,8 @@ func (d *Delegate) newServicesOCR2VRF(
 	reasonableGasPrice := reasonablegasprice.NewReasonableGasPriceProvider(
 		chain.GasEstimator(),
 		timeout,
-		chain.Config().EvmMaxGasPriceWei(),
-		chain.Config().EvmEIP1559DynamicFees(),
+		chain.Config().EVM().GasEstimator().PriceMax(),
+		chain.Config().EVM().GasEstimator().EIP1559DynamicFees(),
 	)
 
 	encryptionSecretKey, err2 := d.dkgEncryptKs.Get(cfg.DKGEncryptionPublicKey)
@@ -706,7 +706,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		common.HexToAddress(cfg.DKGContractAddress),
 		chain.Client(),
 		chain.LogPoller(),
-		chain.Config().EvmFinalityDepth(),
+		chain.Config().EVM().FinalityDepth(),
 	)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
@@ -990,7 +990,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:             jb,
 		JobORM:          d.jobORM,
 		BridgeORM:       d.bridgeORM,
-		OCR2JobConfig:   d.cfg.Database(),
+		QConfig:         d.cfg.Database(),
 		DB:              d.db,
 		Chain:           chain,
 		ContractID:      spec.ContractID,

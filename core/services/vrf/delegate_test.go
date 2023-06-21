@@ -495,7 +495,7 @@ decode_log->vrf->encode_tx->submit_tx
 		require.NoError(tt, err)
 
 		cfg := vrf_mocks.NewConfig(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -522,7 +522,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -550,7 +550,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 }
 
@@ -638,7 +638,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}
 		defer cfg.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -667,6 +667,6 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			Return(assets.GWei(200)) // doesn't match the rest
 		defer cfg.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 }

@@ -192,7 +192,8 @@ async function getUpkeepID(tx: ContractTransaction): Promise<BigNumber> {
 }
 
 const getTriggerType = (upkeepId: BigNumber): Trigger => {
-  const bytes = ethers.utils.arrayify(upkeepId.toHexString())
+  const hexBytes = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
+  const bytes = ethers.utils.arrayify(hexBytes)
   for (let idx = 4; idx < 15; idx++) {
     if (bytes[idx] != 0) {
       return Trigger.CONDITION
@@ -215,6 +216,7 @@ type OnchainConfig = {
   fallbackLinkPrice: BigNumberish
   transcoder: string
   registrars: string[]
+  upkeepPrivilegeManager: string
 }
 
 const encodeConfig = (config: OnchainConfig) => {
@@ -223,7 +225,7 @@ const encodeConfig = (config: OnchainConfig) => {
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
       ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
       uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
-      address[] registrars)',
+      address[] registrars,address upkeepPrivilegeManager)',
     ],
     [config],
   )
@@ -454,6 +456,7 @@ describe('KeeperRegistry2_1', () => {
   let signerAddresses: string[]
   let config: any
   let baseConfig: Parameters<IKeeperRegistry['setConfig']>
+  let upkeepManager: string
 
   before(async () => {
     personas = (await getUsers()).personas
@@ -496,6 +499,7 @@ describe('KeeperRegistry2_1', () => {
     payee3 = personas.Nick
     payee4 = personas.Eddy
     payee5 = personas.Carol
+    upkeepManager = await personas.Norbert.getAddress()
     // signers
     signer1 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000001',
@@ -663,6 +667,7 @@ describe('KeeperRegistry2_1', () => {
           fallbackLinkPrice,
           transcoder: transcoder.address,
           registrars: [],
+          upkeepPrivilegeManager: upkeepManager,
         }),
         offchainVersion,
         offchainBytes,
@@ -697,8 +702,39 @@ describe('KeeperRegistry2_1', () => {
     }
   }
 
+  const verifyConsistentAccounting = async (
+    maxAllowedSpareChange: BigNumber,
+  ) => {
+    let expectedLinkBalance = (await registry.getState()).state
+      .expectedLinkBalance
+    let linkTokenBalance = await linkToken.balanceOf(registry.address)
+    let upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
+    let totalKeeperBalance = BigNumber.from(0)
+    for (let i = 0; i < keeperAddresses.length; i++) {
+      totalKeeperBalance = totalKeeperBalance.add(
+        (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
+      )
+    }
+    let ownerBalance = (await registry.getState()).state.ownerLinkBalance
+    assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
+    assert.isTrue(
+      upkeepIdBalance
+        .add(totalKeeperBalance)
+        .add(ownerBalance)
+        .lte(expectedLinkBalance),
+    )
+    assert.isTrue(
+      expectedLinkBalance
+        .sub(upkeepIdBalance)
+        .sub(totalKeeperBalance)
+        .sub(ownerBalance)
+        .lte(maxAllowedSpareChange),
+    )
+  }
+
   interface GetTransmitTXOptions {
     numSigners?: number
+    startingSignerIndex?: number
     gasLimit?: BigNumberish
     gasPrice?: BigNumberish
     executeGas?: BigNumberish
@@ -720,6 +756,7 @@ describe('KeeperRegistry2_1', () => {
     const configDigest = (await registry.getState()).state.latestConfigDigest
     const config = {
       numSigners: f + 1,
+      startingSignerIndex: 0,
       performData: '0x',
       executeGas,
       checkBlockNum: latestBlock.number,
@@ -763,7 +800,10 @@ describe('KeeperRegistry2_1', () => {
     const sigs = signReport(
       reportContext,
       report,
-      signers.slice(0, config.numSigners),
+      signers.slice(
+        config.startingSignerIndex,
+        config.startingSignerIndex + config.numSigners,
+      ),
     )
 
     type txOverride = {
@@ -870,6 +910,7 @@ describe('KeeperRegistry2_1', () => {
       fallbackLinkPrice,
       transcoder: transcoder.address,
       registrars: [],
+      upkeepPrivilegeManager: upkeepManager,
     }
 
     baseConfig = [
@@ -3327,6 +3368,7 @@ describe('KeeperRegistry2_1', () => {
     const fbLinkEth = BigNumber.from(8)
     const newTranscoder = randomAddress()
     const newRegistrars = [randomAddress(), randomAddress()]
+    const upkeepManager = randomAddress()
 
     const newConfig: OnchainConfig = {
       paymentPremiumPPB: payment,
@@ -3342,6 +3384,7 @@ describe('KeeperRegistry2_1', () => {
       fallbackLinkPrice: fbLinkEth,
       transcoder: newTranscoder,
       registrars: newRegistrars,
+      upkeepPrivilegeManager: upkeepManager,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -3420,6 +3463,7 @@ describe('KeeperRegistry2_1', () => {
 
       assert.equal(updatedConfig.transcoder, newTranscoder)
       assert.deepEqual(updatedConfig.registrars, newRegistrars)
+      assert.equal(updatedConfig.upkeepPrivilegeManager, upkeepManager)
     })
 
     it('emits an event', async () => {
@@ -3678,9 +3722,11 @@ describe('KeeperRegistry2_1', () => {
           )
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
           assert(
-            (
-              await registry.getTransmitterInfo(transmitter)
-            ).lastCollected.toString() == oldState.totalPremium.toString(),
+            (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
+              oldState.totalPremium.sub(
+                oldState.totalPremium.mod(keeperAddresses.length),
+              ),
+            ),
           )
         }
       }
@@ -3690,9 +3736,9 @@ describe('KeeperRegistry2_1', () => {
         assert((await registry.getTransmitterInfo(transmitter)).active == true)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
         assert(
-          (
-            await registry.getTransmitterInfo(transmitter)
-          ).lastCollected.toString() == oldState.totalPremium.toString(),
+          (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
+            oldState.totalPremium,
+          ),
         )
       }
 
@@ -3832,7 +3878,7 @@ describe('KeeperRegistry2_1', () => {
             longBytes,
             '0x',
           ),
-        'PipelineDataExceedsLimit()',
+        'CheckDataExceedsLimit()',
       )
     })
 
@@ -3861,7 +3907,7 @@ describe('KeeperRegistry2_1', () => {
             .withArgs(testUpkeepId, executeGas, await admin.getAddress())
 
           await expect(tx)
-            .to.emit(registry, 'UpkeepPipelineDataSet')
+            .to.emit(registry, 'UpkeepCheckDataSet')
             .withArgs(testUpkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
@@ -3992,19 +4038,19 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#setUpkeepPipelineData', () => {
+  describe('#setUpkeepCheckData', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry
           .connect(keeper1)
-          .setUpkeepPipelineData(upkeepId.add(1), randomBytes),
+          .setUpkeepCheckData(upkeepId.add(1), randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if the caller is not upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(keeper1).setUpkeepCheckData(upkeepId, randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
@@ -4013,14 +4059,14 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes),
         'UpkeepCancelled()',
       )
     })
 
     it('is allowed to update on paused upkeep', async () => {
       await registry.connect(admin).pauseUpkeep(upkeepId)
-      await registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes)
+      await registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
@@ -4033,17 +4079,17 @@ describe('KeeperRegistry2_1', () => {
       }
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, longBytes),
-        'PipelineDataExceedsLimit()',
+        registry.connect(admin).setUpkeepCheckData(upkeepId, longBytes),
+        'CheckDataExceedsLimit()',
       )
     })
 
-    it('updates the upkeep pipeline data and emits an event', async () => {
+    it('updates the upkeep check data and emits an event', async () => {
       const tx = await registry
         .connect(admin)
-        .setUpkeepPipelineData(upkeepId, randomBytes)
+        .setUpkeepCheckData(upkeepId, randomBytes)
       await expect(tx)
-        .to.emit(registry, 'UpkeepPipelineDataSet')
+        .to.emit(registry, 'UpkeepCheckDataSet')
         .withArgs(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
@@ -4331,6 +4377,7 @@ describe('KeeperRegistry2_1', () => {
           fallbackLinkPrice,
           transcoder: transcoder.address,
           registrars: [],
+          upkeepPrivilegeManager: upkeepManager,
         }),
         offchainVersion,
         offchainBytes,
@@ -4959,6 +5006,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackLinkPrice,
               transcoder: transcoder.address,
               registrars: [],
+              upkeepPrivilegeManager: upkeepManager,
             }),
             offchainVersion,
             offchainBytes,
@@ -5010,6 +5058,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackLinkPrice,
               transcoder: transcoder.address,
               registrars: [],
+              upkeepPrivilegeManager: upkeepManager,
             }),
             offchainVersion,
             offchainBytes,
@@ -5056,6 +5105,7 @@ describe('KeeperRegistry2_1', () => {
               fallbackLinkPrice,
               transcoder: transcoder.address,
               registrars: [],
+              upkeepPrivilegeManager: upkeepManager,
             }),
             offchainVersion,
             offchainBytes,
@@ -5144,17 +5194,18 @@ describe('KeeperRegistry2_1', () => {
 
       // registry total premium should not change
       assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
-      // Last collected should be updated
-      assert.equal(
-        keeperAfter.lastCollected.toString(),
-        registryPremiumBefore.toString(),
+
+      // Last collected should be updated to premium-change
+      assert.isTrue(
+        keeperAfter.lastCollected.eq(
+          registryPremiumBefore.sub(
+            registryPremiumBefore.mod(keeperAddresses.length),
+          ),
+        ),
       )
 
-      const spareChange = registryPremiumBefore.mod(
-        BigNumber.from(keeperAddresses.length),
-      )
-      // spare change should go to owner
-      assert.isTrue(ownerAfter.sub(spareChange).eq(ownerBefore))
+      // owner balance should remain unchanged
+      assert.isTrue(ownerAfter.eq(ownerBefore))
 
       assert.isTrue(keeperAfter.balance.eq(BigNumber.from(0)))
       assert.isTrue(registrationBefore.eq(registrationAfter))
@@ -5213,53 +5264,216 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#setUpkeepManager() / #getUpkeepManager()', () => {
-    it('reverts when non owner tries to set upkeep manager', async () => {
+  describe('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
+    it('reverts when non manager tries to set privilege config', async () => {
       await evmRevert(
-        registry.connect(payee1).setUpkeepManager(await payee2.getAddress()),
-        'Only callable by owner',
+        registry.connect(payee3).setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
+        'OnlyCallableByUpkeepPrivilegeManager()',
       )
     })
 
-    it('returns contract owner as the initial upkeep manager', async () => {
-      assert.equal(await registry.getUpkeepManager(), await registry.owner())
-    })
-
-    it('allows owner to set a new upkeep manager', async () => {
-      await registry.connect(owner).setUpkeepManager(await payee2.getAddress())
-      assert.equal(await registry.getUpkeepManager(), await payee2.getAddress())
-    })
-  })
-
-  describe('#setUpkeepAdminOffchainConfig() / #getUpkeepAdminOffchainConfig()', () => {
-    beforeEach(async () => {
-      await registry.connect(owner).setUpkeepManager(await payee1.getAddress())
-    })
-
-    it('reverts when non manager tries to set admin offchain config', async () => {
-      await evmRevert(
-        registry
-          .connect(payee2)
-          .setUpkeepAdminOffchainConfig(upkeepId, '0x1234'),
-        'OnlyCallableByUpkeepManager()',
-      )
-    })
-
-    it('returns empty bytes for upkeep admin offchain config before setting', async () => {
-      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+    it('returns empty bytes for upkeep privilege config before setting', async () => {
+      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
       assert.equal(cfg, '0x')
     })
 
-    it('allows upkeep manager to set admin offchain config', async () => {
+    it('allows upkeep manager to set privilege config', async () => {
       const tx = await registry
-        .connect(payee1)
-        .setUpkeepAdminOffchainConfig(upkeepId, '0x1234')
+        .connect(personas.Norbert)
+        .setUpkeepPrivilegeConfig(upkeepId, '0x1234')
       await expect(tx)
-        .to.emit(registry, 'UpkeepAdminOffchainConfigSet')
+        .to.emit(registry, 'UpkeepPrivilegeConfigSet')
         .withArgs(upkeepId, '0x1234')
 
-      const cfg = await registry.getUpkeepAdminOffchainConfig(upkeepId)
+      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
       assert.equal(cfg, '0x1234')
+    })
+  })
+
+  describe('transmitterPremiumSplit [ @skip-coverage ]', () => {
+    beforeEach(async () => {
+      await linkToken.connect(owner).approve(registry.address, toWei('100'))
+      await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+    })
+
+    it('splits premium evenly across transmitters', async () => {
+      // Do a transmit from keeper1
+      await getTransmitTx(registry, keeper1, [upkeepId])
+
+      const registryPremium = (await registry.getState()).state.totalPremium
+      assert.isTrue(registryPremium.gt(BigNumber.from(0)))
+
+      const premiumPerTransmitter = registryPremium.div(
+        BigNumber.from(keeperAddresses.length),
+      )
+      const k1Balance = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      // transmitter should be reimbursed for gas and get the premium
+      assert.isTrue(k1Balance.gt(premiumPerTransmitter))
+      const k1GasReimbursement = k1Balance.sub(premiumPerTransmitter)
+
+      const k2Balance = (
+        await registry.getTransmitterInfo(await keeper2.getAddress())
+      ).balance
+      // non transmitter should get its share of premium
+      assert.isTrue(k2Balance.eq(premiumPerTransmitter))
+
+      // Now do a transmit from keeper 2
+      await getTransmitTx(registry, keeper2, [upkeepId])
+      const registryPremiumNew = (await registry.getState()).state.totalPremium
+      assert.isTrue(registryPremiumNew.gt(registryPremium))
+      const premiumPerTransmitterNew = registryPremiumNew.div(
+        BigNumber.from(keeperAddresses.length),
+      )
+      const additionalPremium = premiumPerTransmitterNew.sub(
+        premiumPerTransmitter,
+      )
+
+      const k1BalanceNew = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      // k1 should get the new premium
+      assert.isTrue(
+        k1BalanceNew.eq(k1GasReimbursement.add(premiumPerTransmitterNew)),
+      )
+
+      const k2BalanceNew = (
+        await registry.getTransmitterInfo(await keeper2.getAddress())
+      ).balance
+      // k2 should get gas reimbursement in addition to new premium
+      assert.isTrue(k2BalanceNew.gt(k2Balance.add(additionalPremium)))
+    })
+
+    it('updates last collected upon payment withdrawn', async () => {
+      // Do a transmit from keeper1
+      await getTransmitTx(registry, keeper1, [upkeepId])
+
+      const registryPremium = (await registry.getState()).state.totalPremium
+      let k1 = await registry.getTransmitterInfo(await keeper1.getAddress())
+      let k2 = await registry.getTransmitterInfo(await keeper2.getAddress())
+
+      // Withdrawing for first time, last collected = 0
+      assert.isTrue(k1.lastCollected.eq(BigNumber.from(0)))
+      assert.isTrue(k2.lastCollected.eq(BigNumber.from(0)))
+
+      //// Do the thing
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+
+      const k1New = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
+      const k2New = await registry.getTransmitterInfo(
+        await keeper2.getAddress(),
+      )
+
+      // transmitter info lastCollected should be updated for k1, not for k2
+      assert.isTrue(
+        k1New.lastCollected.eq(
+          registryPremium.sub(registryPremium.mod(keeperAddresses.length)),
+        ),
+      )
+      assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
+    })
+
+    it('maintains consistent balance information across all parties', async () => {
+      // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
+      // some spare change can get lost but it should be less than maxAllowedSpareChange
+
+      let maxAllowedSpareChange = BigNumber.from('0')
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee2)
+        .withdrawPayment(
+          await keeper2.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfig(
+        signerAddresses.slice(2, 15), // only use 2-14th index keepers
+        keeperAddresses.slice(2, 15),
+        f,
+        encodeConfig(config),
+        offchainVersion,
+        offchainBytes,
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper3, [upkeepId], {
+        startingSignerIndex: 2,
+      })
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee3)
+        .withdrawPayment(
+          await keeper3.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfig(
+        signerAddresses.slice(0, 4), // only use 0-3rd index keepers
+        keeperAddresses.slice(0, 4),
+        f,
+        encodeConfig(config),
+        offchainVersion,
+        offchainBytes,
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await getTransmitTx(registry, keeper3, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await registry
+        .connect(payee5)
+        .withdrawPayment(
+          await keeper5.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
     })
   })
 })
