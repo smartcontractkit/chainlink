@@ -253,7 +253,7 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -317,7 +317,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context, verify bool) (common.Addr
 	registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),

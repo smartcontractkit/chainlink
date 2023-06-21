@@ -100,7 +100,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
-      UpkeepInfo memory info = registry.getUpkeep(upkeepId);
+      KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
       if (info.balance < minBalanceThresholdMultiplier * minBalance) {
         this.addFunds(upkeepId, addLinkAmount);
