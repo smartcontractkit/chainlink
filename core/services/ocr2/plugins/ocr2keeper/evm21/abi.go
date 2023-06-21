@@ -36,59 +36,39 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
 }
 
 // TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (EVMAutomationUpkeepResult21, ocr2keepers.CheckResult, error) {
-	var (
-		result EVMAutomationUpkeepResult21
-	)
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	var result21 ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, result21, err
+		return result21, err
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, result21, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
-	}
-
-	block := big.NewInt(key.Trigger.BlockNumber)
-	id := new(big.Int).SetBytes(key.Upkeep.ID)
-
-	result = EVMAutomationUpkeepResult21{
-		Block:            uint32(block.Uint64()),
-		ID:               id,
-		Eligible:         true,
-		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{}, // need this!
+		return result21, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
 	result21 = ocr2keepers.CheckResult{
-		Eligible:    *abi.ConvertType(out[0], new(bool)).(*bool),
-		Retryable:   false,
-		GasUsed:     (*abi.ConvertType(out[3], new(*big.Int)).(**big.Int)).Uint64(),
-		Payload:     key,
-		PerformData: *abi.ConvertType(out[1], new([]byte)).(*[]byte),
-		Extension:   nil,
+		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:    false,
+		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
+		Payload:      key,
 	}
-
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	ext := EVMAutomationResultExtension21{
+		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
+		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
+		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
+	}
+	result21.Extension = ext
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	result.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	result.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	result.ExecuteGas = *abi.ConvertType(out[4], new(uint32)).(*uint32)
-	result.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	result.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
-	if !upkeepNeeded {
-		result.Eligible = false
-	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
-		result.PerformData = rawPerformData
+	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+		result21.PerformData = rawPerformData
 	}
 
-	return result, result21, nil
+	return result21, nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {

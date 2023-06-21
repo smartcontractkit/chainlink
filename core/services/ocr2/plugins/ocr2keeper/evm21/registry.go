@@ -144,7 +144,7 @@ var upkeepActiveEvents = []common.Hash{
 }
 
 type checkResult struct {
-	ur   []EVMAutomationUpkeepResult21
+	//ur   []EVMAutomationUpkeepResult21
 	ur21 []ocr2keepers.CheckResult
 	err  error
 }
@@ -220,16 +220,15 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 }
 
 // in upkeep payload, the trigger block number and hash are the number and hash for the block this log was emitted
-// update payload to include a block number at which we check upkeeps
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context /* mercuryEnabled bool, */, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.UpkeepResult, error) {
+func (r *EvmRegistry) CheckUpkeep(ctx context.Context /* mercuryEnabled bool, */, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx /* mercuryEnabled, */, keys, chResult)
 
 	select {
 	case rs := <-chResult:
-		result := make([]ocr2keepers.UpkeepResult, len(rs.ur))
-		for i := range rs.ur {
-			result[i] = rs.ur[i]
+		result := make([]ocr2keepers.CheckResult, len(rs.ur21))
+		for i := range rs.ur21 {
+			result[i] = rs.ur21[i]
 		}
 		return result, rs.err
 	case <-ctx.Done():
@@ -616,7 +615,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 }
 
 func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
-	upkeepResults, upkeepResults21, err := r.checkUpkeeps(ctx, keys)
+	upkeepResults21, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
 			err: err,
@@ -631,7 +630,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, key
 		}
 		return
 	}
-	upkeepResults, upkeepResults21, err = r.feedLookup(ctx, upkeepResults, upkeepResults21)
+	upkeepResults21, err = r.feedLookup(ctx, upkeepResults21)
 	if err != nil {
 		chResult <- checkResult{
 			err: err,
@@ -640,7 +639,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, key
 	}
 	//}
 
-	upkeepResults, upkeepResults21, err = r.simulatePerformUpkeeps(ctx, upkeepResults, upkeepResults21)
+	upkeepResults21, err = r.simulatePerformUpkeeps(ctx, upkeepResults21)
 	if err != nil {
 		chResult <- checkResult{
 			err: err,
@@ -649,64 +648,52 @@ func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, key
 	}
 
 	chResult <- checkResult{
-		ur:   upkeepResults,
 		ur21: upkeepResults21,
 	}
 }
 
-//func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
-//	var (
-//		block *big.Int
-//		id    *big.Int
-//		ok    bool
-//	)
-//
-//	parts := strings.Split(string(key), separator)
-//	if len(parts) != 2 {
-//		return nil, nil, fmt.Errorf("unsplittable key")
-//	}
-//
-//	if block, ok = new(big.Int).SetString(parts[0], 10); !ok {
-//		return nil, nil, fmt.Errorf("could not get block from key")
-//	}
-//
-//	if id, ok = new(big.Int).SetString(parts[1], 10); !ok {
-//		return nil, nil, fmt.Errorf("could not get id from key")
-//	}
-//
-//	return block, id, nil
-//}
+func (r *EvmRegistry) getCheckBlockAndUpkeepId(key ocr2keepers.UpkeepPayload) (*big.Int, *big.Int, error) {
+	block, success := new(big.Int).SetString(string(key.CheckBlock), 10)
+	if !success {
+		return nil, nil, errors.Errorf("failed to convert check block %s to bit int", key.CheckBlock)
+	}
+	upkeepId := new(big.Int).SetBytes(key.Upkeep.ID)
+	return block, upkeepId, nil
+}
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepPayload) ([]EVMAutomationUpkeepResult21, []ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
 		checkResults = make([]*string, len(keys))
+		blocks       = make([]*big.Int, len(keys))
+		upkeepIds    = make([]*big.Int, len(keys))
 	)
 
 	for i, key := range keys {
-		block := big.NewInt(key.Trigger.BlockNumber)
-		upkeepId := new(big.Int).SetBytes(key.Upkeep.ID)
-		//block, upkeepId, err := splitKey(key)
-		//if err != nil {
-		//	return nil, err
-		//}
+		block, upkeepId, err := r.getCheckBlockAndUpkeepId(key)
+		if err != nil {
+			return nil, err
+		}
+		blocks[i] = block
+		upkeepIds[i] = upkeepId
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		var payload []byte
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
+			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		default:
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
@@ -727,12 +714,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	}
 
 	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var (
 		multiErr  error
-		results   = make([]EVMAutomationUpkeepResult21, len(keys))
 		results21 = make([]ocr2keepers.CheckResult, len(keys))
 	)
 
@@ -741,51 +727,45 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			block := big.NewInt(keys[i].Trigger.BlockNumber)
-			upkeepId := new(big.Int).SetBytes(keys[i].Upkeep.ID)
+			r.lggr.Debugf("UnpackCheckResult upkeepId %s block %s checkResult: %s", upkeepIds[i], blocks[i], *checkResults[i])
 			var err error
-			r.lggr.Debugf("UnpackCheckResult upkeepId %s block %s checkResult: %s", upkeepId, block, *checkResults[i])
-			results[i], results21[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+			results21[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to unpack check result")
+				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
 		}
 	}
 
-	return results, results21, multiErr
+	return results21, multiErr
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult21, checkResults21 []ocr2keepers.CheckResult) ([]EVMAutomationUpkeepResult21, []ocr2keepers.CheckResult, error) {
-	var (
-		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
-		performResults  = make([]*string, 0, len(checkResults))
-		performToKeyIdx = make([]int, 0, len(checkResults))
-	)
-
+func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults21 []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	var (
 		performReqs21     = make([]rpc.BatchElem, 0, len(checkResults21))
 		performResults21  = make([]*string, 0, len(checkResults21))
 		performToKeyIdx21 = make([]int, 0, len(checkResults21))
 	)
 
-	for i, checkResult := range checkResults21 {
-		if !checkResult.Eligible {
+	for i, cr := range checkResults21 {
+		if !cr.Eligible {
 			continue
 		}
 
-		upkeepId := new(big.Int).SetBytes(checkResult.Payload.Upkeep.ID)
-		block := checkResult.Payload.Trigger.BlockNumber
-
-		opts, err := r.buildCallOpts(ctx, big.NewInt(block))
+		block, upkeepId, err := r.getCheckBlockAndUpkeepId(cr.Payload)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
+		}
+
+		opts, err := r.buildCallOpts(ctx, block)
+		if err != nil {
+			return nil, err
 		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
-		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, checkResult.PerformData)
+		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		var result string
@@ -807,75 +787,19 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	if len(performReqs21) > 0 {
 		if err := r.client.BatchCallContext(ctx, performReqs21); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	for i, checkResult := range checkResults {
-		if !checkResult.Eligible {
-			continue
-		}
-
-		opts, err := r.buildCallOpts(ctx, big.NewInt(int64(checkResult.Block)))
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
-		payload, err := r.abi.Pack("simulatePerformUpkeep", checkResult.ID, checkResult.PerformData)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var result string
-		performReqs = append(performReqs, rpc.BatchElem{
-			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
-			Result: &result,
-		})
-
-		performResults = append(performResults, &result)
-		performToKeyIdx = append(performToKeyIdx, i)
-	}
-
-	if len(performReqs) > 0 {
-		if err := r.client.BatchCallContext(ctx, performReqs); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	var multiErr error
-
-	for i, req := range performReqs {
-		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Block, checkResults[i].ID, req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
-		} else {
-			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
-			if err != nil {
-				return nil, nil, err
-			}
-
-			if !simulatePerformSuccess {
-				checkResults[performToKeyIdx[i]].Eligible = false
-			}
-		}
-	}
-
 	for i, req := range performReqs21 {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults21[i].Payload.Trigger.BlockNumber, new(big.Int).SetBytes(checkResults21[i].Payload.Upkeep.ID), req.Error)
+			r.lggr.Debugf("error encountered for key %s|%s with message '%s' in simulate perform", checkResults21[i].Payload.CheckBlock, new(big.Int).SetBytes(checkResults21[i].Payload.Upkeep.ID), req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults21[i])
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			if !simulatePerformSuccess {
@@ -884,7 +808,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
-	return checkResults, checkResults21, multiErr
+	return checkResults21, multiErr
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors

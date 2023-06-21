@@ -69,34 +69,37 @@ type AdminOffchainConfig struct {
 }
 
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomationUpkeepResult21, upkeepResults21 []ocr2keepers.CheckResult) ([]EVMAutomationUpkeepResult21, []ocr2keepers.CheckResult, error) {
-	for i := range upkeepResults21 {
-		if upkeepResults21[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults21 []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
+	// TODO (AUTO-2862): parallelize the feed lookup work for all upkeeps
+	for i, res := range upkeepResults21 {
+		ext := res.Extension.(EVMAutomationResultExtension21)
+		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
-		block := upkeepResults21[i].Payload.Trigger.BlockNumber
-		upkeepId := new(big.Int).SetBytes(upkeepResults21[i].Payload.Upkeep.ID)
+		// in feed lookup, use the block number at the block where the log was emitted
+		block := res.Payload.Trigger.BlockNumber
+		upkeepId := new(big.Int).SetBytes(res.Payload.Upkeep.ID)
 		opts, err := r.buildCallOpts(ctx, big.NewInt(block))
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
-			return nil, nil, err
+			return nil, err
 		}
 
 		allowed, err := r.allowedToUseMercury(opts, upkeepId)
-		r.lggr.Info(allowed)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
 			continue
 		}
 
 		if !allowed {
-			upkeepResults21[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			upkeepResults21[i].Extension = ext
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
 			continue
 		}
 
-		feedLookup, err := r.decodeFeedLookup(upkeepResults21[i].PerformData)
+		feedLookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
 			continue
@@ -123,97 +126,25 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 			continue
 		}
 
+		ext.FailureReason = failureReason
+		upkeepResults21[i].Extension = ext
 		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-			upkeepResults21[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 			r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", upkeepId, block)
 			continue
 		}
 
 		if !needed {
-			upkeepResults21[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 			r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", upkeepId, block)
 			continue
 		}
 
-		upkeepResults21[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
+		// only eligible upkeeps will reach here
 		upkeepResults21[i].Eligible = true
 		upkeepResults21[i].PerformData = performData
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, performData)
 	}
 
-	// TODO (AUTO-2862): parallelize the feed lookup work for all upkeeps
-	for i := range upkeepResults {
-		if upkeepResults[i].FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
-			continue
-		}
-
-		block := upkeepResults[i].Block
-		upkeepId := upkeepResults[i].ID
-		opts, err := r.buildCallOpts(ctx, big.NewInt(int64(block)))
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
-			return nil, nil, err
-		}
-
-		allowed, err := r.allowedToUseMercury(opts, upkeepId)
-		r.lggr.Info(allowed)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
-			continue
-		}
-
-		if !allowed {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
-			continue
-		}
-
-		feedLookup, err := r.decodeFeedLookup(upkeepResults[i].PerformData)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
-			continue
-		}
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d feedLookup=%v", upkeepId, block, feedLookup)
-
-		values, retryable, err := r.doMercuryRequest(ctx, feedLookup, upkeepId)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d retryable %v doMercuryRequest: %v", upkeepId, block, retryable, err)
-			upkeepResults[i].Retryable = retryable
-			continue
-		}
-
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v\nextraData: %v", upkeepId, block, values, feedLookup.extraData)
-		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, block)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)
-			continue
-		}
-
-		needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", upkeepId, block, err)
-			continue
-		}
-
-		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-			r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", upkeepId, block)
-			continue
-		}
-
-		if !needed {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-			r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", upkeepId, block)
-			continue
-		}
-
-		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
-		upkeepResults[i].Eligible = true
-		upkeepResults[i].PerformData = performData
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, performData)
-	}
-	// don't surface error to plugin bc FeedLookup process should be self-contained.
-	return upkeepResults, upkeepResults21, nil
+	return upkeepResults21, nil
 }
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
