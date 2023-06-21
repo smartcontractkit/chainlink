@@ -93,6 +93,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 
+	ocrv2Config.Transmitters = authorizedForwarders
 	err = actions.ConfigureOCRv2AggregatorContracts(chainClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 	err = chainClient.WaitForEvents()
