@@ -1,11 +1,11 @@
 package s4_test
 
 import (
-	"crypto/rand"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,14 +29,6 @@ func setupORM(t *testing.T, namespace string) s4.ORM {
 	return orm
 }
 
-func mustRandomBytes(t *testing.T, n int) []byte {
-	b := make([]byte, n)
-	k, err := rand.Read(b)
-	assert.NoError(t, err)
-	assert.Equal(t, n, k)
-	return b
-}
-
 func generateTestRows(t *testing.T, n int) []*s4.Row {
 	t.Helper()
 
@@ -45,11 +37,11 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 		row := &s4.Row{
 			Address:    utils.NewBig(testutils.NewAddress().Big()),
 			SlotId:     1,
-			Payload:    mustRandomBytes(t, 32),
+			Payload:    cltest.MustRandomBytes(t, 32),
 			Version:    1 + uint64(i),
 			Expiration: time.Now().Add(time.Hour).UnixMilli(),
 			Confirmed:  i%2 == 0,
-			Signature:  mustRandomBytes(t, 32),
+			Signature:  cltest.MustRandomBytes(t, 32),
 		}
 		rows[i] = row
 	}
@@ -109,8 +101,9 @@ func TestPostgresORM_DeleteExpired(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err := orm.DeleteExpired(expired, time.Now().Add(2*time.Hour).UTC())
+	deleted, err := orm.DeleteExpired(expired, time.Now().Add(2*time.Hour).UTC())
 	assert.NoError(t, err)
+	assert.Equal(t, int64(expired), deleted)
 
 	count := 0
 	for _, row := range rows {
@@ -158,6 +151,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 				assert.Equal(t, snapshotRow.Address, sr.Address)
 				assert.Equal(t, snapshotRow.SlotId, sr.SlotId)
 				assert.Equal(t, snapshotRow.Version, sr.Version)
+				assert.Equal(t, snapshotRow.Expiration, sr.Expiration)
 				assert.Equal(t, snapshotRow.Confirmed, sr.Confirmed)
 			}
 		})
@@ -229,7 +223,7 @@ func TestPostgresORM_Namespace(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, urowsB, n/2)
 
-	err = ormB.DeleteExpired(n, time.Now().UTC())
+	_, err = ormB.DeleteExpired(n, time.Now().UTC())
 	assert.NoError(t, err)
 
 	snapshotA, err := ormA.GetSnapshot(s4.NewFullAddressRange())

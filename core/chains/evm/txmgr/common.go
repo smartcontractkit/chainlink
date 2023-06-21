@@ -10,9 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -20,18 +17,10 @@ import (
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-func batchSendTransactions[
-	CHAIN_ID txmgrtypes.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
-	FEE feetypes.Fee,
-](
+func batchSendTransactions(
 	ctx context.Context,
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	updateBroadcastTime func(now time.Time, txIDs []int64) error,
+	attempts []EvmTxAttempt,
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {
@@ -71,7 +60,7 @@ func batchSendTransactions[
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 
-		if err := txStore.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
+		if err := updateBroadcastTime(now, ethTxIDs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}

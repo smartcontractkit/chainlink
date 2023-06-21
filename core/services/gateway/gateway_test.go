@@ -50,7 +50,8 @@ DonId = "my_don_2"
 HandlerName = "dummy"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -67,7 +68,8 @@ DonId = "my_don"
 HandlerName = "dummy"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -80,7 +82,8 @@ DonId = "my_don"
 HandlerName = "no_such_handler"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -93,7 +96,8 @@ HandlerName = "dummy"
 SomeOtherField = "abcd"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(lggr), lggr)
 	require.Error(t, err)
 }
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -358,7 +359,7 @@ func TestS4Integration_RandomState(t *testing.T) {
 	nUsers := 100
 	users := make([]user, nUsers)
 	for i := 0; i < nUsers; i++ {
-		pk, _, addr := generateCryptoEntity(t)
+		pk, addr := testutils.NewPrivateKeyAndAddress(t)
 		users[i] = user{pk, utils.NewBig(addr.Big())}
 	}
 
@@ -372,7 +373,7 @@ func TestS4Integration_RandomState(t *testing.T) {
 				Version:    uint64(rand.Intn(don.size)),
 				Confirmed:  rand.Intn(2) == 0,
 				Expiration: time.Now().UTC().Add(time.Minute).UnixMilli(),
-				Payload:    mustRandomBytes(t, 64),
+				Payload:    cltest.MustRandomBytes(t, 64),
 			}
 			env := &s4_svc.Envelope{
 				Address:    common.BytesToAddress(user.address.Bytes()).Bytes(),

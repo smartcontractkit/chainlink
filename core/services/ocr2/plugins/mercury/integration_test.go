@@ -290,7 +290,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	// Bury it with finality depth
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
-	finalityDepth := ch.Config().EvmFinalityDepth()
+	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
@@ -489,7 +489,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c, c.Insecure(), spec)
+	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(context.Background(), &job)
 	require.NoError(t, err)

@@ -30,9 +30,8 @@ var (
 	_ = abi.ConvertType
 )
 
-type KeeperRegistryBase21CronTriggerConfig struct {
-	Cron    string
-	Payload []byte
+type KeeperRegistryBase21BlockTriggerConfig struct {
+	CheckCadance uint32
 }
 
 type KeeperRegistryBase21LogTriggerConfig struct {
@@ -44,23 +43,24 @@ type KeeperRegistryBase21LogTriggerConfig struct {
 	Topic3          [32]byte
 }
 
-type OnchainConfig struct {
-	PaymentPremiumPPB    uint32
-	FlatFeeMicroLink     uint32
-	CheckGasLimit        uint32
-	StalenessSeconds     *big.Int
-	GasCeilingMultiplier uint16
-	MinUpkeepSpend       *big.Int
-	MaxPerformGas        uint32
-	MaxCheckDataSize     uint32
-	MaxPerformDataSize   uint32
-	FallbackGasPrice     *big.Int
-	FallbackLinkPrice    *big.Int
-	Transcoder           common.Address
-	Registrar            common.Address
+type KeeperRegistryBase21OnchainConfig struct {
+	PaymentPremiumPPB      uint32
+	FlatFeeMicroLink       uint32
+	CheckGasLimit          uint32
+	StalenessSeconds       *big.Int
+	GasCeilingMultiplier   uint16
+	MinUpkeepSpend         *big.Int
+	MaxPerformGas          uint32
+	MaxCheckDataSize       uint32
+	MaxPerformDataSize     uint32
+	FallbackGasPrice       *big.Int
+	FallbackLinkPrice      *big.Int
+	Transcoder             common.Address
+	Registrars             []common.Address
+	UpkeepPrivilegeManager common.Address
 }
 
-type State struct {
+type KeeperRegistryBase21State struct {
 	Nonce                   uint32
 	OwnerLinkBalance        *big.Int
 	ExpectedLinkBalance     *big.Int
@@ -73,23 +73,23 @@ type State struct {
 	Paused                  bool
 }
 
-type UpkeepInfo struct {
-	Target              common.Address
-	Forwarder           common.Address
-	ExecuteGas          uint32
-	CheckData           []byte
-	Balance             *big.Int
-	Admin               common.Address
-	MaxValidBlocknumber uint64
-	LastPerformed       uint32
-	AmountSpent         *big.Int
-	Paused              bool
-	OffchainConfig      []byte
+type KeeperRegistryBase21UpkeepInfo struct {
+	Target                   common.Address
+	Forwarder                common.Address
+	ExecuteGas               uint32
+	CheckData                []byte
+	Balance                  *big.Int
+	Admin                    common.Address
+	MaxValidBlocknumber      uint64
+	LastPerformedBlockNumber uint32
+	AmountSpent              *big.Int
+	Paused                   bool
+	OffchainConfig           []byte
 }
 
 var KeeperRegistryLogicBMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Mode\",\"name\":\"mode\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"linkNativeFeed\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"fastGasFeed\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CheckDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientFunds\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxCheckDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxPerformDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PaymentGreaterThanAllLINK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"OwnerFundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"adminOffchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepAdminOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"UpkeepCheckDataUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"executeGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endIndex\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endIndex\",\"type\":\"uint256\"},{\"internalType\":\"enumKeeperRegistryBase2_1.Trigger\",\"name\":\"trigger\",\"type\":\"uint8\"}],\"name\":\"getActiveUpkeepIDsByType\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getCronTriggerConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"cron\",\"type\":\"string\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"internalType\":\"structKeeperRegistryBase2_1.CronTriggerConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkNativeFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getLogTriggerConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"filterSelector\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"topic0\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic1\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic2\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic3\",\"type\":\"bytes32\"}],\"internalType\":\"structKeeperRegistryBase2_1.LogTriggerConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMode\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Mode\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.MigrationPermission\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structState\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"registrar\",\"type\":\"address\"}],\"internalType\":\"structOnchainConfig\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Trigger\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"forwarder\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"executeGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformed\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structUpkeepInfo\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepAdminOffchainConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getUpkeepManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"recoverFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"enumKeeperRegistryBase2_1.MigrationPermission\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newAdminOffchainConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepAdminOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newUpkeepManager\",\"type\":\"address\"}],\"name\":\"setUpkeepManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"updateCheckData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawOwnerFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x6101006040523480156200001257600080fd5b506040516200511938038062005119833981016040819052620000359162000201565b838383833380600081620000905760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000c357620000c38162000138565b505050836002811115620000db57620000db62000263565b60e0816002811115620000f257620000f262000263565b60f81b9052506001600160601b0319606093841b811660805291831b821660a05290911b1660c0525050601680546001600160a01b031916331790555062000279915050565b6001600160a01b038116331415620001935760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000087565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b80516001600160a01b0381168114620001fc57600080fd5b919050565b600080600080608085870312156200021857600080fd5b8451600381106200022857600080fd5b93506200023860208601620001e4565b92506200024860408601620001e4565b91506200025860608601620001e4565b905092959194509250565b634e487b7160e01b600052602160045260246000fd5b60805160601c60a05160601c60c05160601c60e05160f81c614e146200030560003960008181610525015281816134ae015281816139390152613af00152600081816105860152613142015260008181610654015261322b0152600081816106db01528181611d24015281816120090152818161255e01528181612a730152612b060152614e146000f3fe608060405234801561001057600080fd5b50600436106102d35760003560e01c806379ba509711610186578063b121e147116100e3578063ca30e60311610097578063ed56b3e111610071578063ed56b3e114610725578063f2fde38b14610798578063faa3e996146107ab57600080fd5b8063ca30e603146106d9578063d921875c146106ff578063eb5dcd6c1461071257600080fd5b8063b657bc9c116100c8578063b657bc9c1461069e578063b79550be146106b1578063c7c3a19a146106b957600080fd5b8063b121e14714610678578063b148ab6b1461068b57600080fd5b80638dcf0fe71161013a578063a710b2211161011f578063a710b2211461062c578063a72aa27e1461063f578063b10b673c1461065257600080fd5b80638dcf0fe7146106065780639fab43861461061957600080fd5b80638456cb591161016b5780638456cb59146105cd5780638765ecbe146105d55780638da5cb5b146105e857600080fd5b806379ba5097146105bd5780637d9b97e0146105c557600080fd5b80633b9cce59116102345780634b4fd03b116101e85780635165f2f5116101cd5780635165f2f5146105715780636709d0e514610584578063744bfe61146105aa57600080fd5b80634b4fd03b146105235780635147cd591461055157600080fd5b80634184e12c116102195780634184e12c14610497578063418d76b6146104aa578063421d183b146104bd57600080fd5b80633b9cce591461047c5780633f4ba83a1461048f57600080fd5b8063187256e81161028b5780631fffe835116102705780631fffe83514610429578063207b65161461043c5780633733f9cc1461045c57600080fd5b8063187256e8146104015780631a2af0111461041657600080fd5b80630d4cbb7f116102bc5780630d4cbb7f146103795780630e08ae84146103b85780631865c57d146103e857600080fd5b806306e3b632146102d85780630d4a4fb114610301575b600080fd5b6102eb6102e63660046142dd565b6107e4565b6040516102f89190614671565b60405180910390f35b61031461030f36600461420a565b6108ef565b6040516102f89190600060c08201905073ffffffffffffffffffffffffffffffffffffffff835116825260ff602084015116602083015260408301516040830152606083015160608301526080830151608083015260a083015160a083015292915050565b60165473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016102f8565b6103cb6103c6366004614364565b6109f1565b6040516bffffffffffffffffffffffff90911681526020016102f8565b6103f0610b34565b6040516102f8959493929190614793565b61041461040f366004613ff7565b610ef7565b005b61041461042436600461423c565b610f68565b610414610437366004613fa1565b6110bc565b61044f61044a36600461420a565b61110b565b6040516102f89190614702565b61046f61046a36600461420a565b6111ad565b6040516102f8919061473c565b61041461048a366004614025565b611291565b6104146114e7565b6102eb6104a53660046142ff565b61154d565b61044f6104b836600461420a565b6116a2565b6104d06104cb366004613fa1565b6116bf565b60408051951515865260ff90941660208601526bffffffffffffffffffffffff9283169385019390935216606083015273ffffffffffffffffffffffffffffffffffffffff16608082015260a0016102f8565b7f00000000000000000000000000000000000000000000000000000000000000006040516102f89190614728565b61056461055f36600461420a565b6117dd565b6040516102f89190614715565b61041461057f36600461420a565b611888565b7f0000000000000000000000000000000000000000000000000000000000000000610393565b6104146105b836600461423c565b611a12565b610414611e2f565b610414611f31565b61041461209b565b6104146105e336600461420a565b61210c565b60005473ffffffffffffffffffffffffffffffffffffffff16610393565b610414610614366004614261565b6122a3565b610414610627366004614261565b612305565b61041461063a366004613fbe565b6123b4565b61041461064d366004614338565b61263f565b7f0000000000000000000000000000000000000000000000000000000000000000610393565b610414610686366004613fa1565b612721565b61041461069936600461420a565b612819565b6103cb6106ac36600461420a565b612a1c565b610414612a3a565b6106cc6106c736600461420a565b612ba5565b6040516102f891906148a0565b7f0000000000000000000000000000000000000000000000000000000000000000610393565b61041461070d366004614261565b612ef2565b610414610720366004613fbe565b612f8f565b61077f610733366004613fa1565b73ffffffffffffffffffffffffffffffffffffffff1660009081526009602090815260409182902082518084019093525460ff8082161515808552610100909204169290910182905291565b60408051921515835260ff9091166020830152016102f8565b6104146107a6366004613fa1565b6130ee565b6105646107b9366004613fa1565b73ffffffffffffffffffffffffffffffffffffffff1660009081526017602052604090205460ff1690565b606060006107f26002613102565b90508083116108015782610803565b805b92508284111561083f576040517f1390f2a100000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600061084b8585614b69565b905060008167ffffffffffffffff81111561086857610868614d51565b604051908082528060200260200182016040528015610891578160200160208202803683370190505b50905060005b828110156108e3576108b46108ac8883614a29565b60029061310c565b8282815181106108c6576108c6614d22565b6020908102919091010152806108db81614c2d565b915050610897565b50925050505b92915050565b6040805160c081018252600080825260208201819052918101829052606081018290526080810182905260a0810191909152600161092c836117dd565b600381111561093d5761093d614cc4565b1461094757600080fd5b6000828152601860205260409020805461096090614bd9565b80601f016020809104026020016040519081016040528092919081815260200182805461098c90614bd9565b80156109d95780601f106109ae576101008083540402835291602001916109d9565b820191906000526020600020905b8154815290600101906020018083116109bc57829003601f168201915b50505050508060200190518101906108e99190614178565b6040805161012081018252600f5460ff808216835263ffffffff6101008084048216602086015265010000000000840482169585019590955262ffffff6901000000000000000000840416606085015261ffff6c0100000000000000000000000084041660808501526e01000000000000000000000000000083048216151560a08501526f010000000000000000000000000000008304909116151560c08401526bffffffffffffffffffffffff70010000000000000000000000000000000083041660e08401527c010000000000000000000000000000000000000000000000000000000090910416918101919091526000908180610af08361311f565b6012549193509150610b2b90849087907801000000000000000000000000000000000000000000000000900463ffffffff168585600061331b565b95945050505050565b6040805161014081018252600080825260208201819052918101829052606081018290526080810182905260a0810182905260c0810182905260e081018290526101008101829052610120810191909152604080516101a081018252600080825260208201819052918101829052606081018290526080810182905260a0810182905260c0810182905260e081018290526101008101829052610120810182905261014081018290526101608101829052610180810191909152604080516101408101825260125468010000000000000000900463ffffffff1681526011546bffffffffffffffffffffffff908116602083015260155492820192909252600f54700100000000000000000000000000000000900490911660608083019190915290819060009060808101610c696002613102565b815260125463ffffffff6c01000000000000000000000000808304821660208086019190915270010000000000000000000000000000000084048316604080870191909152600e54606080880191909152600f547c0100000000000000000000000000000000000000000000000000000000810486166080808a019190915260ff6e01000000000000000000000000000083048116151560a09a8b015284516101a0810186526101008085048a1682526501000000000085048a1682890152898b168288015262ffffff69010000000000000000008604169582019590955261ffff88850416928101929092526010546bffffffffffffffffffffffff81169a83019a909a526401000000008904881660c0830152740100000000000000000000000000000000000000008904881660e083015278010000000000000000000000000000000000000000000000009098049096169186019190915260135461012086015260145461014086015273ffffffffffffffffffffffffffffffffffffffff96849004871661016086015260115493909304909516610180840152600a8054865181840281018401909752808752969b509299508a958a959394600b9493169291859190830182828015610e7657602002820191906000526020600020905b815473ffffffffffffffffffffffffffffffffffffffff168152600190910190602001808311610e4b575b5050505050925081805480602002602001604051908101604052809291908181526020018280548015610edf57602002820191906000526020600020905b815473ffffffffffffffffffffffffffffffffffffffff168152600190910190602001808311610eb4575b50505050509150945094509450945094509091929394565b610eff613366565b73ffffffffffffffffffffffffffffffffffffffff8216600090815260176020526040902080548291907fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00166001836003811115610f5f57610f5f614cc4565b02179055505050565b610f71826133e9565b73ffffffffffffffffffffffffffffffffffffffff8116331415610fc1576040517f8c8728c700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff811661100e576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526006602052604090205473ffffffffffffffffffffffffffffffffffffffff8281169116146110b85760008281526006602052604080822080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff851690811790915590519091339185917fb1cbb2c4b8480034c27e06da5f096b8233a8fd4497028593a41ff6df79726b3591a45b5050565b6110c4613366565b601680547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b600081815260186020526040902080546060919061112890614bd9565b80601f016020809104026020016040519081016040528092919081815260200182805461115490614bd9565b80156111a15780601f10611176576101008083540402835291602001916111a1565b820191906000526020600020905b81548152906001019060200180831161118457829003601f168201915b50505050509050919050565b604080518082019091526060808252602082015260026111cc836117dd565b60038111156111dd576111dd614cc4565b146111e757600080fd5b6000828152601860205260409020805461120090614bd9565b80601f016020809104026020016040519081016040528092919081815260200182805461122c90614bd9565b80156112795780601f1061124e57610100808354040283529160200191611279565b820191906000526020600020905b81548152906001019060200180831161125c57829003601f168201915b50505050508060200190518101906108e991906140bc565b611299613366565b600b5481146112d4576040517fcf54c06a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60005b600b548110156114a6576000600b82815481106112f6576112f6614d22565b600091825260208083209091015473ffffffffffffffffffffffffffffffffffffffff908116808452600c9092526040832054919350169085858581811061134057611340614d22565b90506020020160208101906113559190613fa1565b905073ffffffffffffffffffffffffffffffffffffffff811615806113e8575073ffffffffffffffffffffffffffffffffffffffff8216158015906113c657508073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614155b80156113e8575073ffffffffffffffffffffffffffffffffffffffff81811614155b1561141f576040517fb387a23800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff818116146114905773ffffffffffffffffffffffffffffffffffffffff8381166000908152600c6020526040902080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169183169190911790555b505050808061149e90614c2d565b9150506112d7565b507fa46de38886467c59be07a0675f14781206a5477d871628af46c2443822fcb725600b83836040516114db939291906145bf565b60405180910390a15050565b6114ef613366565b600f80547fffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffff1690556040513381527f5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa906020015b60405180910390a1565b6060600061155b6002613102565b905080841161156a578361156c565b805b9350838511156115a8576040517f1390f2a100000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006115b48686614b69565b90506000808267ffffffffffffffff8111156115d2576115d2614d51565b6040519080825280602002602001820160405280156115fb578160200160208202803683370190505b50905060005b8381101561168b5760006116186108ac8b84614a29565b905087600381111561162c5761162c614cc4565b611635826117dd565b600381111561164657611646614cc4565b1415611678578083858151811061165f5761165f614d22565b60209081029190910101528361167481614c2d565b9450505b508061168381614c2d565b915050611601565b50828214611697578181525b979650505050505050565b6000818152601a6020526040902080546060919061112890614bd9565b73ffffffffffffffffffffffffffffffffffffffff811660009081526008602090815260408083208151608081018352905460ff80821615158352610100820416938201939093526bffffffffffffffffffffffff6201000084048116928201929092526e010000000000000000000000000000909204811660608301819052600f548493849384938493849261176b9291700100000000000000000000000000000000900416614b80565b600b5490915060009061177e9083614aaa565b90508260000151836020015182856040015161179a9190614a66565b6060959095015173ffffffffffffffffffffffffffffffffffffffff9b8c166000908152600c6020526040902054929c919b959a50985093169550919350505050565b6000818160045b600f81101561186a577fff00000000000000000000000000000000000000000000000000000000000000821683826020811061182257611822614d22565b1a60f81b7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff19161461185857506000949350505050565b8061186281614c2d565b9150506117e4565b5081600f1a600381111561188057611880614cc4565b949350505050565b611891816133e9565b600081815260046020908152604091829020825161010081018452815463ffffffff8082168352640100000000820481169483019490945260ff68010000000000000000820416151594820185905273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009091048116606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a08401527801000000000000000000000000000000000000000000000000900490931660c082015260029091015490911660e0820152906119a3576040517f1b88a78400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600082815260046020526040902080547fffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffff1690556119e260028361349c565b5060405182907f7bada562044eb163f6b4003c4553e4e62825344c0418eea087bed5ee05a4745690600090a25050565b600f546f01000000000000000000000000000000900460ff1615611a62576040517f37ed32e800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600f80547fffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffffff166f0100000000000000000000000000000017905573ffffffffffffffffffffffffffffffffffffffff8116611ae9576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000828152600460209081526040808320815161010081018352815463ffffffff8082168352640100000000820481168387015260ff6801000000000000000083041615158386015273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009092048216606084015260018401546bffffffffffffffffffffffff80821660808601526c0100000000000000000000000082041660a0850152780100000000000000000000000000000000000000000000000090041660c0830152600290920154821660e082015286855260059093529220549091163314611c01576040517fa47c170600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b611c096134a8565b816020015163ffffffff161115611c4c576040517fff84e5dd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152600460205260409020600101546015546c010000000000000000000000009091046bffffffffffffffffffffffff1690611c8c908290614b69565b60155560008481526004602081905260409182902060010180547fffffffffffffffff000000000000000000000000ffffffffffffffffffffffff16905590517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff858116928201929092526bffffffffffffffffffffffff831660248201527f00000000000000000000000000000000000000000000000000000000000000009091169063a9059cbb90604401602060405180830381600087803b158015611d6a57600080fd5b505af1158015611d7e573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190611da2919061409a565b50604080516bffffffffffffffffffffffff8316815273ffffffffffffffffffffffffffffffffffffffff8516602082015285917ff3b5906e5672f3e524854103bcafbbdba80dbdfeca2c35e116127b1060a68318910160405180910390a25050600f80547fffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffffff1690555050565b60015473ffffffffffffffffffffffffffffffffffffffff163314611eb5576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b611f39613366565b6011546015546bffffffffffffffffffffffff90911690611f5b908290614b69565b601555601180547fffffffffffffffffffffffffffffffffffffffff0000000000000000000000001690556040516bffffffffffffffffffffffff821681527f1d07d0b0be43d3e5fee41a80b579af370affee03fa595bf56d5d4c19328162f19060200160405180910390a16040517fa9059cbb0000000000000000000000000000000000000000000000000000000081523360048201526bffffffffffffffffffffffff821660248201527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff169063a9059cbb906044015b602060405180830381600087803b15801561206357600080fd5b505af1158015612077573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906110b8919061409a565b6120a3613366565b600f80547fffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffff166e0100000000000000000000000000001790556040513381527f62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a25890602001611543565b612115816133e9565b600081815260046020908152604091829020825161010081018452815463ffffffff8082168352640100000000820481169483019490945260ff680100000000000000008204161580159583019590955273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009091048116606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a08401527801000000000000000000000000000000000000000000000000900490931660c082015260029091015490911660e082015290612229576040517f514b6c2400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600082815260046020526040902080547fffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffff166801000000000000000017905561227360028361356d565b5060405182907f8ab10247ce168c27748e656ecf852b951fcaac790c18106b19aa0ae57a8b741f90600090a25050565b6122ac836133e9565b60008381526019602052604090206122c5908383613e25565b50827f3e8740446213c8a77d40e08f79136ce3f347d13ed270a6ebdf57159e0faf485083836040516122f89291906146b5565b60405180910390a2505050565b61230e836133e9565b60125474010000000000000000000000000000000000000000900463ffffffff16811115612368576040517fae7235df00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152600760205260409020612381908383613e25565b50827f7b778136e5211932b51a145badd01959415e79e051a933604b3d323f862dcabf83836040516122f89291906146b5565b73ffffffffffffffffffffffffffffffffffffffff8116612401576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600c6020526040902054163314612461576040517fcebf515b00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600f54600b5460009161249891859170010000000000000000000000000000000090046bffffffffffffffffffffffff1690613579565b73ffffffffffffffffffffffffffffffffffffffff8416600090815260086020526040902080547fffffffffffffffffffffffffffffffffffff000000000000000000000000ffff169055601554909150612502906bffffffffffffffffffffffff831690614b69565b6015556040517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff83811660048301526bffffffffffffffffffffffff831660248301527f0000000000000000000000000000000000000000000000000000000000000000169063a9059cbb90604401602060405180830381600087803b1580156125a257600080fd5b505af11580156125b6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906125da919061409a565b5060405133815273ffffffffffffffffffffffffffffffffffffffff808416916bffffffffffffffffffffffff8416918616907f9819093176a1851202c7bcfa46845809b4e47c261866550e94ed3775d2f406989060200160405180910390a4505050565b6108fc8163ffffffff161080612668575060125463ffffffff6401000000009091048116908216115b1561269f576040517f14c237fb00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6126a8826133e9565b60008281526004602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000001663ffffffff8516908117909155915191825283917fc24c07e655ce79fba8a589778987d3c015bc6af1632bb20cf9182e02a65d972c910160405180910390a25050565b73ffffffffffffffffffffffffffffffffffffffff8181166000908152600d6020526040902054163314612781576040517f6752e7aa00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8181166000818152600c602090815260408083208054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217909355600d909452828520805490921690915590519416939092849290917f78af32efdcad432315431e9b03d27e6cd98fb79c405fdc5af7c1714d9c0f75b39190a45050565b600081815260046020908152604091829020825161010081018452815463ffffffff80821683526401000000008204811694830185905260ff6801000000000000000083041615159583019590955273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009091048116606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a084015278010000000000000000000000000000000000000000000000009004851660c083015260029092015490911660e0820152911461292b576040517f9c0083a200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526006602052604090205473ffffffffffffffffffffffffffffffffffffffff163314612988576040517f6352a85300000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526005602090815260408083208054337fffffffffffffffffffffffff0000000000000000000000000000000000000000808316821790935560069094528285208054909216909155905173ffffffffffffffffffffffffffffffffffffffff90911692839186917f5cff4db96bef051785e999f44bfcd21c18823e034fb92dd376e3db4ce0feeb2c91a4505050565b6000818152600460205260408120546108e99063ffffffff166109f1565b612a42613366565b6040517f70a082310000000000000000000000000000000000000000000000000000000081523060048201526000907f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16906370a082319060240160206040518083038186803b158015612aca57600080fd5b505afa158015612ade573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190612b029190614223565b90507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663a9059cbb3360155484612b4f9190614b69565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e085901b16815273ffffffffffffffffffffffffffffffffffffffff90921660048301526024820152604401612049565b604080516101608101825260008082526020820181905291810182905260608082018190526080820183905260a0820183905260c0820183905260e0820183905261010082018390526101208201929092526101408101919091526000828152600460209081526040808320815161010081018352815463ffffffff8082168352640100000000820481168387015260ff6801000000000000000083041615158386015273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009092048216606080850191825260018601546bffffffffffffffffffffffff80821660808801526c0100000000000000000000000082041660a087015278010000000000000000000000000000000000000000000000009004831660c0860152600290950154831660e085019081528651610160810188529051841681529051909216828701528251168185015287865260079094529190932080549193830191612d1390614bd9565b80601f0160208091040260200160405190810160405280929190818152602001828054612d3f90614bd9565b8015612d8c5780601f10612d6157610100808354040283529160200191612d8c565b820191906000526020600020905b815481529060010190602001808311612d6f57829003601f168201915b505050505081526020018260a001516bffffffffffffffffffffffff1681526020016005600086815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001826020015163ffffffff1667ffffffffffffffff1681526020018260c0015163ffffffff16815260200182608001516bffffffffffffffffffffffff168152602001826040015115158152602001601960008681526020019081526020016000208054612e6990614bd9565b80601f0160208091040260200160405190810160405280929190818152602001828054612e9590614bd9565b8015612ee25780601f10612eb757610100808354040283529160200191612ee2565b820191906000526020600020905b815481529060010190602001808311612ec557829003601f168201915b5050505050815250915050919050565b60165473ffffffffffffffffffffffffffffffffffffffff163314612f43576040517fee5dc90100000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152601a60205260409020612f5c908383613e25565b50827f09a658476c5597979b9948f488ec2958cfead97bc8f46b19ca0b21cdab93cdee83836040516122f89291906146b5565b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600c6020526040902054163314612fef576040517fcebf515b00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff811633141561303f576040517f8c8728c700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600d60205260409020548116908216146110b85773ffffffffffffffffffffffffffffffffffffffff8281166000818152600d602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169486169485179055513392917f84f7c7c80bb8ed2279b4aab5f61cd05e6374073d38f46d7f32de8c30e9e3836791a45050565b6130f6613366565b6130ff816137a0565b50565b60006108e9825490565b60006131188383613896565b9392505050565b6000806000836060015162ffffff1690506000808263ffffffff161190506000807f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a06040518083038186803b1580156131a657600080fd5b505afa1580156131ba573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906131de919061437f565b50945090925050506000811315806131f557508142105b806132165750828015613216575061320d8242614b69565b8463ffffffff16105b15613225576013549550613229565b8095505b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a06040518083038186803b15801561328f57600080fd5b505afa1580156132a3573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906132c7919061437f565b50945090925050506000811315806132de57508142105b806132ff57508280156132ff57506132f68242614b69565b8463ffffffff16105b1561330e576014549450613312565b8094505b50505050915091565b60008061332c8689600001516138c0565b90506000806133478a8a63ffffffff16858a8a60018b613904565b90925090506133568183614a66565b93505050505b9695505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff1633146133e7576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401611eac565b565b60008181526005602052604090205473ffffffffffffffffffffffffffffffffffffffff163314613446576040517fa47c170600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600081815260046020526040902054640100000000900463ffffffff908116146130ff576040517f9c0083a200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006131188383613ce3565b600060017f000000000000000000000000000000000000000000000000000000000000000060028111156134de576134de614cc4565b141561356857606473ffffffffffffffffffffffffffffffffffffffff1663a3b1b31d6040518163ffffffff1660e01b815260040160206040518083038186803b15801561352b57600080fd5b505afa15801561353f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906135639190614223565b905090565b504390565b60006131188383613d32565b73ffffffffffffffffffffffffffffffffffffffff831660009081526008602090815260408083208151608081018352905460ff80821615158352610100820416938201939093526bffffffffffffffffffffffff6201000084048116928201929092526e010000000000000000000000000000909204166060820181905282906136049086614b80565b905060006136128583614aaa565b905080836040018181516136269190614a66565b6bffffffffffffffffffffffff908116909152871660608501525061364b8582614b3e565b6136559083614b80565b601180546000906136759084906bffffffffffffffffffffffff16614a66565b825461010092830a6bffffffffffffffffffffffff81810219909216928216029190911790925573ffffffffffffffffffffffffffffffffffffffff999099166000908152600860209081526040918290208751815492890151938901516060909901517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00009093169015157fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff161760ff909316909b02919091177fffffffffffff000000000000000000000000000000000000000000000000ffff1662010000878416027fffffffffffff000000000000000000000000ffffffffffffffffffffffffffff16176e010000000000000000000000000000919092160217909755509095945050505050565b73ffffffffffffffffffffffffffffffffffffffff8116331415613820576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401611eac565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60008260000182815481106138ad576138ad614d22565b9060005260206000200154905092915050565b60006138d363ffffffff84166014614ad5565b6138de836001614a41565b6138ed9060ff16611d4c614ad5565b6138fa9062013880614a29565b6131189190614a29565b6000806000896080015161ffff168761391d9190614ad5565b905083801561392b5750803a105b1561393357503a5b600060027f0000000000000000000000000000000000000000000000000000000000000000600281111561396957613969614cc4565b1415613aec5760408051600081526020810190915285156139c857600036604051806080016040528060488152602001614dc0604891396040516020016139b293929190614598565b6040516020818303038152906040529050613a44565b6012546139f8907801000000000000000000000000000000000000000000000000900463ffffffff166004614b12565b63ffffffff1667ffffffffffffffff811115613a1657613a16614d51565b6040519080825280601f01601f191660200182016040528015613a40576020820181803683370190505b5090505b6040517f49948e0e00000000000000000000000000000000000000000000000000000000815273420000000000000000000000000000000000000f906349948e0e90613a94908490600401614702565b60206040518083038186803b158015613aac57600080fd5b505afa158015613ac0573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190613ae49190614223565b915050613ba8565b60017f00000000000000000000000000000000000000000000000000000000000000006002811115613b2057613b20614cc4565b1415613ba857606c73ffffffffffffffffffffffffffffffffffffffff1663c6f7de0e6040518163ffffffff1660e01b815260040160206040518083038186803b158015613b6d57600080fd5b505afa158015613b81573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190613ba59190614223565b90505b84613bc457808b6080015161ffff16613bc19190614ad5565b90505b613bd261ffff871682614a96565b905060008782613be28c8e614a29565b613bec9086614ad5565b613bf69190614a29565b613c0890670de0b6b3a7640000614ad5565b613c129190614a96565b905060008c6040015163ffffffff1664e8d4a51000613c319190614ad5565b898e6020015163ffffffff16858f88613c4a9190614ad5565b613c549190614a29565b613c6290633b9aca00614ad5565b613c6c9190614ad5565b613c769190614a96565b613c809190614a29565b90506b033b2e3c9fd0803ce8000000613c998284614a29565b1115613cd1576040517f2ad7547a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b909c909b509950505050505050505050565b6000818152600183016020526040812054613d2a575081546001818101845560008481526020808220909301849055845484825282860190935260409020919091556108e9565b5060006108e9565b60008181526001830160205260408120548015613e1b576000613d56600183614b69565b8554909150600090613d6a90600190614b69565b9050818114613dcf576000866000018281548110613d8a57613d8a614d22565b9060005260206000200154905080876000018481548110613dad57613dad614d22565b6000918252602080832090910192909255918252600188019052604090208390555b8554869080613de057613de0614cf3565b6001900381819060005260206000200160009055905585600101600086815260200190815260200160002060009055600193505050506108e9565b60009150506108e9565b828054613e3190614bd9565b90600052602060002090601f016020900481019282613e535760008555613eb7565b82601f10613e8a578280017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00823516178555613eb7565b82800160010185558215613eb7579182015b82811115613eb7578235825591602001919060010190613e9c565b50613ec3929150613ec7565b5090565b5b80821115613ec35760008155600101613ec8565b600067ffffffffffffffff80841115613ef757613ef7614d51565b604051601f85017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908282118183101715613f3d57613f3d614d51565b81604052809350858152868686011115613f5657600080fd5b613f64866020830187614bad565b5050509392505050565b803563ffffffff81168114613f8257600080fd5b919050565b805169ffffffffffffffffffff81168114613f8257600080fd5b600060208284031215613fb357600080fd5b813561311881614d90565b60008060408385031215613fd157600080fd5b8235613fdc81614d90565b91506020830135613fec81614d90565b809150509250929050565b6000806040838503121561400a57600080fd5b823561401581614d90565b91506020830135613fec81614db2565b6000806020838503121561403857600080fd5b823567ffffffffffffffff8082111561405057600080fd5b818501915085601f83011261406457600080fd5b81358181111561407357600080fd5b8660208260051b850101111561408857600080fd5b60209290920196919550909350505050565b6000602082840312156140ac57600080fd5b8151801515811461311857600080fd5b6000602082840312156140ce57600080fd5b815167ffffffffffffffff808211156140e657600080fd5b90830190604082860312156140fa57600080fd5b614102614a00565b82518281111561411157600080fd5b8301601f8101871361412257600080fd5b61413187825160208401613edc565b82525060208301518281111561414657600080fd5b80840193505085601f84011261415b57600080fd5b61416a86845160208601613edc565b602082015295945050505050565b600060c0828403121561418a57600080fd5b60405160c0810181811067ffffffffffffffff821117156141ad576141ad614d51565b60405282516141bb81614d90565b8152602083015160ff811681146141d157600080fd5b8060208301525060408301516040820152606083015160608201526080830151608082015260a083015160a08201528091505092915050565b60006020828403121561421c57600080fd5b5035919050565b60006020828403121561423557600080fd5b5051919050565b6000806040838503121561424f57600080fd5b823591506020830135613fec81614d90565b60008060006040848603121561427657600080fd5b83359250602084013567ffffffffffffffff8082111561429557600080fd5b818601915086601f8301126142a957600080fd5b8135818111156142b857600080fd5b8760208285010111156142ca57600080fd5b6020830194508093505050509250925092565b600080604083850312156142f057600080fd5b50508035926020909101359150565b60008060006060848603121561431457600080fd5b8335925060208401359150604084013561432d81614db2565b809150509250925092565b6000806040838503121561434b57600080fd5b8235915061435b60208401613f6e565b90509250929050565b60006020828403121561437657600080fd5b61311882613f6e565b600080600080600060a0868803121561439757600080fd5b6143a086613f87565b94506020860151935060408601519250606086015191506143c360808701613f87565b90509295509295909350565b600081518084526020808501945080840160005b8381101561441557815173ffffffffffffffffffffffffffffffffffffffff16875295820195908201906001016143e3565b509495945050505050565b60008151808452614438816020860160208601614bad565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b805163ffffffff168252602081015161448b602084018263ffffffff169052565b5060408101516144a3604084018263ffffffff169052565b5060608101516144ba606084018262ffffff169052565b5060808101516144d0608084018261ffff169052565b5060a08101516144f060a08401826bffffffffffffffffffffffff169052565b5060c081015161450860c084018263ffffffff169052565b5060e081015161452060e084018263ffffffff169052565b506101008181015163ffffffff8116848301525050610120818101519083015261014080820151908301526101608082015173ffffffffffffffffffffffffffffffffffffffff81168285015250506101808181015173ffffffffffffffffffffffffffffffffffffffff8116848301525b50505050565b8284823760008382016000815283516145b5818360208801614bad565b0195945050505050565b6000604082016040835280865480835260608501915087600052602092508260002060005b8281101561461657815473ffffffffffffffffffffffffffffffffffffffff16845292840192600191820191016145e4565b505050838103828501528481528590820160005b8681101561466557823561463d81614d90565b73ffffffffffffffffffffffffffffffffffffffff168252918301919083019060010161462a565b50979650505050505050565b6020808252825182820181905260009190848201906040850190845b818110156146a95783518352928401929184019160010161468d565b50909695505050505050565b60208152816020820152818360408301376000818301604090810191909152601f9092017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0160101919050565b6020815260006131186020830184614420565b6020810161472283614d80565b91905290565b602081016003831061472257614722614cc4565b6020815260008251604060208401526147586060840182614420565b905060208401517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0848303016040850152610b2b8282614420565b855163ffffffff168152600061034060208801516147c160208501826bffffffffffffffffffffffff169052565b506040880151604084015260608801516147eb60608501826bffffffffffffffffffffffff169052565b506080880151608084015260a088015161480d60a085018263ffffffff169052565b5060c088015161482560c085018263ffffffff169052565b5060e088015160e0840152610100808901516148488286018263ffffffff169052565b50506101208881015115159084015261486561014084018861446a565b806102e0840152614878818401876143cf565b905082810361030084015261488d81866143cf565b91505061335c61032083018460ff169052565b602081526148c760208201835173ffffffffffffffffffffffffffffffffffffffff169052565b600060208301516148f0604084018273ffffffffffffffffffffffffffffffffffffffff169052565b50604083015163ffffffff8116606084015250606083015161016080608085015261491f610180850183614420565b9150608085015161494060a08601826bffffffffffffffffffffffff169052565b5060a085015173ffffffffffffffffffffffffffffffffffffffff811660c08601525060c085015167ffffffffffffffff811660e08601525060e08501516101006149928187018363ffffffff169052565b86015190506101206149b3868201836bffffffffffffffffffffffff169052565b86015190506101406149c88682018315159052565b8601518584037fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe00183870152905061335c8382614420565b6040805190810167ffffffffffffffff81118282101715614a2357614a23614d51565b60405290565b60008219821115614a3c57614a3c614c66565b500190565b600060ff821660ff84168060ff03821115614a5e57614a5e614c66565b019392505050565b60006bffffffffffffffffffffffff808316818516808303821115614a8d57614a8d614c66565b01949350505050565b600082614aa557614aa5614c95565b500490565b60006bffffffffffffffffffffffff80841680614ac957614ac9614c95565b92169190910492915050565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615614b0d57614b0d614c66565b500290565b600063ffffffff80831681851681830481118215151615614b3557614b35614c66565b02949350505050565b60006bffffffffffffffffffffffff80831681851681830481118215151615614b3557614b35614c66565b600082821015614b7b57614b7b614c66565b500390565b60006bffffffffffffffffffffffff83811690831681811015614ba557614ba5614c66565b039392505050565b60005b83811015614bc8578181015183820152602001614bb0565b838111156145925750506000910152565b600181811c90821680614bed57607f821691505b60208210811415614c27577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b50919050565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff821415614c5f57614c5f614c66565b5060010190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600481106130ff576130ff614cc4565b73ffffffffffffffffffffffffffffffffffffffff811681146130ff57600080fd5b600481106130ff57600080fdfe307866666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666a164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Mode\",\"name\":\"mode\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"linkNativeFeed\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"fastGasFeed\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientFunds\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxCheckDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxPerformDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepPrivilegeManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PaymentGreaterThanAllLINK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PipelineDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"OwnerFundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newPipelineData\",\"type\":\"bytes\"}],\"name\":\"UpkeepPipelineDataSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"executeGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endIndex\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endIndex\",\"type\":\"uint256\"},{\"internalType\":\"enumKeeperRegistryBase2_1.Trigger\",\"name\":\"trigger\",\"type\":\"uint8\"}],\"name\":\"getActiveUpkeepIDsByType\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getBlockTriggerConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"checkCadance\",\"type\":\"uint32\"}],\"internalType\":\"structKeeperRegistryBase2_1.BlockTriggerConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkNativeFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getLogTriggerConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"filterSelector\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"topic0\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic1\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic2\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"topic3\",\"type\":\"bytes32\"}],\"internalType\":\"structKeeperRegistryBase2_1.LogTriggerConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Trigger\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMode\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Mode\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.MigrationPermission\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structKeeperRegistryBase2_1.State\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"}],\"internalType\":\"structKeeperRegistryBase2_1.OnchainConfig\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"enumKeeperRegistryBase2_1.Trigger\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"forwarder\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"executeGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformedBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structKeeperRegistryBase2_1.UpkeepInfo\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"recoverFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"enumKeeperRegistryBase2_1.MigrationPermission\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPipelineData\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPipelineData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawOwnerFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x6101006040523480156200001257600080fd5b5060405162004fe838038062004fe88339810160408190526200003591620001e1565b838383833380600081620000905760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000c357620000c38162000119565b505050836002811115620000db57620000db62000243565b60e0816002811115620000f257620000f262000243565b9052506001600160a01b0392831660805290821660a0521660c05250620002599350505050565b336001600160a01b03821603620001735760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000087565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b80516001600160a01b0381168114620001dc57600080fd5b919050565b60008060008060808587031215620001f857600080fd5b8451600381106200020857600080fd5b93506200021860208601620001c4565b92506200022860408601620001c4565b91506200023860608601620001c4565b905092959194509250565b634e487b7160e01b600052602160045260246000fd5b60805160a05160c05160e051614d0f620002d960003960008181610483015281816133ec0152818161396f0152613b0201526000818161051401526131e00152600081816105f001526132ba01526000818161067701528181611d2301528181611ff901528181612471015281816129930152612a170152614d0f6000f3fe608060405234801561001057600080fd5b50600436106102ad5760003560e01c806379ba50971161017b578063b148ab6b116100d8578063eb5dcd6c1161008c578063ee048eae11610071578063ee048eae14610721578063f2fde38b14610749578063faa3e9961461075c57600080fd5b8063eb5dcd6c1461069b578063ed56b3e1146106ae57600080fd5b8063b79550be116100bd578063b79550be1461064d578063c7c3a19a14610655578063ca30e6031461067557600080fd5b8063b148ab6b14610627578063b657bc9c1461063a57600080fd5b80638dcf0fe71161012f578063a72aa27e11610114578063a72aa27e146105db578063b10b673c146105ee578063b121e1471461061457600080fd5b80638dcf0fe7146105b5578063a710b221146105c857600080fd5b80638456cb59116101605780638456cb591461057c5780638765ecbe146105845780638da5cb5b1461059757600080fd5b806379ba50971461056c5780637d9b97e01461057457600080fd5b80633b9cce59116102295780635147cd59116101dd5780635b6aa71c116101c25780635b6aa71c146104e25780636709d0e514610512578063744bfe611461055957600080fd5b80635147cd59146104af5780635165f2f5146104cf57600080fd5b80634184e12c1161020e5780634184e12c14610408578063421d183b1461041b5780634b4fd03b1461048157600080fd5b80633b9cce59146103ed5780633f4ba83a1461040057600080fd5b80631865c57d1161028057806319d97a941161026557806319d97a94146103a75780631a2af011146103c7578063207b6516146103da57600080fd5b80631865c57d1461037b578063187256e81461039457600080fd5b806306e3b632146102b25780630b7d33e6146102db5780630d0be147146102f05780630d4a4fb114610303575b600080fd5b6102c56102c0366004613ddf565b6107a2565b6040516102d29190613e01565b60405180910390f35b6102ee6102e9366004613e45565b6108ad565b005b6102ee6102fe366004613e45565b610963565b610316610311366004613ec1565b6109fa565b6040516102d29190600060c08201905073ffffffffffffffffffffffffffffffffffffffff835116825260ff602084015116602083015260408301516040830152606083015160608301526080830151608083015260a083015160a083015292915050565b610383610afc565b6040516102d295949392919061407e565b6102ee6103a23660046141b5565b610ef1565b6103ba6103b5366004613ec1565b610f62565b6040516102d29190614260565b6102ee6103d5366004614273565b611004565b6103ba6103e8366004613ec1565b611157565b6102ee6103fb366004614298565b611174565b6102ee6113ca565b6102c5610416366004614321565b611430565b61042e610429366004614356565b611584565b60408051951515865260ff90941660208601526bffffffffffffffffffffffff9283169385019390935216606083015273ffffffffffffffffffffffffffffffffffffffff16608082015260a0016102d2565b7f00000000000000000000000000000000000000000000000000000000000000006040516102d291906143a2565b6104c26104bd366004613ec1565b6116b7565b6040516102d291906143bc565b6102ee6104dd366004613ec1565b611762565b6104f56104f03660046143e2565b6118e4565b6040516bffffffffffffffffffffffff90911681526020016102d2565b7f00000000000000000000000000000000000000000000000000000000000000005b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016102d2565b6102ee610567366004614273565b611a16565b6102ee611e1f565b6102ee611f21565b6102ee61207c565b6102ee610592366004613ec1565b6120ed565b60005473ffffffffffffffffffffffffffffffffffffffff16610534565b6102ee6105c3366004613e45565b612272565b6102ee6105d636600461440e565b6122c7565b6102ee6105e936600461443c565b612543565b7f0000000000000000000000000000000000000000000000000000000000000000610534565b6102ee610622366004614356565b612638565b6102ee610635366004613ec1565b612730565b6104f5610648366004613ec1565b61292d565b6102ee61295a565b610668610663366004613ec1565b612ab6565b6040516102d29190614461565b7f0000000000000000000000000000000000000000000000000000000000000000610534565b6102ee6106a936600461440e565b612dff565b6107086106bc366004614356565b73ffffffffffffffffffffffffffffffffffffffff166000908152600c602090815260409182902082518084019093525460ff8082161515808552610100909204169290910182905291565b60408051921515835260ff9091166020830152016102d2565b61073461072f366004613ec1565b612f5d565b604051905163ffffffff1681526020016102d2565b6102ee610757366004614356565b61303c565b61079561076a366004614356565b73ffffffffffffffffffffffffffffffffffffffff1660009081526019602052604090205460ff1690565b6040516102d291906145c1565b606060006107b06002613050565b90508083116107bf57826107c1565b805b9250828411156107fd576040517f1390f2a100000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006108098585614604565b905060008167ffffffffffffffff81111561082657610826614617565b60405190808252806020026020018201604052801561084f578160200160208202803683370190505b50905060005b828110156108a15761087261086a8883614646565b60029061305a565b82828151811061088457610884614659565b60209081029190910101528061089981614688565b915050610855565b50925050505b92915050565b60155468010000000000000000900473ffffffffffffffffffffffffffffffffffffffff16331461090a576040517f77c3599200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152601c60205260409020610923828483614762565b50827f2fd8d70753a007014349d4591843cc031c2dd7a260d7dd82eca8253686ae7769838360405161095692919061487d565b60405180910390a2505050565b61096c8361306d565b60155463ffffffff168111156109ae576040517f2b49197900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008381526007602052604090206109c7828483614762565b50827f787b2e556c364148324d7dc0cee4322a048aaf798bda184136c8636c72ed3056838360405161095692919061487d565b6040805160c081018252600080825260208201819052918101829052606081018290526080810182905260a08101919091526001610a37836116b7565b6001811115610a4857610a48614373565b14610a5257600080fd5b6000828152601a602052604090208054610a6b906146c0565b80601f0160208091040260200160405190810160405280929190818152602001828054610a97906146c0565b8015610ae45780601f10610ab957610100808354040283529160200191610ae4565b820191906000526020600020905b815481529060010190602001808311610ac757829003601f168201915b50505050508060200190518101906108a791906148ca565b6040805161014081018252600080825260208201819052918101829052606081018290526080810182905260a0810182905260c0810182905260e081018290526101008101829052610120810191909152604080516101c08101825260008082526020820181905291810182905260608082018390526080820183905260a0820183905260c0820183905260e0820183905261010082018390526101208201839052610140820183905261016082018390526101808201526101a0810191909152604080516101408101825260145463ffffffff7401000000000000000000000000000000000000000082041682526bffffffffffffffffffffffff908116602083015260185492820192909252601254700100000000000000000000000000000000900490911660608281019190915290819060009060808101610c416002613050565b81526014547801000000000000000000000000000000000000000000000000810463ffffffff9081166020808501919091527c0100000000000000000000000000000000000000000000000000000000808404831660408087019190915260115460608088019190915260125492830485166080808901919091526e010000000000000000000000000000840460ff16151560a09889015282516101c081018452610100808604881682526501000000000086048816968201969096526c010000000000000000000000008089048816948201949094526901000000000000000000850462ffffff16928101929092529282900461ffff16928101929092526013546bffffffffffffffffffffffff811696830196909652700100000000000000000000000000000000909404831660c082015260155480841660e0830152640100000000900490921690820152601654610120820152601754610140820152910473ffffffffffffffffffffffffffffffffffffffff166101608201529095506101808101610dd16009613121565b815260155468010000000000000000900473ffffffffffffffffffffffffffffffffffffffff16602091820152601254600d80546040805182860281018601909152818152949850899489949293600e9360ff909116928591830182828015610e7057602002820191906000526020600020905b815473ffffffffffffffffffffffffffffffffffffffff168152600190910190602001808311610e45575b5050505050925081805480602002602001604051908101604052809291908181526020018280548015610ed957602002820191906000526020600020905b815473ffffffffffffffffffffffffffffffffffffffff168152600190910190602001808311610eae575b50505050509150945094509450945094509091929394565b610ef961312e565b73ffffffffffffffffffffffffffffffffffffffff8216600090815260196020526040902080548291907fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00166001836003811115610f5957610f59614373565b02179055505050565b6000818152601c60205260409020805460609190610f7f906146c0565b80601f0160208091040260200160405190810160405280929190818152602001828054610fab906146c0565b8015610ff85780601f10610fcd57610100808354040283529160200191610ff8565b820191906000526020600020905b815481529060010190602001808311610fdb57829003601f168201915b50505050509050919050565b61100d8261306d565b3373ffffffffffffffffffffffffffffffffffffffff82160361105c576040517f8c8728c700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff81166110a9576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526006602052604090205473ffffffffffffffffffffffffffffffffffffffff8281169116146111535760008281526006602052604080822080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff851690811790915590519091339185917fb1cbb2c4b8480034c27e06da5f096b8233a8fd4497028593a41ff6df79726b3591a45b5050565b6000818152601a60205260409020805460609190610f7f906146c0565b61117c61312e565b600e5481146111b7576040517fcf54c06a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60005b600e54811015611389576000600e82815481106111d9576111d9614659565b600091825260208083209091015473ffffffffffffffffffffffffffffffffffffffff908116808452600f9092526040832054919350169085858581811061122357611223614659565b90506020020160208101906112389190614356565b905073ffffffffffffffffffffffffffffffffffffffff811615806112cb575073ffffffffffffffffffffffffffffffffffffffff8216158015906112a957508073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614155b80156112cb575073ffffffffffffffffffffffffffffffffffffffff81811614155b15611302576040517fb387a23800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff818116146113735773ffffffffffffffffffffffffffffffffffffffff8381166000908152600f6020526040902080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169183169190911790555b505050808061138190614688565b9150506111ba565b507fa46de38886467c59be07a0675f14781206a5477d871628af46c2443822fcb725600e83836040516113be9392919061495c565b60405180910390a15050565b6113d261312e565b601280547fffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffff1690556040513381527f5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa906020015b60405180910390a1565b6060600061143e6002613050565b905080841161144d578361144f565b805b93508385111561148b576040517f1390f2a100000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006114978686614604565b90506000808267ffffffffffffffff8111156114b5576114b5614617565b6040519080825280602002602001820160405280156114de578160200160208202803683370190505b50905060005b8381101561156d5760006114fb61086a8b84614646565b905087600181111561150f5761150f614373565b611518826116b7565b600181111561152957611529614373565b0361155a578083858151811061154157611541614659565b60209081029190910101528361155681614688565b9450505b508061156581614688565b9150506114e4565b50828214611579578181525b979650505050505050565b73ffffffffffffffffffffffffffffffffffffffff81166000908152600b602090815260408083208151608081018352905460ff80821615801584526101008304909116948301949094526bffffffffffffffffffffffff6201000082048116938301939093526e01000000000000000000000000000090049091166060820152829182918291829190829061165e57606082015160125460009161164a9170010000000000000000000000000000000090046bffffffffffffffffffffffff16614a0e565b600e5490915061165a9082614a62565b9150505b815160208301516040840151611675908490614a8d565b6060949094015173ffffffffffffffffffffffffffffffffffffffff9a8b166000908152600f6020526040902054929b919a9499509750921694509092505050565b6000818160045b600f811015611744577fff0000000000000000000000000000000000000000000000000000000000000082168382602081106116fc576116fc614659565b1a60f81b7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff19161461173257506000949350505050565b8061173c81614688565b9150506116be565b5081600f1a600181111561175a5761175a614373565b949350505050565b61176b8161306d565b60008181526004602090815260409182902082516101008082018552825460ff8116151580845263ffffffff92820483169584019590955265010000000000810482169583019590955273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009095048516606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a0840152780100000000000000000000000000000000000000000000000090041660c082015260029091015490921660e0830152611875576040517f1b88a78400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600082815260046020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001690556118b46002836131b1565b5060405182907f7bada562044eb163f6b4003c4553e4e62825344c0418eea087bed5ee05a4745690600090a25050565b604080516101208101825260125460ff808216835263ffffffff6101008084048216602086015265010000000000840482169585019590955262ffffff6901000000000000000000840416606085015261ffff6c0100000000000000000000000084041660808501526e01000000000000000000000000000083048216151560a08501526f010000000000000000000000000000008304909116151560c08401526bffffffffffffffffffffffff70010000000000000000000000000000000083041660e08401527c0100000000000000000000000000000000000000000000000000000000909104169181019190915260009081806119e3836131bd565b91509150611a0c838787601360020160049054906101000a900463ffffffff168686600061339b565b9695505050505050565b6012546f01000000000000000000000000000000900460ff1615611a66576040517f37ed32e800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601280547fffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffffff166f0100000000000000000000000000000017905573ffffffffffffffffffffffffffffffffffffffff8116611aed576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600082815260046020908152604080832081516101008082018452825460ff81161515835263ffffffff91810482168387015265010000000000810482168386015273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009091048116606084015260018401546bffffffffffffffffffffffff80821660808601526c0100000000000000000000000082041660a08501527801000000000000000000000000000000000000000000000000900490911660c0830152600290920154821660e082015286855260059093529220549091163314611c00576040517fa47c170600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b611c086133e6565b816040015163ffffffff161115611c4b576040517fff84e5dd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152600460205260409020600101546018546c010000000000000000000000009091046bffffffffffffffffffffffff1690611c8b908290614604565b60185560008481526004602081905260409182902060010180547fffffffffffffffff000000000000000000000000ffffffffffffffffffffffff16905590517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff858116928201929092526bffffffffffffffffffffffff831660248201527f00000000000000000000000000000000000000000000000000000000000000009091169063a9059cbb906044016020604051808303816000875af1158015611d6e573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190611d929190614ab2565b50604080516bffffffffffffffffffffffff8316815273ffffffffffffffffffffffffffffffffffffffff8516602082015285917ff3b5906e5672f3e524854103bcafbbdba80dbdfeca2c35e116127b1060a68318910160405180910390a25050601280547fffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffffff1690555050565b60015473ffffffffffffffffffffffffffffffffffffffff163314611ea5576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064015b60405180910390fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b611f2961312e565b6014546018546bffffffffffffffffffffffff90911690611f4b908290614604565b601855601480547fffffffffffffffffffffffffffffffffffffffff0000000000000000000000001690556040516bffffffffffffffffffffffff821681527f1d07d0b0be43d3e5fee41a80b579af370affee03fa595bf56d5d4c19328162f19060200160405180910390a16040517fa9059cbb0000000000000000000000000000000000000000000000000000000081523360048201526bffffffffffffffffffffffff821660248201527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff169063a9059cbb906044015b6020604051808303816000875af1158015612058573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906111539190614ab2565b61208461312e565b601280547fffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffff166e0100000000000000000000000000001790556040513381527f62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a25890602001611426565b6120f68161306d565b60008181526004602090815260409182902082516101008082018552825460ff8116158015845263ffffffff92820483169584019590955265010000000000810482169583019590955273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009095048516606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a0840152780100000000000000000000000000000000000000000000000090041660c082015260029091015490921660e0830152612200576040517f514b6c2400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600082815260046020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016600117905561224260028361349b565b5060405182907f8ab10247ce168c27748e656ecf852b951fcaac790c18106b19aa0ae57a8b741f90600090a25050565b61227b8361306d565b6000838152601b60205260409020612294828483614762565b50827f3e8740446213c8a77d40e08f79136ce3f347d13ed270a6ebdf57159e0faf4850838360405161095692919061487d565b73ffffffffffffffffffffffffffffffffffffffff8116612314576040517f9c8d2cd200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600f6020526040902054163314612374576040517fcebf515b00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601254600e546000916123ab91859170010000000000000000000000000000000090046bffffffffffffffffffffffff16906134a7565b73ffffffffffffffffffffffffffffffffffffffff84166000908152600b6020526040902080547fffffffffffffffffffffffffffffffffffff000000000000000000000000ffff169055601854909150612415906bffffffffffffffffffffffff831690614604565b6018556040517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff83811660048301526bffffffffffffffffffffffff831660248301527f0000000000000000000000000000000000000000000000000000000000000000169063a9059cbb906044016020604051808303816000875af11580156124ba573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906124de9190614ab2565b5060405133815273ffffffffffffffffffffffffffffffffffffffff808416916bffffffffffffffffffffffff8416918616907f9819093176a1851202c7bcfa46845809b4e47c261866550e94ed3775d2f406989060200160405180910390a4505050565b6108fc8163ffffffff161080612578575060145463ffffffff7001000000000000000000000000000000009091048116908216115b156125af576040517f14c237fb00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6125b88261306d565b60008281526004602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000ff1661010063ffffffff861690810291909117909155915191825283917fc24c07e655ce79fba8a589778987d3c015bc6af1632bb20cf9182e02a65d972c910160405180910390a25050565b73ffffffffffffffffffffffffffffffffffffffff818116600090815260106020526040902054163314612698576040517f6752e7aa00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8181166000818152600f602090815260408083208054337fffffffffffffffffffffffff000000000000000000000000000000000000000080831682179093556010909452828520805490921690915590519416939092849290917f78af32efdcad432315431e9b03d27e6cd98fb79c405fdc5af7c1714d9c0f75b39190a45050565b60008181526004602090815260409182902082516101008082018552825460ff81161515835263ffffffff918104821694830194909452650100000000008404811694820185905273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009094048416606083015260018301546bffffffffffffffffffffffff80821660808501526c0100000000000000000000000082041660a084015278010000000000000000000000000000000000000000000000009004811660c083015260029092015490921660e083015290911461283c576040517f9c0083a200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526006602052604090205473ffffffffffffffffffffffffffffffffffffffff163314612899576040517f6352a85300000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008281526005602090815260408083208054337fffffffffffffffffffffffff0000000000000000000000000000000000000000808316821790935560069094528285208054909216909155905173ffffffffffffffffffffffffffffffffffffffff90911692839186917f5cff4db96bef051785e999f44bfcd21c18823e034fb92dd376e3db4ce0feeb2c91a4505050565b60006108a761293b836116b7565b600084815260046020526040902054610100900463ffffffff166118e4565b61296261312e565b6040517f70a082310000000000000000000000000000000000000000000000000000000081523060048201526000907f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16906370a0823190602401602060405180830381865afa1580156129ef573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190612a139190614ad4565b90507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663a9059cbb3360185484612a609190614604565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e085901b16815273ffffffffffffffffffffffffffffffffffffffff90921660048301526024820152604401612039565b604080516101608101825260008082526020820181905291810182905260608082018190526080820183905260a0820183905260c0820183905260e082018390526101008201839052610120820192909252610140810191909152600082815260046020908152604080832081516101008082018452825460ff81161515835263ffffffff918104821683870190815265010000000000820483168487015273ffffffffffffffffffffffffffffffffffffffff69010000000000000000009092048216606080860191825260018701546bffffffffffffffffffffffff80821660808901526c0100000000000000000000000082041660a088015278010000000000000000000000000000000000000000000000009004851660c0870152600290960154831660e08601908152875161016081018952905184168152905190921682880152519091168185015287865260079094529190932080549193830191612c20906146c0565b80601f0160208091040260200160405190810160405280929190818152602001828054612c4c906146c0565b8015612c995780601f10612c6e57610100808354040283529160200191612c99565b820191906000526020600020905b815481529060010190602001808311612c7c57829003601f168201915b505050505081526020018260a001516bffffffffffffffffffffffff1681526020016005600086815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001826040015163ffffffff1667ffffffffffffffff1681526020018260c0015163ffffffff16815260200182608001516bffffffffffffffffffffffff168152602001826000015115158152602001601b60008681526020019081526020016000208054612d76906146c0565b80601f0160208091040260200160405190810160405280929190818152602001828054612da2906146c0565b8015612def5780601f10612dc457610100808354040283529160200191612def565b820191906000526020600020905b815481529060010190602001808311612dd257829003601f168201915b5050505050815250915050919050565b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600f6020526040902054163314612e5f576040517fcebf515b00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff821603612eae576040517f8c8728c700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8281166000908152601060205260409020548116908216146111535773ffffffffffffffffffffffffffffffffffffffff82811660008181526010602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169486169485179055513392917f84f7c7c80bb8ed2279b4aab5f61cd05e6374073d38f46d7f32de8c30e9e3836791a45050565b6040805160208101909152600081526001612f77836116b7565b6001811115612f8857612f88614373565b14612f9257600080fd5b6000828152601a602052604090208054612fab906146c0565b80601f0160208091040260200160405190810160405280929190818152602001828054612fd7906146c0565b80156130245780601f10612ff957610100808354040283529160200191613024565b820191906000526020600020905b81548152906001019060200180831161300757829003601f168201915b50505050508060200190518101906108a79190614aed565b61304461312e565b61304d816136af565b50565b60006108a7825490565b600061306683836137a4565b9392505050565b60008181526005602052604090205473ffffffffffffffffffffffffffffffffffffffff1633146130ca576040517fa47c170600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008181526004602052604090205465010000000000900463ffffffff9081161461304d576040517f9c0083a200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60606000613066836137ce565b60005473ffffffffffffffffffffffffffffffffffffffff1633146131af576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401611e9c565b565b60006130668383613829565b6000806000836060015162ffffff1690506000808263ffffffff161190506000807f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a060405180830381865afa158015613249573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061326d9190614b53565b509450909250505060008113158061328457508142105b806132a557508280156132a5575061329c8242614604565b8463ffffffff16105b156132b45760165495506132b8565b8095505b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a060405180830381865afa158015613323573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906133479190614b53565b509450909250505060008113158061335e57508142105b8061337f575082801561337f57506133768242614604565b8463ffffffff16105b1561338e576017549450613392565b8094505b50505050915091565b6000806133ad88878b60000151613878565b90506000806133c88b8a63ffffffff16858a8a60018b61393a565b90925090506133d78183614a8d565b9b9a5050505050505050505050565b600060017f0000000000000000000000000000000000000000000000000000000000000000600281111561341c5761341c614373565b0361349657606473ffffffffffffffffffffffffffffffffffffffff1663a3b1b31d6040518163ffffffff1660e01b8152600401602060405180830381865afa15801561346d573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906134919190614ad4565b905090565b504390565b60006130668383613ce5565b73ffffffffffffffffffffffffffffffffffffffff83166000908152600b602090815260408083208151608081018352905460ff80821615801584526101008304909116948301949094526bffffffffffffffffffffffff6201000082048116938301939093526e01000000000000000000000000000090049091166060820152906136a357600081606001518561353f9190614a0e565b9050600061354d8583614a62565b905080836040018181516135619190614a8d565b6bffffffffffffffffffffffff1690525061357c8582614ba3565b8360600181815161358d9190614a8d565b6bffffffffffffffffffffffff90811690915273ffffffffffffffffffffffffffffffffffffffff89166000908152600b602090815260409182902087518154928901519389015160608a015186166e010000000000000000000000000000027fffffffffffff000000000000000000000000ffffffffffffffffffffffffffff919096166201000002167fffffffffffff000000000000000000000000000000000000000000000000ffff60ff95909516610100027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff921515929092167fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000909416939093171792909216179190911790555050505b60400151949350505050565b3373ffffffffffffffffffffffffffffffffffffffff82160361372e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401611e9c565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60008260000182815481106137bb576137bb614659565b9060005260206000200154905092915050565b606081600001805480602002602001604051908101604052809291908181526020018280548015610ff857602002820191906000526020600020905b81548152602001906001019080831161380a5750505050509050919050565b6000818152600183016020526040812054613870575081546001818101845560008481526020808220909301849055845484825282860190935260409020919091556108a7565b5060006108a7565b6000808085600181111561388e5761388e614373565b0361389d5750620138806138f2565b60018560018111156138b1576138b1614373565b036138c05750620186a06138f2565b6040517ff2b2d41200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b61390363ffffffff85166014614bd7565b61390e846001614c14565b61391d9060ff16611d4c614bd7565b6139279083614646565b6139319190614646565b95945050505050565b6000806000896080015161ffff16876139539190614bd7565b90508380156139615750803a105b1561396957503a5b600060027f0000000000000000000000000000000000000000000000000000000000000000600281111561399f5761399f614373565b03613afe5760408051600081526020810190915285156139fd57600036604051806080016040528060488152602001614cbb604891396040516020016139e793929190614c2d565b6040516020818303038152906040529050613a65565b601554613a1990640100000000900463ffffffff166004614c54565b63ffffffff1667ffffffffffffffff811115613a3757613a37614617565b6040519080825280601f01601f191660200182016040528015613a61576020820181803683370190505b5090505b6040517f49948e0e00000000000000000000000000000000000000000000000000000000815273420000000000000000000000000000000000000f906349948e0e90613ab5908490600401614260565b602060405180830381865afa158015613ad2573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190613af69190614ad4565b915050613baa565b60017f00000000000000000000000000000000000000000000000000000000000000006002811115613b3257613b32614373565b03613baa57606c73ffffffffffffffffffffffffffffffffffffffff1663c6f7de0e6040518163ffffffff1660e01b8152600401602060405180830381865afa158015613b83573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190613ba79190614ad4565b90505b84613bc657808b6080015161ffff16613bc39190614bd7565b90505b613bd461ffff871682614c77565b905060008782613be48c8e614646565b613bee9086614bd7565b613bf89190614646565b613c0a90670de0b6b3a7640000614bd7565b613c149190614c77565b905060008c6040015163ffffffff1664e8d4a51000613c339190614bd7565b898e6020015163ffffffff16858f88613c4c9190614bd7565b613c569190614646565b613c6490633b9aca00614bd7565b613c6e9190614bd7565b613c789190614c77565b613c829190614646565b90506b033b2e3c9fd0803ce8000000613c9b8284614646565b1115613cd3576040517f2ad7547a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b909c909b509950505050505050505050565b60008181526001830160205260408120548015613dce576000613d09600183614604565b8554909150600090613d1d90600190614604565b9050818114613d82576000866000018281548110613d3d57613d3d614659565b9060005260206000200154905080876000018481548110613d6057613d60614659565b6000918252602080832090910192909255918252600188019052604090208390555b8554869080613d9357613d93614c8b565b6001900381819060005260206000200160009055905585600101600086815260200190815260200160002060009055600193505050506108a7565b60009150506108a7565b5092915050565b60008060408385031215613df257600080fd5b50508035926020909101359150565b6020808252825182820181905260009190848201906040850190845b81811015613e3957835183529284019291840191600101613e1d565b50909695505050505050565b600080600060408486031215613e5a57600080fd5b83359250602084013567ffffffffffffffff80821115613e7957600080fd5b818601915086601f830112613e8d57600080fd5b813581811115613e9c57600080fd5b876020828501011115613eae57600080fd5b6020830194508093505050509250925092565b600060208284031215613ed357600080fd5b5035919050565b600081518084526020808501945080840160005b83811015613f2057815173ffffffffffffffffffffffffffffffffffffffff1687529582019590820190600101613eee565b509495945050505050565b805163ffffffff16825260006101c06020830151613f51602086018263ffffffff169052565b506040830151613f69604086018263ffffffff169052565b506060830151613f80606086018262ffffff169052565b506080830151613f96608086018261ffff169052565b5060a0830151613fb660a08601826bffffffffffffffffffffffff169052565b5060c0830151613fce60c086018263ffffffff169052565b5060e0830151613fe660e086018263ffffffff169052565b506101008381015163ffffffff1690850152610120808401519085015261014080840151908501526101608084015173ffffffffffffffffffffffffffffffffffffffff16908501526101808084015181860183905261404883870182613eda565b925050506101a0808401516140748287018273ffffffffffffffffffffffffffffffffffffffff169052565b5090949350505050565b855163ffffffff16815260006101c060208801516140ac60208501826bffffffffffffffffffffffff169052565b506040880151604084015260608801516140d660608501826bffffffffffffffffffffffff169052565b506080880151608084015260a08801516140f860a085018263ffffffff169052565b5060c088015161411060c085018263ffffffff169052565b5060e088015160e0840152610100808901516141338286018263ffffffff169052565b505061012088810151151590840152610140830181905261415681840188613f2b565b905082810361016084015261416b8187613eda565b90508281036101808401526141808186613eda565b915050611a0c6101a083018460ff169052565b73ffffffffffffffffffffffffffffffffffffffff8116811461304d57600080fd5b600080604083850312156141c857600080fd5b82356141d381614193565b91506020830135600481106141e757600080fd5b809150509250929050565b60005b8381101561420d5781810151838201526020016141f5565b50506000910152565b6000815180845261422e8160208601602086016141f2565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b6020815260006130666020830184614216565b6000806040838503121561428657600080fd5b8235915060208301356141e781614193565b600080602083850312156142ab57600080fd5b823567ffffffffffffffff808211156142c357600080fd5b818501915085601f8301126142d757600080fd5b8135818111156142e657600080fd5b8660208260051b85010111156142fb57600080fd5b60209290920196919550909350505050565b80356002811061431c57600080fd5b919050565b60008060006060848603121561433657600080fd5b833592506020840135915061434d6040850161430d565b90509250925092565b60006020828403121561436857600080fd5b813561306681614193565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b60208101600383106143b6576143b6614373565b91905290565b60208101600283106143b6576143b6614373565b63ffffffff8116811461304d57600080fd5b600080604083850312156143f557600080fd5b6143fe8361430d565b915060208301356141e7816143d0565b6000806040838503121561442157600080fd5b823561442c81614193565b915060208301356141e781614193565b6000806040838503121561444f57600080fd5b8235915060208301356141e7816143d0565b6020815261448860208201835173ffffffffffffffffffffffffffffffffffffffff169052565b600060208301516144b1604084018273ffffffffffffffffffffffffffffffffffffffff169052565b50604083015163ffffffff811660608401525060608301516101608060808501526144e0610180850183614216565b9150608085015161450160a08601826bffffffffffffffffffffffff169052565b5060a085015173ffffffffffffffffffffffffffffffffffffffff811660c08601525060c085015167ffffffffffffffff811660e08601525060e08501516101006145538187018363ffffffff169052565b8601519050610120614574868201836bffffffffffffffffffffffff169052565b86015190506101406145898682018315159052565b8601518584037fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe001838701529050611a0c8382614216565b60208101600483106143b6576143b6614373565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b818103818111156108a7576108a76145d5565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b808201808211156108a7576108a76145d5565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82036146b9576146b96145d5565b5060010190565b600181811c908216806146d457607f821691505b60208210810361470d577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b50919050565b601f82111561475d57600081815260208120601f850160051c8101602086101561473a5750805b601f850160051c820191505b8181101561475957828155600101614746565b5050505b505050565b67ffffffffffffffff83111561477a5761477a614617565b61478e8361478883546146c0565b83614713565b6000601f8411600181146147e057600085156147aa5750838201355b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600387901b1c1916600186901b178355614876565b6000838152602090207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0861690835b8281101561482f578685013582556020948501946001909201910161480f565b508682101561486a577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60f88860031b161c19848701351681555b505060018560011b0183555b5050505050565b60208152816020820152818360408301376000818301604090810191909152601f9092017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0160101919050565b600060c082840312156148dc57600080fd5b60405160c0810181811067ffffffffffffffff821117156148ff576148ff614617565b604052825161490d81614193565b8152602083015160ff8116811461492357600080fd5b8060208301525060408301516040820152606083015160608201526080830151608082015260a083015160a08201528091505092915050565b6000604082016040835280865480835260608501915087600052602092508260002060005b828110156149b357815473ffffffffffffffffffffffffffffffffffffffff1684529284019260019182019101614981565b505050838103828501528481528590820160005b86811015614a025782356149da81614193565b73ffffffffffffffffffffffffffffffffffffffff16825291830191908301906001016149c7565b50979650505050505050565b6bffffffffffffffffffffffff828116828216039080821115613dd857613dd86145d5565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b60006bffffffffffffffffffffffff80841680614a8157614a81614a33565b92169190910492915050565b6bffffffffffffffffffffffff818116838216019080821115613dd857613dd86145d5565b600060208284031215614ac457600080fd5b8151801515811461306657600080fd5b600060208284031215614ae657600080fd5b5051919050565b600060208284031215614aff57600080fd5b6040516020810181811067ffffffffffffffff82111715614b2257614b22614617565b6040528251614b30816143d0565b81529392505050565b805169ffffffffffffffffffff8116811461431c57600080fd5b600080600080600060a08688031215614b6b57600080fd5b614b7486614b39565b9450602086015193506040860151925060608601519150614b9760808701614b39565b90509295509295909350565b60006bffffffffffffffffffffffff80831681851681830481118215151615614bce57614bce6145d5565b02949350505050565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615614c0f57614c0f6145d5565b500290565b60ff81811683821601908111156108a7576108a76145d5565b828482376000838201600081528351614c4a8183602088016141f2565b0195945050505050565b600063ffffffff80831681851681830481118215151615614bce57614bce6145d5565b600082614c8657614c86614a33565b500490565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fdfe307866666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666a164736f6c6343000810000a",
 }
 
 var KeeperRegistryLogicBABI = KeeperRegistryLogicBMetaData.ABI
@@ -272,26 +272,26 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetActiveUpkeepI
 	return _KeeperRegistryLogicB.Contract.GetActiveUpkeepIDsByType(&_KeeperRegistryLogicB.CallOpts, startIndex, endIndex, trigger)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetCronTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) (KeeperRegistryBase21CronTriggerConfig, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetBlockTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) (KeeperRegistryBase21BlockTriggerConfig, error) {
 	var out []interface{}
-	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getCronTriggerConfig", upkeepId)
+	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getBlockTriggerConfig", upkeepId)
 
 	if err != nil {
-		return *new(KeeperRegistryBase21CronTriggerConfig), err
+		return *new(KeeperRegistryBase21BlockTriggerConfig), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(KeeperRegistryBase21CronTriggerConfig)).(*KeeperRegistryBase21CronTriggerConfig)
+	out0 := *abi.ConvertType(out[0], new(KeeperRegistryBase21BlockTriggerConfig)).(*KeeperRegistryBase21BlockTriggerConfig)
 
 	return out0, err
 
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetCronTriggerConfig(upkeepId *big.Int) (KeeperRegistryBase21CronTriggerConfig, error) {
-	return _KeeperRegistryLogicB.Contract.GetCronTriggerConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetBlockTriggerConfig(upkeepId *big.Int) (KeeperRegistryBase21BlockTriggerConfig, error) {
+	return _KeeperRegistryLogicB.Contract.GetBlockTriggerConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetCronTriggerConfig(upkeepId *big.Int) (KeeperRegistryBase21CronTriggerConfig, error) {
-	return _KeeperRegistryLogicB.Contract.GetCronTriggerConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetBlockTriggerConfig(upkeepId *big.Int) (KeeperRegistryBase21BlockTriggerConfig, error) {
+	return _KeeperRegistryLogicB.Contract.GetBlockTriggerConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error) {
@@ -382,9 +382,9 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetLogTriggerCon
 	return _KeeperRegistryLogicB.Contract.GetLogTriggerConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetMaxPaymentForGas(opts *bind.CallOpts, gasLimit uint32) (*big.Int, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error) {
 	var out []interface{}
-	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getMaxPaymentForGas", gasLimit)
+	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getMaxPaymentForGas", triggerType, gasLimit)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -396,12 +396,12 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetMaxPaymentForGas(opt
 
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetMaxPaymentForGas(gasLimit uint32) (*big.Int, error) {
-	return _KeeperRegistryLogicB.Contract.GetMaxPaymentForGas(&_KeeperRegistryLogicB.CallOpts, gasLimit)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
+	return _KeeperRegistryLogicB.Contract.GetMaxPaymentForGas(&_KeeperRegistryLogicB.CallOpts, triggerType, gasLimit)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetMaxPaymentForGas(gasLimit uint32) (*big.Int, error) {
-	return _KeeperRegistryLogicB.Contract.GetMaxPaymentForGas(&_KeeperRegistryLogicB.CallOpts, gasLimit)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
+	return _KeeperRegistryLogicB.Contract.GetMaxPaymentForGas(&_KeeperRegistryLogicB.CallOpts, triggerType, gasLimit)
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
@@ -511,8 +511,8 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetState(opts *bind.Cal
 		return *outstruct, err
 	}
 
-	outstruct.State = *abi.ConvertType(out[0], new(State)).(*State)
-	outstruct.Config = *abi.ConvertType(out[1], new(OnchainConfig)).(*OnchainConfig)
+	outstruct.State = *abi.ConvertType(out[0], new(KeeperRegistryBase21State)).(*KeeperRegistryBase21State)
+	outstruct.Config = *abi.ConvertType(out[1], new(KeeperRegistryBase21OnchainConfig)).(*KeeperRegistryBase21OnchainConfig)
 	outstruct.Signers = *abi.ConvertType(out[2], new([]common.Address)).(*[]common.Address)
 	outstruct.Transmitters = *abi.ConvertType(out[3], new([]common.Address)).(*[]common.Address)
 	outstruct.F = *abi.ConvertType(out[4], new(uint8)).(*uint8)
@@ -588,31 +588,31 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetTriggerType(u
 	return _KeeperRegistryLogicB.Contract.GetTriggerType(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (KeeperRegistryBase21UpkeepInfo, error) {
 	var out []interface{}
 	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getUpkeep", id)
 
 	if err != nil {
-		return *new(UpkeepInfo), err
+		return *new(KeeperRegistryBase21UpkeepInfo), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(UpkeepInfo)).(*UpkeepInfo)
+	out0 := *abi.ConvertType(out[0], new(KeeperRegistryBase21UpkeepInfo)).(*KeeperRegistryBase21UpkeepInfo)
 
 	return out0, err
 
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetUpkeep(id *big.Int) (UpkeepInfo, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetUpkeep(id *big.Int) (KeeperRegistryBase21UpkeepInfo, error) {
 	return _KeeperRegistryLogicB.Contract.GetUpkeep(&_KeeperRegistryLogicB.CallOpts, id)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetUpkeep(id *big.Int) (UpkeepInfo, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetUpkeep(id *big.Int) (KeeperRegistryBase21UpkeepInfo, error) {
 	return _KeeperRegistryLogicB.Contract.GetUpkeep(&_KeeperRegistryLogicB.CallOpts, id)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 	var out []interface{}
-	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getUpkeepAdminOffchainConfig", upkeepId)
+	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getUpkeepPrivilegeConfig", upkeepId)
 
 	if err != nil {
 		return *new([]byte), err
@@ -624,34 +624,12 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeepAdminOffchainC
 
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetUpkeepAdminOffchainConfig(upkeepId *big.Int) ([]byte, error) {
-	return _KeeperRegistryLogicB.Contract.GetUpkeepAdminOffchainConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return _KeeperRegistryLogicB.Contract.GetUpkeepPrivilegeConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetUpkeepAdminOffchainConfig(upkeepId *big.Int) ([]byte, error) {
-	return _KeeperRegistryLogicB.Contract.GetUpkeepAdminOffchainConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeepManager(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _KeeperRegistryLogicB.contract.Call(opts, &out, "getUpkeepManager")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) GetUpkeepManager() (common.Address, error) {
-	return _KeeperRegistryLogicB.Contract.GetUpkeepManager(&_KeeperRegistryLogicB.CallOpts)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetUpkeepManager() (common.Address, error) {
-	return _KeeperRegistryLogicB.Contract.GetUpkeepManager(&_KeeperRegistryLogicB.CallOpts)
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBCallerSession) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return _KeeperRegistryLogicB.Contract.GetUpkeepPrivilegeConfig(&_KeeperRegistryLogicB.CallOpts, upkeepId)
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBCaller) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -794,18 +772,6 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetPeerRegis
 	return _KeeperRegistryLogicB.Contract.SetPeerRegistryMigrationPermission(&_KeeperRegistryLogicB.TransactOpts, peer, permission)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepAdminOffchainConfig(opts *bind.TransactOpts, upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepAdminOffchainConfig", upkeepId, newAdminOffchainConfig)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) SetUpkeepAdminOffchainConfig(upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.SetUpkeepAdminOffchainConfig(&_KeeperRegistryLogicB.TransactOpts, upkeepId, newAdminOffchainConfig)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepAdminOffchainConfig(upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.SetUpkeepAdminOffchainConfig(&_KeeperRegistryLogicB.TransactOpts, upkeepId, newAdminOffchainConfig)
-}
-
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error) {
 	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepGasLimit", id, gasLimit)
 }
@@ -818,18 +784,6 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepGas
 	return _KeeperRegistryLogicB.Contract.SetUpkeepGasLimit(&_KeeperRegistryLogicB.TransactOpts, id, gasLimit)
 }
 
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepManager(opts *bind.TransactOpts, newUpkeepManager common.Address) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepManager", newUpkeepManager)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) SetUpkeepManager(newUpkeepManager common.Address) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.SetUpkeepManager(&_KeeperRegistryLogicB.TransactOpts, newUpkeepManager)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepManager(newUpkeepManager common.Address) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.SetUpkeepManager(&_KeeperRegistryLogicB.TransactOpts, newUpkeepManager)
-}
-
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
 	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepOffchainConfig", id, config)
 }
@@ -840,6 +794,30 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) SetUpkeepOffchainConfi
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepOffchainConfig(id *big.Int, config []byte) (*types.Transaction, error) {
 	return _KeeperRegistryLogicB.Contract.SetUpkeepOffchainConfig(&_KeeperRegistryLogicB.TransactOpts, id, config)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepPipelineData(opts *bind.TransactOpts, id *big.Int, newPipelineData []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepPipelineData", id, newPipelineData)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) SetUpkeepPipelineData(id *big.Int, newPipelineData []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.Contract.SetUpkeepPipelineData(&_KeeperRegistryLogicB.TransactOpts, id, newPipelineData)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepPipelineData(id *big.Int, newPipelineData []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.Contract.SetUpkeepPipelineData(&_KeeperRegistryLogicB.TransactOpts, id, newPipelineData)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) SetUpkeepPrivilegeConfig(opts *bind.TransactOpts, upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.contract.Transact(opts, "setUpkeepPrivilegeConfig", upkeepId, newPrivilegeConfig)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.Contract.SetUpkeepPrivilegeConfig(&_KeeperRegistryLogicB.TransactOpts, upkeepId, newPrivilegeConfig)
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _KeeperRegistryLogicB.Contract.SetUpkeepPrivilegeConfig(&_KeeperRegistryLogicB.TransactOpts, upkeepId, newPrivilegeConfig)
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -900,18 +878,6 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) UnpauseUpkeep(id *big.
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) UnpauseUpkeep(id *big.Int) (*types.Transaction, error) {
 	return _KeeperRegistryLogicB.Contract.UnpauseUpkeep(&_KeeperRegistryLogicB.TransactOpts, id)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) UpdateCheckData(opts *bind.TransactOpts, id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.contract.Transact(opts, "updateCheckData", id, newCheckData)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBSession) UpdateCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.UpdateCheckData(&_KeeperRegistryLogicB.TransactOpts, id, newCheckData)
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactorSession) UpdateCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _KeeperRegistryLogicB.Contract.UpdateCheckData(&_KeeperRegistryLogicB.TransactOpts, id, newCheckData)
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBTransactor) WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error) {
@@ -1011,8 +977,9 @@ func (it *KeeperRegistryLogicBCancelledUpkeepReportIterator) Close() error {
 }
 
 type KeeperRegistryLogicBCancelledUpkeepReport struct {
-	Id  *big.Int
-	Raw types.Log
+	Id      *big.Int
+	Trigger []byte
+	Raw     types.Log
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterCancelledUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBCancelledUpkeepReportIterator, error) {
@@ -1404,8 +1371,9 @@ func (it *KeeperRegistryLogicBInsufficientFundsUpkeepReportIterator) Close() err
 }
 
 type KeeperRegistryLogicBInsufficientFundsUpkeepReport struct {
-	Id  *big.Int
-	Raw types.Log
+	Id      *big.Int
+	Trigger []byte
+	Raw     types.Log
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterInsufficientFundsUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBInsufficientFundsUpkeepReportIterator, error) {
@@ -2591,8 +2559,9 @@ func (it *KeeperRegistryLogicBReorgedUpkeepReportIterator) Close() error {
 }
 
 type KeeperRegistryLogicBReorgedUpkeepReport struct {
-	Id  *big.Int
-	Raw types.Log
+	Id      *big.Int
+	Trigger []byte
+	Raw     types.Log
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterReorgedUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBReorgedUpkeepReportIterator, error) {
@@ -2718,8 +2687,9 @@ func (it *KeeperRegistryLogicBStaleUpkeepReportIterator) Close() error {
 }
 
 type KeeperRegistryLogicBStaleUpkeepReport struct {
-	Id  *big.Int
-	Raw types.Log
+	Id      *big.Int
+	Trigger []byte
+	Raw     types.Log
 }
 
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterStaleUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBStaleUpkeepReportIterator, error) {
@@ -2895,134 +2865,6 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUnpaused(opts *b
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUnpaused(log types.Log) (*KeeperRegistryLogicBUnpaused, error) {
 	event := new(KeeperRegistryLogicBUnpaused)
 	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "Unpaused", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator struct {
-	Event *KeeperRegistryLogicBUpkeepAdminOffchainConfigSet
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(KeeperRegistryLogicBUpkeepAdminOffchainConfigSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(KeeperRegistryLogicBUpkeepAdminOffchainConfigSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator) Error() error {
-	return it.fail
-}
-
-func (it *KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type KeeperRegistryLogicBUpkeepAdminOffchainConfigSet struct {
-	Id                  *big.Int
-	AdminOffchainConfig []byte
-	Raw                 types.Log
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _KeeperRegistryLogicB.contract.FilterLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return &KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator{contract: _KeeperRegistryLogicB.contract, event: "UpkeepAdminOffchainConfigSet", logs: logs, sub: sub}, nil
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _KeeperRegistryLogicB.contract.WatchLogs(opts, "UpkeepAdminOffchainConfigSet", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(KeeperRegistryLogicBUpkeepAdminOffchainConfigSet)
-				if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepAdminOffchainConfigSet(log types.Log) (*KeeperRegistryLogicBUpkeepAdminOffchainConfigSet, error) {
-	event := new(KeeperRegistryLogicBUpkeepAdminOffchainConfigSet)
-	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepAdminOffchainConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -3449,134 +3291,6 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUpkeepCanceled(o
 func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepCanceled(log types.Log) (*KeeperRegistryLogicBUpkeepCanceled, error) {
 	event := new(KeeperRegistryLogicBUpkeepCanceled)
 	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepCanceled", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator struct {
-	Event *KeeperRegistryLogicBUpkeepCheckDataUpdated
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(KeeperRegistryLogicBUpkeepCheckDataUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(KeeperRegistryLogicBUpkeepCheckDataUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator) Error() error {
-	return it.fail
-}
-
-func (it *KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type KeeperRegistryLogicBUpkeepCheckDataUpdated struct {
-	Id           *big.Int
-	NewCheckData []byte
-	Raw          types.Log
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterUpkeepCheckDataUpdated(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _KeeperRegistryLogicB.contract.FilterLogs(opts, "UpkeepCheckDataUpdated", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return &KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator{contract: _KeeperRegistryLogicB.contract, event: "UpkeepCheckDataUpdated", logs: logs, sub: sub}, nil
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUpkeepCheckDataUpdated(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepCheckDataUpdated, id []*big.Int) (event.Subscription, error) {
-
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
-	}
-
-	logs, sub, err := _KeeperRegistryLogicB.contract.WatchLogs(opts, "UpkeepCheckDataUpdated", idRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(KeeperRegistryLogicBUpkeepCheckDataUpdated)
-				if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepCheckDataUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepCheckDataUpdated(log types.Log) (*KeeperRegistryLogicBUpkeepCheckDataUpdated, error) {
-	event := new(KeeperRegistryLogicBUpkeepCheckDataUpdated)
-	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepCheckDataUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4235,6 +3949,262 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepPerformed(
 	return event, nil
 }
 
+type KeeperRegistryLogicBUpkeepPipelineDataSetIterator struct {
+	Event *KeeperRegistryLogicBUpkeepPipelineDataSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *KeeperRegistryLogicBUpkeepPipelineDataSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(KeeperRegistryLogicBUpkeepPipelineDataSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(KeeperRegistryLogicBUpkeepPipelineDataSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *KeeperRegistryLogicBUpkeepPipelineDataSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *KeeperRegistryLogicBUpkeepPipelineDataSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type KeeperRegistryLogicBUpkeepPipelineDataSet struct {
+	Id              *big.Int
+	NewPipelineData []byte
+	Raw             types.Log
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterUpkeepPipelineDataSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepPipelineDataSetIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicB.contract.FilterLogs(opts, "UpkeepPipelineDataSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &KeeperRegistryLogicBUpkeepPipelineDataSetIterator{contract: _KeeperRegistryLogicB.contract, event: "UpkeepPipelineDataSet", logs: logs, sub: sub}, nil
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUpkeepPipelineDataSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepPipelineDataSet, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicB.contract.WatchLogs(opts, "UpkeepPipelineDataSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(KeeperRegistryLogicBUpkeepPipelineDataSet)
+				if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepPipelineDataSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepPipelineDataSet(log types.Log) (*KeeperRegistryLogicBUpkeepPipelineDataSet, error) {
+	event := new(KeeperRegistryLogicBUpkeepPipelineDataSet)
+	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepPipelineDataSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator struct {
+	Event *KeeperRegistryLogicBUpkeepPrivilegeConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(KeeperRegistryLogicBUpkeepPrivilegeConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(KeeperRegistryLogicBUpkeepPrivilegeConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type KeeperRegistryLogicBUpkeepPrivilegeConfigSet struct {
+	Id              *big.Int
+	PrivilegeConfig []byte
+	Raw             types.Log
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicB.contract.FilterLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator{contract: _KeeperRegistryLogicB.contract, event: "UpkeepPrivilegeConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _KeeperRegistryLogicB.contract.WatchLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(KeeperRegistryLogicBUpkeepPrivilegeConfigSet)
+				if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_KeeperRegistryLogicB *KeeperRegistryLogicBFilterer) ParseUpkeepPrivilegeConfigSet(log types.Log) (*KeeperRegistryLogicBUpkeepPrivilegeConfigSet, error) {
+	event := new(KeeperRegistryLogicBUpkeepPrivilegeConfigSet)
+	if err := _KeeperRegistryLogicB.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type KeeperRegistryLogicBUpkeepReceivedIterator struct {
 	Event *KeeperRegistryLogicBUpkeepReceived
 
@@ -4753,8 +4723,8 @@ type GetSignerInfo struct {
 	Index  uint8
 }
 type GetState struct {
-	State        State
-	Config       OnchainConfig
+	State        KeeperRegistryBase21State
+	Config       KeeperRegistryBase21OnchainConfig
 	Signers      []common.Address
 	Transmitters []common.Address
 	F            uint8
@@ -4799,16 +4769,12 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicB) ParseLog(log types.Log) (gene
 		return _KeeperRegistryLogicB.ParseStaleUpkeepReport(log)
 	case _KeeperRegistryLogicB.abi.Events["Unpaused"].ID:
 		return _KeeperRegistryLogicB.ParseUnpaused(log)
-	case _KeeperRegistryLogicB.abi.Events["UpkeepAdminOffchainConfigSet"].ID:
-		return _KeeperRegistryLogicB.ParseUpkeepAdminOffchainConfigSet(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepAdminTransferRequested"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepAdminTransferRequested(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepAdminTransferred"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepAdminTransferred(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepCanceled"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepCanceled(log)
-	case _KeeperRegistryLogicB.abi.Events["UpkeepCheckDataUpdated"].ID:
-		return _KeeperRegistryLogicB.ParseUpkeepCheckDataUpdated(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepGasLimitSet"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepGasLimitSet(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepMigrated"].ID:
@@ -4819,6 +4785,10 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicB) ParseLog(log types.Log) (gene
 		return _KeeperRegistryLogicB.ParseUpkeepPaused(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepPerformed"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepPerformed(log)
+	case _KeeperRegistryLogicB.abi.Events["UpkeepPipelineDataSet"].ID:
+		return _KeeperRegistryLogicB.ParseUpkeepPipelineDataSet(log)
+	case _KeeperRegistryLogicB.abi.Events["UpkeepPrivilegeConfigSet"].ID:
+		return _KeeperRegistryLogicB.ParseUpkeepPrivilegeConfigSet(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepReceived"].ID:
 		return _KeeperRegistryLogicB.ParseUpkeepReceived(log)
 	case _KeeperRegistryLogicB.abi.Events["UpkeepRegistered"].ID:
@@ -4834,7 +4804,7 @@ func (_KeeperRegistryLogicB *KeeperRegistryLogicB) ParseLog(log types.Log) (gene
 }
 
 func (KeeperRegistryLogicBCancelledUpkeepReport) Topic() common.Hash {
-	return common.HexToHash("0xd84831b6a3a7fbd333f42fe7f9104a139da6cca4cc1507aef4ddad79b31d017f")
+	return common.HexToHash("0xc3237c8807c467c1b39b8d0395eff077313e691bf0a7388106792564ebfd5636")
 }
 
 func (KeeperRegistryLogicBFundsAdded) Topic() common.Hash {
@@ -4846,7 +4816,7 @@ func (KeeperRegistryLogicBFundsWithdrawn) Topic() common.Hash {
 }
 
 func (KeeperRegistryLogicBInsufficientFundsUpkeepReport) Topic() common.Hash {
-	return common.HexToHash("0x7895fdfe292beab0842d5beccd078e85296b9e17a30eaee4c261a2696b84eb96")
+	return common.HexToHash("0x377c8b0c126ae5248d27aca1c76fac4608aff85673ee3caf09747e1044549e02")
 }
 
 func (KeeperRegistryLogicBOwnerFundsWithdrawn) Topic() common.Hash {
@@ -4882,19 +4852,15 @@ func (KeeperRegistryLogicBPaymentWithdrawn) Topic() common.Hash {
 }
 
 func (KeeperRegistryLogicBReorgedUpkeepReport) Topic() common.Hash {
-	return common.HexToHash("0x561ff77e59394941a01a456497a9418dea82e2a39abb3ecebfb1cef7e0bfdc13")
+	return common.HexToHash("0x6aa7f60c176da7af894b384daea2249497448137f5943c1237ada8bc92bdc301")
 }
 
 func (KeeperRegistryLogicBStaleUpkeepReport) Topic() common.Hash {
-	return common.HexToHash("0x5aa44821f7938098502bff537fbbdc9aaaa2fa655c10740646fce27e54987a89")
+	return common.HexToHash("0x405288ea7be309e16cfdf481367f90a413e1d4634fcdaf8966546db9b93012e8")
 }
 
 func (KeeperRegistryLogicBUnpaused) Topic() common.Hash {
 	return common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa")
-}
-
-func (KeeperRegistryLogicBUpkeepAdminOffchainConfigSet) Topic() common.Hash {
-	return common.HexToHash("0x09a658476c5597979b9948f488ec2958cfead97bc8f46b19ca0b21cdab93cdee")
 }
 
 func (KeeperRegistryLogicBUpkeepAdminTransferRequested) Topic() common.Hash {
@@ -4907,10 +4873,6 @@ func (KeeperRegistryLogicBUpkeepAdminTransferred) Topic() common.Hash {
 
 func (KeeperRegistryLogicBUpkeepCanceled) Topic() common.Hash {
 	return common.HexToHash("0x91cb3bb75cfbd718bbfccc56b7f53d92d7048ef4ca39a3b7b7c6d4af1f791181")
-}
-
-func (KeeperRegistryLogicBUpkeepCheckDataUpdated) Topic() common.Hash {
-	return common.HexToHash("0x7b778136e5211932b51a145badd01959415e79e051a933604b3d323f862dcabf")
 }
 
 func (KeeperRegistryLogicBUpkeepGasLimitSet) Topic() common.Hash {
@@ -4931,6 +4893,14 @@ func (KeeperRegistryLogicBUpkeepPaused) Topic() common.Hash {
 
 func (KeeperRegistryLogicBUpkeepPerformed) Topic() common.Hash {
 	return common.HexToHash("0xad8cc9579b21dfe2c2f6ea35ba15b656e46b4f5b0cb424f52739b8ce5cac9c5b")
+}
+
+func (KeeperRegistryLogicBUpkeepPipelineDataSet) Topic() common.Hash {
+	return common.HexToHash("0x787b2e556c364148324d7dc0cee4322a048aaf798bda184136c8636c72ed3056")
+}
+
+func (KeeperRegistryLogicBUpkeepPrivilegeConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x2fd8d70753a007014349d4591843cc031c2dd7a260d7dd82eca8253686ae7769")
 }
 
 func (KeeperRegistryLogicBUpkeepReceived) Topic() common.Hash {
@@ -4958,7 +4928,7 @@ type KeeperRegistryLogicBInterface interface {
 
 	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)
 
-	GetCronTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) (KeeperRegistryBase21CronTriggerConfig, error)
+	GetBlockTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) (KeeperRegistryBase21BlockTriggerConfig, error)
 
 	GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error)
 
@@ -4968,7 +4938,7 @@ type KeeperRegistryLogicBInterface interface {
 
 	GetLogTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) (KeeperRegistryBase21LogTriggerConfig, error)
 
-	GetMaxPaymentForGas(opts *bind.CallOpts, gasLimit uint32) (*big.Int, error)
+	GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error)
 
 	GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
 
@@ -4990,11 +4960,9 @@ type KeeperRegistryLogicBInterface interface {
 
 	GetTriggerType(opts *bind.CallOpts, upkeepId *big.Int) (uint8, error)
 
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (KeeperRegistryBase21UpkeepInfo, error)
 
-	GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
-
-	GetUpkeepManager(opts *bind.CallOpts) (common.Address, error)
+	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 
@@ -5016,13 +4984,13 @@ type KeeperRegistryLogicBInterface interface {
 
 	SetPeerRegistryMigrationPermission(opts *bind.TransactOpts, peer common.Address, permission uint8) (*types.Transaction, error)
 
-	SetUpkeepAdminOffchainConfig(opts *bind.TransactOpts, upkeepId *big.Int, newAdminOffchainConfig []byte) (*types.Transaction, error)
-
 	SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error)
 
-	SetUpkeepManager(opts *bind.TransactOpts, newUpkeepManager common.Address) (*types.Transaction, error)
-
 	SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error)
+
+	SetUpkeepPipelineData(opts *bind.TransactOpts, id *big.Int, newPipelineData []byte) (*types.Transaction, error)
+
+	SetUpkeepPrivilegeConfig(opts *bind.TransactOpts, upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
@@ -5033,8 +5001,6 @@ type KeeperRegistryLogicBInterface interface {
 	Unpause(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	UnpauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
-
-	UpdateCheckData(opts *bind.TransactOpts, id *big.Int, newCheckData []byte) (*types.Transaction, error)
 
 	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
 
@@ -5132,12 +5098,6 @@ type KeeperRegistryLogicBInterface interface {
 
 	ParseUnpaused(log types.Log) (*KeeperRegistryLogicBUnpaused, error)
 
-	FilterUpkeepAdminOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepAdminOffchainConfigSetIterator, error)
-
-	WatchUpkeepAdminOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepAdminOffchainConfigSet, id []*big.Int) (event.Subscription, error)
-
-	ParseUpkeepAdminOffchainConfigSet(log types.Log) (*KeeperRegistryLogicBUpkeepAdminOffchainConfigSet, error)
-
 	FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*KeeperRegistryLogicBUpkeepAdminTransferRequestedIterator, error)
 
 	WatchUpkeepAdminTransferRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepAdminTransferRequested, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error)
@@ -5155,12 +5115,6 @@ type KeeperRegistryLogicBInterface interface {
 	WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error)
 
 	ParseUpkeepCanceled(log types.Log) (*KeeperRegistryLogicBUpkeepCanceled, error)
-
-	FilterUpkeepCheckDataUpdated(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepCheckDataUpdatedIterator, error)
-
-	WatchUpkeepCheckDataUpdated(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepCheckDataUpdated, id []*big.Int) (event.Subscription, error)
-
-	ParseUpkeepCheckDataUpdated(log types.Log) (*KeeperRegistryLogicBUpkeepCheckDataUpdated, error)
 
 	FilterUpkeepGasLimitSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepGasLimitSetIterator, error)
 
@@ -5191,6 +5145,18 @@ type KeeperRegistryLogicBInterface interface {
 	WatchUpkeepPerformed(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepPerformed, id []*big.Int, success []bool) (event.Subscription, error)
 
 	ParseUpkeepPerformed(log types.Log) (*KeeperRegistryLogicBUpkeepPerformed, error)
+
+	FilterUpkeepPipelineDataSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepPipelineDataSetIterator, error)
+
+	WatchUpkeepPipelineDataSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepPipelineDataSet, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepPipelineDataSet(log types.Log) (*KeeperRegistryLogicBUpkeepPipelineDataSet, error)
+
+	FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepPrivilegeConfigSetIterator, error)
+
+	WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistryLogicBUpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepPrivilegeConfigSet(log types.Log) (*KeeperRegistryLogicBUpkeepPrivilegeConfigSet, error)
 
 	FilterUpkeepReceived(opts *bind.FilterOpts, id []*big.Int) (*KeeperRegistryLogicBUpkeepReceivedIterator, error)
 

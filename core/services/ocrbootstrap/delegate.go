@@ -8,6 +8,7 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/sqlx"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -24,7 +25,7 @@ type Delegate struct {
 	db                *sqlx.DB
 	jobORM            job.ORM
 	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	cfg               validate.Config
+	ocr2Cfg           validate.OCR2Config
 	insecureCfg       validate.InsecureConfig
 	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]loop.Relayer
@@ -37,7 +38,7 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg validate.Config,
+	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
 	relayers map[relay.Network]loop.Relayer,
 ) *Delegate {
@@ -46,7 +47,7 @@ func NewDelegateBootstrap(
 		jobORM:      jobORM,
 		peerWrapper: peerWrapper,
 		lggr:        logger.Sugared(lggr),
-		cfg:         cfg,
+		ocr2Cfg:     ocr2Cfg,
 		insecureCfg: insecureCfg,
 		relayers:    relayers,
 	}
@@ -98,7 +99,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.cfg, d.insecureCfg, spec.AsOCR2Spec())
+	lc := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 		ContractConfigTracker: configProvider.ContractConfigTracker(),
 		Database:              NewDB(d.db.DB, spec.ID, lggr),
 		LocalConfig:           lc,
-		Logger: logger.NewOCRWrapper(lggr.Named("OCRBootstrap"), true, func(msg string) {
+		Logger: relaylogger.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(msg string) {
 			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),

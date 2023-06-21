@@ -300,6 +300,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
 		StartTimeout:            models.MustNewDuration(15 * time.Second),
+		ListenIP:                mustIP("192.158.1.37"),
 		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -316,6 +317,7 @@ func TestConfig_Marshal(t *testing.T) {
 			KeyPath:       ptr("tls/key/path"),
 			HTTPSPort:     ptr[uint16](6789),
 			ForceRedirect: ptr(true),
+			ListenIP:      mustIP("192.158.1.38"),
 		},
 	}
 	full.JobPipeline = config.JobPipeline{
@@ -346,6 +348,7 @@ func TestConfig_Marshal(t *testing.T) {
 		CaptureEATelemetry:                 ptr(false),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
+		TraceLogging:                       ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -707,6 +710,7 @@ SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -724,6 +728,7 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 `},
 		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
@@ -766,6 +771,7 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
+TraceLogging = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
@@ -1082,7 +1088,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
@@ -1091,7 +1097,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:

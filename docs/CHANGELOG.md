@@ -35,7 +35,17 @@ Order = 5
   jobs. These replace the settings `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions`
   for OCR2.
 
-- Add new config parameter to OCR named `TraceLogging` that enables trace logging of OCR jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` to the same value `P2P.TraceLogging` was set.
+- Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
+
+- Add two new config parameters `WebServer.ListenIP` and `WebServer.TLS.ListenIP` which allows binding Chainlink HTTP/HTTPS servers to a particular IP. The default is '0.0.0.0' which listens to all IP addresses (same behavior as before). Set to '127.0.0.1' to only allow connections from the local machine (this can be handy for local development).
+- Add several new metrics for mercury feeds, related to WSRPC connections:
+    - `mercury_transmit_timeout_count`
+    - `mercury_dial_count`
+    - `mercury_dial_success_count`
+    - `mercury_dial_error_count`
+    - `mercury_connection_reset_count`
+
+Node operators may wish to add alerting based around these metrics.
 
 ### Fixed
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
@@ -51,9 +61,9 @@ Order = 5
 - Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
 - Optimism Kovan configurations along with legacy error messages.
 
-...
+<!-- unreleasedstop -->
 
-# 2.2.0 - UNRELEASED
+# 2.2.0 - 2023-06-12
 
 ### Added
 
@@ -66,9 +76,9 @@ Order = 5
 
 ### Changed
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
-- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necesssary:
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
 	- `LogBackfillBatchSize = 1000`
-	- `RPCDefaultBatchSize: 250`
+	- `RPCDefaultBatchSize = 250`
 	- `GasEstimator.BatchSize = 25`
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 - Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.

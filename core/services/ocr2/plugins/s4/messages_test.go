@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
@@ -66,9 +67,9 @@ func Test_VerifySignature(t *testing.T) {
 	require.Error(t, err)
 
 	t.Run("address with leading zeros", func(t *testing.T) {
-		pk, _, addr := generateCryptoEntity(t)
+		pk, addr := testutils.NewPrivateKeyAndAddress(t)
 		for addr[0] != 0 {
-			pk, _, addr = generateCryptoEntity(t)
+			pk, addr = testutils.NewPrivateKeyAndAddress(t)
 		}
 		rows := generateTestRows(t, 1, time.Minute)
 		rows[0].Address = addr.Big().Bytes()

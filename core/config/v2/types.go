@@ -165,9 +165,6 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
-	if d.AllowSimplePasswords && build.IsProd() {
-		err = multierr.Append(err, ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
-	}
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !d.AllowSimplePasswords {
@@ -495,6 +492,7 @@ type WebServer struct {
 	SessionReaperExpiration *models.Duration
 	HTTPMaxSize             *utils.FileSize
 	StartTimeout            *models.Duration
+	ListenIP                *net.IP
 
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
@@ -513,6 +511,9 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.HTTPWriteTimeout; v != nil {
 		w.HTTPWriteTimeout = v
+	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
 	}
 	if v := f.HTTPPort; v != nil {
 		w.HTTPPort = v
@@ -580,6 +581,7 @@ type WebServerTLS struct {
 	Host          *string
 	HTTPSPort     *uint16
 	KeyPath       *string
+	ListenIP      *net.IP
 }
 
 func (w *WebServerTLS) setFrom(f *WebServerTLS) {
@@ -597,6 +599,9 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	}
 	if v := f.KeyPath; v != nil {
 		w.KeyPath = v
+	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
 	}
 }
 
@@ -674,6 +679,7 @@ type OCR2 struct {
 	CaptureEATelemetry                 *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
+	TraceLogging                       *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -709,6 +715,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.SimulateTransactions; v != nil {
 		o.SimulateTransactions = v
+	}
+	if v := f.TraceLogging; v != nil {
+		o.TraceLogging = v
 	}
 }
 

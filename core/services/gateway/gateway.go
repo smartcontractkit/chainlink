@@ -2,13 +2,13 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -21,6 +21,12 @@ type Gateway interface {
 	gw_net.HTTPRequestHandler
 }
 
+type HandlerType = string
+
+type HandlerFactory interface {
+	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
+}
+
 type gateway struct {
 	utils.StartStopOnce
 
@@ -31,10 +37,10 @@ type gateway struct {
 	lggr       logger.Logger
 }
 
-func NewGatewayFromConfig(config *config.GatewayConfig, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, common.NewRealClock(), lggr)
+	connMgr, err := NewConnectionManager(config, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +56,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, lggr logger.Logger) (Gat
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
 		}
-		handler, err := handlers.NewHandler(donConfig.HandlerName, &donConfig, donConnMgr)
+		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
 		}
