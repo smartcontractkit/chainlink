@@ -56,7 +56,17 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.FundChainlinkNodes(workerNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient)
+	// Gather transmitters
+	var transmitters []string
+	for _, node := range workerNodes {
+		addr, err := node.PrimaryEthAddress()
+		if err != nil {
+			require.NoError(t, fmt.Errorf("error getting node's primary ETH address: %w", err))
+		}
+		transmitters = append(transmitters, addr)
+	}
+
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, transmitters, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
 	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())

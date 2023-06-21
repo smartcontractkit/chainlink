@@ -32,7 +32,7 @@ func DeployOCRv2Contracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	chainlinkWorkerNodes []*client.Chainlink,
+	transmitters []string,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
@@ -57,68 +57,9 @@ func DeployOCRv2Contracts(
 		return nil, fmt.Errorf("error waiting for OCRv2 contract deployments: %w", err)
 	}
 
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, node := range chainlinkWorkerNodes {
-		addr, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, fmt.Errorf("error getting node's primary ETH address: %w", err)
-		}
-		transmitters = append(transmitters, addr)
-		payees = append(payees, client.GetDefaultWallet().Address())
-	}
-
-	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
-		if err != nil {
-			return nil, fmt.Errorf("error settings OCR payees: %w", err)
-		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
-			}
-		}
-	}
-	return ocrInstances, client.WaitForEvents()
-}
-
-// DeployOCRv2ContractsForwardersFlow deploys a number of OCRv2 contracts and configures them with defaults
-func DeployOCRv2ContractsForwardersFlow(
-	numberOfContracts int,
-	linkTokenContract contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	forwarderAddresses []common.Address,
-	client blockchain.EVMClient,
-) ([]contracts.OffchainAggregatorV2, error) {
-	var ocrInstances []contracts.OffchainAggregatorV2
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contractDeployer.DeployOffchainAggregatorV2(
-			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
-		}
-		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for OCRv2 contract deployments: %w", err)
-			}
-		}
-	}
-	err := client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCRv2 contract deployments: %w", err)
-	}
-
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, forwarderCommonAddress := range forwarderAddresses {
-		forwarderAddress := forwarderCommonAddress.Hex()
-		transmitters = append(transmitters, forwarderAddress)
+	// Gather address payees
+	var payees []string
+	for _ = range transmitters {
 		payees = append(payees, client.GetDefaultWallet().Address())
 	}
 

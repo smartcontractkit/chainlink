@@ -66,7 +66,14 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		require.NoError(t, err, "Error waiting for events")
 	}
 
-	ocrInstances, err := actions.DeployOCRv2ContractsForwardersFlow(1, linkTokenContract, contractDeployer, authorizedForwarders, chainClient)
+	// Gather transmitters
+	var transmitters []string
+	for _, forwarderCommonAddress := range authorizedForwarders {
+		transmitters = append(transmitters, forwarderCommonAddress.Hex())
+	}
+
+	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, contractDeployer, transmitters, chainClient)
+
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
