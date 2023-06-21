@@ -159,6 +159,22 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
+func TestFunctionsListener_HandleOracleRequestDuplicateMarkLogConsumed(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
+
+	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(functions_service.ErrDuplicateRequestID)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
 func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()

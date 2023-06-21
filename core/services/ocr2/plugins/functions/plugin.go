@@ -30,7 +30,7 @@ type FunctionsServicesConfig struct {
 	Job             job.Job
 	JobORM          job.ORM
 	BridgeORM       bridges.ORM
-	OCR2JobConfig   pg.QConfig
+	QConfig         pg.QConfig
 	DB              *sqlx.DB
 	Chain           evm.Chain
 	ContractID      string
@@ -47,7 +47,7 @@ const (
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
-	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
+	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.QConfig, common.HexToAddress(conf.ContractID))
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
