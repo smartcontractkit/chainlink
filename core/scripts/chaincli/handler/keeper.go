@@ -732,25 +732,33 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
 		}
 		log.Printf("registry version is %s", v)
+
+		gs, err := reg21.GetState(nil)
+		if err != nil {
+			log.Fatalf("failed to get state: %v", err)
+		}
+
+		log.Printf("registry config: %v", gs.Config)
+		log.Printf("registry state: %v", gs.State)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
 		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {
-			log.Fatalf("failed to marshal admin offchain config: %v", err)
+			log.Fatalf("failed to marshal upkeep privilege config: %v", err)
 		}
 
 		for _, id := range activeUpkeepIds {
-			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			tx, err := reg21.SetUpkeepPrivilegeConfig(k.buildTxOpts(ctx), id, adminBytes)
 			if err != nil {
-				log.Fatalf("failed to set admin offchain config: %v", err)
+				log.Fatalf("failed to upkeep privilege config: %v", err)
 			}
 			err = k.waitTx(ctx, tx)
 			if err != nil {
 				log.Fatalf("failed to wait for tx: %v", err)
 			} else {
-				log.Printf("admin offchain config is set for %s", id.String())
+				log.Printf("upkeep privilege config is set for %s", id.String())
 			}
 
 			info, err := reg21.GetUpkeep(nil, id)

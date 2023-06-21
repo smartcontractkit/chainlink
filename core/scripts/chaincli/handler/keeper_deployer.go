@@ -357,19 +357,20 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
 	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
-		PaymentPremiumPPB:    d.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:     d.cfg.PaymentPremiumPBB,
-		CheckGasLimit:        d.cfg.CheckGasLimit,
-		StalenessSeconds:     big.NewInt(d.cfg.StalenessSeconds),
-		GasCeilingMultiplier: d.cfg.GasCeilingMultiplier,
-		MinUpkeepSpend:       big.NewInt(d.cfg.MinUpkeepSpend),
-		MaxPerformGas:        d.cfg.MaxPerformGas,
-		MaxCheckDataSize:     d.cfg.MaxCheckDataSize,
-		MaxPerformDataSize:   d.cfg.MaxPerformDataSize,
-		FallbackGasPrice:     big.NewInt(d.cfg.FallbackGasPrice),
-		FallbackLinkPrice:    big.NewInt(d.cfg.FallbackLinkPrice),
-		Transcoder:           common.HexToAddress(d.cfg.Transcoder),
-		Registrars:           []common.Address{common.HexToAddress(d.cfg.Registrar)},
+		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:       d.cfg.PaymentPremiumPBB,
+		CheckGasLimit:          d.cfg.CheckGasLimit,
+		StalenessSeconds:       big.NewInt(d.cfg.StalenessSeconds),
+		GasCeilingMultiplier:   d.cfg.GasCeilingMultiplier,
+		MinUpkeepSpend:         big.NewInt(d.cfg.MinUpkeepSpend),
+		MaxPerformGas:          d.cfg.MaxPerformGas,
+		MaxCheckDataSize:       d.cfg.MaxCheckDataSize,
+		MaxPerformDataSize:     d.cfg.MaxPerformDataSize,
+		FallbackGasPrice:       big.NewInt(d.cfg.FallbackGasPrice),
+		FallbackLinkPrice:      big.NewInt(d.cfg.FallbackLinkPrice),
+		Transcoder:             common.HexToAddress(d.cfg.Transcoder),
+		Registrars:             []common.Address{common.HexToAddress(d.cfg.Registrar)},
+		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error packing onChainConfigType: %v", err)
