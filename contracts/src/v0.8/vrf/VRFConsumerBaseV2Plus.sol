@@ -106,6 +106,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
+   * @param _subOwner address of the subscription owner
    */
   constructor(address _vrfCoordinator, address _subOwner) {
     require(_vrfCoordinator != address(0), "zero address");
@@ -120,7 +121,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
    * @notice principles to keep in mind when implementing your fulfillRandomness
    * @notice method.
    *
-   * @dev VRFConsumerBaseV2 expects its subcontracts to have a method with this
+   * @dev VRFConsumerBaseV2Plus expects its subcontracts to have a method with this
    * @dev signature, and will call it once it has verified the proof
    * @dev associated with the randomness. (It is triggered via a call to
    * @dev rawFulfillRandomness, below.)
@@ -140,6 +141,9 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
     fulfillRandomWords(requestId, randomWords);
   }
 
+  /**
+    * @inheritdoc IVRFMigratableConsumerV2Plus
+  */
   function setVRFCoordinator(address _vrfCoordinator) external override {
     if (msg.sender != subOwner) {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);

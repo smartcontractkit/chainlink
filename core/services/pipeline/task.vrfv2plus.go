@@ -23,6 +23,9 @@ var (
 	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
 )
 
+// VRFTaskV2Plus is identical to VRFTaskV2 except that it uses the V2Plus VRF
+// request commitment, which includes a boolean indicating whether native or
+// link payment was used.
 type VRFTaskV2Plus struct {
 	BaseTask           `mapstructure:",squash"`
 	PublicKey          string `json:"publicKey"`
