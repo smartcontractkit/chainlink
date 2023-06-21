@@ -442,9 +442,8 @@ func CreateOCRv2JobsWithForwarder(
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
-			Name:              "ocr2 bootstrap node",
-			JobType:           "bootstrap",
-			ForwardingAllowed: true,
+			Name:    "ocr2 bootstrap node",
+			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
 				Relay:      "evm",
