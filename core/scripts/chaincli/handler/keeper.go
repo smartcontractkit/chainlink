@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
@@ -254,7 +255,7 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -318,7 +319,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context, verify bool) (common.Addr
 	registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -733,13 +734,25 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		}
 		log.Printf("registry version is %s", v)
 
+		mode, err := reg21.GetMode(nil)
+		if err != nil {
+			log.Fatalf("failed to get mode: %d", mode)
+		}
+		log.Printf("registry mode: %d", mode)
+
 		gs, err := reg21.GetState(nil)
 		if err != nil {
 			log.Fatalf("failed to get state: %v", err)
 		}
 
-		log.Printf("registry config: %v", gs.Config)
-		log.Printf("registry state: %v", gs.State)
+		log.Printf("registry config FallbackLinkPrice: %s", gs.Config.FallbackLinkPrice)
+		log.Printf("registry config FallbackGasPrice: %s", gs.Config.FallbackGasPrice)
+		log.Printf("registry config MaxPerformGas: %d", gs.Config.MaxPerformGas)
+		log.Printf("registry config CheckGasLimit: %d", gs.Config.CheckGasLimit)
+		log.Printf("registry config GasCeilingMultiplier: %d", gs.Config.GasCeilingMultiplier)
+		log.Printf("registry config MaxCheckDataSize: %d", gs.Config.MaxCheckDataSize)
+		log.Printf("registry config MaxPerformDataSize: %d", gs.Config.MaxPerformDataSize)
+
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
 		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
@@ -761,10 +774,28 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				log.Printf("upkeep privilege config is set for %s", id.String())
 			}
 
+			triggerType, err := reg21.GetTriggerType(nil, id)
+			if err != nil {
+				log.Fatalf("failed to get trigger type: %v", err)
+			}
+			log.Printf("trigger type is: %d", triggerType)
+
+			triggerConfig, err := reg21.GetLogTriggerConfig(nil, id)
+			if err != nil {
+				log.Fatalf("failed to get trigger config: %v", err)
+			}
+			log.Printf("trigger config Contract Address: %s", triggerConfig.ContractAddress.String())
+			log.Printf("trigger config Filter Selector: %d", triggerConfig.FilterSelector)
+			log.Printf("trigger config topic0: %s", hexutil.Encode(triggerConfig.Topic0[:]))
+			log.Printf("trigger config topic1: %s", hexutil.Encode(triggerConfig.Topic1[:]))
+			log.Printf("trigger config topic2: %s", hexutil.Encode(triggerConfig.Topic2[:]))
+			log.Printf("trigger config topic3: %s", hexutil.Encode(triggerConfig.Topic3[:]))
+
 			info, err := reg21.GetUpkeep(nil, id)
 			if err != nil {
 				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err)
 			}
+			log.Printf("Upkeep ExecuteGas: %d", info.ExecuteGas)
 			min, err := reg21.GetMinBalanceForUpkeep(nil, id)
 			log.Printf("    Balance: %s", info.Balance)
 			log.Printf("Min Balance: %s", min.String())

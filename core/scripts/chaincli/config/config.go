@@ -44,6 +44,7 @@ type Config struct {
 	OCR2Keepers       bool   `mapstructure:"KEEPER_OCR2"`
 
 	// Keeper config
+	Mode                   uint8  `mapstructure:"MODE"`
 	LinkETHFeedAddr        string `mapstructure:"LINK_ETH_FEED"`
 	FastGasFeedAddr        string `mapstructure:"FAST_GAS_FEED"`
 	PaymentPremiumPBB      uint32 `mapstructure:"PAYMENT_PREMIUM_PBB"`
