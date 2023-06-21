@@ -7,7 +7,6 @@ import "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 
-// TODO - we can probably combine these interfaces
 import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
@@ -215,7 +214,7 @@ contract KeeperRegistryLogicA2_1 is
 
   function registerUpkeep(
     address target,
-    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
+    uint32 gasLimit,
     address admin,
     Trigger triggerType,
     bytes calldata checkData,
@@ -256,7 +255,7 @@ contract KeeperRegistryLogicA2_1 is
    */
   function registerUpkeep(
     address target,
-    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
+    uint32 gasLimit,
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
