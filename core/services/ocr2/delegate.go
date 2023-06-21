@@ -292,6 +292,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+	log.Println(fmt.Sprintf("Creatine OCR2 services for job: %s with fwds:%v , time:%s", jb.OCR2OracleSpec.PluginType, jb.ForwardingAllowed, time.Now().String()))
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
