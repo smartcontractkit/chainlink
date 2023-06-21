@@ -393,9 +393,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       uint256 linkNative,
       uint256[] memory upkeepIds,
       uint256[] memory gasLimits,
-      bytes[] memory triggers,
+      TriggerData[] memory triggers,
       bytes[] memory performDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], uint256[], bytes[], bytes[]));
+    ) = abi.decode(rawReport, (uint256, uint256, uint256[], uint256[], TriggerData[], bytes[]));
     if (
       upkeepIds.length != gasLimits.length ||
       upkeepIds.length != triggers.length ||
@@ -420,27 +420,37 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   function _prePerformChecks(
     uint256 upkeepId,
     Trigger triggerType,
-    bytes memory rawTrigger,
+    TriggerData memory trigger,
     Upkeep memory upkeep,
     uint96 maxLinkPayment
   ) internal returns (bool) {
     if (triggerType == Trigger.CONDITION) {
-      if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
+      if (!_validateBlockTrigger(upkeepId, trigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
-      if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
+      if (!_validateLogTrigger(upkeepId, trigger)) return false;
     } else {
       revert InvalidTriggerType();
+    }
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= block.number
+    ) {
+      // Can happen when the block on which report was generated got reorged
+      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
+      // with the latest checkBlockNumber
+      emit ReorgedUpkeepReport(upkeepId, trigger);
+      return false;
     }
     if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId, rawTrigger);
+      emit CancelledUpkeepReport(upkeepId, trigger);
       return false;
     }
 
     if (upkeep.balance < maxLinkPayment) {
       // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
+      emit InsufficientFundsUpkeepReport(upkeepId, trigger);
       return false;
     }
 
@@ -452,34 +462,21 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    */
   function _validateBlockTrigger(
     uint256 upkeepId,
-    bytes memory rawTrigger,
+    TriggerData memory trigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
-    BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
     if (trigger.blockNum < upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
-      return false;
-    }
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
-      // Can happen when the block on which report was generated got reorged
-      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-      // with the latest checkBlockNumber
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
+      emit StaleUpkeepReport(upkeepId, trigger);
       return false;
     }
     return true;
   }
 
-  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
-    LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
-      return false;
-    }
+  function _validateLogTrigger(uint256 upkeepId, TriggerData memory trigger) internal returns (bool) {
     bytes32 logTriggerID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
     if (s_observedLogTriggers[logTriggerID]) {
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
+      emit StaleUpkeepReport(upkeepId, trigger);
       return false;
     }
     s_observedLogTriggers[logTriggerID] = true;

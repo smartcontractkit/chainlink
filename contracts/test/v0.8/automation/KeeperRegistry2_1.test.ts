@@ -25,6 +25,7 @@ import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from 
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
+import { KeeperRegistryUtils2_1__factory as Utils } from '../../../typechain/factories/KeeperRegistryUtils2_1__factory'
 import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -234,12 +235,18 @@ const encodeConfig = (config: OnchainConfig) => {
   )
 }
 
-const encodeBlockTrigger = (blockNum: number, blockHash: BytesLike) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    ['tuple(uint32, bytes32)'],
-    [[blockNum, blockHash]],
-  )
+const makeBlockTrigger = (
+  blockNum: number,
+  blockHash: BytesLike,
+): TriggerData => {
+  return {
+    txHash: emptyBytes32,
+    logIndex: 0,
+    blockNum,
+    blockHash,
+  }
 }
+
 const encodeLogTrigger = (
   txHash: BytesLike,
   logIndex: number,
@@ -252,19 +259,18 @@ const encodeLogTrigger = (
   )
 }
 
-const decodeBlockTrigger = (trigger: BytesLike) => {
-  const [blockNum, blockHash] = ethers.utils.defaultAbiCoder.decode(
-    ['tuple(uint32, bytes32)'],
-    trigger,
-  )[0] as [number, string]
-  return { blockNum, blockHash }
-}
-
 type UpkeepData = {
   Id: BigNumberish
   performGas: BigNumberish
   performData: BytesLike
-  trigger: BytesLike
+  trigger: TriggerData
+}
+
+type TriggerData = {
+  txHash: BytesLike
+  logIndex: number
+  blockNum: number
+  blockHash: BytesLike
 }
 
 // just a wrapper for defaultAbiCoder, but provided type safety for when report changes
@@ -273,12 +279,20 @@ const encodeReport = (
   linkEth: BigNumberish,
   upkeepIDs: BigNumberish[],
   performGases: BigNumberish[],
-  triggers: BytesLike[],
+  triggers: TriggerData[],
   performData: BytesLike[],
 ) => {
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256', 'uint256', 'uint256[]', 'uint256[]', 'bytes[]', 'bytes[]'],
+    [
+      'uint256',
+      'uint256',
+      'uint256[]',
+      'uint256[]',
+      'tuple(bytes32 txHash,uint32 logIndex,uint32 blockNum,bytes32 blockHash)[]',
+      'bytes[]',
+    ],
     [gasWei, linkEth, upkeepIDs, performGases, triggers, performData],
+    // [gasWei, linkEth, upkeepIDs, performGases, triggers.map(trigger => [trigger.txHash, trigger.logIndex, trigger.blockNum, trigger.blockHash]), performData],
   )
 }
 
@@ -304,7 +318,7 @@ const makeLatestBlockReport = async (upkeepsIDs: BigNumberish[]) => {
     upkeeps.push({
       Id: upkeepsIDs[i],
       performGas: executeGas,
-      trigger: encodeBlockTrigger(latestBlock.number, latestBlock.hash),
+      trigger: makeBlockTrigger(latestBlock.number, latestBlock.hash),
       performData: '0x',
     })
   }
@@ -343,7 +357,8 @@ const parseUpkeepPerformedLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes)'
+          // @ts-ignore - typechain / hardhat bug
+          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,(bytes32,uint32,uint32,bytes32))'
         ].name
       ) {
         parsedLogs.push(log as unknown as UpkeepPerformedEvent)
@@ -362,7 +377,10 @@ const parseReorgedUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['ReorgedUpkeepReport(uint256,bytes)'].name
+        // @ts-ignore - typechain / hardhat bug
+        registry.interface.events[
+          'ReorgedUpkeepReport(uint256,(bytes32,uint32,uint32,bytes32))'
+        ].name
       ) {
         parsedLogs.push(log as unknown as ReorgedUpkeepReportEvent)
       }
@@ -380,7 +398,10 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['StaleUpkeepReport(uint256,bytes)'].name
+        // @ts-ignore - typechain / hardhat bug
+        registry.interface.events[
+          'StaleUpkeepReport(uint256,(bytes32,uint32,uint32,bytes32))'
+        ].name
       ) {
         parsedLogs.push(log as unknown as StaleUpkeepReportEvent)
       }
@@ -398,8 +419,9 @@ const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
+        // @ts-ignore - typechain / hardhat bug
         registry.interface.events[
-          'InsufficientFundsUpkeepReport(uint256,bytes)'
+          'InsufficientFundsUpkeepReport(uint256,(bytes32,uint32,uint32,bytes32))'
         ].name
       ) {
         parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
@@ -418,7 +440,10 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['CancelledUpkeepReport(uint256,bytes)'].name
+        // @ts-ignore - typechain / hardhat bug
+        registry.interface.events[
+          'CancelledUpkeepReport(uint256,(bytes32,uint32,uint32,bytes32))'
+        ].name
       ) {
         parsedLogs.push(log as unknown as CancelledUpkeepReportEvent)
       }
@@ -775,21 +800,21 @@ describe('KeeperRegistry2_1', () => {
     Object.assign(config, overrides)
     const upkeeps: UpkeepData[] = []
     for (let i = 0; i < upkeepIds.length; i++) {
-      let trigger: string
+      let trigger: TriggerData
       switch (getTriggerType(upkeepIds[i])) {
         case Trigger.CONDITION:
-          trigger = encodeBlockTrigger(
+          trigger = makeBlockTrigger(
             config.checkBlockNum,
             config.checkBlockHash,
           )
           break
         case Trigger.LOG:
-          trigger = encodeLogTrigger(
-            config.txHash || ethers.utils.randomBytes(32),
-            config.logIndex,
-            config.checkBlockNum,
-            config.checkBlockHash,
-          )
+          trigger = {
+            txHash: config.txHash || ethers.utils.randomBytes(32),
+            logIndex: config.logIndex,
+            blockNum: config.checkBlockNum,
+            blockHash: config.checkBlockHash,
+          }
           break
       }
       upkeeps.push({
@@ -1127,12 +1152,12 @@ describe('KeeperRegistry2_1', () => {
     it('reverts when report data lengths mismatches', async () => {
       const upkeepIds = []
       const gasLimits: BigNumber[] = []
-      const triggers: string[] = []
+      const triggers: TriggerData[] = []
       const performDatas = []
 
       upkeepIds.push(upkeepId)
       gasLimits.push(executeGas)
-      triggers.push('0x')
+      triggers.push(makeBlockTrigger(0, emptyBytes32))
       performDatas.push('0x')
       // Push an extra perform data
       performDatas.push('0x')
@@ -1742,9 +1767,7 @@ describe('KeeperRegistry2_1', () => {
 
             const id = upkeepPerformedLog.args.id
             const success = upkeepPerformedLog.args.success
-            const { blockNum, blockHash } = decodeBlockTrigger(
-              upkeepPerformedLog.args.trigger,
-            )
+            const { blockNum, blockHash } = upkeepPerformedLog.args.trigger
             const gasUsed = upkeepPerformedLog.args.gasUsed
             const gasOverhead = upkeepPerformedLog.args.gasOverhead
             const totalPayment = upkeepPerformedLog.args.totalPayment

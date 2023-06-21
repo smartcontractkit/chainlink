@@ -338,7 +338,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 linkNative;
     uint256[] upkeepIds;
     uint256[] gasLimits;
-    bytes[] triggers;
+    TriggerData[] triggers;
     bytes[] performDatas;
   }
 
@@ -390,19 +390,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @notice a generic stuct holding all fields for validting a trigger in performUpkeep, used for all trigger types
+   * @dev NOTE that blockNum / blockHash describe the block used for the pipeline execution
+   * not necessarily the block that the log was emitted in for log triggers
+   * @dev if blocknum/blockhash are left blank, no reorg proteciton is applied
+   * @dev txHash and logIndex are only used for deduping log triggers, they are ignored for conditional upkeeps
    */
-  struct BlockTrigger {
-    uint32 blockNum;
-    bytes32 blockHash;
-  }
-
-  /**
-   * @notice the trigger structure of log upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number that the log was emitted in!!!!
-   */
-  struct LogTrigger {
+  struct TriggerData {
     bytes32 txHash;
     uint32 logIndex;
     uint32 blockNum;
@@ -432,15 +426,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    TriggerData trigger
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, TriggerData trigger);
+  event ReorgedUpkeepReport(uint256 indexed id, TriggerData trigger);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, TriggerData trigger);
+  event CancelledUpkeepReport(uint256 indexed id, TriggerData trigger);
   event Paused(address account);
   event Unpaused(address account);
 
