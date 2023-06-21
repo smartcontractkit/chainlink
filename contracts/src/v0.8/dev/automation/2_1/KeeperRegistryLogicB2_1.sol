@@ -348,6 +348,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
+      maxRevertDataSize: s_storage.maxRevertDataSize,
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
