@@ -990,7 +990,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:             jb,
 		JobORM:          d.jobORM,
 		BridgeORM:       d.bridgeORM,
-		OCR2JobConfig:   d.cfg.Database(),
+		QConfig:         d.cfg.Database(),
 		DB:              d.db,
 		Chain:           chain,
 		ContractID:      spec.ContractID,

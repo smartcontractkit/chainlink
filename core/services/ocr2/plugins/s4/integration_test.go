@@ -17,9 +17,12 @@ import (
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
@@ -53,7 +56,8 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 		orm := s4_svc.NewPostgresORM(db, logger, pgtest.NewQConfig(false), s4_svc.SharedTableName, ns)
 		orms[i] = orm
 
-		plugin, err := s4.NewReportingPlugin(logger, config, orm)
+		ocrLogger := relaylogger.NewOCRWrapper(logger, true, func(msg string) {})
+		plugin, err := s4.NewReportingPlugin(ocrLogger, config, orm)
 		require.NoError(t, err)
 		plugins[i] = plugin
 	}
