@@ -47,8 +47,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
-  uint256 public constant MAX_PERFORM = 30; // max number to addresses to top up in a single batch
-  uint256 public constant MAX_CHECK = 130; // max number of upkeeps to check (need to fit in 5M gas limit)
+  uint256 public constant MAX_PERFORM = 5; // max number to addresses to top up in a single batch
+  uint256 public constant MAX_CHECK = 20; // max number of upkeeps to check (need to fit in 5M gas limit)
   IERC20 public immutable LINK_TOKEN;
 
   EnumerableMap.AddressToUintMap private s_watchList;
