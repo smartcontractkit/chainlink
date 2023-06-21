@@ -45,6 +45,7 @@ type listenerV1 struct {
 	utils.StartStopOnce
 
 	cfg             Config
+	feeCfg          FeeConfig
 	l               logger.SugaredLogger
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
@@ -228,7 +229,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 
 func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.l.Infow("Listening for run requests",
-		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
+		"gasLimit", lsn.feeCfg.LimitDefault(),
 		"minConfs", minConfs)
 	for {
 		select {

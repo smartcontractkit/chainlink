@@ -48,17 +48,17 @@ func TestChainScopedConfig(t *testing.T) {
 			}),
 		}
 	}
-	t.Run("EvmGasPriceDefault", func(t *testing.T) {
-		assert.Equal(t, assets.NewWeiI(20000000000), cfg.EvmGasPriceDefault())
+	t.Run("EVM().GasEstimator().PriceDefault()", func(t *testing.T) {
+		assert.Equal(t, assets.NewWeiI(20000000000), cfg.EVM().GasEstimator().PriceDefault())
 
 		gcfg2 := configtest.NewGeneralConfig(t, overrides)
 		cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
-		assert.Equal(t, assets.NewWeiI(42000000000), cfg2.EvmGasPriceDefault())
+		assert.Equal(t, assets.NewWeiI(42000000000), cfg2.EVM().GasEstimator().PriceDefault())
 	})
 
 	t.Run("EvmGasBumpTxDepthDefault", func(t *testing.T) {
 		t.Run("uses MaxInFlightTransactions when not set", func(t *testing.T) {
-			assert.Equal(t, cfg.EVM().Transactions().MaxInFlight(), cfg.EvmGasBumpTxDepth())
+			assert.Equal(t, cfg.EVM().Transactions().MaxInFlight(), cfg.EVM().GasEstimator().BumpTxDepth())
 		})
 
 		t.Run("uses customer configured value when set", func(t *testing.T) {
@@ -76,8 +76,8 @@ func TestChainScopedConfig(t *testing.T) {
 			}
 			gcfg2 := configtest.NewGeneralConfig(t, gasBumpOverrides)
 			cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
-			assert.NotEqual(t, cfg2.EVM().Transactions().MaxInFlight(), cfg2.EvmGasBumpTxDepth())
-			assert.Equal(t, override, cfg2.EvmGasBumpTxDepth())
+			assert.NotEqual(t, cfg2.EVM().Transactions().MaxInFlight(), cfg2.EVM().GasEstimator().BumpTxDepth())
+			assert.Equal(t, override, cfg2.EVM().GasEstimator().BumpTxDepth())
 		})
 	})
 
@@ -97,7 +97,7 @@ func TestChainScopedConfig(t *testing.T) {
 		cfg2 := evmtest.NewChainScopedConfig(t, gcfg2)
 
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, assets.NewWeiI(100000000000000), cfg2.KeySpecificMaxGasPriceWei(addr))
+			assert.Equal(t, assets.NewWeiI(100000000000000), cfg2.EVM().KeySpecificMaxGasPriceWei(addr))
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set", func(t *testing.T) {
 			val := assets.GWei(250)
@@ -122,7 +122,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than chain specific config", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
@@ -139,7 +139,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, keySpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, keySpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses chain-specific value when higher than key-specific value", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(1400)
@@ -156,7 +156,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, chainSpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, chainSpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses key-specific override value when set and lower than global config", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
@@ -171,7 +171,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, keySpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, keySpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses global value when higher than key-specific value", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(1400)
@@ -188,7 +188,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, chainSpecificPrice.String(), cfg3.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, chainSpecificPrice.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(addr).String())
 		})
 		t.Run("uses global value when there is no key-specific price", func(t *testing.T) {
 			val := assets.NewWeiI(rand.Int63())
@@ -198,13 +198,13 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.KeySpecificMaxGasPriceWei(unsetAddr).String())
+			assert.Equal(t, val.String(), cfg3.EVM().KeySpecificMaxGasPriceWei(unsetAddr).String())
 		})
 	})
 
 	t.Run("LinkContractAddress", func(t *testing.T) {
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, "", cfg.LinkContractAddress())
+			assert.Equal(t, "", cfg.EVM().LinkContractAddress())
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -215,13 +215,13 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.LinkContractAddress())
+			assert.Equal(t, val.String(), cfg3.EVM().LinkContractAddress())
 		})
 	})
 
 	t.Run("OperatorFactoryAddress", func(t *testing.T) {
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, "", cfg.OperatorFactoryAddress())
+			assert.Equal(t, "", cfg.EVM().OperatorFactoryAddress())
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -232,7 +232,7 @@ func TestChainScopedConfig(t *testing.T) {
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
-			assert.Equal(t, val.String(), cfg3.OperatorFactoryAddress())
+			assert.Equal(t, val.String(), cfg3.EVM().OperatorFactoryAddress())
 		})
 	})
 }
@@ -250,6 +250,31 @@ func TestChainScopedConfig_BlockHistory(t *testing.T) {
 	assert.Equal(t, uint16(12), bh.CheckInclusionBlocks())
 	assert.Equal(t, uint16(1), bh.BlockDelay())
 	assert.Equal(t, uint16(4), bh.EIP1559FeeCapBufferBlocks())
+}
+
+func TestChainScopedConfig_GasEstimator(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+	})
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	ge := cfg.EVM().GasEstimator()
+	assert.Equal(t, "BlockHistory", ge.Mode())
+	assert.Equal(t, assets.GWei(20), ge.PriceDefault())
+	assert.Equal(t, assets.GWei(500), ge.PriceMax())
+	assert.Equal(t, assets.GWei(1), ge.PriceMin())
+	assert.Equal(t, uint32(500000), ge.LimitDefault())
+	assert.Equal(t, uint32(500000), ge.LimitMax())
+	assert.Equal(t, float32(1), ge.LimitMultiplier())
+	assert.Equal(t, uint32(21000), ge.LimitTransfer())
+	assert.Equal(t, assets.GWei(5), ge.BumpMin())
+	assert.Equal(t, uint16(20), ge.BumpPercent())
+	assert.Equal(t, uint64(3), ge.BumpThreshold())
+	assert.False(t, ge.EIP1559DynamicFees())
+	assert.Equal(t, assets.GWei(100), ge.FeeCapDefault())
+	assert.Equal(t, assets.NewWeiI(1), ge.TipCapDefault())
+	assert.Equal(t, assets.NewWeiI(1), ge.TipCapMin())
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
@@ -317,13 +342,13 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			})
 			config := evmtest.NewChainScopedConfig(t, gcfg)
 
-			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
-			assert.Nil(t, config.EvmGasLimitOCRJobType())
-			assert.Nil(t, config.EvmGasLimitDRJobType())
-			assert.Nil(t, config.EvmGasLimitVRFJobType())
-			assert.Nil(t, config.EvmGasLimitFMJobType())
-			assert.Nil(t, config.EvmGasLimitKeeperJobType())
-			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
+			assert.Equal(t, tt.expectedGasLimitDefault, config.EVM().GasEstimator().LimitDefault())
+			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().OCR())
+			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().DR())
+			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().VRF())
+			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().FM())
+			assert.Nil(t, config.EVM().GasEstimator().LimitJobType().Keeper())
+			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.EVM().MinContractPayment().Link(), "0"))
 		})
 	}
 }

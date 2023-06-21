@@ -180,7 +180,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
 				b, err := json.Marshal(cfg)
 				assert.Nil(t, err)
-				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
 				r.registry = mockRegistry
 			}
 
@@ -275,7 +275,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:    "success - allowed via fetching admin offchain config",
+			name:    "success - allowed via fetching privilege config",
 			cached:  false,
 			allowed: true,
 		},
@@ -285,14 +285,14 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 			allowed: false,
 		},
 		{
-			name:    "success - not allowed via fetching admin offchain config",
+			name:    "success - not allowed via fetching privilege config",
 			cached:  false,
 			allowed: false,
 		},
 		{
-			name:         "failure - cannot unmarshal admin offchain config",
+			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
-			errorMessage: "failed to unmarshal admin offchain config for upkeep ID 123456789: invalid character '\\x00' looking for beginning of value",
+			errorMessage: "failed to unmarshal privilege config for upkeep ID 123456789: invalid character '\\x00' looking for beginning of value",
 		},
 	}
 
@@ -302,7 +302,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 
 			if tt.errorMessage != "" {
 				mockRegistry := mocks.NewRegistry(t)
-				mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
+				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
 				r.registry = mockRegistry
 			} else {
 				if tt.cached {
@@ -312,7 +312,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 					cfg := AdminOffchainConfig{MercuryEnabled: tt.allowed}
 					b, err := json.Marshal(cfg)
 					assert.Nil(t, err)
-					mockRegistry.On("GetUpkeepAdminOffchainConfig", mock.Anything, upkeepId).Return(b, nil)
+					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
 					r.registry = mockRegistry
 				}
 			}

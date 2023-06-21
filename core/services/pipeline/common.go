@@ -559,26 +559,28 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		return *specGasLimit
 	}
 
+	ge := cfg.EVM().GasEstimator()
+	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {
 	case DirectRequestJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+		jobTypeGasLimit = jt.DR()
 	case FluxMonitorJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+		jobTypeGasLimit = jt.FM()
 	case OffchainReportingJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+		jobTypeGasLimit = jt.OCR()
 	case OffchainReporting2JobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCR2JobType()
+		jobTypeGasLimit = jt.OCR2()
 	case KeeperJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+		jobTypeGasLimit = jt.Keeper()
 	case VRFJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+		jobTypeGasLimit = jt.VRF()
 	}
 
 	if jobTypeGasLimit != nil {
 		return *jobTypeGasLimit
 	}
-	return cfg.EvmGasLimitDefault()
+	return ge.LimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings

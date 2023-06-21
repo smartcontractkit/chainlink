@@ -102,7 +102,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = uint64(cfg.EvmFinalityDepth())
+		minOutgoingConfirmations = uint64(cfg.EVM().FinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)

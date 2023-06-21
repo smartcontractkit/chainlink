@@ -35,7 +35,7 @@ type (
 
 	Config interface {
 		MinIncomingConfirmations() uint32
-		MinimumContractPayment() *assets.Link
+		MinContractPayment() *assets.Link
 	}
 )
 
@@ -76,7 +76,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config(), *jb.DirectRequestSpec)
+	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config().EVM(), *jb.DirectRequestSpec)
 
 	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	logListener := &listener{
 		logger:                   svcLogger.Named("DirectRequest"),
-		config:                   chain.Config(),
+		config:                   chain.Config().EVM(),
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
@@ -314,7 +314,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if l.minContractPayment != nil {
 		minContractPayment = l.minContractPayment
 	} else {
-		minContractPayment = l.config.MinimumContractPayment()
+		minContractPayment = l.config.MinContractPayment()
 	}
 	if minContractPayment != nil && request.Payment != nil {
 		requestPayment := assets.Link(*request.Payment)

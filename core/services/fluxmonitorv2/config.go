@@ -4,15 +4,19 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	FlagsContractAddress() string         // Evm
-	MinimumContractPayment() *assets.Link // Evm
-	EvmGasLimitDefault() uint32           // Evm
-	EvmGasLimitFMJobType() *uint32        // Evm
+	FlagsContractAddress() string     // Evm
+	MinContractPayment() *assets.Link // Evm
+}
+
+type EvmFeeConfig interface {
+	LimitDefault() uint32 // Evm
+	LimitJobType() config.LimitJobType
 }
 
 type EvmTransactionsConfig interface {

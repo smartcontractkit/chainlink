@@ -93,6 +93,7 @@ contract KeeperRegistryLogicA2_1 is
     (fastGasWei, linkNative) = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
+      triggerType,
       upkeep.executeGas,
       s_storage.maxPerformDataSize,
       fastGasWei,

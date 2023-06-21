@@ -26,7 +26,7 @@ var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI
 var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()
 
 type Config interface {
-	EvmFinalityDepth() uint32
+	FinalityDepth() uint32
 }
 
 type FwdMgr struct {
@@ -253,7 +253,7 @@ func (f *FwdMgr) runLoop() {
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				int(f.cfg.EvmFinalityDepth()),
+				int(f.cfg.FinalityDepth()),
 				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {

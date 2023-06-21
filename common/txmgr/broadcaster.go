@@ -112,7 +112,8 @@ type Broadcaster[
 	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
-	config         txmgrtypes.BroadcasterConfig
+	config         txmgrtypes.BroadcasterChainConfig
+	feeConfig      txmgrtypes.BroadcasterFeeConfig
 	txConfig       txmgrtypes.BroadcasterTransactionsConfig
 	listenerConfig txmgrtypes.BroadcasterListenerConfig
 
@@ -155,7 +156,8 @@ func NewBroadcaster[
 ](
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	config txmgrtypes.BroadcasterConfig,
+	config txmgrtypes.BroadcasterChainConfig,
+	feeConfig txmgrtypes.BroadcasterFeeConfig,
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
@@ -176,6 +178,7 @@ func NewBroadcaster[
 		sequenceSyncer:   sequenceSyncer,
 		chainID:          client.ConfiguredChainID(),
 		config:           config,
+		feeConfig:        feeConfig,
 		txConfig:         txConfig,
 		listenerConfig:   listenerConfig,
 		eventBroadcaster: eventBroadcaster,
@@ -686,12 +689,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	lgr.With(
 		"sendError", txError,
 		"attemptFee", attempt.TxFee,
-		"maxGasPriceConfig", eb.config.MaxFeePrice(),
+		"maxGasPriceConfig", eb.feeConfig.MaxFeePrice(),
 	).Errorf("attempt fee %v was rejected by the node for being too low. "+
 		"Node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
-		attempt.TxFee, txError.Error(), eb.config.FeePriceDefault())
+		attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
