@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "forge-std/Test.sol";
-import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationRegistryConsumer} from "../../interfaces/IAutomationRegistryConsumer.sol";
-import {UpkeepMock} from "../../mocks/UpkeepMock.sol";
+import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {MockKeeperRegistry2_1} from "../../mocks/MockKeeperRegistry2_1.sol";
+import {UpkeepCounter} from "../../mocks/UpkeepCounter.sol";
+import "forge-std/Test.sol";
 
 // in contracts directory, run
 // forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder/AutomationForwarder.t.sol
@@ -13,16 +13,14 @@ import {MockKeeperRegistry2_1} from "../../mocks/MockKeeperRegistry2_1.sol";
 contract AutomationForwarderSetUp is Test {
   AutomationForwarder internal forwarder;
   IAutomationRegistryConsumer internal default_registry;
-  UpkeepMock internal default_target;
+  UpkeepCounter internal default_target;
   address internal OWNER;
   address internal constant STRANGER = address(999);
   uint256 constant GAS = 1e18;
 
   function setUp() public {
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
-    default_target = new UpkeepMock();
-    default_target.setCanCheck(true);
-    default_target.setCanPerform(true);
+    default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
     forwarder = new AutomationForwarder(1, address(default_target), address(default_registry));
     OWNER = address(default_registry);
@@ -36,27 +34,32 @@ contract AutomationForwarderSetUp is Test {
 
 contract AutomationForwarderTest_forward is AutomationForwarderSetUp {
   function testBasicSuccess() public {
+    uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "performDataHere");
     bool val = forwarder.forward(GAS, selector);
     assertEq(val, true);
-    bool performed = default_target.performed();
-    assertEq(performed, true);
+    uint256 newCount = default_target.counter();
+    assertEq(newCount, prevCount + 1);
   }
 
   function testWrongFunctionSelectorSuccess() public {
+    uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes calldata data)", "");
     bool val = forwarder.forward(GAS, selector);
     assertFalse(val);
-    assertFalse(default_target.performed());
+    uint256 newCount = default_target.counter();
+    assertEq(newCount, prevCount);
   }
 
   function testNotAuthorizedReverts() public {
+    uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "");
     changePrank(STRANGER);
     vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
     bool val = forwarder.forward(GAS, selector);
     assertFalse(val);
-    assertFalse(default_target.performed());
+    uint256 newCount = default_target.counter();
+    assertEq(newCount, prevCount);
   }
 }
 
