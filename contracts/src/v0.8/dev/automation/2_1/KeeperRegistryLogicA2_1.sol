@@ -104,8 +104,6 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.executeGas, 0, 0);
     }
 
-    upkeepNeeded = true;
-
     bytes memory callData;
     if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
@@ -113,23 +111,44 @@ contract KeeperRegistryLogicA2_1 is
       callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
     }
     gasUsed = gasleft();
-    (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
-    if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
-      if (!upkeepNeeded)
+
+    if (!success) {
+      // User's target check reverted. We capture the revert data here and pass it within performData
+      if (result.length > s_storage.maxRevertDataSize) {
         return (
           false,
           bytes(""),
-          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
           gasUsed,
           upkeep.executeGas,
           fastGasWei,
           linkNative
         );
+      }
+      return (
+        upkeepNeeded,
+        result,
+        UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
     }
+
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
 
     if (performData.length > s_storage.maxPerformDataSize)
       return (
@@ -180,13 +199,17 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.CALLBACK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
     }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+
     if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
     }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 
