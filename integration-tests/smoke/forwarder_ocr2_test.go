@@ -75,7 +75,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		require.NoError(t, err, "Error waiting for events")
 		fwdrs, _, err := workerNodes[i].GetForwarders()
 		for _, fwd := range fwdrs.Data {
-			log.Println(fmt.Sprintf("addr: %s, id:%s, chainID:%s, createdAt:%s, updated at:%s", fwd.Data.ID, fwd.Data.Address, fwd.Data.ChainID, fwd.Data.CreatedAt.String(), fwd.Data.UpdatedAt.String()))
+			log.Println(fmt.Sprintf("addr: %s, id:%s, chainID:%s, createdAt:%s, updated at:%s", fwd.ID, fwd.Attributes.Address, fwd.Attributes.ChainID, fwd.Attributes.CreatedAt, fwd.Attributes.UpdatedAt.String()))
 		}
 		log.Println("**** fwdrserr   ", err)
 	}
@@ -120,7 +120,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		log.Println("Node name ", node.Name())
 		fwdrs, _, err := node.GetForwarders()
 		for _, fwd := range fwdrs.Data {
-			log.Println(fmt.Sprintf("**** addr: %s, id:%s chainID:%s, createdAt:%s, updated at:%s", fwd.Data.ID, fwd.Data.Address, fwd.Data.ChainID, fwd.Data.CreatedAt.String(), fwd.Data.UpdatedAt.String()))
+			log.Println(fmt.Sprintf("**** addr: %s, id:%s chainID:%s, createdAt:%s, updated at:%s", fwd.ID, fwd.Attributes.Address, fwd.Attributes.ChainID, fwd.Attributes.CreatedAt.String(), fwd.Attributes.UpdatedAt.String()))
 		}
 		log.Println("**** fwdrserr   ", err)
 	}

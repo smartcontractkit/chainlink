@@ -1313,8 +1313,8 @@ type ForwarderData struct {
 
 // ForwarderAttributes is the model that represents attributes of a Forwarder
 type ForwarderAttributes struct {
-	Address   string `json:"address"`
-	ChainID   string `json:"evmChainId"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Address   string    `json:"address"`
+	ChainID   string    `json:"evmChainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
