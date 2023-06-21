@@ -629,7 +629,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				k.buildTxOpts(ctx),
 				k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
-				big.NewInt(50),
+				big.NewInt(k.cfg.UpkeepInterval),
 				k.cfg.UseArbBlockNumber,
 			)
 			if err != nil {
