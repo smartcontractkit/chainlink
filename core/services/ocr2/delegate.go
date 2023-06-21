@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -953,7 +954,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		},
 		lggr.Named("FunctionsRelayer"),
 		d.ethKs,
-		d.eventBroadcaster,
+		functionsRelay.FunctionsPlugin,
 	)
 	if err != nil {
 		return nil, err
