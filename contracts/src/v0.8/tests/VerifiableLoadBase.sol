@@ -155,7 +155,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
       upkeepContract: address(this),
       gasLimit: gasLimit,
       adminAddress: address(this), // use address of this contract as the admin
-      checkData: bytes(""), // update check data later bc upkeep id is not available now
+      checkData: bytes(""), // update pipeline data later bc upkeep id is not available now
       offchainConfig: bytes(""),
       amount: amount
     });
