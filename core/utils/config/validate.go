@@ -194,9 +194,8 @@ func (u UniqueStrings) isDupe(s string) bool {
 
 type ErrOverride struct {
 	Name string
-	Msg  string
 }
 
 func (e ErrOverride) Error() string {
-	return fmt.Sprintf("%s: override: %s", e.Name, e.Msg)
+	return fmt.Sprintf("%s: override: %s", e.Name, "overrides (duplicate keys or list elements) are not allowed for multiple secrets files")
 }

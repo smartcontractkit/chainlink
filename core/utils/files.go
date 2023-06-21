@@ -2,11 +2,15 @@ package utils
 
 import (
 	"fmt"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/require"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+	"testing"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -169,4 +173,15 @@ func (s *FileSize) UnmarshalText(bs []byte) error {
 func (s FileSize) String() string {
 	str, _ := s.MarshalText()
 	return string(str)
+}
+
+func MakeTestFile(t *testing.T, contents any, fileName string) string {
+	d := t.TempDir()
+	p := filepath.Join(d, fileName)
+
+	b, err := toml.Marshal(contents)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(p, b, 0777))
+	return p
 }

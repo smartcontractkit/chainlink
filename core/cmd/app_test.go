@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -54,28 +55,28 @@ var (
 	dbURL                           = "postgres://chainlink:mysecretpassword@172.17.0.1:5432/primary"
 	backupDbURL                     = "postgres://chainlink:mysecretpassword@172.17.0.1:5433/replica"
 	testSecretsFileContentsComplete = chainlink.Secrets{
-		Secrets: v2.Secrets{
-			Database: v2.DatabaseSecrets{
+		Secrets: toml.Secrets{
+			Database: toml.DatabaseSecrets{
 				URL:                  models.NewSecretURL(models.MustParseURL(dbURL)),
 				BackupURL:            models.NewSecretURL(models.MustParseURL(backupDbURL)),
 				AllowSimplePasswords: &allow,
 			},
-			Explorer: v2.ExplorerSecrets{
+			Explorer: toml.ExplorerSecrets{
 				AccessKey: models.NewSecret("EXPLORER_ACCESS_KEY"),
 				Secret:    models.NewSecret("EXPLORER_TOKEN"),
 			},
-			Password: v2.Passwords{
+			Password: toml.Passwords{
 				Keystore: models.NewSecret("mysecretpassword"),
 				VRF:      models.NewSecret("mysecretvrfpassword"),
 			},
-			Pyroscope: v2.PyroscopeSecrets{
+			Pyroscope: toml.PyroscopeSecrets{
 				AuthToken: models.NewSecret("PYROSCOPE_TOKEN"),
 			},
-			Prometheus: v2.PrometheusSecrets{
+			Prometheus: toml.PrometheusSecrets{
 				AuthToken: models.NewSecret("PROM_TOKEN"),
 			},
-			Mercury: v2.MercurySecrets{
-				Credentials: map[string]v2.MercuryCredentials{
+			Mercury: toml.MercurySecrets{
+				Credentials: map[string]toml.MercuryCredentials{
 					"key1": {
 						URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
 						Username: models.NewSecret("user"),
@@ -88,35 +89,35 @@ var (
 					},
 				},
 			},
-			Threshold: v2.ThresholdKeyShareSecrets{
+			Threshold: toml.ThresholdKeyShareSecrets{
 				ThresholdKeyShare: models.NewSecret("THRESHOLD_SECRET"),
 			},
 		},
 	}
 
 	testSecretsRedactedContentsComplete = chainlink.Secrets{
-		Secrets: v2.Secrets{
-			Database: v2.DatabaseSecrets{
+		Secrets: toml.Secrets{
+			Database: toml.DatabaseSecrets{
 				URL:                  models.NewSecretURL(models.MustParseURL("xxxxx")),
 				BackupURL:            models.NewSecretURL(models.MustParseURL("xxxxx")),
 				AllowSimplePasswords: &allow,
 			},
-			Explorer: v2.ExplorerSecrets{
+			Explorer: toml.ExplorerSecrets{
 				AccessKey: models.NewSecret("xxxxx"),
 				Secret:    models.NewSecret("xxxxx"),
 			},
-			Password: v2.Passwords{
+			Password: toml.Passwords{
 				Keystore: models.NewSecret("xxxxx"),
 				VRF:      models.NewSecret("xxxxx"),
 			},
-			Pyroscope: v2.PyroscopeSecrets{
+			Pyroscope: toml.PyroscopeSecrets{
 				AuthToken: models.NewSecret("xxxxx"),
 			},
-			Prometheus: v2.PrometheusSecrets{
+			Prometheus: toml.PrometheusSecrets{
 				AuthToken: models.NewSecret("xxxxx"),
 			},
-			Mercury: v2.MercurySecrets{
-				Credentials: map[string]v2.MercuryCredentials{
+			Mercury: toml.MercurySecrets{
+				Credentials: map[string]toml.MercuryCredentials{
 					"key1": {
 						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
 						Username: models.NewSecret("xxxxx"),
@@ -139,14 +140,14 @@ var (
 					},
 				},
 			},
-			Threshold: v2.ThresholdKeyShareSecrets{
+			Threshold: toml.ThresholdKeyShareSecrets{
 				ThresholdKeyShare: models.NewSecret("xxxxx"),
 			},
 		},
 	}
 
-	additionalMercurySecrets = v2.MercurySecrets{
-		Credentials: map[string]v2.MercuryCredentials{
+	additionalMercurySecrets = toml.MercurySecrets{
+		Credentials: map[string]toml.MercuryCredentials{
 			"key3": {
 				URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
 				Username: models.NewSecret("user"),
@@ -211,7 +212,7 @@ func Test_initServerConfig(t *testing.T) {
 			name: "files only",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 			},
 			wantCfg: withDefaults(t, testConfigFileContents, chainlink.Secrets{}),
 		},
@@ -227,7 +228,7 @@ func Test_initServerConfig(t *testing.T) {
 			name: "env overlay of file",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				envVar:    testEnvContents,
 			},
 			wantCfg: withDefaults(t, chainlink.Config{
@@ -247,7 +248,7 @@ func Test_initServerConfig(t *testing.T) {
 			name: "failed to read secrets",
 			args: args{
 				opts:         new(chainlink.GeneralConfigOpts),
-				fileNames:    []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames:    []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{"/doesnt-exist"},
 			},
 			wantErr: true,
@@ -256,8 +257,8 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading secrets",
 			args: args{
 				opts:         new(chainlink.GeneralConfigOpts),
-				fileNames:    []string{makeTestFile(t, testConfigFileContents, "test.toml")},
-				secretsFiles: []string{makeTestFile(t, testSecretsFileContents, "test_secrets.toml")},
+				fileNames:    []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
+				secretsFiles: []string{utils.MakeTestFile(t, testSecretsFileContents, "test_secrets.toml")},
 			},
 			wantCfg: withDefaults(t, testConfigFileContents, testSecretsRedactedContents),
 		},
@@ -265,16 +266,16 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets2.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets3.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets4.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets5.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets6.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: additionalMercurySecrets}}, "test_secrets6a.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets7.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets2.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets3.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets4.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets5.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets6.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: additionalMercurySecrets}}, "test_secrets6a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets7.toml"),
 				},
 			},
 			wantCfg: withDefaults(t, testConfigFileContents, testSecretsRedactedContentsComplete),
@@ -283,10 +284,10 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Database",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
@@ -295,10 +296,10 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Explorer",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
@@ -307,10 +308,10 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Password",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
@@ -319,10 +320,10 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Pyroscope",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
@@ -331,22 +332,22 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Prometheus",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
 		},
-				{
+		{
 			name: "reading multiple secrets with overrides: Mercury",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,
@@ -355,10 +356,10 @@ func Test_initServerConfig(t *testing.T) {
 			name: "reading multiple secrets with overrides: Threshold",
 			args: args{
 				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{makeTestFile(t, testConfigFileContents, "test.toml")},
+				fileNames: []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1.toml"),
-					makeTestFile(t, chainlink.Secrets{Secrets: v2.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1a.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1.toml"),
+					utils.MakeTestFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1a.toml"),
 				},
 			},
 			wantErr: true,

@@ -197,7 +197,7 @@ func (s *Secrets) ValidateDB() error {
 		// consistent error messages.
 		Database toml.DatabaseSecrets
 	}
-
+	s.setDefaults()
 	v := &dbValidationType{s.Database}
 	if err := config.Validate(v); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)

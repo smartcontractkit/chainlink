@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -202,7 +201,7 @@ func NewApp(s *Shell) *cli.App {
 				},
 				cli.StringSliceFlag{
 					Name:  "secrets, s",
-					Usage:  "TOML configuration file for secrets. Must be set if and only if config is set. Multiple files can be used (-s secretsA.toml -s secretsB.toml), and fields from the files will be merged. No overrides are allowed.",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set. Multiple files can be used (-s secretsA.toml -s secretsB.toml), and fields from the files will be merged. No overrides are allowed.",
 				},
 			},
 			Before: func(c *cli.Context) error {
@@ -313,31 +312,9 @@ func format(s string) string {
 }
 
 func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFiles []string) (chainlink.GeneralConfig, error) {
-	configs := []string{}
-	for _, fileName := range configFiles {
-		b, err := os.ReadFile(fileName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read config file: %s", fileName)
-		}
-		configs = append(configs, string(b))
+	err := opts.Setup(configFiles, secretsFiles)
+	if err != nil {
+		return nil, err
 	}
-
-	if configTOML := env.Config.Get(); configTOML != "" {
-		configs = append(configs, configTOML)
-	}
-
-	opts.ConfigStrings = configs
-
-	secrets := []string{}
-	for _, fileName := range secretsFiles {
-		b, err := os.ReadFile(fileName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read secrets file: %s", fileName)
-		}
-		secrets = append(secrets, string(b))
-	}
-
-	opts.SecretsStrings = secrets
-
 	return opts.New()
 }

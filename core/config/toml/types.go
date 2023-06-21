@@ -181,15 +181,15 @@ func (d *DatabaseSecrets) SetFrom(f *DatabaseSecrets) (err error) {
 
 func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 	if d.AllowSimplePasswords != nil && f.AllowSimplePasswords != nil {
-		err = multierr.Append(err, ErrOverride{Name: "AllowSimplePasswords", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
 	}
 
 	if d.BackupURL != nil && f.BackupURL != nil {
-		err = multierr.Append(err, ErrOverride{Name: "BackupURL", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "BackupURL"})
 	}
 
 	if d.URL != nil && f.URL != nil {
-		err = multierr.Append(err, ErrOverride{Name: "URL", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
 	}
 
 	return err
@@ -218,11 +218,11 @@ func (e *ExplorerSecrets) SetFrom(f *ExplorerSecrets) (err error) {
 
 func (e *ExplorerSecrets) validateMerge(f *ExplorerSecrets) (err error) {
 	if e.AccessKey != nil && f.AccessKey != nil {
-		err = multierr.Append(err, ErrOverride{Name: "AccessKey", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AccessKey"})
 	}
 
 	if e.Secret != nil && f.Secret != nil {
-		err = multierr.Append(err, ErrOverride{Name: "Secret", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Secret"})
 	}
 
 	return err
@@ -251,11 +251,11 @@ func (p *Passwords) SetFrom(f *Passwords) (err error) {
 
 func (p *Passwords) validateMerge(f *Passwords) (err error) {
 	if p.Keystore != nil && f.Keystore != nil {
-		err = multierr.Append(err, ErrOverride{Name: "Keystore", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Keystore"})
 	}
 
 	if p.VRF != nil && f.VRF != nil {
-		err = multierr.Append(err, ErrOverride{Name: "VRF", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "VRF"})
 	}
 
 	return err
@@ -287,7 +287,7 @@ func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
 
 func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, ErrOverride{Name: "AuthToken", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -312,7 +312,7 @@ func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
 
 func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, ErrOverride{Name: "AuthToken", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -1239,7 +1239,7 @@ func (m *MercurySecrets) validateMerge(f *MercurySecrets) (err error) {
 	if m.Credentials != nil && f.Credentials != nil {
 		for k := range f.Credentials {
 			if _, exists := m.Credentials[k]; exists {
-				err = multierr.Append(err, ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k), Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
 			}
 		}
 	}
@@ -1285,7 +1285,7 @@ func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err err
 
 func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (err error) {
 	if t.ThresholdKeyShare != nil && f.ThresholdKeyShare != nil {
-		err = multierr.Append(err, ErrOverride{Name: "ThresholdKeyShare", Msg: "overrides (duplicate keys or list elements) are not allowed for multiple secrets files"})
+		err = multierr.Append(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
 	}
 
 	return err

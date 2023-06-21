@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -65,6 +66,35 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
+func (opts *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) error {
+	configs := []string{}
+	for _, fileName := range configFiles {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+		}
+		configs = append(configs, string(b))
+	}
+
+	if configTOML := env.Config.Get(); configTOML != "" {
+		configs = append(configs, configTOML)
+	}
+
+	opts.ConfigStrings = configs
+
+	secrets := []string{}
+	for _, fileName := range secretsFiles {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read secrets file: %s", fileName)
+		}
+		secrets = append(secrets, string(b))
+	}
+
+	opts.SecretsStrings = secrets
+	return nil
+}
+
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
 func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
@@ -96,21 +126,10 @@ func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 
 // New returns a coreconfig.GeneralConfig for the given options.
 func (o GeneralConfigOpts) New() (GeneralConfig, error) {
-	for _, c := range o.ConfigStrings {
-		err := o.parseConfig(c)
-		if err != nil {
-			return nil, err
-		}
+	err := o.parse()
+	if err != nil {
+		return nil, err
 	}
-
-	for _, s := range o.SecretsStrings {
-		err := o.parseSecrets(s)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	o.Secrets.setDefaults()
 
 	input, err := o.Config.TOMLString()
 	if err != nil {
@@ -151,6 +170,25 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func (o *GeneralConfigOpts) parse() (err error) {
+	for _, c := range o.ConfigStrings {
+		err := o.parseConfig(c)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, s := range o.SecretsStrings {
+		err := o.parseSecrets(s)
+		if err != nil {
+			return err
+		}
+	}
+
+	o.Secrets.setDefaults()
+	return
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {

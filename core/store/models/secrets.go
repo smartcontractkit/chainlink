@@ -24,6 +24,8 @@ func (s Secret) String() string { return redacted }
 
 func (s Secret) GoString() string { return redacted }
 
+func (s Secret) XXXTestingOnlyString() string { return (string)(s) }
+
 func (s Secret) MarshalText() ([]byte, error) { return []byte(redacted), nil }
 
 var (
