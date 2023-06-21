@@ -62,13 +62,13 @@ type bridgeAccessor struct {
 var _ BridgeAccessor = (*bridgeAccessor)(nil)
 
 type requestPayload struct {
-	Endpoint            string       `json:"endpoint"`
-	RequestId           string       `json:"requestId"`
-	JobName             string       `json:"jobName"`
-	SubscriptionOwner   string       `json:"subscriptionOwner"`
-	SubscriptionId      uint64       `json:"subscriptionId"`
-	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
-	Data                *RequestData `json:"data"`
+	Endpoint            string              `json:"endpoint"`
+	RequestId           string              `json:"requestId"`
+	JobName             string              `json:"jobName"`
+	SubscriptionOwner   string              `json:"subscriptionOwner"`
+	SubscriptionId      uint64              `json:"subscriptionId"`
+	NodeProvidedSecrets string              `json:"nodeProvidedSecrets"`
+	Data                *AdapterRequestData `json:"data"`
 }
 
 type secretsPayload struct {
@@ -127,6 +127,14 @@ func (ea *externalAdapterClient) RunComputation(
 	nodeProvidedSecrets string,
 	requestData *RequestData,
 ) (userResult, userError []byte, domains []string, err error) {
+	adapterRequestData := AdapterRequestData{
+		Source:          requestData.Source,
+		Language:        requestData.Language,
+		CodeLocation:    requestData.CodeLocation,
+		Secrets:         base64.StdEncoding.EncodeToString(requestData.Secrets),
+		SecretsLocation: requestData.SecretsLocation,
+		Args:            requestData.Args,
+	}
 
 	payload := requestPayload{
 		Endpoint:            "lambda",
@@ -135,7 +143,7 @@ func (ea *externalAdapterClient) RunComputation(
 		SubscriptionOwner:   subscriptionOwner,
 		SubscriptionId:      subscriptionId,
 		NodeProvidedSecrets: nodeProvidedSecrets,
-		Data:                requestData,
+		Data:                &adapterRequestData,
 	}
 
 	userResult, userError, domains, err = ea.request(ctx, payload, requestId, jobName, "run_computation")

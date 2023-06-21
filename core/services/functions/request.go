@@ -7,10 +7,19 @@ const (
 )
 
 type RequestData struct {
-	Source          string   `json:"source" cbor:"source"`
-	Language        int      `json:"language" cbor:"language"`
-	CodeLocation    int      `json:"codeLocation" cbor:"codeLocation"`
-	Secrets         []byte   `json:"secrets" cbor:"secrets"`
-	SecretsLocation int      `json:"secretsLocation" cbor:"secretsLocation"`
-	Args            []string `json:"args" cbor:"args"`
+	Source          string   `cbor:"source"`
+	Language        int      `cbor:"language"`
+	CodeLocation    int      `cbor:"codeLocation"`
+	Secrets         []byte   `cbor:"secrets"`
+	SecretsLocation int      `cbor:"secretsLocation"`
+	Args            []string `cbor:"args"`
+}
+
+type AdapterRequestData struct {
+	Source          string   `json:"source"`
+	Language        int      `json:"language"`
+	CodeLocation    int      `json:"codeLocation"`
+	Secrets         string   `json:"secrets"`
+	SecretsLocation int      `json:"secretsLocation"`
+	Args            []string `json:"args"`
 }
