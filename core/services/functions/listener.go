@@ -367,7 +367,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 	}
 
 	nodeProvidedSecrets := ""
-	if l.decryptor != nil && requestData.SecretsLocation == 1 && len(requestData.Secrets) > 0 {
+	if l.decryptor != nil && requestData.SecretsLocation == LocationRemote && len(requestData.Secrets) > 0 {
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
 
 		// To avoid a breaking change, if secrets fetching is unsuccessful,
