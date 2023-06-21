@@ -189,7 +189,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @param pipelineData the new pipeline data for the upkeep
    */
   function updateUpkeepPipelineData(uint256 upkeepId, bytes calldata pipelineData) external {
-    registry.setUpkeepPipelineData(upkeepId, pipelineData);
+    registry.setUpkeepCheckData(upkeepId, pipelineData);
     checkDatas[upkeepId] = pipelineData;
   }
 

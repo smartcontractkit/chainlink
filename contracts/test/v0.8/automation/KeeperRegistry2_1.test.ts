@@ -3878,7 +3878,7 @@ describe('KeeperRegistry2_1', () => {
             longBytes,
             '0x',
           ),
-        'PipelineDataExceedsLimit()',
+        'CheckDataExceedsLimit()',
       )
     })
 
@@ -3907,7 +3907,7 @@ describe('KeeperRegistry2_1', () => {
             .withArgs(testUpkeepId, executeGas, await admin.getAddress())
 
           await expect(tx)
-            .to.emit(registry, 'UpkeepPipelineDataSet')
+            .to.emit(registry, 'UpkeepCheckDataSet')
             .withArgs(testUpkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
@@ -4038,19 +4038,19 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#setUpkeepPipelineData', () => {
+  describe('#setUpkeepCheckData', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry
           .connect(keeper1)
-          .setUpkeepPipelineData(upkeepId.add(1), randomBytes),
+          .setUpkeepCheckData(upkeepId.add(1), randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if the caller is not upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(keeper1).setUpkeepCheckData(upkeepId, randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
@@ -4059,14 +4059,14 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes),
         'UpkeepCancelled()',
       )
     })
 
     it('is allowed to update on paused upkeep', async () => {
       await registry.connect(admin).pauseUpkeep(upkeepId)
-      await registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes)
+      await registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
@@ -4079,17 +4079,17 @@ describe('KeeperRegistry2_1', () => {
       }
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, longBytes),
-        'PipelineDataExceedsLimit()',
+        registry.connect(admin).setUpkeepCheckData(upkeepId, longBytes),
+        'CheckDataExceedsLimit()',
       )
     })
 
-    it('updates the upkeep pipeline data and emits an event', async () => {
+    it('updates the upkeep check data and emits an event', async () => {
       const tx = await registry
         .connect(admin)
-        .setUpkeepPipelineData(upkeepId, randomBytes)
+        .setUpkeepCheckData(upkeepId, randomBytes)
       await expect(tx)
-        .to.emit(registry, 'UpkeepPipelineDataSet')
+        .to.emit(registry, 'UpkeepCheckDataSet')
         .withArgs(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
