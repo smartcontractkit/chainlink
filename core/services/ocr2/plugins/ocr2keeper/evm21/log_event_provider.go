@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 // LogEventProviderOptions holds the options for the log event provider.
@@ -104,7 +105,7 @@ type LogEventProvider interface {
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 	// GetLogs returns the logs in the given range.
-	GetLogs() ([]UpkeepPayload, error)
+	GetLogs() ([]ocr2keepers.UpkeepPayload, error)
 }
 
 type LogEventProviderTest interface {
@@ -227,7 +228,7 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	return errors.Wrap(err, "failed to unregister upkeep filter")
 }
 
-func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
+func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {
@@ -235,12 +236,12 @@ func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 	}
 	logs := p.buffer.dequeue(int(diff))
 
-	var payloads []UpkeepPayload
+	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
 		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
-		trig := NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
-		payload := NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
+		trig := ocr2keepers.NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
+		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
 		payloads = append(payloads, payload)
 	}
 
