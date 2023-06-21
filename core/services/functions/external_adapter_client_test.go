@@ -166,7 +166,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
-		expectedData := `{"source":"abcd","language":0,"codeLocation":42,"secrets":"","secretsLocation":0,"args":["arg1","arg2"]}`
+		expectedData := `{"source":"abcd","language":7,"codeLocation":42,"secrets":"qrvM","secretsLocation":88,"args":["arg1","arg2"]}`
 		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
 		assert.Equal(t, expectedBody, string(body))
 
@@ -179,9 +179,12 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	reqData := &functions.RequestData{
-		Source:       "abcd",
-		CodeLocation: 42,
-		Args:         []string{"arg1", "arg2"},
+		Source:          "abcd",
+		Language:        7,
+		CodeLocation:    42,
+		Secrets:         []byte{0xaa, 0xbb, 0xcc}, // "qrvM" base64 encoded
+		SecretsLocation: 88,
+		Args:            []string{"arg1", "arg2"},
 	}
 	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", reqData)
 	assert.Error(t, err)
