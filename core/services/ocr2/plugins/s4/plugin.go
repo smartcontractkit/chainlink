@@ -4,17 +4,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type plugin struct {
-	logger       logger.Logger
+	logger       commontypes.Logger
 	config       *PluginConfig
 	orm          s4.ORM
 	addressRange *s4.AddressRange
@@ -27,7 +27,7 @@ type key struct {
 
 var _ types.ReportingPlugin = (*plugin)(nil)
 
-func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
+func NewReportingPlugin(logger commontypes.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
 	}
@@ -44,7 +44,7 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 	}
 
 	return &plugin{
-		logger:       logger.Named("OCR2-S4").With("product", config.ProductName),
+		logger:       logger,
 		config:       config,
 		orm:          orm,
 		addressRange: addressRange,
@@ -110,11 +110,11 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 
 	queryRows, addressRange, err := UnmarshalQuery(query)
 	if err != nil {
-		c.logger.Errorw("Failed to unmarshal query (likely malformed)", "err", err)
+		c.logger.Error("Failed to unmarshal query (likely malformed)", commontypes.LogFields{"err": err})
 	} else {
 		snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 		if err != nil {
-			c.logger.Errorw("ORM GetSnapshot error", "err", err)
+			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
 				address *utils.Big
@@ -154,7 +154,7 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 				if err == nil {
 					remainingRows = append(remainingRows, row)
 				} else if !errors.Is(err, s4.ErrNotFound) {
-					c.logger.Errorw("ORM Get error", "err", err)
+					c.logger.Error("ORM Get error", commontypes.LogFields{"err": err})
 				}
 			}
 		}
@@ -177,7 +177,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		for _, row := range observationRows {
 			if err := row.VerifySignature(); err != nil {
 				promReportingPluginWrongSigCount.WithLabelValues(c.config.ProductName).Inc()
-				c.logger.Errorw("Report detected invalid signature", "err", err, "oracleID", ao.Observer)
+				c.logger.Error("Report detected invalid signature", commontypes.LogFields{"err": err, "oracleID": ao.Observer})
 				continue
 			}
 			mkey := key{
@@ -231,7 +231,7 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 		}
 		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
-			c.logger.Errorw("Failed to Update a row in ShouldAcceptFinalizedReport()", "err", err)
+			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
 	}
