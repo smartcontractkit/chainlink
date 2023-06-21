@@ -6,7 +6,7 @@ import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "./VRF.sol";
-import "./VRFConsumerBaseV2.sol";
+import "./VRFConsumerBaseV2Plus.sol";
 import "../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 
@@ -409,7 +409,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     }
 
     delete s_requestCommitments[output.requestId];
-    VRFConsumerBaseV2 v;
+    VRFConsumerBaseV2Plus v;
     bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, output.requestId, randomWords);
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.

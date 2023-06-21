@@ -3,30 +3,8 @@ pragma solidity ^0.8.0;
 
 import "../ConfirmedOwner.sol";
 import "../interfaces/LinkTokenInterface.sol";
-
-interface ISubscriptionV2Plus {
-  function addConsumer(uint64 subId, address consumer) external;
-
-  function removeConsumer(uint64 subId, address consumer) external;
-
-  function cancelSubscription(uint64 subId, address to) external;
-
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external;
-
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external;
-
-  function createSubscription() external returns (uint64 subId);
-
-  function getSubscription(
-    uint64 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers);
-
-  function fundSubscriptionWithEth(uint64 subId) external payable;
-}
-
-interface IMigrateableConsumer {
-  function setVRFCoordinator(address vrfCoordinator) external;
-}
+import "../interfaces/IVRFSubscriptionV2Plus.sol";
+import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
 
 /// @notice The VRFV2SubscriptionManager contract is a contract
 /// @notice that manages subscriptions to the VRF service.
@@ -44,7 +22,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
   /// @notice the VRF coordinator that this the subscription ID above is for.
   /// @notice in the event a migration occurs, both s_subId and s_vrfCoordinator
   /// @notice will have to change accordingly.
-  ISubscriptionV2Plus public s_vrfCoordinator;
+  IVRFSubscriptionV2Plus public s_vrfCoordinator;
   /// @notice the LINK token contract that is used to fund the subscription.
   /// @notice it may not be available on some chains, in which case ether
   /// @notice funding is used.
@@ -52,7 +30,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
 
   function setVRFCoordinator(address vrfCoordinator) external onlyOwner {
     require(vrfCoordinator != address(0), "Invalid address");
-    s_vrfCoordinator = ISubscriptionV2Plus(vrfCoordinator);
+    s_vrfCoordinator = IVRFSubscriptionV2Plus(vrfCoordinator);
   }
 
   /// @notice setLinkToken sets the LINK token contract that is used to fund
@@ -123,7 +101,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
     // on the subscription.
     cancelSubscription();
     // create a new subscription on the new coordinator
-    ISubscriptionV2Plus newCoord = ISubscriptionV2Plus(newCoordinator);
+    IVRFSubscriptionV2Plus newCoord = IVRFSubscriptionV2Plus(newCoordinator);
     uint64 newSubId = newCoord.createSubscription();
     // at this point we should have all the funds in this contract, so
     // transfer the funds to the new subscription
@@ -138,7 +116,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
     // note that this is bounded by MAX_CONSUMERS in the coordinator
     for (uint i = 0; i < consumers.length; i++) {
       newCoord.addConsumer(newSubId, consumers[i]);
-      IMigrateableConsumer(consumers[i]).setVRFCoordinator(newCoordinator);
+      IVRFMigratableConsumerV2Plus(consumers[i]).setVRFCoordinator(newCoordinator);
     }
     // set the subscription id and the vrf coordinator in this owner contract
     s_subId = newSubId;

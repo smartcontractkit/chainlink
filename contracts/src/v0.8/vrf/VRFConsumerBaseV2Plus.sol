@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
+import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -23,31 +24,31 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
  * @dev The purpose of this contract is to make it easy for unrelated contracts
  * @dev to talk to Vera the verifier about the work Reggie is doing, to provide
  * @dev simple access to a verifiable source of randomness. It ensures 2 things:
- * @dev 1. The fulfillment came from the VRFCoordinator
+ * @dev 1. The fulfillment came from the VRFCoordinatorV2Plus.
  * @dev 2. The consumer contract implements fulfillRandomWords.
  * *****************************************************************************
  * @dev USAGE
  *
- * @dev Calling contracts must inherit from VRFConsumerBase, and can
- * @dev initialize VRFConsumerBase's attributes in their constructor as
+ * @dev Calling contracts must inherit from VRFConsumerBaseV2Plus, and can
+ * @dev initialize VRFConsumerBaseV2Plus's attributes in their constructor as
  * @dev shown:
  *
- * @dev   contract VRFConsumer {
- * @dev     constructor(<other arguments>, address _vrfCoordinator, address _link)
- * @dev       VRFConsumerBase(_vrfCoordinator) public {
+ * @dev   contract VRFConsumerV2Plus is VRFConsumerBaseV2Plus {
+ * @dev     constructor(<other arguments>, address _vrfCoordinator, address _subOwner)
+ * @dev       VRFConsumerBaseV2Plus(_vrfCoordinator, _subOwner) public {
  * @dev         <initialization with other arguments goes here>
  * @dev       }
  * @dev   }
  *
  * @dev The oracle will have given you an ID for the VRF keypair they have
- * @dev committed to (let's call it keyHash). Create subscription, fund it
+ * @dev committed to (let's call it keyHash). Create a subscription, fund it
  * @dev and your consumer contract as a consumer of it (see VRFCoordinatorInterface
  * @dev subscription management functions).
  * @dev Call requestRandomWords(keyHash, subId, minimumRequestConfirmations,
- * @dev callbackGasLimit, numWords),
- * @dev see (VRFCoordinatorInterface for a description of the arguments).
+ * @dev callbackGasLimit, numWords, nativePayment),
+ * @dev see (IVRFCoordinatorV2Plus for a description of the arguments).
  *
- * @dev Once the VRFCoordinator has received and validated the oracle's response
+ * @dev Once the VRFCoordinatorV2Plus has received and validated the oracle's response
  * @dev to your request, it will call your contract's fulfillRandomWords method.
  *
  * @dev The randomness argument to fulfillRandomWords is a set of random words
@@ -68,7 +69,7 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
  * @dev A method with the ability to call your fulfillRandomness method directly
  * @dev could spoof a VRF response with any random value, so it's critical that
  * @dev it cannot be directly called by anything other than this base contract
- * @dev (specifically, by the VRFConsumerBase.rawFulfillRandomness method).
+ * @dev (specifically, by the VRFConsumerBaseV2Plus.rawFulfillRandomness method).
  *
  * @dev For your users to trust that your contract's random behavior is free
  * @dev from malicious interference, it's best if you can write it so that all
@@ -96,7 +97,7 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
  * @dev responding to the request (however this is not enforced in the contract
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
-abstract contract VRFConsumerBaseV2Plus {
+abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
   error OnlyCoordinatorCanFulfill(address have, address want);
   error OnlySubOwnerCanSetVRFCoordinator(address have, address want);
 
@@ -139,7 +140,7 @@ abstract contract VRFConsumerBaseV2Plus {
     fulfillRandomWords(requestId, randomWords);
   }
 
-  function setVRFCoordinator(address _vrfCoordinator) external {
+  function setVRFCoordinator(address _vrfCoordinator) external override {
     if (msg.sender != subOwner) {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
     }
