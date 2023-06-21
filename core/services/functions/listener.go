@@ -368,22 +368,22 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 
 	nodeProvidedSecrets := ""
 	if l.decryptor != nil && requestData.SecretsLocation == LocationRemote && len(requestData.Secrets) > 0 {
-		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+		thresholdEncSecrets, userError, err2 := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
 
 		// To avoid a breaking change, if secrets fetching is unsuccessful,
 		// proceed by allowing the adapter handle secrets as before.
 		// Eventually, this will be deprecated and the error will be returned to the user on-chain
 		// by uncommenting the lines within the following if statements.
-		if err != nil {
-			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err)
+		if err2 != nil {
+			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err2)
 		}
 		if len(userError) != 0 {
 			l.logger.Debugw("user error while fetching threshold encrypted secrets - skipping threshold decryption", "requestID", requestIDStr, "err", string(userError))
 		}
 		if len(thresholdEncSecrets) != 0 {
-			decryptedSecrets, err := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
-			if err != nil {
-				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err)
+			decryptedSecrets, err2 := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
+			if err2 != nil {
+				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err2)
 			} else {
 				nodeProvidedSecrets = string(decryptedSecrets)
 			}
