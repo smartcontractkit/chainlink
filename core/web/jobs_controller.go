@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	logdebug "log"
 	"net/http"
 	"strings"
 	"time"
@@ -102,12 +104,15 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	logdebug.Println("**** job spec req is ", request.TOML)
 
 	jb, status, err := jc.validateJobSpec(request.TOML)
 	if err != nil {
 		jsonAPIError(c, status, err)
 		return
 	}
+
+	logdebug.Println(fmt.Sprintf("**** host: %s job spec forwarding allowed is %v plugin type:%s ", c.Request.Host, jb.ForwardingAllowed, jb.OCR2OracleSpec.PluginType))
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()

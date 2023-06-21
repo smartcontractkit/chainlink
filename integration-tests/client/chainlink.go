@@ -106,6 +106,7 @@ func (c *Chainlink) CreateJob(spec JobSpec) (*Job, *http.Response, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	logdebug.Println("**** job spec is ", specString)
 	log.Info().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Msg("Creating Job")
 	log.Trace().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Str("Spec", specString).Msg("Creating Job")
 	resp, err := c.APIClient.R().
