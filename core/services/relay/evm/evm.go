@@ -151,7 +151,7 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	}
 
 	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address())}
+		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
 		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
 	}
