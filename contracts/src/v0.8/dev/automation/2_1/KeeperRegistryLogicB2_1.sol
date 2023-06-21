@@ -77,11 +77,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepUnpaused(id);
   }
 
-  function setUpkeepPipelineData(uint256 id, bytes calldata newPipelineData) external {
+  function setUpkeepCheckData(uint256 id, bytes calldata newCheckData) external {
     _requireAdminAndNotCancelled(id);
-    if (newPipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
-    s_checkData[id] = newPipelineData;
-    emit UpkeepPipelineDataSet(id, newPipelineData);
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataSet(id, newCheckData);
   }
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {

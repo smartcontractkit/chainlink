@@ -32,11 +32,11 @@ import (
 var _ relaymercury.Fetcher = &mockFetcher{}
 
 type mockFetcher struct {
-	num int64
+	num *int64
 	err error
 }
 
-func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (int64, error) {
+func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return m.num, m.err
 }
 
@@ -143,7 +143,8 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if FetchInitialMaxFinalizedBlockNumber succeeds", func(t *testing.T) {
 			fetcher.err = nil
-			fetcher.num = 32
+			var num int64 = 32
+			fetcher.num = &num
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -151,7 +152,49 @@ func TestMercury_Observe(t *testing.T) {
 			assert.NoError(t, obs.MaxFinalizedBlockNumber.Err)
 			assert.Equal(t, int64(32), obs.MaxFinalizedBlockNumber.Val)
 		})
+		t.Run("if FetchInitialMaxFinalizedBlockNumber returns nil (new feed) and initialBlockNumber is set", func(t *testing.T) {
+			var initialBlockNumber int64 = 50
+			ds.initialBlockNumber = &initialBlockNumber
+			fetcher.err = nil
+			fetcher.num = nil
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.NoError(t, obs.MaxFinalizedBlockNumber.Err)
+			assert.Equal(t, int64(49), obs.MaxFinalizedBlockNumber.Val)
+		})
+		t.Run("if FetchInitialMaxFinalizedBlockNumber returns nil (new feed) and initialBlockNumber is not set", func(t *testing.T) {
+			ds.initialBlockNumber = nil
+			t.Run("if current block num is valid", func(t *testing.T) {
+				fetcher.err = nil
+				fetcher.num = nil
+
+				obs, err := ds.Observe(ctx, repts, true)
+				assert.NoError(t, err)
+
+				assert.NoError(t, obs.MaxFinalizedBlockNumber.Err)
+				assert.Equal(t, head.Number-1, obs.MaxFinalizedBlockNumber.Val)
+			})
+			t.Run("if current block num errored", func(t *testing.T) {
+				h2 := htmocks.NewHeadTracker(t)
+				h2.On("LatestChain").Return(nil)
+				ht.h = h2
+				c2 := evmtest.NewEthClientMock(t)
+				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
+				ht.c = c2
+
+				obs, err := ds.Observe(ctx, repts, true)
+				assert.NoError(t, err)
+
+				assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed. No initialBlockNumber was set, tried to use current block number to determine maxFinalizedBlockNumber but got error: head retrieval failed")
+			})
+		})
 	})
+
+	ht.h = h
+	ht.c = c
+
 	t.Run("when fetchMaxFinalizedBlockNum=false", func(t *testing.T) {
 		t.Run("when run execution fails, returns error", func(t *testing.T) {
 			t.Cleanup(func() {
