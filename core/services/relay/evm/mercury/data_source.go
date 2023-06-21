@@ -90,7 +90,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 					ds.lggr.Infof("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so maxFinalizedBlockNumber=%d (initialBlockNumber unset, using currentBlockNum=%d-1)", obs.MaxFinalizedBlockNumber.Val, obs.CurrentBlockNum.Val)
 				}
 			} else {
-				// NOTE: It's important to return -1 if the server is missing any past
+				// NOTE: It's important to subtract 1 if the server is missing any past
 				// report (brand new feed) since we will add 1 to the
 				// maxFinalizedBlockNumber to get the first validFromBlockNum, which
 				// ought to be zero.
