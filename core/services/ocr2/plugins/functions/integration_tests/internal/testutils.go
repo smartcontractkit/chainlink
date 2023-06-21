@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -41,6 +42,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
+
+var (
+	DefaultSecretsBytes  = []byte{0xaa, 0xbb, 0xcc}
+	DefaultSecretsBase64 = "qrvM"
+	DefaultArg1          = "arg1"
+	DefaultArg2          = "arg2"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -371,7 +379,16 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		require.NoError(t, err)
 		var jsonMap map[string]any
 		require.NoError(t, json.Unmarshal(b, &jsonMap))
-		source := jsonMap["data"].(map[string]any)["source"].(string)
+		data := jsonMap["data"].(map[string]any)
+		require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
+		require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
+		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+		require.Equal(t, DefaultSecretsBase64, data["secrets"].(string))
+		args := data["args"].([]interface{})
+		require.Equal(t, 2, len(args))
+		require.Equal(t, DefaultArg1, args[0].(string))
+		require.Equal(t, DefaultArg2, args[1].(string))
+		source := data["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
 		_, err = res.Write([]byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source)))
