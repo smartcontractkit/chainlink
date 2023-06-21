@@ -155,5 +155,5 @@ If you're making changes to chainlink code, or just want to run some tests witho
 1. [Install Go](https://go.dev/doc/install)
 2. [Install GitHub CLI](https://cli.github.com/)
 3. Authenticate with GitHub CLI: `gh auth login`
-4. `go run .`
+4. `make run`
 5. Follow the setup wizard and watch your tests run in the GitHub Action.
