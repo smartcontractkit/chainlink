@@ -221,7 +221,7 @@ contract KeeperRegistryLogicA2_1 is
     );
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepPipelineDataSet(id, checkData);
+    emit UpkeepCheckDataSet(id, checkData);
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
