@@ -7,14 +7,8 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
-
-// Deprecated, use EVM below
-type ChainScopedOnlyConfig interface {
-	evmclient.NodeConfig
-}
 
 type EVM interface {
 	HeadTracker() HeadTracker
@@ -23,6 +17,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+	NodePool() NodePool
 
 	AutoCreateKey() bool
 	BlockBackfillDepth() uint64
@@ -42,6 +37,7 @@ type EVM interface {
 	NonceAutoSync() bool
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
+	NodeNoNewHeadsThreshold() time.Duration
 }
 
 type OCR interface {
@@ -122,7 +118,6 @@ type BlockHistory interface {
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig
-	ChainScopedOnlyConfig // Deprecated, to be replaced by EVM() below
 	Validate() error
 
 	EVM() EVM
