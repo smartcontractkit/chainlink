@@ -149,3 +149,10 @@ func (i *Int64) Scan(value interface{}) error {
 	}
 	return nil
 }
+
+func (i Int64) Ptr() *int64 {
+	if i.Valid {
+		return &i.Int64
+	}
+	return nil
+}

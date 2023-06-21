@@ -11,6 +11,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -21,7 +22,7 @@ type PluginConfig struct {
 	// the first ever report in the case of a brand new feed, where the mercury
 	// server does not have any previous reports. For a brand new feed, this
 	// effectively sets the "first" validFromBlockNumber.
-	InitialBlockNumber int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
+	InitialBlockNumber null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 }
 
 func ValidatePluginConfig(config PluginConfig) (merr error) {

@@ -56,6 +56,7 @@ enum UpkeepFailureReason {
   PERFORM_DATA_EXCEEDS_LIMIT,
   INSUFFICIENT_BALANCE,
   CHECK_CALLBACK_REVERTED,
+  REVERT_DATA_EXCEEDS_LIMIT,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -110,6 +111,7 @@ const fallbackGasPrice = gasWei.mul(BigNumber.from('2'))
 const fallbackLinkPrice = linkEth.div(BigNumber.from('2'))
 const maxCheckDataSize = BigNumber.from(1000)
 const maxPerformDataSize = BigNumber.from(1000)
+const maxRevertDataSize = BigNumber.from(1000)
 const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from(0)
 const f = 1
@@ -211,6 +213,7 @@ type OnchainConfig = {
   minUpkeepSpend: BigNumberish
   maxCheckDataSize: BigNumberish
   maxPerformDataSize: BigNumberish
+  maxRevertDataSize: BigNumberish
   maxPerformGas: BigNumberish
   fallbackGasPrice: BigNumberish
   fallbackLinkPrice: BigNumberish
@@ -224,7 +227,7 @@ const encodeConfig = (config: OnchainConfig) => {
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
       ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
-      uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
+      uint32 maxPerformDataSize,uint32 maxRevertDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
       address[] registrars,address upkeepPrivilegeManager)',
     ],
     [config],
@@ -449,7 +452,8 @@ describe('KeeperRegistry2_1', () => {
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
-  const numUpkeps = 3 // see above
+  let mercuryUpkeepId: BigNumber // mercury upkeep
+  const numUpkeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -662,6 +666,7 @@ describe('KeeperRegistry2_1', () => {
           minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
+          maxRevertDataSize,
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
@@ -905,6 +910,7 @@ describe('KeeperRegistry2_1', () => {
       minUpkeepSpend,
       maxCheckDataSize,
       maxPerformDataSize,
+      maxRevertDataSize,
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
@@ -1012,6 +1018,17 @@ describe('KeeperRegistry2_1', () => {
     await linkToken
       .connect(owner)
       .transfer(autoFunderUpkeep.address, toWei('1000'))
+
+    tx = await registry
+      .connect(owner)
+      ['registerUpkeep(address,uint32,address,bytes,bytes)'](
+        mercuryUpkeep.address,
+        executeGas,
+        await admin.getAddress(),
+        randomBytes,
+        '0x',
+      )
+    mercuryUpkeepId = await getUpkeepID(tx)
   }
 
   const getMultipleUpkeepsDeployedAndFunded = async (
@@ -2976,6 +2993,9 @@ describe('KeeperRegistry2_1', () => {
 
       it('returns false, error code, and revert data if the target check reverts', async () => {
         await mock.setShouldRevertCheck(true)
+        await mock.setCheckRevertReason(
+          'custom revert error, clever way to insert offchain data',
+        )
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic['checkUpkeep(uint256)'](upkeepId)
@@ -2984,11 +3004,35 @@ describe('KeeperRegistry2_1', () => {
         const revertReasonBytes = `0x${checkUpkeepResult.performData.slice(10)}` // remove sighash
         assert.equal(
           ethers.utils.defaultAbiCoder.decode(['string'], revertReasonBytes)[0],
-          'shouldRevertCheck should be false',
+          'custom revert error, clever way to insert offchain data',
         )
         assert.equal(
           checkUpkeepResult.upkeepFailureReason,
           UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        )
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
+        // Feed data should be returned here
+        assert.isTrue(checkUpkeepResult.fastGasWei.gt(BigNumber.from('0')))
+        assert.isTrue(checkUpkeepResult.linkNative.gt(BigNumber.from('0')))
+      })
+
+      it('returns false, error code, and no revert data if the target check revert data exceeds maxRevertDataSize', async () => {
+        await mock.setShouldRevertCheck(true)
+        let longRevertReason = ''
+        for (let i = 0; i <= maxRevertDataSize.toNumber(); i++) {
+          longRevertReason += 'x'
+        }
+        await mock.setCheckRevertReason(longRevertReason)
+        const checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic['checkUpkeep(uint256)'](upkeepId)
+        assert.equal(checkUpkeepResult.upkeepNeeded, false)
+
+        assert.equal(checkUpkeepResult.performData, '0x')
+        assert.equal(
+          checkUpkeepResult.upkeepFailureReason,
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
         )
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
         expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
@@ -3145,9 +3189,10 @@ describe('KeeperRegistry2_1', () => {
         numUpkeps,
         Trigger.CONDITION,
       )
-      assert(upkeepIds.length == 2)
+      assert(upkeepIds.length == 3)
       assert(upkeepIds[0].eq(upkeepId))
       assert(upkeepIds[1].eq(afUpkeepId))
+      assert(upkeepIds[2].eq(mercuryUpkeepId))
       upkeepIds = await registry.getActiveUpkeepIDsByType(
         0,
         numUpkeps,
@@ -3363,6 +3408,7 @@ describe('KeeperRegistry2_1', () => {
     const newMinUpkeepSpend = BigNumber.from(9)
     const newMaxCheckDataSize = BigNumber.from(10000)
     const newMaxPerformDataSize = BigNumber.from(10000)
+    const newMaxRevertDataSize = BigNumber.from(10000)
     const newMaxPerformGas = BigNumber.from(10000000)
     const fbGasEth = BigNumber.from(7)
     const fbLinkEth = BigNumber.from(8)
@@ -3379,6 +3425,7 @@ describe('KeeperRegistry2_1', () => {
       minUpkeepSpend: newMinUpkeepSpend,
       maxCheckDataSize: newMaxCheckDataSize,
       maxPerformDataSize: newMaxPerformDataSize,
+      maxRevertDataSize: newMaxRevertDataSize,
       maxPerformGas: newMaxPerformGas,
       fallbackGasPrice: fbGasEth,
       fallbackLinkPrice: fbLinkEth,
@@ -3441,6 +3488,10 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(
         updatedConfig.maxPerformDataSize,
         newMaxPerformDataSize.toNumber(),
+      )
+      assert.equal(
+        updatedConfig.maxRevertDataSize,
+        newMaxRevertDataSize.toNumber(),
       )
       assert.equal(updatedConfig.maxPerformGas, newMaxPerformGas.toNumber())
       assert.equal(updatedConfig.checkGasLimit, maxGas.toNumber())
@@ -3878,7 +3929,7 @@ describe('KeeperRegistry2_1', () => {
             longBytes,
             '0x',
           ),
-        'PipelineDataExceedsLimit()',
+        'CheckDataExceedsLimit()',
       )
     })
 
@@ -3907,7 +3958,7 @@ describe('KeeperRegistry2_1', () => {
             .withArgs(testUpkeepId, executeGas, await admin.getAddress())
 
           await expect(tx)
-            .to.emit(registry, 'UpkeepPipelineDataSet')
+            .to.emit(registry, 'UpkeepCheckDataSet')
             .withArgs(testUpkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
@@ -4038,19 +4089,19 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#setUpkeepPipelineData', () => {
+  describe('#setUpkeepCheckData', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry
           .connect(keeper1)
-          .setUpkeepPipelineData(upkeepId.add(1), randomBytes),
+          .setUpkeepCheckData(upkeepId.add(1), randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if the caller is not upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(keeper1).setUpkeepCheckData(upkeepId, randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
@@ -4059,14 +4110,14 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes),
+        registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes),
         'UpkeepCancelled()',
       )
     })
 
     it('is allowed to update on paused upkeep', async () => {
       await registry.connect(admin).pauseUpkeep(upkeepId)
-      await registry.connect(admin).setUpkeepPipelineData(upkeepId, randomBytes)
+      await registry.connect(admin).setUpkeepCheckData(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
@@ -4079,17 +4130,17 @@ describe('KeeperRegistry2_1', () => {
       }
 
       await evmRevert(
-        registry.connect(admin).setUpkeepPipelineData(upkeepId, longBytes),
-        'PipelineDataExceedsLimit()',
+        registry.connect(admin).setUpkeepCheckData(upkeepId, longBytes),
+        'CheckDataExceedsLimit()',
       )
     })
 
-    it('updates the upkeep pipeline data and emits an event', async () => {
+    it('updates the upkeep check data and emits an event', async () => {
       const tx = await registry
         .connect(admin)
-        .setUpkeepPipelineData(upkeepId, randomBytes)
+        .setUpkeepCheckData(upkeepId, randomBytes)
       await expect(tx)
-        .to.emit(registry, 'UpkeepPipelineDataSet')
+        .to.emit(registry, 'UpkeepCheckDataSet')
         .withArgs(upkeepId, randomBytes)
 
       const registration = await registry.getUpkeep(upkeepId)
@@ -4372,6 +4423,7 @@ describe('KeeperRegistry2_1', () => {
           minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
+          maxRevertDataSize,
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
@@ -5001,6 +5053,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
@@ -5053,6 +5106,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
@@ -5100,6 +5154,7 @@ describe('KeeperRegistry2_1', () => {
               minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
+              maxRevertDataSize,
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
@@ -5237,18 +5292,59 @@ describe('KeeperRegistry2_1', () => {
   })
 
   describe('#checkCallback', () => {
-    it('succeeds with upkeep needed', async () => {
-      const tx = await registry
-        .connect(owner)
-        ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-          mercuryUpkeep.address,
-          executeGas,
-          await admin.getAddress(),
-          randomBytes,
-          '0x',
-        )
-      const mercuryUpkeepId = await getUpkeepID(tx)
+    it('returns false with appropriate failure reason when target callback reverts', async () => {
+      await mercuryUpkeep.setShouldRevertCallback(true)
 
+      const values: any[] = ['0x1234', '0xabcd']
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.CHECK_CALLBACK_REVERTED,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns false with appropriate failure reason when target callback returns big performData', async () => {
+      let longBytes = '0x'
+      for (let i = 0; i <= maxPerformDataSize.toNumber(); i++) {
+        longBytes += '11'
+      }
+      const values: any[] = [longBytes, longBytes]
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns false with appropriate failure reason when target callback returns false', async () => {
+      await mercuryUpkeep.setCallbackReturnBool(false)
+      const values: any[] = ['0x1234', '0xabcd']
+      const res = await registry
+        .connect(zeroAddress)
+        .callStatic.checkCallback(mercuryUpkeepId, values, '0x')
+
+      assert.isFalse(res.upkeepNeeded)
+      assert.equal(res.performData, '0x')
+      assert.equal(
+        res.upkeepFailureReason,
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+      )
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('succeeds with upkeep needed', async () => {
       const values: any[] = ['0x1234', '0xabcd']
 
       const res = await registry
@@ -5261,6 +5357,8 @@ describe('KeeperRegistry2_1', () => {
 
       assert.isTrue(res.upkeepNeeded)
       assert.equal(res.performData, expectedPerformData)
+      assert.equal(res.upkeepFailureReason, UpkeepFailureReason.NONE)
+      assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
   })
 

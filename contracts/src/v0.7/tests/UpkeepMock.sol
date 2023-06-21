@@ -10,6 +10,7 @@ contract UpkeepMock is KeeperCompatible {
   bytes public performData;
   uint256 public checkGasToBurn;
   uint256 public performGasToBurn;
+  string public checkRevertReason;
 
   uint256 constant checkGasBuffer = 6000; // use all but this amount in gas burn loops
   uint256 constant performGasBuffer = 1000; // use all but this amount in gas burn loops
@@ -32,6 +33,10 @@ contract UpkeepMock is KeeperCompatible {
     canPerform = value;
   }
 
+  function setCheckRevertReason(string calldata value) public {
+    checkRevertReason = value;
+  }
+
   function setCheckGasToBurn(uint256 value) public {
     require(value > checkGasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
     if (value > 0) {
@@ -50,13 +55,10 @@ contract UpkeepMock is KeeperCompatible {
     }
   }
 
-  function checkUpkeep(bytes calldata data)
-    external
-    override
-    cannotExecute
-    returns (bool callable, bytes memory executedata)
-  {
-    require(!shouldRevertCheck, "shouldRevertCheck should be false");
+  function checkUpkeep(
+    bytes calldata data
+  ) external override cannotExecute returns (bool callable, bytes memory executedata) {
+    require(!shouldRevertCheck, checkRevertReason);
     uint256 startGas = gasleft();
     bool couldCheck = canCheck;
 
