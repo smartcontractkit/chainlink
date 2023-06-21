@@ -1002,6 +1002,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
+		ForwardingAllowed:     o.ForwardingAllowed,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		FeedID:                feedID,
