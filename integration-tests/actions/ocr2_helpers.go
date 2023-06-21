@@ -257,6 +257,7 @@ func CreateOCRv2Jobs(
 	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
+	forwardingAllowed bool,
 ) error {
 	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -327,6 +328,7 @@ func CreateOCRv2Jobs(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
+				ForwardingAllowed: forwardingAllowed,
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",
@@ -341,114 +343,6 @@ func CreateOCRv2Jobs(
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
 					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
-				},
-			}
-			_, err = chainlinkNode.MustCreateJob(ocrSpec)
-			if err != nil {
-				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-// CreateOCRv2JobsWithForwarder bootstraps the first node and to the other nodes sends ocr2 jobs that
-// read from different adapters, to be used in combination with SetAdapterResponses
-func CreateOCRv2JobsWithForwarder(
-	ocrInstances []contracts.OffchainAggregatorV2,
-	bootstrapNode *client.Chainlink,
-	workerChainlinkNodes []*client.Chainlink,
-	mockserver *ctfClient.MockserverClient,
-	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
-	mockServerValue int, // Value to get from the mock server when querying the path
-	chainId uint64, // EVM chain ID
-) error {
-	// Collect P2P ID
-	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
-	if err != nil {
-		return err
-	}
-
-	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
-	// Set the value for the jobs to report on
-	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
-	if err != nil {
-		return err
-	}
-	// Set the juelsPerFeeCoinSource config value
-	err = mockserver.SetValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockServerPath), mockServerValue)
-	if err != nil {
-		return err
-	}
-
-	for _, ocrInstance := range ocrInstances {
-		bootstrapSpec := &client.OCR2TaskJobSpec{
-			Name:    "ocr2 bootstrap node",
-			JobType: "bootstrap",
-			OCR2OracleSpec: job.OCR2OracleSpec{
-				ContractID: ocrInstance.Address(),
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": chainId,
-				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath)),
-				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
-			},
-		}
-		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
-		if err != nil {
-			return fmt.Errorf("creating bootstrap job have failed: %w", err)
-		}
-
-		for _, chainlinkNode := range workerChainlinkNodes {
-			nodeTransmitterAddress, err := chainlinkNode.PrimaryEthAddress()
-			if err != nil {
-				return fmt.Errorf("getting primary ETH address from OCR node have failed: %w", err)
-			}
-			nodeOCRKeys, err := chainlinkNode.MustReadOCR2Keys()
-			if err != nil {
-				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
-			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
-
-			bta := &client.BridgeTypeAttributes{
-				Name: mockServerPath,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath),
-			}
-			juelsBridge := &client.BridgeTypeAttributes{
-				Name: "juels",
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockserver.Config.ClusterURL, mockServerPath),
-			}
-			err = chainlinkNode.MustCreateBridge(bta)
-			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
-			}
-			err = chainlinkNode.MustCreateBridge(juelsBridge)
-			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
-			}
-
-			ocrSpec := &client.OCR2TaskJobSpec{
-				Name:              "ocr2",
-				JobType:           "offchainreporting2",
-				MaxTaskDuration:   "1m",
-				ObservationSource: client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed: true,
-				OCR2OracleSpec: job.OCR2OracleSpec{
-					PluginType: "median",
-					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
-						"chainID": chainId,
-					},
-					PluginConfig: map[string]any{
-						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", client.ObservationSourceSpecBridge(juelsBridge)),
-					},
-					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
-					ContractID:                        ocrInstance.Address(),                   // registryAddr
-					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
-					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
-					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
-
 				},
 			}
 			_, err = chainlinkNode.MustCreateJob(ocrSpec)

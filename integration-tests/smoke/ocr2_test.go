@@ -69,7 +69,7 @@ func TestOCRv2Basic(t *testing.T) {
 	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, transmitters, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
+	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
