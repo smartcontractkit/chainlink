@@ -21,7 +21,7 @@ export const deployRegistry21 = async (
   return IKeeperRegistryMasterFactory.connect(master.address, from)
 }
 
-type OnchainConfig21 = {
+export type OnchainConfig21 = {
   paymentPremiumPPB: BigNumberish
   flatFeeMicroLink: BigNumberish
   checkGasLimit: BigNumberish
@@ -39,7 +39,7 @@ type OnchainConfig21 = {
   upkeepPrivilegeManager: string
 }
 
-const encodeConfig21 = (config: OnchainConfig) => {
+export const encodeConfig21 = (config: OnchainConfig21) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\

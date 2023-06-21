@@ -3552,7 +3552,7 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          encodeConfig21(newConfig),
           offchainVersion,
           offchainBytes,
         )
@@ -5518,7 +5518,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses.slice(2, 15), // only use 2-14th index keepers
         keeperAddresses.slice(2, 15),
         f,
-        encodeConfig(config),
+        encodeConfig21(config),
         offchainVersion,
         offchainBytes,
       )
@@ -5550,7 +5550,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses.slice(0, 4), // only use 0-3rd index keepers
         keeperAddresses.slice(0, 4),
         f,
-        encodeConfig(config),
+        encodeConfig21(config),
         offchainVersion,
         offchainBytes,
       )
