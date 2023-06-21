@@ -213,7 +213,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	_ = backend.Commit()
 	poll(backend.Commit())
 
-	<-time.After(pollerTimeout) // let the log poller work
+	<-time.After(pollerTimeout * 2) // let the log poller work
 
 	logs, err := logProvider.GetLogs()
 	require.NoError(t, err)
