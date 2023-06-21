@@ -70,7 +70,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			val, err := ds.fetcher.FetchInitialMaxFinalizedBlockNumber(ctx)
+			var val *int64
+			val, err = ds.fetcher.FetchInitialMaxFinalizedBlockNumber(ctx)
 			if err != nil {
 				obs.MaxFinalizedBlockNumber.Err = err
 				return
