@@ -1294,27 +1294,27 @@ type CLNodesWithKeys struct {
 	KeysBundle NodeKeysBundle
 }
 
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []ForwarderData `json:"data"`
+}
+
 // Forwarder the model that represents the created Forwarder when created
 type Forwarder struct {
 	Data ForwarderData `json:"data"`
 }
 
-// Forwarders is the model that represents the created Forwarders when read
-type Forwarders struct {
-	Data []Forwarder `json:"data"`
-}
-
 // ForwarderData is the model that represents the created Forwarder when read
 type ForwarderData struct {
-	ID        string    `json:"id"`
-	Address   string    `json:"address"`
-	ChainID   string    `json:"chainId"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Type       string              `json:"type"`
+	ID         string              `json:"id"`
+	Attributes ForwarderAttributes `json:"attributes"`
 }
 
 // ForwarderAttributes is the model that represents attributes of a Forwarder
 type ForwarderAttributes struct {
-	Address string `json:"address"`
-	ChainID string `json:"chainID"`
+	Address   string `json:"address"`
+	ChainID   string `json:"evmChainId"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
