@@ -79,10 +79,9 @@ var _ Transmitter = &mercuryTransmitter{}
 
 type mercuryTransmitter struct {
 	utils.StartStopOnce
-	lggr               logger.Logger
-	rpcClient          wsrpc.Client
-	cfgTracker         ConfigTracker
-	initialBlockNumber int64
+	lggr       logger.Logger
+	rpcClient  wsrpc.Client
+	cfgTracker ConfigTracker
 
 	feedID      [32]byte
 	feedIDHex   string
@@ -116,14 +115,13 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
-		initialBlockNumber,
 		feedID,
 		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
@@ -292,36 +290,27 @@ func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (c
 }
 
 func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (*int64, error) {
-	deflt := int64(0)
-	mt.lggr.Debug("FetchInitialMaxFinalizedBlockNumber")
+	mt.lggr.Trace("FetchInitialMaxFinalizedBlockNumber")
 	req := &pb.LatestReportRequest{
 		FeedId: mt.feedID[:],
 	}
 	resp, err := mt.rpcClient.LatestReport(ctx, req)
 	if err != nil {
 		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-		return &deflt, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+		return nil, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
 	}
 	if resp == nil {
-		return &deflt, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
+		return nil, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
 	}
 	if resp.Error != "" {
 		err = errors.New(resp.Error)
 		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed; mercury server returned error", "err", err)
-		return &deflt, err
+		return nil, err
 	}
 	if resp.Report == nil {
-		maxFinalizedBlockNumber := mt.initialBlockNumber - 1
-		mt.lggr.Infof("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so maxFinalizedBlockNumber=%d (initialBlockNumber=%d)", maxFinalizedBlockNumber, mt.initialBlockNumber)
-		// NOTE: It's important to return -1 if the server is missing any past
-		// report (brand new feed) since we will add 1 to the
-		// maxFinalizedBlockNumber to get the first validFromBlockNum, which
-		// ought to be zero.
-		//
-		// If "initialBlockNumber" is unset, this will give a starting block of zero.
-		return &maxFinalizedBlockNumber, nil
+		return nil, nil
 	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
-		return &deflt, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
+		return nil, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
 	}
 
 	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", resp.Report.CurrentBlockNumber)

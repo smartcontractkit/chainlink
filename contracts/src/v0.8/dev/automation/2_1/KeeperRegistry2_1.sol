@@ -271,6 +271,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         if (transmitter.active) revert RepeatedTransmitter();
         transmitter.active = true;
         transmitter.index = uint8(i);
+        // new transmitters start afresh from current totalPremium
+        // some spare change of premium from previous pool will be forfeited
         transmitter.lastCollected = totalPremium;
         s_transmitters[temp] = transmitter;
       }
@@ -303,6 +305,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
+      upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
