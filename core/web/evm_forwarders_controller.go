@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 
@@ -33,7 +34,7 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-	fmt.Println(fmt.Sprintf("****** I am getting forwarders! req url:%s, host:%s", c.Request.URL, c.Request.Host))
+	log.Println(fmt.Sprintf("****** I am getting forwarders! req url:%s, host:%s", c.Request.URL, c.Request.Host))
 
 	var resources []presenters.EVMForwarderResource
 	for _, fwd := range fwds {
@@ -52,20 +53,23 @@ type TrackEVMForwarderRequest struct {
 // Track adds a new EVM forwarder.
 func (cc *EVMForwardersController) Track(c *gin.Context) {
 	request := &TrackEVMForwarderRequest{}
-
+	log.Println("****** received track req")
 	if err := c.ShouldBindJSON(&request); err != nil {
+		log.Println("****** should bind json error ", err)
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	fmt.Println(fmt.Sprintf("****** I am tracking a new forwarder! address:%s, req url:%s, host:%s", request.Address, c.Request.URL, c.Request.Host))
+	log.Println(fmt.Sprintf("****** I am tracking a new forwarder! address:%s, req url:%s, host:%s, evmChainID:%v", request.Address, c.Request.URL, c.Request.Host, request.EVMChainID))
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
 	fwd, err := orm.CreateForwarder(request.Address, *request.EVMChainID)
 
 	if err != nil {
+		log.Println("****** create fwd error ", err)
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
+	log.Println("created fwd ", fwd)
 	cc.App.GetAuditLogger().Audit(audit.ForwarderCreated, map[string]interface{}{
 		"forwarderID":         fwd.ID,
 		"forwarderAddress":    fwd.Address,
