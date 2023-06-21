@@ -123,6 +123,11 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	return bts, nil
 }
 
+// TODO: implement
+func (enc EVMAutomationEncoder21) Extract([]byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	panic("unimplemented")
+}
+
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
 	m := make(map[string]interface{})
 	if err := unpackIntoMapFn(m, report); err != nil {
