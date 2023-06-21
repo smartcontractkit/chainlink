@@ -158,21 +158,13 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	return filterNames, err
 }
 
-type ConfigPoller interface {
-	ocrtypes.ContractConfigTracker
-
-	Start()
-	Close() error
-	Replay(ctx context.Context, fromBlock int64) error
-}
-
 type configWatcher struct {
 	utils.StartStopOnce
 	lggr             logger.Logger
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     ConfigPoller
+	configPoller     types.ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -185,7 +177,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller ConfigPoller,
+	configPoller types.ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -271,7 +263,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	var cp ConfigPoller
+	var cp types.ConfigPoller
 
 	if relayConfig.FeedID != nil {
 		cp, err = mercury.NewConfigPoller(
