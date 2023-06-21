@@ -5,12 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := plugins.NewLoopRegistry()
+	m := plugins.NewLoopRegistry(logger.TestLogger(t))
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)

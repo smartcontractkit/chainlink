@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sort"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 const (
@@ -22,11 +24,13 @@ type RegisteredLoop struct {
 type LoopRegistry struct {
 	mu       sync.Mutex
 	registry map[string]*RegisteredLoop
+	lggr     logger.Logger
 }
 
-func NewLoopRegistry() *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger) *LoopRegistry {
 	return &LoopRegistry{
 		registry: map[string]*RegisteredLoop{},
+		lggr:     lggr,
 	}
 }
 
@@ -73,6 +77,7 @@ func (m *LoopRegistry) create(pluginName string) (*RegisteredLoop, error) {
 	envCfg := NewEnvConfig(nextPort)
 
 	m.registry[pluginName] = &RegisteredLoop{Name: pluginName, EnvCfg: envCfg}
+	m.lggr.Debug("Created registered loop %s with config %v, port %d", pluginName, envCfg, envCfg.PrometheusPort())
 	return m.registry[pluginName], nil
 }
 
