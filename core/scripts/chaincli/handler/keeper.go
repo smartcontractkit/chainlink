@@ -253,7 +253,7 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -317,7 +317,7 @@ func (k *Keeper) deployRegistry20(ctx context.Context, verify bool) (common.Addr
 	registryLogicAddr, deployKeeperRegistryLogicTx, _, err := registrylogic20.DeployKeeperRegistryLogic(
 		k.buildTxOpts(ctx),
 		k.client,
-		0,
+		k.cfg.Mode,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -688,7 +688,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	}
 
 	// set administrative offchain config for mercury upkeeps
-	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
 		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
 		if err != nil {
 			log.Fatalf("cannot create registry 2.1: %v", err)
@@ -704,19 +704,19 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			MercuryEnabled: true,
 		})
 		if err != nil {
-			log.Fatalf("failed to marshal admin offchain config: %v", err)
+			log.Fatalf("failed to marshal upkeep privilege config: %v", err)
 		}
 
 		for _, id := range activeUpkeepIds {
-			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			tx, err := reg21.SetUpkeepPrivilegeConfig(k.buildTxOpts(ctx), id, adminBytes)
 			if err != nil {
-				log.Fatalf("failed to set admin offchain config: %v", err)
+				log.Fatalf("failed to upkeep privilege config: %v", err)
 			}
 			err = k.waitTx(ctx, tx)
 			if err != nil {
 				log.Fatalf("failed to wait for tx: %v", err)
 			} else {
-				log.Printf("admin offchain config is set for %s", id.String())
+				log.Printf("upkeep privilege config is set for %s", id.String())
 			}
 
 			info, err := reg21.GetUpkeep(nil, id)
