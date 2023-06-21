@@ -5,8 +5,6 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
-	"net/http"
-	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -79,9 +77,6 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 // Setup sets up the test environment, deploying contracts and funding chainlink nodes
 func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 	l := utils.GetTestLogger(t)
-	go func() {
-		l.Error().Err(http.ListenAndServe("0.0.0.0:420", nil)).Msg("Error serving pprof")
-	}()
 	o.ensureInputValues(t)
 	o.testEnvironment = env
 	var err error
@@ -379,6 +374,7 @@ func (o *OCRSoakTestSub) ReceiveHeader(header blockchain.NodeHeader) error {
 	fq := ethereum.FilterQuery{
 		BlockHash: &header.Hash,
 		Addresses: o.ocrAddresses,
+		Topics:    [][]common.Hash{{o.contractABI.Events["AnswerUpdated"].ID}},
 	}
 	logs, err := o.client.FilterLogs(context.Background(), fq)
 	if err != nil {
