@@ -147,8 +147,8 @@ func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_regist
 	return r0, r1
 }
 
-// GetUpkeepAdminOffchainConfig provides a mock function with given fields: opts, upkeepId
-func (_m *Registry) GetUpkeepAdminOffchainConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+// GetUpkeepPrivilegeConfig provides a mock function with given fields: opts, upkeepId
+func (_m *Registry) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 	ret := _m.Called(opts, upkeepId)
 
 	var r0 []byte

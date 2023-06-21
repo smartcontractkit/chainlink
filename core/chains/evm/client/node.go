@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -130,13 +131,14 @@ type rawclient struct {
 // It must have a ws url and may have a http url
 type node struct {
 	utils.StartStopOnce
-	lfcLog  logger.Logger
-	rpcLog  logger.Logger
-	name    string
-	id      int32
-	chainID *big.Int
-	cfg     NodeConfig
-	order   int32
+	lfcLog              logger.Logger
+	rpcLog              logger.Logger
+	name                string
+	id                  int32
+	chainID             *big.Int
+	nodePoolCfg         config.NodePool
+	noNewHeadsThreshold time.Duration
+	order               int32
 
 	ws   rawclient
 	http *rawclient
@@ -169,22 +171,14 @@ type node struct {
 	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
 }
 
-// NodeConfig allows configuration of the node
-type NodeConfig interface {
-	NodeNoNewHeadsThreshold() time.Duration
-	NodePollFailureThreshold() uint32
-	NodePollInterval() time.Duration
-	NodeSelectionMode() string
-	NodeSyncThreshold() uint32
-}
-
 // NewNode returns a new *node as Node
-func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
+func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
 	n.id = id
 	n.chainID = chainID
-	n.cfg = nodeCfg
+	n.nodePoolCfg = nodeCfg
+	n.noNewHeadsThreshold = noNewHeadsThreshold
 	n.ws.uri = wsuri
 	n.order = nodeOrder
 	if httpuri != nil {
