@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -74,8 +75,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Run("duplicated", func(t *testing.T) {
 		err := orm.CreateRequest(id1, ts1, &txHash1)
 		require.Error(t, err)
-		err = orm.CreateRequest(id1, ts1, &txHash1)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, functions.ErrDuplicateRequestID))
 	})
 }
 

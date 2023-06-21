@@ -38,6 +38,8 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
+var ErrDuplicateRequestID = errors.New("Functions ORM: duplicate request ID")
+
 const requestFields = "request_id, run_id, received_at, request_tx_hash, " +
 	"state, result_ready_at, result, error_type, error, " +
 	"transmitted_result, transmitted_error"
@@ -52,9 +54,20 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, contractAddress com
 func (o *orm) CreateRequest(requestID RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
 	stmt := `
 		INSERT INTO ocr2dr_requests (request_id, contract_address, received_at, request_tx_hash, state)
-		VALUES ($1,$2,$3,$4,$5);
+		VALUES ($1,$2,$3,$4,$5) ON CONFLICT (request_id) DO NOTHING;
 	`
-	return o.q.WithOpts(qopts...).ExecQ(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, requestID, o.contractAddress, receivedAt, requestTxHash, IN_PROGRESS)
+	if err != nil {
+		return err
+	}
+	nrows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if nrows == 0 {
+		return ErrDuplicateRequestID
+	}
+	return nil
 }
 
 func (o *orm) setWithStateTransitionCheck(requestID RequestID, newState RequestState, setter func(pg.Queryer) error, qopts ...pg.QOpt) error {
