@@ -36,32 +36,40 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
 }
 
 // TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (EVMAutomationUpkeepResult21, ocr2keepers.CheckResult, error) {
 	var (
 		result EVMAutomationUpkeepResult21
 	)
+	var result21 ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		return result, result21, err
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		return result, result21, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	block, id, err := splitKey(key)
-	if err != nil {
-		return result, err
-	}
+	block := big.NewInt(key.Trigger.BlockNumber)
+	id := new(big.Int).SetBytes(key.Upkeep.ID)
 
 	result = EVMAutomationUpkeepResult21{
 		Block:            uint32(block.Uint64()),
 		ID:               id,
 		Eligible:         true,
 		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{},
+		CheckBlockHash:   [32]byte{}, // need this!
+	}
+
+	result21 = ocr2keepers.CheckResult{
+		Eligible:    *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:   false,
+		GasUsed:     (*abi.ConvertType(out[3], new(*big.Int)).(**big.Int)).Uint64(),
+		Payload:     key,
+		PerformData: *abi.ConvertType(out[1], new([]byte)).(*[]byte),
+		Extension:   nil,
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
@@ -80,7 +88,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		result.PerformData = rawPerformData
 	}
 
-	return result, nil
+	return result, result21, nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {

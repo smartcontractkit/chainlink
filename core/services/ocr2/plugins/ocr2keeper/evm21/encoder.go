@@ -94,6 +94,7 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 
 		ids[i] = res.ID
 		gasLimits[i] = res.GasUsed
+		// use different trigger structs depending on trigger type
 		triggers[i] = wrappedTrigger{
 			BlockNumber: res.CheckBlockNumber,
 			BlockHash:   res.CheckBlockHash,
