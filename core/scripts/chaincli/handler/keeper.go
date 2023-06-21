@@ -687,7 +687,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
 
-	// set administrative offchain config for mercury upkeeps
+	// set upkeep privilege config for mercury upkeeps
 	if k.cfg.UpkeepType == config.Mercury && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
 		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
 		if err != nil {
@@ -704,19 +704,19 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			MercuryEnabled: true,
 		})
 		if err != nil {
-			log.Fatalf("failed to marshal admin offchain config: %v", err)
+			log.Fatalf("failed to marshal upkeep privilege config: %v", err)
 		}
 
 		for _, id := range activeUpkeepIds {
-			tx, err := reg21.SetUpkeepAdminOffchainConfig(k.buildTxOpts(ctx), id, adminBytes)
+			tx, err := reg21.SetUpkeepPrivilegeConfig(k.buildTxOpts(ctx), id, adminBytes)
 			if err != nil {
-				log.Fatalf("failed to set admin offchain config: %v", err)
+				log.Fatalf("failed to upkeep privilege config: %v", err)
 			}
 			err = k.waitTx(ctx, tx)
 			if err != nil {
 				log.Fatalf("failed to wait for tx: %v", err)
 			} else {
-				log.Printf("admin offchain config is set for %s", id.String())
+				log.Printf("upkeep privilege config is set for %s", id.String())
 			}
 
 			info, err := reg21.GetUpkeep(nil, id)
