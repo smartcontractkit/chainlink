@@ -98,7 +98,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(1, ocrInstances, chainClient, time.Minute*2)
 	require.NoError(t, err)
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")

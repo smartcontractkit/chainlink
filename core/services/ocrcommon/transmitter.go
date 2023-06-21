@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -86,6 +87,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 }
 
 func (t *transmitter) FromAddress() common.Address {
+	log.Println("$$$$$ Effective transmitter address here is ", t.effectiveTransmitterAddress)
 	return t.effectiveTransmitterAddress
 }
 
