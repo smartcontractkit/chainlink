@@ -54,7 +54,7 @@ func NewMedianServices(ctx context.Context,
 	cfg MedianConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
-
+	runSaver *ocrcommon.RunResultSaver,
 ) (srvs []job.ServiceCtx, err error) {
 	var pluginConfig config.PluginConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -130,13 +130,7 @@ func NewMedianServices(ctx context.Context,
 		abort()
 		return
 	}
-	runSaver := ocrcommon.NewResultRunSaver(
-		runResults,
-		pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		cfg.JobPipelineMaxSuccessfulRuns(),
-	)
+
 	srvs = append(srvs, runSaver, job.NewServiceAdapter(oracle))
 	if !jb.OCR2OracleSpec.CaptureEATelemetry {
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())

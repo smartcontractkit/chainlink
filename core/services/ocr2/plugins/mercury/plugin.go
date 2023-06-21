@@ -29,9 +29,9 @@ func NewServices(
 	runResults chan pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.MercuryOracleArgs,
-	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker mercury.ChainHeadTracker,
+	runSaver *ocrcommon.RunResultSaver,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -67,12 +67,6 @@ func NewServices(
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return []job.ServiceCtx{ocr2Provider, ocrcommon.NewResultRunSaver(
-		runResults,
-		pipelineRunner,
-		make(chan struct{}),
-		lggr,
-		cfg.MaxSuccessfulRuns(),
-	),
+	return []job.ServiceCtx{ocr2Provider, runSaver,
 		job.NewServiceAdapter(oracle)}, nil
 }
