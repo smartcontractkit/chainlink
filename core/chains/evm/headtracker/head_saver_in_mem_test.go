@@ -44,7 +44,7 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		require.NotNil(t, latest)
 		require.Equal(t, int64(1), latest.Number)
 
-		latest = saver.Chain(head.Hash)
+		latest = saver.Chain(head.BlockHash())
 		require.NotNil(t, latest)
 		require.Equal(t, int64(1), latest.Number)
 
