@@ -152,15 +152,15 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return allowed.(bool), nil
 	}
 
-	cfg, err := r.registry.GetUpkeepAdminOffchainConfig(opts, upkeepId)
+	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {
-		return false, fmt.Errorf("failed to get upkeep admin offchain config for upkeep ID %s: %v", upkeepId, err)
+		return false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 
 	var a AdminOffchainConfig
 	err = json.Unmarshal(cfg, &a)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal admin offchain config for upkeep ID %s: %v", upkeepId, err)
+		return false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
 	return a.MercuryEnabled, nil
