@@ -43,7 +43,7 @@ type LogProvider struct {
 }
 
 func LogProviderFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
+	return logpoller.FilterName("KeepersRegistry LogProvider", addr)
 }
 
 func NewLogProvider(
