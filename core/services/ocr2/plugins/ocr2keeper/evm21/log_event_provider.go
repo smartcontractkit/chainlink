@@ -3,13 +3,16 @@ package evm
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -18,23 +21,64 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-// TODO: configurable values or based on block time
-const (
-	// logRetention is the amount of time to retain logs for.
-	// 5 minutes is the desired retention time for logs, but we add an extra 10 minutes buffer.
-	logRetention            = (time.Minute * 5) + (time.Minute * 10)
-	logBlocksLookback int64 = 256
-	lookbackBuffer    int64 = 10
-)
+// LogEventProviderOptions holds the options for the log event provider.
+type LogEventProviderOptions struct {
+	// LogRetention is the amount of time to retain logs for.
+	LogRetention time.Duration
+	// AllowedLogsPerBlock is the maximum number of logs allowed per block in the buffer.
+	BufferMaxBlockSize int
+	// LogBufferSize is the number of blocks in the buffer.
+	LogBufferSize int
+	// AllowedLogsPerBlock is the maximum number of logs allowed per block & upkeep in the buffer.
+	AllowedLogsPerBlock int
+	// LogBlocksLookback is the number of blocks to look back for logs.
+	LogBlocksLookback int64
+	// LookbackBuffer is the number of blocks to add as a buffer to the lookback.
+	LookbackBuffer int64
+	// BlockRateLimit is the rate limit for fetching logs per block.
+	BlockRateLimit rate.Limit
+	// BlockLimitBurst is the burst limit for fetching logs per block.
+	BlockLimitBurst int
+	// FetchInterval is the interval to fetch logs in the background.
+	FetchInterval time.Duration
+	// FetchPartitions is the number of partitions to use for fetching logs.
+	FetchPartitions int
+}
 
-// TODO: configurable values or based on block time
-var (
-	blockRateLimit  = rate.Every(time.Second)
-	blockLimitBurst = 32
-	logsRateLimit   = rate.Every(time.Second)
-	logsLimitBurst  = 4
-	queryWorkers    = 4
-)
+// Defaults sets the default values for the options.
+func (o *LogEventProviderOptions) Defaults() {
+	if o.LogRetention == 0 {
+		// 5 minutes is the desired retention time for logs, but we add an extra 10 minutes buffer.
+		o.LogRetention = (time.Minute * 5) + (time.Minute * 10)
+	}
+	if o.BufferMaxBlockSize == 0 {
+		o.BufferMaxBlockSize = 1024
+	}
+	if o.AllowedLogsPerBlock == 0 {
+		o.AllowedLogsPerBlock = 32
+	}
+	if o.LogBlocksLookback == 0 {
+		o.LogBlocksLookback = 256
+	}
+	if o.LogBufferSize == 0 {
+		o.LogBufferSize = int(o.LogBlocksLookback * 3)
+	}
+	if o.LookbackBuffer == 0 {
+		o.LookbackBuffer = 32
+	}
+	if o.BlockRateLimit == 0 {
+		o.BlockRateLimit = rate.Every(time.Second)
+	}
+	if o.BlockLimitBurst == 0 {
+		o.BlockLimitBurst = int(o.LogBlocksLookback)
+	}
+	if o.FetchInterval == 0 {
+		o.FetchInterval = time.Second
+	}
+	if o.FetchPartitions == 0 {
+		o.FetchPartitions = 2
+	}
+}
 
 // LogTriggerConfig is an alias for log trigger config.
 type LogTriggerConfig = i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
@@ -48,244 +92,321 @@ type upkeepFilterEntry struct {
 	lastPollBlock int64
 	// blockLimiter is used to limit the number of blocks to fetch logs for an upkeep
 	blockLimiter *rate.Limiter
-	// logsLimiter is used to limit the number of logs to fetch for an upkeep
-	logsLimiter *rate.Limiter
+}
+
+type LogEventProvider interface {
+	// Start starts the log event provider.
+	Start(ctx context.Context) error
+	// Close closes the log event provider.
+	Close() error
+	// RegisterFilter registers the filter (if valid) for the given upkeepID.
+	RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error
+	// UnregisterFilter removes the filter for the given upkeepID.
+	UnregisterFilter(upkeepID *big.Int) error
+	// GetLogs returns the logs in the given range.
+	GetLogs() ([]UpkeepPayload, error)
+}
+
+type LogEventProviderTest interface {
+	LogEventProvider
+	FetchLogs(ctx context.Context, force bool, ids ...*big.Int) error
 }
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
 	lggr logger.Logger
 
+	cancel context.CancelFunc
+
 	poller logpoller.LogPoller
 
-	lock   *sync.RWMutex
+	lock   sync.RWMutex
 	active map[string]upkeepFilterEntry
+
+	buffer *logEventBuffer
+
+	opts *LogEventProviderOptions
 }
 
-func NewLogEventProvider(lggr logger.Logger, poller logpoller.LogPoller) *logEventProvider {
+func NewLogEventProvider(lggr logger.Logger, poller logpoller.LogPoller, opts *LogEventProviderOptions) *logEventProvider {
+	if opts == nil {
+		opts = new(LogEventProviderOptions)
+	}
+	opts.Defaults()
 	return &logEventProvider{
-		lggr:   lggr.Named("LogEventProvider"),
+		lggr:   lggr.Named("KeepersRegistry.LogEventProvider"),
+		buffer: newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
 		poller: poller,
-		lock:   &sync.RWMutex{},
+		lock:   sync.RWMutex{},
 		active: make(map[string]upkeepFilterEntry),
+		opts:   opts,
 	}
 }
 
-// Register creates a filter from the given upkeep and calls log poller to register it.
-func (lfm *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
-	if err := lfm.validateLogTriggerConfig(cfg); err != nil {
+func (p *logEventProvider) Start(pctx context.Context) error {
+	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
+	p.lock.Lock()
+	p.cancel = cancel
+	p.lock.Unlock()
+
+	h := sha256.New()
+
+	ticker := time.NewTicker(p.opts.FetchInterval)
+	defer ticker.Stop()
+
+	numOfPartitions := p.opts.FetchPartitions
+	partitionIdx := 0
+	lggr := p.lggr.With("numOfPartitions", numOfPartitions)
+
+	for {
+		select {
+		case <-ticker.C:
+			ids := p.getPartitionIds(h, partitionIdx%numOfPartitions, numOfPartitions)
+			if len(ids) != 0 {
+				go func(ids []*big.Int, lggr logger.Logger) {
+					if err := p.FetchLogs(ctx, true, ids...); err != nil {
+						lggr.Warnw("failed to fetch logs", "err", err)
+					}
+				}(ids, lggr.With("ids", len(ids), "partitionIdx", partitionIdx))
+				partitionIdx = (partitionIdx + 1) % numOfPartitions
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (p *logEventProvider) Close() error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	p.active = make(map[string]upkeepFilterEntry)
+	if p.cancel != nil {
+		p.cancel()
+	}
+	return nil
+}
+
+func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
+	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return errors.Wrap(err, "invalid log trigger config")
 	}
-	filter := lfm.newLogFilter(upkeepID, cfg)
+	filter := p.newLogFilter(upkeepID, cfg)
 
 	// TODO: optimize locking, currently we lock the whole map while registering the filter
-	lfm.lock.Lock()
-	defer lfm.lock.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	uid := upkeepID.String()
-	if _, ok := lfm.active[uid]; ok {
+	if _, ok := p.active[uid]; ok {
 		// TODO: check for updates
 		return errors.Errorf("filter for upkeep with id %s already registered", uid)
 	}
-	if err := lfm.poller.RegisterFilter(filter); err != nil {
+	if err := p.poller.RegisterFilter(filter); err != nil {
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
-	lfm.active[uid] = upkeepFilterEntry{
+	p.active[uid] = upkeepFilterEntry{
 		id:           upkeepID,
 		filter:       filter,
 		cfg:          cfg,
-		blockLimiter: rate.NewLimiter(blockRateLimit, blockLimitBurst),
-		logsLimiter:  rate.NewLimiter(logsRateLimit, logsLimitBurst),
+		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
 	}
 
 	return nil
 }
 
-// Unregister removes the filter for the given upkeepID
-func (lfm *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := lfm.poller.UnregisterFilter(lfm.filterName(upkeepID), nil)
+func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
+	err := p.poller.UnregisterFilter(p.filterName(upkeepID), nil)
 	if err == nil {
-		lfm.lock.Lock()
-		delete(lfm.active, upkeepID.String())
-		lfm.lock.Unlock()
+		p.lock.Lock()
+		delete(p.active, upkeepID.String())
+		p.lock.Unlock()
 	}
 	return errors.Wrap(err, "failed to unregister upkeep filter")
 }
 
-// GetLogs returns the logs for the given upkeeps, by reading the logs from the last polled block for each upkeep.
-func (lfm *logEventProvider) GetLogs(ctx context.Context, ids ...*big.Int) ([][]logpoller.Log, error) {
-	latest, err := lfm.poller.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
+	latest := p.buffer.latestBlockSeen()
+	diff := latest - p.opts.LogBlocksLookback
+	if diff < 0 {
+		diff = latest
 	}
-	entries := lfm.getEntries(latest, ids...)
+	logs := p.buffer.dequeue(int(diff))
 
-	lfm.lggr.Debugw("polling logs for entries", "latestBlock", latest, "entries", len(entries))
-
-	results, err := lfm.getLogsConcurrently(latest, entries)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+	var payloads []UpkeepPayload
+	for _, l := range logs {
+		log := l.log
+		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
+		trig := NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
+		payload := NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
+		payloads = append(payloads, payload)
 	}
-	// update last poll block
-	lfm.lock.Lock()
-	defer lfm.lock.Unlock()
+
+	return payloads, nil
+}
+
+// FetchLogs fetches the logs for the given upkeeps.
+func (p *logEventProvider) FetchLogs(ctx context.Context, force bool, ids ...*big.Int) error {
+	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+	entries := p.getEntries(latest, force, ids...)
+
+	// p.lggr.Debugw("fetching logs for entries", "latestBlock", latest, "entries", len(entries))
+
+	err = p.fetchLogs(ctx, latest, entries...)
+	p.updateEntriesLastPoll(entries)
+	if err != nil {
+		return fmt.Errorf("fetched logs with errors: %w", err)
+	}
+
+	return nil
+}
+
+// getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
+// Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
+func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition, numOfPartitions int) []*big.Int {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	var ids []*big.Int
+	for _, entry := range p.active {
+		if len(entry.filter.Addresses) == 0 {
+			continue
+		}
+		h := hashFn.Sum(entry.filter.Addresses[0].Bytes())
+		// taking only 6 bytes to avoid working with big numbers
+		i := big.NewInt(0).SetBytes(h[:6])
+		if int(i.Int64())%numOfPartitions == partition {
+			ids = append(ids, entry.id)
+		}
+		hashFn.Reset()
+	}
+
+	return ids
+}
+
+func (p *logEventProvider) updateEntriesLastPoll(entries []*upkeepFilterEntry) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	for _, entry := range entries {
 		// for successful queries, the last poll block was updated
-		orig := lfm.active[entry.id.String()]
+		orig := p.active[entry.id.String()]
 		if entry.lastPollBlock == orig.lastPollBlock {
 			continue
 		}
 		orig.lastPollBlock = entry.lastPollBlock
-		lfm.active[entry.id.String()] = orig
+		p.active[entry.id.String()] = orig
 	}
-
-	return results, nil
 }
 
-// getFilters returns the filters for the given upkeepIDs,
+// getEntries returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
 //
 // TODO: group filters by contract address?
-func (lfm *logEventProvider) getEntries(latestBlock int64, ids ...*big.Int) []*upkeepFilterEntry {
-	lfm.lock.RLock()
-	defer lfm.lock.RUnlock()
+func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big.Int) []*upkeepFilterEntry {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 
 	var filters []*upkeepFilterEntry
 	for _, id := range ids {
-		entry, ok := lfm.active[id.String()]
+		entry, ok := p.active[id.String()]
 		if !ok { // entry not found, could be inactive upkeep
-			lfm.lggr.Debugw("upkeep filter not found", "upkeep", id.String())
+			p.lggr.Debugw("upkeep filter not found", "upkeep", id.String())
 			filters = append(filters, &upkeepFilterEntry{id: id})
 			continue
 		}
-		if entry.lastPollBlock > latestBlock {
-			lfm.lggr.Debugw("already polled latest block", "entry.lastPollBlock", entry.lastPollBlock, "latestBlock", latestBlock, "upkeep", id.String())
+		if !force && entry.lastPollBlock > latestBlock {
+			p.lggr.Debugw("already polled latest block", "entry.lastPollBlock", entry.lastPollBlock, "latestBlock", latestBlock, "upkeep", id.String())
 			filters = append(filters, &upkeepFilterEntry{id: id, lastPollBlock: entry.lastPollBlock})
 			continue
 		}
 		// recreating the struct to be thread safe
 		filters = append(filters, &upkeepFilterEntry{
 			id:            id,
-			filter:        lfm.newLogFilter(id, entry.cfg),
+			filter:        p.newLogFilter(id, entry.cfg),
 			lastPollBlock: entry.lastPollBlock,
 			blockLimiter:  entry.blockLimiter,
-			logsLimiter:   entry.logsLimiter,
 		})
 	}
 
 	return filters
 }
 
-func (lfm *logEventProvider) getLogsConcurrently(latest int64, entries []*upkeepFilterEntry) ([][]logpoller.Log, error) {
-	results := make([][]logpoller.Log, len(entries))
+// fetchLogs calls log poller to get the logs for the given upkeep entries.
+// TODO: think more about reorgs, currently we use p.opts.LookbackBuffer to check for reorgs based logs
+func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
+	// mainLggr := p.lggr.With("latestBlock", latest)
+	logBlocksLookback := p.opts.LogBlocksLookback
+	maxBurst := int(logBlocksLookback*2 + 1)
 
-	var wg sync.WaitGroup
-	// using a set of worker goroutines to fetch logs for upkeeps
-	for i := 0; i < len(entries); i += queryWorkers {
-		end := i + queryWorkers
-		if end > len(entries) {
-			end = len(entries)
-		}
-		wg.Add(1)
-		go func(i, end int) {
-			defer wg.Done()
-			localResults, err := lfm.getLogs(latest, entries[i:end]...)
-			if err != nil {
-				lfm.lggr.Debugw("failed to get logs", "i", i, "end", end, "err", err)
-				// TODO: accumulate errors
-			}
-			n := 0
-			for j, res := range localResults {
-				n += len(res)
-				// each worker writes to a different index in the results slice
-				// so we don't need to lock
-				results[i+j] = res
-			}
-			if n > 0 {
-				lfm.lggr.Debugw("got logs", "i", i, "end", end, "latestBlock", latest, "n", n, "err", err)
-			}
-		}(i, end)
-	}
-	wg.Wait()
-
-	return results, nil
-}
-
-// getLogs calls log poller to get the logs for the given upkeep entries.
-func (lfm *logEventProvider) getLogs(latest int64, entries ...*upkeepFilterEntry) ([][]logpoller.Log, error) {
-	mainLggr := lfm.lggr.With("latestBlock", latest)
-	var results [][]logpoller.Log
 	for _, entry := range entries {
 		if len(entry.filter.Addresses) == 0 {
-			results = append(results, nil)
 			continue
 		}
-		lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
+		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
 		start := entry.lastPollBlock
-		if start == 0 { // first time polling
-			start = latest - logBlocksLookback
-			entry.blockLimiter.SetBurst(int(logBlocksLookback + 1))
-			entry.logsLimiter.SetBurst(logsLimitBurst * 4)
+		if start == 0 {
+			// first time polling, using a larger lookback and burst
+			start = latest - logBlocksLookback*2
+			entry.blockLimiter.SetBurst(maxBurst)
 		}
-		start = start - lookbackBuffer // adding a buffer to avoid missing logs
+		start = start - p.opts.LookbackBuffer // adding a buffer to check for reorgs
 		if start < 0 {
 			start = 0
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
-			results = append(results, nil)
-			lggr.Warnw("log upkeep block limit exceeded")
+			merr = multierr.Append(merr, fmt.Errorf("log upkeep block limit exceeded for upkeep %s", entry.id.String()))
 			continue
 		}
-		lggr = lggr.With("startBlock", start)
+		// lggr = lggr.With("startBlock", start)
 		// TODO: TBD what function to use to get logs
-		logs, err := lfm.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0])
+		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
 		if err != nil {
 			resv.Cancel() // cancels limit reservation as we failed to get logs
-			lggr.Warnw("failed to get logs", "err", err)
-			results = append(results, nil)
-			continue
-		}
-		// if this limiter's burst was set to the max, we need to reset it
-		if entry.blockLimiter.Burst() == int(logBlocksLookback+1) {
-			entry.blockLimiter.SetBurst(blockLimitBurst)
-			entry.logsLimiter.SetBurst(logsLimitBurst)
-		}
-		filtered := make([]logpoller.Log, 0)
-		for _, log := range logs {
-			if entry.lastPollBlock > log.BlockNumber {
-				// TODO: check if the log is really known and not a result of some reorg
-				continue
+			if ctx.Err() != nil {
+				return multierr.Append(merr, ctx.Err())
 			}
-			filtered = append(filtered, log)
-		}
-		resv = entry.logsLimiter.ReserveN(time.Now(), len(filtered))
-		if !resv.OK() {
-			results = append(results, nil)
-			lggr.Warnw("log upkeep log limit exceeded")
+			merr = multierr.Append(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.id.String(), err))
 			continue
 		}
-		// lggr.Debugw("fetched logs", "n", len(logs), "filtered", len(filtered))
-		results = append(results, filtered)
-		entry.lastPollBlock = latest
+		// if this limiter's burst was set to the max,
+		// we need to reset it
+		if entry.blockLimiter.Burst() == maxBurst {
+			resv.Cancel() // cancel the reservation as we are resetting the burst
+			entry.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
+		}
+		added := p.buffer.enqueue(entry.id, logs...)
+		// if we added logs or couldn't find, update the last poll block
+		if added > 0 || len(logs) == 0 {
+			entry.lastPollBlock = latest
+		}
+		// if n := len(logs); n > 0 {
+		// 	lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
+		// }
 	}
 
-	return results, nil
+	return merr
 }
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
-func (lfm *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	sigs := lfm.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
+	sigs := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
 	sigs = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, sigs...)
 	return logpoller.Filter{
-		Name:      lfm.filterName(upkeepID),
+		Name:      p.filterName(upkeepID),
 		EventSigs: sigs,
 		Addresses: []common.Address{cfg.ContractAddress},
-		Retention: logRetention,
+		Retention: p.opts.LogRetention,
 	}
 }
 
-func (lfm *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error {
+func (p *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error {
 	var zeroAddr common.Address
 	var zeroBytes [32]byte
 	if bytes.Equal(cfg.ContractAddress[:], zeroAddr[:]) {
@@ -298,7 +419,7 @@ func (lfm *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) erro
 }
 
 // getFiltersBySelector the filters based on the filterSelector
-func (lfm *logEventProvider) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
+func (p *logEventProvider) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
 	var sigs []common.Hash
 	var zeroBytes [32]byte
 	for i, f := range filters {
@@ -316,6 +437,6 @@ func (lfm *logEventProvider) getFiltersBySelector(filterSelector uint8, filters 
 	return sigs
 }
 
-func (lfm *logEventProvider) filterName(upkeepID *big.Int) string {
-	return logpoller.FilterName(upkeepID.String())
+func (p *logEventProvider) filterName(upkeepID *big.Int) string {
+	return logpoller.FilterName("KeepersRegistry LogUpkeep", upkeepID.String())
 }
