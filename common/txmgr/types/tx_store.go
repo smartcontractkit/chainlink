@@ -19,7 +19,7 @@ type TxStore[
 	// Represents an account address, in native chain format.
 	ADDR types.Hashable,
 	// Represents a chain id to be used for the chain.
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	// Represents a unique Tx Hash for a chain
 	TX_HASH types.Hashable,
 	// Represents a unique Block Hash for a chain
@@ -27,7 +27,7 @@ type TxStore[
 	// Represents a onchain receipt object that a chain's RPC returns
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ Sequence,
+	SEQ types.Sequence,
 	// Represents the chain specific fee type
 	FEE feetypes.Fee,
 ] interface {
@@ -49,10 +49,10 @@ type TxStore[
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts
 type TransactionStore[
 	ADDR types.Hashable,
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	CountUnconfirmedTransactions(fromAddress ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (count uint32, err error)
@@ -88,7 +88,7 @@ type TransactionStore[
 	UpdateTxForRebroadcast(etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }
 
-type TxHistoryReaper[CHAIN_ID ID] interface {
+type TxHistoryReaper[CHAIN_ID types.ID] interface {
 	ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 
@@ -98,8 +98,8 @@ type UnstartedTxQueuePruner interface {
 
 type SequenceStore[
 	ADDR types.Hashable,
-	CHAIN_ID ID,
-	SEQ Sequence,
+	CHAIN_ID types.ID,
+	SEQ types.Sequence,
 ] interface {
 	UpdateKeyNextSequence(newNextSequence, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error
 }
