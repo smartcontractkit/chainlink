@@ -127,10 +127,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool { return txRequest.FeeLimit == gasLimit }),
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool { return txRequest.FeeLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EvmTx{
+			Return(txmgr.Tx{
 				ID: 1,
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -170,10 +170,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateTransaction",
-				mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool { return txRequest.FeeLimit == gasLimit }),
+				mock.MatchedBy(func(txRequest txmgr.TxRequest) bool { return txRequest.FeeLimit == gasLimit }),
 			).
 				Once().
-				Return(txmgr.EvmTx{
+				Return(txmgr.Tx{
 					ID: 1,
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -272,10 +272,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
 		txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool { return txRequest.FeeLimit == gasLimit }),
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool { return txRequest.FeeLimit == gasLimit }),
 		).
 			Once().
-			Return(txmgr.EvmTx{}, nil).
+			Return(txmgr.Tx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())

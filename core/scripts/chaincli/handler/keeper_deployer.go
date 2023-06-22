@@ -346,6 +346,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		{Name: "max_perform_gas", Type: "uint32"},
 		{Name: "max_check_data_size", Type: "uint32"},
 		{Name: "max_perform_data_size", Type: "uint32"},
+		{Name: "max_revert_data_size", Type: "uint32"},
 		{Name: "fallback_gas_price", Type: "uint256"},
 		{Name: "fallback_link_price", Type: "uint256"},
 		{Name: "transcoder", Type: "address"},
@@ -358,7 +359,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
 	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
 		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:       d.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:       d.cfg.FlatFeeMicroLink,
 		CheckGasLimit:          d.cfg.CheckGasLimit,
 		StalenessSeconds:       big.NewInt(d.cfg.StalenessSeconds),
 		GasCeilingMultiplier:   d.cfg.GasCeilingMultiplier,
@@ -366,6 +367,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		MaxPerformGas:          d.cfg.MaxPerformGas,
 		MaxCheckDataSize:       d.cfg.MaxCheckDataSize,
 		MaxPerformDataSize:     d.cfg.MaxPerformDataSize,
+		MaxRevertDataSize:      d.cfg.MaxRevertDataSize,
 		FallbackGasPrice:       big.NewInt(d.cfg.FallbackGasPrice),
 		FallbackLinkPrice:      big.NewInt(d.cfg.FallbackLinkPrice),
 		Transcoder:             common.HexToAddress(d.cfg.Transcoder),

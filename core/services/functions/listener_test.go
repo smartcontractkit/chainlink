@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	functions_service "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -160,6 +159,22 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.service.Close()
 }
 
+func TestFunctionsListener_HandleOracleRequestDuplicateMarkLogConsumed(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
+
+	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(functions_service.ErrDuplicateRequestID)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
 func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
@@ -263,11 +278,14 @@ func TestFunctionsListener_HandleOracleRequestCBORParsingCorrect(t *testing.T) {
 	incomingData := &struct {
 		Source             string   `cbor:"source"`
 		Language           int      `cbor:"language"`
+		Secrets            []byte   `cbor:"secrets"`
 		Args               []string `cbor:"args"`
 		ExtraUnwantedParam string   `cbor:"extraUnwantedParam"`
+		// missing CodeLocation and SecretsLocation
 	}{
 		Source:             "abcd",
 		Language:           3,
+		Secrets:            []byte{0xaa, 0xbb},
 		Args:               []string{"a", "b"},
 		ExtraUnwantedParam: "spam",
 	}
@@ -282,9 +300,10 @@ func TestFunctionsListener_HandleOracleRequestCBORParsingCorrect(t *testing.T) {
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		reqData := args.Get(6).(*functions.RequestData)
+		reqData := args.Get(6).(*functions_service.RequestData)
 		assert.Equal(t, incomingData.Source, reqData.Source)
 		assert.Equal(t, incomingData.Language, reqData.Language)
+		assert.Equal(t, incomingData.Secrets, reqData.Secrets)
 		assert.Equal(t, incomingData.Args, reqData.Args)
 	}).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

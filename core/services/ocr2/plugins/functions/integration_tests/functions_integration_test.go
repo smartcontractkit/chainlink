@@ -68,7 +68,12 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 		for j := 0; j < requestLenBytes; j++ {
 			requestSources[i][j] = byte(rnd.Uint32() % 256)
 		}
-		_, err := clientContracts[i].Contract.SendRequest(owner, hex.EncodeToString(requestSources[i]), []byte{}, []string{}, subscriptionId)
+		_, err := clientContracts[i].Contract.SendRequest(
+			owner,
+			hex.EncodeToString(requestSources[i]),
+			utils.DefaultSecretsBytes,
+			[]string{utils.DefaultArg1, utils.DefaultArg2},
+			subscriptionId)
 		require.NoError(t, err)
 	}
 	utils.CommitWithFinality(b)
