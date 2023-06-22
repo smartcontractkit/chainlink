@@ -104,8 +104,9 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 		return nil, errors.New("key for configured node address not found")
 	}
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
+	signerID := enabledKeys[idx].ID()
 
-	handler := functions.NewFunctionsConnectorHandler(signerKey, lggr)
+	handler := functions.NewFunctionsConnectorHandler(signerID, signerKey, lggr)
 	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err

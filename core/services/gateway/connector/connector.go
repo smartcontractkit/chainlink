@@ -40,7 +40,7 @@ type Signer interface {
 type GatewayConnectorHandler interface {
 	job.ServiceCtx
 
-	HandleGatewayMessage(gatewayId string, msg *api.Message)
+	HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message)
 }
 
 type gatewayConnector struct {
@@ -124,6 +124,9 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
+	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	defer cancel()
+
 	for {
 		select {
 		case <-c.shutdownCh:
@@ -135,14 +138,16 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			c.handler.HandleGatewayMessage(gatewayState.config.Id, msg)
+			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
 		}
 	}
 }
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	redialBackoff := utils.NewRedialBackoff()
-	ctx, _ := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	defer cancel()
+
 	for {
 		conn, err := gatewayState.wsClient.Connect(ctx, gatewayState.url)
 		if err != nil {
