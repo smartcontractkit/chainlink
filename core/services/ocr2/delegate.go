@@ -324,6 +324,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		if spec.PluginType != job.Mercury {
 			if spec.RelayConfig["sendingKeys"] == nil {
 				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
+			} else if !spec.TransmitterID.Valid {
+				castedSendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
+				if !ok {
+					return nil, errors.Wrap(err, "transmitterID is not defined and sending keys are of wrong type")
+				}
+				if len(castedSendingKeys) == 0 {
+					return nil, errors.Wrap(err, "transmitterID is not defined and sending keys are empty")
+				}
+				transmitterID, effectiveTransmitterID = castedSendingKeys[0], castedSendingKeys[0]
 			}
 		}
 
