@@ -20,6 +20,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   mapping(bytes32 => address) internal s_route; /* id => contract address */
   error RouteNotFound(bytes32 id);
+  // Use empty bytes to self-identify, since it does not have an id
+  constant routerId = bytes32(0);
 
   // ================================================================
   // |                         Proposal state                       |
@@ -96,10 +98,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Set initial timelock
     s_timelockBlocks = timelockBlocks;
     MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
-    // Use a hash of the Router's address to self-identify, since it does not have an id
-    bytes32 routerLabel = keccak256(abi.encodePacked(address(this)));
     // Set the initial config
-    s_route[routerLabel] = address(this);
+    s_route[routerId] = address(this);
     _setConfig(config);
     s_config_hash = keccak256(config);
     // Fill initial routes, from empty addresses to current implementation contracts
@@ -206,9 +206,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         revert InvalidProposal();
       }
       // The Router's id cannot be set
-      bytes32 routerLabel = keccak256(abi.encodePacked(address(this)));
-      if (proposalSetIds[i] == routerLabel) {
-        revert ReservedLabel(routerLabel);
+      if (proposalSetIds[i] == routerId) {
+        revert ReservedLabel(routerId);
       }
     }
   }
@@ -303,7 +302,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (block.number < proposal.proposedAtBlock + s_timelockBlocks) {
       revert TimelockInEffect();
     }
-    if (id == keccak256(abi.encodePacked(address(this)))) {
+    if (id == routerId) {
       _setConfig(proposal.to);
     } else {
       IConfigurable(implAddr).setConfig(proposal.to);
