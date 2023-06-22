@@ -7,15 +7,17 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/pelletier/go-toml/v2"
+	gotoml "github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -30,7 +32,7 @@ import (
 //   - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
 //     work as expected, and require wrapper types. See models.Duration, models.URL, utils.Big.
 type Config struct {
-	config.Core
+	toml.Core
 
 	EVM evmcfg.EVMConfigs `toml:",omitempty"`
 
@@ -43,7 +45,7 @@ type Config struct {
 
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
-	b, err := toml.Marshal(c)
+	b, err := gotoml.Marshal(c)
 	if err != nil {
 		return "", err
 	}
@@ -51,7 +53,7 @@ func (c *Config) TOMLString() (string, error) {
 }
 
 func (c *Config) Validate() error {
-	if err := config.Validate(c); err != nil {
+	if err := configutils.Validate(c); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 	return nil
@@ -59,7 +61,7 @@ func (c *Config) Validate() error {
 
 // setDefaults initializes unset fields with default values.
 func (c *Config) setDefaults() {
-	core := config.CoreDefaults()
+	core := toml.CoreDefaults()
 	core.SetFrom(&c.Core)
 	c.Core = core
 
@@ -97,19 +99,19 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
 	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "EVM"))
+		err = multierr.Append(err, configutils.NamedMultiErrorList(err1, "EVM"))
 	}
 
 	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Cosmos"))
+		err = multierr.Append(err, configutils.NamedMultiErrorList(err2, "Cosmos"))
 	}
 
 	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Solana"))
+		err = multierr.Append(err, configutils.NamedMultiErrorList(err3, "Solana"))
 	}
 
 	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Starknet"))
+		err = multierr.Append(err, configutils.NamedMultiErrorList(err4, "Starknet"))
 	}
 
 	_, err = utils.MultiErrorList(err)
@@ -118,12 +120,12 @@ func (c *Config) SetFrom(f *Config) (err error) {
 }
 
 type Secrets struct {
-	config.Secrets
+	toml.Secrets
 }
 
 // TOMLString returns a TOML encoded string with secret values redacted.
 func (s *Secrets) TOMLString() (string, error) {
-	b, err := toml.Marshal(s)
+	b, err := gotoml.Marshal(s)
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +136,7 @@ var ErrInvalidSecrets = errors.New("invalid secrets")
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
-	if err := config.Validate(s); err != nil {
+	if err := configutils.Validate(s); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil
@@ -152,11 +154,11 @@ func (s *Secrets) ValidateDB() error {
 	type dbValidationType struct {
 		// choose field name to match that of Secrets.Database so we have
 		// consistent error messages.
-		Database config.DatabaseSecrets
+		Database toml.DatabaseSecrets
 	}
 
 	v := &dbValidationType{s.Database}
-	if err := config.Validate(v); err != nil {
+	if err := configutils.Validate(v); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil
@@ -164,40 +166,40 @@ func (s *Secrets) ValidateDB() error {
 
 // setEnv overrides fields from ENV vars, if present.
 func (s *Secrets) setEnv() error {
-	if dbURL := config.EnvDatabaseURL.Get(); dbURL != "" {
+	if dbURL := env.DatabaseURL.Get(); dbURL != "" {
 		s.Database.URL = new(models.SecretURL)
 		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
 	}
-	if dbBackupUrl := config.EnvDatabaseBackupURL.Get(); dbBackupUrl != "" {
+	if dbBackupUrl := env.DatabaseBackupURL.Get(); dbBackupUrl != "" {
 		s.Database.BackupURL = new(models.SecretURL)
 		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
 			return err
 		}
 	}
-	if config.EnvDatabaseAllowSimplePasswords.IsTrue() {
+	if env.DatabaseAllowSimplePasswords.IsTrue() {
 		s.Database.AllowSimplePasswords = true
 	}
-	if explorerKey := config.EnvExplorerAccessKey.Get(); explorerKey != "" {
+	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
 		s.Explorer.AccessKey = &explorerKey
 	}
-	if explorerSecret := config.EnvExplorerSecret.Get(); explorerSecret != "" {
+	if explorerSecret := env.ExplorerSecret.Get(); explorerSecret != "" {
 		s.Explorer.Secret = &explorerSecret
 	}
-	if keystorePassword := config.EnvPasswordKeystore.Get(); keystorePassword != "" {
+	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword
 	}
-	if vrfPassword := config.EnvPasswordVRF.Get(); vrfPassword != "" {
+	if vrfPassword := env.PasswordVRF.Get(); vrfPassword != "" {
 		s.Password.VRF = &vrfPassword
 	}
-	if pyroscopeAuthToken := config.EnvPyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
+	if pyroscopeAuthToken := env.PyroscopeAuthToken.Get(); pyroscopeAuthToken != "" {
 		s.Pyroscope.AuthToken = &pyroscopeAuthToken
 	}
-	if prometheusAuthToken := config.EnvPrometheusAuthToken.Get(); prometheusAuthToken != "" {
+	if prometheusAuthToken := env.PrometheusAuthToken.Get(); prometheusAuthToken != "" {
 		s.Prometheus.AuthToken = &prometheusAuthToken
 	}
-	if thresholdKeyShare := config.EnvThresholdKeyShare.Get(); thresholdKeyShare != "" {
+	if thresholdKeyShare := env.ThresholdKeyShare.Get(); thresholdKeyShare != "" {
 		s.Threshold.ThresholdKeyShare = &thresholdKeyShare
 	}
 	return nil

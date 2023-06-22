@@ -1,4 +1,4 @@
-package docs
+package docs_test
 
 import (
 	_ "embed"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
-	"github.com/pelletier/go-toml/v2"
+	gotoml "github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,18 +16,19 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
-	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
 )
 
 func TestDoc(t *testing.T) {
-	d := toml.NewDecoder(strings.NewReader(docsTOML))
+	d := gotoml.NewDecoder(strings.NewReader(docs.DocsTOML))
 	d.DisallowUnknownFields() // Ensure no extra fields
 	var c chainlink.Config
 	err := d.Decode(&c)
-	var strict *toml.StrictMissingError
+	var strict *gotoml.StrictMissingError
 	if err != nil && strings.Contains(err.Error(), "undecoded keys: ") {
 		t.Errorf("Docs contain extra fields: %v", err)
 	} else if errors.As(err, &strict) {
@@ -39,7 +40,7 @@ func TestDoc(t *testing.T) {
 	cfgtest.AssertFieldsNotNil(t, c)
 
 	var defaults chainlink.Config
-	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docsTOML), &defaults, config.DecodeTOML))
+	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, configutils.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
 		fallbackDefaults := evmcfg.Defaults(nil)
@@ -109,25 +110,10 @@ func assertTOML[T any](t *testing.T, fallback, docs T) {
 	t.Helper()
 	t.Logf("fallback: %#v", fallback)
 	t.Logf("docs: %#v", docs)
-	fb, err := toml.Marshal(fallback)
+	fb, err := gotoml.Marshal(fallback)
 	require.NoError(t, err)
-	db, err := toml.Marshal(docs)
+	db, err := gotoml.Marshal(docs)
 	require.NoError(t, err)
 	fs, ds := string(fb), string(db)
 	assert.Equal(t, fs, ds, diff.Diff(fs, ds))
-}
-
-var (
-	//go:embed testdata/example.toml
-	exampleTOML string
-	//go:embed testdata/example.md
-	exampleMarkdown string
-)
-
-func Test_generateDocs(t *testing.T) {
-	got, err := generateDocs(exampleTOML, `[//]: # (Generated - DO NOT EDIT.)
-`, `Bar = 7 # Required
-`)
-	require.NoError(t, err)
-	assert.Equal(t, exampleMarkdown, got)
 }

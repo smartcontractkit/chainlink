@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -129,7 +129,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 
 	if c.Query("maxGasPriceGWei") != "" {
-		jsonAPIError(c, http.StatusBadRequest, v2.ErrUnsupported)
+		jsonAPIError(c, http.StatusBadRequest, toml.ErrUnsupported)
 		return
 	}
 

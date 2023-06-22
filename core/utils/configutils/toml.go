@@ -1,10 +1,10 @@
-package v2
+package configutils
 
 import (
+	"errors"
 	"io"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 )
 
 // DecodeTOML decodes toml from r in to v.

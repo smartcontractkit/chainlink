@@ -17,10 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
 )
 
 type HasEVMConfigs interface {
@@ -35,41 +35,41 @@ func (cs EVMConfigs) ValidateConfig() (err error) {
 
 func (cs EVMConfigs) validateKeys() (err error) {
 	// Unique chain IDs
-	chainIDs := v2.UniqueStrings{}
+	chainIDs := configutils.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupeFmt(c.ChainID) {
-			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), c.ChainID.String()))
+			err = multierr.Append(err, configutils.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), c.ChainID.String()))
 		}
 	}
 
 	// Unique node names
-	names := v2.UniqueStrings{}
+	names := configutils.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			if names.IsDupe(n.Name) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
+				err = multierr.Append(err, configutils.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
 		}
 	}
 
 	// Unique node WSURLs
-	wsURLs := v2.UniqueStrings{}
+	wsURLs := configutils.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.WSURL)
 			if wsURLs.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.WSURL", i, j), u.String()))
+				err = multierr.Append(err, configutils.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.WSURL", i, j), u.String()))
 			}
 		}
 	}
 
 	// Unique node HTTPURLs
-	httpURLs := v2.UniqueStrings{}
+	httpURLs := configutils.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.HTTPURL)
 			if httpURLs.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.HTTPURL", i, j), u.String()))
+				err = multierr.Append(err, configutils.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.HTTPURL", i, j), u.String()))
 			}
 		}
 	}
@@ -273,29 +273,29 @@ func (c *EVMConfig) SetFrom(f *EVMConfig) {
 
 func (c *EVMConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, configutils.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if c.ChainID.String() == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, configutils.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	} else if must, ok := ChainTypeForID(c.ChainID); ok { // known chain id
 		if c.ChainType == nil && must != "" {
-			err = multierr.Append(err, v2.ErrMissing{Name: "ChainType",
+			err = multierr.Append(err, configutils.ErrMissing{Name: "ChainType",
 				Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 		} else if c.ChainType != nil && *c.ChainType != string(must) {
 			if *c.ChainType == "" {
-				err = multierr.Append(err, v2.ErrEmpty{Name: "ChainType",
+				err = multierr.Append(err, configutils.ErrEmpty{Name: "ChainType",
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			} else if must == "" {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: "must not be set with this chain id"})
 			} else {
-				err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
 			}
 		}
 	}
 
 	if len(c.Nodes) == 0 {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
+		err = multierr.Append(err, configutils.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	} else {
 		var hasPrimary bool
 		for _, n := range c.Nodes {
@@ -306,7 +306,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			break
 		}
 		if !hasPrimary {
-			err = multierr.Append(err, v2.ErrMissing{Name: "Nodes",
+			err = multierr.Append(err, configutils.ErrMissing{Name: "Nodes",
 				Msg: "must have at least one primary node with WSURL"})
 		}
 	}
@@ -359,24 +359,24 @@ func (c *Chain) ValidateConfig() (err error) {
 		chainType = config.ChainType(*c.ChainType)
 	}
 	if !chainType.IsValid() {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainType", Value: *c.ChainType,
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
 	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
 			Msg: "must be equal to or greater than FinalityDepth"})
 	}
 	if *c.FinalityDepth < 1 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
 			Msg: "must be greater than or equal to 1"})
 	}
 	if *c.MinIncomingConfirmations < 1 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
 			Msg: "must be greater than or equal to 1"})
 	}
 	return
@@ -469,36 +469,36 @@ type GasEstimator struct {
 
 func (e *GasEstimator) ValidateConfig() (err error) {
 	if uint64(*e.BumpPercent) < txpool.DefaultConfig.PriceBump {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "BumpPercent", Value: *e.BumpPercent,
 			Msg: fmt.Sprintf("may not be less than Geth's default of %d", txpool.DefaultConfig.PriceBump)})
 	}
 	if e.TipCapDefault.Cmp(e.TipCapMin) < 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "TipCapDefault", Value: e.TipCapDefault,
 			Msg: "must be greater than or equal to TipCapMinimum"})
 	}
 	if e.FeeCapDefault.Cmp(e.TipCapDefault) < 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.TipCapDefault,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "FeeCapDefault", Value: e.TipCapDefault,
 			Msg: "must be greater than or equal to TipCapDefault"})
 	}
 	if *e.Mode == "FixedPrice" && *e.BumpThreshold == 0 && *e.EIP1559DynamicFees && e.FeeCapDefault.Cmp(e.PriceMax) != 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault,
 			Msg: fmt.Sprintf("must be equal to PriceMax (%s) since you are using FixedPrice estimation with gas bumping disabled in "+
 				"EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault", e.PriceMax)})
 	} else if e.FeeCapDefault.Cmp(e.PriceMax) > 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "FeeCapDefault", Value: e.FeeCapDefault,
 			Msg: fmt.Sprintf("must be less than or equal to PriceMax (%s)", e.PriceMax)})
 	}
 
 	if e.PriceMin.Cmp(e.PriceDefault) > 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "PriceMin", Value: e.PriceMin,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "PriceMin", Value: e.PriceMin,
 			Msg: "must be less than or equal to PriceDefault"})
 	}
 	if e.PriceMax.Cmp(e.PriceDefault) < 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "PriceMax", Value: e.PriceMin,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "PriceMax", Value: e.PriceMin,
 			Msg: "must be greater than or equal to PriceDefault"})
 	}
 	if *e.Mode == "BlockHistory" && *e.BlockHistory.BlockHistorySize <= 0 {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "BlockHistory.BlockHistorySize", Value: *e.BlockHistory.BlockHistorySize,
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "BlockHistory.BlockHistorySize", Value: *e.BlockHistory.BlockHistorySize,
 			Msg: "must be greater than or equal to 1 with BlockHistory Mode"})
 	}
 
@@ -625,7 +625,7 @@ func (ks KeySpecificConfig) ValidateConfig() (err error) {
 	for _, k := range ks {
 		addr := k.Key.String()
 		if _, ok := addrs[addr]; ok {
-			err = multierr.Append(err, v2.NewErrDuplicate("Key", addr))
+			err = multierr.Append(err, configutils.NewErrDuplicate("Key", addr))
 		} else {
 			addrs[addr] = struct{}{}
 		}
@@ -720,9 +720,9 @@ type Node struct {
 
 func (n *Node) ValidateConfig() (err error) {
 	if n.Name == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Name", Msg: "required for all nodes"})
+		err = multierr.Append(err, configutils.ErrMissing{Name: "Name", Msg: "required for all nodes"})
 	} else if *n.Name == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
+		err = multierr.Append(err, configutils.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
 	}
 
 	var sendOnly bool
@@ -731,34 +731,34 @@ func (n *Node) ValidateConfig() (err error) {
 	}
 	if n.WSURL == nil {
 		if !sendOnly {
-			err = multierr.Append(err, v2.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
+			err = multierr.Append(err, configutils.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else if n.WSURL.IsZero() {
 		if !sendOnly {
-			err = multierr.Append(err, v2.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
+			err = multierr.Append(err, configutils.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
 		}
 	} else {
 		switch n.WSURL.Scheme {
 		case "ws", "wss":
 		default:
-			err = multierr.Append(err, v2.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
 		}
 	}
 
 	if n.HTTPURL == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "HTTPURL", Msg: "required for all nodes"})
+		err = multierr.Append(err, configutils.ErrMissing{Name: "HTTPURL", Msg: "required for all nodes"})
 	} else if n.HTTPURL.IsZero() {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "HTTPURL", Msg: "required for all nodes"})
+		err = multierr.Append(err, configutils.ErrEmpty{Name: "HTTPURL", Msg: "required for all nodes"})
 	} else {
 		switch n.HTTPURL.Scheme {
 		case "http", "https":
 		default:
-			err = multierr.Append(err, v2.ErrInvalid{Name: "HTTPURL", Value: n.HTTPURL.Scheme, Msg: "must be http or https"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "HTTPURL", Value: n.HTTPURL.Scheme, Msg: "must be http or https"})
 		}
 	}
 
 	if n.Order != nil && (*n.Order < 1 || *n.Order > 100) {
-		err = multierr.Append(err, v2.ErrInvalid{Name: "Order", Value: *n.Order, Msg: "must be between 1 and 100"})
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "Order", Value: *n.Order, Msg: "must be between 1 and 100"})
 	} else if n.Order == nil {
 		z := int32(100)
 		n.Order = &z

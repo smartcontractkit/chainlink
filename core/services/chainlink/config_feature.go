@@ -1,9 +1,9 @@
 package chainlink
 
-import v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+import "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 
 type featureConfig struct {
-	c v2.Feature
+	c toml.Feature
 }
 
 func (f *featureConfig) FeedsManager() bool {

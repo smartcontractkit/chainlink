@@ -10,8 +10,8 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	cfgv2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
 )
 
 var (
@@ -41,7 +41,7 @@ func init() {
 			Chain
 		}{}
 
-		if err := cfgv2.DecodeTOML(bytes.NewReader(b), &config); err != nil {
+		if err := configutils.DecodeTOML(bytes.NewReader(b), &config); err != nil {
 			log.Fatalf("failed to decode %q: %v", path, err)
 		}
 		if fe.Name() == "fallback.toml" {

@@ -11,7 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -322,7 +322,7 @@ func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, s
 		configs = append(configs, string(b))
 	}
 
-	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
+	if configTOML := env.Config.Get(); configTOML != "" {
 		configs = append(configs, configTOML)
 	}
 
