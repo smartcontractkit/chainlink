@@ -599,9 +599,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.KeySpecificMaxPrice(fromAddresses[0])
 
 		// Cases:
 		// 1. Never simulated: in this case, we want to observe the time until simulated
@@ -879,9 +879,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.KeySpecificMaxPrice(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
