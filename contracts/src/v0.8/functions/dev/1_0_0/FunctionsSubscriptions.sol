@@ -65,7 +65,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
-  mapping(address => uint96) /* oracle node */ /* LINK balance */
+  mapping(bytes32 => uint96) /* id */ /* LINK balance */
     private s_withdrawableTokens;
 
   // ================================================================
