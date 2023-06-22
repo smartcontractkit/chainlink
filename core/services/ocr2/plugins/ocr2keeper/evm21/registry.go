@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -86,6 +87,11 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
+	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, logDataABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
@@ -106,7 +112,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		registry: registry,
 		active:   make(map[string]activeUpkeep),
 		abi:      keeperRegistryABI,
-		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
+		packer:   packer,
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
@@ -116,7 +122,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{},
-		logEventProvider: NewLogEventProvider(lggr, client.LogPoller(), nil),
+		logEventProvider: NewLogEventProvider(lggr, client.LogPoller(), packer, nil),
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {

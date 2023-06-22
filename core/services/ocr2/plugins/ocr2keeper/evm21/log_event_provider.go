@@ -21,6 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+type LogDataPacker interface {
+	PackLogData(log logpoller.Log) ([]byte, error)
+}
+
 // LogEventProviderOptions holds the options for the log event provider.
 type LogEventProviderOptions struct {
 	// LogRetention is the amount of time to retain logs for.
@@ -120,6 +124,8 @@ type logEventProvider struct {
 
 	poller logpoller.LogPoller
 
+	packer LogDataPacker
+
 	lock   sync.RWMutex
 	active map[string]upkeepFilterEntry
 
@@ -128,12 +134,13 @@ type logEventProvider struct {
 	opts *LogEventProviderOptions
 }
 
-func NewLogEventProvider(lggr logger.Logger, poller logpoller.LogPoller, opts *LogEventProviderOptions) *logEventProvider {
+func NewLogEventProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, opts *LogEventProviderOptions) *logEventProvider {
 	if opts == nil {
 		opts = new(LogEventProviderOptions)
 	}
 	opts.Defaults()
 	return &logEventProvider{
+		packer: packer,
 		lggr:   lggr.Named("KeepersRegistry.LogEventProvider"),
 		buffer: newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
 		poller: poller,
@@ -240,7 +247,12 @@ func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 		log := l.log
 		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
 		trig := NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
-		payload := NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
+		checkData, err := p.packer.PackLogData(log)
+		if err != nil {
+			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
+			continue
+		}
+		payload := NewUpkeepPayload(l.id, int(logTrigger), trig, checkData)
 		payloads = append(payloads, payload)
 	}
 

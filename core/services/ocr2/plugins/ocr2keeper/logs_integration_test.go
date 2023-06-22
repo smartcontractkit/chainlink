@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -305,7 +308,11 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, 1, 2, 2, 1000)
 
 	lggr := logger.TestLogger(t)
-	logProvider := kevm21.NewLogEventProvider(lggr, lp, opts)
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	require.NoError(t, err)
+	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
+	require.NoError(t, err)
+	logProvider := kevm21.NewLogEventProvider(lggr, lp, kevm21.NewEvmRegistryPackerV2_1(keeperRegistryABI, logDataABI), opts)
 
 	return logProvider, lp, ethClient
 }
