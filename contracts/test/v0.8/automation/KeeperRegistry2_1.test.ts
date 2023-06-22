@@ -57,6 +57,7 @@ enum UpkeepFailureReason {
   INSUFFICIENT_BALANCE,
   CHECK_CALLBACK_REVERTED,
   REVERT_DATA_EXCEEDS_LIMIT,
+  REGISTRY_PAUSED,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -3007,6 +3008,23 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.UPKEEP_CANCELLED,
+      )
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
+    })
+
+    it('returns false and error code if the registry is paused', async () => {
+      await registry.connect(owner).pause()
+
+      const checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.REGISTRY_PAUSED,
       )
       expect(checkUpkeepResult.gasUsed).to.equal(0)
       expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
