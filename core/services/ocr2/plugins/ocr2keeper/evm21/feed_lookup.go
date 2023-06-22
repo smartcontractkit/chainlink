@@ -77,10 +77,12 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
-		// in feed lookup, use the block number at the block where the log was emitted
-		block := res.Payload.Trigger.BlockNumber
-		upkeepId := new(big.Int).SetBytes(res.Payload.Upkeep.ID)
-		opts, err := r.buildCallOpts(ctx, big.NewInt(block))
+		block, upkeepId, err := r.getCheckBlockAndUpkeepId(res.Payload)
+		if err != nil {
+			return nil, err
+		}
+
+		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
 			return nil, err
@@ -114,7 +116,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		}
 
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v\nextraData: %v", upkeepId, block, values, feedLookup.extraData)
-		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, uint32(block))
+		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, uint32(block.Uint64()))
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)
 			continue
@@ -125,6 +127,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", upkeepId, block, err)
 			continue
 		}
+		r.lggr.Infof("")
 
 		ext.FailureReason = failureReason
 		upkeepResults[i].Extension = ext

@@ -218,8 +218,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 	return keys, nil
 }
 
-// in upkeep payload, the trigger block number and hash are the number and hash for the block this log was emitted
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context /* mercuryEnabled bool, */, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) CheckUpkeeps(ctx context.Context /* mercuryEnabled bool, */, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx /* mercuryEnabled, */, keys, chResult)
 
