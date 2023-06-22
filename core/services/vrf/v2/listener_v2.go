@@ -93,7 +93,7 @@ func New(
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	vrfOwner vrf_owner.VRFOwnerInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -168,7 +168,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.EvmTxManager
+	txm            txmgr.TxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      CoordinatorV2_X
@@ -815,7 +815,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	ctx context.Context,
 	p vrfPipelineResult,
 	fromAddress common.Address,
-) (etx txmgr.EvmTx, err error) {
+) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
 		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
 		return
@@ -865,13 +865,13 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.EvmTxMeta{
+			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
 				SubID:         &subID,
 				RequestTxHash: &requestTxHash,
@@ -1042,7 +1042,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			}
 
 			ll.Infow("Enqueuing fulfillment")
-			var transaction txmgr.EvmTx
+			var transaction txmgr.Tx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -1062,12 +1062,12 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				coordinatorAddress := lsn.coordinator.Address()
 				subID := p.req.req.SubID()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					FeeLimit:       p.gasLimit,
-					Meta: &txmgr.EvmTxMeta{
+					Meta: &txmgr.TxMeta{
 						RequestID:     &requestID,
 						MaxLink:       maxLink,
 						MaxEth:        maxEth,
@@ -1075,7 +1075,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						RequestTxHash: &requestTxHash,
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
-					Checker: txmgr.EvmTransmitCheckerSpec{
+					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),

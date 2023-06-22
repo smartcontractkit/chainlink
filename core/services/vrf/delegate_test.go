@@ -303,7 +303,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool {
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
 				meta := txRequest.Meta
 				return txRequest.FromAddress == vuni.submitter &&
 					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
@@ -311,7 +311,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EvmTx{}, nil)
+		).Once().Return(txmgr.Tx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present

@@ -9,25 +9,24 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type TestNodeConfig struct {
-	NoNewHeadsThreshold  time.Duration
-	PollFailureThreshold uint32
-	PollInterval         time.Duration
-	SelectionMode        string
-	SyncThreshold        uint32
+type TestNodePoolConfig struct {
+	NodePollFailureThreshold uint32
+	NodePollInterval         time.Duration
+	NodeSelectionMode        string
+	NodeSyncThreshold        uint32
 }
 
-func (tc TestNodeConfig) NodeNoNewHeadsThreshold() time.Duration { return tc.NoNewHeadsThreshold }
-func (tc TestNodeConfig) NodePollFailureThreshold() uint32       { return tc.PollFailureThreshold }
-func (tc TestNodeConfig) NodePollInterval() time.Duration        { return tc.PollInterval }
-func (tc TestNodeConfig) NodeSelectionMode() string              { return tc.SelectionMode }
-func (tc TestNodeConfig) NodeSyncThreshold() uint32              { return tc.SyncThreshold }
+func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
+func (tc TestNodePoolConfig) PollInterval() time.Duration  { return tc.NodePollInterval }
+func (tc TestNodePoolConfig) SelectionMode() string        { return tc.NodeSelectionMode }
+func (tc TestNodePoolConfig) SyncThreshold() uint32        { return tc.NodeSyncThreshold }
 
-func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
+func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -38,7 +37,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 	}
 
 	lggr := logger.TestLogger(t)
-	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
+	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
 	n.(*node).setLatestReceived(0, utils.NewBigI(0))
 	primaries := []Node{n}
 
@@ -51,7 +50,7 @@ func NewClientWithTestNode(t *testing.T, cfg NodeConfig, rpcUrl string, rpcHTTPU
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID, "")
+	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil

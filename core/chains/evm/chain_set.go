@@ -260,7 +260,7 @@ type ChainSetOpts struct {
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(*big.Int) txmgr.EvmTxManager
+	GenTxManager      func(*big.Int) txmgr.TxManager
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
