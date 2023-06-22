@@ -9,8 +9,8 @@ import "../interfaces/VRFV2PlusWrapperInterface.sol";
  * ********************************************************************************
  * @dev PURPOSE
  *
- * @dev Create VRF V2 requests without the need for subscription management. Rather than creating
- * @dev and funding a VRF V2 subscription, a user can use this wrapper to create one off requests,
+ * @dev Create VRF V2+ requests without the need for subscription management. Rather than creating
+ * @dev and funding a VRF V2+ subscription, a user can use this wrapper to create one off requests,
  * @dev paying up front rather than at fulfillment.
  *
  * @dev Since the price is determined using the gas price of the request transaction rather than
@@ -19,16 +19,16 @@ import "../interfaces/VRFV2PlusWrapperInterface.sol";
  * *****************************************************************************
  * @dev USAGE
  *
- * @dev Calling contracts must inherit from VRFV2WrapperConsumerBase. The consumer must be funded
- * @dev with enough LINK to make the request, otherwise requests will revert. To request randomness,
- * @dev call the 'requestRandomness' function with the desired VRF parameters. This function handles
+ * @dev Calling contracts must inherit from VRFV2PlusWrapperConsumerBase. The consumer must be funded
+ * @dev with enough LINK or ether to make the request, otherwise requests will revert. To request randomness,
+ * @dev call the 'requestRandomWords' function with the desired VRF parameters. This function handles
  * @dev paying for the request based on the current pricing.
  *
  * @dev Consumers must implement the fullfillRandomWords function, which will be called during
  * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2PlusWrapperConsumerBase {
-  LinkTokenInterface internal immutable LINK;
+  LinkTokenInterface internal LINK;
   VRFV2PlusWrapperInterface internal immutable VRF_V2_WRAPPER;
 
   /**
@@ -36,12 +36,15 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    * @param _vrfV2Wrapper is the address of the VRFV2Wrapper contract
    */
   constructor(address _link, address _vrfV2Wrapper) {
-    LINK = LinkTokenInterface(_link);
+    if (_link != address(0)) {
+      LINK = LinkTokenInterface(_link);
+    }
+  
     VRF_V2_WRAPPER = VRFV2PlusWrapperInterface(_vrfV2Wrapper);
   }
 
   /**
-   * @dev Requests randomness from the VRF V2 wrapper.
+   * @dev Requests randomness from the VRF V2+ wrapper.
    *
    * @param _callbackGasLimit is the gas limit that should be used when calling the consumer's
    *        fulfillRandomWords function.
@@ -50,7 +53,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    *        that a chain re-org changes a published randomness outcome.
    * @param _numWords is the number of random words to request.
    *
-   * @return requestId is the VRF V2 request ID of the newly created randomness request.
+   * @return requestId is the VRF V2+ request ID of the newly created randomness request.
    */
   function requestRandomness(
     uint32 _callbackGasLimit,

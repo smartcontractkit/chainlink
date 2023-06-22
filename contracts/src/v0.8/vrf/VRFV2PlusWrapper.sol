@@ -18,8 +18,10 @@ import "../ChainSpecificUtil.sol";
 contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, VRFV2PlusWrapperInterface {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
+  error LinkAlreadySet();
+
+  LinkTokenInterface public s_link;
+  AggregatorV3Interface public s_linkEthFeed;
   ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
   uint64 public immutable SUBSCRIPTION_ID;
   /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
@@ -99,14 +101,38 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     address _linkEthFeed,
     address _coordinator
   ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(_coordinator, msg.sender) {
-    LINK = LinkTokenInterface(_link);
-    LINK_ETH_FEED = AggregatorV3Interface(_linkEthFeed);
+    if (_link != address(0)) {
+      s_link = LinkTokenInterface(_link);
+    }
+    if (_linkEthFeed != address(0)) {
+      s_linkEthFeed = AggregatorV3Interface(_linkEthFeed);
+    }
     COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
 
     // Create this wrapper's subscription and add itself as a consumer.
     uint64 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
     ExtendedVRFCoordinatorV2PlusInterface(_coordinator).addConsumer(subId, address(this));
+  }
+
+  /**
+   * @notice set the link token to be used by this wrapper
+   * @param link address of the link token
+   */ 
+  function setLINK(address link) external onlyOwner {
+    // Disallow re-setting link token because the logic wouldn't really make sense
+    if (address(s_link) != address(0)) {
+      revert LinkAlreadySet();
+    }
+    s_link = LinkTokenInterface(link);
+  }
+
+  /**
+   * @notice set the link eth feed to be used by this wrapper
+   * @param linkEthFeed address of the link eth feed
+   */
+  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
+    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
@@ -162,7 +188,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @return stalenessSeconds is the number of seconds before we consider the feed price to be stale
    *         and fallback to fallbackWeiPerUnitLink.
    *
-   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
+   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
    *         charges.
    *
    * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
@@ -309,7 +335,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    *        uint16 requestConfirmations, and uint32 numWords.
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
-    require(msg.sender == address(LINK), "only callable from LINK");
+    require(msg.sender == address(s_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
       _data,
@@ -368,7 +394,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
   function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    LINK.transfer(_recipient, _amount);
+    s_link.transfer(_recipient, _amount);
   }
 
     /**
@@ -417,7 +443,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = s_linkEthFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
