@@ -561,11 +561,9 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   }
 
   /**
-   * @notice Remove a consumer from a VRF subscription.
-   * @param subId - ID of the subscription
-   * @param consumer - Consumer to remove from the subscription
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
+  function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
@@ -590,11 +588,9 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   }
 
   /**
-   * @notice Cancel a subscription
-   * @param subId - ID of the subscription
-   * @param to - Where to send the remaining LINK to
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function cancelSubscription(uint64 subId, address to) external onlySubOwner(subId) nonReentrant {
+  function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }

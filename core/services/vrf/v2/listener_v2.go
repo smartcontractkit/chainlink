@@ -67,6 +67,10 @@ const (
 
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
+
+	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
+	// for V2Plus.
+	RandomWordsRequestedV2PlusABI = "event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 )
 
 type errPossiblyInsufficientFunds struct{}
@@ -523,7 +527,7 @@ func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint
 	if reservedEther != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedEther, 10)
 		if !success {
-			return nil, fmt.Errorf("converting reserved LINK %s", reservedEther)
+			return nil, fmt.Errorf("converting reserved ether %s", reservedEther)
 		}
 
 		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
@@ -920,7 +924,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 	l := lsn.l.With(
 		"subID", subID,
 		"eligibleSubReqs", len(reqs),
-		"startLinkBalance", startBalance.String(),
+		"startBalance", startBalance.String(),
 		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"subIsActive", subIsActive,
 	)
@@ -1289,24 +1293,26 @@ func (lsn *listenerV2) estimateFee(
 	req *RandomWordsRequested,
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
-	// In the event we are using LINK we need to estimate the fee in juels
-	if req.VRFVersion == vrfcommon.V2 || (req.V2Plus != nil && !req.V2Plus.NativePayment) {
-		// Don't use up too much time to get this info, it's not critical for operating vrf.
-		callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
-		defer cancel()
-		roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: callCtx})
-		if err != nil {
-			return nil, errors.Wrap(err, "get aggregator latestAnswer")
-		}
-
-		return EstimateFeeJuels(
-			req.CallbackGasLimit(),
-			maxGasPriceWei.ToInt(),
-			roundData.Answer,
-		)
+	// NativePayment() returns true if and only if the version is V2+ and the
+	// request was made in ETH.
+	if req.NativePayment() {
+		return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt())
 	}
-	// otherwise we estimate the fee in wei
-	return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt())
+
+	// In the event we are using LINK we need to estimate the fee in juels
+	// Don't use up too much time to get this info, it's not critical for operating vrf.
+	callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: callCtx})
+	if err != nil {
+		return nil, errors.Wrap(err, "get aggregator latestAnswer")
+	}
+
+	return EstimateFeeJuels(
+		req.CallbackGasLimit(),
+		maxGasPriceWei.ToInt(),
+		roundData.Answer,
+	)
 }
 
 // Here we use the pipeline to parse the log, generate a vrf response
