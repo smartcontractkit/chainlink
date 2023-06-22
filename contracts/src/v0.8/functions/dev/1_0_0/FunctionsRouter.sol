@@ -9,6 +9,7 @@ import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
   event RequestStart(bytes32 indexed requestId, Request commitment);
+  event UserCallbackError(bytes32 indexed requestId, string reason);
   event RequestEnd(bytes32 indexed requestId, uint64 subscriptionId, bool success);
 
   error OnlyCallableFromCoordinator();
@@ -35,11 +36,11 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     uint16 maximumTimelockBlocks,
     bool useAllowList,
     address linkToken,
-    bytes32[] memory initialJobIds,
+    bytes32[] memory initialIds,
     address[] memory initialAddresses,
     bytes memory config
   )
-    RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, initialJobIds, initialAddresses, config)
+    RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, initialIds, initialAddresses, config)
     AuthorizedOriginReceiver(useAllowList)
     FunctionsSubscriptions(linkToken)
   {}
@@ -77,7 +78,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   // ================================================================
 
   function _sendRequest(
-    bytes32 jobId,
+    bytes32 id,
     bool isProposed,
     uint64 subscriptionId,
     bytes memory data,
@@ -86,7 +87,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address route = this.getRoute(jobId, isProposed);
+    address route = this.getRoute(id, isProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
@@ -115,9 +116,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     return requestId;
   }
 
-  function _smoke(bytes32 jobId, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
+  function _smoke(bytes32 id, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
     (uint64 subscriptionId, bytes memory reqData, uint32 gasLimit) = abi.decode(data, (uint64, bytes, uint32));
-    return _sendRequest(jobId, true, subscriptionId, reqData, gasLimit);
+    return _sendRequest(id, true, subscriptionId, reqData, gasLimit);
   }
 
   /**
@@ -127,9 +128,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     uint64 subscriptionId,
     bytes calldata data,
     uint32 gasLimit,
-    bytes32 jobId
+    bytes32 donId
   ) external override onlyAuthorizedUsers nonReentrant returns (bytes32) {
-    return _sendRequest(jobId, false, subscriptionId, data, gasLimit);
+    return _sendRequest(donId, false, subscriptionId, data, gasLimit);
   }
 
   /**
@@ -194,7 +195,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       amount
     );
 
-    // TODO: payment amounts
     emit RequestEnd(requestId, request.subscriptionId, success);
 
     return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
