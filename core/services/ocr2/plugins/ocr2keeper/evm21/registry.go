@@ -650,13 +650,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, key
 	}
 }
 
-func (r *EvmRegistry) getCheckBlockAndUpkeepId(key ocr2keepers.UpkeepPayload) (*big.Int, *big.Int, error) {
-	block, success := new(big.Int).SetString(string(key.CheckBlock), 10)
-	if !success {
-		return nil, nil, errors.Errorf("failed to convert check block %s to bit int", key.CheckBlock)
-	}
+func (r *EvmRegistry) getBlockAndUpkeepId(key ocr2keepers.UpkeepPayload) (*big.Int, *big.Int) {
+	block := new(big.Int).SetInt64(key.Trigger.BlockNumber)
 	upkeepId := new(big.Int).SetBytes(key.Upkeep.ID)
-	return block, upkeepId, nil
+	return block, upkeepId
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
@@ -669,10 +666,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := r.getCheckBlockAndUpkeepId(key)
-		if err != nil {
-			return nil, err
-		}
+		block, upkeepId := r.getBlockAndUpkeepId(key)
 		blocks[i] = block
 		upkeepIds[i] = upkeepId
 
@@ -750,10 +744,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
-		block, upkeepId, err := r.getCheckBlockAndUpkeepId(cr.Payload)
-		if err != nil {
-			return nil, err
-		}
+		block, upkeepId := r.getBlockAndUpkeepId(cr.Payload)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -792,7 +783,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	var multiErr error
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s|%s with message '%s' in simulate perform", checkResults[i].Payload.CheckBlock, new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), req.Error)
+			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Payload.Trigger.BlockNumber, new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])

@@ -77,10 +77,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
-		block, upkeepId, err := r.getCheckBlockAndUpkeepId(res.Payload)
-		if err != nil {
-			return nil, err
-		}
+		block, upkeepId := r.getBlockAndUpkeepId(res.Payload)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
