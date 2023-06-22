@@ -247,9 +247,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
-			} else {
-				// transmitter id gets set later if forwarders are enabled, so no need to validate it
-				if !jb.ForwardingAllowed && jb.OCR2OracleSpec.Relay == relay.EVM {
+				// if sending keys are set and plugin type is VRF, no need to check transmitter ID
+			} else if _, sendingKeysSet := jb.OCR2OracleSpec.RelayConfig["sendingKeys"]; !(sendingKeysSet && jb.OCR2OracleSpec.PluginType == OCR2VRF) {
+				if jb.OCR2OracleSpec.Relay == relay.EVM {
 					if !jb.OCR2OracleSpec.TransmitterID.Valid {
 						return errors.Errorf("expected a transmitterID to be specified")
 					}
