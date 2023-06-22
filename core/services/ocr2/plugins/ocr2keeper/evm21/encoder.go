@@ -107,7 +107,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 
 		ids[i] = id
-		gasLimits[i] = new(big.Int).SetUint64(result.GasUsed)
+		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
 		triggers[i] = wrappedTrigger{
 			BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
@@ -121,6 +121,11 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	}
 
 	return bts, nil
+}
+
+// TODO: implement
+func (enc EVMAutomationEncoder21) Extract([]byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	panic("unimplemented")
 }
 
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
