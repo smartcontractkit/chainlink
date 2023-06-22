@@ -40,7 +40,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
-    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
     if (s_proposedAdmin[id] != proposed) {
       s_proposedAdmin[id] = proposed;
