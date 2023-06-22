@@ -4318,13 +4318,18 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it('reverts when transferring to zero address', async () => {
-      await evmRevert(
-        registry
-          .connect(admin)
-          .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero),
-        'InvalidRecipient()',
-      )
+    it('allows transferring to zero address', async () => {
+      const tx = await registry
+        .connect(admin)
+        .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero)
+
+      await expect(tx)
+        .to.emit(registry, 'UpkeepAdminTransferRequested')
+        .withArgs(
+          upkeepId,
+          await admin.getAddress(),
+          ethers.constants.AddressZero,
+        )
     })
 
     it('does not change the upkeep admin', async () => {
