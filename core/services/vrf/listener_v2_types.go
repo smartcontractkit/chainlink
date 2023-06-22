@@ -138,7 +138,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgr.EvmTx
+	var ethTX txmgr.Tx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -155,13 +155,13 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+		ethTX, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
 			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.EvmTxMeta{
+			Meta: &txmgr.TxMeta{
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLinkStr,
 				SubID:           &subID,
