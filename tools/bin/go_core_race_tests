@@ -4,7 +4,7 @@ set -ex
 TIMEOUT="${TIMEOUT:-30s}"
 COUNT="${COUNT:-10}"
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-GORACE="log_path=$PWD/race" go test -tags test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee ./output.txt
+GORACE="log_path=$PWD/race" go test -tags test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" -covermode=atomic -coverpkg=./... -coverprofile=race-coverage.txt $1 | tee output.txt
 EXITCODE=${PIPESTATUS[0]}
 # Fail if any race logs are present.
 if ls race.* &>/dev/null
