@@ -38,15 +38,15 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 
 		latest := saver.LatestChain()
 		require.NoError(t, err)
-		require.Equal(t, int64(1), latest.Number)
+		require.Equal(t, int64(1), latest.BlockNumber())
 
 		latest = saver.LatestChain()
 		require.NotNil(t, latest)
-		require.Equal(t, int64(1), latest.Number)
+		require.Equal(t, int64(1), latest.BlockNumber())
 
 		latest = saver.Chain(head.BlockHash())
 		require.NotNil(t, latest)
-		require.Equal(t, int64(1), latest.Number)
+		require.Equal(t, int64(1), latest.BlockNumber())
 
 		// Add more heads
 		head = cltest.Head(2)
@@ -57,12 +57,12 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		require.NoError(t, err)
 
 		latest = saver.LatestChain()
-		require.Equal(t, int64(3), latest.Number)
+		require.Equal(t, int64(3), latest.BlockNumber())
 	})
 
 	t.Run("save invalid head", func(t *testing.T) {
 		err := saver.Save(testutils.Context(t), nil)
-		require.NoError(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("saving heads with same block number", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 
 		latest := saver.LatestChain()
 		require.NoError(t, err)
-		require.Equal(t, int64(4), latest.Number)
+		require.Equal(t, int64(4), latest.BlockNumber())
 
 		headsWithSameNumber := len(saver.HeadByNumber(4))
 		require.Equal(t, 3, headsWithSameNumber)
@@ -102,7 +102,7 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		wg.Wait()
 
 		latest := saver.LatestChain()
-		require.Equal(t, int64(numRoutines), latest.Number)
+		require.Equal(t, int64(numRoutines), latest.BlockNumber())
 	})
 }
 
@@ -129,7 +129,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 
 		// Check that the latest head is correct
 		latest := saver.LatestChain()
-		require.Equal(t, int64(4), latest.Number)
+		require.Equal(t, int64(4), latest.BlockNumber())
 
 		// Clear All Heads
 		saver.TrimOldHeads(6)
@@ -151,7 +151,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		require.Equal(t, 4, len(saver.HeadsNumber))
 
 		latest := saver.LatestChain()
-		require.Equal(t, int64(4), latest.Number)
+		require.Equal(t, int64(4), latest.BlockNumber())
 	})
 
 	t.Run("concurrent calls to TrimOldHeads", func(t *testing.T) {
@@ -192,7 +192,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		require.Equal(t, 0, len(saver.HeadByNumber(1)))
 
 		latest := saver.LatestChain()
-		require.Equal(t, int64(8), latest.Number)
+		require.Equal(t, int64(8), latest.BlockNumber())
 	})
 }
 
@@ -244,6 +244,6 @@ func TestInMemoryHeadSaver_LatestChain(t *testing.T) {
 		require.NoError(t, err)
 
 		latest := saver.LatestChain()
-		require.Equal(t, int64(1), latest.Number)
+		require.Equal(t, int64(1), latest.BlockNumber())
 	})
 }
