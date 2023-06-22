@@ -6,7 +6,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 import "./VRFConsumerBaseV2Plus.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/VRFCoordinatorV2PlusInterface.sol";
+import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../ChainSpecificUtil.sol";
@@ -478,7 +478,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 }
 
-interface ExtendedVRFCoordinatorV2PlusInterface is VRFCoordinatorV2PlusInterface {
+interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
   function getConfig()
     external
     view
