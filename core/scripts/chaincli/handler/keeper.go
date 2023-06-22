@@ -637,9 +637,9 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
 			logTriggerConfig, err := abi.Encode(map[string]interface{}{
 				"contractAddress": upkeepAddr,
-				"filterSelector":  0,                                                                    // no indexed topics filtered
-				"topic0":          "0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd", // event sig for LimitOrderExecuted(uint256,uint256,address)
-				"topic1":          "0x",
+				"filterSelector":  k.cfg.Selector, // no indexed topics filtered
+				"topic0":          k.cfg.Topic0,   // event sig for LimitOrderExecuted(uint256,uint256,address)
+				"topic1":          k.cfg.Topic1,
 				"topic2":          "0x",
 				"topic3":          "0x",
 			}, logTriggerConfigType)

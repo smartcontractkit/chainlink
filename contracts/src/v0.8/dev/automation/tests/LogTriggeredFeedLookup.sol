@@ -109,7 +109,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     }
   }
 
-  function getBasicLogTriggerConfig(address targetContract) external returns (bytes memory logTrigger) {
+  function getBasicLogTriggerConfig(address targetContract) external view returns (bytes memory logTrigger) {
     LogTriggerConfig memory cfg = LogTriggerConfig({
       contractAddress: targetContract,
       filterSelector: 0, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
@@ -118,27 +118,24 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
       topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
       topic3: 0x000000000000000000000000000000000000000000000000000000000000000
     });
-    bytes memory logTriggerConfig = abi.encode(cfg);
-
-    return logTriggerConfig;
+    return abi.encode(cfg);
   }
 
   function getAdvancedLogTriggerConfig(
     address targetContract,
     uint8 selector,
     bytes32 topic0,
-    bytes32 topic1
-  ) external returns (bytes memory logTrigger) {
+    bytes32 topic1,
+    bytes32 topic2
+  ) external view returns (bytes memory logTrigger) {
     LogTriggerConfig memory cfg = LogTriggerConfig({
       contractAddress: targetContract,
       filterSelector: selector, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
       topic0: topic0,
       topic1: topic1,
-      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
+      topic2: topic2,
       topic3: 0x000000000000000000000000000000000000000000000000000000000000000
     });
-    bytes memory logTriggerConfig = abi.encode(cfg);
-
-    return logTriggerConfig;
+    return abi.encode(cfg);
   }
 }
