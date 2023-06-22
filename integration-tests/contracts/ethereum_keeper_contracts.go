@@ -18,6 +18,9 @@ import (
 	goabi "github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -194,6 +197,7 @@ type EthereumKeeperRegistry struct {
 	registry1_2 *keeper_registry_wrapper1_2.KeeperRegistry
 	registry1_3 *keeper_registry_wrapper1_3.KeeperRegistry
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
+	registry2_1 *keeper_registry_wrapper_2_1.KeeperRegistry
 	address     *common.Address
 }
 
@@ -318,6 +322,8 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported")
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -357,6 +363,8 @@ func (v *EthereumKeeperRegistry) Pause() error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported")
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -468,6 +476,8 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 		tx, err = v.registry1_3.AddFunds(opts, id, amount)
 	case ethereum.RegistryVersion_2_0:
 		tx, err = v.registry2_0.AddFunds(opts, id, amount)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in AddUpkeepFunds")
 	}
 
 	if err != nil {
@@ -543,6 +553,8 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Paused:                 uk.Paused,
 			OffchainConfig:         uk.OffchainConfig,
 		}, nil
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in GetUpkeepInfo")
 	}
 
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -613,6 +625,8 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in SetKeepers")
 	}
 
 	if err != nil {
@@ -663,6 +677,8 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			checkData,
 			nil, //offchain config
 		)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in RegisterUpkeep")
 	}
 
 	if err != nil {
@@ -700,6 +716,8 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in CancelUpkeep")
 	}
 
 	log.Info().
@@ -734,6 +752,8 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in SetUpkeepGasLimit")
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported for SetUpkeepGasLimit", v.version)
 	}
@@ -770,6 +790,8 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 			return []string{}, err
 		}
 		list = state.Transmitters
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in GetKeeperList")
 	}
 
 	if err != nil {
@@ -808,6 +830,8 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in UpdateCheckData")
 	default:
 		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
 	}
@@ -838,6 +862,8 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in PauseUpkeep")
 	default:
 		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
@@ -868,6 +894,8 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in UnpauseUpkeep")
 	default:
 		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
@@ -916,6 +944,8 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in ParseUpkeepPerformedLog")
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
@@ -947,6 +977,8 @@ func (v *EthereumKeeperRegistry) ParseUpkeepIdFromRegisteredLog(log *types.Log) 
 			return nil, err
 		}
 		return parsedLog.Id, nil
+	case ethereum.RegistryVersion_2_1:
+		panic("v21 not supported in ParseUpkeepIdFromRegisteredLog")
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }

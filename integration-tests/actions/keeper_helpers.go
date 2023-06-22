@@ -312,6 +312,9 @@ func DeployKeeperRegistrar(
 		require.NoError(t, err, "Registering the registrar address on the registry shouldn't fail")
 		err = client.WaitForEvents()
 		require.NoError(t, err, "Failed waiting for registry to set registrar")
+	} else if registryVersion != ethereum.RegistryVersion_2_1 {
+		// TODO update when registrar v21 is ready
+		panic("registrar v21 not supported yet")
 	}
 
 	return registrar

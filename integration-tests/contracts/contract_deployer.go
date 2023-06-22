@@ -26,10 +26,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
+	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -548,6 +551,9 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 			address:     address,
 		}, err
+	} else if registryVersion == eth_contracts.RegistryVersion_2_1 {
+		// TODO add v21 when registrar is ready
+		panic("v21 not supported yet")
 	}
 	// non OCR registrar
 	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
@@ -790,7 +796,80 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
 			address:     address,
 		}, err
+	case eth_contracts.RegistryVersion_2_1:
+		registryLogicBAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicB2_1", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return registrylogicb21.DeployKeeperRegistryLogicB(
+				auth,
+				backend,
+				mode,
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
 
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO remove print when e2e is ready
+		fmt.Println("finished deploying logicB2_1")
+
+		registryLogicAAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicA2_1", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return registrylogica21.DeployKeeperRegistryLogicA(
+				auth,
+				backend,
+				*registryLogicBAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO remove print when e2e is ready
+		fmt.Println("finished deploying logicA2_1")
+
+		address, _, instance, err := e.client.DeployContract("KeeperRegistry2_0", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return registry21.DeployKeeperRegistry(
+				auth,
+				backend,
+				*registryLogicAAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = e.client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO remove print when e2e is ready
+		fmt.Println("v21 contracts deployed successfully")
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     eth_contracts.RegistryVersion_2_1,
+			registry2_1: instance.(*registry21.KeeperRegistry),
+			address:     address,
+		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
@@ -858,6 +937,21 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
+		}, err
+	case eth_contracts.RegistryVersion_2_1:
+		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
+			address common.Address,
+			backend bind.ContractBackend,
+		) (interface{}, error) {
+			return registry21.NewKeeperRegistry(address, backend)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			address:     &address,
+			client:      e.client,
+			registry2_1: instance.(*registry21.KeeperRegistry),
 		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)

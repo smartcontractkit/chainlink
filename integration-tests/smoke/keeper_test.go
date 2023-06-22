@@ -555,6 +555,8 @@ func TestKeeperAddFunds(t *testing.T) {
 		"registry_1_1": ethereum.RegistryVersion_1_1,
 		"registry_1_2": ethereum.RegistryVersion_1_2,
 		"registry_1_3": ethereum.RegistryVersion_1_3,
+		// TODO enable v21 when e2e(registry + registrar) is ready to test
+		//"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
 	for n, rv := range registryVersions {
