@@ -126,9 +126,82 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 // should accept/transmit reports from plugin will call extract function
 func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.ReportedUpkeep, error) {
-	// only ID is needed
+	m := make(map[string]interface{})
+	if err := unpackIntoMapFn(m, report); err != nil {
+		return nil, err
+	}
 
-	return []ocr2keepers.ReportedUpkeep{}, nil
+	for _, key := range mKeys {
+		if _, ok := m[key]; !ok {
+			return nil, fmt.Errorf("decoding error: %s missing from struct", key)
+		}
+	}
+
+	var (
+		res       []ocr2keepers.ReportedUpkeep
+		ok        bool
+		upkeepIds []*big.Int
+		performs  [][]byte
+		// gasLimits []*big.Int // TODO
+		//wei  *big.Int
+		//link *big.Int
+	)
+
+	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
+		return res, fmt.Errorf("upkeep ids of incorrect type in report")
+	}
+
+	// TODO: a type assertion on `wrappedTrigger` did not work, even with the
+	// exact same struct definition as what follows. reflect was used to get the
+	// struct definition. not sure yet how to clean this up.
+	// ex:
+	// t := reflect.TypeOf(rawPerforms)
+	// fmt.Printf("%v\n", t)
+	triggers, ok := m[mKeys[4]].([]struct {
+		BlockNumber uint32   `abi:"blockNumber"`
+		BlockHash   [32]byte `abi:"blockHash"`
+	})
+	if !ok {
+		return res, fmt.Errorf("triggers of incorrect structure in report")
+	}
+
+	if len(upkeepIds) != len(triggers) {
+		return res, fmt.Errorf("upkeep ids and triggers should have matching length")
+	}
+
+	//if wei, ok = m[mKeys[0]].(*big.Int); !ok {
+	//	return res, fmt.Errorf("fast gas as wrong type")
+	//}
+	//
+	//if link, ok = m[mKeys[1]].(*big.Int); !ok {
+	//	return res, fmt.Errorf("link native as wrong type")
+	//}
+	// if gasLimits, ok = m[mKeys[3]].([]*big.Int); !ok {
+	// 	return res, fmt.Errorf("gas limits as wrong type")
+	// }
+
+	if performs, ok = m[mKeys[5]].([][]byte); !ok {
+		return res, fmt.Errorf("perform datas as wrong type")
+	}
+
+	for i, upkeepId := range upkeepIds {
+		payload := ocr2keepers.NewUpkeepPayload(
+			upkeepId,
+			int(logTrigger),
+			"",
+			ocr2keepers.Trigger{
+				BlockNumber: int64(triggers[i].BlockNumber),
+				BlockHash:   string(triggers[i].BlockHash[:]),
+			},
+			[]byte{},
+		)
+		res[i] = ocr2keepers.ReportedUpkeep{
+			ID:          payload.ID,
+			PerformData: performs[i],
+		}
+	}
+
+	return res, nil
 }
 
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
