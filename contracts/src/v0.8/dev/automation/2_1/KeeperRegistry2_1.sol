@@ -458,10 +458,16 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
-      // Can happen when the block on which report was generated got reorged
-      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-      // with the latest checkBlockNumber
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= block.number
+    ) {
+      // There are two cases of reorged report
+      // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
+      // which is always protected against
+      // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
+      // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
+      // when it is sent
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
@@ -470,7 +476,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= block.number
+    ) {
+      // Reorg protection is same as block trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
