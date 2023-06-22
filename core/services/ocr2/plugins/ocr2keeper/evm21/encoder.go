@@ -124,6 +124,13 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	return bts, nil
 }
 
+// should accept/transmit reports from plugin will call extract function
+func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	// only ID is needed
+
+	return []ocr2keepers.ReportedUpkeep{}, nil
+}
+
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
 	m := make(map[string]interface{})
 	if err := unpackIntoMapFn(m, report); err != nil {
