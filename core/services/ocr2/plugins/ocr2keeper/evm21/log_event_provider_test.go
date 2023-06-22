@@ -63,7 +63,7 @@ func TestLogEventProvider_Sanity(t *testing.T) {
 				mp.On("RegisterFilter", mock.Anything).Return(nil)
 				mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 			}
-			p := NewLogEventProvider(logger.TestLogger(t), mp, nil)
+			p := NewLogEventProvider(logger.TestLogger(t), mp, &mockedPacker{}, nil)
 			err := p.RegisterFilter(tc.upkeepID, tc.upkeepCfg)
 			if tc.errored {
 				require.Error(t, err)
@@ -190,7 +190,7 @@ func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
 		},
 	}
 
-	p := NewLogEventProvider(logger.TestLogger(t), nil, nil)
+	p := NewLogEventProvider(logger.TestLogger(t), nil, &mockedPacker{}, nil)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
 }
 
 func TestLogEventProvider_GetEntries(t *testing.T) {
-	p := NewLogEventProvider(logger.TestLogger(t), nil, nil)
+	p := NewLogEventProvider(logger.TestLogger(t), nil, &mockedPacker{}, nil)
 
 	_, f := newEntry(p, 1)
 	p.lock.Lock()
@@ -263,7 +263,7 @@ func TestLogEventProvider_GetLogs(t *testing.T) {
 		},
 	}, nil)
 
-	p := NewLogEventProvider(logger.TestLogger(t), mp, nil)
+	p := NewLogEventProvider(logger.TestLogger(t), mp, &mockedPacker{}, nil)
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
@@ -305,4 +305,11 @@ func newEntry(p *logEventProvider, i int) (LogTriggerConfig, upkeepFilterEntry) 
 		lastPollBlock: 0,
 	}
 	return cfg, f
+}
+
+type mockedPacker struct {
+}
+
+func (p *mockedPacker) PackLogData(log logpoller.Log) ([]byte, error) {
+	return log.Data, nil
 }
