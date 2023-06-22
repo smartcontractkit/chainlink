@@ -39,7 +39,7 @@ type BulletproofBHS struct {
 	dbConfig      bpBHSDatabaseConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
-	txm           txmgr.EvmTxManager
+	txm           txmgr.TxManager
 	abi           *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	chainID       *big.Int
@@ -51,7 +51,7 @@ func NewBulletproofBHS(
 	config bpBHSConfig,
 	dbConfig bpBHSDatabaseConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -86,7 +86,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -134,7 +134,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
