@@ -359,7 +359,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
 	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
 		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:       d.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:       d.cfg.FlatFeeMicroLink,
 		CheckGasLimit:          d.cfg.CheckGasLimit,
 		StalenessSeconds:       big.NewInt(d.cfg.StalenessSeconds),
 		GasCeilingMultiplier:   d.cfg.GasCeilingMultiplier,
