@@ -2955,7 +2955,7 @@ describe('KeeperRegistry2_1', () => {
     })
 
     it('returns false and error code if the registry is paused', async () => {
-      await registry.connect(admin).pause()
+      await registry.connect(owner).pause()
 
       const checkUpkeepResult = await registry
         .connect(zeroAddress)
