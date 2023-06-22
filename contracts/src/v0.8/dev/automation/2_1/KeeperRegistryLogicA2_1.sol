@@ -269,7 +269,7 @@ contract KeeperRegistryLogicA2_1 is
         admin,
         Trigger.CONDITION,
         checkData,
-        abi.encode(BlockTriggerConfig({checkCadance: 1})),
+        abi.encode(ConditionalTriggerConfig({checkCadance: 1})),
         offchainConfig
       );
   }

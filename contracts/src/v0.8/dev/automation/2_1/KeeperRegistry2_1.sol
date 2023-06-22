@@ -422,7 +422,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint96 maxLinkPayment
   ) internal returns (bool) {
     if (triggerType == Trigger.CONDITION) {
-      if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
+      if (!_validateConditionalTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
       if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
     } else {
@@ -447,12 +447,12 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   /**
    * @dev Does some early sanity checks before actually performing an upkeep
    */
-  function _validateBlockTrigger(
+  function _validateConditionalTrigger(
     uint256 upkeepId,
     bytes memory rawTrigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
-    BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
+    ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
     if (trigger.blockNum < upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId, rawTrigger);
@@ -480,7 +480,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
       trigger.blockNum >= block.number
     ) {
-      // Reorg protection is same as block trigger upkeeps
+      // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
