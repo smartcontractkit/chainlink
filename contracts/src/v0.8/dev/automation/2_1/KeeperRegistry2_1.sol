@@ -282,9 +282,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
     // Set the onchain config
     OnchainConfig memory onchainConfig = abi.decode(onchainConfigBytes, (OnchainConfig));
-    if (onchainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    if (onchainConfig.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
-    if (onchainConfig.maxPerformDataSize < s_storage.maxPerformDataSize) revert MaxPerformDataSizeCanOnlyIncrease();
 
     s_hotVars = HotVars({
       f: f,
@@ -292,10 +289,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
-      paused: false,
-      reentrancyGuard: false,
+      paused: s_hotVars.paused,
+      reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
-      latestEpoch: 0
+      latestEpoch: 0 // DON restarts epoch
     });
 
     s_storage = Storage({
