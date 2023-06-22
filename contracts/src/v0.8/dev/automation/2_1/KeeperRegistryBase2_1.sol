@@ -373,7 +373,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct BlockTriggerConfig {
+  struct ConditionalTriggerConfig {
     uint32 checkCadance; // how often to check in blocks
   }
 
@@ -390,9 +390,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @notice the trigger structure conditional trigger type
    */
-  struct BlockTrigger {
+  struct ConditionalTrigger {
     uint32 blockNum;
     bytes32 blockHash;
   }
