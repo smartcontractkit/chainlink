@@ -32,7 +32,7 @@ type FunctionsServicesConfig struct {
 	Job               job.Job
 	JobORM            job.ORM
 	BridgeORM         bridges.ORM
-	OCR2JobConfig     pg.QConfig
+	QConfig           pg.QConfig
 	DB                *sqlx.DB
 	Chain             evm.Chain
 	ContractID        string
@@ -50,7 +50,7 @@ const (
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
-	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.OCR2JobConfig, common.HexToAddress(conf.ContractID))
+	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.QConfig, common.HexToAddress(conf.ContractID))
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -73,7 +73,13 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
 	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil {
 		dqc := getDecryptionQueueConfig(pluginConfig)
-		decryptionQueue := threshold.NewDecryptionQueue(dqc.maxQueueLength, dqc.maxCiphertextBytes, dqc.maxCiphertextIdLen, dqc.completedRequestsCacheTimeout, conf.Lggr.Named("DecryptionQueue"))
+		decryptionQueue := threshold.NewDecryptionQueue(
+			int(dqc.MaxDecryptionQueueLength),
+			int(dqc.MaxCiphertextBytes),
+			int(dqc.MaxCiphertextIdLength),
+			time.Duration(dqc.CompletedDecryptionCacheTimeoutSec)*time.Second,
+			conf.Lggr.Named("DecryptionQueue"),
+		)
 		decryptor = decryptionQueue
 		thresholdServicesConfig := threshold.ThresholdServicesConfig{
 			DecryptionQueue:    decryptionQueue,
@@ -149,32 +155,25 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	return connector, nil
 }
 
-type decryptionQueueConfig struct {
-	maxQueueLength                int
-	maxCiphertextBytes            int
-	maxCiphertextIdLen            int
-	completedRequestsCacheTimeout time.Duration
-}
-
-func getDecryptionQueueConfig(pluginConfig config.PluginConfig) decryptionQueueConfig {
-	dqc := decryptionQueueConfig{
-		maxQueueLength:                100,
-		maxCiphertextBytes:            10_000,
-		maxCiphertextIdLen:            100,
-		completedRequestsCacheTimeout: time.Duration(5) * time.Minute,
+func getDecryptionQueueConfig(pluginConfig config.PluginConfig) config.DecryptionQueueConfig {
+	dqc := config.DecryptionQueueConfig{
+		MaxDecryptionQueueLength:           100,
+		MaxCiphertextBytes:                 10_000,
+		MaxCiphertextIdLength:              100,
+		CompletedDecryptionCacheTimeoutSec: 300,
 	}
 
 	if pluginConfig.MaxDecryptionQueueLength > 0 {
-		dqc.maxQueueLength = int(pluginConfig.MaxDecryptionQueueLength)
+		dqc.MaxDecryptionQueueLength = pluginConfig.MaxDecryptionQueueLength
 	}
-	if pluginConfig.MaxQueryLengthBytes > 0 {
-		dqc.maxCiphertextBytes = int(pluginConfig.MaxQueryLengthBytes)
+	if pluginConfig.MaxCiphertextBytes > 0 {
+		dqc.MaxCiphertextBytes = pluginConfig.MaxCiphertextBytes
 	}
 	if pluginConfig.MaxCiphertextIdLength > 0 {
-		dqc.maxCiphertextIdLen = int(pluginConfig.MaxCiphertextIdLength)
+		dqc.MaxCiphertextIdLength = pluginConfig.MaxCiphertextIdLength
 	}
 	if pluginConfig.CompletedDecryptionCacheTimeoutSec > 0 {
-		dqc.completedRequestsCacheTimeout = time.Duration(pluginConfig.CompletedDecryptionCacheTimeoutSec) * time.Second
+		dqc.CompletedDecryptionCacheTimeoutSec = pluginConfig.CompletedDecryptionCacheTimeoutSec
 	}
 
 	return dqc

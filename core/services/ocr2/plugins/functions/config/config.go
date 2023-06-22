@@ -13,20 +13,24 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
-	MinIncomingConfirmations           uint32                     `json:"minIncomingConfirmations"`
-	RequestTimeoutSec                  uint32                     `json:"requestTimeoutSec"`
-	RequestTimeoutCheckFrequencySec    uint32                     `json:"requestTimeoutCheckFrequencySec"`
-	RequestTimeoutBatchLookupSize      uint32                     `json:"requestTimeoutBatchLookupSize"`
-	PruneMaxStoredRequests             uint32                     `json:"pruneMaxStoredRequests"`
-	PruneCheckFrequencySec             uint32                     `json:"pruneCheckFrequencySec"`
-	PruneBatchSize                     uint32                     `json:"pruneBatchSize"`
-	ListenerEventHandlerTimeoutSec     uint32                     `json:"listenerEventHandlerTimeoutSec"`
-	MaxRequestSizeBytes                uint32                     `json:"maxRequestSizeBytes"`
-	GatewayConnectorConfig             *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
-	MaxDecryptionQueueLength           uint32                     `json:"maxDecryptionQueueLength"`
-	MaxQueryLengthBytes                uint32                     `json:"maxQueryLengthBytes"`
-	MaxCiphertextIdLength              uint32                     `json:"maxCiphertextIdLength"`
-	CompletedDecryptionCacheTimeoutSec uint32                     `json:"completedDecryptionCacheTimeoutSec"`
+	MinIncomingConfirmations        uint32                     `json:"minIncomingConfirmations"`
+	RequestTimeoutSec               uint32                     `json:"requestTimeoutSec"`
+	RequestTimeoutCheckFrequencySec uint32                     `json:"requestTimeoutCheckFrequencySec"`
+	RequestTimeoutBatchLookupSize   uint32                     `json:"requestTimeoutBatchLookupSize"`
+	PruneMaxStoredRequests          uint32                     `json:"pruneMaxStoredRequests"`
+	PruneCheckFrequencySec          uint32                     `json:"pruneCheckFrequencySec"`
+	PruneBatchSize                  uint32                     `json:"pruneBatchSize"`
+	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
+	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
+	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
+	DecryptionQueueConfig
+}
+
+type DecryptionQueueConfig struct {
+	MaxDecryptionQueueLength           uint32 `json:"maxDecryptionQueueLength"`
+	MaxCiphertextBytes                 uint32 `json:"maxCiphertextBytes"`
+	MaxCiphertextIdLength              uint32 `json:"maxCiphertextIdLength"`
+	CompletedDecryptionCacheTimeoutSec uint32 `json:"completedDecryptionCacheTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {

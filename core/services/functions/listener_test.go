@@ -60,9 +60,9 @@ var (
 	ResultBytes          []byte                      = []byte{0xab, 0xcd}
 	ErrorBytes           []byte                      = []byte{0xff, 0x11}
 	Domains              []string                    = []string{"github.com", "google.com"}
-	EncryptedSecretsUrls []byte                      = []byte{0x5f, 0x91, 0x82, 0xcb, 0xe8, 0x31, 0x34, 0xb3, 0x2f, 0xad, 0x55, 0x9d, 0xa4, 0x40, 0x8e, 0x8f, 0x02, 0xca, 0xae, 0x7c, 0xdd, 0x1f, 0x60, 0x21, 0x55, 0xab, 0x02, 0x1d, 0x97, 0x41, 0xbd, 0x3b, 0x47, 0xf9, 0xe7, 0x5b, 0x86, 0xd7, 0x08, 0x0b, 0xbe, 0xcf, 0xed, 0xbd, 0xaf, 0x25, 0x58, 0x97, 0x60, 0xfc, 0x03, 0x48, 0x62, 0xed, 0x46, 0x34, 0x4b, 0x05, 0x97, 0xd6, 0x2c, 0x10, 0xc3, 0x42, 0x0a, 0xfa, 0xb4, 0x7b, 0x1f, 0x2e, 0xd4, 0xd7, 0x11, 0x51, 0x34, 0xb1, 0xa3, 0xae, 0xfc, 0x97, 0x7c, 0x73, 0x36, 0x38, 0xef, 0xd6, 0x65, 0xb8, 0x2c, 0x3f, 0x19, 0xfb, 0xb0, 0x5e, 0x36, 0x5f, 0x25, 0x1a, 0x5b, 0x1e, 0xe1, 0x3b, 0x21, 0x5d, 0xe5, 0x6d, 0x7a, 0xd9, 0x97, 0xbe, 0xcb, 0x03, 0xef, 0x5e, 0x49, 0x00, 0x87, 0x92, 0xdd, 0xe1, 0x23, 0x3c, 0x7a, 0x3a, 0xf0, 0x98, 0xce, 0xcc, 0x10, 0x9b, 0x4b, 0x49, 0x5f, 0xf9, 0x2e, 0xd3, 0xc8, 0xca, 0x11, 0xd0, 0x13, 0x8e}
-	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm91cCI6IlAyNTYiLCJDIjoiTXByNFZQNEY3WHdINjZaY3BBdXFvQUF0QnBLT20zOUJGL0Q2Sk4rNDBiRT0iLCJMYWJlbCI6IkFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE9IiwiVSI6IkJCNStpRzNsNnBidVdyY0tScTZ3a3JzcitlOU96REpiaVFZNGJNbkJWL2g3Nk0vcVdIUjY0aS9jRytwUjFtNXZvYlNSNWFPUkcxQ3VTbHE0VXNKVkxORT0iLCJVX2JhciI6IkJQcUY3b0cwVVlwWEt6TUJsbCtVWnc1cjBBVDBTVFRJeHRVS0Jva3ErTDlibEJWWGpjbU9jcG5CTXV4dkd1SjZyVURnSk9jRTEzUkZHRXlWQ0VEVmJ4MD0iLCJFIjoick9jWHhLc2FtSVEzWVdRK01qMGRqU01YT1hXMW14SjZ0U0pEdTdqbDdQMD0iLCJGIjoiNkRkd2xSdTZPUzgrd0Z6dDhuUGRhVWpIYWhIcVZzcnMzeTJiUzVmWWVoMD0ifQ==","SymCtxt":"+yHRTEBA+BlJlucXN+o1OoMtQMlZNgzXz66OIcY/1/cpdp0yj9eiMxSrTv0ZhZmnAR2UuB1xemZ+LSFkFsFRIXsu3mOLosfkinmL/CT7pTxHz7DpUV2B/6tTKT7nRqSr+SBD1MUD0tYaFLSinzY36hgwGvZa7R4ikDxnnE/KDi4JsHX7tnLwvZ5kO50FuSHyB+QomlqKqzC8kM8QsLnDyxij10FYS33PITFM5UBEc8nsSnsNhIivLKGBhLI82eIN0nfSd3ChGiTwyD4v+x4/Ktj5+AI+Xdjw9dWdbJJp9xCzuVY3KzFTPvGIFdTASJdn1uXa4iOdVmIbnE1R6PevLZssVKLgm1kiQ8ZC/5VXFMWJ2YfuUXMn938fkwRI9eMTMiXumevKYxghKTChgVT3Nw3Ow6HxX56pEPazsrgYbyHR0PLPlGxiDLCQuyefgW2a9XFtvFcg/6iowdjsPvGN5kSr9X/l/Jz/4ZpvcsJIcCh48Qs7n7Dtoulf3TNPNepndzkzHoVy","Nonce":"kgjHyT3Jar0M155E"}`)
-	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcKs1pHXQVfsJy/nPGxsgJfZ175O9wxAgCUdIJZ4nPAj3IlGDWcNYJn5OgqZiq0FLmJn6da81gSiMHGGmJ+dsGSIjBAWPMbQ16tZotriXIUj5bY8uaMP+sqsJIdNjX2myMGUxDH7rL2NUaguk1QDlobh4ygxcf3KKWC8YgCCUipU8W4BGrue4JbK9KUwLC7FLyenybS8WFJYDBNK87D4KaJMRu472u4XvqyH3R7EwHr9MwUXjdrQIUOeaIgBSn78RvTnslCnyYJ9bhc8/v4OQLmUV7H7Nkq584x1Zg9uTe2o86uT+ueXpQsZnNk28pheTb0/aYRi95M0jIcyZ76FofqwwaYPHQPuMT3TRClI6DI"}`)
+	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
+	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
@@ -171,15 +171,9 @@ func TestFunctionsListener_ThresholdDecryptedSecrets(t *testing.T) {
 	t.Parallel()
 
 	reqData := &struct {
-		Source          string   `cbor:"source"`
-		Language        int      `cbor:"language"`
-		Args            []string `cbor:"args"`
-		SecretsLocation int      `cbor:"secretsLocation"`
-		Secrets         []byte   `cbor:"secrets"`
+		SecretsLocation int    `cbor:"secretsLocation"`
+		Secrets         []byte `cbor:"secrets"`
 	}{
-		Source:          "abcd",
-		Language:        3,
-		Args:            []string{"a", "b"},
 		SecretsLocation: 1,
 		Secrets:         EncryptedSecretsUrls,
 	}
@@ -197,6 +191,22 @@ func TestFunctionsListener_ThresholdDecryptedSecrets(t *testing.T) {
 	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(DecryptedSecrets, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestDuplicateMarkLogConsumed(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
+
+	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(functions_service.ErrDuplicateRequestID)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
 

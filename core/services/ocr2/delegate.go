@@ -413,7 +413,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case job.OCR2Functions:
-		thresholdPluginDB := NewDB(d.db, spec.ID, 1, lggr, d.cfg.Database())
+		thresholdPluginId := int32(1)
+		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
 		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, lc, ocrLogger)
 
 	default:
@@ -1002,7 +1003,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:               jb,
 		JobORM:            d.jobORM,
 		BridgeORM:         d.bridgeORM,
-		OCR2JobConfig:     d.cfg.Database(),
+		QConfig:           d.cfg.Database(),
 		DB:                d.db,
 		Chain:             chain,
 		ContractID:        spec.ContractID,
