@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity 0.8.16;
 
 import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import "../../../automation/2_0/KeeperRegistrar2_0.sol";
-import "../../../tests/VerifiableLoadBase.sol";
 
 interface IVerifierProxy {
   /**
@@ -17,14 +15,21 @@ interface IVerifierProxy {
   function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 }
 
+struct LogTriggerConfig {
+  address contractAddress;
+  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
+  bytes32 topic0;
+  bytes32 topic1;
+  bytes32 topic2;
+  bytes32 topic3;
+}
+
 contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
-  event TriggerMercury(uint256 indexed upkeepId, uint256 indexed logBlockNumber); // keccak256(TriggerMercury(uint256,uint256)) => 0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6
-  event DoNotTriggerMercury(uint256 indexed bn, uint256 indexed ts); // keccak256(DoNotTriggerMercury(uint256,uint256)) => 0x3338104ccab396f091b767e17a2a863f70d777261982306eeb72053c94b9cd47
   event PerformingLogTriggerUpkeep(
     address indexed from,
-    uint256 upkeepId,
-    uint256 counter,
-    uint256 logBlockNumber,
+    uint256 orderId,
+    uint256 amount,
+    address exchange,
     uint256 blockNumber,
     bytes blob,
     bytes verified
@@ -34,48 +39,18 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
   IVerifierProxy internal constant VERIFIER = IVerifierProxy(0xa4D813064dc6E2eFfaCe02a060324626d4C5667f);
 
   // for log trigger
-  bytes32 constant triggerSig = 0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6;
-  bytes32 constant NoTriggerSig = 0x3338104ccab396f091b767e17a2a863f70d777261982306eeb72053c94b9cd47;
+  bytes32 constant sentSig = 0x3e9c37b3143f2eb7e9a2a0f8091b6de097b62efcfe48e1f68847a832e521750a;
+  bytes32 constant withdrawnSig = 0x0a71b8ed921ff64d49e4d39449f8a21094f38a0aeae489c3051aedd63f2c229f;
+  bytes32 constant executedSig = 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd;
 
   // for mercury config
+  bool public useArbitrumBlockNum;
   string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
   string public constant feedParamKey = "feedIDHex";
   string public constant timeParamKey = "blockNumber";
 
-  uint256 public testRange;
-  uint256 public interval;
-  uint256 public previousPerformBlock;
-  uint256 public initialBlock;
-  uint256 public counter;
-  bool public useArbitrumBlockNum;
-
-  constructor(uint256 _testRange, uint256 _interval, bool _useArbitrumBlockNum) {
-    testRange = _testRange;
-    interval = _interval;
+  constructor(bool _useArbitrumBlockNum) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
-    previousPerformBlock = 0;
-    initialBlock = 0;
-    counter = 0;
-  }
-
-  function registerUpkeep() external returns (bytes memory logTrigger) {
-    KeeperRegistryBase2_1.LogTriggerConfig memory cfg = KeeperRegistryBase2_1.LogTriggerConfig({
-      contractAddress: address(this),
-      filterSelector: 0, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
-      topic0: triggerSig, // only triggerSig will be available at `checkLog` this will always apply
-      topic1: 0x000000000000000000000000000000000000000000000000000000000000000,
-      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
-      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
-    });
-    bytes memory logTriggerConfig = abi.encode(cfg);
-
-    return logTriggerConfig;
-  }
-
-  function startLogs(uint256 upkeepId) external {
-    uint256 blockNumber = getBlockNumber();
-    emit TriggerMercury(upkeepId, blockNumber);
-    emit DoNotTriggerMercury(blockNumber, block.timestamp);
   }
 
   function setFeedsHex(string[] memory newFeeds) external {
@@ -86,36 +61,35 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     uint256 blockNum = getBlockNumber();
 
     // filter by event signature
-    if (log.topics[0] == triggerSig) {
+    if (log.topics[0] == executedSig) {
       // filter by indexed parameters
-      bytes memory p1 = abi.encodePacked(log.topics[1]); // bytes32 to bytes
-      uint256 upkeepId = abi.decode(p1, (uint256));
-      bytes memory p2 = abi.encodePacked(log.topics[2]);
-      uint256 logBlockNumber = abi.decode(p2, (uint256));
+      bytes memory t1 = abi.encodePacked(log.topics[1]); // bytes32 to bytes
+      uint256 orderId = abi.decode(t1, (uint256));
+      bytes memory t2 = abi.encodePacked(log.topics[2]);
+      uint256 amount = abi.decode(t2, (uint256));
+      bytes memory t3 = abi.encodePacked(log.topics[3]);
+      address exchange = abi.decode(t3, (address));
 
-      bool needed = eligible();
-      if (needed) {
-        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encodePacked(upkeepId, logBlockNumber));
-      }
-      revert("upkeep not needed");
+      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encodePacked(orderId, amount, exchange));
     }
     revert("could not find matching event sig");
   }
 
   function performUpkeep(bytes calldata performData) external override {
-    uint256 blockNumber = getBlockNumber();
-    if (initialBlock == 0) {
-      initialBlock = blockNumber;
-    }
-    counter = counter + 1;
-    previousPerformBlock = blockNumber;
-
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
-    (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
+    (uint256 orderId, uint256 amount, address exchange) = abi.decode(extraData, (uint256, uint256, address));
 
-    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
+    bytes memory verifiedResponse; // = VERIFIER.verify(values[0]);
 
-    emit PerformingLogTriggerUpkeep(tx.origin, upkeepId, counter, logBlockNumber, blockNumber, values[0], verifiedResponse);
+    emit PerformingLogTriggerUpkeep(
+      tx.origin,
+      orderId,
+      amount,
+      exchange,
+      getBlockNumber(),
+      values[0],
+      verifiedResponse
+    );
   }
 
   function checkCallback(
@@ -135,19 +109,36 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     }
   }
 
-  function eligible() public view returns (bool) {
-    if (initialBlock == 0) {
-      return true;
-    }
+  function getBasicLogTriggerConfig(address targetContract) external returns (bytes memory logTrigger) {
+    LogTriggerConfig memory cfg = LogTriggerConfig({
+      contractAddress: targetContract,
+      filterSelector: 0, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
+      topic0: executedSig, // only triggerSig will be available at `checkLog` this will always apply
+      topic1: 0x000000000000000000000000000000000000000000000000000000000000000,
+      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
+      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
+    });
+    bytes memory logTriggerConfig = abi.encode(cfg);
 
-    uint256 blockNumber = getBlockNumber();
-    return (blockNumber - initialBlock) < testRange && (blockNumber - previousPerformBlock) >= interval;
+    return logTriggerConfig;
   }
 
-  function setSpread(uint256 _testRange, uint256 _interval) external {
-    testRange = _testRange;
-    interval = _interval;
-    initialBlock = 0;
-    counter = 0;
+  function getAdvancedLogTriggerConfig(
+    address targetContract,
+    uint8 selector,
+    bytes32 topic0,
+    bytes32 topic1
+  ) external returns (bytes memory logTrigger) {
+    LogTriggerConfig memory cfg = LogTriggerConfig({
+      contractAddress: targetContract,
+      filterSelector: selector, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
+      topic0: topic0,
+      topic1: topic1,
+      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
+      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
+    });
+    bytes memory logTriggerConfig = abi.encode(cfg);
+
+    return logTriggerConfig;
   }
 }

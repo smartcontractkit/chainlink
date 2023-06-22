@@ -628,8 +628,6 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			upkeepAddr, deployUpkeepTx, _, err = log_triggered_feed_lookup_wrapper.DeployLogTriggeredFeedLookup(
 				k.buildTxOpts(ctx),
 				k.client,
-				big.NewInt(k.cfg.UpkeepTestRange),
-				big.NewInt(k.cfg.UpkeepInterval),
 				k.cfg.UseArbBlockNumber,
 			)
 			if err != nil {
@@ -640,7 +638,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			logTriggerConfig, err := abi.Encode(map[string]interface{}{
 				"contractAddress": upkeepAddr,
 				"filterSelector":  0,                                                                    // no indexed topics filtered
-				"topic0":          "0xcd89a1cdede3e128a8e92d77495b16cc12f0fc7564a712113f006adaf640a4a6", // event sig for TriggerMercury(uint256,uint256)
+				"topic0":          "0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd", // event sig for LimitOrderExecuted(uint256,uint256,address)
 				"topic1":          "0x",
 				"topic2":          "0x",
 				"topic3":          "0x",
