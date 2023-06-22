@@ -26,7 +26,7 @@ type TransmitUnpacker interface {
 	UnpackTransmitTxInput([]byte) ([]ocr2keepers.UpkeepResult, error)
 }
 
-type LogProvider struct {
+type TransmitEventProvider struct {
 	sync              utils.StartStopOnce
 	mu                sync.RWMutex
 	runState          int
@@ -42,17 +42,17 @@ type LogProvider struct {
 	cacheCleaner      *pluginutils.IntervalCacheCleaner[string]
 }
 
-func LogProviderFilterName(addr common.Address) string {
-	return logpoller.FilterName("KeepersRegistry LogProvider", addr)
+func TransmitEventProviderFilterName(addr common.Address) string {
+	return logpoller.FilterName("KeepersRegistry TransmitEventProvider", addr)
 }
 
-func NewLogProvider(
+func NewTransmitEventProvider(
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,
 	lookbackBlocks int64,
-) (*LogProvider, error) {
+) (*TransmitEventProvider, error) {
 	var err error
 
 	contract, err := iregistry21.NewIKeeperRegistryMaster(common.HexToAddress("0x"), client)
@@ -68,7 +68,7 @@ func NewLogProvider(
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
-		Name: LogProviderFilterName(contract.Address()),
+		Name: TransmitEventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
@@ -81,7 +81,7 @@ func NewLogProvider(
 		return nil, err
 	}
 
-	return &LogProvider{
+	return &TransmitEventProvider{
 		logger:            logger,
 		logPoller:         logPoller,
 		registryAddress:   registryAddress,
@@ -94,12 +94,12 @@ func NewLogProvider(
 	}, nil
 }
 
-func (c *LogProvider) Name() string {
+func (c *TransmitEventProvider) Name() string {
 	return c.logger.Name()
 }
 
-func (c *LogProvider) Start(ctx context.Context) error {
-	return c.sync.StartOnce("AutomationLogProvider", func() error {
+func (c *TransmitEventProvider) Start(ctx context.Context) error {
+	return c.sync.StartOnce("AutomationTransmitEventProvider", func() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -109,7 +109,7 @@ func (c *LogProvider) Start(ctx context.Context) error {
 	})
 }
 
-func (c *LogProvider) Close() error {
+func (c *TransmitEventProvider) Close() error {
 	return c.sync.StopOnce("AutomationRegistry", func() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -121,7 +121,7 @@ func (c *LogProvider) Close() error {
 	})
 }
 
-func (c *LogProvider) Ready() error {
+func (c *TransmitEventProvider) Ready() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -131,7 +131,7 @@ func (c *LogProvider) Ready() error {
 	return c.sync.Ready()
 }
 
-func (c *LogProvider) HealthReport() map[string]error {
+func (c *TransmitEventProvider) HealthReport() map[string]error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -141,7 +141,136 @@ func (c *LogProvider) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
-func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
+func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
+	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
+	}
+
+	// always check the last lookback number of blocks and rebroadcast
+	// this allows the plugin to make decisions based on event confirmations
+	logs, err := c.logPoller.LogsWithSigs(
+		end-c.lookbackBlocks,
+		end,
+		[]common.Hash{
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+		},
+		c.registryAddress,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
+	}
+
+	performed, err := c.unmarshalPerformLogs(logs)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
+	}
+
+	vals := []ocr2keepers.TransmitEvent{}
+
+PerformLoop:
+	for _, p := range performed {
+		// abi decode trigger bytes into `wrappedTrigger`
+
+		var Uint32 = mustNewType("uint32", "", nil)
+		var Hash = mustNewType("bytes32", "", nil)
+		args := abi.Arguments{
+			{Name: mKeys[0], Type: Hash},
+			{Name: mKeys[1], Type: Uint32},
+			{Name: mKeys[2], Type: Uint32},
+			{Name: mKeys[3], Type: Hash},
+		}
+
+		/*
+		  TODO: two different structs exist in the contract. we are assuming the
+		  the LogTrigger struct here, but it could be the BlockTrigger as well
+		  struct BlockTrigger {
+		    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
+		    bytes32 blockHash;
+		  }
+
+		  struct LogTrigger {
+		    bytes32 txHash;
+		    uint32 logIndex;
+		    uint32 blockNum;
+		    bytes32 blockHash;
+		  }
+		*/
+
+		keys := []string{"txHash", "logIndex", "blockNum", "blockHash"}
+		values := make(map[string]interface{})
+		if err := args.UnpackIntoMap(values, p.Trigger); err != nil {
+			c.logger.Error("error unpacking trigger values: %w", err)
+			continue PerformLoop
+		}
+
+		for _, key := range keys {
+			if _, ok := values[key]; !ok {
+				c.logger.Error("error unpacking trigger values: %s missing from struct", key)
+				continue PerformLoop
+			}
+		}
+
+		tHsh, ok := values[keys[0]].([32]byte)
+		if !ok {
+			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[0])
+			continue PerformLoop
+		}
+
+		lIdx, ok := values[keys[1]].(uint32)
+		if !ok {
+			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[1])
+			continue PerformLoop
+		}
+
+		bln, ok := values[keys[2]].(uint32)
+		if !ok {
+			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[2])
+			continue PerformLoop
+		}
+
+		bHsh, ok := values[keys[3]].([32]byte)
+		if !ok {
+			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[3])
+			continue PerformLoop
+		}
+
+		logExtension := fmt.Sprintf("%s:%d", common.BytesToHash(tHsh[:]).Hex(), uint(lIdx))
+		trigger := ocr2keepers.NewTrigger(int64(bln), common.BytesToHash(bHsh[:]).Hex(), logExtension)
+		payload := ocr2keepers.NewUpkeepPayload(
+			p.Id,
+			int(logTrigger),
+			ocr2keepers.BlockKey(fmt.Sprintf("%d", trigger.BlockNumber)),
+			trigger,
+			nil,
+		)
+
+		/*
+			upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.String())
+			checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
+			if err != nil {
+				c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
+				continue
+			}
+		*/
+
+		l := ocr2keepers.TransmitEvent{
+			Type:            ocr2keepers.PerformEvent,
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
+			Confirmations:   end - p.BlockNumber,
+			TransactionHash: p.TxHash.Hex(),
+			ID:              payload.ID,
+			UpkeepID:        payload.Upkeep.ID,
+			CheckBlock:      "", // TODO: the checkblock should be set for conditional upkeeps
+		}
+		vals = append(vals, l)
+	}
+
+	return vals, nil
+}
+
+func (c *TransmitEventProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -187,7 +316,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	return vals, nil
 }
 
-func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
+func (c *TransmitEventProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -300,7 +429,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 	return vals, nil
 }
 
-func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, error) {
+func (c *TransmitEventProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, error) {
 	results := []performed{}
 
 	for _, log := range logs {
@@ -328,7 +457,7 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 	return results, nil
 }
 
-func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged, error) {
+func (c *TransmitEventProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged, error) {
 	results := []reorged{}
 
 	for _, log := range logs {
@@ -356,7 +485,7 @@ func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged,
 	return results, nil
 }
 
-func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpkeep, error) {
+func (c *TransmitEventProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpkeep, error) {
 	results := []staleUpkeep{}
 
 	for _, log := range logs {
@@ -384,7 +513,7 @@ func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpk
 	return results, nil
 }
 
-func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log) ([]insufficientFunds, error) {
+func (c *TransmitEventProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log) ([]insufficientFunds, error) {
 	results := []insufficientFunds{}
 
 	for _, log := range logs {
@@ -414,7 +543,7 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
-func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2keepers.UpkeepIdentifier) (bk ocr2keepers.BlockKey, e error) {
+func (c *TransmitEventProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2keepers.UpkeepIdentifier) (bk ocr2keepers.BlockKey, e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = fmt.Errorf("recovered from panic in getCheckBlockNumberForUpkeep: %v", r)

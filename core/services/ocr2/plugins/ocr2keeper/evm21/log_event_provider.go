@@ -241,7 +241,7 @@ func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
 		log := l.log
 		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
 		trig := ocr2keepers.NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
-		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), trig, log.Data)
+		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, log.Data)
 		payloads = append(payloads, payload)
 	}
 
