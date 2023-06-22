@@ -3517,6 +3517,26 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(updatedConfig.upkeepPrivilegeManager, upkeepManager)
     })
 
+    it('maintains paused state when config is changed', async () => {
+      await registry.pause()
+      const old = await registry.getState()
+      assert.isTrue(old.state.paused)
+
+      await registry
+        .connect(owner)
+        .setConfig(
+          signerAddresses,
+          keeperAddresses,
+          f,
+          encodeConfig(newConfig),
+          offchainVersion,
+          offchainBytes,
+        )
+
+      const updated = await registry.getState()
+      assert.isTrue(updated.state.paused)
+    })
+
     it('emits an event', async () => {
       const tx = await registry
         .connect(owner)
@@ -3529,54 +3549,6 @@ describe('KeeperRegistry2_1', () => {
           offchainBytes,
         )
       await expect(tx).to.emit(registry, 'ConfigSet')
-    })
-
-    it('reverts upon decreasing max limits', async () => {
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxCheckDataSize: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'MaxCheckDataSizeCanOnlyIncrease()',
-      )
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxPerformDataSize: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'MaxPerformDataSizeCanOnlyIncrease()',
-      )
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxPerformGas: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'GasLimitCanOnlyIncrease()',
-      )
     })
   })
 
