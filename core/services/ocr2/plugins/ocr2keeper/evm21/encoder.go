@@ -157,10 +157,16 @@ func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.Reported
 	// ex:
 	// t := reflect.TypeOf(rawPerforms)
 	// fmt.Printf("%v\n", t)
-	triggers, ok := m[mKeys[4]].([]struct {
-		BlockNumber uint32   `abi:"blockNumber"`
-		BlockHash   [32]byte `abi:"blockHash"`
-	})
+
+	//triggers, ok := m[mKeys[4]].([]struct {
+	//  TxHash      [32]byte `abi:"txHash"`
+	//  LogIndex    uint32   `abi:"logIndex"`
+	//	BlockNumber uint32   `abi:"blockNum"`
+	//	BlockHash   [32]byte `abi:"blockHash"`
+	//})
+
+	// use the struct tentatively, swap to the above logic
+	triggers, ok := m[mKeys[4]].([]wrappedTrigger)
 	if !ok {
 		return res, fmt.Errorf("triggers of incorrect structure in report")
 	}
@@ -185,14 +191,14 @@ func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.Reported
 	}
 
 	for i, upkeepId := range upkeepIds {
+		// follow getLogs in log_event_provider
+		logExtension := fmt.Sprintf("%s:%d", common.BytesToHash(triggers[i].TxHash[:]).Hex(), uint(triggers[i].LogIndex))
+		trigger := ocr2keepers.NewTrigger(int64(triggers[i].BlockNumber), string(triggers[i].BlockHash[:]), logExtension)
 		payload := ocr2keepers.NewUpkeepPayload(
 			upkeepId,
 			int(logTrigger),
 			"",
-			ocr2keepers.Trigger{
-				BlockNumber: int64(triggers[i].BlockNumber),
-				BlockHash:   string(triggers[i].BlockHash[:]),
-			},
+			trigger,
 			[]byte{},
 		)
 		res[i] = ocr2keepers.ReportedUpkeep{
@@ -315,8 +321,18 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	return keys, nil
 }
 
+// the corresponding struct on registry is:
+//struct LogTrigger {
+//	bytes32 txHash;
+//	uint32 logIndex;
+//	uint32 blockNum;
+//	bytes32 blockHash;
+//}
+
 type wrappedTrigger struct {
-	BlockNumber uint32   `abi:"blockNumber"`
+	TxHash      [32]byte `abi:"txHash"`
+	LogIndex    uint32   `abi:"logIndex"`
+	BlockNumber uint32   `abi:"blockNum"`
 	BlockHash   [32]byte `abi:"blockHash"`
 }
 
