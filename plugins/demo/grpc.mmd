@@ -1,0 +1,60 @@
+%%{
+  init: {
+    'theme': 'base',
+    'themeVariables': {
+      'primaryColor': '#375bd2',
+      'primaryTextColor': '#fff',
+      'primaryBorderColor': '#fff',
+      'lineColor': '#9db4f4',
+      'secondaryColor': '#006100',
+      'tertiaryColor': '#fff'
+    }
+  }
+}%%
+flowchart
+    subgraph diagram["Processes and Communications"]
+        direction TB
+        subgraph chainlink2["Chainlink Process (host)"]
+            subgraph ksServer[Keystore GRPC Server]
+            end
+            subgraph OCR2[OCR2 Oracle]
+            
+                subgraph productClient[OCR2 Reporter GRPC Client]
+                end
+                end
+                subgraph rlClient[Relayer GRPC client]
+            
+            end
+            
+            
+        end
+        subgraph looppRelayer["LOOP Relayer Process"]
+            subgraph rlServer[Relayer GRPC Service]
+                ksClient[Keystore GRPC client]
+                subgraph chain[Chain Logic]
+                    chainService[ChainService]
+                    chainSet[ChainSet]
+            end
+            end
+        end
+
+        subgraph looppProduct["LOOP Product Process"]
+            subgraph ocr2Server[OCR2 Reporter GRPC Service]
+             
+            end
+        end
+    end
+    
+    ksServer <--> ksClient
+    rlServer <---> rlClient
+    productClient <--> ocr2Server
+
+    %%rlClient <-.-> productClient
+    OCR2 <-.-> rlClient
+   %% OCR2 <-.-> productClient
+    ksClient <-.-> chain
+    %%classDef group fill:none,stroke-dasharray:30
+    classDef process fill:none, stroke-width:10px;
+    class chainlink2,looppRelayer,looppProduct process
+    classDef service fill:none,stroke-dasharray:9, stroke-width:5px;
+    class rlServer,OCR2 service

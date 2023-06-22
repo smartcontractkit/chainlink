@@ -1,0 +1,82 @@
+%%{
+  init: {
+    'theme': 'base',
+    'themeVariables': {
+      'primaryColor': '#375bd2',
+      'primaryTextColor': '#fff',
+      'primaryBorderColor': '#fff',
+      'lineColor': '#9db4f4',
+      'secondaryColor': '#006100',
+      'tertiaryColor': '#fff'
+    }
+  }
+}%%
+flowchart
+    subgraph docker["Docker Container"]
+        style docker fill:none
+        subgraph chainlink["Chainlink Process"]
+            subgraph core[Common]
+                OCR2
+            end
+            subgraph evm[EVM]
+                evmrelayer[Relayer]
+            end
+            subgraph solana[Solana]
+                solrelayer[Relayer]
+            end
+            subgraph starknet[Starknet]
+                starkrelayer[Relayer]
+            end
+            subgraph cosmos[Cosmos]
+                cosmosrelayer[Relayer]
+            end
+        end
+    end
+    core --> evm
+    core --> solana
+    core --> starknet
+    core --> cosmos
+    subgraph docker2["Docker Container"]
+        style docker2 fill:none
+        direction TB
+        subgraph chainlink2["Chainlink Process"]
+            subgraph core2[Common]
+                Oracle2[OCR2]
+            end
+        end
+        subgraph evmplug["EVM Process"]
+            subgraph evm2[EVM]
+                evmrelayer2[Relayer]
+            end
+        end
+        subgraph solanaplug["Solana Process"]
+            subgraph solana2[Solana]
+                solrelayer2[Relayer]
+            end
+        end
+        subgraph starknetplug["Starknet Process"]
+            subgraph starknet2[Starknet]
+                starkrelayer2[Relayer]
+            end
+        end
+        subgraph cosmosplug["Cosmos Process"]
+            subgraph cosmos2[Cosmos]
+                cosmosrelayer2[Relayer]
+            end
+        end
+    end
+    chainlink2 --> evmplug
+    chainlink2 --> solanaplug
+    chainlink2 --> starknetplug
+    chainlink2 --> cosmosplug
+    docker --> docker2
+
+    classDef group fill:none,stroke-dasharray:10, stroke: #ccccff, stroke-width:4px
+    class core,evm,solana,starknet,cosmos group
+    class core2,evm2,solana2,starknet2,cosmos2 group
+
+    classDef container fill:none, stroke: #ccccff, stroke-width:4px
+    class docker,docker2 container
+
+    classDef process fill:none, stroke-width:6px
+    class chainlink2,chainlink,evmplug,solanaplug,starknetplug,cosmosplug process

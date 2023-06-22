@@ -1,0 +1,65 @@
+%%{
+ init: {
+    'theme': 'base',
+}%%
+flowchart
+
+  ocr2[OCR2]
+  reportingPlugin[ReportingPlugin]
+  medianPlugin[Median Plugin]
+  mercuryPlugin[Mercury Plugin]
+  productPlugin[New Products ...]
+  
+  ocr2 --> reportingPlugin --> medianPlugin
+  
+  reportingPlugin --> mercuryPlugin
+  reportingPlugin --> productPlugin
+  subgraph relayer[Relayer Interface]
+    configProvider[ConfigProvider]
+    subgraph pluginProvider[PluginProvider]
+        pluginBase[ConfigProvider]
+    end
+    subgraph medianProvider[MedianProvider]
+        medianBase[PluginProvider]
+    end
+    subgraph mercuryProvider[MercuryProvider]
+        mercuryBase[PluginProvider]
+    end
+     subgraph otherProvider[ProductXProvider]
+        otherBase[PluginProvider]
+    end
+  end
+  ocr2 --> configProvider --> impl
+  ocr2 --> pluginProvider --> impl
+  medianPlugin --> medianProvider --> impl
+  mercuryPlugin --> mercuryProvider --> impl
+  productPlugin --> otherProvider
+  otherProvider --> impl
+  impl -.-> solImpl
+  impl -.->  starkImpl
+  impl -.-> evmImpl
+  impl -.-> cosmosImpl
+
+  impl[Relayer Implementation]
+  solImpl[Solana Implementation]
+  starkImpl[Starknet Implementation]
+  evmImpl[EVM Implementation]
+  cosmosImpl[Cosmos Implementation]
+
+  classDef outline fill:none,stroke-width:2px,stroke-dasharray: 10
+  class reportingPlugin,relayer,configProvider,pluginProvider,pluginBase outline
+  class medianProvider,mercuryProvider,medianBase,mercuryBase,automationBase,automationProvider outline
+  class otherBase,otherProvider outline
+  classDef todo fill:#F88379,  stroke-dasharray: 5
+   classDef partial fill:#FFC300,  stroke-dasharray: 5
+   class mercuryPlugin partial
+  classDef chainlink fill:#375bd2, color:white
+    class ocr2,impl chainlink
+  class automationPlugin,productPlugin,otherProvider,evmImpl,cosmosImpl todo
+  classDef loopDone  fill:#1d1f,stroke:#333,stroke-width:2px
+
+  class solImpl,starkImpl,medianPlugin loopDone
+  %%  classDef process fill:none, stroke-width:10px;
+   %% class chainlink2,looppRelayer,looppProduct process
+   %% classDef service fill:none,stroke-dasharray:9, stroke-width:5px;
+   %% class rlServer,OCR2 service
