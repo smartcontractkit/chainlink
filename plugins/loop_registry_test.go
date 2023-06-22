@@ -16,10 +16,10 @@ func TestPluginPortManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
 	require.Greater(t, pFoo.EnvCfg.PrometheusPort(), 0)
-	// test idempotent
-	pSame, err := m.Register("foo")
-	require.NoError(t, err)
-	require.Equal(t, pFoo, pSame)
+	// test non-idempotent
+	pNil, err := m.Register("foo")
+	require.ErrorIs(t, err, plugins.ErrExists)
+	require.Nil(t, pNil)
 	// ensure increasing port assignment
 	pBar, err := m.Register("bar")
 	require.NoError(t, err)

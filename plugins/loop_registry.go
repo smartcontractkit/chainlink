@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -34,16 +35,14 @@ func NewLoopRegistry(lggr logger.Logger) *LoopRegistry {
 	}
 }
 
-// Register creates a port of the plugin. It is idempotent. Duplicate calls to Register will return the same port
+// Register creates a port of the plugin. It is not idempotent.
+// Duplicate calls to Register will return an [ErrExists]
 func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	p, ok := m.get(id)
-	if !ok {
-		return m.create(id)
-	}
-	return p, nil
+	return m.create(id)
+
 }
 
 func (m *LoopRegistry) List() []*RegisteredLoop {
@@ -71,7 +70,7 @@ func (m *LoopRegistry) Get(id string) (*RegisteredLoop, bool) {
 // NOT safe for concurrent use.
 func (m *LoopRegistry) create(pluginName string) (*RegisteredLoop, error) {
 	if _, exists := m.registry[pluginName]; exists {
-		return nil, ErrExists
+		return nil, fmt.Errorf("plugin %q: %w", pluginName, ErrExists)
 	}
 	nextPort := pluginDefaultPort + len(m.registry)
 	envCfg := NewEnvConfig(nextPort)
