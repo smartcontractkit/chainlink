@@ -4290,7 +4290,10 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it('allows transferring to zero address', async () => {
+    it('allows cancelling transfer by reverting to zero address', async () => {
+      await registry
+        .connect(admin)
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
       const tx = await registry
         .connect(admin)
         .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero)
