@@ -25,7 +25,7 @@ var sampleAddress = testutils.NewAddress()
 
 type mockTransmitter struct{}
 
-func (mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, _ *txmgr.EvmTxMeta) error {
+func (mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, _ *txmgr.TxMeta) error {
 	return nil
 }
 func (mockTransmitter) FromAddress() gethcommon.Address { return sampleAddress }
@@ -44,8 +44,8 @@ func TestContractTransmitter(t *testing.T) {
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochDontScanLogs, nil).Once()
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.EvmTxMeta, error) {
-		return &txmgr.EvmTxMeta{}, nil
+	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
+		return &txmgr.TxMeta{}, nil
 	})
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
