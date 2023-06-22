@@ -106,6 +106,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
-		require.Equal(t, ocrRoundVal, answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
+		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}
 }
