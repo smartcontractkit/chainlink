@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
 	"time"
 
@@ -17,9 +16,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
-	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
-	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
-	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
+	ocr2keepersv3 "github.com/smartcontractkit/ocr2keepers/pkg/v3"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -802,7 +799,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	mc := d.cfg.Mercury().Credentials(credName)
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+	keeperProvider, rgstry, encoder, transmitter, logProvider, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -818,8 +815,6 @@ func (d *Delegate) newServicesOCR2Keepers(
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 	}
-
-	w := &logWriter{log: lggr.Named("Automation Dependencies")}
 
 	// set some defaults
 	conf := config.ReportingFactoryConfig{
@@ -846,35 +841,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		conf.ServiceQueueLength = cfg.ServiceQueueLength
 	}
 
-	runr, err2 := runner.NewRunner(
-		log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
-		rgstry,
-		encoder,
-		conf.MaxServiceWorkers,
-		conf.ServiceQueueLength,
-		conf.CacheExpiration,
-		conf.CacheEvictionInterval,
-	)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
-	}
-
-	condObs := &polling.PollingObserverFactory{
-		Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
-		Source:  rgstry,
-		Heads:   rgstry,
-		Runner:  runr,
-		Encoder: encoder,
-	}
-
-	coord := &coordinator.CoordinatorFactory{
-		Logger:     log.New(w, "[automation-plugin-coordinator] ", log.Lshortfile),
-		Encoder:    encoder,
-		Logs:       logProvider,
-		CacheClean: conf.CacheEvictionInterval,
-	}
-
-	dConf := ocr2keepers.DelegateConfig{
+	dConf := ocr2keepersv3.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          keeperProvider.ContractTransmitter(),
@@ -886,10 +853,10 @@ func (d *Delegate) newServicesOCR2Keepers(
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
-		ConditionalObserverFactory:   condObs,
-		CoordinatorFactory:           coord,
+		EventProvider:                transmitter,
 		Encoder:                      encoder,
-		Runner:                       runr,
+		Runnable:                     rgstry,
+		LogProvider:                  logProvider,
 		// the following values are not needed in the delegate config anymore
 		CacheExpiration:       cfg.CacheExpiration.Value(),
 		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
@@ -914,11 +881,10 @@ func (d *Delegate) newServicesOCR2Keepers(
 	)
 
 	return []job.ServiceCtx{
-		job.NewServiceAdapter(runr),
 		runResultSaver,
 		keeperProvider,
 		rgstry,
-		logProvider,
+		transmitter,
 		pluginService,
 	}, nil
 }

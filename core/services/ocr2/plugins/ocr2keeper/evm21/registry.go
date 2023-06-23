@@ -366,6 +366,10 @@ func (r *EvmRegistry) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
+func (r *EvmRegistry) LogEventProvider() *logEventProvider {
+	return r.logEventProvider
+}
+
 func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
