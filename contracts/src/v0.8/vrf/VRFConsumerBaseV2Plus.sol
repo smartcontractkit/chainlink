@@ -100,19 +100,17 @@ import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
 abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
   error OnlyCoordinatorCanFulfill(address have, address want);
   error OnlySubOwnerCanSetVRFCoordinator(address have, address want);
+  error ZeroAddress();
 
   IVRFCoordinatorV2Plus private vrfCoordinator;
   address private subOwner;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
-   * @param _subOwner address of the subscription owner
    */
-  constructor(address _vrfCoordinator, address _subOwner) {
+  constructor(address _vrfCoordinator) {
     require(_vrfCoordinator != address(0), "zero address");
-    require(_subOwner != address(0), "zero address");
     vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
-    subOwner = _subOwner;
   }
 
   /**
@@ -149,5 +147,11 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
     }
     vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+  }
+  function _setSubOwner(address _subOwner) internal {
+    if (_subOwner == address(0)) {
+        revert ZeroAddress();
+    }
+    subOwner = _subOwner;
   }
 }

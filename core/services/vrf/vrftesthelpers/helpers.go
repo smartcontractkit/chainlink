@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -33,6 +34,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+)
+
+var (
+	WeiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
 func GenerateProofResponseFromProof(p vrfkey.Proof, s proof.PreSeedData) (

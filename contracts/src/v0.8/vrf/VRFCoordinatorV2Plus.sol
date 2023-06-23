@@ -58,6 +58,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     bool nativePayment,
     address indexed sender
   );
+
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,

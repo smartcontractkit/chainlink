@@ -56,6 +56,10 @@ const (
 	// TransmitCheckerTypeVRFV2 is a checker that will not submit VRF V2 fulfillment requests that
 	// have already been fulfilled. This could happen if the request was fulfilled by another node.
 	TransmitCheckerTypeVRFV2 = txmgrtypes.TransmitCheckerType("vrf_v2")
+
+	// TransmitCheckerTypeVRFV2Plus is a checker that will not submit VRF V2 plus fulfillment requests that
+	// have already been fulfilled. This could happen if the request was fulfilled by another node.
+	TransmitCheckerTypeVRFV2Plus = txmgrtypes.TransmitCheckerType("vrf_v2plus")
 )
 
 // GetGethSignedTx decodes the SignedRawTx into a types.Transaction struct

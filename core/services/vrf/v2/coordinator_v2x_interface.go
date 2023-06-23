@@ -16,15 +16,202 @@ import (
 )
 
 // CoordinatorV2_X is an interface that allows us to use the same code for
-// both the V2 and V2.5 coordinators.
+// both the V2 and V2Plus coordinators.
 type CoordinatorV2_X interface {
 	Address() common.Address
 	ParseRandomWordsRequested(log types.Log) (*RandomWordsRequested, error)
+	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
+	AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
+	CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error)
 	GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error)
 	GetConfig(opts *bind.CallOpts) (*GetConfig, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
+	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
+	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
+	FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error)
+	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error)
+	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (*RandomWordsFulfilledIterator, error)
+	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+	RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
+	CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error)
+	GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
+}
+
+type RandomWordsRequestedIterator struct {
+	VRFVersion vrfcommon.Version
+	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequestedIterator
+	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequestedIterator
+}
+
+func (it *RandomWordsRequestedIterator) Next() bool {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Next()
+	}
+	return it.V2Plus.Next()
+}
+
+func (it *RandomWordsRequestedIterator) Error() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Error()
+	}
+	return it.V2Plus.Error()
+}
+
+func (it *RandomWordsRequestedIterator) Close() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Close()
+	}
+	return it.V2Plus.Close()
+}
+
+func (it *RandomWordsRequestedIterator) Event() *RandomWordsRequested {
+	if it.VRFVersion == vrfcommon.V2 {
+		return &RandomWordsRequested{
+			VRFVersion: it.VRFVersion,
+			V2:         it.V2.Event,
+		}
+	}
+	return &RandomWordsRequested{
+		VRFVersion: it.VRFVersion,
+		V2Plus:     it.V2Plus.Event,
+	}
+}
+
+type RandomWordsFulfilledIterator struct {
+	VRFVersion vrfcommon.Version
+	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilledIterator
+	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilledIterator
+}
+
+func (it *RandomWordsFulfilledIterator) Next() bool {
+	if it.VRFVersion == vrfcommon.V2 {
+		fmt.Println("Next")
+		return it.V2.Next()
+	}
+	return it.V2Plus.Next()
+}
+
+func (it *RandomWordsFulfilledIterator) Error() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Error()
+	}
+	return it.V2Plus.Error()
+}
+
+func (it *RandomWordsFulfilledIterator) Close() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Close()
+	}
+	return it.V2Plus.Close()
+}
+
+func (it *RandomWordsFulfilledIterator) Event() *RandomWordsFulfilled {
+	if it.VRFVersion == vrfcommon.V2 {
+		return &RandomWordsFulfilled{
+			VRFVersion: it.VRFVersion,
+			V2:         it.V2.Event,
+		}
+	}
+	return &RandomWordsFulfilled{
+		VRFVersion: it.VRFVersion,
+		V2Plus:     it.V2Plus.Event,
+	}
+}
+
+type RandomWordsFulfilled struct {
+	VRFVersion vrfcommon.Version
+	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled
+}
+
+func (rwf *RandomWordsFulfilled) RequestID() *big.Int {
+	if rwf.VRFVersion == vrfcommon.V2 {
+		return rwf.V2.RequestId
+	}
+	return rwf.V2Plus.RequestId
+}
+
+func (rwf *RandomWordsFulfilled) Success() bool {
+	if rwf.VRFVersion == vrfcommon.V2 {
+		return rwf.V2.Success
+	}
+	return rwf.V2Plus.Success
+}
+
+func (rwf *RandomWordsFulfilled) NativePayment() bool {
+	if rwf.VRFVersion == vrfcommon.V2 {
+		return false
+	}
+	return rwf.V2Plus.NativePayment
+}
+
+func (rwf *RandomWordsFulfilled) Payment() *big.Int {
+	if rwf.VRFVersion == vrfcommon.V2 {
+		return rwf.V2.Payment
+	}
+	return rwf.V2Plus.Payment
+}
+
+func (rwf *RandomWordsFulfilled) Raw() types.Log {
+	if rwf.VRFVersion == vrfcommon.V2 {
+		return rwf.V2.Raw
+	}
+	return rwf.V2Plus.Raw
+}
+
+type SubscriptionCreatedIterator struct {
+	VRFVersion vrfcommon.Version
+	V2         *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreatedIterator
+	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreatedIterator
+}
+
+func (it *SubscriptionCreatedIterator) Next() bool {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Next()
+	}
+	return it.V2Plus.Next()
+}
+
+func (it *SubscriptionCreatedIterator) Error() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Error()
+	}
+	return it.V2Plus.Error()
+}
+
+func (it *SubscriptionCreatedIterator) Close() error {
+	if it.VRFVersion == vrfcommon.V2 {
+		return it.V2.Close()
+	}
+	return it.V2Plus.Close()
+}
+
+func (it *SubscriptionCreatedIterator) Event() *SubscriptionCreated {
+	if it.VRFVersion == vrfcommon.V2 {
+		return &SubscriptionCreated{
+			VRFVersion: it.VRFVersion,
+			V2:         it.V2.Event,
+		}
+	}
+	return &SubscriptionCreated{
+		VRFVersion: it.VRFVersion,
+		V2Plus:     it.V2Plus.Event,
+	}
+}
+
+type SubscriptionCreated struct {
+	VRFVersion vrfcommon.Version
+	V2         *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated
+	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreated
+}
+
+func (sc *SubscriptionCreated) Owner() common.Address {
+	if sc.VRFVersion == vrfcommon.V2 {
+		return sc.V2.Owner
+	}
+	return sc.V2Plus.Owner
 }
 
 type RandomWordsRequested struct {
@@ -169,6 +356,46 @@ func (c *GetConfig) StalenessSeconds() uint32 {
 		return c.V2.StalenessSeconds
 	}
 	return c.V2Plus.StalenessSeconds
+}
+
+type VRFProof struct {
+	Pk            [2]*big.Int
+	Gamma         [2]*big.Int
+	C             *big.Int
+	S             *big.Int
+	Seed          *big.Int
+	UWitness      common.Address
+	CGammaWitness [2]*big.Int
+	SHashWitness  [2]*big.Int
+	ZInv          *big.Int
+}
+
+func FromVRFV2Proof(proof vrf_coordinator_v2.VRFProof) VRFProof {
+	return VRFProof{
+		Pk:            proof.Pk,
+		Gamma:         proof.CGammaWitness,
+		C:             proof.C,
+		S:             proof.S,
+		Seed:          proof.Seed,
+		UWitness:      proof.UWitness,
+		CGammaWitness: proof.CGammaWitness,
+		SHashWitness:  proof.SHashWitness,
+		ZInv:          proof.ZInv,
+	}
+}
+
+func FromVRFV2PlusProof(proof vrf_coordinator_v2plus.VRFProof) VRFProof {
+	return VRFProof{
+		Pk:            proof.Pk,
+		Gamma:         proof.CGammaWitness,
+		C:             proof.C,
+		S:             proof.S,
+		Seed:          proof.Seed,
+		UWitness:      proof.UWitness,
+		CGammaWitness: proof.CGammaWitness,
+		SHashWitness:  proof.SHashWitness,
+		ZInv:          proof.ZInv,
+	}
 }
 
 type RequestCommitment struct {
@@ -318,6 +545,27 @@ func (c *coordinatorV2_X) ParseRandomWordsRequested(log types.Log) (*RandomWords
 	}, err
 }
 
+func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords)
+	}
+	return c.v2plus.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords, payInEth)
+}
+
+func (c *coordinatorV2_X) CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.CreateSubscription(opts)
+	}
+	return c.v2plus.CreateSubscription(opts)
+}
+
+func (c *coordinatorV2_X) AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.AddConsumer(opts, subId, consumer)
+	}
+	return c.v2plus.AddConsumer(opts, subId, consumer)
+}
+
 func (c *coordinatorV2_X) GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error) {
 	if c.v2 != nil {
 		sub, err := c.v2.GetSubscription(opts, subID)
@@ -353,6 +601,112 @@ func (c *coordinatorV2_X) ParseLog(log types.Log) (generated.AbigenLog, error) {
 		return c.v2.ParseLog(log)
 	}
 	return c.v2plus.ParseLog(log)
+}
+
+func (c *coordinatorV2_X) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.RegisterProvingKey(opts, oracle, publicProvingKey)
+	}
+	return c.v2plus.RegisterProvingKey(opts, oracle, publicProvingKey)
+}
+
+func (c *coordinatorV2_X) FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error) {
+	if c.v2 != nil {
+		it, err := c.v2.FilterSubscriptionCreated(opts, subId)
+		if err != nil {
+			return nil, err
+		}
+		return &SubscriptionCreatedIterator{
+			VRFVersion: vrfcommon.V2,
+			V2:         it,
+		}, nil
+	}
+	it, err := c.v2plus.FilterSubscriptionCreated(opts, subId)
+	if err != nil {
+		return nil, err
+	}
+	return &SubscriptionCreatedIterator{
+		VRFVersion: vrfcommon.V2Plus,
+		V2Plus:     it,
+	}, nil
+}
+
+func (c *coordinatorV2_X) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error) {
+	if c.v2 != nil {
+		it, err := c.v2.FilterRandomWordsRequested(opts, keyHash, subId, sender)
+		if err != nil {
+			return nil, err
+		}
+		return &RandomWordsRequestedIterator{
+			VRFVersion: vrfcommon.V2,
+			V2:         it,
+		}, nil
+	}
+	it, err := c.v2plus.FilterRandomWordsRequested(opts, keyHash, subId, sender)
+	if err != nil {
+		return nil, err
+	}
+	return &RandomWordsRequestedIterator{
+		VRFVersion: vrfcommon.V2Plus,
+		V2Plus:     it,
+	}, nil
+}
+
+func (c *coordinatorV2_X) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (*RandomWordsFulfilledIterator, error) {
+	if c.v2 != nil {
+		it, err := c.v2.FilterRandomWordsFulfilled(opts, requestID)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("FilterRandomWordsFulfilled")
+		return &RandomWordsFulfilledIterator{
+			VRFVersion: vrfcommon.V2,
+			V2:         it,
+		}, nil
+	}
+	it, err := c.v2plus.FilterRandomWordsFulfilled(opts, requestID)
+	if err != nil {
+		return nil, err
+	}
+	return &RandomWordsFulfilledIterator{
+		VRFVersion: vrfcommon.V2Plus,
+		V2Plus:     it,
+	}, nil
+}
+
+func (c *coordinatorV2_X) OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.OracleWithdraw(opts, recipient, amount)
+	}
+	return c.v2plus.OracleWithdraw(opts, recipient, amount)
+}
+
+func (c *coordinatorV2_X) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.TransferOwnership(opts, to)
+	}
+	return c.v2plus.TransferOwnership(opts, to)
+}
+
+func (c *coordinatorV2_X) RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.RemoveConsumer(opts, subId, consumer)
+	}
+	return c.v2plus.RemoveConsumer(opts, subId, consumer)
+}
+
+func (c *coordinatorV2_X) CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error) {
+	if c.v2 != nil {
+		return c.v2.CancelSubscription(opts, subId, to)
+	}
+	return c.v2plus.CancelSubscription(opts, subId, to)
+}
+
+func (c *coordinatorV2_X) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
+	if c.v2 != nil {
+		return c.v2.GetCommitment(opts, requestID)
+	}
+	return c.v2plus.SRequestCommitments(opts, requestID)
 }
 
 var (

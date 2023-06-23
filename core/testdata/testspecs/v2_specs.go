@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	vrfv2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 )
@@ -291,7 +290,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
 	vrfOwnerAddress := "0x5383C25DA15b1253463626243215495a3718beE4"
-	if params.VRFOwnerAddress != "" {
+	if params.VRFOwnerAddress != "" && vrfVersion == vrfcommon.V2 {
 		vrfOwnerAddress = params.VRFOwnerAddress
 	}
 	batchFulfillmentGasMultiplier := 1.0
@@ -367,10 +366,10 @@ decode_log->vrf->estimate_gas->simulate
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
-                         abi="%s"
+                         abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
                          data="$(jobRun.logData)"
                          topics="$(jobRun.logTopics)"]
-generate_proof          [type=vrfv2
+generate_proof          [type=vrfv2plus
                          publicKey="$(jobSpec.publicKey)"
                          requestBlockHash="$(jobRun.logBlockHash)"
                          requestBlockNumber="$(jobRun.logBlockNumber)"
@@ -387,7 +386,7 @@ simulate_fulfillment    [type=ethcall
 		                 contract="%s"
 		                 data="$(vrf.output)"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
-`, vrfv2.RandomWordsRequestedV2PlusABI, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
@@ -401,7 +400,6 @@ coordinatorAddress = "%s"
 batchCoordinatorAddress = "%s"
 batchFulfillmentEnabled = %v
 batchFulfillmentGasMultiplier = %s
-vrfOwnerAddress = "%s"
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
@@ -417,7 +415,7 @@ observationSource = """
 	toml := fmt.Sprintf(template,
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
-		vrfOwnerAddress, confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
+		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
@@ -425,6 +423,9 @@ observationSource = """
 			addresses = append(addresses, fmt.Sprintf("%q", address))
 		}
 		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
+	}
+	if vrfVersion == vrfcommon.V2 {
+		toml = toml + "\n" + fmt.Sprintf(`ownerAddress = "%s"`, vrfOwnerAddress)
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{

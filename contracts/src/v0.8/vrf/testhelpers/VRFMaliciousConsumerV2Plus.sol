@@ -2,20 +2,20 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2.sol";
 
-contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
+contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface COORDINATOR;
+  IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
   bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
+    COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
 
@@ -24,7 +24,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     s_randomWords = randomWords;
     s_requestId = requestId;
     // Should revert
-    COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1);
+    COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1, false);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
@@ -45,6 +45,6 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
 
   function requestRandomness(bytes32 keyHash) external returns (uint256) {
     s_keyHash = keyHash;
-    return COORDINATOR.requestRandomWords(keyHash, s_subId, 1, 500000, 1);
+    return COORDINATOR.requestRandomWords(keyHash, s_subId, 1, 500000, 1, false);
   }
 }

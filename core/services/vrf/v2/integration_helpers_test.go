@@ -15,14 +15,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -31,17 +31,19 @@ import (
 func testSingleConsumerHappyPath(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	consumer *bind.TransactOpts,
-	consumerContract *vrf_consumer_v2.VRFConsumerV2,
+	consumerContract vrftesthelpers.VRFConsumerContract,
 	consumerContractAddress common.Address,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
+	vrfVersion vrfcommon.Version,
 	assertions ...func(
 		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+		coordinator v22.CoordinatorV2_X,
+		rwfe *v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
@@ -61,7 +63,7 @@ func testSingleConsumerHappyPath(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
 	// Create a subscription and fund with 5 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), coordinator, uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), coordinator, uni.backend)
 
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -77,13 +79,15 @@ func testSingleConsumerHappyPath(
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		false,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
 	numWords := uint32(20)
-	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -95,7 +99,7 @@ func testSingleConsumerHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni, db)
+	mine(t, requestID1, subID, uni.backend, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -107,7 +111,7 @@ func testSingleConsumerHappyPath(
 	}
 
 	// Make the second randomness request and assert fulfillment is successful
-	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns()
@@ -115,7 +119,7 @@ func testSingleConsumerHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni, db)
+	mine(t, requestID2, subID, uni.backend, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -144,17 +148,19 @@ func testSingleConsumerHappyPath(
 func testMultipleConsumersNeedBHS(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	consumers []*bind.TransactOpts,
-	consumerContracts []*vrf_consumer_v2.VRFConsumerV2,
+	consumerContracts []vrftesthelpers.VRFConsumerContract,
 	consumerContractAddresses []common.Address,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
+	vrfVersion vrfcommon.Version,
 	assertions ...func(
 		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+		coordinator v22.CoordinatorV2_X,
+		rwfe *v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -203,6 +209,8 @@ func testMultipleConsumersNeedBHS(
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		false,
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
@@ -226,7 +234,7 @@ func testMultipleConsumersNeedBHS(
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
 
-		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 
 		// Wait 101 blocks.
 		for i := 0; i < 100; i++ {
@@ -252,7 +260,7 @@ func testMultipleConsumersNeedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni, db)
+		mine(t, requestID, subID, uni.backend, db)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		if len(assertions) > 0 {
@@ -272,7 +280,7 @@ func testMultipleConsumersNeedBHS(
 
 func verifyBlockhashStored(
 	t *testing.T,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	requestBlock uint64,
 ) {
 	// Wait for the blockhash to be stored
@@ -299,19 +307,21 @@ func verifyBlockhashStored(
 func testSingleConsumerHappyPathBatchFulfillment(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	consumer *bind.TransactOpts,
-	consumerContract *vrf_consumer_v2.VRFConsumerV2,
+	consumerContract vrftesthelpers.VRFConsumerContract,
 	consumerContractAddress common.Address,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
 	numRequests int,
 	bigGasCallback bool,
+	vrfVersion vrfcommon.Version,
 	assertions ...func(
 		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+		coordinator v22.CoordinatorV2_X,
+		rwfe *v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -327,7 +337,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
 	// Create a subscription and fund with 5 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), coordinator, uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), coordinator, uni.backend)
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -342,6 +352,8 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		true,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
@@ -350,14 +362,14 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	numWords := uint32(2)
 	var reqIDs []*big.Int
 	for i := 0; i < numRequests; i++ {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 		reqIDs = append(reqIDs, requestID)
 	}
 
 	if bigGasCallback {
 		// Make one randomness request with the max callback gas limit.
 		// It should live in a batch on it's own.
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 2_500_000, coordinator, uni)
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 2_500_000, coordinator, uni.backend)
 		reqIDs = append(reqIDs, requestID)
 	}
 
@@ -373,13 +385,13 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		return len(runs) == numRequests
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	mineBatch(t, reqIDs, subID, uni, db)
+	mineBatch(t, reqIDs, subID, uni.backend, db)
 
 	for i, requestID := range reqIDs {
 		// Assert correct state of RandomWordsFulfilled event.
 		// The last request will be the successful one because of the way the example
 		// contract is written.
-		var rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+		var rwfe *v22.RandomWordsFulfilled
 		if i == (len(reqIDs) - 1) {
 			rwfe = assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		} else {
@@ -397,19 +409,21 @@ func testSingleConsumerHappyPathBatchFulfillment(
 func testSingleConsumerNeedsTopUp(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	consumer *bind.TransactOpts,
-	consumerContract *vrf_consumer_v2.VRFConsumerV2,
+	consumerContract vrftesthelpers.VRFConsumerContract,
 	consumerContractAddress common.Address,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
 	initialFundingAmount *big.Int,
 	topUpAmount *big.Int,
+	vrfVersion vrfcommon.Version,
 	assertions ...func(
 		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+		coordinator v22.CoordinatorV2_X,
+		rwfe *v22.RandomWordsFulfilled),
 ) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
@@ -424,7 +438,7 @@ func testSingleConsumerNeedsTopUp(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 
 	// Create and fund a subscription
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, initialFundingAmount, coordinator, uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, initialFundingAmount, coordinator, uni.backend)
 
 	// Fund expensive gas lane.
 	sendEth(t, ownerKey, uni.backend, key.Address, 10)
@@ -439,12 +453,14 @@ func testSingleConsumerNeedsTopUp(
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		false,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
-	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
@@ -470,7 +486,7 @@ func testSingleConsumerNeedsTopUp(
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	mine(t, requestID, subID, uni, db)
+	mine(t, requestID, subID, uni.backend, db)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
@@ -489,17 +505,19 @@ func testSingleConsumerNeedsTopUp(
 func testBlockHeaderFeeder(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
+	uni coordinatorV2UniverseCommon,
 	consumers []*bind.TransactOpts,
-	consumerContracts []*vrf_consumer_v2.VRFConsumerV2,
+	consumerContracts []vrftesthelpers.VRFConsumerContract,
 	consumerContractAddresses []common.Address,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
+	vrfVersion vrfcommon.Version,
 	assertions ...func(
 		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+		coordinator v22.CoordinatorV2_X,
+		rwfe *v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 
@@ -535,6 +553,8 @@ func testBlockHeaderFeeder(
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		false,
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
@@ -558,7 +578,7 @@ func testBlockHeaderFeeder(
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
 
-		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni)
+		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend)
 
 		// Wait 256 blocks.
 		for i := 0; i < 256; i++ {
@@ -579,7 +599,7 @@ func testBlockHeaderFeeder(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni, db)
+		mine(t, requestID, subID, uni.backend, db)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		if len(assertions) > 0 {
@@ -595,14 +615,11 @@ func testSingleConsumerForcedFulfillment(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2Universe,
-	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
 	batchEnabled bool,
-	assertions ...func(
-		t *testing.T,
-		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
-		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+	vrfVersion vrfcommon.Version,
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
@@ -652,10 +669,10 @@ func testSingleConsumerForcedFulfillment(
 	// Check the subscription state
 	sub, err := uni.oldRootContract.GetSubscription(nil, subID)
 	require.NoError(t, err, "failed to get subscription with id %d", subID)
-	require.Equal(t, assets.Ether(5).ToInt(), sub.Balance)
-	require.Equal(t, 1, len(sub.Consumers))
-	require.Equal(t, eoaConsumerAddr, sub.Consumers[0])
-	require.Equal(t, uni.neil.From, sub.Owner)
+	require.Equal(t, assets.Ether(5).ToInt(), sub.Balance())
+	require.Equal(t, 1, len(sub.Consumers()))
+	require.Equal(t, eoaConsumerAddr, sub.Consumers()[0])
+	require.Equal(t, uni.neil.From, sub.Owner())
 
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -670,7 +687,9 @@ func testSingleConsumerForcedFulfillment(
 		coordinator,
 		coordinatorAddress,
 		batchCoordinatorAddress,
-		uni,
+		uni.coordinatorV2UniverseCommon,
+		ptr(uni.vrfOwnerAddress),
+		vrfVersion,
 		batchEnabled,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
@@ -739,14 +758,14 @@ func testSingleConsumerForcedFulfillment(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni, db)
+	mine(t, requestID, subID, uni.backend, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In this particular case:
 	// * success should be true
 	// * payment should be zero (forced fulfillment)
 	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
-	require.Equal(t, "0", rwfe.Payment.String())
+	require.Equal(t, "0", rwfe.Payment().String())
 
 	// Check that the RandomWordsForced event is emitted correctly.
 	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID}, []common.Address{eoaConsumerAddr})
