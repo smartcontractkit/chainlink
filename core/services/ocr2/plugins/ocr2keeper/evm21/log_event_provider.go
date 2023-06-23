@@ -241,6 +241,8 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 }
 
 func (p *logEventProvider) GetLogs(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	p.lggr.Debugw("GetLogs called in log provider")
+
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {
@@ -274,13 +276,14 @@ func (p *logEventProvider) GetLogs(_ context.Context) ([]ocr2keepers.UpkeepPaylo
 
 // FetchLogs fetches the logs for the given upkeeps.
 func (p *logEventProvider) FetchLogs(ctx context.Context, force bool, ids ...*big.Int) error {
+	p.lggr.Debugw("Fetch logs called in log provider")
 	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 	entries := p.getEntries(latest, force, ids...)
 
-	// p.lggr.Debugw("fetching logs for entries", "latestBlock", latest, "entries", len(entries))
+	p.lggr.Debugw("fetching logs for entries", "latestBlock", latest, "entries", len(entries))
 
 	err = p.fetchLogs(ctx, latest, entries...)
 	p.updateEntriesLastPoll(entries)
@@ -373,6 +376,8 @@ func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries 
 		if len(entry.filter.Addresses) == 0 {
 			continue
 		}
+		p.lggr.Debugw("inside fetchLogs : fetching logs for entries", "latestBlock", latest, "entries", len(entries))
+
 		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
 		start := entry.lastPollBlock
 		if start == 0 {
@@ -386,10 +391,10 @@ func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries 
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		/*
-		if !resv.OK() {
-			merr = multierr.Append(merr, fmt.Errorf("log upkeep block limit exceeded for upkeep %s", entry.id.String()))
-			continue
-		}*/
+			if !resv.OK() {
+				merr = multierr.Append(merr, fmt.Errorf("log upkeep block limit exceeded for upkeep %s", entry.id.String()))
+				continue
+			}*/
 		// lggr = lggr.With("startBlock", start)
 		// TODO: TBD what function to use to get logs
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
@@ -412,9 +417,9 @@ func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries 
 		if added > 0 || len(logs) == 0 {
 			entry.lastPollBlock = latest
 		}
-		// if n := len(logs); n > 0 {
-		// 	lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
-		// }
+		if n := len(logs); n > 0 {
+			p.lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
+		}
 	}
 
 	return merr
