@@ -385,10 +385,11 @@ func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries 
 			start = 0
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
+		/*
 		if !resv.OK() {
 			merr = multierr.Append(merr, fmt.Errorf("log upkeep block limit exceeded for upkeep %s", entry.id.String()))
 			continue
-		}
+		}*/
 		// lggr = lggr.With("startBlock", start)
 		// TODO: TBD what function to use to get logs
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
