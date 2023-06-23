@@ -730,6 +730,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			r.lggr.Debugf("UnpackCheckResult upkeepId %s block %s checkResult: %s", upkeepIds[i], blocks[i], *checkResults[i])
 			var err error
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+			r.lggr.Infof("[FeedLookup] results[i]=%v", results[i])
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}

@@ -98,6 +98,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
+		r.lggr.Infof("[FeedLookup] upkeepId %s block %s with data: %s", upkeepId, block, hexutil.Encode(res.PerformData))
 		feedLookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
