@@ -58,7 +58,7 @@ As the `keeper registry deploy` command executes, _two_ address are written to t
 
 The second address, `KeeperRegistry2.0` is the address you need; in the `.env` file, set `KEEPER_REGISTRY_ADDRESS` variable to the `KeeperRegistry2.0` address.
 
-Note that this command runs contract verification by default, if you don't want to run verification, you can use the `--verify=false` flag.
+Note that this command doesn't run contract verification by default. If you want to run verification (eth, op and arb supported), config your .env and add the `--verify=true` flag in command.
 
 If you already have keeper registry contract deployed and want to run only contract verification, you can use the following command:
 
