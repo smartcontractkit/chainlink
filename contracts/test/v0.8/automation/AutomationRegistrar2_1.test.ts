@@ -722,6 +722,25 @@ describe('AutomationRegistrar2_1', () => {
     })
   })
 
+  describe('#setTriggerConfig', () => {
+    it('reverts if not called by the owner', async () => {
+      const tx = registrar
+        .connect(stranger)
+        .setTriggerConfig(Trigger.LOG, autoApproveType_ENABLED_ALL, 100)
+      await evmRevert(tx, 'Only callable by owner')
+    })
+
+    it('changes the config', async () => {
+      const tx = await registrar
+        .connect(registrarOwner)
+        .setTriggerConfig(Trigger.LOG, autoApproveType_ENABLED_ALL, 100)
+      await registrar.getTriggerRegistrationDetails(Trigger.LOG)
+      await expect(tx)
+        .to.emit(registrar, 'TriggerConfigSet')
+        .withArgs(Trigger.LOG, autoApproveType_ENABLED_ALL, 100)
+    })
+  })
+
   describe('#approve', () => {
     let hash: string
 

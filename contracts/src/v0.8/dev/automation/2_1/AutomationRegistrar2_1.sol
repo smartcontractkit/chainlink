@@ -32,7 +32,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
   bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
 
   mapping(bytes32 => PendingRequest) private s_pendingRequests;
-  mapping(uint8 => TriggerRegistrationState) private s_triggerRegistrationStates;
+  mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
 
   LinkTokenInterface public immutable LINK;
 
@@ -49,12 +49,12 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
   string public constant override typeAndVersion = "AutomationRegistrar 2.1.0";
 
   /**
-   * @notice TriggerRegistrationState stores the auto-approval levels for upkeeps by type
+   * @notice TriggerRegistrationStorage stores the auto-approval levels for upkeeps by type
    * @member autoApproveType the auto approval setting (see enum)
    * @member autoApproveMaxAllowed the max number of upkeeps that can be auto approved of this type
    * @member approvedCount the count of upkeeps auto approved of this type
    */
-  struct TriggerRegistrationState {
+  struct TriggerRegistrationStorage {
     AutoApproveType autoApproveType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
@@ -122,7 +122,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
 
   event ConfigChanged(address keeperRegistry, uint96 minLINKJuels);
 
-  event TriggerConfigChanged(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
+  event TriggerConfigSet(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
 
   error InvalidAdminAddress();
   error RequestNotFound();
@@ -150,7 +150,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
     InitialTriggerConfig[] memory triggerConfigs
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(LINKAddress);
-    setRegistrationConfig(keeperRegistry, minLINKJuels);
+    setConfig(keeperRegistry, minLINKJuels);
     for (uint256 idx = 0; idx < triggerConfigs.length; idx++) {
       setTriggerConfig(
         triggerConfigs[idx].triggerType,
@@ -287,7 +287,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
    * @param keeperRegistry new keeper registry address
    * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
    */
-  function setRegistrationConfig(address keeperRegistry, uint96 minLINKJuels) public onlyOwner {
+  function setConfig(address keeperRegistry, uint96 minLINKJuels) public onlyOwner {
     s_config = RegistrarConfig({minLINKJuels: minLINKJuels, keeperRegistry: IKeeperRegistryMaster(keeperRegistry)});
     emit ConfigChanged(keeperRegistry, minLINKJuels);
   }
@@ -303,9 +303,9 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
     AutoApproveType autoApproveType,
     uint32 autoApproveMaxAllowed
   ) public onlyOwner {
-    s_triggerRegistrationStates[triggerType].autoApproveType = autoApproveType;
-    s_triggerRegistrationStates[triggerType].autoApproveMaxAllowed = autoApproveMaxAllowed;
-    emit TriggerConfigChanged(triggerType, autoApproveType, autoApproveMaxAllowed);
+    s_triggerRegistrations[triggerType].autoApproveType = autoApproveType;
+    s_triggerRegistrations[triggerType].autoApproveMaxAllowed = autoApproveMaxAllowed;
+    emit TriggerConfigSet(triggerType, autoApproveType, autoApproveMaxAllowed);
   }
 
   /**
@@ -330,7 +330,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
   /**
    * @notice read the current registration configuration
    */
-  function getRegistrationConfig() external view returns (address keeperRegistry, uint256 minLINKJuels) {
+  function getConfig() external view returns (address keeperRegistry, uint256 minLINKJuels) {
     RegistrarConfig memory config = s_config;
     return (address(config.keeperRegistry), config.minLINKJuels);
   }
@@ -339,8 +339,8 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
    * @notice read the config for this upkeep type
    * @param triggerType upkeep type to read config for
    */
-  function getRegistrationState(uint8 triggerType) external view returns (TriggerRegistrationState memory) {
-    return s_triggerRegistrationStates[triggerType];
+  function getTriggerRegistrationDetails(uint8 triggerType) external view returns (TriggerRegistrationStorage memory) {
+    return s_triggerRegistrations[triggerType];
   }
 
   /**
@@ -415,8 +415,8 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
     );
 
     uint256 upkeepId;
-    if (_shouldAutoApprove(s_triggerRegistrationStates[params.triggerType], sender)) {
-      s_triggerRegistrationStates[params.triggerType].approvedCount++;
+    if (_shouldAutoApprove(s_triggerRegistrations[params.triggerType], sender)) {
+      s_triggerRegistrations[params.triggerType].approvedCount++;
       upkeepId = _approve(params, hash);
     } else {
       uint96 newBalance = s_pendingRequests[hash].balance + params.amount;
@@ -456,7 +456,7 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, ERC6
   /**
    * @dev verify sender allowlist if needed and check max limit
    */
-  function _shouldAutoApprove(TriggerRegistrationState memory config, address sender) private view returns (bool) {
+  function _shouldAutoApprove(TriggerRegistrationStorage memory config, address sender) private view returns (bool) {
     if (config.autoApproveType == AutoApproveType.DISABLED) {
       return false;
     }
