@@ -297,7 +297,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	if err != nil {
 		panic(err)
 	}
-	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTestsMercuryV02(
+	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTestsAutomation(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
@@ -307,7 +307,10 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		offC,                  // reportingPluginConfig []byte,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                     // f int,
 		nil,                   // onchainConfig []byte,
 	)
