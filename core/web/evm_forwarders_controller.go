@@ -43,7 +43,7 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 
 // TrackEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
 type TrackEVMForwarderRequest struct {
-	EVMChainID *utils.Big     `json:"chainID"`
+	EVMChainID *utils.Big     `json:"evmChainId"`
 	Address    common.Address `json:"address"`
 }
 
