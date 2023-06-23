@@ -17,7 +17,8 @@ flux_aggregator_wrapper: ../../contracts/solc/v0.6/FluxAggregator.abi ../../cont
 functions_billing_registry_events_mock: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.bin 50deeb883bd9c3729702be335c0388f9d8553bab4be5e26ecacac496a89e2b77
 functions_oracle_events_mock: ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.bin 3ca70f966f8fe751987f0ccb50bebb6aa5be77e4a9f835d1ae99e0e9bfb7d52c
 gas_wrapper: ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.bin 4a5dcdac486d18fcd58e3488c15c1710ae76b977556a3f3191bd269a4bc75723
-i_keeper_registry_master_wrapper_2_1: ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.abi ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.bin e3d0375a6988c04e91ffb9cd6ef8e4a151d130699f485dbd80baa898a96166af
+i_keeper_registry_master_wrapper_2_1: ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.abi ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.bin e86539381d4a35997e09db982366b46749887d71910722723bb94aa40284545a
+i_log_automation: ../../contracts/solc/v0.8.16/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation.bin 8cc5fbd18810dd2a3dc12871eabdb3bf79634544614e00ee967382767b9dfde3
 keeper_registrar_wrapper1_2: ../../contracts/solc/v0.8.6/KeeperRegistrar.abi ../../contracts/solc/v0.8.6/KeeperRegistrar.bin e49b2f8b23da17af1ed2209b8ae0968cc04350554d636711e6c24a3ad3118692
 keeper_registrar_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistrar2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistrar2_0.bin 647f125c2f0dafabcdc545cb77b15dc2ec3ea9429357806813179b1fd555c2d2
 keeper_registry_logic1_3: ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.bin e1bee66ce7cd0085469f923c46f0eddb58fd45dec207def1bb383b37e413a6ca

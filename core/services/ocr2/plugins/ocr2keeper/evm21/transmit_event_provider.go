@@ -241,8 +241,14 @@ PerformLoop:
 			continue PerformLoop
 		}
 
-		logExtension := fmt.Sprintf("%s:%d", common.BytesToHash(tHsh[:]).Hex(), uint(lIdx))
-		trigger := ocr2keepers.NewTrigger(int64(bln), common.BytesToHash(bHsh[:]).Hex(), logExtension)
+		trigger := ocr2keepers.NewTrigger(
+			int64(bln),
+			common.BytesToHash(bHsh[:]).Hex(),
+			logTriggerExtension{
+				TxHash:   common.BytesToHash(tHsh[:]).Hex(),
+				LogIndex: int64(lIdx),
+			},
+		)
 		payload := ocr2keepers.NewUpkeepPayload(
 			p.Id,
 			int(logTrigger),

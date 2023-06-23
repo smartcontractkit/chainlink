@@ -15,11 +15,12 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 type LogDataPacker interface {
@@ -96,6 +97,11 @@ type upkeepFilterEntry struct {
 	lastPollBlock int64
 	// blockLimiter is used to limit the number of blocks to fetch logs for an upkeep
 	blockLimiter *rate.Limiter
+}
+
+type logTriggerExtension struct {
+	TxHash   string
+	LogIndex int64
 }
 
 type LogEventProvider interface {
@@ -245,13 +251,20 @@ func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
-		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
-		trig := ocr2keepers.NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
+		trig := ocr2keepers.NewTrigger(
+			log.BlockNumber,
+			log.BlockHash.Hex(),
+			logTriggerExtension{
+				TxHash:   log.TxHash.Hex(),
+				LogIndex: log.LogIndex,
+			},
+		)
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
+
 		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
 		payloads = append(payloads, payload)
 	}
