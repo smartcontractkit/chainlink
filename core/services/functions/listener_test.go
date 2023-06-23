@@ -54,7 +54,7 @@ var (
 	RequestID         functions_service.RequestID = newRequestID()
 	RequestIDStr                                  = fmt.Sprintf("0x%x", [32]byte(RequestID))
 	SubscriptionOwner common.Address              = common.BigToAddress(big.NewInt(42069))
-	SubscriptionID                                = 5
+	SubscriptionID                                = uint64(5)
 	ResultBytes                                   = []byte{0xab, 0xcd}
 	ErrorBytes                                    = []byte{0xff, 0x11}
 	Domains                                       = []string{"github.com", "google.com"}
