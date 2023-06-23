@@ -121,7 +121,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 
 		triggers[i] = wrappedTrigger{
-			TxHash:      [32]byte(hex[:]),
+			TxHash:      common.BytesToHash(hex[:]),
 			LogIndex:    uint32(trExt.LogIndex),
 			BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
