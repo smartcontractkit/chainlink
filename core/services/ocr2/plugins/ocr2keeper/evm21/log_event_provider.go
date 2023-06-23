@@ -305,12 +305,12 @@ func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition, numOfPar
 		if len(entry.filter.Addresses) == 0 {
 			continue
 		}
-		h := hashFn.Sum(entry.filter.Addresses[0].Bytes())
+		//h := hashFn.Sum(entry.filter.Addresses[0].Bytes())
 		// taking only 6 bytes to avoid working with big numbers
-		i := big.NewInt(0).SetBytes(h[:6])
-		if int(i.Int64())%numOfPartitions == partition {
-			ids = append(ids, entry.id)
-		}
+		// i := big.NewInt(0).SetBytes(h[:6])
+		//if int(i.Int64())%numOfPartitions == partition {
+		ids = append(ids, entry.id)
+		//}
 		hashFn.Reset()
 	}
 
