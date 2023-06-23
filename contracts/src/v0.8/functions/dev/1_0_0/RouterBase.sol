@@ -32,21 +32,20 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes32[] ids;
     address[] from;
     address[] to;
-    uint proposedAtBlock;
+    uint256 timelockEndBlock;
   }
   ProposalSet internal s_proposalSet;
 
   event Proposed(
-    bytes32[] proposalSetIds,
-    address[] proposalSetFromAddresses,
-    address[] proposalSetToAddresses,
-    uint block
+    bytes32 proposalSetId,
+    address proposalSetFromAddress,
+    address proposalSetToAddress,
+    uint256 timelockEndBlock
   );
   event Upgraded(
-    bytes32[] proposalSetIds,
-    address[] proposalSetFromAddresses,
-    address[] proposalSetToAddresses,
-    uint block,
+    bytes32 proposalSetId,
+    address proposalSetFromAddress,
+    address proposalSetToAddress,
     uint16 major,
     uint16 minor,
     uint16 patch
@@ -169,8 +168,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getProposalSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory) {
-    return (s_proposalSet.proposedAtBlock, s_proposalSet.ids, s_proposalSet.from, s_proposalSet.to);
+  function getProposalSet() external view returns (uint256, bytes32[] memory, address[] memory, address[] memory) {
+    return (s_proposalSet.timelockEndBlock, s_proposalSet.ids, s_proposalSet.from, s_proposalSet.to);
   }
 
   /**
@@ -221,9 +220,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address[] memory proposalSetToAddresses
   ) external override onlyOwner {
     _validateProposal(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses);
-    uint currentBlock = block.number;
-    s_proposalSet = ProposalSet(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
-    emit Proposed(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses, currentBlock);
+    uint timelockEndBlock = block.number + s_timelockBlocks;
+    s_proposalSet = ProposalSet(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses, timelockEndBlock);
+    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint8 i = 0; i < proposalSetIds.length; i++) {
+      emit Proposed(proposalSetIds[i], proposalSetFromAddresses[i], proposalSetToAddresses[i], timelockEndBlock);
+    }
   }
 
   /**
@@ -234,7 +236,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   }
 
   /**
-   * @dev Must be implemented by inheriting contract
+   * @dev Must be implemented by the inheriting contract
    * Use to test an end to end request through the system
    */
   function _smoke(bytes32 id, bytes calldata data) internal virtual returns (bytes32);
@@ -243,23 +245,22 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function upgrade() external override onlyOwner {
-    if (block.number < s_proposalSet.proposedAtBlock + s_timelockBlocks) {
+    if (block.number < s_proposalSet.timelockEndBlock) {
       revert TimelockInEffect();
-    }
-    for (uint8 i = 0; i < s_proposalSet.ids.length; i++) {
-      s_route[s_proposalSet.ids[i]] = s_proposalSet.to[i];
     }
     s_minorVersion = s_minorVersion + 1;
     if (s_patchVersion != 0) s_patchVersion = 0;
-    emit Upgraded(
-      s_proposalSet.ids,
-      s_proposalSet.from,
-      s_proposalSet.to,
-      block.number,
-      s_majorVersion,
-      s_minorVersion,
-      s_patchVersion
-    );
+    for (uint8 i = 0; i < s_proposalSet.ids.length; i++) {
+      s_route[s_proposalSet.ids[i]] = s_proposalSet.to[i];
+      emit Upgraded(
+        s_proposalSet.ids[i],
+        s_proposalSet.from[i],
+        s_proposalSet.to[i],
+        s_majorVersion,
+        s_minorVersion,
+        s_patchVersion
+      );
+    }
   }
 
   // ================================================================
