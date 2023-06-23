@@ -26,13 +26,13 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   struct Commitment {
     uint64 subscriptionId;
     address client;
-    uint32 gasLimit;
-    uint256 gasPrice;
+    uint32 callbackGasLimit;
+    uint256 expectedGasPrice;
     address don;
     uint96 donFee;
     uint96 adminFee;
     uint96 estimatedTotalCostJuels;
-    uint256 fulfillmentGas;
+    uint256 gasOverhead;
     uint256 timestamp;
   }
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
@@ -221,20 +221,20 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
-    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, gasLimit, gasPrice);
+    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
-    return _calculateCostEstimate(gasLimit, gasPrice, donFee, adminFee);
+    return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
   }
 
   /**
    * @notice Uses current price feed data to estimate a cost
    */
   function _calculateCostEstimate(
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     uint256 gasPrice,
     uint96 donFee,
     uint96 adminFee
@@ -244,7 +244,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + gasLimit;
+    uint256 executionGas = s_config.gasOverhead + s_config.gasAfterPaymentCalculation + callbackGasLimit;
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(adminFee);
@@ -273,14 +273,14 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   ) internal returns (bytes32, uint96, uint256, uint256) {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the gas and computation.
-    if (billing.gasLimit > s_config.maxGasLimit) {
-      revert GasLimitTooBig(billing.gasLimit, s_config.maxGasLimit);
+    if (billing.callbackGasLimit > s_config.maxGasLimit) {
+      revert GasLimitTooBig(billing.callbackGasLimit, s_config.maxGasLimit);
     }
 
     // Check that subscription can afford the estimated cost
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
-    uint96 estimatedCost = _calculateCostEstimate(billing.gasLimit, billing.gasPrice, donFee, adminFee);
+    uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
     (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
@@ -294,8 +294,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     Commitment memory commitment = Commitment(
       billing.subscriptionId,
       billing.client,
-      billing.gasLimit,
-      billing.gasPrice,
+      billing.callbackGasLimit,
+      billing.expectedGasPrice,
       address(this),
       donFee,
       adminFee,
@@ -354,9 +354,9 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // (1e18 juels/link) * (gas/wei) / (wei/link) = juels per wei
-    uint256 juelsPerGas = (1e18 * commitment.gasPrice) / uint256(weiPerUnitLink);
+    uint256 juelsPerGas = (1e18 * tx.gasprice) / uint256(weiPerUnitLink);
     // Gas overhead without callback
-    uint96 gasOverheadJuels = uint96(juelsPerGas * commitment.fulfillmentGas);
+    uint96 gasOverheadJuels = uint96(juelsPerGas * commitment.gasOverhead);
     uint96 costWithoutFulfillment = gasOverheadJuels + commitment.donFee;
 
     // The Functions Router will perform the callback to the client contract

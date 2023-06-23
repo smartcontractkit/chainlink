@@ -12,9 +12,9 @@ interface IFunctionsBilling {
     // to use the subscription it must be added as a consumer on the subscription
     address client;
     // customer specified gas limit for the fulfillment callback
-    uint32 gasLimit;
+    uint32 callbackGasLimit;
     // the expected gas price used to execute the transaction
-    uint256 gasPrice;
+    uint256 expectedGasPrice;
   }
 
   /**
