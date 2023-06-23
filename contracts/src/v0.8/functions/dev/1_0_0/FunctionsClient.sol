@@ -56,17 +56,17 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @notice Sends a Chainlink Functions request to the stored oracle address
    * @param req The initialized Functions.Request
    * @param subscriptionId The subscription ID
-   * @param gasLimit gas limit for the fulfillment callback
+   * @param callbackGasLimit gas limit for the fulfillment callback
    * @return requestId The generated request ID
    */
   function _sendRequest(
     Functions.Request memory req,
     uint64 subscriptionId,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     bytes32 jobId
   ) internal returns (bytes32) {
     bytes memory requestData = Functions.encodeRequest(Functions.encodeCBOR(req));
-    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, gasLimit, jobId);
+    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, jobId);
     return requestId;
   }
 
@@ -74,16 +74,16 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @notice Sends a Chainlink Functions request to the stored oracle address
    * @param data The initialized Functions request data
    * @param subscriptionId The subscription ID
-   * @param gasLimit gas limit for the fulfillment callback
+   * @param callbackGasLimit gas limit for the fulfillment callback
    * @return requestId The generated request ID
    */
   function _sendRequestBytes(
     bytes memory data,
     uint64 subscriptionId,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     bytes32 jobId
   ) internal returns (bytes32) {
-    bytes32 requestId = s_router.sendRequest(subscriptionId, data, gasLimit, jobId);
+    bytes32 requestId = s_router.sendRequest(subscriptionId, data, callbackGasLimit, jobId);
     s_pendingRequests[requestId] = s_router.getRoute(jobId);
     emit RequestSent(requestId);
     return requestId;

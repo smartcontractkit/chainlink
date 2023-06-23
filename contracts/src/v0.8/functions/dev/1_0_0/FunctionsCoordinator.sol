@@ -124,7 +124,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     address caller,
     address subscriptionOwner
   )
@@ -147,7 +147,12 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     (, bytes memory requestCBOR) = Functions.decodeRequest(data);
 
-    RequestBilling memory billing = IFunctionsBilling.RequestBilling(subscriptionId, caller, gasLimit, tx.gasprice);
+    RequestBilling memory billing = IFunctionsBilling.RequestBilling(
+      subscriptionId,
+      caller,
+      callbackGasLimit,
+      tx.gasprice
+    );
 
     (requestId, estimatedCost, gasAfterPaymentCalculation, requestTimeoutSeconds) = _startBilling(requestCBOR, billing);
 
