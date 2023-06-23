@@ -1,4 +1,4 @@
-package ocr2keeper_test
+package evm_test
 
 import (
 	"context"
@@ -330,6 +330,8 @@ func setupBackend(t *testing.T) (*backends.SimulatedBackend, func(), []*bind.Tra
 	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	return backend, stopMining, []*bind.TransactOpts{sergey, steve, carrol}
 }
+
+func ptr[T any](v T) *T { return &v }
 
 func setupDB(t *testing.T) *sqlx.DB {
 	_, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", "chainlink_test", 5432), func(c *chainlink.Config, s *chainlink.Secrets) {
