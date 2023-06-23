@@ -19,9 +19,6 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry2_1__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_1__factory'
-import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicAFactory } from '../../../typechain/factories/KeeperRegistryLogicA2_1__factory'
-import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from '../../../typechain/factories/KeeperRegistryLogicB2_1__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
@@ -41,7 +38,7 @@ import {
   InsufficientFundsUpkeepReportEvent,
   CancelledUpkeepReportEvent,
 } from '../../../typechain/IKeeperRegistryMaster'
-import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
+import { deployRegistry21, OnchainConfig21, encodeConfig21 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
@@ -145,9 +142,6 @@ const blockTriggerConfig = ethers.utils.defaultAbiCoder.encode(
 // Smart contract factories
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
-let keeperRegistryFactory: KeeperRegistryFactory
-let keeperRegistryLogicAFactory: KeeperRegistryLogicAFactory
-let keeperRegistryLogicBFactory: KeeperRegistryLogicBFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
@@ -203,36 +197,6 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
     }
   }
   return bytes[15] as Trigger
-}
-
-type OnchainConfig = {
-  paymentPremiumPPB: BigNumberish
-  flatFeeMicroLink: BigNumberish
-  checkGasLimit: BigNumberish
-  stalenessSeconds: BigNumberish
-  gasCeilingMultiplier: BigNumberish
-  minUpkeepSpend: BigNumberish
-  maxCheckDataSize: BigNumberish
-  maxPerformDataSize: BigNumberish
-  maxRevertDataSize: BigNumberish
-  maxPerformGas: BigNumberish
-  fallbackGasPrice: BigNumberish
-  fallbackLinkPrice: BigNumberish
-  transcoder: string
-  registrars: string[]
-  upkeepPrivilegeManager: string
-}
-
-const encodeConfig = (config: OnchainConfig) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    [
-      'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
-      ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
-      uint32 maxPerformDataSize,uint32 maxRevertDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
-      address[] registrars,address upkeepPrivilegeManager)',
-    ],
-    [config],
-  )
 }
 
 const encodeBlockTrigger = (blockNum: number, blockHash: BytesLike) => {
@@ -471,13 +435,6 @@ describe('KeeperRegistry2_1', () => {
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
-    keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_1')
-    keeperRegistryLogicAFactory = await ethers.getContractFactory(
-      'KeeperRegistryLogicA2_1',
-    )
-    keeperRegistryLogicBFactory = await ethers.getContractFactory(
-      'KeeperRegistryLogicB2_1',
-    )
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory = await ethers.getContractFactory(
       'UpkeepAutoFunder',
@@ -594,21 +551,6 @@ describe('KeeperRegistry2_1', () => {
     }
   }
 
-  const deployRegistry = async (
-    ...params: Parameters<KeeperRegistryLogicBFactory['deploy']>
-  ): Promise<IKeeperRegistry> => {
-    const logicB = await keeperRegistryLogicBFactory
-      .connect(owner)
-      .deploy(...params)
-    const logicA = await keeperRegistryLogicAFactory
-      .connect(owner)
-      .deploy(logicB.address)
-    const master = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(logicA.address)
-    return IKeeperRegistryMasterFactory.connect(master.address, owner)
-  }
-
   const verifyMaxPayment = async (
     registry: IKeeperRegistry,
     l1CostWei?: BigNumber,
@@ -658,7 +600,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig({
+        encodeConfig21({
           paymentPremiumPPB: test.premium,
           flatFeeMicroLink: test.flatFee,
           checkGasLimit,
@@ -924,40 +866,45 @@ describe('KeeperRegistry2_1', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config),
+      encodeConfig21(config),
       offchainVersion,
       offchainBytes,
     ]
 
-    registry = await deployRegistry(
+    registry = await deployRegistry21(
+      owner,
       Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
     )
 
-    arbRegistry = await deployRegistry(
+    arbRegistry = await deployRegistry21(
+      owner,
       Mode.ARBITRUM,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
     )
 
-    opRegistry = await deployRegistry(
+    opRegistry = await deployRegistry21(
+      owner,
       Mode.OPTIMISM,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
     )
 
-    mgRegistry = await deployRegistry(
+    mgRegistry = await deployRegistry21(
+      owner,
       Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
     )
 
-    blankRegistry = await deployRegistry(
+    blankRegistry = await deployRegistry21(
+      owner,
       Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
@@ -1722,7 +1669,7 @@ describe('KeeperRegistry2_1', () => {
             signerAddresses,
             keeperAddresses,
             10, // maximise f to maximise overhead
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           )
@@ -1767,7 +1714,7 @@ describe('KeeperRegistry2_1', () => {
                 signerAddresses,
                 keeperAddresses,
                 newF,
-                encodeConfig(config),
+                encodeConfig21(config),
                 offchainVersion,
                 offchainBytes,
               )
@@ -1906,7 +1853,7 @@ describe('KeeperRegistry2_1', () => {
                           signerAddresses,
                           keeperAddresses,
                           newF,
-                          encodeConfig(config),
+                          encodeConfig21(config),
                           offchainVersion,
                           offchainBytes,
                         )
@@ -2016,7 +1963,7 @@ describe('KeeperRegistry2_1', () => {
                     signerAddresses,
                     keeperAddresses,
                     newF,
-                    encodeConfig(config),
+                    encodeConfig21(config),
                     offchainVersion,
                     offchainBytes,
                   )
@@ -3493,7 +3440,7 @@ describe('KeeperRegistry2_1', () => {
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
 
-    const newConfig: OnchainConfig = {
+    const newConfig: OnchainConfig21 = {
       paymentPremiumPPB: payment,
       flatFeeMicroLink: flatFee,
       checkGasLimit: maxGas,
@@ -3519,7 +3466,7 @@ describe('KeeperRegistry2_1', () => {
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig(newConfig),
+            encodeConfig21(newConfig),
             offchainVersion,
             offchainBytes,
           ),
@@ -3542,7 +3489,7 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          encodeConfig21(newConfig),
           offchainVersion,
           offchainBytes,
         )
@@ -3605,7 +3552,7 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          encodeConfig21(newConfig),
           offchainVersion,
           offchainBytes,
         )
@@ -3621,7 +3568,7 @@ describe('KeeperRegistry2_1', () => {
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          encodeConfig21(newConfig),
           offchainVersion,
           offchainBytes,
         )
@@ -3649,7 +3596,7 @@ describe('KeeperRegistry2_1', () => {
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3668,7 +3615,7 @@ describe('KeeperRegistry2_1', () => {
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3684,7 +3631,7 @@ describe('KeeperRegistry2_1', () => {
             newKeepers,
             newKeepers,
             0,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3701,7 +3648,7 @@ describe('KeeperRegistry2_1', () => {
             signers,
             newKeepers,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3718,7 +3665,7 @@ describe('KeeperRegistry2_1', () => {
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3740,7 +3687,7 @@ describe('KeeperRegistry2_1', () => {
             newSigners,
             newKeepers,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3762,7 +3709,7 @@ describe('KeeperRegistry2_1', () => {
             newKeepers,
             newTransmitters,
             f,
-            encodeConfig(config),
+            encodeConfig21(config),
             offchainVersion,
             offchainBytes,
           ),
@@ -3790,7 +3737,7 @@ describe('KeeperRegistry2_1', () => {
           newSigners,
           newKeepers,
           f,
-          encodeConfig(config),
+          encodeConfig21(config),
           newOffChainVersion,
           newOffChainConfig,
         )
@@ -4471,7 +4418,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig({
+        encodeConfig21({
           paymentPremiumPPB,
           flatFeeMicroLink,
           checkGasLimit,
@@ -4907,7 +4854,7 @@ describe('KeeperRegistry2_1', () => {
           signers,
           keepers,
           f,
-          encodeConfig(config),
+          encodeConfig21(config),
           offchainVersion,
           offchainBytes,
         )
@@ -4922,7 +4869,7 @@ describe('KeeperRegistry2_1', () => {
           [...signers, randomAddress()],
           [...keepers, newTransmitter],
           f,
-          encodeConfig(config),
+          encodeConfig21(config),
           offchainVersion,
           offchainBytes,
         )
@@ -5101,7 +5048,7 @@ describe('KeeperRegistry2_1', () => {
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            encodeConfig21({
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5154,7 +5101,7 @@ describe('KeeperRegistry2_1', () => {
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            encodeConfig21({
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5202,7 +5149,7 @@ describe('KeeperRegistry2_1', () => {
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            encodeConfig21({
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5571,7 +5518,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses.slice(2, 15), // only use 2-14th index keepers
         keeperAddresses.slice(2, 15),
         f,
-        encodeConfig(config),
+        encodeConfig21(config),
         offchainVersion,
         offchainBytes,
       )
@@ -5603,7 +5550,7 @@ describe('KeeperRegistry2_1', () => {
         signerAddresses.slice(0, 4), // only use 0-3rd index keepers
         keeperAddresses.slice(0, 4),
         f,
-        encodeConfig(config),
+        encodeConfig21(config),
         offchainVersion,
         offchainBytes,
       )
