@@ -42,7 +42,7 @@ type ReportCodec struct {
 	feedID [32]byte
 }
 
-func NewEVMReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
+func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
@@ -75,7 +75,7 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 	return 8*32 + // feed ID
 			32 + // timestamp
-			64 + // validFromBlockNum
+			64 + // validFromTimestamp
 			192 + // benchmarkPrice
 			192 + // bid
 			192, // ask

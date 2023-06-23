@@ -114,7 +114,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 
 	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewEVMReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
+	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, errors.New("EffectiveTransmitterID must be specified")
