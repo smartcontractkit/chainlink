@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
@@ -65,10 +66,10 @@ func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) 
 }
 
 // TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string, logger logger.Logger) (ocr2keepers.CheckResult, error) {
 	var result ocr2keepers.CheckResult
 
-	fmt.Printf("[FeedLookup] payload: %v", key)
+	logger.Infof("[FeedLookup] payload: %v", key)
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
@@ -99,7 +100,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 		result.PerformData = rawPerformData
 	}
 
-	fmt.Printf("[FeedLookup] rawPerformData: %s", hexutil.Encode(rawPerformData))
+	logger.Infof("[FeedLookup] rawPerformData: %s", hexutil.Encode(rawPerformData))
 
 	return result, nil
 }

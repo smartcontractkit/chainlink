@@ -686,6 +686,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
 			// check data will include the log trigger config
+			r.lggr.Infof("[FeedLookup] check data: %s", hexutil.Encode(key.CheckData))
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
 				return nil, err
@@ -729,7 +730,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		} else {
 			r.lggr.Debugf("UnpackCheckResult upkeepId %s block %s checkResult: %s", upkeepIds[i], blocks[i], *checkResults[i])
 			var err error
-			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i], r.lggr)
 			r.lggr.Infof("[FeedLookup] results[i].PerformData=%v", results[i].PerformData)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
