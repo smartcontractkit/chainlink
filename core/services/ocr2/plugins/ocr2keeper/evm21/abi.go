@@ -77,7 +77,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	result = ocr2keepers.CheckResult{
 		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:    false,
-		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
+		GasAllocated: 5000000, // use upkeep gas limit/execute gas
 		Payload:      key,
 	}
 	ext := EVMAutomationResultExtension21{
