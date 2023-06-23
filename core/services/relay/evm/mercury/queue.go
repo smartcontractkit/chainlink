@@ -64,7 +64,7 @@ type Transmission struct {
 // 0 means unlimited - be careful, this can cause memory leaks
 func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissions []*Transmission) *TransmitQueue {
 	pq := priorityQueue(transmissions)
-	heap.Init(&pq) // for completeness
+	heap.Init(&pq) // ensure the heap is ordered
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
 		utils.StartStopOnce{}, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, &pq, maxlen, false, nil,
