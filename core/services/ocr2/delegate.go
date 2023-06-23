@@ -14,9 +14,8 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
-	ocr2keepersv3 "github.com/smartcontractkit/ocr2keepers/pkg/v3"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -841,7 +840,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		conf.ServiceQueueLength = cfg.ServiceQueueLength
 	}
 
-	dConf := ocr2keepersv3.DelegateConfig{
+	dConf := plugin.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          keeperProvider.ContractTransmitter(),
@@ -864,7 +863,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		ServiceQueueLength:    cfg.ServiceQueueLength,
 	}
 
-	pluginService, err := ocr2keepers.NewDelegate(dConf)
+	pluginService, err := plugin.NewDelegate(dConf)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 	}

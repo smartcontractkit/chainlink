@@ -114,7 +114,7 @@ type LogEventProvider interface {
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 	// GetLogs returns the logs in the given range.
-	GetLogs() ([]ocr2keepers.UpkeepPayload, error)
+	GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error)
 }
 
 type LogEventProviderTest interface {
@@ -240,7 +240,7 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	return errors.Wrap(err, "failed to unregister upkeep filter")
 }
 
-func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) GetLogs(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {

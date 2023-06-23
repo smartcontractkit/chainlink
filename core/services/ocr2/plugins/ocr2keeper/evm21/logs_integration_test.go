@@ -79,7 +79,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	// let it time to poll
 	<-time.After(pollerTimeout)
 
-	logs, _ := logProvider.GetLogs()
+	logs, _ := logProvider.GetLogs(context.Background())
 	require.NoError(t, logProvider.Close())
 
 	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
@@ -102,7 +102,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			id := ids[i]
 			require.NoError(t, logProvider.RegisterFilter(id, newPlainLogTriggerConfig(addr)))
 		}
-		logsAfterRestart, _ := logProvider.GetLogs()
+		logsAfterRestart, _ := logProvider.GetLogs(context.Background())
 		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
 			"logs should have been marked visited")
 
@@ -112,7 +112,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		<-time.After(pollerTimeout)
 
-		logsAfterRestart, _ = logProvider.GetLogs()
+		logsAfterRestart, _ = logProvider.GetLogs(context.Background())
 		require.NoError(t, logProvider.Close())
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
@@ -169,7 +169,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		require.GreaterOrEqual(t, 1, 1)
 	}
 
-	logs, err := logProvider.GetLogs()
+	logs, err := logProvider.GetLogs(context.Background())
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
@@ -218,7 +218,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	<-time.After(pollerTimeout * 2) // let the log poller work
 
-	logs, err := logProvider.GetLogs()
+	logs, err := logProvider.GetLogs(context.Background())
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
