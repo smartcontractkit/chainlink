@@ -33,6 +33,7 @@ import (
 
 const (
 	MaxTransmitQueueSize = 10_000
+	PruneFrequency       = 10 * time.Second
 	TransmitTimeout      = 5 * time.Second
 )
 
@@ -130,7 +131,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
+		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize, nil),
 		sync.WaitGroup{},
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
@@ -140,6 +141,13 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 
 func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("MercuryTransmitter", func() error {
+		mt.lggr.Debugw("Loading transmit requests from database")
+		transmissions, err := mt.orm.GetTransmitRequests(ctx)
+		if err != nil {
+			return err
+		}
+		mt.queue = NewTransmitQueue(mt.lggr, mt.feedIDHex, MaxTransmitQueueSize, transmissions)
+
 		if err := mt.rpcClient.Start(ctx); err != nil {
 			return err
 		}
@@ -148,13 +156,8 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		}
 		mt.wg.Add(1)
 
-		transmissions, err := mt.orm.GetTransmitRequests()
-		if err != nil {
-			return err
-		}
-		mt.queue.InitTransmissions(transmissions)
-
-		go mt.runLoop()
+		go mt.runQueueLoop()
+		go mt.runPruneLoop()
 		return nil
 	})
 }
@@ -179,7 +182,7 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) runLoop() {
+func (mt *mercuryTransmitter) runQueueLoop() {
 	defer mt.wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
@@ -257,9 +260,27 @@ func (mt *mercuryTransmitter) runLoop() {
 			}
 		}
 
-		if err := mt.orm.DeleteTransmitRequest(t.Req); err != nil {
-			mt.lggr.Error("Failed to delete transmit request record")
+		if err := mt.orm.DeleteTransmitRequest(runloopCtx, t.Req); err != nil {
+			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", t.Req, "reportCtx", t.ReportCtx)
 			return
+		}
+	}
+}
+
+func (mt *mercuryTransmitter) runPruneLoop() {
+	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
+	defer cancel()
+	ticker := time.NewTicker(PruneFrequency)
+	for {
+		select {
+		case <-runloopCtx.Done():
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			mt.lggr.Debugw("Pruning transmit requests database table")
+			if err := mt.orm.PruneTransmitRequests(runloopCtx, MaxTransmitQueueSize); err != nil {
+				mt.lggr.Errorw("Failed to prune transmit requests table", "error", err)
+			}
 		}
 	}
 }
@@ -291,7 +312,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	mt.lggr.Debugw("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
-	if err := mt.orm.InsertTransmitRequest(req, reportCtx); err != nil {
+	if err := mt.orm.InsertTransmitRequest(ctx, req, reportCtx); err != nil {
 		return err
 	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {

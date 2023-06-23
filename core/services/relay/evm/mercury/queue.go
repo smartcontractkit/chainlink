@@ -62,32 +62,14 @@ type Transmission struct {
 
 // maxlen controls how many items will be stored in the queue
 // 0 means unlimited - be careful, this can cause memory leaks
-func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int) *TransmitQueue {
-	pq := new(priorityQueue)
-	heap.Init(pq) // for completeness
+func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissions []*Transmission) *TransmitQueue {
+	pq := priorityQueue(transmissions)
+	heap.Init(&pq) // for completeness
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
-		utils.StartStopOnce{}, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, pq, maxlen, false, nil,
+		utils.StartStopOnce{}, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, &pq, maxlen, false, nil,
 		transmitQueueLoad.WithLabelValues(feedID, fmt.Sprintf("%d", maxlen)),
 	}
-}
-
-// InitTransmissions initializes the priority queue with the given transmissions. Any
-// previously pushed transmissions are dropped.
-func (tq *TransmitQueue) InitTransmissions(transmissions []*Transmission) {
-	tq.mu.Lock()
-	defer tq.mu.Unlock()
-
-	if tq.closed {
-		return
-	}
-
-	pq := new(priorityQueue)
-	for _, t := range transmissions {
-		pq.Push(t)
-	}
-	heap.Init(pq)
-	tq.pq = pq
 }
 
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {

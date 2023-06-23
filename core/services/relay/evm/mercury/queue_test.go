@@ -66,7 +66,7 @@ func Test_Queue(t *testing.T) {
 	t.Parallel()
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
-	transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7)
+	transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7, nil)
 
 	t.Run("successfully add transmissions to transmit queue", func(t *testing.T) {
 		for _, tt := range testTransmissions {
@@ -119,12 +119,7 @@ func Test_Queue(t *testing.T) {
 	})
 
 	t.Run("initializes transmissions", func(t *testing.T) {
-		for _, tt := range testTransmissions {
-			ok := transmitQueue.Push(tt.tr, tt.ctx)
-			require.True(t, ok)
-		}
-
-		newTransmissions := []*Transmission{
+		transmissions := []*Transmission{
 			{
 				Req: &pb.TransmitRequest{
 					Payload: []byte("new1"),
@@ -138,7 +133,7 @@ func Test_Queue(t *testing.T) {
 				},
 			},
 		}
-		transmitQueue.InitTransmissions(newTransmissions)
+		transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7, transmissions)
 
 		transmission := transmitQueue.BlockingPop()
 		assert.Equal(t, transmission.Req.Payload, []byte("new1"))
