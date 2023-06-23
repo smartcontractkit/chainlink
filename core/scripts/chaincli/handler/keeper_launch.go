@@ -146,7 +146,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	}
 
 	// Set Keepers
-	k.setKeepers(ctx, cls, deployer, keepers, owners)
+	//k.setKeepers(ctx, cls, deployer, keepers, owners)
 
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
