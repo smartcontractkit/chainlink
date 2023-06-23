@@ -52,17 +52,16 @@ type LogEventProviderOptions struct {
 // Defaults sets the default values for the options.
 func (o *LogEventProviderOptions) Defaults() {
 	if o.LogRetention == 0 {
-		// 5 minutes is the desired retention time for logs, but we add an extra 10 minutes buffer.
-		o.LogRetention = (time.Minute * 5) + (time.Minute * 10)
+		o.LogRetention = 24 * time.Hour
 	}
 	if o.BufferMaxBlockSize == 0 {
 		o.BufferMaxBlockSize = 1024
 	}
 	if o.AllowedLogsPerBlock == 0 {
-		o.AllowedLogsPerBlock = 32
+		o.AllowedLogsPerBlock = 128
 	}
 	if o.LogBlocksLookback == 0 {
-		o.LogBlocksLookback = 256
+		o.LogBlocksLookback = 512
 	}
 	if o.LogBufferSize == 0 {
 		o.LogBufferSize = int(o.LogBlocksLookback * 3)
@@ -74,7 +73,7 @@ func (o *LogEventProviderOptions) Defaults() {
 		o.BlockRateLimit = rate.Every(time.Second)
 	}
 	if o.BlockLimitBurst == 0 {
-		o.BlockLimitBurst = int(o.LogBlocksLookback)
+		o.BlockLimitBurst = int(o.LogBlocksLookback) + 1
 	}
 	if o.FetchInterval == 0 {
 		o.FetchInterval = time.Second
