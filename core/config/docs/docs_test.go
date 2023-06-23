@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func TestDoc(t *testing.T) {
@@ -40,7 +40,7 @@ func TestDoc(t *testing.T) {
 	cfgtest.AssertFieldsNotNil(t, c)
 
 	var defaults chainlink.Config
-	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, configutils.DecodeTOML))
+	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, config.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
 		fallbackDefaults := evmcfg.Defaults(nil)

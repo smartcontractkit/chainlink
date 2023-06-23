@@ -38,12 +38,12 @@ var (
 	//go:embed example-secrets.toml
 	exampleSecrets string
 
-	DocsTOML = CoreDefaultsTOML + chainsEVMTOML + chainsCosmosTOML + chainsSolanaTOML + chainsStarknetTOML
+	docsTOML = CoreDefaultsTOML + chainsEVMTOML + chainsCosmosTOML + chainsSolanaTOML + chainsStarknetTOML
 )
 
 // GenerateConfig returns MarkDown documentation generated from core.toml & chains-*.toml.
 func GenerateConfig() (string, error) {
-	return generateDocs(DocsTOML, `[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
+	return generateDocs(docsTOML, `[//]: # (Documentation generated from docs/*.toml - DO NOT EDIT.)
 
 This document describes the TOML format for configuration.
 

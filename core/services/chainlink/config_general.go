@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.

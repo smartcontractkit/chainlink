@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var (

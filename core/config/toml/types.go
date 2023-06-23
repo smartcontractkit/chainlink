@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/configutils"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")
