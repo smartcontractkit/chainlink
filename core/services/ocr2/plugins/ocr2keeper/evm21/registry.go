@@ -225,9 +225,7 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context /* mercuryEnabled bool, *
 	select {
 	case rs := <-chResult:
 		result := make([]ocr2keepers.CheckResult, len(rs.cr))
-		for i := range rs.cr {
-			result[i] = rs.cr[i]
-		}
+		copy(result, rs.cr)
 		return result, rs.err
 	case <-ctx.Done():
 		// safety on context done to provide an error on context cancellation
