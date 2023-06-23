@@ -48,7 +48,7 @@ func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) 
 	for _, topic := range log.GetTopics() {
 		topics = append(topics, topic)
 	}
-	return rp.logDataABI.Pack("checkLog", &i_log_automation.Log{
+	b, err := rp.logDataABI.Pack("checkLog", &i_log_automation.Log{
 		Index:       big.NewInt(log.LogIndex),
 		TxIndex:     big.NewInt(0), // TODO
 		TxHash:      log.TxHash,
@@ -58,6 +58,10 @@ func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) 
 		Topics:      topics,
 		Data:        log.Data,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return b[4:], nil
 }
 
 // TODO: remove for 2.1
