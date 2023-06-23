@@ -131,12 +131,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     external
     override
     onlyRouter
-    returns (
-      bytes32 requestId,
-      uint96 estimatedCost,
-      uint256 gasAfterPaymentCalculation,
-      uint256 requestTimeoutSeconds
-    )
+    returns (bytes32 requestId, uint96 estimatedCost, uint256 gasAfterPaymentCalculation, uint256 requestTimeoutSeconds)
   {
     {
       if (data.length == 0) {
@@ -159,24 +154,30 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
   }
 
-  function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
+  function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {
+    _disperseFeePool();
+  }
 
   function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
 
   function _validateReport(
-    bytes32, /* configDigest */
-    uint40, /* epochAndRound */
+    bytes32 /* configDigest */,
+    uint40 /* epochAndRound */,
     bytes memory /* report */
   ) internal pure override returns (bool) {
     // validate within _report to save gas
     return true;
   }
 
+  function _getTransmitters() internal override returns (address[] memory) {
+    return s_transmitters;
+  }
+
   function _report(
-    uint256 , /*initialGas*/
-    address transmitter,
-    uint8 signerCount,
-    address[maxNumOracles] memory signers,
+    uint256 /*initialGas*/,
+    address /*transmitter*/,
+    uint8 /*signerCount*/,
+    address[maxNumOracles] memory /*signers*/,
     bytes calldata report
   ) internal override {
     bytes32[] memory requestIds;
@@ -196,19 +197,16 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       IFunctionsRouter.FulfillResult result = _fulfillAndBill(
         requestIds[i],
         results[i],
-        errors[i],
+        errors[i]
         /* metadata[i], */
-        transmitter,
-        signers,
-        signerCount
       );
 
       if (result == IFunctionsRouter.FulfillResult.USER_SUCCESS) {
         emit OracleResponse(requestIds[i]);
-        emit ResponseTransmitted(requestIds[i], transmitter);
+        emit ResponseTransmitted(requestIds[i], msg.sender);
       } else if (result == IFunctionsRouter.FulfillResult.USER_ERROR) {
         emit UserCallbackError(requestIds[i], "error in callback");
-        emit ResponseTransmitted(requestIds[i], transmitter);
+        emit ResponseTransmitted(requestIds[i], msg.sender);
       } else if (result == IFunctionsRouter.FulfillResult.INVALID_REQUEST_ID) {
         emit InvalidRequestID(requestIds[i]);
       } else if (result == IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS) {

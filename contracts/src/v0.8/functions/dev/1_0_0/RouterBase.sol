@@ -21,7 +21,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   mapping(bytes32 => address) internal s_route; /* id => contract address */
   error RouteNotFound(bytes32 id);
   // Use empty bytes to self-identify, since it does not have an id
-  constant routerId = bytes32(0);
+  bytes32 internal constant routerId = bytes32(0);
 
   // ================================================================
   // |                         Proposal state                       |

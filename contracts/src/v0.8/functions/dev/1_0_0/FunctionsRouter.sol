@@ -10,7 +10,14 @@ import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
   event RequestStart(bytes32 indexed requestId, Request commitment);
   event UserCallbackError(bytes32 indexed requestId, string reason);
-  event RequestEnd(bytes32 indexed requestId, uint64 subscriptionId, bool success);
+  event RequestEnd(
+    bytes32 indexed requestId,
+    uint64 subscriptionId,
+    uint96 totalCostJuels,
+    bool success,
+    bytes data,
+    bytes err
+  );
 
   error OnlyCallableFromCoordinator();
 
@@ -78,7 +85,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   // ================================================================
 
   function _sendRequest(
-    bytes32 id,
+    bytes32 donId,
     bool isProposed,
     uint64 subscriptionId,
     bytes memory data,
@@ -87,7 +94,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address route = this.getRoute(id, isProposed);
+    address route = this.getRoute(donId, isProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
@@ -116,9 +123,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     return requestId;
   }
 
-  function _smoke(bytes32 id, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
+  function _smoke(bytes32 donId, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
     (uint64 subscriptionId, bytes memory reqData, uint32 gasLimit) = abi.decode(data, (uint64, bytes, uint32));
-    return _sendRequest(id, true, subscriptionId, reqData, gasLimit);
+    return _sendRequest(donId, true, subscriptionId, reqData, gasLimit);
   }
 
   /**
@@ -141,14 +148,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    address transmitter,
-    address[] memory to,
-    uint96[] memory amount
-  ) external override nonReentrant returns (FulfillResult) {
+    uint96 costWithoutFulfillment
+  ) external override nonReentrant returns (FulfillResult, uint96) {
     Request memory request = s_requests[requestId];
 
     if (request.client == address(0)) {
-      return FulfillResult.INVALID_REQUEST_ID;
+      return (FulfillResult.INVALID_REQUEST_ID, 0);
     }
     if (msg.sender != request.coordinator) {
       revert OnlyCallableFromCoordinator();
@@ -160,12 +165,38 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       request.adminFee,
       request.gasLimit,
       juelsPerGas,
-      to,
-      amount
+      costWithoutFulfillment
     );
 
     delete s_requests[requestId];
 
+    (bool success, uint256 gasUsed) = _callback(requestId, response, err, request.gasLimit, request.client);
+    if (success == false) {
+      emit UserCallbackError(requestId, "" /*TODO: get error code */);
+    }
+
+    (uint96 callbackGasCostJuels, uint96 totalCostJuels) = _pay(
+      request.subscriptionId,
+      request.estimatedCost,
+      request.client,
+      request.adminFee,
+      juelsPerGas,
+      gasUsed,
+      costWithoutFulfillment
+    );
+
+    emit RequestEnd(requestId, request.subscriptionId, totalCostJuels, success, response, err);
+
+    return (success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR, callbackGasCostJuels);
+  }
+
+  function _callback(
+    bytes32 requestId,
+    bytes memory response,
+    bytes memory err,
+    uint32 gasLimit,
+    address client
+  ) private returns (bool success, uint256 gasUsed) {
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,
@@ -179,32 +210,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_reentrancyLock = true;
-    (bool success, uint256 gasUsed) = callWithExactGas(request.gasLimit, request.client, encodedCallback);
+    (success, gasUsed) = _callWithExactGas(gasLimit, client, encodedCallback);
     s_reentrancyLock = false;
-
-    _pay(
-      request.subscriptionId,
-      request.estimatedCost,
-      request.client,
-      request.adminFee,
-      this.owner(),
-      transmitter,
-      juelsPerGas,
-      gasUsed,
-      to,
-      amount
-    );
-
-    emit RequestEnd(requestId, request.subscriptionId, success);
-
-    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   /**
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function callWithExactGas(
+  function _callWithExactGas(
     uint256 gasAmount,
     address target,
     bytes memory data

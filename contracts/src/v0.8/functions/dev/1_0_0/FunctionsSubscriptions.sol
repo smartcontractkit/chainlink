@@ -65,8 +65,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
-  mapping(bytes32 => uint96) /* id */ /* LINK balance */
-    private s_withdrawableTokens;
+  // @dev NOP balances are held as a single amount. The breakdown is held by the Coordinator.
+  mapping(address => uint96) /* Coordinator => LINK balance (Juels) */ private s_withdrawableTokens;
 
   // ================================================================
   // |                       Request state                          |
@@ -83,8 +83,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 adminFee;
   }
 
-  mapping(bytes32 => Request) /* request ID */ /* Request data */
-    internal s_requests;
+  mapping(bytes32 => Request) /* request ID */ /* Request data */ internal s_requests;
 
   // ================================================================
   // |                       Initialization                         |
@@ -119,16 +118,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getSubscription(uint64 subscriptionId)
+  function getSubscription(
+    uint64 subscriptionId
+  )
     external
     view
-    returns (
-      uint96 balance,
-      uint96 blockedBalance,
-      address owner,
-      address requestedOwner,
-      address[] memory consumers
-    )
+    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers)
   {
     _isValidSubscription(subscriptionId);
     return (
@@ -143,15 +138,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getConsumer(address client, uint64 subscriptionId)
-    external
-    view
-    returns (
-      bool allowed,
-      uint64 initiatedRequests,
-      uint64 completedRequests
-    )
-  {
+  function getConsumer(
+    address client,
+    uint64 subscriptionId
+  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
     return (
       s_consumers[client][subscriptionId].allowed,
       s_consumers[client][subscriptionId].initiatedRequests,
@@ -203,25 +193,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 adminFee,
     uint32 gasLimit,
     uint96 juelsPerGas,
-    address[] memory to,
-    uint96[] memory amount
+    uint96 costWithoutFulfillment
   ) internal returns (IFunctionsRouter.FulfillResult) {
-    if (to.length != amount.length) {
-      return IFunctionsRouter.FulfillResult.INTERNAL_ERROR;
-    }
-
     if (gasleft() < gasLimit + gasAfterPaymentCalculation) {
       return IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
     }
 
-    uint96 totalAmount;
-    for (uint16 i = 0; i < to.length; i++) {
-      totalAmount += amount[i];
-    }
-    totalAmount += adminFee;
-    // Use maximum callback cost
-    totalAmount += juelsPerGas * SafeCast.toUint96(gasLimit);
-    if (totalAmount > estimatedCost) {
+    if (adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(gasLimit)) > estimatedCost) {
       return IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE;
     }
   }
@@ -233,52 +211,32 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param estimatedCost -
    * @param client -
    * @param adminFee -
-   * @param admin -
-   * @param transmitter -
    * @param juelsPerGas -
    * @param gasUsed -
-   * @param to - The address to pay funds to, allowing them to withdraw
-   * @param amount - The amount to transfer
+   * @param costWithoutCallbackJuels -
    */
   function _pay(
     uint64 subscriptionId,
     uint96 estimatedCost,
     address client,
     uint96 adminFee,
-    address admin,
-    address transmitter,
     uint96 juelsPerGas,
     uint256 gasUsed,
-    address[] memory to,
-    uint96[] memory amount
-  ) internal {
-    uint96 callbackReimbursementJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
-    uint96 totalAmount;
-    for (uint16 i = 0; i < to.length; i++) {
-      totalAmount += amount[i];
-    }
-    totalAmount += adminFee;
-    totalAmount += callbackReimbursementJuels;
+    uint96 costWithoutCallbackJuels
+  ) internal returns (uint96 callbackGasCostJuels, uint96 totalCostJuels) {
+    callbackGasCostJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
+    totalCostJuels += costWithoutCallbackJuels;
+    totalCostJuels += adminFee;
+    totalCostJuels += callbackGasCostJuels;
 
-    s_subscriptions[subscriptionId].balance -= totalAmount;
+    // Charge the subscription
+    s_subscriptions[subscriptionId].balance -= totalCostJuels;
 
-    bool transmitterPaid = false;
-    for (uint16 j = 0; j < to.length; j++) {
-      if (to[j] == transmitter) {
-        s_withdrawableTokens[to[j]] += amount[j] + callbackReimbursementJuels;
-        transmitterPaid = true;
-      } else {
-        s_withdrawableTokens[to[j]] += amount[j];
-      }
-    }
-
-    // Pay out the transmitter if they were not paid in the above loop
-    if (transmitterPaid == false) {
-      s_withdrawableTokens[transmitter] += callbackReimbursementJuels;
-    }
+    // Pay the DON's fees and gas reimbursement
+    s_withdrawableTokens[msg.sender] += costWithoutCallbackJuels + callbackGasCostJuels;
 
     // Pay out the administration fee
-    s_withdrawableTokens[admin] += adminFee;
+    s_withdrawableTokens[address(this)] += adminFee;
 
     s_subscriptions[subscriptionId].blockedBalance -= estimatedCost;
     s_consumers[client][subscriptionId].completedRequests += 1;
@@ -318,15 +276,31 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     // If the balances are equal, nothing to be done.
   }
 
-  // ================================================================
-  // |                   Node Operator methods                      |
-  // ================================================================
   /*
-   * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @notice Owner withdraw LINK earned through admin fees
    * @notice If amount is 0 the full balance will be withdrawn
-   * @notice Both signing and transmitting wallets will have a balance to withdraw
    * @param recipient where to send the funds
    * @param amount amount to withdraw
+   */
+  function ownerWithdraw(address recipient, uint96 amount) internal nonReentrant onlyRouterOwner {
+    if (amount == 0) {
+      amount = s_withdrawableTokens[address(this)];
+    }
+    if (s_withdrawableTokens[address(this)] < amount) {
+      revert InsufficientSubscriptionBalance();
+    }
+    s_withdrawableTokens[address(this)] -= amount;
+    s_totalBalance -= amount;
+    if (!LINK.transfer(recipient, amount)) {
+      revert InsufficientSubscriptionBalance();
+    }
+  }
+
+  // ================================================================
+  // |                     Coordinator methods                      |
+  // ================================================================
+  /**
+   * @inheritdoc IFunctionsSubscriptions
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
     if (amount == 0) {
@@ -345,11 +319,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                   Deposit helper method                      |
   // ================================================================
-  function onTokenTransfer(
-    address, /* sender */
-    uint256 amount,
-    bytes calldata data
-  ) external override nonReentrant {
+  function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
@@ -402,11 +372,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner)
-    external
-    onlySubscriptionOwner(subscriptionId)
-    nonReentrant
-  {
+  function requestSubscriptionOwnerTransfer(
+    uint64 subscriptionId,
+    address newOwner
+  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptions[subscriptionId].requestedOwner != newOwner) {
       s_subscriptions[subscriptionId].requestedOwner = newOwner;
@@ -438,11 +407,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - ID of the subscription
    * @param consumer - Consumer to remove from the subscription
    */
-  function removeConsumer(uint64 subscriptionId, address consumer)
-    external
-    onlySubscriptionOwner(subscriptionId)
-    nonReentrant
-  {
+  function removeConsumer(
+    uint64 subscriptionId,
+    address consumer
+  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (consumerData.allowed == false) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -472,11 +440,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - ID of the subscription
    * @param consumer - New consumer which can use the subscription
    */
-  function addConsumer(uint64 subscriptionId, address consumer)
-    external
-    onlySubscriptionOwner(subscriptionId)
-    nonReentrant
-  {
+  function addConsumer(
+    uint64 subscriptionId,
+    address consumer
+  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -497,11 +464,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - ID of the subscription
    * @param to - Where to send the remaining LINK to
    */
-  function cancelSubscription(uint64 subscriptionId, address to)
-    external
-    onlySubscriptionOwner(subscriptionId)
-    nonReentrant
-  {
+  function cancelSubscription(
+    uint64 subscriptionId,
+    address to
+  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
     if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
