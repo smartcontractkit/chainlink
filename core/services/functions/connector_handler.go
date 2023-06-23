@@ -58,7 +58,7 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("failed to validate message signature", "id", gatewayId, "error", err)
 		return
 	}
-	if utils.StringToHex(string(signer)) != msg.Body.Sender {
+	if ethCommon.BytesToAddress(signer) != ethCommon.HexToAddress(msg.Body.Sender) {
 		h.lggr.Errorw("signer address does not match sender", "id", gatewayId, "sender", msg.Body.Sender, "signer", utils.StringToHex(string(signer)))
 		return
 	}

@@ -17,6 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name GatewayConnector --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GatewayConnectorHandler --output ./mocks/ --case=underscore
+
 // GatewayConnector is a component run by Nodes to connect to a set of Gateways.
 type GatewayConnector interface {
 	job.ServiceCtx
@@ -27,16 +31,12 @@ type GatewayConnector interface {
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
 // in order to sign handshake messages with node's private key.
-
-//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
 type Signer interface {
 	// Sign keccak256 hash of data.
 	Sign(data ...[]byte) ([]byte, error)
 }
 
 // GatewayConnector user (node) implements application logic in the Handler interface.
-
-//go:generate mockery --quiet --name GatewayConnectorHandler --output ./mocks/ --case=underscore
 type GatewayConnectorHandler interface {
 	job.ServiceCtx
 
