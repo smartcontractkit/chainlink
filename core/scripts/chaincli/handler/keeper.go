@@ -176,11 +176,11 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
 		case keeper.RegistryVersion_2_1:
 			registryAddr, keeperRegistry21 = k.getRegistry21(ctx)
-			state, err := keeperRegistry21.GetState(&callOpts)
-			if err != nil {
-				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
-			}
-			upkeepCount = state.State.NumUpkeeps.Int64()
+			//state, err := keeperRegistry21.GetState(&callOpts)
+			//if err != nil {
+			//	log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
+			//}
+			//upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
 			panic(fmt.Errorf("version %s is not supported", k.cfg.RegistryVersion))
@@ -738,18 +738,18 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		}
 		log.Printf("registry mode: %d", mode)
 
-		gs, err := reg21.GetState(nil)
-		if err != nil {
-			log.Fatalf("failed to get state: %v", err)
-		}
-
-		log.Printf("registry config FallbackLinkPrice: %s", gs.Config.FallbackLinkPrice)
-		log.Printf("registry config FallbackGasPrice: %s", gs.Config.FallbackGasPrice)
-		log.Printf("registry config MaxPerformGas: %d", gs.Config.MaxPerformGas)
-		log.Printf("registry config CheckGasLimit: %d", gs.Config.CheckGasLimit)
-		log.Printf("registry config GasCeilingMultiplier: %d", gs.Config.GasCeilingMultiplier)
-		log.Printf("registry config MaxCheckDataSize: %d", gs.Config.MaxCheckDataSize)
-		log.Printf("registry config MaxPerformDataSize: %d", gs.Config.MaxPerformDataSize)
+		//gs, err := reg21.GetState(nil)
+		//if err != nil {
+		//	log.Fatalf("failed to get state: %v", err)
+		//}
+		//
+		//log.Printf("registry config FallbackLinkPrice: %s", gs.Config.FallbackLinkPrice)
+		//log.Printf("registry config FallbackGasPrice: %s", gs.Config.FallbackGasPrice)
+		//log.Printf("registry config MaxPerformGas: %d", gs.Config.MaxPerformGas)
+		//log.Printf("registry config CheckGasLimit: %d", gs.Config.CheckGasLimit)
+		//log.Printf("registry config GasCeilingMultiplier: %d", gs.Config.GasCeilingMultiplier)
+		//log.Printf("registry config MaxCheckDataSize: %d", gs.Config.MaxCheckDataSize)
+		//log.Printf("registry config MaxPerformDataSize: %d", gs.Config.MaxPerformDataSize)
 
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
