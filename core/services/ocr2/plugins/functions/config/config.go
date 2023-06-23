@@ -17,6 +17,8 @@ type PluginConfig struct {
 	PruneBatchSize                  uint32                     `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
+	MaxS4PayloadSizeBytes           uint32                     `json:"maxS4PayloadSizeBytes"`
+	MaxS4SlotsPerUser               uint32                     `json:"maxS4SlotsPerUser"`
 	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
 }
 

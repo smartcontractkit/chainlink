@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -42,12 +43,14 @@ type FunctionsServicesConfig struct {
 
 const (
 	FunctionsBridgeName     string = "ea_bridge"
+	FunctionsS4Namespace    string = "functions"
 	MaxAdapterResponseBytes int64  = 1_000_000
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.QConfig, common.HexToAddress(conf.ContractID))
+	s4ORM := s4.NewPostgresORM(conf.DB, conf.Lggr, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
@@ -58,6 +61,11 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	if err != nil {
 		return nil, err
 	}
+
+	s4Storage := s4.NewStorage(conf.Lggr, s4.Constraints{
+		MaxPayloadSizeBytes: uint(pluginConfig.MaxS4PayloadSizeBytes),
+		MaxSlotsPerUser:     uint(pluginConfig.MaxS4SlotsPerUser),
+	}, s4ORM, utils.NewRealClock())
 
 	allServices := []job.ServiceCtx{}
 	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
@@ -83,7 +91,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 
 	if pluginConfig.GatewayConnectorConfig != nil {
 		connectorLogger := conf.Lggr.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), connectorLogger)
+		connector, err := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, connectorLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
@@ -93,7 +101,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	return allServices, nil
 }
 
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, lggr logger.Logger) (connector.GatewayConnector, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
 	if err != nil {
 		return nil, err
@@ -106,7 +114,7 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 	signerID := enabledKeys[idx].ID()
 
-	handler := functions.NewFunctionsConnectorHandler(signerID, signerKey, lggr)
+	handler := functions.NewFunctionsConnectorHandler(signerID, signerKey, s4Storage, lggr)
 	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
