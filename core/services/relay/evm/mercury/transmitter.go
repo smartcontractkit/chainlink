@@ -277,7 +277,7 @@ func (mt *mercuryTransmitter) runPruneLoop() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			mt.lggr.Debugw("Pruning transmit requests database table")
+			mt.lggr.Trace("Pruning transmit requests database table")
 			if err := mt.orm.PruneTransmitRequests(runloopCtx, MaxTransmitQueueSize); err != nil {
 				mt.lggr.Errorw("Failed to prune transmit requests table", "error", err)
 			}
