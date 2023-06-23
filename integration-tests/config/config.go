@@ -22,6 +22,9 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
+	ForwarderNetworkDetailConfig = `[EVM.Transactions]
+ForwardersEnabled = true`
+
 	BaseVRFV2NetworkDetailTomlConfig = `BlockBackfillDepth = 500
 MinIncomingConfirmations = 3
 [EVM.GasEstimator]
