@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	// "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -222,25 +222,27 @@ func (mt *mercuryTransmitter) runloop() {
 				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
-				elems := map[string]interface{}{}
-				var validFrom int64
-				var currentBlock int64
-				var unpackErr error
-				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					unpackErr = err
-				} else {
-					report := elems["report"].([]byte)
-					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = err
-					}
-					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = errors.Join(unpackErr, err)
-					}
-				}
-				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				// todo: generic way to log the error for different report types
+
+				// elems := map[string]interface{}{}
+				// var validFrom int64
+				// var currentBlock int64
+				// var unpackErr error
+				// if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
+				// 	unpackErr = err
+				// } else {
+				// 	report := elems["report"].([]byte)
+				// 	validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
+				// 	if err != nil {
+				// 		unpackErr = err
+				// 	}
+				// 	currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
+				// 	if err != nil {
+				// 		unpackErr = errors.Join(unpackErr, err)
+				// 	}
+				// }
+				// transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
+				// mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 	}
