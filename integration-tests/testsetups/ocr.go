@@ -374,9 +374,11 @@ func (o *OCRSoakTestSub) ReceiveHeader(header blockchain.NodeHeader) error {
 	fq := ethereum.FilterQuery{
 		BlockHash: &header.Hash,
 		Addresses: o.ocrAddresses,
-		Topics:    [][]common.Hash{{o.contractABI.Events["AnswerUpdated"].ID}},
+		// Topics:    [][]common.Hash{{o.contractABI.Events["AnswerUpdated"].ID}},
 	}
-	logs, err := o.client.FilterLogs(context.Background(), fq)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	logs, err := o.client.FilterLogs(ctx, fq)
+	cancel()
 	if err != nil {
 		return err
 	}
