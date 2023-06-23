@@ -85,6 +85,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   mapping(bytes32 => Request) /* request ID */ /* Request data */ internal s_requests;
 
+  struct Receipt {
+    uint96 callbackGasCostJuels;
+    uint96 totalCostJuels;
+  }
+
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
@@ -109,10 +114,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     if (s_consumers[client][subscriptionId].allowed == false) {
       revert InvalidConsumer(subscriptionId, client);
     }
-  }
-
-  function getCurrentsubscriptionId() external view returns (uint64) {
-    return s_currentsubscriptionId;
   }
 
   /**
@@ -159,29 +160,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param subscriptionId - The subscription ID to block funds for
    * @param amount - The amount to transfer
    */
-  function _blockBalance(
-    address client,
-    uint64 subscriptionId,
-    uint32 gasLimit,
-    uint96 amount,
-    bytes32 requestId,
-    address coordinator,
-    uint256 requestTimeoutSeconds,
-    uint256 gasAfterPaymentCalculation,
-    uint96 adminFee
-  ) internal {
+  function _blockBalance(address client, uint64 subscriptionId, uint96 amount) internal {
     s_subscriptions[subscriptionId].blockedBalance += amount;
     s_consumers[client][subscriptionId].initiatedRequests += 1;
-    s_requests[requestId] = Request(
-      coordinator,
-      client,
-      subscriptionId,
-      gasLimit,
-      amount,
-      block.timestamp + requestTimeoutSeconds,
-      gasAfterPaymentCalculation,
-      adminFee
-    );
   }
 
   /**
@@ -223,11 +204,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 juelsPerGas,
     uint256 gasUsed,
     uint96 costWithoutCallbackJuels
-  ) internal returns (uint96 callbackGasCostJuels, uint96 totalCostJuels) {
-    callbackGasCostJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
+  ) internal returns (Receipt memory receipt) {
+    uint96 callbackGasCostJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
+    uint96 totalCostJuels;
     totalCostJuels += costWithoutCallbackJuels;
     totalCostJuels += adminFee;
     totalCostJuels += callbackGasCostJuels;
+    receipt = Receipt(callbackGasCostJuels, totalCostJuels);
 
     // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;

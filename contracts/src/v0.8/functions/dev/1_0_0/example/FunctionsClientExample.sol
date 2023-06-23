@@ -41,7 +41,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (secrets.length > 0) req.addRemoteSecrets(secrets);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
+    lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
   /**

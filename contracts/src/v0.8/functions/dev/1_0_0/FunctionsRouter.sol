@@ -8,18 +8,22 @@ import {AuthorizedOriginReceiver} from "./accessControl/AuthorizedOriginReceiver
 import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
-  event RequestStart(bytes32 indexed requestId, Request commitment);
-  event UserCallbackError(bytes32 indexed requestId, string reason);
+  event RequestStart(bytes32 indexed requestId, Request request);
   event RequestEnd(
     bytes32 indexed requestId,
-    uint64 subscriptionId,
+    uint64 indexed subscriptionId,
     uint96 totalCostJuels,
-    bool success,
-    bytes data,
-    bytes err
+    address transmitter,
+    FulfillResult resultCode,
+    bytes response
   );
 
   error OnlyCallableFromCoordinator();
+
+  struct CallbackResult {
+    bool success;
+    uint256 gasUsed;
+  }
 
   // ================================================================
   // |                    Configuration state                       |
@@ -106,14 +110,16 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       uint256 requestTimeoutSeconds
     ) = coordinator.sendRequest(subscriptionId, data, gasLimit, msg.sender, owner);
 
-    _blockBalance(
+    _blockBalance(msg.sender, subscriptionId, estimatedCost);
+
+    // Store a commitment about the request
+    s_requests[requestId] = Request(
+      route,
       msg.sender,
       subscriptionId,
       gasLimit,
       estimatedCost,
-      requestId,
-      route,
-      requestTimeoutSeconds,
+      block.timestamp + requestTimeoutSeconds,
       gasAfterPaymentCalculation,
       s_config.adminFee
     );
@@ -148,12 +154,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    uint96 costWithoutFulfillment
-  ) external override nonReentrant returns (FulfillResult, uint96) {
+    uint96 costWithoutFulfillment,
+    address transmitter
+  ) external override nonReentrant returns (FulfillResult resultCode, uint96 callbackGasCostJuels) {
     Request memory request = s_requests[requestId];
 
     if (request.client == address(0)) {
-      return (FulfillResult.INVALID_REQUEST_ID, 0);
+      resultCode = FulfillResult.INVALID_REQUEST_ID;
+      return (resultCode, callbackGasCostJuels);
     }
     if (msg.sender != request.coordinator) {
       revert OnlyCallableFromCoordinator();
@@ -170,24 +178,29 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
 
     delete s_requests[requestId];
 
-    (bool success, uint256 gasUsed) = _callback(requestId, response, err, request.gasLimit, request.client);
-    if (success == false) {
-      emit UserCallbackError(requestId, "" /*TODO: get error code */);
-    }
+    CallbackResult memory result = _callback(requestId, response, err, request.gasLimit, request.client);
+    resultCode = result.success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
 
-    (uint96 callbackGasCostJuels, uint96 totalCostJuels) = _pay(
+    Receipt memory receipt = _pay(
       request.subscriptionId,
       request.estimatedCost,
       request.client,
       request.adminFee,
       juelsPerGas,
-      gasUsed,
+      result.gasUsed,
       costWithoutFulfillment
     );
 
-    emit RequestEnd(requestId, request.subscriptionId, totalCostJuels, success, response, err);
+    emit RequestEnd(
+      requestId,
+      request.subscriptionId,
+      receipt.totalCostJuels,
+      transmitter,
+      resultCode,
+      result.success ? response : err // TODO: handle more response data scenarios
+    );
 
-    return (success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR, callbackGasCostJuels);
+    return (resultCode, receipt.callbackGasCostJuels);
   }
 
   function _callback(
@@ -196,7 +209,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     bytes memory err,
     uint32 gasLimit,
     address client
-  ) private returns (bool success, uint256 gasUsed) {
+  ) private returns (CallbackResult memory result) {
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,
@@ -210,8 +223,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_reentrancyLock = true;
-    (success, gasUsed) = _callWithExactGas(gasLimit, client, encodedCallback);
+    (bool success, uint256 gasUsed) = _callWithExactGas(gasLimit, client, encodedCallback);
     s_reentrancyLock = false;
+
+    result = CallbackResult(success, gasUsed);
   }
 
   /**

@@ -59,18 +59,31 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @param gasLimit gas limit for the fulfillment callback
    * @return requestId The generated request ID
    */
-  function sendRequest(
+  function _sendRequest(
     Functions.Request memory req,
     uint64 subscriptionId,
     uint32 gasLimit,
     bytes32 jobId
   ) internal returns (bytes32) {
-    bytes32 requestId = s_router.sendRequest(
-      subscriptionId,
-      Functions.encodeRequest(Functions.encodeCBOR(req)),
-      gasLimit,
-      jobId
-    );
+    bytes memory requestData = Functions.encodeRequest(Functions.encodeCBOR(req));
+    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, gasLimit, jobId);
+    return requestId;
+  }
+
+  /**
+   * @notice Sends a Chainlink Functions request to the stored oracle address
+   * @param data The initialized Functions request data
+   * @param subscriptionId The subscription ID
+   * @param gasLimit gas limit for the fulfillment callback
+   * @return requestId The generated request ID
+   */
+  function _sendRequestBytes(
+    bytes memory data,
+    uint64 subscriptionId,
+    uint32 gasLimit,
+    bytes32 jobId
+  ) internal returns (bytes32) {
+    bytes32 requestId = s_router.sendRequest(subscriptionId, data, gasLimit, jobId);
     s_pendingRequests[requestId] = s_router.getRoute(jobId);
     emit RequestSent(requestId);
     return requestId;
@@ -83,11 +96,7 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @param err Aggregated error from the user code or from the execution pipeline
    * Either response or error parameter will be set, but never both
    */
-  function fulfillRequest(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) internal virtual;
+  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal virtual;
 
   /**
    * @inheritdoc IFunctionsClient
