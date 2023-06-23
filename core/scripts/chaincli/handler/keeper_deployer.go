@@ -298,7 +298,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		panic(err)
 	}
 
-	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
+	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
@@ -376,7 +376,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		return nil, fmt.Errorf("error packing onChainConfigType: %v", err)
 	}
 
-	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, 30, offchainConfig)
 }
 
 // legacy support function
