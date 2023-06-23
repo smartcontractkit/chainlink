@@ -7,7 +7,8 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
+	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 )
 
 type Config interface {
@@ -36,6 +39,7 @@ func NewServices(
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
+
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
@@ -46,23 +50,47 @@ func NewServices(
 		return nil, err
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
-	ds := mercury.NewDataSource(
-		pipelineRunner,
-		jb,
-		*jb.PipelineSpec,
-		lggr,
-		runResults,
-		chEnhancedTelem,
-		chainHeadTracker,
-		ocr2Provider.ContractTransmitter(),
-		pluginConfig.InitialBlockNumber.Ptr(),
-	)
-	argsNoPlugin.MercuryPluginFactory = relaymercury.NewFactory(
-		ds,
-		lggr,
-		ocr2Provider.OnchainConfigCodec(),
-		ocr2Provider.ReportCodec(),
-	)
+
+	switch ocr2Provider.ReportSchemaVersion() {
+	case 2:
+		ds := mercuryv2.NewDataSource(
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			chainHeadTracker,
+			ocr2Provider.ContractTransmitter(),
+			pluginConfig.InitialBlockNumber.Ptr(),
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv2.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV2(),
+		)
+	default:
+		// defaulting to v1 for backwards compatibility
+		ds := mercuryv1.NewDataSource(
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			chainHeadTracker,
+			ocr2Provider.ContractTransmitter(),
+			pluginConfig.InitialBlockNumber.Ptr(),
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV1(),
+		)
+	}
+
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
 		return nil, errors.WithStack(err)
