@@ -15,7 +15,7 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
 		b, err := encoder.Encode()
-		assert.Nil(t, err)
+		assert.Equal(t, ErrEmptyResults, err)
 		assert.Equal(t, b, []byte(nil))
 	})
 

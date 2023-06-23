@@ -15,11 +15,12 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 type LogDataPacker interface {

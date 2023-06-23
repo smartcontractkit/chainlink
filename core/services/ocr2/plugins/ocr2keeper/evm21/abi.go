@@ -61,10 +61,8 @@ func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) 
 }
 
 // TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
-	var (
-		result EVMAutomationUpkeepResult21
-	)
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+	var result ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
@@ -76,32 +74,22 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	block, id, err := splitKey(key)
-	if err != nil {
-		return result, err
+	result = ocr2keepers.CheckResult{
+		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:    false,
+		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
+		Payload:      key,
 	}
-
-	result = EVMAutomationUpkeepResult21{
-		Block:            uint32(block.Uint64()),
-		ID:               id,
-		Eligible:         true,
-		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{},
+	ext := EVMAutomationResultExtension21{
+		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
+		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
+		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
-
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	result.Extension = ext
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	result.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	result.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	result.ExecuteGas = *abi.ConvertType(out[4], new(uint32)).(*uint32)
-	result.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	result.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
-	if !upkeepNeeded {
-		result.Eligible = false
-	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 
