@@ -173,7 +173,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     PERFORM_DATA_EXCEEDS_LIMIT,
     INSUFFICIENT_BALANCE,
     CALLBACK_REVERTED,
-    REVERT_DATA_EXCEEDS_LIMIT
+    REVERT_DATA_EXCEEDS_LIMIT,
+    REGISTRY_PAUSED
   }
 
   /**
