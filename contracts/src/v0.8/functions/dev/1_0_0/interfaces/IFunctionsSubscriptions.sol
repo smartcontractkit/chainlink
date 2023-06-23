@@ -61,4 +61,14 @@ interface IFunctionsSubscriptions {
    * @param requestIdsToTimeout - A list of request IDs to time out
    */
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
+
+  /**
+   * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @dev Must be called by the Coordinator contract
+   * @notice If amount is 0 the full balance will be withdrawn
+   * @notice Both signing and transmitting wallets will have a balance to withdraw
+   * @param recipient where to send the funds
+   * @param amount amount to withdraw
+   */
+  function oracleWithdraw(address recipient, uint96 amount) external;
 }

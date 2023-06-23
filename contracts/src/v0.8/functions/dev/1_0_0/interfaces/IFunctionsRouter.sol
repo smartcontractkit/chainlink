@@ -45,17 +45,15 @@ interface IFunctionsRouter is IRouterBase {
    * @param response response data from DON consensus
    * @param err error from DON consensus
    * @param juelsPerGas -
-   * @param transmitter -
-   * @param to -
-   * @param amount -
+   * @param costWithoutFulfillment -
+   * @return fulfillResult -
+   * @return callbackGasCostJuels -
    */
   function fulfill(
     bytes32 requestId,
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    address transmitter,
-    address[] memory to,
-    uint96[] memory amount
-  ) external returns (FulfillResult);
+    uint96 costWithoutFulfillment
+  ) external returns (FulfillResult, uint96);
 }
