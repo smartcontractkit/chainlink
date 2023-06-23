@@ -22,7 +22,8 @@ type PluginConfig struct {
 	// the first ever report in the case of a brand new feed, where the mercury
 	// server does not have any previous reports. For a brand new feed, this
 	// effectively sets the "first" validFromBlockNumber.
-	InitialBlockNumber null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
+	InitialBlockNumber  null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
+	ReportSchemaVersion uint32     `json:"reportSchemaVersion" toml:"reportSchemaVersion"`
 }
 
 func ValidatePluginConfig(config PluginConfig) (merr error) {
