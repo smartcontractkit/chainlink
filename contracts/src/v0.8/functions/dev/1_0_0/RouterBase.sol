@@ -52,13 +52,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   );
 
   struct ConfigProposal {
-    bytes32 from;
+    bytes32 fromHash;
     bytes to;
-    uint proposedAtBlock;
+    uint256 timelockEndBlock;
   }
   mapping(bytes32 => ConfigProposal) internal s_proposedConfig; /* id => ConfigProposal */
-  event ConfigProposed(bytes32 id, bytes32 from, bytes32 to);
-  event ConfigUpdated(bytes32 id, bytes32 from, bytes32 to);
+  event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
+  event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
   error InvalidProposal();
   error ReservedLabel(bytes32 id);
 
@@ -70,7 +70,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   struct TimeLockProposal {
     uint16 from;
     uint16 to;
-    uint proposedAtBlock;
+    uint256 timelockEndBlock;
   }
   TimeLockProposal s_timelockProposal;
   event TimeLockProposed(uint16 from, uint16 to);
@@ -289,9 +289,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (currentConfigHash == keccak256(config)) {
       revert InvalidProposal();
     }
-    s_proposedConfig[id] = ConfigProposal(currentConfigHash, config, block.number);
-    bytes32 proposedHash = keccak256(config);
-    emit ConfigProposed(id, currentConfigHash, proposedHash);
+    s_proposedConfig[id] = ConfigProposal(currentConfigHash, config, block.number + s_timelockBlocks);
+    emit ConfigProposed(id, currentConfigHash, config);
   }
 
   /**
@@ -300,7 +299,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   function updateConfig(bytes32 id) external override onlyOwner {
     address implAddr = s_route[id];
     ConfigProposal memory proposal = s_proposedConfig[id];
-    if (block.number < proposal.proposedAtBlock + s_timelockBlocks) {
+    if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
     if (id == routerId) {
@@ -309,7 +308,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       IConfigurable(implAddr).setConfig(proposal.to);
     }
     s_patchVersion = s_patchVersion + 1;
-    emit ConfigUpdated(id, proposal.from, keccak256(proposal.to));
+    emit ConfigUpdated(id, proposal.fromHash, proposal.to);
   }
 
   // ================================================================
@@ -326,21 +325,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (blocks > MAXIMUM_TIMELOCK_BLOCKS) {
       revert ProposedTimelockAboveMaximum();
     }
-    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, block.number);
+    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, block.number + s_timelockBlocks);
   }
 
   /**
    * @inheritdoc IRouterBase
    */
   function updateTimelockBlocks() external override onlyOwner {
-    if (s_timelockBlocks == s_timelockProposal.to) {
-      revert InvalidProposal();
-    }
-    if (block.number < s_timelockProposal.proposedAtBlock + s_timelockBlocks) {
+    if (block.number < s_timelockProposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
     s_timelockBlocks = s_timelockProposal.to;
-    delete s_timelockProposal;
   }
 
   // ================================================================

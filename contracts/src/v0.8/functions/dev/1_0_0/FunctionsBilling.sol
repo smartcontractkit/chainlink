@@ -86,6 +86,19 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   uint96 s_feePool;
 
   // ================================================================
+  // |                         Cost Events                          |
+  // ================================================================
+  event BillingStart(bytes32 indexed requestId, Commitment commitment);
+  event BillingEnd(
+    bytes32 indexed requestId,
+    uint64 subscriptionId,
+    uint96 signerPayment,
+    uint96 transmitterPayment,
+    uint96 totalCost,
+    IFunctionsRouter.FulfillResult result
+  );
+
+  // ================================================================
   // |                       Initialization                         |
   // ================================================================
   constructor(address router, bytes memory config, address linkToNativeFeed) Route(router, config) {
@@ -292,6 +305,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     );
     s_requestCommitments[requestId] = commitment;
 
+    emit BillingStart(requestId, commitment);
+
     return (requestId, estimatedCost, s_config.gasAfterPaymentCalculation, s_config.requestTimeoutSeconds);
   }
 
@@ -351,7 +366,8 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
       response,
       err,
       uint96(juelsPerGas),
-      costWithoutFulfillment
+      costWithoutFulfillment,
+      msg.sender
     );
 
     // Reimburse the transmitter for the fulfillment gas cost
@@ -359,6 +375,15 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
     // Put donFee into the pool of fees, to be split later
     // Saves on storage writes that would otherwise be charged to the user
     s_feePool += commitment.donFee;
+
+    emit BillingEnd(
+      requestId,
+      commitment.subscriptionId,
+      commitment.donFee,
+      gasOverheadJuels + fulfillmentCostJuels,
+      gasOverheadJuels + fulfillmentCostJuels + commitment.donFee + commitment.adminFee,
+      result
+    );
 
     return result;
   }

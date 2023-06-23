@@ -32,7 +32,6 @@ library Functions {
   }
 
   error EmptySource();
-  error EmptyUrl();
   error EmptySecrets();
   error EmptyArgs();
   error NoInlineSecrets();
@@ -132,14 +131,14 @@ library Functions {
   }
 
   /**
-   * @notice Adds args for the user run function
+   * @notice Add request data version to the request CBOR 
    */
   function encodeRequest(bytes memory requestCBOR) internal pure returns (bytes memory) {
     return abi.encode(REQUEST_DATA_VERSION, requestCBOR);
   }
 
   /**
-   * @notice Adds args for the user run function
+   * @notice Retrieve the request data version from an encoded request
    */
   function decodeRequest(bytes memory requestData) internal pure returns (uint16, bytes memory) {
     (uint16 version, bytes memory requestCBOR) = abi.decode(requestData, (uint16, bytes));

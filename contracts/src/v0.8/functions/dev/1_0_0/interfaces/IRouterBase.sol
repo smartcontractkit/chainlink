@@ -15,18 +15,23 @@ interface IRouterBase {
   function version() external view returns (uint16 major, uint16 minor, uint16 patch);
 
   /**
-   * @notice Get the latest contract given an identifying jobId
-   * @param jobId A bytes32 job ID for the job running on a Chainlink Node within a DON
-   * @return route The current contract address
+   * @notice Get the current contract given an ID
+   * @param id A bytes32 identifier for the route
+   * @return contract The current contract address
    */
-  function getRoute(bytes32 jobId) external view returns (address route);
+  function getRoute(bytes32 id) external view returns (address);
 
-  function getRoute(bytes32 jobId, bool useProposed) external view returns (address route);
+  /**
+   * @notice Get the current or proposed next contract given an ID
+   * @param id A bytes32 identifier for the route
+   * @return contract The current or proposed contract address
+   */
+  function getRoute(bytes32 id, bool useProposed) external view returns (address);
 
   /**
    * @notice Return the latest proprosal set
    * @return proposedAtBlock The block number that the proposal was created at
-   * @return jobIds The identifiers of the contracts to update
+   * @return ids The identifiers of the contracts to update
    * @return from The addresses of the contracts that will be updated from
    * @return to The addresses of the contracts that will be updated to
    */
@@ -36,7 +41,7 @@ interface IRouterBase {
    * @notice Proposes one or more updates to the contract routes
    */
   function propose(
-    bytes32[] memory proposalSetJobIds,
+    bytes32[] memory proposalSetIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
   ) external;
@@ -44,7 +49,7 @@ interface IRouterBase {
   /**
    * @notice Tests a proposal for the ability to make a successful upgrade
    */
-  function validateProposal(bytes32 jobId, bytes calldata data) external;
+  function validateProposal(bytes32 id, bytes calldata data) external;
 
   /**
    * @notice Updates the current contract routes to the proposed contracts once timelock has passed
@@ -54,12 +59,12 @@ interface IRouterBase {
   /**
    * @notice Proposes new configuration data that will be given to the contract route
    */
-  function proposeConfig(bytes32 jobId, bytes calldata config) external;
+  function proposeConfig(bytes32 id, bytes calldata config) external;
 
   /**
    * @notice Sends new configuration data to the contract route once timelock has passed
    */
-  function updateConfig(bytes32 jobId) external;
+  function updateConfig(bytes32 id) external;
 
   /**
    * @dev Propose a change to the amount of blocks required for a timelock

@@ -39,13 +39,16 @@ interface IFunctionsRouter is IRouterBase {
   ) external returns (bytes32);
 
   /**
-   * @notice The fee that will be paid to the Router owner for operating the network
+   * @notice Fulfill the request by:
+   * - calling back the data that the Oracle returned to the client contract
+   * - pay the DON for processing the request
    * @dev Only callable by the Coordinator contract that is saved in the commitment
    * @param requestId The identifier for the request
    * @param response response data from DON consensus
    * @param err error from DON consensus
    * @param juelsPerGas -
    * @param costWithoutFulfillment -
+   * @param transmitter -
    * @return fulfillResult -
    * @return callbackGasCostJuels -
    */
@@ -54,6 +57,7 @@ interface IFunctionsRouter is IRouterBase {
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    uint96 costWithoutFulfillment
+    uint96 costWithoutFulfillment,
+    address transmitter
   ) external returns (FulfillResult, uint96);
 }
