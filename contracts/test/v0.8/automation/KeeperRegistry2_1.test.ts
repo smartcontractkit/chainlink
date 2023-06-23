@@ -57,6 +57,7 @@ enum UpkeepFailureReason {
   INSUFFICIENT_BALANCE,
   CHECK_CALLBACK_REVERTED,
   REVERT_DATA_EXCEEDS_LIMIT,
+  REGISTRY_PAUSED,
 }
 
 // copied from AutomationRegistryInterface2_1.sol
@@ -1290,9 +1291,30 @@ describe('KeeperRegistry2_1', () => {
         }
       })
 
-      it('allows bypassing reorg protection with empty blockhash / bocknumber', async () => {
-        // mine enough blocks so that blockhash(0) is unavailable
-        for (let i = 0; i < 256; i++) {
+      it('allows bypassing reorg protection with empty blockhash', async () => {
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        for (const [type, id] of tests) {
+          const latestBlock = await ethers.provider.getBlock('latest')
+          const tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number,
+            checkBlockHash: emptyBytes32,
+          })
+          const receipt = await tx.wait()
+          const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          assert.equal(
+            upkeepPerformedLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
+      it('allows very old trigger block numbers when bypassing reorg protection with empty blockhash', async () => {
+        // mine enough blocks so that blockhash(1) is unavailable
+        for (let i = 0; i <= 256; i++) {
           await ethers.provider.send('evm_mine', [])
         }
         const tests: [string, BigNumber][] = [
@@ -1301,13 +1323,51 @@ describe('KeeperRegistry2_1', () => {
         ]
         for (const [type, id] of tests) {
           const tx = await getTransmitTx(registry, keeper1, [id], {
-            checkBlockNum: 0,
+            checkBlockNum: 1,
             checkBlockHash: emptyBytes32,
           })
           const receipt = await tx.wait()
           const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
           assert.equal(
             upkeepPerformedLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
+      it('returns early when future block number is provided as trigger, irrespective of blockhash being present', async () => {
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        for (const [type, id] of tests) {
+          const latestBlock = await ethers.provider.getBlock('latest')
+
+          // Should fail when blockhash is empty
+          let tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number + 100,
+            checkBlockHash: emptyBytes32,
+          })
+          let receipt = await tx.wait()
+          let reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+          // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+          assert.equal(
+            reorgedUpkeepReportLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+
+          // Should also fail when blockhash is not empty
+          tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number + 100,
+            checkBlockHash: latestBlock.hash,
+          })
+          receipt = await tx.wait()
+          reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+          // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+          assert.equal(
+            reorgedUpkeepReportLogs.length,
             1,
             `wrong log count for ${type} upkeep`,
           )
@@ -2953,6 +3013,23 @@ describe('KeeperRegistry2_1', () => {
       expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
     })
 
+    it('returns false and error code if the registry is paused', async () => {
+      await registry.connect(owner).pause()
+
+      const checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic['checkUpkeep(uint256)'](upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(
+        checkUpkeepResult.upkeepFailureReason,
+        UpkeepFailureReason.REGISTRY_PAUSED,
+      )
+      expect(checkUpkeepResult.gasUsed).to.equal(0)
+      expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
+    })
+
     it('returns false and error code if the upkeep is paused', async () => {
       await registry.connect(admin).pauseUpkeep(upkeepId)
 
@@ -3517,6 +3594,26 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(updatedConfig.upkeepPrivilegeManager, upkeepManager)
     })
 
+    it('maintains paused state when config is changed', async () => {
+      await registry.pause()
+      const old = await registry.getState()
+      assert.isTrue(old.state.paused)
+
+      await registry
+        .connect(owner)
+        .setConfig(
+          signerAddresses,
+          keeperAddresses,
+          f,
+          encodeConfig(newConfig),
+          offchainVersion,
+          offchainBytes,
+        )
+
+      const updated = await registry.getState()
+      assert.isTrue(updated.state.paused)
+    })
+
     it('emits an event', async () => {
       const tx = await registry
         .connect(owner)
@@ -3529,54 +3626,6 @@ describe('KeeperRegistry2_1', () => {
           offchainBytes,
         )
       await expect(tx).to.emit(registry, 'ConfigSet')
-    })
-
-    it('reverts upon decreasing max limits', async () => {
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxCheckDataSize: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'MaxCheckDataSizeCanOnlyIncrease()',
-      )
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxPerformDataSize: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'MaxPerformDataSizeCanOnlyIncrease()',
-      )
-      await evmRevert(
-        registry.connect(owner).setConfig(
-          signerAddresses,
-          keeperAddresses,
-          f,
-          encodeConfig(
-            Object.assign({}, newConfig, {
-              maxPerformGas: BigNumber.from(1),
-            }),
-          ),
-          offchainVersion,
-          offchainBytes,
-        ),
-        'GasLimitCanOnlyIncrease()',
-      )
     })
   })
 
@@ -4318,13 +4367,21 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
-    it('reverts when transferring to zero address', async () => {
-      await evmRevert(
-        registry
-          .connect(admin)
-          .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero),
-        'InvalidRecipient()',
-      )
+    it('allows cancelling transfer by reverting to zero address', async () => {
+      await registry
+        .connect(admin)
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
+      const tx = await registry
+        .connect(admin)
+        .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero)
+
+      await expect(tx)
+        .to.emit(registry, 'UpkeepAdminTransferRequested')
+        .withArgs(
+          upkeepId,
+          await admin.getAddress(),
+          ethers.constants.AddressZero,
+        )
     })
 
     it('does not change the upkeep admin', async () => {
