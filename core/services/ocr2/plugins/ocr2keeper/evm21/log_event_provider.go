@@ -99,6 +99,11 @@ type upkeepFilterEntry struct {
 	blockLimiter *rate.Limiter
 }
 
+type logTriggerExtension struct {
+	TxHash   string
+	LogIndex int64
+}
+
 type LogEventProvider interface {
 	// Start starts the log event provider.
 	Start(ctx context.Context) error
@@ -246,13 +251,20 @@ func (p *logEventProvider) GetLogs() ([]ocr2keepers.UpkeepPayload, error) {
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
-		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
-		trig := ocr2keepers.NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
+		trig := ocr2keepers.NewTrigger(
+			log.BlockNumber,
+			log.BlockHash.Hex(),
+			logTriggerExtension{
+				TxHash:   log.TxHash.Hex(),
+				LogIndex: log.LogIndex,
+			},
+		)
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
+
 		payload := ocr2keepers.NewUpkeepPayload(l.id, int(logTrigger), ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
 		payloads = append(payloads, payload)
 	}

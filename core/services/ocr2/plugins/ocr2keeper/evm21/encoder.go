@@ -109,7 +109,20 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 		ids[i] = id
 		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
+
+		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
+		if !ok {
+			return nil, fmt.Errorf("unrecognized trigger extension data")
+		}
+
+		hex, err := common.ParseHexOrString(trExt.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("tx hash parse error: %w", err)
+		}
+
 		triggers[i] = wrappedTrigger{
+			TxHash:      [32]byte(hex[:]),
+			LogIndex:    uint32(trExt.LogIndex),
 			BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
@@ -192,8 +205,14 @@ func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.Reported
 
 	for i, upkeepId := range upkeepIds {
 		// follow getLogs in log_event_provider
-		logExtension := fmt.Sprintf("%s:%d", common.BytesToHash(triggers[i].TxHash[:]).Hex(), uint(triggers[i].LogIndex))
-		trigger := ocr2keepers.NewTrigger(int64(triggers[i].BlockNumber), string(triggers[i].BlockHash[:]), logExtension)
+		trigger := ocr2keepers.NewTrigger(
+			int64(triggers[i].BlockNumber),
+			string(triggers[i].BlockHash[:]),
+			logTriggerExtension{
+				TxHash:   common.BytesToHash(triggers[i].TxHash[:]).Hex(),
+				LogIndex: int64(triggers[i].LogIndex),
+			},
+		)
 		payload := ocr2keepers.NewUpkeepPayload(
 			upkeepId,
 			int(logTrigger),
