@@ -882,6 +882,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 	return []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
+		logProvider,
 		rgstry,
 		transmitter,
 		pluginService,
