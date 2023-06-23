@@ -91,11 +91,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
-  address internal s_upkeepManager;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
-  mapping(uint256 => bytes) internal s_upkeepAdminOffchainConfig; // general config set by an administrative role
+  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -119,7 +118,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error OnlyCallableByPayee();
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
-  error OnlyCallableByUpkeepManager();
+  error OnlyCallableByUpkeepPrivilegeManager();
   error OnlyPausedUpkeep();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
@@ -139,7 +138,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error IncorrectNumberOfFaultyOracles();
   error RepeatedSigner();
   error RepeatedTransmitter();
-  error PipelineDataExceedsLimit();
+  error CheckDataExceedsLimit();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
   error InvalidReport();
@@ -173,7 +172,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     UPKEEP_NOT_NEEDED,
     PERFORM_DATA_EXCEEDS_LIMIT,
     INSUFFICIENT_BALANCE,
-    CALLBACK_REVERTED
+    CALLBACK_REVERTED,
+    REVERT_DATA_EXCEEDS_LIMIT,
+    REGISTRY_PAUSED
   }
 
   /**
@@ -191,10 +192,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * when calculating the payment ceiling for keepers
    * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    * @member maxPerformGas max executeGas allowed for an upkeep on this registry
+   * @member maxCheckDataSize max length of checkData bytes
+   * @member maxPerformDataSize max length of performData bytes
+   * @member maxRevertDataSize max length of revertData bytes
    * @member fallbackGasPrice gas price used if the gas price feed is stale
    * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
    * @member transcoder address of the transcoder contract
    * @member registrar address of the registrar contract
+   * @member address which can set privilege for upkeeps
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -206,10 +211,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
     uint32 maxPerformDataSize;
+    uint32 maxRevertDataSize;
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     address transcoder;
     address[] registrars;
+    address upkeepPrivilegeManager;
   }
 
   /**
@@ -286,7 +293,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformedBlockNumber; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -321,7 +328,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 2 EVM word full
     uint32 maxCheckDataSize; // max length of checkData bytes
     uint32 maxPerformDataSize; // max length of performData bytes
-    // 4 bytes to 3rd EVM word
+    uint32 maxRevertDataSize; // max length of revertData bytes
+    address upkeepPrivilegeManager; // address which can set privilege for upkeeps
+    // 3 EVM word full
   }
 
   // Report transmitted by OCR to transmit function
@@ -365,7 +374,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct BlockTriggerConfig {
+  struct ConditionalTriggerConfig {
     uint32 checkCadance; // how often to check in blocks
   }
 
@@ -382,10 +391,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @notice the trigger structure conditional trigger type
    */
-  struct BlockTrigger {
-    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
+  struct ConditionalTrigger {
+    uint32 blockNum;
     bytes32 blockHash;
   }
 
@@ -408,11 +417,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
-  event UpkeepAdminOffchainConfigSet(uint256 indexed id, bytes adminOffchainConfig);
+  event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event UpkeepPipelineDataSet(uint256 indexed id, bytes newPipelineData);
+  event UpkeepCheckDataSet(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
@@ -443,19 +452,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
-    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
-    s_upkeepManager = msg.sender;
   }
 
   /////////////
   // GETTERS //
   /////////////
-
-  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -482,7 +487,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param id the id of the upkeep
    * @param upkeep the upkeep to create
    * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data the optional input data to the first pipeline task (either "check data" or "perform data")
+   * @param checkData data which is passed to user's checkUpkeep
    * @param triggerConfig the trigger config for this upkeep
    * @param offchainConfig the off-chain config of this upkeep
    */
@@ -496,7 +501,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!upkeep.target.isContract()) revert NotAContract();
-    if (checkData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
+    if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (upkeep.executeGas < PERFORM_GAS_MIN || upkeep.executeGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
@@ -662,7 +667,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
-    // TODO - alternatively, we could just look this up from storage
     bytes32 rawID = bytes32(upkeepId);
     bytes1 empty = bytes1(0);
     for (uint256 idx = 4; idx < 15; idx++) {

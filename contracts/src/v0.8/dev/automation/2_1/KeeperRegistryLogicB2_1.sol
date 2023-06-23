@@ -40,7 +40,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
-    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
     if (s_proposedAdmin[id] != proposed) {
       s_proposedAdmin[id] = proposed;
@@ -77,11 +76,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepUnpaused(id);
   }
 
-  function setUpkeepPipelineData(uint256 id, bytes calldata newPipelineData) external {
+  function setUpkeepCheckData(uint256 id, bytes calldata newCheckData) external {
     _requireAdminAndNotCancelled(id);
-    if (newPipelineData.length > s_storage.maxCheckDataSize) revert PipelineDataExceedsLimit();
-    s_checkData[id] = newPipelineData;
-    emit UpkeepPipelineDataSet(id, newPipelineData);
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataSet(id, newCheckData);
   }
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
@@ -175,22 +174,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepAdminOffchainConfig(uint256 upkeepId, bytes calldata newAdminOffchainConfig) external {
-    if (msg.sender != s_upkeepManager) {
-      revert OnlyCallableByUpkeepManager();
+  function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
     }
-    s_upkeepAdminOffchainConfig[upkeepId] = newAdminOffchainConfig;
-    emit UpkeepAdminOffchainConfigSet(upkeepId, newAdminOffchainConfig);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepManager(address newUpkeepManager) external onlyOwner {
-    s_upkeepManager = newUpkeepManager;
+    s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
+    emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
   }
 
   /////////////
@@ -285,9 +274,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
   }
 
-  function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
+  function getConditionalTriggerConfig(uint256 upkeepId) public view returns (ConditionalTriggerConfig memory) {
     require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
+    return abi.decode(s_upkeepTriggerConfig[upkeepId], (ConditionalTriggerConfig));
   }
 
   /**
@@ -358,10 +347,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
+      maxRevertDataSize: s_storage.maxRevertDataSize,
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
-      registrars: s_registrars.values()
+      registrars: s_registrars.values(),
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
@@ -394,16 +385,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice returns the upkeep manager address
+   * @notice returns the upkeep privilege config
    */
-  function getUpkeepManager() external view returns (address) {
-    return s_upkeepManager;
-  }
-
-  /**
-   * @notice returns the upkeep administrative offchain config
-   */
-  function getUpkeepAdminOffchainConfig(uint256 upkeepId) external view returns (bytes memory) {
-    return s_upkeepAdminOffchainConfig[upkeepId];
+  function getUpkeepPrivilegeConfig(uint256 upkeepId) external view returns (bytes memory) {
+    return s_upkeepPrivilegeConfig[upkeepId];
   }
 }

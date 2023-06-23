@@ -7,7 +7,6 @@ import "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 
-// TODO - we can probably combine these interfaces
 import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
@@ -86,6 +85,8 @@ contract KeeperRegistryLogicA2_1 is
     Trigger triggerType = getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
+
+    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.executeGas, 0, 0);
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.executeGas, 0, 0);
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.executeGas, 0, 0);
@@ -104,8 +105,6 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.executeGas, 0, 0);
     }
 
-    upkeepNeeded = true;
-
     bytes memory callData;
     if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
@@ -113,23 +112,44 @@ contract KeeperRegistryLogicA2_1 is
       callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
     }
     gasUsed = gasleft();
-    (upkeepNeeded, performData) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
-    if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(performData, (bool, bytes));
-      if (!upkeepNeeded)
+
+    if (!success) {
+      // User's target check reverted. We capture the revert data here and pass it within performData
+      if (result.length > s_storage.maxRevertDataSize) {
         return (
           false,
           bytes(""),
-          UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
           gasUsed,
           upkeep.executeGas,
           fastGasWei,
           linkNative
         );
+      }
+      return (
+        upkeepNeeded,
+        result,
+        UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
     }
+
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        gasUsed,
+        upkeep.executeGas,
+        fastGasWei,
+        linkNative
+      );
 
     if (performData.length > s_storage.maxPerformDataSize)
       return (
@@ -180,19 +200,23 @@ contract KeeperRegistryLogicA2_1 is
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.CALLBACK_REVERTED;
-    } else {
-      (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
     }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+
     if (!upkeepNeeded) {
-      upkeepFailureReason = UpkeepFailureReason.UPKEEP_NOT_NEEDED;
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
     }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+
     return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 
   function registerUpkeep(
     address target,
-    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
+    uint32 gasLimit,
     address admin,
     Trigger triggerType,
     bytes calldata checkData,
@@ -221,7 +245,7 @@ contract KeeperRegistryLogicA2_1 is
     );
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepPipelineDataSet(id, checkData);
+    emit UpkeepCheckDataSet(id, checkData);
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
@@ -233,7 +257,7 @@ contract KeeperRegistryLogicA2_1 is
    */
   function registerUpkeep(
     address target,
-    uint32 gasLimit, // TODO - we may want to allow 0 for "unlimited"
+    uint32 gasLimit,
     address admin,
     bytes calldata checkData,
     bytes calldata offchainConfig
@@ -245,7 +269,7 @@ contract KeeperRegistryLogicA2_1 is
         admin,
         Trigger.CONDITION,
         checkData,
-        abi.encode(BlockTriggerConfig({checkCadance: 1})),
+        abi.encode(ConditionalTriggerConfig({checkCadance: 1})),
         offchainConfig
       );
   }

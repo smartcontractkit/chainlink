@@ -282,9 +282,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
     // Set the onchain config
     OnchainConfig memory onchainConfig = abi.decode(onchainConfigBytes, (OnchainConfig));
-    if (onchainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    if (onchainConfig.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
-    if (onchainConfig.maxPerformDataSize < s_storage.maxPerformDataSize) revert MaxPerformDataSizeCanOnlyIncrease();
 
     s_hotVars = HotVars({
       f: f,
@@ -292,10 +289,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
-      paused: false,
-      reentrancyGuard: false,
+      paused: s_hotVars.paused,
+      reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
-      latestEpoch: 0
+      latestEpoch: 0 // DON restarts epoch
     });
 
     s_storage = Storage({
@@ -305,6 +302,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
+      maxRevertDataSize: onchainConfig.maxRevertDataSize,
+      upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
@@ -423,7 +422,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint96 maxLinkPayment
   ) internal returns (bool) {
     if (triggerType == Trigger.CONDITION) {
-      if (!_validateBlockTrigger(upkeepId, rawTrigger, upkeep)) return false;
+      if (!_validateConditionalTrigger(upkeepId, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
       if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
     } else {
@@ -448,21 +447,27 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   /**
    * @dev Does some early sanity checks before actually performing an upkeep
    */
-  function _validateBlockTrigger(
+  function _validateConditionalTrigger(
     uint256 upkeepId,
     bytes memory rawTrigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
-    BlockTrigger memory trigger = abi.decode(rawTrigger, (BlockTrigger));
+    ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
     if (trigger.blockNum < upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
-      // Can happen when the block on which report was generated got reorged
-      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-      // with the latest checkBlockNumber
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= block.number
+    ) {
+      // There are two cases of reorged report
+      // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
+      // which is always protected against
+      // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
+      // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
+      // when it is sent
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
@@ -471,7 +476,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    if (_blockHash(trigger.blockNum) != trigger.blockHash || trigger.blockNum >= block.number) {
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= block.number
+    ) {
+      // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
