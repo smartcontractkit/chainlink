@@ -1,4 +1,4 @@
-package reportcodec_v2
+package mercury_v2
 
 import (
 	"fmt"
@@ -55,6 +55,9 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 	paos = append([]relaymercury.ParsedObservation{}, paos...)
 
 	timestamp := relaymercury.GetConsensusTimestamp(paos)
+
+	// todo: add checks for validFromTimestamp
+
 	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
@@ -68,7 +71,7 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, 0, benchmarkPrice, bid, ask)
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 

@@ -1,4 +1,4 @@
-package reportcodec_v1
+package mercury_v1
 
 import (
 	"math/big"

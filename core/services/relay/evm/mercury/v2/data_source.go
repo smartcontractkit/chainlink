@@ -1,4 +1,4 @@
-package reportcodec_v2
+package mercury_v2
 
 import (
 	"context"
