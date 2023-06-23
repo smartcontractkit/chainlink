@@ -64,6 +64,8 @@ func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	var result ocr2keepers.CheckResult
 
+	fmt.Printf("[FeedLookup] payload: %v", key)
+
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return result, err
@@ -92,6 +94,8 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
+
+	fmt.Printf("[FeedLookup] rawPerformData: %s", hexutil.Encode(rawPerformData))
 
 	return result, nil
 }
