@@ -95,9 +95,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         report.linkNative,
         true
       );
+      upkeepTransmitInfo[i].triggerID = _triggerID(report.upkeepIds[i], report.triggers[i]);
       upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
         report.upkeepIds[i],
         upkeepTransmitInfo[i].triggerType,
+        upkeepTransmitInfo[i].triggerID,
         report.triggers[i],
         upkeepTransmitInfo[i].upkeep,
         upkeepTransmitInfo[i].maxLinkPayment
@@ -167,7 +169,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
-            report.triggers[i]
+            upkeepTransmitInfo[i].triggerID
           );
         }
       }
@@ -403,27 +405,28 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   function _prePerformChecks(
     uint256 upkeepId,
     Trigger triggerType,
+    bytes32 triggerID,
     bytes memory rawTrigger,
     Upkeep memory upkeep,
     uint96 maxLinkPayment
   ) internal returns (bool) {
     if (triggerType == Trigger.CONDITION) {
-      if (!_validateConditionalTrigger(upkeepId, rawTrigger, upkeep)) return false;
+      if (!_validateConditionalTrigger(upkeepId, triggerID, rawTrigger, upkeep)) return false;
     } else if (triggerType == Trigger.LOG) {
-      if (!_validateLogTrigger(upkeepId, rawTrigger)) return false;
+      if (!_validateLogTrigger(upkeepId, triggerID, rawTrigger)) return false;
     } else {
       revert InvalidTriggerType();
     }
     if (upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId, rawTrigger);
+      emit CancelledUpkeepReport(upkeepId, triggerID);
       return false;
     }
 
     if (upkeep.balance < maxLinkPayment) {
       // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
+      emit InsufficientFundsUpkeepReport(upkeepId, triggerID);
       return false;
     }
 
@@ -435,13 +438,14 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
    */
   function _validateConditionalTrigger(
     uint256 upkeepId,
+    bytes32 triggerID,
     bytes memory rawTrigger,
     Upkeep memory upkeep
   ) internal returns (bool) {
     ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
     if (trigger.blockNum < upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
+      emit StaleUpkeepReport(upkeepId, triggerID);
       return false;
     }
     if (
@@ -454,28 +458,28 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
       // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
       // when it is sent
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
+      emit ReorgedUpkeepReport(upkeepId, triggerID);
       return false;
     }
     return true;
   }
 
-  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool) {
+  function _validateLogTrigger(uint256 upkeepId, bytes32 triggerID, bytes memory rawTrigger) internal returns (bool) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     if (
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
       trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
-      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
+      emit ReorgedUpkeepReport(upkeepId, triggerID);
       return false;
     }
-    bytes32 logTriggerID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
-    if (s_observedLogTriggers[logTriggerID]) {
-      emit StaleUpkeepReport(upkeepId, rawTrigger);
+    bytes32 logDedupID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
+    if (s_observedLogTriggers[logDedupID]) {
+      emit StaleUpkeepReport(upkeepId, triggerID);
       return false;
     }
-    s_observedLogTriggers[logTriggerID] = true;
+    s_observedLogTriggers[logDedupID] = true;
     return true;
   }
 
