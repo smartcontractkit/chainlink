@@ -16,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -140,14 +138,6 @@ type activeUpkeep struct {
 	ID              *big.Int
 	PerformGasLimit uint32
 	CheckData       []byte
-}
-
-type MercuryConfig struct {
-	cred          *models.MercuryCredentials
-	abi           abi.ABI
-	upkeepCache   *cache.Cache
-	cooldownCache *cache.Cache
-	apiErrCache   *cache.Cache
 }
 
 type EvmRegistry struct {
