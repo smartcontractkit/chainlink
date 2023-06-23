@@ -3,11 +3,15 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
+)
+
+var (
+	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
 )
 
 type EVMAutomationEncoder21 struct {
@@ -64,9 +68,15 @@ type EVMAutomationUpkeepResult21 struct {
 	Retryable        bool
 }
 
-func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
-	if len(toReport) == 0 {
-		return nil, nil
+type EVMAutomationResultExtension21 struct {
+	FastGasWei    *big.Int
+	LinkNative    *big.Int
+	FailureReason uint8 // this is not encoded, only pass along for the purpose of pipeline run
+}
+
+func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]byte, error) {
+	if len(results) == 0 {
+		return nil, ErrEmptyResults
 	}
 
 	var (
@@ -74,31 +84,49 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 		link    *big.Int
 	)
 
-	ids := make([]*big.Int, len(toReport))
-	gasLimits := make([]*big.Int, len(toReport))
-	triggers := make([]wrappedTrigger, len(toReport))
-	performDatas := make([][]byte, len(toReport))
+	ids := make([]*big.Int, len(results))
+	gasLimits := make([]*big.Int, len(results))
+	triggers := make([]wrappedTrigger, len(results))
+	performDatas := make([][]byte, len(results))
 
-	for i, result := range toReport {
-		res, ok := result.(EVMAutomationUpkeepResult21)
+	for i, result := range results {
+		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
-			return nil, fmt.Errorf("unexpected upkeep result struct")
+			return nil, fmt.Errorf("unexpected check result extension struct")
 		}
 
 		// only take these values from the first result
 		// TODO: find a new way to get these values
 		if i == 0 {
-			fastGas = res.FastGasWei
-			link = res.LinkNative
+			fastGas = ext.FastGasWei
+			link = ext.LinkNative
 		}
 
-		ids[i] = res.ID
-		gasLimits[i] = res.GasUsed
-		triggers[i] = wrappedTrigger{
-			BlockNumber: res.CheckBlockNumber,
-			BlockHash:   res.CheckBlockHash,
+		id, ok := new(big.Int).SetString(string(result.Payload.Upkeep.ID), 10)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
 		}
-		performDatas[i] = res.PerformData
+
+		ids[i] = id
+		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
+
+		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
+		if !ok {
+			return nil, fmt.Errorf("unrecognized trigger extension data")
+		}
+
+		hex, err := common.ParseHexOrString(trExt.TxHash)
+		if err != nil {
+			return nil, fmt.Errorf("tx hash parse error: %w", err)
+		}
+
+		triggers[i] = wrappedTrigger{
+			TxHash:      common.BytesToHash(hex[:]),
+			LogIndex:    uint32(trExt.LogIndex),
+			BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+			BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+		}
+		performDatas[i] = result.PerformData
 	}
 
 	bts, err := packFn(fastGas, link, ids, gasLimits, triggers, performDatas)
@@ -107,6 +135,98 @@ func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResu
 	}
 
 	return bts, nil
+}
+
+// should accept/transmit reports from plugin will call extract function
+func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	m := make(map[string]interface{})
+	if err := unpackIntoMapFn(m, report); err != nil {
+		return nil, err
+	}
+
+	for _, key := range mKeys {
+		if _, ok := m[key]; !ok {
+			return nil, fmt.Errorf("decoding error: %s missing from struct", key)
+		}
+	}
+
+	var (
+		res       []ocr2keepers.ReportedUpkeep
+		ok        bool
+		upkeepIds []*big.Int
+		performs  [][]byte
+		// gasLimits []*big.Int // TODO
+		//wei  *big.Int
+		//link *big.Int
+	)
+
+	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
+		return res, fmt.Errorf("upkeep ids of incorrect type in report")
+	}
+
+	// TODO: a type assertion on `wrappedTrigger` did not work, even with the
+	// exact same struct definition as what follows. reflect was used to get the
+	// struct definition. not sure yet how to clean this up.
+	// ex:
+	// t := reflect.TypeOf(rawPerforms)
+	// fmt.Printf("%v\n", t)
+
+	//triggers, ok := m[mKeys[4]].([]struct {
+	//  TxHash      [32]byte `abi:"txHash"`
+	//  LogIndex    uint32   `abi:"logIndex"`
+	//	BlockNumber uint32   `abi:"blockNum"`
+	//	BlockHash   [32]byte `abi:"blockHash"`
+	//})
+
+	// use the struct tentatively, swap to the above logic
+	triggers, ok := m[mKeys[4]].([]wrappedTrigger)
+	if !ok {
+		return res, fmt.Errorf("triggers of incorrect structure in report")
+	}
+
+	if len(upkeepIds) != len(triggers) {
+		return res, fmt.Errorf("upkeep ids and triggers should have matching length")
+	}
+
+	//if wei, ok = m[mKeys[0]].(*big.Int); !ok {
+	//	return res, fmt.Errorf("fast gas as wrong type")
+	//}
+	//
+	//if link, ok = m[mKeys[1]].(*big.Int); !ok {
+	//	return res, fmt.Errorf("link native as wrong type")
+	//}
+	// if gasLimits, ok = m[mKeys[3]].([]*big.Int); !ok {
+	// 	return res, fmt.Errorf("gas limits as wrong type")
+	// }
+
+	if performs, ok = m[mKeys[5]].([][]byte); !ok {
+		return res, fmt.Errorf("perform datas as wrong type")
+	}
+
+	for i, upkeepId := range upkeepIds {
+		// follow getLogs in log_event_provider
+		trigger := ocr2keepers.NewTrigger(
+			int64(triggers[i].BlockNumber),
+			string(triggers[i].BlockHash[:]),
+			logTriggerExtension{
+				TxHash:   common.BytesToHash(triggers[i].TxHash[:]).Hex(),
+				LogIndex: int64(triggers[i].LogIndex),
+			},
+		)
+		payload := ocr2keepers.NewUpkeepPayload(
+			upkeepId,
+			int(logTrigger),
+			"",
+			trigger,
+			[]byte{},
+		)
+		res[i] = ocr2keepers.ReportedUpkeep{
+			ID:          payload.ID,
+			PerformData: performs[i],
+		}
+	}
+
+	return res, nil
 }
 
 func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
@@ -189,16 +309,6 @@ func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	return res, nil
 }
 
-func (enc EVMAutomationEncoder21) Eligible(result ocr2keepers.UpkeepResult) (bool, error) {
-	res, ok := result.(EVMAutomationUpkeepResult21)
-	if !ok {
-		tp := reflect.TypeOf(result)
-		return false, fmt.Errorf("%s: name: %s, kind: %s", ErrUnexpectedResult, tp.Name(), tp.Kind())
-	}
-
-	return res.Eligible, nil
-}
-
 func (enc EVMAutomationEncoder21) Detail(result ocr2keepers.UpkeepResult) (ocr2keepers.UpkeepKey, uint32, error) {
 	res, ok := result.(EVMAutomationUpkeepResult21)
 	if !ok {
@@ -230,8 +340,18 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	return keys, nil
 }
 
+// the corresponding struct on registry is:
+//struct LogTrigger {
+//	bytes32 txHash;
+//	uint32 logIndex;
+//	uint32 blockNum;
+//	bytes32 blockHash;
+//}
+
 type wrappedTrigger struct {
-	BlockNumber uint32   `abi:"blockNumber"`
+	TxHash      [32]byte `abi:"txHash"`
+	LogIndex    uint32   `abi:"logIndex"`
+	BlockNumber uint32   `abi:"blockNum"`
 	BlockHash   [32]byte `abi:"blockHash"`
 }
 

@@ -57,6 +57,7 @@ type Config struct {
 	MaxPerformGas          uint32 `mapstructure:"MAX_PERFORM_GAS"`
 	MaxCheckDataSize       uint32 `mapstructure:"MAX_CHECK_DATA_SIZE"`
 	MaxPerformDataSize     uint32 `mapstructure:"MAX_PERFORM_DATA_SIZE"`
+	MaxRevertDataSize      uint32 `mapstructure:"MAX_REVERT_DATA_SIZE"`
 	FallbackGasPrice       int64  `mapstructure:"FALLBACK_GAS_PRICE"`
 	FallbackLinkPrice      int64  `mapstructure:"FALLBACK_LINK_PRICE"`
 	Transcoder             string `mapstructure:"TRANSCODER"`

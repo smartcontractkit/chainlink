@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
 )
 
 // enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
@@ -22,24 +24,45 @@ const (
 	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
 	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
 	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
+	UPKEEP_FAILURE_REASON_REVERT_DATA_EXCEEDS_LIMIT
+	UPKEEP_FAILURE_REASON_REGISTRY_PAUSED
+
+	// Start of offchain failure types. All onchain failure reasons from
+	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
 type evmRegistryPackerV2_1 struct {
-	abi abi.ABI
+	abi        abi.ABI
+	logDataABI abi.ABI
 }
 
-func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
-	return &evmRegistryPackerV2_1{abi: abi}
+func NewEvmRegistryPackerV2_1(abi abi.ABI, logDataABI abi.ABI) *evmRegistryPackerV2_1 {
+	return &evmRegistryPackerV2_1{abi: abi, logDataABI: logDataABI}
+}
+
+func (rp *evmRegistryPackerV2_1) PackLogData(log logpoller.Log) ([]byte, error) {
+	topics := [][32]byte{}
+	for _, topic := range log.GetTopics() {
+		topics = append(topics, topic)
+	}
+	return rp.logDataABI.Pack("checkLog", &i_log_automation.Log{
+		Index:       big.NewInt(log.LogIndex),
+		TxIndex:     big.NewInt(0), // TODO
+		TxHash:      log.TxHash,
+		BlockNumber: big.NewInt(log.BlockNumber),
+		BlockHash:   log.BlockHash,
+		Source:      log.Address,
+		Topics:      topics,
+		Data:        log.Data,
+	})
 }
 
 // TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
-	var (
-		result EVMAutomationUpkeepResult21
-	)
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+	var result ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
@@ -51,38 +74,24 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	block, id, err := splitKey(key)
-	if err != nil {
-		return result, err
+	result = ocr2keepers.CheckResult{
+		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:    false,
+		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
+		Payload:      key,
 	}
-
-	result = EVMAutomationUpkeepResult21{
-		Block:            uint32(block.Uint64()),
-		ID:               id,
-		Eligible:         true,
-		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{},
+	ext := EVMAutomationResultExtension21{
+		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
+		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
+		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
-
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	result.Extension = ext
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	result.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	result.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	result.FastGasWei = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
-	result.LinkNative = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
 
-	if !upkeepNeeded {
-		result.Eligible = false
-	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
-
-	// This is a default placeholder which is used since we do not get the execute gas
-	// from checkUpkeep result. This field is overwritten later from the execute gas
-	// we have for an upkeep in memory. TODO (AUTO-1482): Refactor this
-	result.ExecuteGas = 5_000_000
 
 	return result, nil
 }

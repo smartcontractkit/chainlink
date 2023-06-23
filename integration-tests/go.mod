@@ -17,11 +17,11 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-env v0.32.10-0.20230615204346-0067ac7c683f
+	github.com/smartcontractkit/chainlink-env v0.33.0
 	github.com/smartcontractkit/chainlink-testing-framework v1.11.8
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
-	github.com/smartcontractkit/ocr2keepers v0.7.0
+	github.com/smartcontractkit/ocr2keepers v0.6.16-0.20230623180238-2b54d3785147
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
 	github.com/stretchr/testify v1.8.4
 	github.com/umbracle/ethgo v0.1.3
@@ -286,8 +286,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/caigo v0.0.0-20230530082629-53a5a4bdb25e // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230615205306-31dec2180682 // indirect
+	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230620171700-bbcb3a99b7d3 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
@@ -389,3 +389,5 @@ replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
 )
+
+replace github.com/smartcontractkit/libocr => github.com/infiloop2/libocr-infiloop2 v0.0.0-20230622144518-72e65e9f99b7

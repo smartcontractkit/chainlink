@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
@@ -13,14 +14,8 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 	encoder := EVMAutomationEncoder21{}
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
-		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{})
-		assert.Nil(t, err)
-		assert.Equal(t, b, []byte(nil))
-	})
-
-	t.Run("attempting to encode an invalid upkeep result returns an error", func(t *testing.T) {
-		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{"data"})
-		assert.Error(t, err, "unexpected upkeep result struct")
+		b, err := encoder.Encode()
+		assert.Equal(t, ErrEmptyResults, err)
 		assert.Equal(t, b, []byte(nil))
 	})
 
@@ -201,19 +196,26 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 			packFn = oldPackFn
 		}()
 
-		upkeepResult0 := EVMAutomationUpkeepResult21{
-			Block:            1,
-			ID:               big.NewInt(10),
-			Eligible:         true,
-			GasUsed:          big.NewInt(100),
-			PerformData:      []byte("data0"),
-			FastGasWei:       big.NewInt(100),
-			LinkNative:       big.NewInt(100),
-			CheckBlockNumber: 1,
-			CheckBlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-			ExecuteGas:       10,
+		result := ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+				},
+			},
+			Eligible:     true,
+			GasAllocated: 100,
+			PerformData:  []byte("data0"),
+			Extension: EVMAutomationResultExtension21{
+				FastGasWei: big.NewInt(100),
+				LinkNative: big.NewInt(100),
+			},
 		}
-		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0})
+
+		b, err := encoder.Encode(result)
 		assert.Errorf(t, err, "pack failed: failed to pack report data")
 		assert.Len(t, b, 0)
 	})
