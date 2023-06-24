@@ -23,17 +23,32 @@ type PluginConfig struct {
 	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
 	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
-	DecryptionQueueConfig
+	DecryptionQueueConfig           *DecryptionQueueConfig     `json:"decryptionQueueConfig"`
 }
 
 type DecryptionQueueConfig struct {
-	MaxDecryptionQueueLength           uint32 `json:"maxDecryptionQueueLength"`
-	MaxCiphertextBytes                 uint32 `json:"maxCiphertextBytes"`
-	MaxCiphertextIdLength              uint32 `json:"maxCiphertextIdLength"`
-	CompletedDecryptionCacheTimeoutSec uint32 `json:"completedDecryptionCacheTimeoutSec"`
+	MaxQueueLength           uint32 `json:"maxQueueLength"`
+	MaxCiphertextBytes       uint32 `json:"maxCiphertextBytes"`
+	MaxCiphertextIdLength    uint32 `json:"maxCiphertextIdLength"`
+	CompletedCacheTimeoutSec uint32 `json:"completedCacheTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {
+	if config.DecryptionQueueConfig == nil {
+		return errors.New("missing decryptionQueueConfig")
+	}
+	if config.DecryptionQueueConfig.MaxQueueLength <= 0 {
+		return errors.New("missing or invalid decryptionQueueConfig maxQueueLength")
+	}
+	if config.DecryptionQueueConfig.MaxCiphertextBytes <= 0 {
+		return errors.New("missing or invalid decryptionQueueConfig maxCiphertextBytes")
+	}
+	if config.DecryptionQueueConfig.MaxCiphertextIdLength <= 0 {
+		return errors.New("missing or invalid decryptionQueueConfig maxCiphertextIdLength")
+	}
+	if config.DecryptionQueueConfig.CompletedCacheTimeoutSec <= 0 {
+		return errors.New("missing or invalid decryptionQueueConfig completedCacheTimeoutSec")
+	}
 	return nil
 }
 

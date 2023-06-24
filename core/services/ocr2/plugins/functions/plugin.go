@@ -72,12 +72,11 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 	var decryptor threshold.Decryptor
 	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
 	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil {
-		dqc := getDecryptionQueueConfig(pluginConfig)
 		decryptionQueue := threshold.NewDecryptionQueue(
-			int(dqc.MaxDecryptionQueueLength),
-			int(dqc.MaxCiphertextBytes),
-			int(dqc.MaxCiphertextIdLength),
-			time.Duration(dqc.CompletedDecryptionCacheTimeoutSec)*time.Second,
+			int(pluginConfig.DecryptionQueueConfig.MaxQueueLength),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIdLength),
+			time.Duration(pluginConfig.DecryptionQueueConfig.CompletedCacheTimeoutSec)*time.Second,
 			conf.Lggr.Named("DecryptionQueue"),
 		)
 		decryptor = decryptionQueue
@@ -153,28 +152,4 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	}
 	handler.SetConnector(connector)
 	return connector, nil
-}
-
-func getDecryptionQueueConfig(pluginConfig config.PluginConfig) config.DecryptionQueueConfig {
-	dqc := config.DecryptionQueueConfig{
-		MaxDecryptionQueueLength:           100,
-		MaxCiphertextBytes:                 10_000,
-		MaxCiphertextIdLength:              100,
-		CompletedDecryptionCacheTimeoutSec: 300,
-	}
-
-	if pluginConfig.MaxDecryptionQueueLength > 0 {
-		dqc.MaxDecryptionQueueLength = pluginConfig.MaxDecryptionQueueLength
-	}
-	if pluginConfig.MaxCiphertextBytes > 0 {
-		dqc.MaxCiphertextBytes = pluginConfig.MaxCiphertextBytes
-	}
-	if pluginConfig.MaxCiphertextIdLength > 0 {
-		dqc.MaxCiphertextIdLength = pluginConfig.MaxCiphertextIdLength
-	}
-	if pluginConfig.CompletedDecryptionCacheTimeoutSec > 0 {
-		dqc.CompletedDecryptionCacheTimeoutSec = pluginConfig.CompletedDecryptionCacheTimeoutSec
-	}
-
-	return dqc
 }

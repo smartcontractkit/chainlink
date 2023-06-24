@@ -189,7 +189,7 @@ func TestFunctionsListener_ThresholdDecryptedSecrets(t *testing.T) {
 	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
 	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(DecryptedSecrets, nil)
-	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, string(DecryptedSecrets), mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
