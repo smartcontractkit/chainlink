@@ -1,10 +1,10 @@
 package mercury
 
 import (
-	"context"
 	"crypto/sha256"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -27,8 +27,8 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *ORM) InsertTransmitRequest(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(append([]pg.QOpt{pg.WithParentCtx(ctx)}, qopts...)...)
+func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
 		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -38,21 +38,30 @@ func (o *ORM) InsertTransmitRequest(ctx context.Context, req *pb.TransmitRequest
 }
 
 // DeleteTransmitRequest deletes one transmit request if it exists.
-func (o *ORM) DeleteTransmitRequest(ctx context.Context, req *pb.TransmitRequest, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(append([]pg.QOpt{pg.WithParentCtx(ctx)}, qopts...)...)
+func (o *ORM) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error {
+	if len(reqs) == 0 {
+		return nil
+	}
+
+	var hashes pq.ByteaArray
+	for _, req := range reqs {
+		hashes = append(hashes, hashPayload(req.Payload))
+	}
+
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
 		DELETE FROM mercury_transmit_requests
-		WHERE payload_hash = $1
-	`, hashPayload(req.Payload))
+		WHERE payload_hash = ANY($1)
+	`, hashes)
 	return err
 }
 
 // GetTransmitRequests returns all transmit requests in chronologically descending order.
-func (o *ORM) GetTransmitRequests(ctx context.Context, qopts ...pg.QOpt) ([]*Transmission, error) {
-	q := o.q.WithOpts(append([]pg.QOpt{pg.WithParentCtx(ctx)}, qopts...)...)
+func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
+	q := o.q.WithOpts(qopts...)
 	// The priority queue uses epoch and round to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
-	rows, err := q.QueryContext(ctx, `
+	rows, err := q.QueryContext(q.ParentCtx, `
 		SELECT payload, config_digest, epoch, round, extra_hash
 		FROM mercury_transmit_requests
 		ORDER BY epoch DESC, round DESC
@@ -91,8 +100,8 @@ func (o *ORM) GetTransmitRequests(ctx context.Context, qopts ...pg.QOpt) ([]*Tra
 
 // PruneTransmitRequests keeps at most maxSize rows in the table, deleting the
 // oldest transactions.
-func (o *ORM) PruneTransmitRequests(ctx context.Context, maxSize int, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(append([]pg.QOpt{pg.WithParentCtx(ctx)}, qopts...)...)
+func (o *ORM) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	// Prune the oldest requests by epoch and round.
 	return q.ExecQ(`
 		DELETE FROM mercury_transmit_requests

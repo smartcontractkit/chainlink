@@ -1,7 +1,6 @@
 package mercury
 
 import (
-	"context"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -13,7 +12,6 @@ import (
 )
 
 func TestORM(t *testing.T) {
-	ctx := context.Background()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
@@ -28,14 +26,14 @@ func TestORM(t *testing.T) {
 	}
 
 	// Test insert and get requests.
-	err := orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-1")}, reportContext)
+	err := orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-1")}, reportContext)
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-2")}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-2")}, reportContext)
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-3")}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-3")}, reportContext)
 	require.NoError(t, err)
 
-	transmissions, err := orm.GetTransmitRequests(ctx)
+	transmissions, err := orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("report-1")}, ReportCtx: reportContext},
@@ -44,10 +42,10 @@ func TestORM(t *testing.T) {
 	})
 
 	// Test requests can be deleted.
-	err = orm.DeleteTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-2")})
+	err = orm.DeleteTransmitRequests([]*pb.TransmitRequest{{Payload: []byte("report-2")}})
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("report-1")}, ReportCtx: reportContext},
@@ -55,45 +53,51 @@ func TestORM(t *testing.T) {
 	})
 
 	// Test deleting non-existent requests does not error.
-	err = orm.DeleteTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("does-not-exist")})
+	err = orm.DeleteTransmitRequests([]*pb.TransmitRequest{{Payload: []byte("does-not-exist")}})
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("report-1")}, ReportCtx: reportContext},
 		{Req: &pb.TransmitRequest{Payload: []byte("report-3")}, ReportCtx: reportContext},
 	})
 
-	// More inserts.
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
+	// Test deleting multiple requests.
+	err = orm.DeleteTransmitRequests([]*pb.TransmitRequest{
+		{Payload: []byte("report-1")},
+		{Payload: []byte("report-3")},
+	})
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
+	require.NoError(t, err)
+	require.Empty(t, transmissions)
+
+	// More inserts.
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
+	require.NoError(t, err)
+
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: []byte("report-1")}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: []byte("report-3")}, ReportCtx: reportContext},
 		{Req: &pb.TransmitRequest{Payload: []byte("report-4")}, ReportCtx: reportContext},
 	})
 
 	// Duplicate requests are ignored.
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("report-4")}, reportContext)
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: []byte("report-1")}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: []byte("report-3")}, ReportCtx: reportContext},
 		{Req: &pb.TransmitRequest{Payload: []byte("report-4")}, ReportCtx: reportContext},
 	})
 }
 
 func TestORM_PruneTransmitRequests(t *testing.T) {
-	ctx := context.Background()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
@@ -109,16 +113,16 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 		}
 	}
 
-	err := orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("1")}, makeReportContext(1, 1))
+	err := orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("1")}, makeReportContext(1, 1))
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("2")}, makeReportContext(1, 2))
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("2")}, makeReportContext(1, 2))
 	require.NoError(t, err)
 
 	// Max size greater than table size, expect no-op
-	err = orm.PruneTransmitRequests(ctx, 5)
+	err = orm.PruneTransmitRequests(5)
 	require.NoError(t, err)
 
-	transmissions, err := orm.GetTransmitRequests(ctx)
+	transmissions, err := orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("2")}, ReportCtx: makeReportContext(1, 2)},
@@ -126,26 +130,26 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 	})
 
 	// Max size equal to table size, expect no-op
-	err = orm.PruneTransmitRequests(ctx, 2)
+	err = orm.PruneTransmitRequests(2)
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("2")}, ReportCtx: makeReportContext(1, 2)},
 		{Req: &pb.TransmitRequest{Payload: []byte("1")}, ReportCtx: makeReportContext(1, 1)},
 	})
 
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("3")}, makeReportContext(2, 1))
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("3")}, makeReportContext(2, 1))
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(ctx, &pb.TransmitRequest{Payload: []byte("4")}, makeReportContext(2, 2))
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: []byte("4")}, makeReportContext(2, 2))
 	require.NoError(t, err)
 
 	// Max size is table size + 1, expect the oldest row to be pruned.
-	err = orm.PruneTransmitRequests(ctx, 3)
+	err = orm.PruneTransmitRequests(3)
 	require.NoError(t, err)
 
-	transmissions, err = orm.GetTransmitRequests(ctx)
+	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: []byte("4")}, ReportCtx: makeReportContext(2, 2)},
