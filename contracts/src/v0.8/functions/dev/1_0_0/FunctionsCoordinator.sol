@@ -40,6 +40,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   bytes private s_donPublicKey;
   mapping(address => bytes) private s_nodePublicKeys;
+  bytes private s_thresholdPublicKey;
 
   constructor(
     address router,
@@ -52,6 +53,23 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function typeAndVersion() public pure override returns (string memory) {
     return "Functions Coordinator v1";
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function getThresholdPublicKey() external view override returns (bytes memory) {
+    return s_thresholdPublicKey;
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+    if (thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_thresholdPublicKey = thresholdPublicKey;
   }
 
   /**

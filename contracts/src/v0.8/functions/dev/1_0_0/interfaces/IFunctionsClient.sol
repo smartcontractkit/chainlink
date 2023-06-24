@@ -6,14 +6,6 @@ pragma solidity ^0.8.6;
  */
 interface IFunctionsClient {
   /**
-   * @notice Returns the DON's secp256k1 public key used to encrypt secrets
-   * @dev All Oracles nodes have the corresponding private key
-   * needed to decrypt the secrets encrypted with the public key
-   * @return publicKey DON's public key
-   */
-  function getDONPublicKey(bytes32 jobId) external view returns (bytes memory);
-
-  /**
    * @notice Chainlink Functions response handler called by the designated transmitter node in an OCR round.
    * @param requestId The requestId returned by FunctionsClient.sendRequest().
    * @param response Aggregated response from the user code.

@@ -30,7 +30,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
    * @param args List of arguments accessible from within the source code
    * @param subscriptionId Billing ID
    */
-  function SendRequest(
+  function sendRequest(
     string calldata source,
     bytes calldata secrets,
     string[] calldata args,

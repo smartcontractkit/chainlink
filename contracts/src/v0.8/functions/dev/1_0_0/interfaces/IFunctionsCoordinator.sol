@@ -8,6 +8,21 @@ import {IFunctionsSubscriptions} from "./IFunctionsSubscriptions.sol";
  */
 interface IFunctionsCoordinator {
   /**
+   * @notice Returns the DON's threshold encryption public key used to encrypt secrets
+   * @dev All nodes on the DON have separate key shares of the threshold decryption key
+   * and nodes must participate in a threshold decryption OCR round to decrypt secrets
+   * @return thresholdPublicKey the DON's threshold encryption public key
+   */
+  function getThresholdPublicKey() external view returns (bytes memory);
+
+  /**
+   * @notice Sets the DON's threshold encryption public key used to encrypt secrets
+   * @dev Used to rotate the key
+   * @param thresholdPublicKey The new public key
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external;
+
+  /**
    * @notice Returns the DON's secp256k1 public key that is used to encrypt secrets
    * @dev All nodes on the DON have the corresponding private key
    * needed to decrypt the secrets encrypted with the public key
@@ -52,6 +67,8 @@ interface IFunctionsCoordinator {
    * @param subscriptionOwner The owner of the subscription
    * @return requestId A unique request identifier (unique per DON)
    * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
+   * @return gasAfterPaymentCalculation The amount of gas overhead that will be used after balances have already been changed 
+   * @return requestTimeoutSeconds The amount of time in seconds before this request is considered stale
    */
   function sendRequest(
     uint64 subscriptionId,
