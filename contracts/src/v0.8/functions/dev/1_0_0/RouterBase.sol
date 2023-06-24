@@ -285,7 +285,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    */
   function proposeConfig(bytes32 id, bytes calldata config) external override onlyOwner {
     address implAddr = s_route[id];
-    bytes32 currentConfigHash = IConfigurable(implAddr).getConfigHash(); // TODO: Does this work on self?
+    bytes32 currentConfigHash;
+    if (implAddr == address(this)) {
+      currentConfigHash = getConfigHash();
+    } else {
+      currentConfigHash = IConfigurable(implAddr).getConfigHash();
+    }
     if (currentConfigHash == keccak256(config)) {
       revert InvalidProposal();
     }

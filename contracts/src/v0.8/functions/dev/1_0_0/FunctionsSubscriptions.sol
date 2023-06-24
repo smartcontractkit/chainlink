@@ -517,7 +517,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
       IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
 
-      if (coordinator.timeoutRequest(requestId)) {
+      if (coordinator.deleteCommitment(requestId)) {
         // Release blocked balance
         s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedCost;
         s_consumers[request.client][request.subscriptionId].completedRequests += 1;

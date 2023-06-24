@@ -183,7 +183,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getDONFee(
-    bytes memory /* data */,
+    bytes memory /* requestData */,
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -194,7 +194,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getAdminFee(
-    bytes memory /* data */,
+    bytes memory /* requestData */,
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
@@ -219,12 +219,16 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function estimateCost(
-    uint64 subscriptionId,
     bytes calldata data,
     uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
-    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
+    RequestBilling memory billing = RequestBilling(
+      0, /*Use mock subscriptionId */
+      msg.sender,
+      callbackGasLimit,
+      gasPrice
+    );
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
     return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
@@ -394,7 +398,7 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   /**
    * @inheritdoc IFunctionsBilling
    */
-  function timeoutRequest(bytes32 requestId) external override onlyRouter returns (bool) {
+  function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
     Commitment memory commitment = s_requestCommitments[requestId];
     // Ensure that commitment exists
     if (commitment.don == address(0)) {

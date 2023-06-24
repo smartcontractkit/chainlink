@@ -27,14 +27,6 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
   /**
-   * @inheritdoc IFunctionsClient
-   */
-  function getDONPublicKey(bytes32 jobId) external view override returns (bytes memory) {
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(s_router.getRoute(jobId));
-    return coordinator.getDONPublicKey();
-  }
-
-  /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
    * @param req The initialized Functions.Request
    * @param subscriptionId The subscription ID

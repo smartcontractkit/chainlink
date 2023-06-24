@@ -40,19 +40,19 @@ interface IFunctionsBilling {
 
   /**
    * @notice Determine the fee that will be split between Node Operators for servicing a request
-   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+   * @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getDONFee(bytes memory data, RequestBilling memory billing) external view returns (uint96);
+  function getDONFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint96);
 
   /**
    * @notice Determine the fee that will be paid to the Router owner for operating the network
-   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+   * @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getAdminFee(bytes memory data, RequestBilling memory billing) external view returns (uint96);
+  function getAdminFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint96);
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
@@ -70,9 +70,9 @@ interface IFunctionsBilling {
   ) external view returns (uint96);
 
   /**
-   * @notice Time out an expired request: unlocks funds and removes the ability for the request to be fulfilled
+   * @notice Remove a request comittment that the Router has determined to be stale
    * @dev Only callable by the Router
-   * @param requestId - The request ID to time out
+   * @param requestId - The request ID to remove
    */
-  function timeoutRequest(bytes32 requestId) external returns (bool);
+  function deleteCommitment(bytes32 requestId) external returns (bool);
 }
